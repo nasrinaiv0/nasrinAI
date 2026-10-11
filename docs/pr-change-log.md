@@ -13,6 +13,10 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Turnstile sign-in protection
+
+| Pending | Add Cloudflare Turnstile to email OTP and Google OAuth initiation | Draft in progress | Adds paired environment configuration, explicit widget rendering, server-side verification for Google OAuth start, Supabase CAPTCHA token forwarding for email OTP, narrow CSP allowances, regression tests, and security/operations documentation. No production settings or deployment changed. CI must pass before merge. |
+
 ## Recent PR backfill
 
 | [#210](https://github.com/primusco20/nasrinAI/pull/210) | Explicit server-only RLS deny policies | Open | Adds migration 028 for explicit deny policies and revokes browser-role table grants on server-only tables flagged by Supabase; handles optional feature tables that are absent in a clean migration replay. The first database CI run failed because `portfolio` is a production-only/optional table absent from the clean schema; migration and test now skip absent optional tables while validating all present tables. Recheck CI on the latest commit before merging. Production application remains separate and unconfirmed. |
