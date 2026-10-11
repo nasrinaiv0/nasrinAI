@@ -64,6 +64,9 @@ test('guests have no separate token allowance; tenant ceiling still applies', as
   await store.recordUsage(usage(guest('a'), 600));
   await store.recordUsage(usage(guest('b'), 400));
   await limiter.budget(guest('c')); // No guest-specific token quota.
+  const reservation = await limiter.reserveTokens(guest('reserve-test'), 2000);
+  assert.ok(reservation.id, 'guest reservation is allowed below the tenant ceiling even above the old guest allowance');
+  await limiter.releaseTokens(reservation);
 
   const tinyTenant = { kind: 'platform', dailyTokenLimit: 1000 };
   const cappedGuest = guest('d', PLATFORM, tinyTenant);
