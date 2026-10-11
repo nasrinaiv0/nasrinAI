@@ -70,13 +70,13 @@ Rules that hold for every caller:
 - `tenant_id` and the actor come **only** from the credential, never from the request body.
 - No credential, an unknown key, or a failed check means the request stops there (fail closed).
 - The browser sends only the new message and a conversation id. History is loaded on the server from the conversation's owner (fixes M1).
-- Rate limits and quotas are counted in shared storage, per key, per user and per tenant, plus a daily token and spend ceiling per tenant (fixes H2, M2).
+- Rate limits and quotas are counted in shared storage. Paid plans have weekly actor allowances; configured business tenants retain tenant token ceilings. Platform Quick users and guests do not share a platform-wide token ceiling. Global estimated-USD budgets and per-IP abuse controls remain separate.
 - One usage record per model call: tenant, actor, provider, model, tokens in and out, latency, outcome, estimated cost. No message text by default (fixes M6).
 
 Extra guardrails for guests, because guest access is the easiest path to abuse:
 
-- Small per-guest and per-IP quotas, counted in shared storage.
-- A global daily ceiling for all guest usage together. When it is reached, guests are asked to sign in; signed-in users and businesses are unaffected.
+- Shared per-IP/hourly abuse controls, global estimated-USD spend budgets, image limits and daily realtime voice allowances.
+- Guest access does not have a separate shared platform token quota; token usage is still recorded and provider spend remains bounded by the USD ledger and provider-side limits.
 - Guests use the cheapest available model (the local model once it exists).
 - Guest conversations are kept on the server only for the session and deleted after it expires.
 - A bot check before issuing guest sessions is ready to switch on if abuse appears; it is off at first to keep the chat easy to use.
