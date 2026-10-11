@@ -35,20 +35,21 @@ test('guest sessions are limited per IP, with Retry-After, across the real route
   } finally { await srv.close(); }
 });
 
-test('messages are limited per caller and per IP', async () => {
+test('guest chat has no per-guest message quota; shared per-IP abuse limit remains', async () => {
   const store = createMemoryStore();
-  const limits = { ...testConfig().limits, guestMessagesHour: 2, ipMessagesHour: 3 };
+  const limits = { ...testConfig().limits, guestMessagesHour: 1, ipMessagesHour: 3 };
   const limiter = createLimiter({ store, limits });
 
+  // A single guest can exceed the legacy per-guest setting when using distinct IP buckets.
   await limiter.message(guest('a'), '1.1.1.1');
-  await limiter.message(guest('a'), '1.1.1.1');
-  await assert.rejects(limiter.message(guest('a'), '1.1.1.1'), { status: 429 });
+  await limiter.message(guest('a'), '2.2.2.2');
+  await limiter.message(guest('a'), '3.3.3.3');
 
-  // the refused message stopped at the per-guest check, so the IP has counted 2;
-  // a new guest on the same IP uses the 3rd, and the next one is refused
-  await limiter.message(guest('b'), '1.1.1.1');
-  await assert.rejects(limiter.message(guest('c'), '1.1.1.1'), { status: 429 });
-  await limiter.message(guest('c'), '2.2.2.2');
+  // Different guest sessions from one IP still share the anti-abuse cap.
+  await limiter.message(guest('b'), '4.4.4.4');
+  await limiter.message(guest('c'), '4.4.4.4');
+  await limiter.message(guest('d'), '4.4.4.4');
+  await assert.rejects(limiter.message(guest('e'), '4.4.4.4'), { status: 429 });
 
   // servers are not counted per IP
   const service = { tenantId: BIZ_TENANT, tenant: { dailyTokenLimit: 1e6 }, actor: { type: 'service', id: 'k' }, scopes: ['chat'] };
