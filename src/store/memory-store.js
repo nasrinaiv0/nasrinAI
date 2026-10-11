@@ -13,6 +13,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const usage = [];
   const reservations = new Map();
   const spendReservations = new Map();
+  const realtimeVoiceReservations = new Map();
   const conversations = new Map();
   const messages = [];
   const planPeriods = [];
@@ -222,6 +223,57 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
 
     async recordUsage(e) {
       usage.push({ ...e, at: now() });
+    },
+
+    async reserveDailyRealtimeVoice({ reservationId, tenantId, actorType, actorId, reservedSeconds, dailyLimitSeconds }) {
+      if (!reservationId || realtimeVoiceReservations.has(reservationId) || !tenantId
+          || !['user', 'guest', 'service'].includes(actorType)
+          || typeof actorId !== 'string' || !actorId || actorId.length > 80
+          || !Number.isInteger(reservedSeconds) || reservedSeconds < 1
+          || !Number.isInteger(dailyLimitSeconds) || dailyLimitSeconds < 1) {
+        return { allowed: false, reason: 'invalid_reservation', reservationId: null, usedSeconds: 0 };
+      }
+      const t = now();
+      const day = 86400_000;
+      const offset = 8 * 3600_000;
+      const dayStart = Math.floor((t + offset) / day) * day - offset;
+      for (const row of realtimeVoiceReservations.values()) {
+        if (row.status === 'reserved' && row.createdAt < t - 15 * 60_000) {
+          row.status = 'consumed';
+          row.settledAt = t;
+        }
+      }
+      const usedSeconds = [...realtimeVoiceReservations.values()]
+        .filter((row) => row.tenantId === tenantId && row.actorType === actorType && row.actorId === actorId
+          && row.dayStart === dayStart && ['reserved', 'consumed'].includes(row.status))
+        .reduce((sum, row) => sum + row.reservedSeconds, 0);
+      if (usedSeconds + reservedSeconds > dailyLimitSeconds) {
+        return { allowed: false, reason: 'daily_voice_limit', reservationId: null, usedSeconds };
+      }
+      realtimeVoiceReservations.set(reservationId, {
+        reservationId, tenantId, actorType, actorId, reservedSeconds, dayStart, createdAt: t, status: 'reserved', settledAt: null
+      });
+      return { allowed: true, reason: null, reservationId, usedSeconds };
+    },
+
+    async settleDailyRealtimeVoiceReservation({ reservationId }) {
+      const row = realtimeVoiceReservations.get(reservationId);
+      if (!row) return false;
+      if (row.status === 'consumed') return true;
+      if (row.status !== 'reserved') return false;
+      row.status = 'consumed';
+      row.settledAt = now();
+      return true;
+    },
+
+    async releaseDailyRealtimeVoiceReservation({ reservationId }) {
+      const row = realtimeVoiceReservations.get(reservationId);
+      if (!row) return false;
+      if (row.status === 'released') return true;
+      if (row.status !== 'reserved') return false;
+      row.status = 'released';
+      row.settledAt = now();
+      return true;
     },
 
     async reserveGlobalSpend({ reservationId, kind, tenantId, actorType, actorId, reservedUsd, dailyLimit, weeklyLimit, monthlyLimit, maxRequestUsd = null }) {
