@@ -247,13 +247,14 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
         .filter((row) => row.tenantId === tenantId && row.actorType === actorType && row.actorId === actorId
           && row.dayStart === dayStart && ['reserved', 'consumed'].includes(row.status))
         .reduce((sum, row) => sum + row.reservedSeconds, 0);
-      if (usedSeconds + reservedSeconds > dailyLimitSeconds) {
-        return { allowed: false, reason: 'daily_voice_limit', reservationId: null, usedSeconds };
+      const allowedSeconds = Math.min(reservedSeconds, dailyLimitSeconds - usedSeconds);
+      if (allowedSeconds < 1) {
+        return { allowed: false, reason: 'daily_voice_limit', reservationId: null, usedSeconds, reservedSeconds: 0 };
       }
       realtimeVoiceReservations.set(reservationId, {
-        reservationId, tenantId, actorType, actorId, reservedSeconds, dayStart, createdAt: t, status: 'reserved', settledAt: null
+        reservationId, tenantId, actorType, actorId, reservedSeconds: allowedSeconds, dayStart, createdAt: t, status: 'reserved', settledAt: null
       });
-      return { allowed: true, reason: null, reservationId, usedSeconds };
+      return { allowed: true, reason: null, reservationId, usedSeconds, reservedSeconds: allowedSeconds };
     },
 
     async settleDailyRealtimeVoiceReservation({ reservationId }) {
