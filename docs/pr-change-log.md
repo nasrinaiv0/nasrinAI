@@ -192,3 +192,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Allow `loadAuthMethods()` to finish Turnstile setup even when sign-in methods were already cached by the initial status request. This prevents Google/email sign-in from submitting without the required CAPTCHA token.
 - No secrets, server-side verification rules, OAuth redirect URLs, database schema, or unrelated UI behavior are changed.
 - Validate with the focused regression checks and full CI before merge; production behavior is not considered fixed until a deployment is tested.
+
+
+## Google CAPTCHA failure diagnostics
+
+- Add server-side warning categories for the Google OAuth start route when the CAPTCHA token is missing/invalid or Cloudflare verification fails.
+- Logs contain only a fixed reason category; CAPTCHA tokens, Turnstile secrets, and provider response payloads are never logged.
+- This is diagnostic instrumentation only. It does not bypass CAPTCHA verification or change DNS, OAuth redirects, production secrets, or database state.
+- Validation required: run the focused auth tests and full CI, then test the deployed sign-in flow and inspect the corresponding Vercel function logs before treating the issue as resolved.
