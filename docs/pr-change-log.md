@@ -15,7 +15,7 @@ For every future NasrinAI PR:
 
 ## Recent PR backfill
 
-| Pending | Explicit server-only RLS deny policies | In progress | Adds migration 028 for explicit deny policies and revokes browser-role table grants on the 34 server-only tables flagged by Supabase; adds database regression coverage and updates `docs/security.md` and `docs/database.md`. Production application and CI results must be confirmed before marking complete. |
+| [#210](https://github.com/primusco20/nasrinAI/pull/210) | Explicit server-only RLS deny policies | Open | Adds migration 028 for explicit deny policies and revokes browser-role table grants on the 34 server-only tables flagged by Supabase; adds database regression coverage and updates `docs/security.md` and `docs/database.md`. Production application and CI results must be confirmed before marking complete. |
 
 | [#199](https://github.com/primusco20/nasrinAI/pull/199) | Atomic global spend reservations and daily realtime voice allowances | Open | Sets global estimated-spend defaults to $3 daily / $21 rolling 7 days / $90 rolling 30 days, retaining overall and per-tier request caps. Adds migration 026 for atomic account-scoped daily voice reservations (Quick 5m, Pro 15m, Max 20m, Ultra 30m; Manila midnight reset), conservative per-minute token-quota reservations shared with text, memory/Supabase adapters, fail-closed routing, and regression/database security tests. USD budgets may shorten or refuse voice sessions; exact browser-direct per-turn provider usage remains unavailable. Required CI checks must pass before merge; production Supabase migration/configuration remain unverified. |
 
