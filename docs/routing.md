@@ -45,28 +45,40 @@ The tier a person picks sets **how high** routing may go, not where it starts.
 
 ## Budgets
 
-Spending is estimated from token counts and `config/model-prices.json`, and
-kept in `usage_events.cost_usd`.
+Spending is estimated from provider prices and recorded in a shared PostgreSQL
+ledger (`spend_reservations`) before a paid provider call. `usage_events` links
+to the reservation for audit and avoids double-counting. A transaction-scoped
+advisory lock serializes reservations across serverless instances; local cached
+balances are only routing hints, never the enforcement point.
 
 | Setting | Default | |
 | --- | --- | --- |
-| `DAILY_BUDGET_USD` | 0.25 | Manila day |
-| `WEEKLY_BUDGET_USD` | 1 | last 7 days (the target) |
-| `MONTHLY_BUDGET_USD` | 4 | last 30 days |
+| `DAILY_BUDGET_USD` | 3 | Manila day |
+| `WEEKLY_BUDGET_USD` | 21 | rolling last 7 days |
+| `MONTHLY_BUDGET_USD` | 90 | rolling last 30 days |
 | `MAX_REQUEST_COST_USD` | 0.05 | one message; dearer levels are stepped down |
 
 Pictures have their own limits (`IMAGE_DAILY_BUDGET_USD` 1, `IMAGE_WEEKLY_BUDGET_USD` 5,
-`IMAGE_MONTHLY_BUDGET_USD` 15): picture spending never uses up the chat budget, and chat
-spending never blocks pictures.
+`IMAGE_MONTHLY_BUDGET_USD` 15): picture spending never uses up the reasoning budget, and reasoning
+spending never blocks pictures. A picture with a fallback reserves for both provider attempts.
 
-When a message would go over a limit, the router tries a cheaper level. When
-nothing fits, Nasrin says the limit is reached instead of spending. Free
-models (Gemini free tier, own model) keep answering public questions. If the
-spend cannot be read, only the cheapest level is used.
+The router tries cheaper candidates during preflight, then the database checks
+each provider attempt again atomically before it starts. If no reservation fits,
+the price is unknown, or the ledger is unavailable, paid work is refused rather
+than sent to a provider. Configured free-tier and local zero-cost models may
+still answer public questions.
 
-With the defaults, levels 4–5 cost more than $0.05 per message and are
-stepped down to level 3. Raise `MAX_REQUEST_COST_USD` (and the budgets) when
-paid plans cover the cost.
+With the default $0.05 overall request cap, levels 4–5 may be stepped down to
+level 3. Tier-specific request caps remain $0.02 / $0.05 / $0.10 / $0.25 for
+Quick / Pro / Max / Ultra; these are independent of the shared period ceilings.
+
+### Other paid media and realtime
+
+- Web search reserves for the search tool and its follow-up model call before searching.
+- Server-generated speech reserves a conservative per-character amount before synthesis.
+- Video generation reserves the full provider chunk duration for the requested clip before job creation. The per-video guard is `VIDEO_MAX_COST_USD` (default 32 USD); because the default shared daily budget is $3 and video jobs reserve up to $32, video requests may be refused until the operator configures budgets appropriate for the selected model/resolution. Cached video reuse does not reserve new spend.
+- Realtime voice reserves a shared daily allowance atomically per account (across sessions/devices), resetting at Manila midnight: Quick 5 minutes, Pro 15, Max 20, Ultra 30. It also reserves `REALTIME_TOKEN_RESERVE_PER_MINUTE` token-quota units per started minute (default 10,000) against the same actor and tenant daily/weekly token ceilings as text, because browser-direct sessions do not provide independently verified per-turn usage. These token units are conservative accounting reservations, not provider-reported token counts. A session is shortened to the remaining tier allowance where possible. The global estimated-spend limits still apply ($3 daily / $21 rolling 7 days / $90 rolling 30 days), so higher-cost sessions may be shorter or refused if the spend ledger cannot cover the conservative reservation. OpenAI sessions are capped to whole minutes within the configured USD ceilings; Gemini retains a 30-minute maximum exposure reservation because credential expiry does not prove an established session has ended. Keep provider-side spending limits enabled.
+- Media estimates are intentionally conservative. They may overcount short sessions/jobs; they are not a substitute for provider-side account spending limits. Unknown model/resolution prices fail closed.
 
 ## Saving tokens
 

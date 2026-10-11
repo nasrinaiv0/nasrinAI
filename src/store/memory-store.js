@@ -12,6 +12,8 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const counters = new Map();
   const usage = [];
   const reservations = new Map();
+  const spendReservations = new Map();
+  const realtimeVoiceReservations = new Map();
   const conversations = new Map();
   const messages = [];
   const planPeriods = [];
@@ -223,6 +225,127 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       usage.push({ ...e, at: now() });
     },
 
+    async reserveDailyRealtimeVoice({ reservationId, tenantId, actorType, actorId, reservedSeconds, dailyLimitSeconds }) {
+      if (!reservationId || realtimeVoiceReservations.has(reservationId) || !tenantId
+          || !['user', 'guest', 'service'].includes(actorType)
+          || typeof actorId !== 'string' || !actorId || actorId.length > 80
+          || !Number.isInteger(reservedSeconds) || reservedSeconds < 1
+          || !Number.isInteger(dailyLimitSeconds) || dailyLimitSeconds < 1) {
+        return { allowed: false, reason: 'invalid_reservation', reservationId: null, usedSeconds: 0 };
+      }
+      const t = now();
+      const day = 86400_000;
+      const offset = 8 * 3600_000;
+      const dayStart = Math.floor((t + offset) / day) * day - offset;
+      for (const row of realtimeVoiceReservations.values()) {
+        if (row.status === 'reserved' && row.createdAt < t - 15 * 60_000) {
+          row.status = 'consumed';
+          row.settledAt = t;
+        }
+      }
+      const usedSeconds = [...realtimeVoiceReservations.values()]
+        .filter((row) => row.tenantId === tenantId && row.actorType === actorType && row.actorId === actorId
+          && row.dayStart === dayStart && ['reserved', 'consumed'].includes(row.status))
+        .reduce((sum, row) => sum + row.reservedSeconds, 0);
+      const allowedSeconds = Math.min(reservedSeconds, dailyLimitSeconds - usedSeconds);
+      if (allowedSeconds < 1) {
+        return { allowed: false, reason: 'daily_voice_limit', reservationId: null, usedSeconds, reservedSeconds: 0 };
+      }
+      realtimeVoiceReservations.set(reservationId, {
+        reservationId, tenantId, actorType, actorId, reservedSeconds: allowedSeconds, dayStart, createdAt: t, status: 'reserved', settledAt: null
+      });
+      return { allowed: true, reason: null, reservationId, usedSeconds, reservedSeconds: allowedSeconds };
+    },
+
+    async settleDailyRealtimeVoiceReservation({ reservationId }) {
+      const row = realtimeVoiceReservations.get(reservationId);
+      if (!row) return false;
+      if (row.status === 'consumed') return true;
+      if (row.status !== 'reserved') return false;
+      row.status = 'consumed';
+      row.settledAt = now();
+      return true;
+    },
+
+    async releaseDailyRealtimeVoiceReservation({ reservationId }) {
+      const row = realtimeVoiceReservations.get(reservationId);
+      if (!row) return false;
+      if (row.status === 'released') return true;
+      if (row.status !== 'reserved') return false;
+      row.status = 'released';
+      row.settledAt = now();
+      return true;
+    },
+
+    async reserveGlobalSpend({ reservationId, kind, tenantId, actorType, actorId, reservedUsd, dailyLimit, weeklyLimit, monthlyLimit, maxRequestUsd = null }) {
+      if (!reservationId || spendReservations.has(reservationId)
+          || !['reasoning', 'image'].includes(kind)
+          || !tenantId || !['user', 'guest', 'service'].includes(actorType)
+          || typeof actorId !== 'string' || !actorId || actorId.length > 80
+          || !Number.isFinite(reservedUsd) || reservedUsd < 0.000001
+          || [dailyLimit, weeklyLimit, monthlyLimit, maxRequestUsd].some((v) => v !== null && v !== undefined && (!Number.isFinite(v) || v < 0))) {
+        return { allowed: false, reason: 'invalid_reservation', reservationId: null };
+      }
+      if (maxRequestUsd !== null && maxRequestUsd !== undefined && reservedUsd > maxRequestUsd) {
+        return { allowed: false, reason: 'request_limit', reservationId: null };
+      }
+      const t = now();
+      for (const row of spendReservations.values()) {
+        if (row.kind === kind && row.status === 'reserved' && row.createdAt < t - 15 * 60_000) {
+          row.actualUsd = row.reservedUsd;
+          row.status = 'settled';
+          row.settledAt = t;
+        }
+      }
+      const day = 86400_000;
+      const offset = 8 * 3600_000;
+      const dayStart = Math.floor((t + offset) / day) * day - offset;
+      const periods = [
+        ['daily_budget', dailyLimit, dayStart],
+        ['weekly_budget', weeklyLimit, t - 7 * day],
+        ['monthly_budget', monthlyLimit, t - 30 * day]
+      ];
+      const usedSince = (since) => {
+        const legacy = usage.filter((e) => e.at >= since && e.spendReservationId == null
+          && (kind === 'image' ? e.task === 'image' : e.task !== 'image'))
+          .reduce((sum, e) => sum + (Number(e.costUsd) || 0), 0);
+        const held = [...spendReservations.values()].filter((r) => r.kind === kind && r.createdAt >= since && ['reserved', 'settled'].includes(r.status))
+          .reduce((sum, r) => sum + (r.status === 'reserved' ? r.reservedUsd : r.actualUsd), 0);
+        return legacy + held;
+      };
+      const used = periods.map(([, , since]) => usedSince(since));
+      for (let i = 0; i < periods.length; i++) {
+        const [reason, limit] = periods[i];
+        if (limit !== null && limit !== undefined && used[i] + reservedUsd > limit) {
+          return { allowed: false, reason, reservationId: null, dailyUsed: used[0], weeklyUsed: used[1], monthlyUsed: used[2] };
+        }
+      }
+      spendReservations.set(reservationId, { id: reservationId, kind, tenantId, actorType, actorId, reservedUsd,
+        actualUsd: null, status: 'reserved', createdAt: t, settledAt: null });
+      return { allowed: true, reason: null, reservationId, dailyUsed: used[0], weeklyUsed: used[1], monthlyUsed: used[2] };
+    },
+
+    async settleGlobalSpendReservation({ reservationId, actualUsd }) {
+      const row = spendReservations.get(reservationId);
+      if (!row || !Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > 100000) return false;
+      if (row.status === 'settled') return row.actualUsd === Math.round(actualUsd * 1e6) / 1e6;
+      if (row.status !== 'reserved') return false;
+      row.actualUsd = Math.round(actualUsd * 1e6) / 1e6;
+      row.status = 'settled';
+      row.settledAt = now();
+      return true;
+    },
+
+    async releaseGlobalSpendReservation({ reservationId }) {
+      const row = spendReservations.get(reservationId);
+      if (!row) return false;
+      if (row.status === 'released') return true;
+      if (row.status !== 'reserved') return false;
+      row.status = 'released';
+      row.settledAt = now();
+      return true;
+    },
+
     improvementConsentEvents,
     improvementExamples,
     improvementExampleDeletions,
@@ -362,7 +485,12 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     },
 
     async imageCostSince(since) {
-      return usage.filter((e) => e.at >= since.getTime() && e.task === 'image').reduce((sum, e) => sum + (e.costUsd || 0), 0);
+      const t = since.getTime();
+      const legacy = usage.filter((e) => e.at >= t && e.task === 'image' && e.spendReservationId == null)
+        .reduce((sum, e) => sum + (Number(e.costUsd) || 0), 0);
+      const held = [...spendReservations.values()].filter((r) => r.kind === 'image' && r.createdAt >= t && ['reserved', 'settled'].includes(r.status))
+        .reduce((sum, r) => sum + (r.status === 'reserved' ? r.reservedUsd : r.actualUsd), 0);
+      return legacy + held;
     },
 
     // Knowledge (migration 009). Search: chunks sharing the most words.
@@ -619,7 +747,12 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     },
 
     async costSince(since) {
-      return usage.filter((e) => e.at >= since.getTime()).reduce((sum, e) => sum + (e.costUsd || 0), 0);
+      const t = since.getTime();
+      const legacy = usage.filter((e) => e.at >= t && e.spendReservationId == null)
+        .reduce((sum, e) => sum + (Number(e.costUsd) || 0), 0);
+      const held = [...spendReservations.values()].filter((r) => r.createdAt >= t && ['reserved', 'settled'].includes(r.status))
+        .reduce((sum, r) => sum + (r.status === 'reserved' ? r.reservedUsd : r.actualUsd), 0);
+      return legacy + held;
     }
   };
 }
