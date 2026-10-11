@@ -18,7 +18,7 @@ How to run NasrinAI in production and what to do when something goes wrong.
    `021_nasrinai_connect_account_owner`, `022_security_boundary`,
    `023_semantic_cache_search_path`, `024_security_definer_search_path`,
    `025_global_spend_reservations`, `026_daily_realtime_voice_allowances`.
-3. After deploying: open `https://nasrinai.com/healthz` (should say ok), then
+3. After deploying: open `https://www.nasrinai.com/healthz` (should say ok), then
    `node scripts/eval/run.js --suite quality` and `--suite redteam`.
 4. Vercel → Logs: no `setting ignored` lines you did not expect. Keep `VIDEO_MAX_COST_USD` and `DAILY_BUDGET_USD`/`WEEKLY_BUDGET_USD`/`MONTHLY_BUDGET_USD` aligned with the enabled provider pricing; a video may be refused when its maximum-duration reservation does not fit.
 5. In Supabase migration history, verify that `015_daily_token_reservations`, `016_weekly_paid_token_allowances`, `025_global_spend_reservations`, and `026_daily_realtime_voice_allowances` are applied. Missing token RPCs block token-limited calls; a missing global USD reservation RPC blocks paid provider operations.
@@ -31,14 +31,14 @@ The `.github/workflows/manual-live-evaluations.yml` workflow is intentionally ma
 
 1. Open **Actions → Manual live evaluations → Run workflow** on the `main` branch.
 2. Select `quality`, `redteam`, or `both`.
-3. Enable the explicit confirmation checkbox only when you intend to send live requests to `https://nasrinai.com`, then run the workflow.
+3. Enable the explicit confirmation checkbox only when you intend to send live requests to `https://www.nasrinai.com`, then run the workflow.
 4. Open the run and inspect the step output. Successful suites print a passed/total count. Download the `nasrinai-live-evaluation-reports` artifact for the JSON reports; artifacts are retained for 7 days.
 
 The repository currently has no `package-lock.json` or `npm-shrinkwrap.json`, so this workflow installs declared dependencies using `npm install --no-package-lock --ignore-scripts` instead of `npm ci`. This avoids the clean-install failure caused by the missing lockfile and avoids running dependency lifecycle scripts. For fully reproducible installs, add and review a committed lockfile in a separate change before switching this workflow back to `npm ci`.
 
 **Guest quota policy:** guests do not have a separate per-guest or shared guest token allowance. Requests still require a short-lived guest-session credential, remain subject to hourly per-guest/per-IP rate limits, the shared tenant token ceiling, and global USD spending budgets. Token usage is still recorded for accounting and abuse monitoring; “no guest token quota” does not mean provider usage is free or unmetered.
 
-**Live evaluation authentication:** before sending any chat cases, the evaluator checks the issued guest credential with `GET /v1/whoami`. If that check fails, it writes a report with the HTTP status, safe error code, and request ID when available, then stops without sending chat requests. Never log the guest token.
+**Live evaluation authentication:** use the canonical production host `https://www.nasrinai.com` directly for all requests. The apex domain may redirect to `www`; a cross-origin redirect can cause Node fetch to omit the `Authorization` header, making a valid guest token appear unauthenticated. Before sending any chat cases, the evaluator checks the issued guest credential with `GET /v1/whoami`. If that check fails, it writes a report with the HTTP status, safe error code, and request ID when available, then stops without sending chat requests. Never log the guest token.
 
 **Cost and safety:** the quality suite sends 6 guest-chat cases; red-team sends 8. Selecting `both` can send up to 14 guest-chat cases, plus a guest-session creation request per suite. These are real production requests and may incur provider costs or consume guest rate limits. Run one suite at a time and do not repeatedly retry failures. The workflow has a 10-minute timeout, serializes runs, uses no provider secrets, and requires an explicit confirmation checkbox. The checkbox is a guardrail, not a hard dollar-spend cap; existing server-side budgets and provider-side spending limits must remain enabled. These evaluations do not prove daily voice allowance or spend-limit exhaustion behavior; test those separately with controlled, specifically designed tests.
 

@@ -61,14 +61,14 @@ jobs:
           set -euo pipefail
           case "$EVAL_SUITE" in
             quality)
-              node scripts/eval/run.js --suite quality --url https://nasrinai.com
+              node scripts/eval/run.js --suite quality --url https://www.nasrinai.com
               ;;
             redteam)
-              node scripts/eval/run.js --suite redteam --url https://nasrinai.com
+              node scripts/eval/run.js --suite redteam --url https://www.nasrinai.com
               ;;
             both)
-              node scripts/eval/run.js --suite quality --url https://nasrinai.com
-              node scripts/eval/run.js --suite redteam --url https://nasrinai.com
+              node scripts/eval/run.js --suite quality --url https://www.nasrinai.com
+              node scripts/eval/run.js --suite redteam --url https://www.nasrinai.com
               ;;
             *)
               echo "::error::Unsupported evaluation suite"
