@@ -372,3 +372,11 @@ test('sign out of other devices: this session stays, needs a valid token and thi
     assert.equal(cross.status, 403);
   } finally { await close(); }
 });
+
+
+test('default email OTP send limits allow normal recovery without removing abuse controls', () => {
+  const config = loadConfig({ ...ENV });
+  assert.equal(config.limits.signInCodesIpHour, 20);
+  assert.equal(config.limits.signInCodesEmailHour, 8);
+  assert.equal(config.limits.signInTriesHour, 10);
+});
