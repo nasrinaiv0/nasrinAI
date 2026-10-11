@@ -3484,8 +3484,10 @@
       codeInput.focus();
     } catch (err) {
       signinStatus.textContent = err.message;
-    } finally {
+      // The token may have been consumed or rejected. Prepare a fresh token
+      // only when the request fails and the person needs to retry.
       resetCaptchaWidget();
+    } finally {
       $('emailBtn').disabled = false;
     }
   });
@@ -3502,7 +3504,6 @@
     } catch (err) {
       signinStatus.textContent = err.message;
       $('googleBtn').disabled = false;
-    } finally {
       resetCaptchaWidget();
     }
   });
@@ -3531,7 +3532,13 @@
     if (digits !== codeInput.value) codeInput.value = digits;
     if (digits.length === 6) codeForm.requestSubmit();
   });
-  $('otherEmail').addEventListener('click', () => { setSigninStep('email'); signinStatus.textContent = ''; emailInput.focus(); });
+  $('otherEmail').addEventListener('click', () => {
+    // Returning from code entry starts a new protected sign-in attempt.
+    resetCaptchaWidget();
+    setSigninStep('email');
+    signinStatus.textContent = '';
+    emailInput.focus();
+  });
 
   $('logoutBtn').addEventListener('click', () => {
     if (!account) return;
