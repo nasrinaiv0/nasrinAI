@@ -677,8 +677,8 @@ export function loadConfig(env = process.env) {
       userLibraryHour: toInt('LIMIT_USER_LIBRARY_HOUR', env.LIMIT_USER_LIBRARY_HOUR, 60, 1, 5000),
       userProjectsHour: toInt('LIMIT_USER_PROJECTS_HOUR', env.LIMIT_USER_PROJECTS_HOUR, 300, 1, 10000),
       // Sign-in: codes emailed per IP and per address, code tries per address, refreshes per IP.
-      signInCodesIpHour: toInt('LIMIT_SIGNIN_CODES_IP_HOUR', env.LIMIT_SIGNIN_CODES_IP_HOUR, 10, 1, 1000),
-      signInCodesEmailHour: toInt('LIMIT_SIGNIN_CODES_EMAIL_HOUR', env.LIMIT_SIGNIN_CODES_EMAIL_HOUR, 4, 1, 100),
+      signInCodesIpHour: toInt('LIMIT_SIGNIN_CODES_IP_HOUR', env.LIMIT_SIGNIN_CODES_IP_HOUR, 20, 1, 1000),
+      signInCodesEmailHour: toInt('LIMIT_SIGNIN_CODES_EMAIL_HOUR', env.LIMIT_SIGNIN_CODES_EMAIL_HOUR, 8, 1, 100),
       signInTriesHour: toInt('LIMIT_SIGNIN_TRIES_HOUR', env.LIMIT_SIGNIN_TRIES_HOUR, 10, 1, 100),
       signInRefreshIpHour: toInt('LIMIT_SIGNIN_REFRESH_IP_HOUR', env.LIMIT_SIGNIN_REFRESH_IP_HOUR, 300, 10, 10000)
     })
