@@ -58,6 +58,11 @@ test('messages are limited per caller and per IP', async () => {
 test('guests have no separate token allowance; tenant ceiling still applies', async () => {
   const store = createMemoryStore();
   const limits = { ...testConfig().limits, guestDailyTokens: 1000, userDailyTokens: 500 };
+  const reserveDailyTokens = store.reserveDailyTokens.bind(store);
+  store.reserveDailyTokens = async (args) => {
+    if (args.actorType === 'guest') assert.equal(args.guestLimit, args.tenantLimit, 'guest reservations must use the tenant ceiling, not a guest-specific allowance');
+    return reserveDailyTokens(args);
+  };
   const limiter = createLimiter({ store, limits });
 
   await limiter.budget(guest('a'));
