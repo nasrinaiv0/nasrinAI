@@ -53,7 +53,8 @@ export async function runSuite({ suite, url, key = null, fetchImpl = fetch, log 
     };
   }
   const results = [];
-  for (const c of suite.cases) {
+  for (let caseIndex = 0; caseIndex < suite.cases.length; caseIndex++) {
+    const c = suite.cases[caseIndex];
     const r = await fetchImpl(url + '/v1/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ message: c.message }) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
@@ -74,7 +75,7 @@ export async function runSuite({ suite, url, key = null, fetchImpl = fetch, log 
       // A 429 means the shared/per-caller limit has been reached. Stop instead
       // of sending more requests that are expected to fail and consume limits.
       if (r.status === 429) {
-        results.push(...suite.cases.slice(results.length).map((pending) => ({
+        results.push(...suite.cases.slice(caseIndex + 1).map((pending) => ({
           id: pending.id, ok: false, skipped: true,
           fails: ['not run after HTTP 429 rate limit']
         })));
