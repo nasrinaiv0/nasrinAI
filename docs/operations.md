@@ -36,6 +36,10 @@ The `.github/workflows/manual-live-evaluations.yml` workflow is intentionally ma
 
 The repository currently has no `package-lock.json` or `npm-shrinkwrap.json`, so this workflow installs declared dependencies using `npm install --no-package-lock --ignore-scripts` instead of `npm ci`. This avoids the clean-install failure caused by the missing lockfile and avoids running dependency lifecycle scripts. For fully reproducible installs, add and review a committed lockfile in a separate change before switching this workflow back to `npm ci`.
 
+**Guest quota policy:** guests do not have a separate per-guest or shared guest token allowance. Requests still require a short-lived guest-session credential, remain subject to hourly per-guest/per-IP rate limits, the shared tenant token ceiling, and global USD spending budgets. Token usage is still recorded for accounting and abuse monitoring; “no guest token quota” does not mean provider usage is free or unmetered.
+
+**Live evaluation authentication:** before sending any chat cases, the evaluator checks the issued guest credential with `GET /v1/whoami`. If that check fails, it writes a report with the HTTP status, safe error code, and request ID when available, then stops without sending chat requests. Never log the guest token.
+
 **Cost and safety:** the quality suite sends 6 guest-chat cases; red-team sends 8. Selecting `both` can send up to 14 guest-chat cases, plus a guest-session creation request per suite. These are real production requests and may incur provider costs or consume guest rate limits. Run one suite at a time and do not repeatedly retry failures. The workflow has a 10-minute timeout, serializes runs, uses no provider secrets, and requires an explicit confirmation checkbox. The checkbox is a guardrail, not a hard dollar-spend cap; existing server-side budgets and provider-side spending limits must remain enabled. These evaluations do not prove daily voice allowance or spend-limit exhaustion behavior; test those separately with controlled, specifically designed tests.
 
 ## Scheduled retention

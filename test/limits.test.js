@@ -55,7 +55,7 @@ test('messages are limited per caller and per IP', async () => {
   for (let i = 0; i < 5; i++) await limiter.message(service, '1.1.1.1');
 });
 
-test('daily budgets: platform guests, each user, and each business', async () => {
+test('guests have no separate token allowance; tenant ceiling still applies', async () => {
   const store = createMemoryStore();
   const limits = { ...testConfig().limits, guestDailyTokens: 1000, userDailyTokens: 500 };
   const limiter = createLimiter({ store, limits });
@@ -63,7 +63,14 @@ test('daily budgets: platform guests, each user, and each business', async () =>
   await limiter.budget(guest('a'));
   await store.recordUsage(usage(guest('a'), 600));
   await store.recordUsage(usage(guest('b'), 400));
-  await assert.rejects(limiter.budget(guest('c')), { code: 'guest_limit' });
+  await limiter.budget(guest('c')); // No guest-specific token quota.
+  const reservation = await limiter.reserveTokens(guest('reserve-test'), 2000);
+  assert.ok(reservation.id, 'guest reservation is allowed below the tenant ceiling even above the old guest allowance');
+  await limiter.releaseTokens(reservation);
+
+  const tinyTenant = { kind: 'platform', dailyTokenLimit: 1000 };
+  const cappedGuest = guest('d', PLATFORM, tinyTenant);
+  await assert.rejects(limiter.budget(cappedGuest), { code: 'tenant_limit' }, 'shared tenant ceiling remains active');
 
   await limiter.budget(user('u1'));
   await store.recordUsage(usage(user('u1'), 500));
