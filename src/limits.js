@@ -69,11 +69,14 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       await hit(`gs:ip:${ip || 'unknown'}`, limits.guestSessionsPerIpHour);
     },
 
-    // Every chat message: per caller, plus per IP for people (not servers).
+    // Guest chat has no per-guest message quota. Keep the shared per-IP abuse
+    // guard for people, while signed-in users and services retain their own limits.
     async message(caller, ip) {
       const { type, id } = caller.actor;
-      const perCaller = { guest: limits.guestMessagesHour, user: limits.userMessagesHour, service: limits.serviceMessagesHour }[type];
-      await hit(`msg:${type}:${caller.tenantId}:${id}`, perCaller);
+      if (type !== 'guest') {
+        const perCaller = { user: limits.userMessagesHour, service: limits.serviceMessagesHour }[type];
+        await hit(`msg:${type}:${caller.tenantId}:${id}`, perCaller);
+      }
       if (type !== 'service') await hit(`msg:ip:${ip || 'unknown'}`, limits.ipMessagesHour);
     },
 
@@ -126,7 +129,7 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
         actorLimit,
         // Guests have no separate token allowance; hourly rate limits, the
         // shared tenant token ceiling, and global USD budgets still apply.
-        guestLimit: 0,
+        guestLimit: caller.tenant.dailyTokenLimit,
         tenantLimit: caller.tenant.dailyTokenLimit
       });
       if (!result?.allowed) {

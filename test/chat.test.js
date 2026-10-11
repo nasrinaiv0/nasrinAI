@@ -146,15 +146,14 @@ test('contact details are removed from what an outside model sees, but kept for 
   });
 });
 
-test('limits apply before the model is called', async () => {
+test('guest chat has no per-guest quota; shared IP and tenant protections remain', async () => {
   const provider = createFakeProvider();
-  await withApp({ provider, env: { LIMIT_GUEST_MESSAGES_HOUR: '2' } }, async ({ url }) => {
+  await withApp({ provider, env: { LIMIT_GUEST_MESSAGES_HOUR: '1', LIMIT_IP_MESSAGES_HOUR: '10' } }, async ({ url }) => {
     const token = await guestToken(url);
     assert.equal((await send(url, token, { message: '1' })).status, 200);
     assert.equal((await send(url, token, { message: '2' })).status, 200);
-    const third = await send(url, token, { message: '3' });
-    assert.equal(third.status, 429);
-    assert.equal(provider.calls.length, 2);
+    assert.equal((await send(url, token, { message: '3' })).status, 200);
+    assert.equal(provider.calls.length, 3);
   });
 
   const provider2 = createFakeProvider();

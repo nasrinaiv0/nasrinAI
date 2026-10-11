@@ -98,7 +98,7 @@ test('Quick realtime allowance is cumulative across repeated sessions and blocks
 });
 
 
-test('realtime voice reserves from the shared token quota before minting credentials', async () => {
+test('realtime voice ignores the legacy guest token quota while retaining shared reservation checks', async () => {
   let calls = 0;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
@@ -109,9 +109,8 @@ test('realtime voice reserves from the shared token quota before minting credent
   try {
     const token = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
     const response = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
-    assert.equal(response.status, 429);
-    assert.equal((await response.json()).error.code, 'guest_limit');
-    assert.equal(calls, 0, 'provider credentials must not be minted when the shared token quota cannot reserve voice capacity');
+    assert.equal(response.status, 200, 'the legacy guest token ceiling must not block realtime by itself');
+    assert.equal(calls, 1, 'realtime session is created when shared tenant and voice reservations allow it');
   } finally {
     await srv.close();
   }
