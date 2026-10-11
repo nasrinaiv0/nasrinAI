@@ -36,7 +36,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
   const iso = () => new Date(now()).toISOString();
 
-  tenants.set(PLATFORM_TENANT_ID, { id: PLATFORM_TENANT_ID, kind: 'platform', status: 'active', daily_token_limit: 2_000_000 });
+  tenants.set(PLATFORM_TENANT_ID, { id: PLATFORM_TENANT_ID, kind: 'platform', status: 'active', daily_token_limit: 0 });
 
   return {
     kind: 'memory',
@@ -130,7 +130,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       if (limit !== null && limit > 0 && actorUsed + reservedTokens > limit) {
         return { allowed: false, reason: actorType === 'guest' ? 'guest_limit' : 'weekly_limit', reservationId: null, actorUsed, tenantUsed };
       }
-      if (tenantUsed + reservedTokens > tenantLimit) {
+      if (tenantLimit > 0 && tenantUsed + reservedTokens > tenantLimit) {
         return { allowed: false, reason: 'tenant_limit', reservationId: null, actorUsed, tenantUsed };
       }
       reservations.set(reservationId, { reservationId, tenantId, actorType, actorId, reservedTokens, actualTokens: null,

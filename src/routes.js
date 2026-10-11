@@ -362,7 +362,8 @@ return { body: { sites: await connect.list(caller) } }; }
         }
         // Browser-direct audio does not expose trustworthy per-turn token usage.
         // Reserve a conservative token allowance per started minute so voice and
-        // text draw from the same actor and tenant token ceilings.
+        // text draws from the same paid-plan actor allowance. Platform shared token
+        // ceilings are disabled; business tenants retain their own ceiling.
         let tokenReservation;
         try {
           if (!store?.reserveDailyTokens || !store?.settleDailyTokenReservation || !store?.releaseDailyTokenReservation) {
@@ -376,7 +377,9 @@ return { body: { sites: await connect.list(caller) } }; }
           const tokenResult = await store.reserveDailyTokens({
             reservationId: tokenReservationId, tenantId: caller.tenantId,
             actorType: caller.actor.type, actorId: caller.actor.id, reservedTokens,
-            actorLimit, guestLimit: caller.tenant.dailyTokenLimit, tenantLimit: caller.tenant.dailyTokenLimit
+            actorLimit,
+            guestLimit: caller.tenant.kind === 'platform' ? 0 : caller.tenant.dailyTokenLimit,
+            tenantLimit: caller.tenant.kind === 'platform' ? 0 : caller.tenant.dailyTokenLimit
           });
           if (!tokenResult?.allowed || tokenResult.reservationId !== tokenReservationId) {
             const reason = tokenResult?.reason;
