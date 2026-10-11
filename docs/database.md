@@ -1,8 +1,10 @@
 # Database
 
 NasrinAI uses its own Supabase project. Only the NasrinAI server, with the
-service-role key, can read or write its tables: RLS is on with no policies, and
-the browser roles (`anon`, `authenticated`) have no grants.
+service-role key, can read or write its tables. RLS is enabled; server-only tables
+have explicit deny policies for `anon` and `authenticated`, and those browser roles
+have no table grants. The policies are defense in depth, not a replacement for
+server-side authorization.
 
 ## Set it up (from a phone is fine)
 
@@ -10,6 +12,7 @@ the browser roles (`anon`, `authenticated`) have no grants.
 2. Paste the whole of [`db/migrations/001_core.sql`](../db/migrations/001_core.sql) and press **Run**.
 3. Expect "Success. No rows returned". Running it again is safe.
 4. Do the same with [`db/migrations/002_plans.sql`](../db/migrations/002_plans.sql) (plans for Max and Ultra).
+5. Apply later migrations in order only after checking the live schema and migration history. Migration 028 makes the server-only browser-role denial explicit; do not assume it is deployed until execution is confirmed.
 
 ## Tables
 
