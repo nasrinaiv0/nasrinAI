@@ -331,7 +331,12 @@ export function authRoutes({ config, auth, limiter, logger }) {
           const code = new URL(req.url, 'http://local').searchParams.get('code') || '';
           const verifier = cookies(req)[PKCE];
           res.appendHeader('Set-Cookie', cookie(PKCE, '', { path: '/v1/auth/google', maxAge: 0, sameSite: 'None' }));
-          if (!code || !verifier || code.length > 512) return back(res, '/?signin=failed');
+          if (!code || !verifier || code.length > 512) {
+            // Diagnose callback failures without logging authorization codes or cookies.
+            const reason = !code ? 'missing_authorization_code' : !verifier ? 'missing_pkce_verifier_cookie' : 'authorization_code_invalid';
+            logger.warn('google sign-in callback rejected', { reason });
+            return back(res, '/?signin=failed');
+          }
           try {
             const s = await auth.exchangeCode(code, verifier);
             finishPendingAdd(req, res, s);
