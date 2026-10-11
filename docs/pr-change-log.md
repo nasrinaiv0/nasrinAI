@@ -208,3 +208,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep the same widget element and ID; client initialization, callbacks, token submission, and server-side verification remain unchanged.
 - No DNS, authentication configuration, or unrelated layout changes.
 - Validate with CI and test both Google and email sign-in on a narrow mobile viewport before considering the change complete.
+
+
+## Google OAuth callback failure diagnostics
+
+- Log a fixed reason category when the Google callback has no authorization code, no PKCE verifier cookie, or an invalid-length authorization code.
+- Never log the authorization code, PKCE verifier, cookies, or provider secrets.
+- This makes the existing callback early-return path observable without changing OAuth validation, cookie policy, CAPTCHA verification, or redirect behavior.
+- Validate with focused auth tests and full CI before merge; then inspect the production callback log to select any further fix based on evidence.
