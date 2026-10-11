@@ -25,6 +25,17 @@ How to run NasrinAI in production and what to do when something goes wrong.
 6. Verify Vercel's production environment variables and the active Supabase project directly in their dashboards. Repository code and a Ready preview do not prove that production secrets, migrations, payment webhook mode, or provider keys are correct.
 7. Global estimated-spend defaults are $3 per Manila day, $21 per rolling 7 days, and $90 per rolling 30 days. Preserve the existing overall and tier-specific per-request caps, tenant protections, and rate limits. Realtime voice also requires migration `026_daily_realtime_voice_allowances`; it atomically tracks daily use per account across sessions/devices (Quick 5m, Pro 15m, Max 20m, Ultra 30m), resetting at Manila midnight. It also reserves `REALTIME_TOKEN_RESERVE_PER_MINUTE` units per started minute (default 10,000) from the existing shared actor/tenant token ceilings. These are conservative quota units, not exact provider token counts. Sessions may be shortened/refused by remaining token capacity, tier allowance, or USD budget. Keep provider-side spending limits enabled and verify rates in `config/model-prices.json`.
 
+## Manual live quality and red-team evaluations
+
+The `.github/workflows/manual-live-evaluations.yml` workflow is intentionally manual; it does not run on pushes or pull requests. It lets an operator launch the existing evaluation suites from GitHub Actions, including from a phone.
+
+1. Open **Actions → Manual live evaluations → Run workflow** on the `main` branch.
+2. Select `quality`, `redteam`, or `both`.
+3. Enable the explicit confirmation checkbox only when you intend to send live requests to `https://nasrinai.com`, then run the workflow.
+4. Open the run and inspect the step output. Successful suites print a passed/total count. Download the `nasrinai-live-evaluation-reports` artifact for the JSON reports; artifacts are retained for 7 days.
+
+**Cost and safety:** the quality suite sends 6 guest-chat cases; red-team sends 8. Selecting `both` can send up to 14 guest-chat cases, plus a guest-session creation request per suite. These are real production requests and may incur provider costs or consume guest rate limits. Run one suite at a time and do not repeatedly retry failures. The workflow has a 10-minute timeout, serializes runs, uses no provider secrets, and requires an explicit confirmation checkbox. The checkbox is a guardrail, not a hard dollar-spend cap; existing server-side budgets and provider-side spending limits must remain enabled. These evaluations do not prove daily voice allowance or spend-limit exhaustion behavior; test those separately with controlled, specifically designed tests.
+
 ## Scheduled retention
 
 Vercel Cron calls `/v1/internal/retention` hourly. The endpoint requires the `CRON_SECRET` bearer token and invokes the idempotent `purge_retention()` Supabase function. It also invokes `purge_improvement_consent()` to remove guest choice records after 24 hours and signed-in choice records after 10 years. It also runs `purge_improvement_examples()` to delete expired examples and any examples whose matching consent is no longer the latest active grant. Set `CRON_SECRET` as a Vercel Sensitive environment variable before production deployment. The job covers inactive signed-in users, guest expiry, and old operational rate-limit counters.
