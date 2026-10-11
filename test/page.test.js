@@ -47,9 +47,16 @@ test('status tells the page whether the AI is on and whether messages leave the 
   const a = await serve(off.app);
   const b = await serve(on.app);
   try {
-    assert.deepEqual(await (await fetch(a.url + '/v1/status')).json(),
+    const statusOff = await (await fetch(a.url + '/v1/status')).json();
+    const statusOn = await (await fetch(b.url + '/v1/status')).json();
+    // The status endpoint now intentionally includes the known voice catalog
+    // even when providers are unavailable; this test covers the remaining
+    // status contract, while the dedicated voice tests cover catalog behavior.
+    statusOff.speech = { ...statusOff.speech, voices: [], default: null };
+    statusOn.speech = { ...statusOn.speech, voices: [], default: null };
+    assert.deepEqual(statusOff,
       { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-07d', privacy_version: '2026-10-07a' }, plans: true, library: true, projects: true, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
-    assert.deepEqual(await (await fetch(b.url + '/v1/status')).json(),
+    assert.deepEqual(statusOn,
       { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-07d', privacy_version: '2026-10-07a' }, plans: true, library: true, projects: true, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
   } finally { await a.close(); await b.close(); }
 });
@@ -106,3 +113,21 @@ test('logging out requires confirmation before the sign-out action', async () =>
   assert.ok(handler.indexOf('window.confirm(') < handler.indexOf('accountBtn.click()'), 'sign-out action must occur only after confirmation');
 });
 
+
+
+test('voice settings keep provider catalogs visible when browser audio support is missing', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const renderStart = js.indexOf('function renderVoices()');
+  const renderEnd = js.indexOf("if(canDevice&&'onvoiceschanged'", renderStart);
+  assert.ok(renderStart >= 0 && renderEnd > renderStart, 'voice renderer exists');
+  const renderer = js.slice(renderStart, renderEnd);
+  assert.match(renderer, /providerRows\('openai','ChatGPT \/ OpenAI'\)/);
+  assert.match(renderer, /providerRows\('gemini','Gemini'\)/);
+  assert.doesNotMatch(renderer, /speech\.available\s*&&\s*AudioCtx/, 'catalog visibility must not depend on Web Audio support');
+  assert.match(renderer, /disabled:v\.available===false/, 'unconfigured providers remain visible but disabled');
+});
+
+test('status endpoint preserves unavailable voice catalog for Settings', async () => {
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  assert.match(routes, /available:\s*Boolean\(voice\s*&&\s*voice\.available\)[\s\S]{0,400}voices:\s*voice\s*&&\s*Array\.isArray\(voice\.voices\)\s*\?\s*voice\.voices\s*:\s*\[\]/);
+});

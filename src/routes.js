@@ -1191,9 +1191,14 @@ return { body: { sites: await connect.list(caller) } }; }
           videos: videos && videos.available ? { available: true, ultra_only: true, max_seconds: config.video.maxSeconds } : { available: false },
           sign_in: { email: Boolean(auth) && config.auth.email, google: Boolean(auth) && config.auth.google },
           guest_session_hours: Math.round(config.guestTtlSeconds / 3600),
-          speech: voice && voice.available
-            ? { available: true, voices: voice.voices, default: voice.defaultVoice, rate: config.ai.speech.rate }
-            : { available: false, voices: [], default: null, rate: config.ai.speech.rate }
+          speech: {
+            available: Boolean(voice && voice.available),
+            // Return the known catalog even when no provider is configured so
+            // Settings can show the choices as unavailable instead of hiding them.
+            voices: voice && Array.isArray(voice.voices) ? voice.voices : [],
+            default: voice ? voice.defaultVoice : null,
+            rate: config.ai.speech.rate
+          }
         }
       })
     },

@@ -2331,7 +2331,7 @@
   function renderVoices() {
     const rows=[]; const heading=(t)=>{const h=document.createElement('h3');h.textContent=t;return h;};
     const providerRows=(provider,label)=>{const list=speech.voices.filter(v=>v.provider===provider);if(!list.length)return;rows.push(heading(label));for(const v of list)rows.push(voiceRow('ai:'+v.id,v.name,b=>playServerAudio({voice:v.id,preview:true},b),{disabled:v.available===false,provider:label}));};
-    if(speech.available&&AudioCtx){providerRows('openai','ChatGPT / OpenAI');providerRows('gemini','Gemini');}
+    if(Array.isArray(speech.voices)){providerRows('openai','ChatGPT / OpenAI');providerRows('gemini','Gemini');}
     if(canDevice){rows.push(heading('On this phone'));rows.push(voiceRow('device:default','Phone voice',b=>playDevice(PREVIEW,'device:default',b),{provider:'Device'}));for(const v of deviceVoices())rows.push(voiceRow('device:'+v.voiceURI,v.name,b=>playDevice(PREVIEW,'device:'+v.voiceURI,b),{provider:'Device'}));}
     if(!rows.length){const p=document.createElement('p');p.className='empty';p.textContent='No speech voices are available in this browser.';rows.push(p);}
     voicesBox.replaceChildren(...rows);
@@ -5707,8 +5707,15 @@
       if (s.speech && Number.isFinite(s.speech.rate) && saved.get(KEYS.speechRate) === null) speechRate = Math.min(2, Math.max(0.5, s.speech.rate));
       speechRate = Math.min(2, Math.max(0.5, speechRate));
       renderVoiceSpeed();
-      if (s.speech && s.speech.available && Array.isArray(s.speech.voices) && s.speech.voices.length) {
-        speech = { available: true, voices: s.speech.voices.filter((v) => v && typeof v.id === 'string' && typeof v.name === 'string'), default: s.speech.default };
+      if (s.speech && Array.isArray(s.speech.voices)) {
+        // Keep the server's full provider catalog visible even when one or both
+        // providers are unavailable. Unavailable voices are shown disabled.
+        speech = {
+          available: s.speech.available === true,
+          voices: s.speech.voices.filter((v) => v && typeof v.id === 'string' && typeof v.name === 'string'),
+          default: s.speech.default || null
+        };
+        renderVoices();
       }
       const parts = ['Replies come from an AI and can be wrong. Check anything important.'];
       if (s.own_model && s.external_model) parts.push('Answers come from NasrinAI’s own model when it can; otherwise messages go to an outside AI service.');
