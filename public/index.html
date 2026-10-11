@@ -508,8 +508,10 @@
     </div>
     <p class="signin-lede">Use Max and Ultra, and keep your chats on any device.</p>
 
-    <a class="btn wide outline google-btn" id="googleBtn" href="/v1/auth/google/start" hidden><img class="g-logo" src="/brand/google-g.png" alt="" width="20" height="20"><span>Continue with Google</span></a>
+    <button type="button" class="btn wide outline google-btn" id="googleBtn" hidden><img class="g-logo" src="/brand/google-g.png" alt="" width="20" height="20"><span>Continue with Google</span></button>
     <p class="or" id="orLine" hidden><span>or</span></p>
+
+    <div id="turnstileWidget" class="signin-captcha" hidden aria-label="Security verification"></div>
 
     <form class="signin-form" id="emailForm" novalidate>
       <label for="email">Email</label>

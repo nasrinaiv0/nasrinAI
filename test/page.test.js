@@ -14,7 +14,8 @@ test('the chat page loads its script and styles as files that the strict CSP all
     const page = await fetch(srv.url + '/');
     const html = await page.text();
     assert.match(html, /<link rel="icon" type="image\/png" href="\/logo\.png">/, 'Google-search favicon points to logo.png');
-    assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
+    assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
     assert.match(html, /<script src="\/app\.js" defer><\/script>/);
 
     for (const [path, type] of [['/app.js', /javascript/], ['/character.js', /javascript/], ['/app.css', /text\/css/], ['/icon.svg', /image\/svg\+xml/], ['/apple-touch-icon.png', /image\/png/], ['/icon-512.png', /image\/png/], ['/logo.png', /image\/png/], ['/favicon.ico', /image\/x-icon/], ['/manifest.webmanifest', /application\/manifest\+json/]]) {
@@ -55,9 +56,9 @@ test('status tells the page whether the AI is on and whether messages leave the 
     statusOff.speech = { ...statusOff.speech, voices: [], default: null };
     statusOn.speech = { ...statusOn.speech, voices: [], default: null };
     assert.deepEqual(statusOff,
-      { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-07d', privacy_version: '2026-10-07a' }, plans: true, library: true, projects: true, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
+      { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-07d', privacy_version: '2026-10-07a' }, plans: true, library: true, projects: true, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
     assert.deepEqual(statusOn,
-      { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-07d', privacy_version: '2026-10-07a' }, plans: true, library: true, projects: true, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
+      { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-07d', privacy_version: '2026-10-07a' }, plans: true, library: true, projects: true, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
   } finally { await a.close(); await b.close(); }
 });
 

@@ -72,8 +72,10 @@ export function createSupabaseAuth({ url, publishableKey, fetchImpl = fetch, tim
 
   return {
     // Sends a sign-in code by email; creates the account on first sign-in.
-    async sendCode(email) {
-      const r = await call('otp', { email, create_user: true });
+    async sendCode(email, captchaToken) {
+      const body = { email, create_user: true };
+      if (captchaToken) body.captcha_token = captchaToken;
+      const r = await call('otp', body);
       if (r.ok) return;
       if (r.status === 429) throw new HttpError(429, 'rate_limited', 'Too many codes were sent. Please wait a few minutes and try again.', { retryAfter: 60 });
       if (r.status >= 500) throw unavailable();

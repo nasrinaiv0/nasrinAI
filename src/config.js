@@ -357,6 +357,11 @@ export function loadConfig(env = process.env) {
     warnings.push(`${name}: use true or false. It is off until this is fixed.`);
     return false;
   };
+  const turnstileSiteKey = String(env.TURNSTILE_SITE_KEY || '').trim();
+  const turnstileSecretKey = String(env.TURNSTILE_SECRET_KEY || '').trim();
+  if (Boolean(turnstileSiteKey) !== Boolean(turnstileSecretKey)) throw new ConfigError('set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together');
+  if (turnstileSiteKey.length > 256 || turnstileSecretKey.length > 4096) throw new ConfigError('Turnstile keys exceed the allowed length');
+
   const canSignIn = Boolean(supabaseUrl && supabasePublishableKey);
   const authEmail = canSignIn && softFlag('AUTH_EMAIL', env.AUTH_EMAIL, 'true');
   let authGoogle = softFlag('AUTH_GOOGLE', env.AUTH_GOOGLE, 'false');
@@ -530,6 +535,7 @@ export function loadConfig(env = process.env) {
     retentionCronSecret,
     publicUrl,
     auth: Object.freeze({ email: authEmail, google: authGoogle }),
+    turnstile: Object.freeze({ siteKey: turnstileSiteKey, secretKey: turnstileSecretKey }),
     plans: Object.freeze({
       enabled: plansEnabled,
       periodDays: 30,

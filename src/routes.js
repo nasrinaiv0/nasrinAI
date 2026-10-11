@@ -1190,6 +1190,7 @@ return { body: { sites: await connect.list(caller) } }; }
           images: images && images.available ? { available: true, per_guest: config.images.perGuest, per_user_day: config.images.perUserDay } : { available: false },
           videos: videos && videos.available ? { available: true, ultra_only: true, max_seconds: config.video.maxSeconds } : { available: false },
           sign_in: { email: Boolean(auth) && config.auth.email, google: Boolean(auth) && config.auth.google },
+          turnstile: { site_key: config.turnstile?.siteKey || null },
           guest_session_hours: Math.round(config.guestTtlSeconds / 3600),
           speech: {
             available: Boolean(voice && voice.available),

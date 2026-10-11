@@ -3,10 +3,11 @@
 
 export const PAGE_CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' https://challenges.cloudflare.com",
   "style-src 'self'",
   "img-src 'self' data: blob:",
-  "connect-src 'self'",
+  "connect-src 'self' https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'none'",
