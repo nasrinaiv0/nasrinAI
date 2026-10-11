@@ -611,6 +611,7 @@ export function loadConfig(env = process.env) {
       // Tier-aware realtime routing. Quick/Pro prefer Gemini Live when configured;
       // Max/Ultra stay on OpenAI Realtime. Normal tier authorization remains mandatory.
       realtime: Object.freeze({
+        tokensPerMinute: toInt('REALTIME_TOKEN_RESERVE_PER_MINUTE', env.REALTIME_TOKEN_RESERVE_PER_MINUTE, 10000, 1, 1000000),
         enabled: String(env.REALTIME_VOICE_ENABLED ?? 'true').toLowerCase() !== 'false'
           && (Boolean(env.OPENAI_API_KEY) || Boolean(geminiKey)),
         tiers: Object.freeze({
