@@ -2511,6 +2511,8 @@
     if (turnstileWidgetId === null) {
       turnstileWidgetId = window.turnstile.render('#turnstileWidget', {
         sitekey: turnstileSiteKey,
+        // Keep the widget out of the way unless Cloudflare actually needs interaction.
+        appearance: 'interaction-only',
         callback: (token) => { turnstileToken = token; },
         'expired-callback': () => { turnstileToken = ''; },
         'error-callback': () => { turnstileToken = ''; }
@@ -2522,9 +2524,16 @@
     if (!turnstileSiteKey) return '';
     if (!turnstileToken) throw new Error('Complete the security check first.');
     const token = turnstileToken;
+    // A Turnstile token is single-use. Consume it here, but don't reset the
+    // widget until the protected request finishes; resetting here immediately
+    // starts another verification while the current request is still running.
+    turnstileToken = '';
+    return token;
+  }
+
+  function resetCaptchaWidget() {
     turnstileToken = '';
     if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
-    return token;
   }
 
   function renderAccount() {
@@ -3476,6 +3485,7 @@
     } catch (err) {
       signinStatus.textContent = err.message;
     } finally {
+      resetCaptchaWidget();
       $('emailBtn').disabled = false;
     }
   });
@@ -3492,6 +3502,8 @@
     } catch (err) {
       signinStatus.textContent = err.message;
       $('googleBtn').disabled = false;
+    } finally {
+      resetCaptchaWidget();
     }
   });
 
