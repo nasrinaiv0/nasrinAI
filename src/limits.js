@@ -43,7 +43,7 @@ export function manilaWeekStart(nowMs = Date.now()) {
 // token ceiling; platform/tenant and hourly abuse controls still apply.
 export async function userWeeklyTokenLimit(caller, { limits, plans = null, store = null, now = () => Date.now() }) {
   if (caller.actor.type !== 'user') return 0;
-  if (!plans) return limits.userDailyTokens;
+  if (!plans) return 0;
   try {
     const current = await plans.current(caller, { fresh: true });
     if (!current || current.open) return 0;
