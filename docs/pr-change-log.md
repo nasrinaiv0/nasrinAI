@@ -200,3 +200,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Logs contain only a fixed reason category; CAPTCHA tokens, Turnstile secrets, and provider response payloads are never logged.
 - This is diagnostic instrumentation only. It does not bypass CAPTCHA verification or change DNS, OAuth redirects, production secrets, or database state.
 - Validation required: run the focused auth tests and full CI, then test the deployed sign-in flow and inspect the corresponding Vercel function logs before treating the issue as resolved.
+
+
+## Sign-in CAPTCHA placement
+
+- Move the existing Turnstile widget container from between Google sign-in and the email form to immediately below the email sign-in form, so the verification UI sits beneath the email action on mobile.
+- Keep the same widget element and ID; client initialization, callbacks, token submission, and server-side verification remain unchanged.
+- No DNS, authentication configuration, or unrelated layout changes.
+- Validate with CI and test both Google and email sign-in on a narrow mobile viewport before considering the change complete.
