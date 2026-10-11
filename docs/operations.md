@@ -17,13 +17,13 @@ How to run NasrinAI in production and what to do when something goes wrong.
    `020_improvement_review_deletion`, `020_nasrinai_connect_publishable_key`,
    `021_nasrinai_connect_account_owner`, `022_security_boundary`,
    `023_semantic_cache_search_path`, `024_security_definer_search_path`,
-   `025_global_spend_reservations`.
+   `025_global_spend_reservations`, `026_daily_realtime_voice_allowances`.
 3. After deploying: open `https://nasrinai.com/healthz` (should say ok), then
    `node scripts/eval/run.js --suite quality` and `--suite redteam`.
 4. Vercel → Logs: no `setting ignored` lines you did not expect. Keep `VIDEO_MAX_COST_USD` and `DAILY_BUDGET_USD`/`WEEKLY_BUDGET_USD`/`MONTHLY_BUDGET_USD` aligned with the enabled provider pricing; a video may be refused when its maximum-duration reservation does not fit.
-5. In Supabase migration history, verify that `015_daily_token_reservations`, `016_weekly_paid_token_allowances`, and `025_global_spend_reservations` are applied. Missing token RPCs block token-limited calls; a missing global USD reservation RPC blocks paid provider operations.
+5. In Supabase migration history, verify that `015_daily_token_reservations`, `016_weekly_paid_token_allowances`, `025_global_spend_reservations`, and `026_daily_realtime_voice_allowances` are applied. Missing token RPCs block token-limited calls; a missing global USD reservation RPC blocks paid provider operations.
 6. Verify Vercel's production environment variables and the active Supabase project directly in their dashboards. Repository code and a Ready preview do not prove that production secrets, migrations, payment webhook mode, or provider keys are correct.
-7. Realtime voice reserves and charges a conservative estimate before returning a short-lived credential. OpenAI sessions are capped to whole-minute durations that fit the smallest configured daily/weekly/monthly budget ceiling (defaults: 4 minutes for the $0.06/minute mini model; 1 minute for the $0.18/minute standard model). The atomic ledger still rejects sessions when actual remaining budget is insufficient. Gemini keeps a 30-minute exposure reservation because credential expiry does not prove an established session has ended; at default budgets this is refused. This is not exact per-turn billing; keep provider-side spending limits enabled and verify the rates in `config/model-prices.json`.
+7. Global estimated-spend defaults are $3 per Manila day, $21 per rolling 7 days, and $90 per rolling 30 days. Preserve the existing overall and tier-specific per-request caps, tenant protections, and rate limits. Realtime voice also requires migration `026_daily_realtime_voice_allowances`; it atomically tracks daily use per account across sessions/devices (Quick 5m, Pro 15m, Max 20m, Ultra 30m), resetting at Manila midnight. Sessions may be shortened/refused by the remaining tier allowance or USD budget. Browser-direct voice cannot report exact per-turn provider usage, so keep provider-side spending limits enabled and verify rates in `config/model-prices.json`.
 
 ## Scheduled retention
 
