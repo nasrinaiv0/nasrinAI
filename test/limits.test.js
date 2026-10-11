@@ -58,7 +58,7 @@ test('guest chat has no per-guest message quota; shared per-IP abuse limit remai
 
 test('guests have no separate token allowance; tenant ceiling still applies', async () => {
   const store = createMemoryStore();
-  const limits = { ...testConfig().limits, guestDailyTokens: 1000, userDailyTokens: 500 };
+  const limits = { ...testConfig().limits, userDailyTokens: 500 };
   const reserveDailyTokens = store.reserveDailyTokens.bind(store);
   store.reserveDailyTokens = async (args) => {
     if (args.actorType === 'guest') assert.equal(args.guestLimit, args.tenantLimit, 'guest reservations must use the tenant ceiling, not a guest-specific allowance');
@@ -123,7 +123,7 @@ test('Pro, Max and Ultra weekly token allowances are isolated and fall back to Q
  
 test('atomic reservations block concurrent overspend and settle idempotently', async () => {
   const store = createMemoryStore();
-  const limits = { ...testConfig().limits, userDailyTokens: 1000, guestDailyTokens: 1000 };
+  const limits = { ...testConfig().limits, userDailyTokens: 1000 };
   const tenant = { ...platformTenant, dailyTokenLimit: 5000 };
   const caller = { ...user('reserved-user'), tenant };
   const limiter = createLimiter({ store, limits });
