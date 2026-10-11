@@ -106,3 +106,21 @@ test('logging out requires confirmation before the sign-out action', async () =>
   assert.ok(handler.indexOf('window.confirm(') < handler.indexOf('accountBtn.click()'), 'sign-out action must occur only after confirmation');
 });
 
+
+
+test('voice settings keep provider catalogs visible when browser audio support is missing', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const renderStart = js.indexOf('function renderVoices()');
+  const renderEnd = js.indexOf("if(canDevice&&'onvoiceschanged'", renderStart);
+  assert.ok(renderStart >= 0 && renderEnd > renderStart, 'voice renderer exists');
+  const renderer = js.slice(renderStart, renderEnd);
+  assert.match(renderer, /providerRows\('openai','ChatGPT \/ OpenAI'\)/);
+  assert.match(renderer, /providerRows\('gemini','Gemini'\)/);
+  assert.doesNotMatch(renderer, /speech\.available\s*&&\s*AudioCtx/, 'catalog visibility must not depend on Web Audio support');
+  assert.match(renderer, /disabled:v\.available===false/, 'unconfigured providers remain visible but disabled');
+});
+
+test('status endpoint preserves unavailable voice catalog for Settings', async () => {
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  assert.match(routes, /available:\s*Boolean\(voice\s*&&\s*voice\.available\)[\s\S]{0,400}voices:\s*voice\s*&&\s*Array\.isArray\(voice\.voices\)\s*\?\s*voice\.voices\s*:\s*\[\]/);
+});
