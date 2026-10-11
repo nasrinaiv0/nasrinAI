@@ -1,3 +1,9 @@
+## PR — Reduce false OTP sign-in lockouts
+
+- Raises the default email-code send ceiling from 4 to 8 per address per hour and the shared IP ceiling from 10 to 20 per hour. The limits remain bounded and configurable; code-verification attempt limits are unchanged.
+- Updates `src/config.js`, `.env.example`, and `docs/sign-in.md`.
+- Validation pending: run the focused sign-in tests and full required CI before merge. Production Vercel overrides, if set, take precedence over defaults; deployment and live sign-in are not yet verified.
+
 # Pull request change log
 
 This file records the intent and outcome of repository pull requests and is updated alongside code changes. Entries describe the work at PR level; the linked PR is the source of truth for the full diff and review history.
