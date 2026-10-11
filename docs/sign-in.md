@@ -105,6 +105,6 @@ read on every request with the token check, enforced on the server. Today:
 | `AUTH_EMAIL` | `true` | Email codes on the page |
 | `AUTH_GOOGLE` | `false` | "Continue with Google" (needs `SITE_URL`) |
 | `SITE_URL` | none | The site's address, for Google's return trip |
-| `LIMIT_SIGNIN_CODES_IP_HOUR` | 10 | Codes requested per IP per hour |
-| `LIMIT_SIGNIN_CODES_EMAIL_HOUR` | 4 | Codes sent to one address per hour |
+| `LIMIT_SIGNIN_CODES_IP_HOUR` | 20 | Codes requested per IP per hour |
+| `LIMIT_SIGNIN_CODES_EMAIL_HOUR` | 8 | Codes sent to one address per hour |
 | `LIMIT_SIGNIN_TRIES_HOUR` | 10 | Code attempts per address per hour |
