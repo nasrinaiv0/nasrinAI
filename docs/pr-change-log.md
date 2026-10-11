@@ -160,3 +160,11 @@ The UI change is limited to `public/index.html`, `public/app.js`, and `public/ap
 ### Validation
 
 The original test used over-escaped regular expressions. The test is being simplified to explicit string and page-boundary assertions to avoid fragile regex escaping. Verify the repository's test command and all required CI checks after the correction; do not treat the fix as verified until those checks return results.
+
+
+## Voice-model catalog visibility audit
+
+- Keep OpenAI and Gemini voice choices in Settings whenever the server knows the catalog, even if a provider is not configured; unavailable choices must be visibly disabled and must not trigger provider requests.
+- Do not gate provider-catalog rendering on browser `AudioContext` support. Browser audio support affects playback, not whether configuration choices can be displayed.
+- The public `/v1/status` response returns the known voice catalog and a separate availability flag. It exposes no provider credentials or secret configuration.
+- Regression tests cover the rendering gate and status response shape. Verify all CI checks before merge; no production settings or secrets are changed by this UI fix.
