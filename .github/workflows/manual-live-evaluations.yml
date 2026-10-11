@@ -50,7 +50,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ inputs.confirm_live_evaluations }}
-        run: npm ci
+        run: npm install --no-package-lock --ignore-scripts
 
       - name: Run selected live suite
         if: ${{ inputs.confirm_live_evaluations }}
