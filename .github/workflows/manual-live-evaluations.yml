@@ -1,0 +1,86 @@
+name: Manual live evaluations
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which live evaluation suite to run
+        type: choice
+        required: true
+        default: quality
+        options:
+          - quality
+          - redteam
+          - both
+      confirm_live_evaluations:
+        description: I understand this sends requests to production and may incur provider costs
+        type: boolean
+        required: true
+        default: false
+
+concurrency:
+  group: manual-live-evaluations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Live ${{ inputs.suite }} evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require explicit live-test confirmation
+        if: ${{ !inputs.confirm_live_evaluations }}
+        run: |
+          echo "::error::Live evaluations were not run. Re-run this workflow and enable the explicit cost confirmation checkbox."
+          exit 1
+
+      - name: Check out repository
+        if: ${{ inputs.confirm_live_evaluations }}
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        if: ${{ inputs.confirm_live_evaluations }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        if: ${{ inputs.confirm_live_evaluations }}
+        run: npm ci
+
+      - name: Run selected live suite
+        if: ${{ inputs.confirm_live_evaluations }}
+        shell: bash
+        env:
+          EVAL_SUITE: ${{ inputs.suite }}
+        run: |
+          set -euo pipefail
+          case "$EVAL_SUITE" in
+            quality)
+              node scripts/eval/run.js --suite quality --url https://nasrinai.com
+              ;;
+            redteam)
+              node scripts/eval/run.js --suite redteam --url https://nasrinai.com
+              ;;
+            both)
+              node scripts/eval/run.js --suite quality --url https://nasrinai.com
+              node scripts/eval/run.js --suite redteam --url https://nasrinai.com
+              ;;
+            *)
+              echo "::error::Unsupported evaluation suite"
+              exit 2
+              ;;
+          esac
+
+      - name: Upload evaluation reports
+        if: ${{ always() && inputs.confirm_live_evaluations }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasrinai-live-evaluation-reports
+          path: data/eval/*.json
+          if-no-files-found: ignore
+          retention-days: 7
