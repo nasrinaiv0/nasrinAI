@@ -94,6 +94,28 @@ function requireSameSite(req) {
 
 const emailKey = (email) => createHash('sha256').update(email).digest('hex').slice(0, 32);
 
+function captchaToken(body) {
+  const token = typeof body?.captcha_token === 'string' ? body.captcha_token.trim() : '';
+  if (!token || token.length > 2048) throw new HttpError(400, 'captcha_required', 'Complete the security check and try again.');
+  return token;
+}
+
+async function verifyTurnstile(token, secretKey) {
+  if (!secretKey) return true;
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ secret: secretKey, response: token }),
+      signal: AbortSignal.timeout(5000)
+    });
+    const result = await response.json();
+    return response.ok && result?.success === true;
+  } catch {
+    return false;
+  }
+}
+
 function readEmail(body) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!EMAIL.test(email)) throw new HttpError(400, 'invalid_email', 'Enter a valid email address.');
@@ -240,9 +262,10 @@ export function authRoutes({ config, auth, limiter, logger }) {
         handler: async ({ req, body, ip }) => {
           requireSameSite(req);
           const email = readEmail(body);
+          const token = config.turnstile?.siteKey ? captchaToken(body) : '';
           await limiter.signIn(`code:ip:${ip || 'unknown'}`, limits.signInCodesIpHour);
           await limiter.signIn(`code:em:${emailKey(email)}`, limits.signInCodesEmailHour);
-          await auth.sendCode(email);
+          await auth.sendCode(email, token || undefined);
           return { body: { sent: true } };
         }
       },
@@ -273,14 +296,22 @@ export function authRoutes({ config, auth, limiter, logger }) {
     const back = (res, to) => { res.writeHead(302, { Location: to }); res.end(); };
     routes.push(
       {
-        method: 'GET',
+        method: 'POST',
         path: '/v1/auth/google/start',
         public: true,
-        handler: async ({ req, res, ip }) => {
+        body: true,
+        handler: async ({ req, res, body, ip }) => {
+          requireSameSite(req);
           await limiter.signIn(`g:ip:${ip || 'unknown'}`, limits.signInCodesIpHour * 3);
+          if (config.turnstile?.siteKey) {
+            const token = captchaToken(body);
+            if (!await verifyTurnstile(token, config.turnstile.secretKey)) {
+              throw new HttpError(400, 'captcha_failed', 'Security check failed. Please try again.');
+            }
+          }
           const { verifier, challenge } = pkcePair();
           res.appendHeader('Set-Cookie', cookie(PKCE, verifier, { path: '/v1/auth/google', maxAge: 600, sameSite: 'None' }));
-          back(res, auth.googleUrl({ redirectTo: callback, challenge }));
+          return { body: { url: auth.googleUrl({ redirectTo: callback, challenge }) } };
         }
       },
       {
