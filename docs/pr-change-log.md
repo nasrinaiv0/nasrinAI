@@ -15,6 +15,8 @@ For every future NasrinAI PR:
 
 ## Proposed PR — Turnstile sign-in protection
 
+- Initial CI surfaced three compatibility failures: the Google PKCE test still expected a GET/302 flow, the strict-CSP test expected `script-src` to contain only `'self'`, and Vercel's CDN CSP did not yet match the server CSP. Updated the test to exercise the new POST/JSON start flow, retained the narrow Turnstile CSP policy in both server and Vercel headers, and aligned the regression assertion. Re-run all CI checks before merge.
+
 | Pending | Add Cloudflare Turnstile to email OTP and Google OAuth initiation | Draft in progress | Adds paired environment configuration, explicit widget rendering, server-side verification for Google OAuth start, Supabase CAPTCHA token forwarding for email OTP, narrow CSP allowances, regression tests, and security/operations documentation. No production settings or deployment changed. CI must pass before merge. |
 
 ## Recent PR backfill
