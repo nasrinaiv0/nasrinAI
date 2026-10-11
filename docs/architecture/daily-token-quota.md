@@ -45,7 +45,7 @@ Realtime voice should default to one short sentence (normally fewer than 20 word
 
 ## Verification gates before release
 
-- Concurrent requests for one user cannot overspend the same daily allowance.
+- Concurrent requests for one paid user cannot overspend the same weekly paid-model allowance.
 - Paid users have independent weekly allowances; Quick/platform users and guests have no shared platform token ceiling; configured business-tenant ceilings remain shared within each business.
 - Plan expiration/change is read from the active subscription, not client input.
 - Manila midnight boundary and requests crossing midnight are covered.
