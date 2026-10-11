@@ -2458,7 +2458,9 @@
   let pendingEmail = '';
 
   async function loadAuthMethods() {
-    if (authMethodsLoaded) return signInMethods;
+    // /v1/status may load sign-in methods before the sign-in sheet opens.
+    // Do not skip Turnstile setup merely because those methods are already cached.
+    if (authMethodsLoaded && (!turnstileSiteKey || turnstileWidgetId !== null)) return signInMethods;
     if (!authMethodsLoading) {
       authMethodsLoading = (async () => {
         try {
@@ -5758,6 +5760,9 @@
       $('starterImage').hidden = !imagesOn;
       imageLimits = imagesOn ? { perGuest: Number(s.images.per_guest) || 0, perUserDay: Number(s.images.per_user_day) || 0 } : null;
       renderImageHint();
+      // Cache the public site key here, but render the widget only when the
+      // sign-in sheet is opened and its container is visible.
+      turnstileSiteKey = typeof s.turnstile?.site_key === 'string' ? s.turnstile.site_key : '';
       if (s.sign_in && typeof s.sign_in === 'object') {
         signInMethods = { email: s.sign_in.email === true, google: s.sign_in.google === true };
         authMethodsLoaded = true;

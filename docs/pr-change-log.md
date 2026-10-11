@@ -183,3 +183,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The first CI run exposed one outdated assertion in the existing /v1/status test: it expected an empty voice catalog and default null, although the intended fix now publishes known voice IDs and the coral default while correctly marking provider voices unavailable.
 - Updated that test to normalize only the voice-catalog fields before checking the unrelated status contract. Dedicated regression tests continue to check catalog visibility and response structure.
 - Re-run the full test suite and required CI checks before merge; this is a test expectation correction, not a rollback of the voice catalog behavior.
+
+
+## Turnstile sign-in initialization regression
+
+- Cache the public Turnstile site key when the app's initial `/v1/status` request completes.
+- Keep Turnstile widget rendering deferred until the sign-in sheet opens, so the widget is initialized inside its visible container.
+- Allow `loadAuthMethods()` to finish Turnstile setup even when sign-in methods were already cached by the initial status request. This prevents Google/email sign-in from submitting without the required CAPTCHA token.
+- No secrets, server-side verification rules, OAuth redirect URLs, database schema, or unrelated UI behavior are changed.
+- Validate with the focused regression checks and full CI before merge; production behavior is not considered fixed until a deployment is tested.
