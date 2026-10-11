@@ -127,10 +127,10 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
         actorId: id,
         reservedTokens,
         actorLimit,
-        // Guests have no separate token allowance; hourly rate limits, the
-        // shared tenant token ceiling, and global USD budgets still apply.
-        guestLimit: caller.tenant.dailyTokenLimit,
-        tenantLimit: caller.tenant.dailyTokenLimit
+        // Quick/guest platform chat has no shared token ceiling. Business tenants
+        // retain their own configured ceiling; spend and IP controls always apply.
+        guestLimit: caller.tenant.kind === 'platform' ? 0 : caller.tenant.dailyTokenLimit,
+        tenantLimit: caller.tenant.kind === 'platform' ? 0 : caller.tenant.dailyTokenLimit
       });
       if (!result?.allowed) {
         if (result?.reason === 'guest_limit') {
@@ -176,8 +176,7 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
 
       if (type === 'user') {
         // Paid-model fallback is decided by plans.planFor() from weekly usage.
-        // Quick itself has no per-user token ceiling; keep the shared tenant
-        // safety ceiling below.
+        // Quick has no per-user or platform-wide token ceiling.
         const current = plans ? await plans.current(caller) : { plan: 'free' };
         const allowance = ({ pro: limits.proWeeklyTokens, max: limits.maxWeeklyTokens, ultra: limits.ultraWeeklyTokens })[current.plan];
         if (Number.isSafeInteger(allowance) && allowance > 0) {
@@ -185,9 +184,11 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
           if (weekUsed >= allowance) logger?.info?.('paid weekly allowance exhausted; Quick fallback applies', { plan: current.plan });
         }
       }
-      const tenantUsed = await store.tokensSince({ since, tenantId: caller.tenantId });
-      if (tenantUsed >= caller.tenant.dailyTokenLimit) {
-        throw new HttpError(429, 'tenant_limit', 'This service has reached its limit for today. Please try again tomorrow.');
+      if (caller.tenant.kind !== 'platform') {
+        const tenantUsed = await store.tokensSince({ since, tenantId: caller.tenantId });
+        if (tenantUsed >= caller.tenant.dailyTokenLimit) {
+          throw new HttpError(429, 'tenant_limit', 'This service has reached its limit for today. Please try again tomorrow.');
+        }
       }
     }
   };
