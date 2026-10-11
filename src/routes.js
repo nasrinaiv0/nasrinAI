@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { REALTIME_VOICES_LIST } from './realtime.js';
 import { GEMINI_REALTIME_VOICES } from './gemini-realtime.js';
 import { issueGuestToken, newGuestId } from './auth/guest.js';
@@ -342,7 +342,7 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!store?.reserveDailyRealtimeVoice || !store?.settleDailyRealtimeVoiceReservation || !store?.releaseDailyRealtimeVoiceReservation) {
           throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice is paused because the daily allowance cannot be verified safely.');
         }
-        const voiceReservationId = crypto.randomUUID();
+        const voiceReservationId = randomUUID();
         let voiceReservation;
         try {
           const result = await store.reserveDailyRealtimeVoice({
