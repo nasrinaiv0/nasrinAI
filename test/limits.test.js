@@ -124,10 +124,13 @@ test('Pro, Max and Ultra weekly token allowances are isolated and fall back to Q
  
 test('atomic reservations block concurrent overspend and settle idempotently', async () => {
   const store = createMemoryStore();
-  const limits = { ...testConfig().limits, userDailyTokens: 1000 };
+  const config = testConfig({ PLANS_ENABLED: 'true', PRO_WEEKLY_TOKEN_LIMIT: '1000' });
+  const limits = config.limits;
   const tenant = { ...platformTenant, dailyTokenLimit: 5000 };
   const caller = { ...user('reserved-user'), tenant };
-  const limiter = createLimiter({ store, limits });
+  const plans = createPlans({ store, config });
+  await store.addPlanPeriod({ tenantId: PLATFORM, userId: 'reserved-user', plan: 'pro', days: 30, provider: 'test' });
+  const limiter = createLimiter({ store, limits, plans });
 
   const outcomes = await Promise.allSettled([
     limiter.reserveTokens(caller, 600),
