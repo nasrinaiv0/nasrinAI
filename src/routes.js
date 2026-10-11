@@ -325,7 +325,7 @@ return { body: { sites: await connect.list(caller) } }; }
         // time, so concurrent spend or earlier usage can still reject the session.
         // Gemini's ephemeral token expiry does not prove an established browser
         // session ends at that moment; preserve the full 30-minute exposure reserve.
-        let sessionMaxSeconds = tier.maxSeconds;
+        let sessionMaxSeconds = Math.min(tier.maxSeconds, tier.dailySeconds);
         const globalBudgetCaps = [
           config.ai.routing.budget.dailyUsd,
           config.ai.routing.budget.weeklyUsd,
@@ -334,14 +334,43 @@ return { body: { sites: await connect.list(caller) } }; }
         if (tier.provider !== 'gemini' && globalBudgetCaps.length) {
           const configuredCeilingUsd = Math.min(...globalBudgetCaps);
           const affordableWholeMinutes = Math.floor(configuredCeilingUsd / perMinute);
-          sessionMaxSeconds = Math.min(tier.maxSeconds, affordableWholeMinutes * 60);
+          sessionMaxSeconds = Math.min(sessionMaxSeconds, affordableWholeMinutes * 60);
           if (sessionMaxSeconds < 60) {
             throw new HttpError(503, 'realtime_budget_unavailable', 'Realtime voice is paused because the configured global budget cannot cover one safe minute for this model.');
           }
         }
+        if (!store?.reserveDailyRealtimeVoice || !store?.settleDailyRealtimeVoiceReservation || !store?.releaseDailyRealtimeVoiceReservation) {
+          throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice is paused because the daily allowance cannot be verified safely.');
+        }
+        const voiceReservationId = crypto.randomUUID();
+        let voiceReservation;
+        try {
+          const result = await store.reserveDailyRealtimeVoice({
+            reservationId: voiceReservationId, tenantId: caller.tenantId,
+            actorType: caller.actor.type, actorId: caller.actor.id,
+            reservedSeconds: sessionMaxSeconds, dailyLimitSeconds: tier.dailySeconds
+          });
+          if (!result?.allowed || result.reservationId !== voiceReservationId || !Number.isInteger(result.reservedSeconds) || result.reservedSeconds < 1) {
+            throw new HttpError(429, 'daily_voice_limit', 'You have used today’s realtime voice allowance for this plan. It resets at midnight Manila time.');
+          }
+          voiceReservation = { id: voiceReservationId, reservedSeconds: result.reservedSeconds };
+          sessionMaxSeconds = Math.min(sessionMaxSeconds, result.reservedSeconds);
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          logger?.warn?.('daily realtime voice reservation failed', { error: err?.message });
+          throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice is paused because the daily allowance cannot be verified safely.');
+        }
+        // Gemini's credential expiry does not prove an established browser session ends
+        // at expiry, so retain the conservative 30-minute USD exposure reservation.
         const reservationSeconds = tier.provider === 'gemini' ? Math.max(tier.maxSeconds, 1800) : sessionMaxSeconds;
         const sessionCost = Math.round((perMinute * reservationSeconds / 60) * 1e6) / 1e6;
-        const spendReservation = await budget.reserveSpend({ caller, amountUsd: sessionCost, maxRequestUsd: null });
+        let spendReservation;
+        try {
+          spendReservation = await budget.reserveSpend({ caller, amountUsd: sessionCost, maxRequestUsd: null });
+        } catch (err) {
+          await store.releaseDailyRealtimeVoiceReservation({ reservationId: voiceReservation.id }).catch(() => {});
+          throw err;
+        }
         try {
           let session;
           let provider = tier.provider;
@@ -350,7 +379,7 @@ return { body: { sites: await connect.list(caller) } }; }
             session = await geminiRealtime?.session({
               model: tier.model,
               voice: voiceMap[requestedVoice] || 'Kore',
-              maxSeconds: tier.maxSeconds,
+              maxSeconds: sessionMaxSeconds,
               maxOutputTokens: choice.tier === 'ultra' ? 512 : choice.tier === 'max' ? 384 : 256,
               instructions
             });
@@ -368,11 +397,14 @@ return { body: { sites: await connect.list(caller) } }; }
             });
             if (!session) throw new Error('OpenAI realtime is unavailable.');
           }
+          const voiceSettled = await store.settleDailyRealtimeVoiceReservation({ reservationId: voiceReservation.id });
+          if (!voiceSettled) throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice usage could not be reconciled safely.');
           await budget.settleSpend(spendReservation, sessionCost);
           await usageLog?.record?.(caller, { provider, model: tier.model, outcome: 'ok', task: 'realtime', latencyMs: now() - started,
             costUsd: sessionCost, spendReservationId: spendReservation.id });
           return { body: { ...session, provider, tier: choice.tier, effort: tier.effort, voices: provider === 'gemini' ? GEMINI_REALTIME_VOICES : REALTIME_VOICES_LIST, max_seconds: tier.provider === 'gemini' ? tier.maxSeconds : sessionMaxSeconds } };
         } catch (err) {
+          await store.releaseDailyRealtimeVoiceReservation({ reservationId: voiceReservation.id }).catch(() => {});
           await budget.releaseSpend(spendReservation).catch(() => {});
           if (err instanceof HttpError && err.code === 'budget_reached') throw err;
           logger?.warn?.('realtime session failed', { kind: err?.kind, provider: tier.provider, model: tier.model });
