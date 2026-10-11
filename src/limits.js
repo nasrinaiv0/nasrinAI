@@ -124,7 +124,9 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
         actorId: id,
         reservedTokens,
         actorLimit,
-        guestLimit: limits.guestDailyTokens,
+        // Guests have no separate token allowance; hourly rate limits, the
+        // shared tenant token ceiling, and global USD budgets still apply.
+        guestLimit: 0,
         tenantLimit: caller.tenant.dailyTokenLimit
       });
       if (!result?.allowed) {
@@ -169,12 +171,6 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       const since = manilaDayStart(now());
       const { type, id } = caller.actor;
 
-      if (type === 'guest' && caller.tenantId === PLATFORM_TENANT_ID) {
-        const used = await store.tokensSince({ since, tenantId: PLATFORM_TENANT_ID, actorType: 'guest' });
-        if (used >= limits.guestDailyTokens) {
-          throw new HttpError(429, 'guest_limit', 'Guest chat has reached its limit for today. Sign in to keep chatting.');
-        }
-      }
       if (type === 'user') {
         // Paid-model fallback is decided by plans.planFor() from weekly usage.
         // Quick itself has no per-user token ceiling; keep the shared tenant
