@@ -165,7 +165,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!r || typeof r.allowed !== 'boolean' || (r.reason !== null && typeof r.reason !== 'string')) {
         throw new UpstreamError('reserve_daily_realtime_voice returned an unexpected shape');
       }
-      return { allowed: r.allowed, reason: r.reason, reservationId: r.reservation_id || null, usedSeconds: Number(r.used_seconds || 0) };
+      return { allowed: r.allowed, reason: r.reason, reservationId: r.reservation_id || null, usedSeconds: Number(r.used_seconds || 0), reservedSeconds: Number(r.reserved_seconds || 0) };
     },
 
     async settleDailyRealtimeVoiceReservation({ reservationId }) {
