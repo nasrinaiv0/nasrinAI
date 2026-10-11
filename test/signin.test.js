@@ -143,9 +143,10 @@ test('codes are limited per address and checked', async () => {
 test('Google: PKCE start, callback sets the session, failures go back to the page', async () => {
   const { url, close, sb } = await setup({ AUTH_GOOGLE: 'true', SITE_URL: 'https://nasrinai.com' });
   try {
-    const start = await fetch(url + '/v1/auth/google/start', { redirect: 'manual' });
-    assert.equal(start.status, 302);
-    const to = new URL(start.headers.get('location'));
+    const start = await postJson(url + '/v1/auth/google/start', {}, same(url));
+    assert.equal(start.status, 200);
+    const startBody = await start.json();
+    const to = new URL(startBody.url);
     assert.equal(to.origin + to.pathname, SB + '/auth/v1/authorize');
     assert.equal(to.searchParams.get('provider'), 'google');
     assert.equal(to.searchParams.get('redirect_to'), 'https://nasrinai.com/v1/auth/google/callback');
