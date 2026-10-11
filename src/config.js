@@ -657,7 +657,6 @@ export function loadConfig(env = process.env) {
       userMessagesHour: toInt('LIMIT_USER_MESSAGES_HOUR', env.LIMIT_USER_MESSAGES_HOUR, 60, 1, 5000),
       serviceMessagesHour: toInt('LIMIT_SERVICE_MESSAGES_HOUR', env.LIMIT_SERVICE_MESSAGES_HOUR, 600, 1, 100000),
       ipMessagesHour: toInt('LIMIT_IP_MESSAGES_HOUR', env.LIMIT_IP_MESSAGES_HOUR, 120, 1, 10000),
-      guestDailyTokens: toInt('GUEST_DAILY_TOKEN_CEILING', env.GUEST_DAILY_TOKEN_CEILING, 200000, 0, 100000000),
       // Weekly paid-plan allowances; 0 means no per-user token ceiling (Quick remains available).
       userDailyTokens: toInt('USER_DAILY_TOKEN_LIMIT', env.USER_DAILY_TOKEN_LIMIT, 100000, 0, 100000000),
       proWeeklyTokens: toInt('PRO_WEEKLY_TOKEN_LIMIT', env.PRO_WEEKLY_TOKEN_LIMIT, 1000000, 0, 100000000),
