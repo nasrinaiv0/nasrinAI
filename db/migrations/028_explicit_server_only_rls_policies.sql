@@ -44,8 +44,10 @@ begin
     'usage_events',
     'user_memories'
   ] loop
+    -- Some deployments have optional feature tables that are absent from a clean
+    -- migration replay. Harden them when present; do not fail fresh installs.
     if to_regclass(format('public.%I', t)) is null then
-      raise exception 'Expected server-only table public.% is missing', t;
+      continue;
     end if;
 
     execute format('REVOKE ALL PRIVILEGES ON TABLE public.%I FROM PUBLIC, anon, authenticated', t);
