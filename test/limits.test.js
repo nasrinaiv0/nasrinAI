@@ -56,12 +56,15 @@ test('guest chat has no per-guest message quota; shared per-IP abuse limit remai
   for (let i = 0; i < 5; i++) await limiter.message(service, '1.1.1.1');
 });
 
-test('guests have no separate token allowance; tenant ceiling still applies', async () => {
+test('Quick and guests have no shared platform token ceiling; business tenant ceiling remains', async () => {
   const store = createMemoryStore();
-  const limits = { ...testConfig().limits, userDailyTokens: 500 };
+  const limits = { ...testConfig().limits, guestDailyTokens: 1000, userDailyTokens: 500 };
   const reserveDailyTokens = store.reserveDailyTokens.bind(store);
   store.reserveDailyTokens = async (args) => {
-    if (args.actorType === 'guest') assert.equal(args.guestLimit, args.tenantLimit, 'guest reservations must use the tenant ceiling, not a guest-specific allowance');
+    if (args.tenantId === PLATFORM) {
+      assert.equal(args.tenantLimit, 0, 'platform tenant token ceiling is disabled');
+      assert.equal(args.guestLimit, 0, 'platform guests have no shared guest token ceiling');
+    }
     return reserveDailyTokens(args);
   };
   const limiter = createLimiter({ store, limits });
@@ -69,21 +72,19 @@ test('guests have no separate token allowance; tenant ceiling still applies', as
   await limiter.budget(guest('a'));
   await store.recordUsage(usage(guest('a'), 600));
   await store.recordUsage(usage(guest('b'), 400));
-  await limiter.budget(guest('c')); // No guest-specific token quota.
-  const reservation = await limiter.reserveTokens(guest('reserve-test'), 2000);
-  assert.ok(reservation.id, 'guest reservation is allowed below the tenant ceiling even above the old guest allowance');
+  await limiter.budget(guest('c'));
+  const reservation = await limiter.reserveTokens(guest('reserve-test'), 2_000);
+  assert.ok(reservation.id, 'guest reservations are not blocked by a shared token ceiling');
   await limiter.releaseTokens(reservation);
 
-  const tinyTenant = { kind: 'platform', dailyTokenLimit: 1000 };
-  const cappedGuest = guest('d', PLATFORM, tinyTenant);
-  await assert.rejects(limiter.budget(cappedGuest), { code: 'tenant_limit' }, 'shared tenant ceiling remains active');
+  const platformUser = user('quick-over-limit');
+  await store.recordUsage(usage(platformUser, 2_000_000));
+  await limiter.budget(platformUser);
+  const quickReservation = await limiter.reserveTokens(platformUser, 2_000);
+  assert.ok(quickReservation.id, 'Quick remains available after high shared platform token usage');
+  await limiter.releaseTokens(quickReservation);
 
-  await limiter.budget(user('u1'));
-  await store.recordUsage(usage(user('u1'), 500));
-  await limiter.budget(user('u1')); // Quick has unlimited per-user chat; tenant ceiling still applies.
-  await limiter.budget(user('u2'));
-
-  // a business's widget guests are bounded by that business's own limit
+  // Business tenants retain their configured ceiling for hosted/widget guests.
   const bizTenant = { kind: 'business', dailyTokenLimit: 100 };
   await limiter.budget(guest('w1', BIZ_TENANT, bizTenant));
   await store.recordUsage(usage(guest('w1', BIZ_TENANT, bizTenant), 100));
