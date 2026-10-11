@@ -75,7 +75,7 @@ test('default global budgets permit Quick realtime up to its five-minute daily a
 });
 
 
-test('Quick realtime allowance is cumulative across repeated sessions and returns the remaining daily cap', async () => {
+test('Quick realtime allowance is cumulative across repeated sessions and blocks after exhaustion', async () => {
   let calls = 0;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
@@ -92,6 +92,26 @@ test('Quick realtime allowance is cumulative across repeated sessions and return
     assert.equal(second.status, 429);
     assert.equal((await second.json()).error.code, 'daily_voice_limit');
     assert.equal(calls, 1, 'provider credential must not be minted after the allowance is exhausted');
+  } finally {
+    await srv.close();
+  }
+});
+
+
+test('realtime voice reserves from the shared token quota before minting credentials', async () => {
+  let calls = 0;
+  const built = buildTestApp({
+    provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
+    realtime: { async session() { calls++; return { value: 'must-not-escape' }; } },
+    env: { GUEST_DAILY_TOKEN_CEILING: '10000' }
+  });
+  const srv = await serve(built.app);
+  try {
+    const token = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
+    const response = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
+    assert.equal(response.status, 429);
+    assert.equal((await response.json()).error.code, 'guest_limit');
+    assert.equal(calls, 0, 'provider credentials must not be minted when the shared token quota cannot reserve voice capacity');
   } finally {
     await srv.close();
   }
