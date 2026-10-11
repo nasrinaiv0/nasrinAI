@@ -216,3 +216,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Never log the authorization code, PKCE verifier, cookies, or provider secrets.
 - This makes the existing callback early-return path observable without changing OAuth validation, cookie policy, CAPTCHA verification, or redirect behavior.
 - Validate with focused auth tests and full CI before merge; then inspect the production callback log to select any further fix based on evidence.
+
+
+## Email sign-in CAPTCHA/upstream error handling
+
+- Preserve a constrained upstream status and error-code category for email OTP rejection so production logs can distinguish a CAPTCHA rejection from other email-send failures.
+- Map upstream errors explicitly mentioning CAPTCHA/Turnstile to a safe security-check message rather than the generic email-delivery message.
+- Logs never include the email address, CAPTCHA token, CAPTCHA secret, raw upstream response, or provider message text.
+- This does not bypass CAPTCHA or change production configuration. Validate with focused auth tests and full CI before merge; if Supabase rejects the token, verify its CAPTCHA provider configuration against the Cloudflare Turnstile secret.
