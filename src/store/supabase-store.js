@@ -154,6 +154,36 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       return value;
     },
 
+    async reserveDailyRealtimeVoice({ reservationId, tenantId, actorType, actorId, reservedSeconds, dailyLimitSeconds }) {
+      const rows = await request('POST', 'rpc/reserve_daily_realtime_voice', {
+        body: {
+          p_reservation_id: reservationId, p_tenant: tenantId, p_actor_type: actorType, p_actor_id: actorId,
+          p_reserved_seconds: reservedSeconds, p_daily_limit_seconds: dailyLimitSeconds
+        }
+      });
+      const r = Array.isArray(rows) ? rows[0] : rows;
+      if (!r || typeof r.allowed !== 'boolean' || (r.reason !== null && typeof r.reason !== 'string')) {
+        throw new UpstreamError('reserve_daily_realtime_voice returned an unexpected shape');
+      }
+      return { allowed: r.allowed, reason: r.reason, reservationId: r.reservation_id || null, usedSeconds: Number(r.used_seconds || 0) };
+    },
+
+    async settleDailyRealtimeVoiceReservation({ reservationId }) {
+      const value = await request('POST', 'rpc/settle_daily_realtime_voice', {
+        body: { p_reservation_id: reservationId }
+      });
+      if (typeof value !== 'boolean') throw new UpstreamError('settle_daily_realtime_voice returned an unexpected shape');
+      return value;
+    },
+
+    async releaseDailyRealtimeVoiceReservation({ reservationId }) {
+      const value = await request('POST', 'rpc/release_daily_realtime_voice', {
+        body: { p_reservation_id: reservationId }
+      });
+      if (typeof value !== 'boolean') throw new UpstreamError('release_daily_realtime_voice returned an unexpected shape');
+      return value;
+    },
+
     async reserveGlobalSpend({ reservationId, kind, tenantId, actorType, actorId, reservedUsd, dailyLimit, weeklyLimit, monthlyLimit, maxRequestUsd = null }) {
       const rows = await request('POST', 'rpc/reserve_global_spend', {
         body: {
