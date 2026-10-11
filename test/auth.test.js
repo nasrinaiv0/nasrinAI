@@ -75,6 +75,9 @@ test('config: production needs every secret, and keys cannot be swapped', () => 
     SUPABASE_PUBLISHABLE_KEY: jwt('anon'), SUPABASE_SECRET_KEY: jwt('service_role'), GUEST_SESSION_SECRET: 'z'.repeat(32), CRON_SECRET: 'c'.repeat(32)
   };
   assert.equal(loadConfig(good).supabaseUrl, 'https://abc.supabase.co');
+  assert.throws(() => loadConfig({ ...good, TURNSTILE_SITE_KEY: 'site-only' }), /TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together/);
+  assert.throws(() => loadConfig({ ...good, TURNSTILE_SECRET_KEY: 'secret-only' }), /TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together/);
+  assert.deepEqual(loadConfig({ ...good, TURNSTILE_SITE_KEY: 'public-site-key', TURNSTILE_SECRET_KEY: 'private-secret-key' }).turnstile, { siteKey: 'public-site-key', secretKey: 'private-secret-key' });
   assert.equal(loadConfig({ ...good, SUPABASE_URL: 'https://abc.supabase.co/rest/v1/' }).supabaseUrl, 'https://abc.supabase.co');
   assert.throws(() => loadConfig({ ...good, SUPABASE_PUBLISHABLE_KEY: jwt('service_role') }), /secret key/);
   assert.throws(() => loadConfig({ ...good, SUPABASE_SECRET_KEY: 'sb_publishable_x' }), /public key/);
