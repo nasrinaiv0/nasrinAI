@@ -2449,6 +2449,10 @@
   const codeInput = $('code');
   const signinStatus = $('signinStatus');
   let signInMethods = { email: false, google: false };
+  let turnstileSiteKey = '';
+  let turnstileWidgetId = null;
+  let turnstileToken = '';
+  let turnstileReady = null;
   let authMethodsLoaded = false;
   let authMethodsLoading = null;
   let pendingEmail = '';
@@ -2461,6 +2465,11 @@
           const resp = await net('/v1/status');
           if (!resp.ok) throw new Error('status');
           const s = await resp.json();
+          turnstileSiteKey = typeof s.turnstile?.site_key === 'string' ? s.turnstile.site_key : '';
+          if (turnstileSiteKey) {
+            $('turnstileWidget').hidden = false;
+            await setupTurnstile();
+          }
           if (s.sign_in && typeof s.sign_in === 'object') {
             signInMethods = {
               email: s.sign_in.email === true,
@@ -2480,6 +2489,40 @@
       })();
     }
     return authMethodsLoading;
+  }
+
+  async function setupTurnstile() {
+    if (!turnstileSiteKey) return;
+    if (!turnstileReady) {
+      turnstileReady = new Promise((resolve, reject) => {
+        if (window.turnstile) { resolve(); return; }
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Security check could not load. Please refresh and try again.'));
+        document.head.append(script);
+      });
+    }
+    await turnstileReady;
+    if (turnstileWidgetId === null) {
+      turnstileWidgetId = window.turnstile.render('#turnstileWidget', {
+        sitekey: turnstileSiteKey,
+        callback: (token) => { turnstileToken = token; },
+        'expired-callback': () => { turnstileToken = ''; },
+        'error-callback': () => { turnstileToken = ''; }
+      });
+    }
+  }
+
+  function getCaptchaToken() {
+    if (!turnstileSiteKey) return '';
+    if (!turnstileToken) throw new Error('Complete the security check first.');
+    const token = turnstileToken;
+    turnstileToken = '';
+    if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+    return token;
   }
 
   function renderAccount() {
@@ -3420,7 +3463,8 @@
     $('emailBtn').disabled = true;
     signinStatus.textContent = 'Sending…';
     try {
-      await postAuth('/v1/auth/email/start', { email });
+      const captcha_token = getCaptchaToken();
+      await postAuth('/v1/auth/email/start', { email, ...(captcha_token ? { captcha_token } : {}) });
       pendingEmail = email;
       $('codeLabel').textContent = `Enter the code we sent to ${email}`;
       setSigninStep('code');
@@ -3431,6 +3475,21 @@
       signinStatus.textContent = err.message;
     } finally {
       $('emailBtn').disabled = false;
+    }
+  });
+
+  $('googleBtn').addEventListener('click', async () => {
+    $('googleBtn').disabled = true;
+    signinStatus.textContent = 'Starting Google sign-in…';
+    try {
+      const captcha_token = getCaptchaToken();
+      const result = await postAuth('/v1/auth/google/start', captcha_token ? { captcha_token } : {});
+      const target = typeof result.url === 'string' ? new URL(result.url) : null;
+      if (!target || target.protocol !== 'https:' || target.pathname !== '/auth/v1/authorize') throw new Error('Google sign-in is temporarily unavailable.');
+      window.location.assign(target.href);
+    } catch (err) {
+      signinStatus.textContent = err.message;
+      $('googleBtn').disabled = false;
     }
   });
 
