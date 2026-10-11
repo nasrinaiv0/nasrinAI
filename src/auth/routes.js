@@ -304,8 +304,17 @@ export function authRoutes({ config, auth, limiter, logger }) {
           requireSameSite(req);
           await limiter.signIn(`g:ip:${ip || 'unknown'}`, limits.signInCodesIpHour * 3);
           if (config.turnstile?.siteKey) {
-            const token = captchaToken(body);
+            let token;
+            try {
+              token = captchaToken(body);
+            } catch (err) {
+              // Log only the failure category; never log a CAPTCHA token or secret.
+              logger.warn('google sign-in CAPTCHA rejected', { reason: 'missing_or_invalid_token' });
+              throw err;
+            }
             if (!await verifyTurnstile(token, config.turnstile.secretKey)) {
+              // Keep diagnostics secret-safe while distinguishing server verification failures.
+              logger.warn('google sign-in CAPTCHA rejected', { reason: 'verification_failed' });
               throw new HttpError(400, 'captcha_failed', 'Security check failed. Please try again.');
             }
           }
