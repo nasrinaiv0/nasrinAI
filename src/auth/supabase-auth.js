@@ -79,7 +79,13 @@ export function createSupabaseAuth({ url, publishableKey, fetchImpl = fetch, tim
       if (r.ok) return;
       if (r.status === 429) throw new HttpError(429, 'rate_limited', 'Too many codes were sent. Please wait a few minutes and try again.', { retryAfter: 60 });
       if (r.status >= 500) throw unavailable();
-      throw new HttpError(400, 'email_not_sent', 'We could not send a code to that address. Check it and try again.');
+      const rawCode = typeof r.data?.error_code === 'string' ? r.data.error_code : typeof r.data?.code === 'string' ? r.data.code : '';
+      const providerCode = /^[a-zA-Z0-9_-]{1,48}$/.test(rawCode) ? rawCode : 'unknown';
+      const providerText = [r.data?.msg, r.data?.message, r.data?.error_description].filter((v) => typeof v === 'string').join(' ');
+      if (/captcha|turnstile/i.test(providerCode) || /captcha|turnstile/i.test(providerText)) {
+        throw new HttpError(400, 'captcha_failed', 'Security check failed. Please refresh the page and try again.', { upstreamStatus: r.status, upstreamCode: providerCode });
+      }
+      throw new HttpError(400, 'email_not_sent', 'We could not send a code to that address. Check it and try again.', { upstreamStatus: r.status, upstreamCode: providerCode });
     },
 
     async verifyCode(email, code) {
