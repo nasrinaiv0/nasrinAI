@@ -40,9 +40,13 @@ declare
     'usage_events',
     'user_memories'
   ];
-  policy_count integer;
 begin
   foreach t in array tables loop
+    -- Optional feature tables may not exist in a clean migration replay.
+    if to_regclass(format('public.%I', t)) is null then
+      continue;
+    end if;
+
     if not exists (
       select 1 from pg_catalog.pg_class c
       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
