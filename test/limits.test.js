@@ -159,7 +159,7 @@ test('if the counters cannot be read, the request is refused (fail closed)', asy
   const limiter = createLimiter({ store: broken, limits: testConfig().limits });
   await assert.rejects(limiter.guestSession('1.1.1.1'), UpstreamError);
   await assert.rejects(limiter.message(guest(), '1.1.1.1'), UpstreamError);
-  await assert.rejects(limiter.budget(guest()), UpstreamError);
+  await assert.rejects(limiter.budget(guest('broken-db', BIZ_TENANT, { kind: 'business', dailyTokenLimit: 1000 })), UpstreamError);
 });
 
 test('usage records hold numbers, not text; a failed write is logged, not thrown', async () => {
