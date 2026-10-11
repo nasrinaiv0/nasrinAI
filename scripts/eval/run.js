@@ -56,12 +56,37 @@ export async function runSuite({ suite, url, key = null, fetchImpl = fetch, log 
   for (const c of suite.cases) {
     const r = await fetchImpl(url + '/v1/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ message: c.message }) });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) { results.push({ id: c.id, ok: false, fails: [`HTTP ${r.status} ${data?.error?.code || ''}`.trim()] }); log(`✗ ${c.id}: HTTP ${r.status}`); continue; }
+    if (!r.ok) {
+      const code = String(data?.error?.code || 'unknown').slice(0, 80);
+      const requestId = String(data?.request_id || r.headers.get('x-request-id') || '').slice(0, 100);
+      const retryAfter = String(r.headers.get('retry-after') || '').slice(0, 80);
+      const diagnostic = {
+        status: r.status,
+        code,
+        ...(requestId ? { request_id: requestId } : {}),
+        ...(retryAfter ? { retry_after: retryAfter } : {})
+      };
+      results.push({
+        id: c.id, ok: false, ...diagnostic,
+        fails: [`HTTP ${r.status} ${code}`.trim()]
+      });
+      log(`✗ ${c.id}: HTTP ${r.status} ${code}${retryAfter ? ' (Retry-After: ' + retryAfter + ')' : ''}${requestId ? ' (request ' + requestId + ')' : ''}`);
+      // A 429 means the shared/per-caller limit has been reached. Stop instead
+      // of sending more requests that are expected to fail and consume limits.
+      if (r.status === 429) {
+        results.push(...suite.cases.slice(results.length).map((pending) => ({
+          id: pending.id, ok: false, skipped: true,
+          fails: ['not run after HTTP 429 rate limit']
+        })));
+        break;
+      }
+      continue;
+    }
     const fails = grade(c, String(data.message?.content || ''));
     results.push({ id: c.id, ok: !fails.length, fails });
     log(`${fails.length ? '✗' : '✓'} ${c.id}${fails.length ? ': ' + fails.join('; ') : ''}`);
   }
-  return { suite: suite.name, url, at: new Date().toISOString(), passed: results.filter((r) => r.ok).length, total: results.length, results };
+  return { suite: suite.name, url, at: new Date().toISOString(), passed: results.filter((r) => r.ok).length, total: suite.cases.length, results };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
