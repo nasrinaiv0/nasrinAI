@@ -34,6 +34,24 @@ export async function runSuite({ suite, url, key = null, fetchImpl = fetch, log 
   const s = await fetchImpl(url + '/v1/guest/sessions', { method: 'POST', headers });
   if (!s.ok) throw new Error(`guest session failed (${s.status})`);
   const { token } = await s.json();
+  // Validate the issued temporary guest credential before spending any provider
+  // calls. If auth is broken, emit a report and stop instead of repeating the
+  // same 401 across every case. Never log the token itself.
+  const preflight = await fetchImpl(url + '/v1/whoami', {
+    method: 'GET',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const preflightData = await preflight.json().catch(() => ({}));
+  if (!preflight.ok) {
+    const code = String(preflightData?.error?.code || 'unknown').slice(0, 80);
+    const requestId = String(preflightData?.request_id || '').slice(0, 100);
+    log(`✗ guest-auth-preflight: HTTP ${preflight.status} ${code}${requestId ? ' (request ' + requestId + ')' : ''}`);
+    return {
+      suite: suite.name, url, at: new Date().toISOString(), passed: 0, total: 1,
+      preflight: { status: preflight.status, code, ...(requestId ? { request_id: requestId } : {}) },
+      results: [{ id: 'guest-auth-preflight', ok: false, fails: [`HTTP ${preflight.status} ${code}`.trim()] }]
+    };
+  }
   const results = [];
   for (const c of suite.cases) {
     const r = await fetchImpl(url + '/v1/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ message: c.message }) });
