@@ -265,7 +265,19 @@ export function authRoutes({ config, auth, limiter, logger }) {
           const token = config.turnstile?.siteKey ? captchaToken(body) : '';
           await limiter.signIn(`code:ip:${ip || 'unknown'}`, limits.signInCodesIpHour);
           await limiter.signIn(`code:em:${emailKey(email)}`, limits.signInCodesEmailHour);
-          await auth.sendCode(email, token || undefined);
+          try {
+            await auth.sendCode(email, token || undefined);
+          } catch (err) {
+            // Log only status and a constrained provider error code, never email or CAPTCHA data.
+            if (err?.code === 'email_not_sent' || err?.code === 'captcha_failed') {
+              logger.warn('email sign-in code rejected', {
+                reason: err.code,
+                upstreamStatus: Number.isInteger(err.extra?.upstreamStatus) ? err.extra.upstreamStatus : undefined,
+                upstreamCode: typeof err.extra?.upstreamCode === 'string' ? err.extra.upstreamCode : 'unknown'
+              });
+            }
+            throw err;
+          }
           return { body: { sent: true } };
         }
       },
