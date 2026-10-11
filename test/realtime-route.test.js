@@ -54,7 +54,7 @@ test('realtime session refuses to mint credentials when its maximum-duration res
 });
 
 
-test('default global budget caps OpenAI Quick realtime to four minutes', async () => {
+test('default global budgets permit Quick realtime up to its five-minute daily allowance', async () => {
   let receivedOptions;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
@@ -66,9 +66,32 @@ test('default global budget caps OpenAI Quick realtime to four minutes', async (
     const response = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(receivedOptions.maxSeconds, 240);
-    assert.equal(body.max_seconds, 240);
-    assert.ok(0.06 * (body.max_seconds / 60) <= 0.25, 'reservation fits the default daily ceiling');
+    assert.equal(receivedOptions.maxSeconds, 300);
+    assert.equal(body.max_seconds, 300);
+    assert.ok(0.06 * (body.max_seconds / 60) <= 3, 'reservation fits the configured $3 default daily ceiling');
+  } finally {
+    await srv.close();
+  }
+});
+
+
+test('Quick realtime allowance is cumulative across repeated sessions and returns the remaining daily cap', async () => {
+  let calls = 0;
+  const built = buildTestApp({
+    provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
+    realtime: { async session(opts) { calls++; return { value: 'ephemeral-test', model: opts.model, maxSeconds: opts.maxSeconds }; } }
+  });
+  const srv = await serve(built.app);
+  try {
+    const token = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
+    const first = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).max_seconds, 300);
+
+    const second = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
+    assert.equal(second.status, 429);
+    assert.equal((await second.json()).error.code, 'daily_voice_limit');
+    assert.equal(calls, 1, 'provider credential must not be minted after the allowance is exhausted');
   } finally {
     await srv.close();
   }
