@@ -376,7 +376,7 @@ return { body: { sites: await connect.list(caller) } }; }
           const tokenResult = await store.reserveDailyTokens({
             reservationId: tokenReservationId, tenantId: caller.tenantId,
             actorType: caller.actor.type, actorId: caller.actor.id, reservedTokens,
-            actorLimit, guestLimit: config.limits.guestDailyTokens, tenantLimit: caller.tenant.dailyTokenLimit
+            actorLimit, guestLimit: caller.tenant.dailyTokenLimit, tenantLimit: caller.tenant.dailyTokenLimit
           });
           if (!tokenResult?.allowed || tokenResult.reservationId !== tokenReservationId) {
             const reason = tokenResult?.reason;
