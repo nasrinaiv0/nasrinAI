@@ -126,7 +126,7 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
         actorLimit,
         // Guests have no separate token allowance; hourly rate limits, the
         // shared tenant token ceiling, and global USD budgets still apply.
-        guestLimit: 0,
+        guestLimit: caller.tenant.dailyTokenLimit,
         tenantLimit: caller.tenant.dailyTokenLimit
       });
       if (!result?.allowed) {
