@@ -1,13 +1,12 @@
-# Daily token quota and realtime voice architecture
+# Token quota and realtime voice architecture
 
-## Policy
+## Current policy
 
-- Free/default signed-in allowance: `USER_DAILY_TOKEN_LIMIT`, default 100,000 tokens.
-- Max allowance: `MAX_DAILY_TOKEN_LIMIT`, default 500,000 tokens.
-- Ultra allowance: `ULTRA_DAILY_TOKEN_LIMIT`, default 2,000,000 tokens.
-- Count provider input + output tokens per authenticated user, across text and voice.
-- Reset at midnight in `Asia/Manila`.
-- Keep hourly anti-abuse limits, guest ceilings, and tenant ceilings independent.
+- Quick has no per-user token ceiling; platform users and guests do not share a tenant-wide token ceiling.
+- Pro, Max and Ultra have weekly paid-model allowances, reset Monday at midnight in `Asia/Manila`; when an allowance is exhausted, paid-model work falls back to Quick.
+- Business tenants retain their configured tenant token ceiling. Shared per-IP/hourly anti-abuse controls, global estimated-USD spend budgets, per-request cost caps, image limits and daily realtime voice-minute allowances remain separate safeguards.
+- Token usage is still recorded for accounting and abuse monitoring. Unlimited Quick chat is not unlimited provider spend.
+- Realtime voice currently uses conservative per-started-minute token reservations; because the browser connects directly to the provider, the server cannot verify every audio turn's exact token usage.
 - Resolve paid plan server-side from the active subscription. Never trust a plan/tier supplied by the browser.
 - A cache hit consumes no new provider-generation tokens; cached-token telemetry is a subset of input tokens, not an extra charge. Cache hits must still pass request and abuse limits.
 
@@ -22,7 +21,7 @@ The reservation operation must serialize quota decisions for the tenant and the 
 2. settled reservations (the authoritative token ledger for newly reserved calls);
 3. in-flight reservations that have not yet been reconciled.
 
-It must enforce the actor allowance and tenant ceiling in the same transaction, and the platform-wide guest ceiling independently. A blocked reservation must not be inserted. Database/RPC errors must fail closed.
+It must enforce paid actor allowances and configured business-tenant ceilings in the same transaction. A zero tenant limit disables the platform-wide tenant ceiling; per-IP abuse limits and the separate global USD spend ledger still apply. A blocked reservation must not be inserted. Database/RPC errors must fail closed.
 
 ### 2. Idempotent settlement
 
@@ -47,7 +46,7 @@ Realtime voice should default to one short sentence (normally fewer than 20 word
 ## Verification gates before release
 
 - Concurrent requests for one user cannot overspend the same daily allowance.
-- Two users have independent user allowances; tenant and platform guest ceilings remain shared where intended.
+- Paid users have independent weekly allowances; Quick/platform users and guests have no shared platform token ceiling; configured business-tenant ceilings remain shared within each business.
 - Plan expiration/change is read from the active subscription, not client input.
 - Manila midnight boundary and requests crossing midnight are covered.
 - Each model retry, escalation, and tool round reserves and settles independently.
@@ -58,7 +57,7 @@ Realtime voice should default to one short sentence (normally fewer than 20 word
 
 ## Current implementation status
 
-- Free/Max/Ultra plan-aware preflight checks remain, and this branch adds an atomic PostgreSQL reservation/settlement ledger for routed chat calls, legacy chat calls, web-search model calls, retries, escalations, and tool rounds.
+- Pro/Max/Ultra weekly paid-plan allowances are enforced by actor reservations; Quick and platform guests do not share a platform-wide token ceiling. Configured business-tenant ceilings remain enforced. The PostgreSQL reservation/settlement ledger covers routed chat calls, legacy chat calls, web-search model calls, retries, escalations, and tool rounds.
 - Reservations are reconciled to reported input + output usage when available. Provider failures, fallback paths, and missing usage are charged conservatively at the reserved amount. Usage events carry reservation IDs so quota accounting does not double-count them.
 - Realtime replies are shortened and provider-side output caps are configured for OpenAI Realtime and Gemini Live; Gemini Live is also wired into the runtime.
 - **Still not complete:** realtime sessions connect directly from the browser to the provider. The server cannot verify every turn's actual audio token usage. A server-controlled realtime gateway or equivalent provider-verifiable accounting path is still required before claiming strict shared daily limits across text and voice.
