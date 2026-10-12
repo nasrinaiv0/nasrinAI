@@ -871,8 +871,36 @@
       // Each image is fetched through the existing owner-checked image endpoint.
       const pics = [...text.matchAll(/^\[image:([0-9a-f-]{36})\]\s*$/gm)];
       if (pics.length && pics[0].index === 0) {
-        for (const pic of pics) el.appendChild(imageFigure(pic[1], regenerate));
-        text = text.slice(pics[pics.length - 1].index + pics[pics.length - 1][0].length).trim() || 'Here is your picture.';
+        const ids = pics.map((pic) => pic[1]);
+        text = text.slice(pics[pics.length - 1].index + pics[pics.length - 1][0].length).trim()
+          || (ids.length === 1 ? 'Here is your picture.' : 'Here are your pictures.');
+        if (ids.length > 10) {
+          const grid = document.createElement('div');
+          grid.className = 'image-gallery-grid';
+          grid.setAttribute('aria-label', 'Generated pictures');
+          let shown = 0;
+          const pageSize = 8; // eight images + the Show more tile make a 3×3 grid
+          const renderNext = () => {
+            const next = ids.slice(shown, shown + pageSize);
+            for (const imageId of next) grid.appendChild(imageFigure(imageId, regenerate, true));
+            shown += next.length;
+            const more = grid.querySelector('.image-gallery-more');
+            if (more) more.remove();
+            if (shown < ids.length) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'image-gallery-more';
+              button.textContent = 'Show more';
+              button.setAttribute('aria-label', 'Show more generated pictures');
+              button.addEventListener('click', renderNext);
+              grid.appendChild(button);
+            }
+          };
+          renderNext();
+          el.appendChild(grid);
+        } else {
+          for (const imageId of ids) el.appendChild(imageFigure(imageId, regenerate));
+        }
       } else {
         const pic = /^\[image:([0-9a-f-]{36})\]\s*/.exec(text);
         if (pic) {
@@ -1200,9 +1228,9 @@
 
   // Pictures are private: fetched with the person's credential, shown from memory.
   // `regenerate`: makes the same picture again (only while the brief is in memory).
-  function imageFigure(imageId, regenerate = null) {
+  function imageFigure(imageId, regenerate = null, compact = false) {
     const fig = document.createElement('figure');
-    fig.className = 'made-image is-loading';
+    fig.className = 'made-image is-loading' + (compact ? ' is-compact' : '');
     const img = document.createElement('img');
     img.alt = 'Picture made by Nasrin';
     const bar = document.createElement('figcaption');
