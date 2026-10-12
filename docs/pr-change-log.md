@@ -1,3 +1,9 @@
+## Proposed PR — Library only when asked (`fix/library-tag`)
+
+- **Owner report (2026-10-12):** a greeting got "From your Library: Hello again! How can I help you today?" (a saved reply matched the words).
+- **Change:** `src/library.js` uses the Library (and the reply names it) only when the person asks about their library, files, documents, notes, saved items, pictures, videos or uploads, or the chat is in a project. Privacy notice `2026-10-12g`; `docs/library.md`.
+- **Validation:** `npm test` (greeting and general question no longer use the Library; explicit and project cases still do).
+
 ## Proposed PR — Privacy and Terms update, with #265, #266 and #267 combined (`legal/oct12-update`)
 
 - **Owner request (2026-10-12):** update the Privacy Notice and Terms of Use. This branch merges #265 (research), #266 (semantic cache) and #267 (web answers) so the legal pages are updated once, consistently.

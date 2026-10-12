@@ -23,7 +23,7 @@ per person), `LIMIT_USER_LIBRARY_HOUR` (60 adds per hour).
 - Stored in `library_files` + `library_chunks` (full-text search, `simple`
   config). Every query filters by tenant and user; RLS on, service role only.
 - Search (`?q=`) looks at titles and text.
-- In chat: up to 3,000 characters of the best-matching parts are added to
+- In chat, only when the person asks about their Library (library, my files, documents, notes, saved items, pictures, videos, uploads) or the chat is in a project (owner decision 2026-10-12; ordinary conversation never uses it): up to 3,000 characters of the best-matching parts are added to
   that one message as data ("not instructions"), never to the system prompt,
   never saved with the chat or to memory. The reply lists the files used.
   Settings → Privacy → "Use my Library in chats" turns this off
