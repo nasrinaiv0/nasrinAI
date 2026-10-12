@@ -64,6 +64,70 @@
     return parent;
   }
 
+  // Status icons: outline line icons drawn here (the page loads nothing from
+  // other sites). Each row of a [[checks]] block and each status emoji at the
+  // start of a line gets one: done, failed, warning, secured, info, action.
+  const SVG = 'http://www.w3.org/2000/svg';
+  const ICONS = {
+    ok: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'm8.5 12.4 2.4 2.4 4.6-4.9'],
+    fail: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'm9.2 9.2 5.6 5.6M14.8 9.2l-5.6 5.6'],
+    warn: ['M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0z', 'M12 9.5v4M12 17v.01'],
+    secure: ['M12 3 5 6v5.6c0 4.3 2.9 8.2 7 9.4 4.1-1.2 7-5.1 7-9.4V6z', 'm9.2 12.1 2 2 3.8-4'],
+    info: ['M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18z', 'M12 11v5.5M12 7.6v.01'],
+    key: ['M7.5 11.5a4 4 0 1 1 0 8a4 4 0 1 1 0-8z', 'm10.4 12.6 8.6-8.6M16.5 6.5l2.2 2.2M14 9l2.2 2.2']
+  };
+  const STATUS = { ok: 'ok', done: 'ok', pass: 'ok', passed: 'ok', success: 'ok', fail: 'fail', failed: 'fail', error: 'fail', x: 'fail',
+    warn: 'warn', warning: 'warn', risk: 'warn', secure: 'secure', secured: 'secure', shield: 'secure', blocked: 'secure',
+    info: 'info', note: 'info', todo: 'key', action: 'key', key: 'key' };
+  const EMOJI = { '✅': 'ok', '✔️': 'ok', '✔': 'ok', '❌': 'fail', '✖️': 'fail', '⚠️': 'warn', '⚠': 'warn', '🛡️': 'secure', '🛡': 'secure', '🔒': 'secure', 'ℹ️': 'info', '🔑': 'key', '👉': 'key' };
+  function icon(kind) {
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'st-ico st-' + kind);
+    for (const d of ICONS[kind]) { const path = document.createElementNS(SVG, 'path'); path.setAttribute('d', d); svg.appendChild(path); }
+    return svg;
+  }
+  const LABEL = { ok: 'Done', fail: 'Failed', warn: 'Warning', secure: 'Secured', info: 'Note', key: 'Action needed' };
+  const EMOJI_LEAD = new RegExp('^(' + Object.keys(EMOJI).map((e) => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\s*');
+  // A line that starts with a status emoji: the emoji becomes the icon.
+  function leadIcon(parent, text) {
+    const m = EMOJI_LEAD.exec(text);
+    if (!m) return inline(parent, text);
+    const kind = EMOJI[m[1]];
+    parent.classList.add('st-line');
+    const ico = icon(kind);
+    ico.setAttribute('role', 'img');
+    ico.setAttribute('aria-label', LABEL[kind]);
+    ico.removeAttribute('aria-hidden');
+    parent.appendChild(ico);
+    return inline(parent, text.slice(m[0].length));
+  }
+  // [[checks title="Tests"]] then rows "status | item | badge" (badge optional).
+  const CHECKS_OPEN = /^\[\[checks(?:\s+title\s*=\s*"([^"\n]{0,80})")?\s*\]\]$/i;
+  function checksBlock(title, rows) {
+    const card = el('div', 'checks');
+    if (title) card.appendChild(inline(el('p', 'checks-title'), title));
+    const list = el('ul', 'checks-list');
+    for (const row of rows.slice(0, 30)) {
+      const parts = row.split('|').map((x) => x.trim());
+      const kind = STATUS[(parts[0] || '').toLowerCase()];
+      const item = kind ? parts[1] || '' : parts[0];
+      const badge = kind ? parts[2] || '' : parts[1] || '';
+      const k = kind || 'info';
+      const li = el('li', 'check st-row-' + k);
+      const ico = icon(k);
+      ico.setAttribute('role', 'img');
+      ico.setAttribute('aria-label', LABEL[k]);
+      ico.removeAttribute('aria-hidden');
+      li.append(ico, inline(el('span', 'check-text'), item));
+      if (badge) li.appendChild(el('span', 'check-badge st-badge-' + k, badge.slice(0, 40)));
+      list.appendChild(li);
+    }
+    card.appendChild(list);
+    return card;
+  }
+
   // Tables: at most 8 columns and 50 rows, cell text only (inline formatting).
   const TABLE_SEP = /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$/;
   const MAX_COLS = 8;
@@ -81,7 +145,7 @@
 
     const flushPara = () => {
       if (!para.length) return;
-      add(inline(el('p'), para.join(' ')));
+      add(leadIcon(el('p'), para.join(' ')));
       para = [];
     };
     const endList = () => { list = null; listKind = ''; };
@@ -110,6 +174,17 @@
         continue;
       }
       if (!line) { flushPara(); endList(); continue; }
+
+      // [[checks title="..."]] status rows [[/checks]]
+      const open = CHECKS_OPEN.exec(line);
+      if (open) {
+        flushPara(); endList();
+        const rows = [];
+        i++;
+        while (i < lines.length && !/^\[\[\/checks\]\]$/i.test(lines[i].trim())) { if (lines[i].trim()) rows.push(lines[i].trim()); i++; }
+        add(checksBlock(open[1] || '', rows));
+        continue;
+      }
 
       // | a | b | table: a header row, a --- separator row, then body rows.
       if (line.includes('|') && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1].trim())) {
@@ -143,7 +218,7 @@
       }
 
       let m = /^(#{1,4})\s+(.+)$/.exec(line);
-      if (m) { flushPara(); endList(); add(inline(el(m[1].length <= 2 ? 'h3' : 'h4'), m[2].replace(/\s*#+\s*$/, ''))); continue; }
+      if (m) { flushPara(); endList(); add(leadIcon(el(m[1].length <= 2 ? 'h3' : 'h4'), m[2].replace(/\s*#+\s*$/, ''))); continue; }
 
       m = /^(\d{1,3})[.)]\s+(.+)$/.exec(line);
       if (m) {
@@ -168,7 +243,7 @@
       if (m) {
         flushPara();
         if (listKind !== 'ul') { list = add(el('ul')); listKind = 'ul'; }
-        list.appendChild(inline(el('li'), m[1]));
+        list.appendChild(leadIcon(el('li'), m[1]));
         continue;
       }
 
@@ -192,6 +267,9 @@
   // Plain words for copying and reading aloud: no Markdown symbols.
   function plain(text) {
     return String(text)
+      .replace(/^\[\[checks(?:\s+title\s*=\s*"([^"\n]*)")?\s*\]\]$/gim, (_, t) => t || '')
+      .replace(/^\[\[\/checks\]\]$/gim, '')
+      .replace(/^(ok|done|pass|passed|success|fail|failed|error|x|warn|warning|risk|secure|secured|shield|blocked|info|note|todo|action|key)\s*\|\s*([^|\n]*?)\s*(?:\|\s*([^|\n]*))?$/gim, (_, k, item, badge) => '• ' + item + (badge ? ' — ' + badge : ''))
       .replace(/^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$\n?/gm, '')
       .replace(/^\|(.*)\|\s*$/gm, (row, inner) => inner.split('|').map((c) => c.trim()).join(' · '))
       .replace(/```[\s\S]*?```/g, (b) => b.replace(/```[^\n]*\n?/g, ''))

@@ -2407,31 +2407,56 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 /* Coding chat (Code in the menu): project + leave at the top right, menu at the left. */
 .coding-bar { display: flex; align-items: center; gap: 0.25rem; }
 .coding-bar[hidden] { display: none; }
-.coding-project {
-  display: inline-flex; align-items: center; gap: 0.35rem; max-width: 11.5rem; min-height: 2.25rem;
-  padding: 0 0.7rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
-  color: var(--ink); font: inherit; font-size: 0.86rem; cursor: pointer;
-}
-.coding-project svg { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.coding-project .coding-chev { width: 0.85rem; height: 0.85rem; color: var(--ink-3); }
-.coding-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coding-project svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .coding-project:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 body.coding-mode .bar-actions > :not(#codingBar) { display: none; }
 body.coding-mode #projectBar { display: none; }
-body.coding-mode .wordmark { white-space: nowrap; }
-body.coding-mode .wordmark::after { content: " Code"; color: var(--ink-3); }
 .code-picker-lede { margin: 0 0 0.6rem; }
 .code-picker-list { max-height: 45vh; overflow-y: auto; }
 .code-picker-item.is-current { background: var(--paper); }
 .code-picker-new { margin-top: 0.75rem; }
 .code-picker-row { display: flex; gap: 0.5rem; align-items: center; }
 .code-picker-row .lib-input { flex: 1; min-width: 0; margin: 0; }
-@media (max-width: 440px) {
-  body.coding-mode .wordmark::after { content: none; }
-  .coding-project { max-width: 9rem; }
-}
+
 
 /* Library glyph: one filled, theme-adaptive icon (menu, tab bar, Space), no background. */
 svg.lib-glyph, .drawer-link svg.lib-glyph, :root[data-tabbar="on"] .tab-item svg.lib-glyph { fill: currentColor; stroke: none; }
 svg.lib-glyph .lib-glyph-dim { opacity: .5; }
 #pageSpace .space-app-glyph { padding: .35rem; box-sizing: border-box; color: var(--ink); background: transparent; filter: none !important; border-radius: 0; }
+
+/* Status icons (done, failed, warning, secured, note, action) for replies:
+   outline icons, coloured by meaning, readable in light and dark. */
+:root { --st-ok: #15803d; --st-fail: #dc2626; --st-warn: #c2410c; --st-secure: #15803d; --st-info: #6b7280; --st-key: #b45309; }
+:root[data-theme="dark"] { --st-ok: #4ade80; --st-fail: #f87171; --st-warn: #fb923c; --st-secure: #4ade80; --st-info: #a1a1aa; --st-key: #fbbf24; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --st-ok: #4ade80; --st-fail: #f87171; --st-warn: #fb923c; --st-secure: #4ade80; --st-info: #a1a1aa; --st-key: #fbbf24; } }
+.st-ico { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; }
+.st-ok { color: var(--st-ok); } .st-fail { color: var(--st-fail); } .st-warn { color: var(--st-warn); }
+.st-secure { color: var(--st-secure); } .st-info { color: var(--st-info); } .st-key { color: var(--st-key); }
+.rich .st-line > .st-ico { margin-right: 0.45rem; }
+.rich h3.st-line, .rich h4.st-line { display: flex; align-items: center; gap: 0; }
+.rich .checks { padding: 0.85rem 1rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--surface); }
+.rich .checks-title { margin: 0 0 0.55rem; font-weight: 650; }
+.rich .checks-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.rich .check { display: flex; align-items: center; gap: 0.6rem; margin: 0; }
+.rich .check .st-ico { width: 1.25rem; height: 1.25rem; }
+.rich .check-text { flex: 1; min-width: 0; }
+.rich .check-badge { flex: none; padding: 0.12rem 0.55rem; border-radius: 999px; font-size: 0.78em; font-weight: 600; white-space: nowrap; background: color-mix(in srgb, currentColor 12%, transparent); }
+.st-badge-ok { color: var(--st-ok); } .st-badge-fail { color: var(--st-fail); } .st-badge-warn { color: var(--st-warn); }
+.st-badge-secure { color: var(--st-secure); } .st-badge-info { color: var(--st-info); } .st-badge-key { color: var(--st-key); }
+
+/* Coding chat: a compact, technical type scale (smaller text, plain sans
+   headings, code chips), like a developer console. */
+body.coding-mode .msg.assistant { font-family: var(--sans); font-size: 0.875rem; line-height: 1.6; }
+body.coding-mode .msg.user { font-size: 0.875rem; }
+body.coding-mode .rich h3, body.coding-mode .rich h4 { font: 650 0.95rem/1.35 var(--sans); letter-spacing: 0; }
+body.coding-mode .rich h4 { font-size: 0.9rem; }
+body.coding-mode .rich code { font-size: 0.82em; padding: 0.06rem 0.34rem; }
+body.coding-mode .rich pre code { font-size: 0.78rem; }
+body.coding-mode .rich .checks { padding: 0.75rem 0.85rem; }
+
+/* Coding chat: the project's name sits under "Nasrin" at the top center; the
+   folder button on the right switches project. */
+.brand-text { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.brand-project { max-width: 11rem; margin-top: 0.12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; line-height: 1.1; color: var(--ink-3); }
+.brand-project[hidden] { display: none; }
+body.coding-mode .brand { opacity: 1; transform: none; pointer-events: auto; }

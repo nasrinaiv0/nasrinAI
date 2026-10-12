@@ -73,3 +73,8 @@ test('prompt: creator attribution is conditional on an explicit user question', 
   assert.match(prompt, /If the user explicitly asks who created or made NasrinAI, answer that NasrinAI was created by Nasrin Abubakar/);
   assert.doesNotMatch(prompt, /your creator, is a man/);
 });
+
+test('status rows are read aloud as plain words', async () => {
+  const said = plainForSpeech('Done.\n[[checks title="Summary"]]\nok | npm test | Passed\nfail | Build\n[[/checks]]');
+  assert.equal(said, 'Done.\nSummary.\nnpm test, Passed.\nBuild.');
+});

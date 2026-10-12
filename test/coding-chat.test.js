@@ -16,6 +16,7 @@ test('the coding chat adds the coding rules and keeps code files as they are', a
     const system = provider.calls.at(-1).system;
     assert.match(system, /coding chat for the person's project/);
     assert.match(system, /cannot run code/);
+    assert.match(system, /\[\[checks title="Summary"\]\]/, 'asks for the simple status summary');
     assert.ok(r.professionals.length >= 1, 'a coding expert answered');
   } finally { await srv.close(); }
 });

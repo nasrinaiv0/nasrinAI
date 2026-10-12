@@ -9,6 +9,8 @@ import { buildSystemPrompt } from '../src/ai/prompt.js';
 function fakeDom() {
   class Node {
     constructor(tag) { this.tagName = tag; this.children = []; this.className = ''; this.dataset = {}; this.attrs = {}; this._text = ''; }
+    get classList() { return { add: (c) => { this.className = (this.className + ' ' + c).trim(); } }; }
+    removeAttribute(k) { delete this.attrs[k]; }
     appendChild(c) { if (c.isFragment) { this.children.push(...c.children); } else this.children.push(c); return c; }
     append(...cs) { for (const c of cs) this.appendChild(c); }
     setAttribute(k, v) { this.attrs[k] = String(v); }
@@ -21,6 +23,7 @@ function fakeDom() {
   }
   const document = {
     createElement: (t) => new Node(t.toUpperCase()),
+    createElementNS: (ns, t) => new Node(t.toUpperCase()),
     createTextNode: (t) => { const n = new Node('#text'); n._text = String(t); return n; },
     createDocumentFragment: () => { const n = new Node('#fragment'); n.isFragment = true; return n; }
   };
@@ -75,4 +78,38 @@ test('reply rules: tables only for comparisons, code always in a fenced block, d
   assert.match(p, /code, command, configuration or data the person may copy goes in a ``` block with its language/);
   assert.match(p, /explain simply/);
   assert.match(p, /never HTML/);
+});
+
+// 2026-10-12: coding replies end with a simple status summary; status emoji
+// become outline icons (done, failed, warning, secured, note, action).
+test('[[checks]] renders a status list with icons and badges, and reads plainly', async () => {
+  const { render, plain } = await format();
+  const text = 'Fixed.\n\n[[checks title="Summary"]]\nok | Tests (`npm test`) | Passed\nfail | Vercel preview | Failed\nsecure | Anonymous access | Blocked\ntodo | Turn on leaked-password protection\n[[/checks]]';
+  const { node } = render(text);
+  const card = node.children.find((c) => c.className === 'checks');
+  assert.ok(card, 'a checks card');
+  assert.equal(card.children[0].textContent, 'Summary');
+  const rows = card.all('LI');
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows.map((r) => r.className), ['check st-row-ok', 'check st-row-fail', 'check st-row-secure', 'check st-row-key']);
+  assert.equal(rows[0].children[0].attrs.class, 'st-ico st-ok');
+  assert.equal(rows[0].children[0].attrs['aria-label'], 'Done');
+  assert.equal(rows[1].children.at(-1).textContent, 'Failed');
+  assert.equal(rows[1].children.at(-1).className, 'check-badge st-badge-fail');
+  assert.equal(rows[3].children.length, 2, 'no badge when none is given');
+  assert.ok(rows[0].all('CODE').length === 1, 'inline code inside a row');
+  const said = plain(text);
+  assert.match(said, /Summary\n• Tests \(npm test\) — Passed\n• Vercel preview — Failed/);
+  assert.doesNotMatch(said, /\[\[|ok \||\| Passed/);
+});
+
+test('a status emoji at the start of a heading, item or paragraph becomes an icon', async () => {
+  const { render } = await format();
+  const { node } = render('## ✅ Login fixed\n\n- ⚠️ Leaked-password protection is off\n\n❌ Build failed');
+  const [h, ul, p] = node.children;
+  assert.equal(h.children[0].attrs.class, 'st-ico st-ok');
+  assert.equal(h.textContent, 'Login fixed');
+  assert.equal(ul.children[0].children[0].attrs.class, 'st-ico st-warn');
+  assert.equal(p.children[0].attrs.class, 'st-ico st-fail');
+  assert.match(h.className, /st-line/);
 });

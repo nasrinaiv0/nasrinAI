@@ -13,9 +13,9 @@ to **choose a project or create one** first; done projects are not listed.
 
 ## In the coding chat
 
-- Top bar: the menu stays on the left; on the right a **project button**
-  (tap to switch project or start a fresh coding chat in the same one) and
-  **×** to leave. New chat, Your chats and Settings are hidden meanwhile.
+- Top bar: the menu stays on the left; the project's name sits under
+  "Nasrin" at the top center; on the right a **folder button** (tap to switch
+  project or start a fresh coding chat in the same one) and **×** to leave. New chat, Your chats and Settings are hidden meanwhile.
 - The Professional AI pill becomes **Code experts**: every message asks the
   Technology group (`mode: 'group', groups: ['technology']`); the server picks
   the experts a message needs (at most 3).
@@ -26,5 +26,27 @@ to **choose a project or create one** first; done projects are not listed.
 - The coding chat survives a reload (`nasrin.coding` on the device, cleared
   when signed out or when Projects are off). New chat, opening another chat
   or signing out leaves it.
+
+## Replies
+
+- Compact type: smaller text, plain (not rounded) headings, smaller code
+  (`body.coding-mode` in `public/app.css`).
+- Each reply starts with a one-line result and ends with a **super simple
+  summary** as a status list:
+
+  ```
+  [[checks title="Summary"]]
+  ok | What was done | Done
+  warn | What to watch | Check
+  todo | What the person must do | Your step
+  [[/checks]]
+  ```
+
+  Statuses: `ok`, `fail`, `warn`, `secure`, `info`, `todo` → green check,
+  red ✕, orange warning, green shield, grey info, amber key. Icons are
+  outline SVGs drawn in `public/format.js` (nothing is loaded from other
+  sites, so the strict CSP stays). A status emoji (✅ ❌ ⚠️ 🛡️ 🔒 ℹ️ 🔑) at the
+  start of a heading, list item or paragraph also becomes its icon, in any
+  chat. Copy and read-aloud turn rows into plain words.
 
 No new data is stored: coding chats are ordinary project chats.
