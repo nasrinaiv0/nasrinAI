@@ -21,6 +21,7 @@ For every future NasrinAI PR:
 - **Regression test:** `test/play-stop-audio.test.js` (fails without the change).
 - **Docs:** `docs/chat.md` (Read aloud).
 - **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
 
 - **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.
