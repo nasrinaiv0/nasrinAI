@@ -511,3 +511,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Important scope limit: this PR is the policy/schema foundation only. It does not yet wire OAuth callbacks, encrypted user OAuth tokens, provider API calls, queue/scheduler, UI, or live sending/publishing. Social providers remain planned until each official API/app review is configured and tested.
 - Validate with npm test, secret scanning, SQL review, and focused OAuth/ownership tests before merge. Do not deploy or apply migration without explicit authorization.
 
+
+
+## Proposed PR — Semantic cache write fallback and stable scope
+
+- Preserve a successfully computed embedding when the semantic-cache search RPC fails, so the normal AI reply can still seed the cache; embedding failures continue to fall back safely without blocking chat.
+- Log a safe failure stage (`search` or `embedding`) without logging prompts, embeddings, keys, or raw upstream/database error details.
+- Remove per-conversation history hashing from the semantic scope. Existing policy eligibility already restricts this path to first-turn, attachment-free, non-sensitive requests; the stable actor/tier/task scope allows eligible repeats across separate conversations without sharing cache entries between actors.
+- Add regression coverage for retaining embeddings on search-RPC errors and for the stable scope behavior.
+- No SQL, RLS, auth, token limits, or unrelated UI changes. Require focused tests, full CI, and production verification before considering the fix complete.
