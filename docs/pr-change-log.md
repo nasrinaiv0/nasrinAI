@@ -1,3 +1,11 @@
+## Proposed PR — A bad attachment limit no longer takes the site down (`fix/attachments-limit-soft`)
+
+- **Incident (2026-10-12):** every `/v1/*` call returned 503 `not_configured`; `/v1/status` named `ATTACHMENTS_MAX_MB` (allowed 1–3; Vercel's 4.5 MB body limit) as the setting at fault.
+- **Change:** `ATTACHMENTS_MAX_MB` and `ATTACHMENTS_MAX_COUNT` out of range now fall back to their defaults (3 MB, 4 files) with a start-up warning, like other optional settings. The bad value is never echoed.
+- **Owner step:** in Vercel, set `ATTACHMENTS_MAX_MB` to 3 (or delete it), then redeploy.
+- **Files:** `src/config.js`, `test/config-soft-limits.test.js`.
+- **Validation:** `npm test`, `npm run check:secrets`.
+
 ## Proposed PR — Sign in always available when signed out (`fix/signin-always-visible`)
 
 - **Owner report (2026-10-12):** the Sign in button was missing. The header button hid whenever `/v1/status` had not said which sign-in methods exist, so a slow or failing status check (the 503 outage) left guests with no way to sign in, and a signed-in person's session was not restored (no Log out).
