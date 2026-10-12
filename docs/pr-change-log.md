@@ -1,3 +1,10 @@
+## Expandable project actions
+
+- Each project row has an accessible expand/collapse control revealing Open, Chat, and Code actions.
+- Open shows the existing project details view. Chat starts a new conversation scoped to the selected project. Code starts a project-scoped chat and pre-fills an editable coding prompt; it does not auto-submit.
+- Keep the existing project detail view and its New chat action working through the same project-chat helper.
+- Respect reduced-motion preferences for the expansion animation. No API, database, RLS, authorization, quota, or environment changes.
+
 ## CI follow-up — gallery focus selector
 
 - CI exposed a theme audit failure because `.image-gallery-more:focus-visible` referenced `var(--accent)` outside a theme-scoped selector.
