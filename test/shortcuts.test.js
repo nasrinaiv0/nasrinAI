@@ -11,7 +11,7 @@ const shortcuts = sandbox.NasrinCreativeIntent;
 
 test('parses case-insensitive universal slash commands and preserves arguments', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(shortcuts.parseShortcut('/CLONE cinematic black and white'))), {
-    name: 'clone', args: 'cinematic black and white', capability: 'image', executeFirst: true
+    name: 'clone', args: 'cinematic black and white', capability: 'image', executeFirst: true, requiresPhoto: true
   });
   assert.deepEqual(JSON.parse(JSON.stringify(shortcuts.parseShortcut('/rewrite make this concise'))), {
     name: 'rewrite', args: 'make this concise', capability: 'chat', executeFirst: true
