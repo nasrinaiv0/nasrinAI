@@ -2174,6 +2174,7 @@ html.composer-controls-loading #composer .tools {
   white-space: nowrap;
 }
 .settings-sheet .menu-row .billing-plan-label[hidden] { display: none; }
+.billing-current-card .btn { margin-top: 0.6rem; }
 
 /* Touch targets (docs/feature-audit.md F2): on touch screens every control is
    at least 44 x 44 pt, Apple's minimum. Mouse layouts keep their compact sizes.
