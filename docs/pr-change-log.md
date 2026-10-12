@@ -1,3 +1,10 @@
+## Proposed PR — Menu drawer on phones and tablets; bottom tab bar as an option (`feature/mobile-nav`)
+
+- **Owner request (2026-10-12):** top bar with a menu button that shows the content; the bottom bar becomes an option.
+- **Change:** `public/index.html`, `public/app.js`, `public/app.css`, `public/theme.js`; docs `docs/mobile-nav.md`. The bar is the reverted #232 code, now behind Settings > General > Layout (off by default).
+- **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
+- **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
+
 ## Draft PR #246 — Expose safe startup stage in 503 responses (`fix/startup-503-stage-response`)
 
 - **Problem:** production `/v1/status` returns HTTP 503 quickly and Vercel function logs are unavailable, so the operator cannot tell whether startup fails while loading configuration or constructing the app.
