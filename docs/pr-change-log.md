@@ -1,3 +1,9 @@
+## Reference-matched project action styling
+
+- Match the supplied illustration with a matte theme-adaptive panel, rounded outline, generous row spacing, monochrome line icons, and subtle separators.
+- Add a folder icon to project rows and use matching folder, chat-bubble, and code icons for Open, Chat, and Code actions.
+- Preserve light/dark theme tokens and reduced-motion behavior; no new accent colors except existing theme semantics.
+
 ## Expandable project actions
 
 - Each project row has an accessible expand/collapse control revealing Open, Chat, and Code actions.
