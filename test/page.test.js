@@ -101,7 +101,13 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   assert.match(html, /id="spaceLibrary"[\s\S]*?class="space-app-logo space-app-glyph lib-glyph"/);
   assert.match(html, /id="drawerLibrary"><svg class="lib-glyph"/);
   assert.match(css, /svg\.lib-glyph[^{]*\{ fill: currentColor; stroke: none; \}/);
-  assert.match(html, /id="spaceCoding"[\s\S]*?icon-coding\.svg/);
+  // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
+  assert.match(html, /id="spaceCoding">\s*<span class="space-app-logo code-logo"/);
+  for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg']) {
+    assert.match(css, new RegExp(f.replace('.', '\\.')), f);
+    const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
+    assert.doesNotMatch(svg, /<style|style=|<script|href=/i, f + ' needs no inline styles or scripts (strict CSP)');
+  }
   assert.match(html, /id="spaceCloud"[\s\S]*?space-logos\/icon-cloud-orange\.svg/);
   assert.match(html, /id="pageSpace"[\s\S]*?nasrinai-space-icon\.svg/);
   assert.match(css, /html\[data-theme="light"\] #pageSpace \.space-app-logo:not\(\.space-app-logo-empty\):not\(\.space-cloud-logo\) \{ filter: invert\(1\); \}/);

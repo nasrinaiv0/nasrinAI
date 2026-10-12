@@ -27,6 +27,17 @@ to **choose a project or create one** first; done projects are not listed.
   when signed out or when Projects are off). New chat, opening another chat
   or signing out leaves it.
 
+## Logo
+
+The Code chat logo is the owner's pixel robot (2026-10-12): shown in the top
+bar while coding, on NasrinAI Space → Coding and in the project picker.
+`public/space-logos/code-bot-{light,dark}.svg` (animated) and `-still.svg`
+(reduced motion) were made from the owner's files with
+`scripts/pixelbot-logo.py`: colours became attributes and the CSS animation
+became SMIL `<animate>`, so the strict CSP (no inline styles) still allows
+them. CSS (`.code-logo`) picks the tile for the theme and motion setting:
+light UI → dark robot on a light tile, dark UI → the reverse.
+
 ## Replies
 
 - Compact type: smaller text, plain (not rounded) headings, smaller code

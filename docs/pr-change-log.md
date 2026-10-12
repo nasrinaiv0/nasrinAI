@@ -1,3 +1,9 @@
+## Proposed PR — Pixel-robot logo for the Code chat (`ui/code-logo`)
+
+- **Owner request (2026-10-12):** the supplied pixel robot is the new Code chat logo.
+- **Change:** four SVGs in `public/space-logos/` (light/dark, animated/still), converted by `scripts/pixelbot-logo.py` so they need no inline styles (strict CSP); shown in the coding top bar (instead of the Nasrin ball), on Space → Coding and in the project picker; CSS picks theme and still versions. Metadata from the source files removed.
+- **Validation:** `npm test`; headless Chromium with the CSP Vercel sends (logo coloured and animated, light and dark).
+
 ## Proposed PR — Lighter type everywhere (`ui/lighter-type`, on top of #290)
 
 - **Owner request (2026-10-12):** lessen the bold fonts across the app.

@@ -61,6 +61,7 @@
     <div class="brand">
       <span class="mark" id="mark" aria-hidden="true"></span>
       <span class="pro-badge" id="proBadge" aria-hidden="true" hidden></span>
+      <span class="code-logo brand-code-logo" aria-hidden="true"></span>
       <span class="brand-text"><span class="wordmark">Nasrin</span><span class="brand-project" id="codingProjectName" hidden></span></span>
     </div>
     <div class="bar-actions">
@@ -269,7 +270,7 @@
           <span class="space-app-name">Projects</span>
         </button>
         <button type="button" class="space-app-tile" id="spaceCoding">
-          <img class="space-app-logo" src="/space-logos/icon-coding.svg" alt="" aria-hidden="true">
+          <span class="space-app-logo code-logo" aria-hidden="true"></span>
           <span class="space-app-name">Coding</span>
         </button>
         <button type="button" class="space-app-tile" id="spaceCloud">
@@ -712,7 +713,7 @@
   <section class="sheet code-picker" id="codePicker" role="dialog" aria-modal="true" aria-labelledby="codePickerTitle" hidden>
     <div class="sheet-grip" aria-hidden="true"></div>
     <div class="sheet-head">
-      <h2 id="codePickerTitle">Choose a project</h2>
+      <h2 id="codePickerTitle" class="code-picker-title"><span class="code-logo" aria-hidden="true"></span>Choose a project</h2>
       <button type="button" class="icon-btn" id="codePickerClose" title="Close">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         <span class="sr-only">Close</span>
