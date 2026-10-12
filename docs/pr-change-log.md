@@ -1,3 +1,10 @@
+## Proposed PR — Toolbar loads together (`ux/load-together`)
+
+- **Owner request (2026-10-12):** all buttons responsive and loading together; more user-friendly.
+- **Audit:** headless Chromium clicked every control (phone 390 px: main, menu drawer, Settings; desktop 1280 px; guest and signed in): no broken buttons. Startup timing with slowed API calls found three late changes: the Professional AI button said "Automatic", then switched to "Universal AI" about 3.5 s later; "Sign in" appeared after the status check; "Your chats" became "Your chats and Library" after load.
+- **Change (`public/app.js`, `public/index.html`):** the public profession list is requested at once (no longer behind status and sign-in) and kept on the device, so the button shows the right choice at first paint; the placeholder follows the saved choice (off = "Universal AI"); "Sign in" shows immediately when this device has no sign-in; the Library label remembers the last server answer. No personal data is stored (public list and an on/off flag).
+- **Validation:** `npm test`; headless Chromium: all toolbar and header buttons appear in the same frame (~240 ms) with their final labels; click crawl unchanged.
+
 ## Proposed PR — Research findings kept as web answers too (`fix/web-answers-all-tiers`)
 
 - **Owner request (2026-10-12):** every reply from internet sources is kept permanently, on every tier. Chat (web search, shared links) already saved on all tiers through `finish()`; the research agent's findings did not reach `web_answers`. Now they do (facts as the answer, their pages as sources; question only for signed-in people).

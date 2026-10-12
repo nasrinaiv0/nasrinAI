@@ -44,7 +44,7 @@
   const KEYS = {
     session: 'nasrin.session', conversation: 'nasrin.conversation', speak: 'nasrin.speak',
     model: 'nasrin.model', theme: 'nasrin.theme', palette: 'nasrin.palette', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
-    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', memoryAsk: 'nasrin.memoryAsk',
+    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
     notices: 'nasrin.notices', deviceRealtime: 'nasrin.deviceRealtime', deviceNotified: 'nasrin.deviceNotified', speechRate: 'nasrin.speechRate', language: 'nasrin.language', left: 'nasrin.left'
   };
   const saved = {
@@ -1167,7 +1167,7 @@
   const plusMenu = $('plusMenu');
   const modeChip = $('modeChip');
   let imagesOn = false;
-  let libraryOn = false;   // the server offers the Library (signed-in people)
+  let libraryOn = saved.get(KEYS.libraryOn) === true;   // the server offers the Library; last answer kept so the label does not change after load
   let projectsOn = false;  // the server offers Projects (signed-in people)
   let chatProject = null;  // { id, name }: the project the open chat belongs to (or a new chat will)
   let imageMode = false;
@@ -4898,7 +4898,12 @@
   // Off: Universal AI. The page never decides what the person may use.
 
   const proSheet = $('proSheet');
-  let proCatalog = null;   // { groups: [{ id, name, members }], professions: [{ id, name, groups, accessory, focus }] }
+  // The public catalog is kept on this device so the toolbar shows the right
+  // choice at once; the server copy replaces it as soon as it arrives.
+  const validCatalog = (data) => (data && data.enabled && Array.isArray(data.groups) && Array.isArray(data.professions) && data.professions.length ? data : null);
+  let proCatalog = validCatalog(saved.get(KEYS.proCatalog));   // { groups: [{ id, name, members }], professions: [{ id, name, groups, accessory, focus }] }
+  // Asked for right away (a public list): it no longer waits behind status and sign-in.
+  const proFetch = net('/v1/professionals').then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const proState = (() => {
     const s = saved.get(KEYS.pro);
     const ok = s && typeof s === 'object';
@@ -4977,10 +4982,10 @@
     const openProRow = $('openPro');   // optional Settings row: the page may not have it
     if (openProRow) openProRow.hidden = !proCatalog;
     if (!proCatalog) {
-      $('proBtnLabel').textContent = 'Automatic';
+      $('proBtnLabel').textContent = proState.enabled ? 'Automatic' : 'Universal AI';
       $('proBtnIcon').replaceChildren(nasrinAvatar(null));
       btn.classList.remove('is-on');
-      btn.title = 'Automatic · Professional AI settings loading';
+      btn.title = 'Professional AI settings loading';
       btn.setAttribute('aria-label', btn.title);
       return;
     }
@@ -5142,11 +5147,8 @@
   $('proClear').addEventListener('click', () => { proState.ids = []; proState.primary = null; saveProState(); renderProSheet(); });
 
   async function loadProfessionals() {
-    try {
-      const resp = await net('/v1/professionals');
-      const data = resp.ok ? await resp.json() : null;
-      proCatalog = data && data.enabled && Array.isArray(data.professions) && data.professions.length ? data : null;
-    } catch { proCatalog = null; }
+    proCatalog = validCatalog(await proFetch);
+    if (proCatalog) saved.set(KEYS.proCatalog, proCatalog); else saved.del(KEYS.proCatalog);
     if (proCatalog) saveProState(); else renderProButton();
   }
 
@@ -5954,6 +5956,7 @@
       aiAvailable = s.ai_available === true;
       plansEnabled = s.plans === true;
       libraryOn = s.library === true;
+      saved.set(KEYS.libraryOn, libraryOn);
       projectsOn = s.projects === true;
       renderSpaceMenu();
       directUploads = s.uploads && s.uploads.direct === true && Number(s.uploads.max_mb) > 0 ? { maxBytes: Number(s.uploads.max_mb) * 1048576 } : null;
@@ -6045,6 +6048,10 @@
   window.addEventListener('online', () => { if (!account && saved.get(KEYS.account)) location.reload(); });
 
   showConnectForSignedIn();
+  renderSpaceMenu();
+  renderProButton();
+  // No sign-in on this device: show Sign in now instead of after the status check.
+  if (!saved.get(KEYS.account)) renderAccount();
   autosize();
   let loadingPro = null;
   let loadingModels = null;
