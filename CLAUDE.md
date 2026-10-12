@@ -32,6 +32,10 @@ read-only reference). Not an ordering/delivery chat anymore.
    other branch without the owner's OK. Before changing anything, check and
    state: current branch, uncommitted changes, target branch, planned
    changes, effect on the live site.
+   **Owner update (2026-10-12), applies to the current upgrade:** one branch
+   per category, pushed to GitHub with a PR into `main`; Claude does not
+   merge; no PR is handed back with failing checks. See
+   `docs/claude-code-handoff.md`.
 3. **Never commit or print secrets**: API keys, tokens, private keys, DB
    dumps, customer data. Mask values in output (`sk-proj-********`). Don't
    rotate secrets on your own.
@@ -140,6 +144,8 @@ search, GPT‑6 models with the owner's key.
 Connect is a no-code customer experience backed by a strict authorization boundary. A URL is discovery only; it is never permission to modify a site. Every write-capable provider must require explicit authorization and approval, return a deployment receipt, pass live verification before activation, and support rollback. Provider credentials never enter model context. Update `docs/nasrinai-connect.md` whenever Connect architecture, API, lifecycle, provider methods or security guarantees change.
 
 ## Next up
+
+**Start here:** `docs/claude-code-handoff.md`. It holds the 2026-10-12 upgrade backlog (10 category branches), what is done (#219, #220, #221) and the owner's rules for it.
 
 1. Validate the live AI/image providers with the owner's keys.
 2. Run/verify the required Supabase migrations and portfolio knowledge setup using the staging environment first.

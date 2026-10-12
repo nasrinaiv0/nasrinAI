@@ -21,6 +21,11 @@ For every future NasrinAI PR:
 - **Tests:** `test/product-knowledge.test.js` adds 8 about-NasrinAI and 8 general messages plus the link check; both new tests fail on the old code. The existing tests are unchanged and pass.
 - **Docs:** `docs/knowledge.md`.
 - **Validation:** local `npm test` (441 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
+
+- **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.
+- **`CLAUDE.md`:** adds a "Start here" pointer and records the owner's 2026-10-12 branch rule (one pushed branch per category, PR into `main`, owner merges, no failing checks).
+- **Validation:** documentation only, with no code, schema or config change. Local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
 
 ## [#220](https://github.com/primusco20/nasrinAI/pull/220) — Center the sign-in security check; smaller on phones (open)
 
@@ -37,6 +42,15 @@ For every future NasrinAI PR:
 - **Tests:** 3 regression tests in `test/signin.test.js`: the client body shape, route forwarding with Turnstile on (and refusal without a token), and safe mapping of a Supabase CAPTCHA rejection. The first two were confirmed to **fail on the old code** and pass with the fix. Locally `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
 - **Docs:** `docs/security.md`, plus a troubleshooting note in `docs/operations.md`.
 - **Follow-up:** after deploy, request one email code and confirm Supabase Auth logs show `/otp` 200. If the error changes to a secret mismatch, re-enter the Turnstile secret in Supabase → Authentication → Bot and Abuse Protection.
+
+## Proposed PR — Media bucket size limit and Supabase security baseline (`security/media-bucket-size-limit`)
+
+- **Intent:** record the 2026-10-12 read-only production audit and commit the one fix already applied there.
+- **Migration 029:** sets `file_size_limit = 52428800` (50 MB) on the `media` bucket. It is repeatable, skips cleanly without Supabase Storage, and changes nothing else. It was applied to production on 2026-10-12 via the Supabase connector, where the history lists it as `026_media_bucket_size_limit`. The bucket was empty, and privacy and the MIME list were verified unchanged afterwards. Rollback is in the file header.
+- **RLS/grants:** unchanged. The audit found RLS on all 34 tables with deny-all policies for `anon`/`authenticated`, no browser-role grants, and no browser-executable functions.
+- **DB test:** `db/tests/029_media_bucket_size_limit.test.sql` checks the limit, privacy, MIME list, other buckets untouched, and repeatability. Locally `db/tests/run.sh` passes on Postgres 16, and the test was confirmed to fail when the migration sets the wrong limit.
+- **Docs:** new `docs/supabase-security-baseline.md`; `docs/database.md`.
+- **Owner follow-up:** S1, leaked-password protection, is a dashboard setting (Pro plan).
 
 ## Proposed PR — Turnstile sign-in protection
 
