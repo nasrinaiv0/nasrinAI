@@ -1,10 +1,3 @@
-## Composer project switcher
-
-- Add a project selector directly inside the chat composer, available in general chat and while working in a project.
-- Switching projects starts a fresh conversation with that project's context; it does not reassign or delete the previous conversation. Existing chats remain accessible from the project's chat list.
-- Add a clear general-chat option and keep the Leave control available only when a project is active.
-- Project options load from the signed-in user's existing `/v1/projects` endpoint. No database schema, project authorization, RLS, quotas, or credentials changed.
-
 ## CI follow-up — gallery focus selector
 
 - CI exposed a theme audit failure because `.image-gallery-more:focus-visible` referenced `var(--accent)` outside a theme-scoped selector.
