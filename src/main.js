@@ -47,6 +47,9 @@ import { createProjects } from './projects.js';
 import { createLibrary } from './library.js';
 import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
+import { createClient } from '@supabase/supabase-js';
+import { createSemanticCache } from './semanticCache.js';
+import { embed, EMBEDDING_MODEL } from './embedder.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -81,6 +84,16 @@ export function buildApp({ config, logger }) {
   const conversations = createConversations({ store, config: effective, logger });
   const prices = loadPrices(config.ai.routing.pricesJson);
   const reasoningBudget = createBudget({ store, config: effective, logger });
+  // Optional acceleration only: cache errors never make chat unavailable.
+  const semanticCache = config.supabaseUrl && config.supabaseSecretKey
+    ? createSemanticCache({
+        supabase: createClient(config.supabaseUrl, config.supabaseSecretKey, {
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        }),
+        embed,
+        modelName: EMBEDDING_MODEL
+      })
+    : null;
   const provider = providerFromConfig(config, { logger });
   if (provider) logger.info('AI provider ready', { provider: provider.id, model: provider.model });
   else logger.warn('AI_PROVIDER is none: chat will answer "unavailable"');
@@ -142,7 +155,7 @@ export function buildApp({ config, logger }) {
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
-  const chat = createChat({ conversations, limiter, uploads, usageLog, provider, models, coding, plans, policy, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
