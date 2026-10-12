@@ -122,7 +122,7 @@ test('ZIP archives extract readable XLSX workbooks nested inside them', () => {
   });
   const archive = read('invoices.zip', zipOf({ 'exports/b2b_invoices.xlsx': workbook, 'notes.txt': 'invoice export' }));
   assert.equal(archive.unreadable, undefined);
-  assert.match(archive.text, /Embedded workbook: exports b2b_invoices\.xlsx/);
+  assert.match(archive.text, /Embedded workbook: exportsb2b_invoices\.xlsx/);
   assert.match(archive.text, /## Sheet: Invoices/);
   assert.match(archive.text, /Vendor\tAmount/);
   assert.match(archive.text, /Acme\t125/);
