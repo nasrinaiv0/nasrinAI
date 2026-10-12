@@ -5,6 +5,12 @@
 - **Files:** `src/chat.js`, `src/routes.js`, `public/app.js`, `public/app.css`, `test/chat-stream.test.js`.
 - **Validation:** `npm test`; headless Chromium (news → "Browsing the internet", recipe → "Cooking up an answer").
 
+## Proposed PR — Simple setup check (`ops/setup-check`)
+
+- **Owner request (2026-10-12):** one simple, read-only SQL file to check the Supabase setup.
+- **Change:** `db/ops/check_setup.sql`: a ✅/❌ list (answer cache, upload bucket private and any type, research tables and clean-up, web answers) with the file to run for each ❌; optional row counts.
+- **Validation:** run against a Postgres 16 with all migrations and a `storage.buckets` stand-in: all ✅.
+
 ## Proposed PR — Privacy and Terms update, with #265, #266 and #267 combined (`legal/oct12-update`)
 
 - **Owner request (2026-10-12):** update the Privacy Notice and Terms of Use. This branch merges #265 (research), #266 (semantic cache) and #267 (web answers) so the legal pages are updated once, consistently.
