@@ -110,8 +110,8 @@ test('project chats: instructions and open tasks in the prompt, only that projec
     assert.equal(convs.find((c) => c.id === r.conversation_id).project_id, cafe.id);
     assert.deepEqual((await json(await call(url, '/v1/projects/' + cafe.id, 'GET', USER_TOKEN))).body.chats.map((c) => c.id), [r.conversation_id]);
 
-    // A normal chat: no project, only general Library items.
-    const plain = (await json(await call(url, '/v1/chat', 'POST', USER_TOKEN, { message: 'Tell me about coffee' }))).body;
+    // A normal chat asking about the Library: no project, only general Library items.
+    const plain = (await json(await call(url, '/v1/chat', 'POST', USER_TOKEN, { message: 'What do my notes say about coffee?' }))).body;
     assert.equal(plain.project, undefined);
     assert.equal(last().system.includes('project'), false);
     assert.match(last().messages.at(-1).content, /favourite drink/);

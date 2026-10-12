@@ -64,6 +64,9 @@ export function formatFor(kind, title, format) {
 
 const publicFile = (f) => ({ id: f.id, title: f.title, kind: f.kind, format: f.format, chars: f.chars, created_at: f.createdAt });
 
+// Words that show the person wants something from their own Library.
+const LIBRARY_INTENT = /\b(?:library|(?:my|our)\s+(?:own\s+|saved\s+|uploaded\s+)?(?:files?|documents?|docs?|notes?|saved(?:\s+\w+)?|uploads?|pictures?|photos?|images?|videos?|spreadsheets?|pdfs?|records?|lists?)|(?:i|we)\s+(?:saved|uploaded|stored|added|wrote down)|saved\s+(?:files?|documents?|notes?|replies|items?))\b/i;
+
 export function createLibrary({ store, limiter, config, logger }) {
   const signedIn = (caller) => {
     if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to use your Library.');
@@ -197,6 +200,12 @@ export function createLibrary({ store, limiter, config, logger }) {
             titles: files.slice(0, 100).map((f) => f.title).filter(Boolean)
           };
         }
+        // Owner decision (2026-10-12): the Library is used, and named under the
+        // reply, only when the person means it: they ask about their library,
+        // files, documents, notes, saved items, pictures, videos or uploads, or
+        // the chat belongs to a project. Ordinary conversation never pulls in
+        // saved text (a saved "Hello again!" must not answer a greeting).
+        if (!projectId && !LIBRARY_INTENT.test(text)) return null;
         const terms = searchTerms(text);
         if (!terms.length) return null;
         const hits = (await scopedSearch(caller, terms, projectId)).filter((h) => h.rank >= MIN_RANK);

@@ -4,6 +4,12 @@
 - **Change:** two groups and ten professions in `src/ai/professions.js`, with two safety rules (`science`, `journalism`); everyday words that would mis-route Automatic mode left out. The page reads the catalog, so no UI change. `docs/professional.md`.
 - **Validation:** `npm test` (routing examples and safety text in the prompt).
 
+## Proposed PR — Library only when asked (`fix/library-tag`)
+
+- **Owner report (2026-10-12):** a greeting got "From your Library: Hello again! How can I help you today?" (a saved reply matched the words).
+- **Change:** `src/library.js` uses the Library (and the reply names it) only when the person asks about their library, files, documents, notes, saved items, pictures, videos or uploads, or the chat is in a project. Privacy notice `2026-10-12g`; `docs/library.md`.
+- **Validation:** `npm test` (greeting and general question no longer use the Library; explicit and project cases still do).
+
 ## Proposed PR — Simple setup check (`ops/setup-check`)
 
 - **Owner request (2026-10-12):** one simple, read-only SQL file to check the Supabase setup.
