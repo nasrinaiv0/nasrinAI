@@ -51,6 +51,10 @@
   </aside>
 
   <header class="bar">
+    <button type="button" class="icon-btn menu-btn" id="menuBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="drawer" title="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 8.5h15M4.5 15.5h9"/></svg>
+      <span class="sr-only">Menu</span>
+    </button>
     <div class="brand">
       <span class="mark" id="mark" aria-hidden="true"></span>
       <span class="pro-badge" id="proBadge" aria-hidden="true" hidden></span>
@@ -372,6 +376,8 @@
     </div>
 
     <div class="settings-page" id="pageGeneral" hidden>
+      <p class="menu-label">Layout</p>
+      <div class="menu-card setting-row"><label for="tabbarOn">Bottom tab bar<span class="setting-hint">On phones and tablets, show Chat, Library, Projects and Settings at the bottom of the screen. The menu at the top stays.</span></label><input type="checkbox" role="switch" class="switch" id="tabbarOn"></div>
       <p class="menu-label">Motion</p>
       <div class="menu-card setting-row"><label for="reduceMotion">Reduce motion<span class="setting-hint">Calmer character and fewer animations. On by default when your device asks for less motion.</span></label><input type="checkbox" role="switch" class="switch" id="reduceMotion"></div>
       <p class="menu-label">Voice replies</p>
@@ -853,6 +859,36 @@
       </div>
     </form>
   </footer>
+
+  <nav class="tabbar" id="tabbar" aria-label="Main">
+    <button type="button" class="tab-item is-active" data-tab="chat" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a7.5 7.5 0 0 1-10.9 6.7L4 20l1.4-4.6A7.5 7.5 0 1 1 20 12Z"/></svg><span class="tab-label">Chat</span></button>
+    <button type="button" class="tab-item" data-tab="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3v16H5zM10 4h3v16h-3zM15.2 4.6l2.9-.8 3.9 15.6-2.9.8z"/></svg><span class="tab-label">Library</span></button>
+    <button type="button" class="tab-item" data-tab="projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span class="tab-label">Projects</span></button>
+    <button type="button" class="tab-item" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span class="tab-label">Settings</span></button>
+  </nav>
+
+  <div class="drawer-scrim" id="drawerScrim" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+    <div class="drawer-head">
+      <h2 class="drawer-title" id="drawerTitle">NasrinAI</h2>
+      <button type="button" class="icon-btn drawer-search" id="drawerSearch" title="Search your chats"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></svg><span class="sr-only">Search your chats</span></button>
+    </div>
+    <nav class="drawer-nav" aria-label="Your space">
+      <button type="button" class="drawer-link" data-open="library" id="drawerLibrary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3v16H5zM10 4h3v16h-3zM15.2 4.6l2.9-.8 3.9 15.6-2.9.8z"/></svg><span>Library</span></button>
+      <button type="button" class="drawer-link" data-open="projects" id="drawerProjects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg><span>Projects</span></button>
+      <button type="button" class="drawer-link" data-open="chats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 12.6A8.5 8.5 0 1 0 6 6"/><path d="M6.4 2.9 6 6l3.1.5"/><path d="M12 7.6V12l3 1.8"/></svg><span>Your chats</span></button>
+    </nav>
+    <div class="drawer-recent">
+      <p class="drawer-label">Recent</p>
+      <ul class="drawer-chats" id="drawerChats"></ul>
+      <p class="drawer-status" id="drawerStatus" role="status"></p>
+      <button type="button" class="drawer-more" id="drawerSeeAll">See all…</button>
+    </div>
+    <div class="drawer-foot">
+      <button type="button" class="drawer-new" id="drawerNewChat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.5 4.5H7a2.5 2.5 0 0 0-2.5 2.5v10A2.5 2.5 0 0 0 7 19.5h10a2.5 2.5 0 0 0 2.5-2.5v-4.5"/><path d="M17.8 3.8a1.85 1.85 0 0 1 2.6 2.6l-7.6 7.6-3.4.9.9-3.4z"/></svg><span>New chat</span></button>
+      <button type="button" class="icon-btn drawer-settings" id="drawerSettings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span class="sr-only">Settings</span></button>
+    </div>
+  </aside>
 
   <section class="voice" id="voice" role="dialog" aria-modal="true" aria-label="Voice conversation with Nasrin" hidden>
     <button type="button" class="icon-btn voice-close" id="voiceClose" title="End voice conversation">

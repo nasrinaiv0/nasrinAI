@@ -1,3 +1,10 @@
+## Proposed PR — Menu drawer on phones and tablets; bottom tab bar as an option (`feature/mobile-nav`)
+
+- **Owner request (2026-10-12):** top bar with a menu button that shows the content; the bottom bar becomes an option.
+- **Change:** `public/index.html`, `public/app.js`, `public/app.css`, `public/theme.js`; docs `docs/mobile-nav.md`. The bar is the reverted #232 code, now behind Settings > General > Layout (off by default).
+- **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
+- **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
+
 ## Proposed PR — Fix the broken downloads script (`fix/files-js-syntax`)
 
 - **Problem:** on `main`, `public/files.js` did not parse ("Unexpected token ';'"): the last entry of the Excel workbook file list (`xl/styles.xml`) was missing its closing `]` since the multi-sheet Excel builder was reapplied. The browser therefore skipped the whole file, so the downloads it builds (Excel, Word, PDF and other files) could not run. #244 fixed the over-escaped regexes in the same function, but this bracket was still missing.

@@ -43,7 +43,7 @@
   // scripts cannot read) and preferences. The conversation lives on the server.
   const KEYS = {
     session: 'nasrin.session', conversation: 'nasrin.conversation', speak: 'nasrin.speak',
-    model: 'nasrin.model', theme: 'nasrin.theme', voice: 'nasrin.voice', account: 'nasrin.account',
+    model: 'nasrin.model', theme: 'nasrin.theme', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
     notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', memoryAsk: 'nasrin.memoryAsk',
     notices: 'nasrin.notices', deviceRealtime: 'nasrin.deviceRealtime', deviceNotified: 'nasrin.deviceNotified', speechRate: 'nasrin.speechRate', language: 'nasrin.language', left: 'nasrin.left'
   };
@@ -5194,6 +5194,109 @@
     $('historyBtn').title = libraryOn ? 'Chats and Library' : 'Your chats';
   }
   $('historyClose').addEventListener('click', closeHistory);
+
+  // Menu drawer on phones and tablets (docs/mobile-nav.md): Library, Projects,
+  // Your chats, the latest chats, New chat and Settings. It reuses the
+  // existing screens; it only opens them.
+  const drawer = $('drawer');
+  const drawerScrim = $('drawerScrim');
+  const menuBtn = $('menuBtn');
+  function closeDrawer(restore = true) {
+    if (drawer.hidden) return;
+    drawer.hidden = true;
+    drawerScrim.hidden = true;
+    menuBtn.setAttribute('aria-expanded', 'false');
+    if (restore) menuBtn.focus();
+  }
+  async function openDrawer() {
+    closeSettings(); closeHistory(); closeSignIn(); closePlans();
+    drawer.hidden = false;
+    drawerScrim.hidden = false;
+    menuBtn.setAttribute('aria-expanded', 'true');
+    $('drawerLibrary').hidden = !libraryOn;
+    $('drawerProjects').hidden = !projectsOn;
+    $('drawerSearch').focus();
+    const list = $('drawerChats');
+    const status = $('drawerStatus');
+    list.replaceChildren();
+    status.textContent = 'Loading…';
+    try {
+      const data = await api('/v1/conversations');
+      const chats = (data.conversations || []).filter((c) => c && typeof c.id === 'string').slice(0, 8);
+      list.replaceChildren(...chats.map((c) => {
+        const li = document.createElement('li');
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'drawer-chat' + (c.id === conversationId ? ' is-current' : '');
+        b.textContent = c.title || 'Untitled chat';
+        b.addEventListener('click', () => { closeDrawer(false); openChat(c.id); });
+        li.appendChild(b);
+        return li;
+      }));
+      status.textContent = chats.length ? '' : 'No chats yet.';
+      $('drawerSeeAll').hidden = !chats.length;
+    } catch (err) {
+      status.textContent = err.message || 'Your chats could not be loaded.';
+    }
+  }
+  menuBtn.addEventListener('click', () => (drawer.hidden ? openDrawer() : closeDrawer()));
+  drawerScrim.addEventListener('click', () => closeDrawer());
+  drawer.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeDrawer(); } });
+  for (const b of drawer.querySelectorAll('[data-open]')) b.addEventListener('click', () => { closeDrawer(false); openHistory(b.dataset.open); });
+  $('drawerSearch').addEventListener('click', () => { closeDrawer(false); openHistory('chats'); });
+  $('drawerSeeAll').addEventListener('click', () => { closeDrawer(false); openHistory('chats'); });
+  $('drawerNewChat').addEventListener('click', () => { closeDrawer(false); $('newChat').click(); });
+  $('drawerSettings').addEventListener('click', () => { closeDrawer(false); openSettings(); });
+  // The drawer is for small screens; on a wide screen the side rail does this.
+  window.matchMedia('(min-width: 70rem)').addEventListener?.('change', (e) => { if (e.matches) closeDrawer(false); });
+
+  // The bottom tab bar is optional: this device only, off by default.
+  const tabbarBox = $('tabbarOn');
+  tabbarBox.checked = saved.get(KEYS.tabbar) === true;
+  tabbarBox.addEventListener('change', () => {
+    if (tabbarBox.checked) { saved.set(KEYS.tabbar, true); document.documentElement.setAttribute('data-tabbar', 'on'); }
+    else { saved.del(KEYS.tabbar); document.documentElement.removeAttribute('data-tabbar'); }
+  });
+
+  // Optional bottom tab bar (docs/mobile-nav.md): Chat, Library, Projects,
+  // Settings open the existing screens; the current tab follows what is open.
+  // It shows only when the person turns it on (Settings > General).
+  const tabbar = $('tabbar');
+  function setActiveTab(name) {
+    for (const b of tabbar.querySelectorAll('[data-tab]')) {
+      const on = b.dataset.tab === name;
+      b.classList.toggle('is-active', on);
+      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    }
+  }
+  function syncTabs() {
+    if (!$('settings').hidden) return setActiveTab('settings');
+    if (!historySheet.hidden) {
+      const lib = $('tabLibrary'); const prj = $('tabProjects');
+      if (lib && lib.getAttribute('aria-selected') === 'true') return setActiveTab('library');
+      if (prj && prj.getAttribute('aria-selected') === 'true') return setActiveTab('projects');
+    }
+    setActiveTab('chat');
+  }
+  tabbar.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    const tab = b.dataset.tab;
+    if (tab === 'chat') { closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); return; }
+    if (tab === 'settings') { openSettings(); return; }
+    openHistory(tab);
+  });
+  new MutationObserver(syncTabs).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-selected'] });
+  // While typing on a phone, the keyboard needs the room: the tab bar steps aside.
+  // The bar comes back a moment after the box loses focus, so a tap on Send
+  // lands before the message box moves up.
+  let typingTimer = 0;
+  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.toggle('is-typing', true); });
+  input.addEventListener('blur', () => {
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.toggle('is-typing', false); }, 300);
+  });
+  // End tab bar
 
   // ---------- the Library (signed in) ----------
   // The person's own files, notes and saved replies; only text is kept. The
