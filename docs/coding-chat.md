@@ -13,9 +13,9 @@ to **choose a project or create one** first; done projects are not listed.
 
 ## In the coding chat
 
-- Top bar: the menu stays on the left; on the right a **project button**
-  (tap to switch project or start a fresh coding chat in the same one) and
-  **×** to leave. New chat, Your chats and Settings are hidden meanwhile.
+- Top bar: the menu stays on the left; the project's name sits under
+  "Nasrin" at the top center; on the right a **folder button** (tap to switch
+  project or start a fresh coding chat in the same one) and **×** to leave. New chat, Your chats and Settings are hidden meanwhile.
 - The Professional AI pill becomes **Code experts**: every message asks the
   Technology group (`mode: 'group', groups: ['technology']`); the server picks
   the experts a message needs (at most 3).

@@ -5878,6 +5878,10 @@
     document.body.classList.toggle('coding-mode', Boolean(codingProject));
     $('codingBar').hidden = !codingProject;
     $('codingProjectName').textContent = codingProject ? codingProject.name : '';
+    $('codingProjectName').hidden = !codingProject;
+    const switcher = $('codingProject');
+    switcher.title = codingProject ? 'Switch project (now: ' + codingProject.name + ')' : 'Switch project';
+    switcher.setAttribute('aria-label', switcher.title);
     input.placeholder = codingProject ? 'Describe what to build, or paste code' : inputHint;
     if (codingProject) saved.set(KEYS.coding, codingProject); else saved.del(KEYS.coding);
     renderProButton();

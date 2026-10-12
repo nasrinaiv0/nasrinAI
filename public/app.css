@@ -2407,29 +2407,17 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 /* Coding chat (Code in the menu): project + leave at the top right, menu at the left. */
 .coding-bar { display: flex; align-items: center; gap: 0.25rem; }
 .coding-bar[hidden] { display: none; }
-.coding-project {
-  display: inline-flex; align-items: center; gap: 0.35rem; max-width: 11.5rem; min-height: 2.25rem;
-  padding: 0 0.7rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
-  color: var(--ink); font: inherit; font-size: 0.86rem; cursor: pointer;
-}
-.coding-project svg { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.coding-project .coding-chev { width: 0.85rem; height: 0.85rem; color: var(--ink-3); }
-.coding-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coding-project svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .coding-project:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 body.coding-mode .bar-actions > :not(#codingBar) { display: none; }
 body.coding-mode #projectBar { display: none; }
-body.coding-mode .wordmark { white-space: nowrap; }
-body.coding-mode .wordmark::after { content: " Code"; color: var(--ink-3); }
 .code-picker-lede { margin: 0 0 0.6rem; }
 .code-picker-list { max-height: 45vh; overflow-y: auto; }
 .code-picker-item.is-current { background: var(--paper); }
 .code-picker-new { margin-top: 0.75rem; }
 .code-picker-row { display: flex; gap: 0.5rem; align-items: center; }
 .code-picker-row .lib-input { flex: 1; min-width: 0; margin: 0; }
-@media (max-width: 440px) {
-  body.coding-mode .wordmark::after { content: none; }
-  .coding-project { max-width: 9rem; }
-}
+
 
 /* Library glyph: one filled, theme-adaptive icon (menu, tab bar, Space), no background. */
 svg.lib-glyph, .drawer-link svg.lib-glyph, :root[data-tabbar="on"] .tab-item svg.lib-glyph { fill: currentColor; stroke: none; }
@@ -2465,3 +2453,10 @@ body.coding-mode .rich h4 { font-size: 0.9rem; }
 body.coding-mode .rich code { font-size: 0.82em; padding: 0.06rem 0.34rem; }
 body.coding-mode .rich pre code { font-size: 0.78rem; }
 body.coding-mode .rich .checks { padding: 0.75rem 0.85rem; }
+
+/* Coding chat: the project's name sits under "Nasrin" at the top center; the
+   folder button on the right switches project. */
+.brand-text { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.brand-project { max-width: 11rem; margin-top: 0.12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; line-height: 1.1; color: var(--ink-3); }
+.brand-project[hidden] { display: none; }
+body.coding-mode .brand { opacity: 1; transform: none; pointer-events: auto; }

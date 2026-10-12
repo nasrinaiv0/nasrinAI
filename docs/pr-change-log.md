@@ -2,6 +2,7 @@
 
 - **Owner request (2026-10-12):** smaller, different fonts in coding; premium replies with icons that match the meaning (green outline check for success, shield for secured, ✕ for failed); a super simple summary of the work.
 - **Change:** `[[checks title="…"]]` status lists (status | item | badge) with outline icons and coloured badges; status emoji at the start of a line become the same icons; coding mode uses a compact type scale; the coding rule asks for a one-line result first and a simple status summary last (never claiming tests passed without proof). Copy, read-aloud and spoken replies turn rows into plain words; while streaming the block tags are hidden.
+- **Follow-up (owner):** the project button is now only a folder icon; the project's name sits under "Nasrin" at the top center.
 - **Files:** `public/format.js`, `public/files.js`, `public/app.css`, `src/coding.js`, `src/ai/speech-text.js`, tests, `docs/coding-chat.md`.
 - **Validation:** `npm test`; headless Chromium screenshots (dark and light, coding and normal chat).
 
