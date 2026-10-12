@@ -13,7 +13,15 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
-## Proposed PR — Email sign-in CAPTCHA token field (`fix/email-captcha-field`)
+## [#220](https://github.com/primusco20/nasrinAI/pull/220) — Center the sign-in security check; smaller on phones (open)
+
+- **Intent:** the Cloudflare Turnstile box was left-aligned under the email form. The owner asked for it lower-center and smaller on phones.
+- **Change:** CSS only (`public/app.css`). `.signin-captcha` is a centered flex row. At ≤480 px it uses `transform: scale(0.8)` from the top center and reclaims the scaled space. There are no markup, script, CSP or Turnstile option changes.
+- **Layout check (headless Chromium, local fake-provider run):** on a phone at 390 px the widget renders 240×52 centered (x 75–315); on desktop at 1280 px it renders 300×65 centered in the sheet.
+- **Regression test:** `test/page.test.js` checks the centering rule, the phone scale rule, and that the widget sits between the email form and the status message. It fails without the CSS change.
+- **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
+## [#219](https://github.com/primusco20/nasrinAI/pull/219) — Email sign-in CAPTCHA token field (merged)
 
 - **Intent:** fix "Security check failed" on every email-code sign-in. Supabase Auth logs (2026-10-11, 12:33–13:28 UTC, including after PR #218) show each `/otp` rejected with `captcha protection: request disallowed (no captcha_token found)`. `src/auth/supabase-auth.js` sent the token as a top-level `captcha_token`. Supabase Auth reads it only from `gotrue_meta_security.captcha_token`.
 - **Change:** `sendCode` now sends `gotrue_meta_security: { captcha_token }`. There is no change to the Google path (verified server-side via Siteverify), to cookies, tokens, logging, the CSP or the database.

@@ -132,3 +132,15 @@ test('status endpoint preserves unavailable voice catalog for Settings', async (
   const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
   assert.match(routes, /available:\s*Boolean\(voice\s*&&\s*voice\.available\)[\s\S]{0,400}voices:\s*voice\s*&&\s*Array\.isArray\(voice\.voices\)\s*\?\s*voice\.voices\s*:\s*\[\]/);
 });
+
+test('sign-in Turnstile widget is centered below the email form and smaller on phones', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(css, /\.signin-captcha \{[^}]*display: flex;[^}]*justify-content: center;/s, 'widget must be centered');
+  assert.match(css, /@media \(max-width: 480px\) \{\s*\.signin-captcha \{[^}]*transform: scale\(0\.8\);[^}]*transform-origin: top center;/s,
+    'widget must be scaled down from its top center on phones');
+  const form = html.indexOf('id="emailForm"');
+  const widget = html.indexOf('id="turnstileWidget"');
+  const status = html.indexOf('id="signinStatus"');
+  assert.ok(form > -1 && form < widget && widget < status, 'widget sits below the email form and above the status message');
+});
