@@ -6,6 +6,13 @@
 - **Data:** none collected or kept differently; the per-device speech speed key is cleared (the server's rate is used).
 - **Validation:** `test/voice-screen.test.js` (fails on `main`, passes here); local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/1280, light and dark, with a fake microphone: open, tier and Plus menus, outside tap, mute, Exit.
 
+## Proposed PR — Composer controls appear at once (`fix/composer-instant-controls`)
+
+- **Owner request (2026-10-12):** the composer buttons must show with the composer, with no loading or delay and no wait for the models.
+- **Before:** the buttons already showed at once on `main` (#235, #239), but the tier bars filled in and the "Automatic" face icon popped in only after `/v1/models` and `/v1/professionals` answered.
+- **Change:** `public/index.html` carries the face icon and a filled first bar; `public/app.js` shows the saved tier's bars before any request. The server data still updates them when it arrives.
+- **Validation:** `test/composer-instant-controls.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium with the model, professional and status requests held for 4 s: the face and the saved tier (1 bar by default, 3 for a saved Max) show at 0.8 s. No server, data or legal change.
+
 ## Proposed PR — Fix the broken downloads script (`fix/files-js-syntax`)
 
 - **Problem:** on `main`, `public/files.js` did not parse ("Unexpected token ';'"): the last entry of the Excel workbook file list (`xl/styles.xml`) was missing its closing `]` since the multi-sheet Excel builder was reapplied. The browser therefore skipped the whole file, so the downloads it builds (Excel, Word, PDF and other files) could not run. #244 fixed the over-escaped regexes in the same function, but this bracket was still missing.

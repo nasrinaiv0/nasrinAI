@@ -830,13 +830,13 @@
         <input type="file" id="fileInput" multiple hidden>
         <div class="model-pick" id="modelRow">
           <button type="button" class="tool model-btn" id="modelBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="modelMenu" title="Choose a model">
-            <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="13" width="3" height="6" rx="1.5"/><rect x="8.5" y="10" width="3" height="9" rx="1.5"/><rect x="13" y="7" width="3" height="12" rx="1.5"/><rect x="17.5" y="4" width="3" height="15" rx="1.5"/></svg>
+            <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><rect class="on" x="4" y="13" width="3" height="6" rx="1.5"/><rect x="8.5" y="10" width="3" height="9" rx="1.5"/><rect x="13" y="7" width="3" height="12" rx="1.5"/><rect x="17.5" y="4" width="3" height="15" rx="1.5"/></svg>
             <span class="sr-only" id="modelBtnLabel">Model: Quick</span>
           </button>
           <div class="model-menu" id="modelMenu" role="listbox" aria-label="Choose a model" tabindex="-1" hidden></div>
         </div>
         <button type="button" class="tool pro-btn" id="proBtn" aria-haspopup="dialog" aria-controls="proSheet" title="Automatic" aria-label="Automatic">
-          <span class="pro-ico" id="proBtnIcon" aria-hidden="true"></span>
+          <span class="pro-ico" id="proBtnIcon" aria-hidden="true"><svg viewBox="8 8 184 196" class="nb" aria-hidden="true"><circle cx="100" cy="100" r="82" class="nb-ball"/><rect x="66.5" y="91" width="17" height="41" rx="8.5" class="nb-eye"/><rect x="116.5" y="91" width="17" height="41" rx="8.5" class="nb-eye"/></svg></span>
           <span class="pro-label" id="proBtnLabel">Automatic</span>
         </button>
         <span class="spacer"></span>
