@@ -2638,6 +2638,8 @@
   let turnstileWidgetId = null;
   let turnstileToken = '';
   let turnstileReady = null;
+  let turnstileWaiters = [];   // sign-in taps waiting for the invisible check to finish
+  const settleTurnstile = (err) => { const w = turnstileWaiters; turnstileWaiters = []; for (const f of w) f(err); };
   let authMethodsLoaded = false;
   let authMethodsLoading = null;
   let pendingEmail = '';
@@ -2698,16 +2700,31 @@
         sitekey: turnstileSiteKey,
         // Keep the widget out of the way unless Cloudflare actually needs interaction.
         appearance: 'interaction-only',
-        callback: (token) => { turnstileToken = token; },
+        callback: (token) => { turnstileToken = token; settleTurnstile(null); },
         'expired-callback': () => { turnstileToken = ''; },
-        'error-callback': () => { turnstileToken = ''; }
+        'error-callback': () => { turnstileToken = ''; settleTurnstile(new Error('The security check could not finish. Please try again.')); }
       });
     }
   }
 
-  function getCaptchaToken() {
+  // The check runs invisibly and can take a few seconds: a tap waits for it
+  // instead of failing with "Complete the security check first".
+  async function getCaptchaToken() {
     if (!turnstileSiteKey) return '';
-    if (!turnstileToken) throw new Error('Complete the security check first.');
+    if (!turnstileToken) {
+      await setupTurnstile();
+      if (!turnstileToken) {
+        signinStatus.textContent = 'Checking your connection is secure…';
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            turnstileWaiters = turnstileWaiters.filter((f) => f !== done);
+            reject(new Error('The security check is taking too long. Check your connection and try again.'));
+          }, 20000);
+          const done = (err) => { clearTimeout(timer); if (err) reject(err); else resolve(); };
+          turnstileWaiters.push(done);
+        });
+      }
+    }
     const token = turnstileToken;
     // A Turnstile token is single-use. Consume it here, but don't reset the
     // widget until the protected request finishes; resetting here immediately
@@ -3671,7 +3688,7 @@
     $('emailBtn').disabled = true;
     signinStatus.textContent = 'Sending…';
     try {
-      const captcha_token = getCaptchaToken();
+      const captcha_token = await getCaptchaToken();
       await postAuth('/v1/auth/email/start', { email, ...(captcha_token ? { captcha_token } : {}) });
       pendingEmail = email;
       $('codeLabel').textContent = `Enter the code we sent to ${email}`;
@@ -3691,7 +3708,7 @@
     $('googleBtn').disabled = true;
     signinStatus.textContent = 'Starting Google sign-in…';
     try {
-      const captcha_token = getCaptchaToken();
+      const captcha_token = await getCaptchaToken();
       const result = await postAuth('/v1/auth/google/start', captcha_token ? { captcha_token } : {});
       const target = typeof result.url === 'string' ? new URL(result.url) : null;
       if (!target || target.protocol !== 'https:' || target.pathname !== '/auth/v1/authorize') throw new Error('Google sign-in is temporarily unavailable.');
@@ -3702,6 +3719,15 @@
     } finally {
       resetCaptchaWidget();
     }
+  });
+
+  // Back from Google (Safari restores the page from its cache): the button and
+  // the single-use security check start fresh.
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    $('googleBtn').disabled = false;
+    if (signinStatus.textContent === 'Starting Google sign-in…') signinStatus.textContent = '';
+    resetCaptchaWidget();
   });
 
   codeForm.addEventListener('submit', async (e) => {

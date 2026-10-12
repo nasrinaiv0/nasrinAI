@@ -1,3 +1,10 @@
+## Proposed PR — Google sign-in waits for the security check (`fix/google-signin-check`)
+
+- **Owner report (2026-10-12):** Google sign-in does not work and keeps asking to complete the security check.
+- **Cause:** the Cloudflare check runs invisibly and takes a few seconds; tapping the button before it finished failed at once with "Complete the security check first". After coming back from Google with Back, the button stayed disabled.
+- **Change:** sign-in (Google and email code) waits up to 20 s for the check, shows "Checking your connection is secure…", and shows a clear message if Cloudflare reports an error; Back from Google re-enables the button with a fresh check. `docs/sign-in.md`.
+- **Validation:** `npm test`; headless Chromium with a stubbed Turnstile (slow success → request sent with the token; error → clear message).
+
 ## New chat without interrupting an ongoing reply
 
 - Starting a new chat detaches the active reply from the current composer without aborting its request.
