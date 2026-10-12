@@ -244,31 +244,56 @@
   const SAFE_FUNCTIONS = new Set(['SUM', 'AVERAGE', 'MIN', 'MAX', 'COUNT', 'COUNTA', 'ROUND', 'ROUNDUP', 'ROUNDDOWN', 'IF', 'ABS', 'PRODUCT', 'SUMIF', 'COUNTIF', 'AVERAGEIF', 'MEDIAN', 'AND', 'OR', 'NOT', 'MOD', 'POWER', 'SQRT', 'TODAY', 'LEN', 'UPPER', 'LOWER', 'CONCATENATE', 'TEXT']);
   const safeFormula = (f) => /^=[A-Za-z0-9:+\-*/(),.$ <>=&%"!']*$/.test(f) && [...f.matchAll(/([A-Za-z][A-Za-z0-9.]*)\(/g)].every((m) => SAFE_FUNCTIONS.has(m[1].toUpperCase()));
 
-  function makeXlsx(csv) {
-    const rows = parseCsv(csv).slice(0, 5000);
-    const widths = [];
-    const sheet = rows.map((r, ri) => {
-      const cells = r.slice(0, 100).map((raw, ci) => {
-        const v = raw.trim();
-        widths[ci] = Math.min(60, Math.max(widths[ci] || 8, v.length + 2));
-        const ref = colName(ci) + (ri + 1);
-        const style = ri === 0 && rows.length > 1 ? ' s="1"' : '';
-        if (v === '') return '';
-        if (/^-?\d{1,15}(\.\d+)?$/.test(v) && !/^-?0\d/.test(v)) return `<c r="${ref}"${style}><v>${v}</v></c>`;
-        if (v.startsWith('=') && safeFormula(v)) return `<c r="${ref}"${style}><f>${xml(v.slice(1))}</f></c>`;
-        return `<c r="${ref}" t="inlineStr"${style}><is><t xml:space="preserve">${xml(raw)}</t></is></c>`;
+  // A workbook may contain named tabs using:
+  // [[sheet name="Cleaned Data"]]
+  // CSV/TSV rows
+  // [[/sheet]]
+  // Each cell is written as a value or a restricted, allow-listed formula;
+  // model output is never evaluated as JavaScript.
+  function makeXlsx(input) {
+    const source = String(input || '');
+    const marker = /\\[\\[sheet\\s+name\\s*=\\s*"([^"\\n]{1,31})"\\s*\\]\\]([\\s\\S]*?)\\[\\[\\/sheet\\]\\]/gi;
+    const tabs = [];
+    let match;
+    while ((match = marker.exec(source)) && tabs.length < 8) {
+      const name = match[1].replace(/[\\[\\]\\*?:\\/\\\\]/g, ' ').trim().slice(0, 31) || `Sheet${tabs.length + 1}`;
+      if (!tabs.some((t) => t.name.toLowerCase() === name.toLowerCase())) tabs.push({ name, rows: parseCsv(match[2]).slice(0, 5000) });
+    }
+    if (!tabs.length) tabs.push({ name: 'Data', rows: parseCsv(source).slice(0, 5000) });
+    const sheetXml = (rows) => {
+      const widths = [];
+      const data = rows.map((r, ri) => {
+        const cells = r.slice(0, 100).map((raw, ci) => {
+          const v = String(raw).trim();
+          widths[ci] = Math.min(60, Math.max(widths[ci] || 8, v.length + 2));
+          const ref = colName(ci) + (ri + 1);
+          const style = ri === 0 && rows.length > 1 ? ' s="1"' : '';
+          if (v === '') return '';
+          if (/^-?\\d{1,15}(\\.\\d+)?$/.test(v) && !/^-?0\\d/.test(v)) return `<c r="${ref}"${style}><v>${v}</v></c>`;
+          if (v.startsWith('=') && safeFormula(v)) return `<c r="${ref}"${style}><f>${xml(v.slice(1))}</f></c>`;
+          return `<c r="${ref}" t="inlineStr"${style}><is><t xml:space="preserve">${xml(raw)}</t></is></c>`;
+        }).join('');
+        return `<row r="${ri + 1}">${cells}</row>`;
       }).join('');
-      return `<row r="${ri + 1}">${cells}</row>`;
-    }).join('');
-    const cols = widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
-    return zip([
-      ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+      const cols = widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
+      const lastCol = colName(Math.max(0, Math.min(99, ...rows.map((r) => Math.max(0, r.length - 1)))));
+      const autoFilter = rows.length > 1 && rows[0]?.length ? `<autoFilter ref="A1:${lastCol}${rows.length}"/>` : '';
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">${rows.length > 1 ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : ''}</sheetView></sheetViews>${cols}<sheetData>${data}</sheetData>${autoFilter}</worksheet>`;
+    };
+    const types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      tabs.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>';
+    const sheets = tabs.map((t, i) => `<sheet name="${xml(t.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
+    const rels = tabs.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+      `<Relationship Id="rId${tabs.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+    const entries = [
+      ['[Content_Types].xml', types],
       ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
-      ['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>'],
-      ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
-      ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
-      ['xl/worksheets/sheet1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">${rows.length > 1 ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : ''}</sheetView></sheetViews>${cols}<sheetData>${sheet}</sheetData></worksheet>`]
-    ]);
+      ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets}</sheets><calcPr fullCalcOnLoad="1"/></workbook>`],
+      ['xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`],
+      ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
+    ];
+    tabs.forEach((t, i) => entries.push([`xl/worksheets/sheet${i + 1}.xml`, sheetXml(t.rows)]));
+    return zip(entries);
   }
 
   // ---------- PDF ----------
