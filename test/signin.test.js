@@ -372,3 +372,49 @@ test('sign out of other devices: this session stays, needs a valid token and thi
     assert.equal(cross.status, 403);
   } finally { await close(); }
 });
+
+// Regression (2026-10-11 production logs): Supabase Auth rejected every email
+// code with "no captcha_token found" because the token was sent top-level.
+// Supabase reads it only from gotrue_meta_security.captcha_token.
+test('email code: CAPTCHA token is sent where Supabase Auth reads it', async () => {
+  const bodies = [];
+  const auth = createSupabaseAuth({
+    url: SB,
+    publishableKey: ANON,
+    fetchImpl: async (_url, init) => { bodies.push(JSON.parse(init.body)); return Response.json({}); }
+  });
+  await auth.sendCode('ana@example.com', 'turnstile-token-1');
+  assert.deepEqual(bodies[0], { email: 'ana@example.com', create_user: true, gotrue_meta_security: { captcha_token: 'turnstile-token-1' } });
+  assert.equal('captcha_token' in bodies[0], false, 'no top-level captcha_token');
+
+  await auth.sendCode('ana@example.com', '');
+  assert.deepEqual(bodies[1], { email: 'ana@example.com', create_user: true }, 'no CAPTCHA block when CAPTCHA is off');
+});
+
+test('email code route: with Turnstile on, the token is required and forwarded nested', async () => {
+  const { url, close, sb } = await setup({ TURNSTILE_SITE_KEY: 'public-site-key', TURNSTILE_SECRET_KEY: 'private-secret-key' });
+  try {
+    const missing = await postJson(url + '/v1/auth/email/start', { email: 'ana@example.com' }, same(url));
+    assert.equal(missing.status, 400);
+    assert.equal((await missing.json()).error.code, 'captcha_required');
+    assert.equal(sb.calls.length, 0, 'Supabase is not called without a token');
+
+    const sent = await postJson(url + '/v1/auth/email/start', { email: 'ana@example.com', captcha_token: 'turnstile-token-2' }, same(url));
+    assert.equal(sent.status, 200);
+    assert.deepEqual(sb.calls[0].body, { email: 'ana@example.com', create_user: true, gotrue_meta_security: { captcha_token: 'turnstile-token-2' } });
+  } finally {
+    await close();
+  }
+});
+
+test('email code: a Supabase CAPTCHA rejection becomes a safe captcha_failed error', async () => {
+  const auth = createSupabaseAuth({
+    url: SB,
+    publishableKey: ANON,
+    fetchImpl: async () => Response.json({ error_code: 'captcha_failed', msg: 'captcha protection: request disallowed (no captcha_token found)' }, { status: 400 })
+  });
+  await assert.rejects(
+    () => auth.sendCode('ana@example.com', 'turnstile-token-3'),
+    (err) => err.status === 400 && err.code === 'captcha_failed' && !/captcha_token found/.test(err.message)
+  );
+});
