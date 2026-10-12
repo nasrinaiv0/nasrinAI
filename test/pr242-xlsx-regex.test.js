@@ -30,9 +30,8 @@ test('PR #242 numeric-cell regex recognizes numbers but preserves leading-zero i
   const lines = source.split('\n');
   const line = lines.find((value) => value.includes('test(v)') && value.includes('return `<c r='));
   assert.ok(line, 'numeric-cell condition exists in workbook builder');
-  const condition = line.trim().replace(/^if\s*\(/, '').replace(/\)\s*return.*$/, '');
-  const predicates = condition.split(' && ').map((part) => vm.runInNewContext(`(${part})`));
-  const numeric = (v) => predicates[0].test(v) && predicates[1].test(v);
+  const condition = line.trim().replace(/^if\s*\(/, '').replace(/\)\s*return.*$/, '').replaceAll('v)', 'value)');
+  const numeric = vm.runInNewContext(`(value) => (${condition})`);
   for (const value of ['0', '12', '-12', '12.50', '999999999999999']) assert.equal(numeric(value), true, value);
   for (const value of ['0012', '-01', 'abc', '1.2.3', '1234567890123456']) assert.equal(numeric(value), false, value);
 });
