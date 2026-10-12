@@ -24,3 +24,39 @@ test('private configuration requests are refused only on the NasrinAI platform',
   assert.equal(product.refusal(platform, 'What are the public plan options?', PLATFORM_TENANT_ID), null);
   assert.equal(product.refusal(business, message, PLATFORM_TENANT_ID), null);
 });
+
+// Owner (2026-10-12): the FAQ and product notes only when the person asks about
+// NasrinAI itself, not whenever a common word ("plan", "function", "image") appears.
+test('product context only for questions about NasrinAI itself', () => {
+  const product = createProductKnowledge();
+  const platform = { tenantId: PLATFORM_TENANT_ID };
+  const about = [
+    'What is NasrinAI privacy and data retention?',
+    'Where is the FAQ?',
+    'What are your plans and prices?',
+    'How do I delete my account?',
+    'Do you remember what I tell you?',
+    'Can this app make videos?',
+    'What is the refund policy?',
+    'Is my data used for training by NasrinAI?'
+  ];
+  for (const m of about) assert.ok(product.context(platform, m, PLATFORM_TENANT_ID), m);
+  const general = [
+    'Help me plan a trip to Cebu',
+    'Write a JavaScript function that adds two numbers',
+    'Make an image of a cat',
+    'Explain how memory works in a computer',
+    'What features should a good CRM have?',
+    'Draft a reply to customer support about a late delivery',
+    'Can you write a video script?',
+    'My account at the bank was locked, what should I do?'
+  ];
+  for (const m of general) assert.equal(product.context(platform, m, PLATFORM_TENANT_ID), null, m);
+});
+
+test('the FAQ is cited with the in-app link, never the raw file', () => {
+  const product = createProductKnowledge();
+  const context = product.context({ tenantId: PLATFORM_TENANT_ID }, 'Where is the NasrinAI FAQ?', PLATFORM_TENANT_ID);
+  assert.match(context, /\[FAQ\]\(https:\/\/nasrinai\.com\/\?faq=1\)/);
+  assert.doesNotMatch(context, /faq\.md/);
+});

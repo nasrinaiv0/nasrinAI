@@ -39,9 +39,12 @@ so stopping cannot be used to get around limits.
 
 ## Read aloud
 
-Listen → Pause → Resume, with a small Stop button while it plays. Works for
-natural voices (Web Audio, `suspend`/`resume`) and the device voice
-(`speechSynthesis.pause`/`resume`).
+Each reply has one round **play/stop** button, the same size as the other reply actions:
+
+- idle: a play icon, labelled "Play reply aloud";
+- loading or reading: a stop icon, labelled "Stop reading aloud".
+
+Tapping it while loading or reading stops, and no second voice request is made. It works for natural voices (Web Audio) and the device voice (`speechSynthesis`). The automatic "Read replies aloud" setting presses the same button. Test: `test/play-stop-audio.test.js`.
 
 ## Malformed archive metadata
 
@@ -58,4 +61,25 @@ ZIP archive validation is intentionally limited to classic single-disk ZIP files
 - Enter never stops or interrupts a reply that is being written; the text stays in the box.
 
 Test: `test/desktop-enter.test.js`.
+
+## Reply formatting
+
+Replies use a small, safe subset of Markdown that `public/format.js` turns into DOM nodes with `textContent` (never `innerHTML`):
+
+- headings, paragraphs, bullet lists, numbered steps (tickable) and quotes;
+- `**bold**`, `` `code` `` and links;
+- code blocks with a **Copy** button that copies the exact code;
+- tables.
+
+**Tables:** a header row, a `---` separator row, then body rows. They render inside a box that scrolls sideways on phones, so the page never does. The box is keyboard-focusable and labelled. At most 8 columns and 50 rows; cells allow inline formatting only. A line with pipes but no separator row stays text. `plain()` (copy and read-aloud) turns rows into `a · b` lines.
+
+The system prompt (`src/ai/prompt.js`) asks for:
+
+- the direct answer first, then short paragraphs;
+- every piece of code, command, configuration or data to copy in a fenced block with its language;
+- tables only for comparisons (at most 6 columns);
+- depth matched to the person: simple or in depth on request;
+- Markdown only, never HTML.
+
+Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM that fails on any `innerHTML` use.
 
