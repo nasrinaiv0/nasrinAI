@@ -93,3 +93,8 @@ Each assistant reply has one icon-only read-aloud control. It toggles between Pl
 ## Instant small-talk replies
 
 In smart routing, plain greetings and brief acknowledgements from the NasrinAI platform chat use deterministic local replies after normal request validation, limits, message persistence, history loading, and policy checks. They do not call an AI provider. Requests with attachments, voice, professional selection, project context, personal context, or regeneration/edit operations continue through the normal path.
+
+
+## Greeting shortcut ordering
+
+The local small-talk shortcut must run only after the per-turn `extra` context array is initialized and populated. This prevents a temporal-dead-zone `ReferenceError` when a greeting reaches the shortcut. Regression tests must cover a plain greeting and verify it returns a local logic response without calling the model provider.
