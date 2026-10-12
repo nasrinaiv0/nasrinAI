@@ -124,3 +124,8 @@ and talk; your words appear in the box as you speak.
 
 Test: `test/dictation-button.test.js`.
 
+
+
+## Status line
+
+While a reply is prepared the stream may send `{ type: 'status', stage }` with one of `files`, `links`, `library`, `memory`, `web` (fixed words, never free text). The page turns it into the thinking line ("Browsing the internet", "Remembering", …); without one it guesses from the message, then shows "Putting it together" and "Almost done".
