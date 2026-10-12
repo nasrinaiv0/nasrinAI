@@ -16,7 +16,12 @@ test('menu button opens a drawer with the space, recent chats, New chat and Sett
   assert.match(js, /openHistory\(b\.dataset\.open\)/, 'drawer links reuse the existing screens');
   assert.match(js, /\.slice\(0, 8\)/, 'up to 8 recent chats');
   const css = await read('app.css');
-  assert.match(css, /\.menu-btn \{ display: none; \}\n\.drawer, \.drawer-scrim \{ display: none; \}\n@media \(max-width: 69\.99rem\) \{\n  \.menu-btn \{ display: inline-flex;/, 'phones and tablets only');
+  const phone = /\.menu-btn \{ display: none; \}\n\.drawer, \.drawer-scrim \{ display: none; \}\n@media \(max-width: 69\.99rem\) \{([\s\S]*?)\n\}/.exec(css);
+  assert.ok(phone, 'phones and tablets only');
+  // Owner: the header shows only the menu and New chat (icon only) there.
+  assert.match(phone[1], /#historyBtn, #settingsBtn \{ display: none; \}/);
+  assert.match(phone[1], /#newChat \.new-chat-label \{ display: none; \}/);
+  assert.match(phone[1], /\.menu-btn \{ display: inline-flex;/);
 });
 
 test('the bottom tab bar is an option, off by default', async () => {

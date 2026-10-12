@@ -2267,6 +2267,12 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 .menu-btn { display: none; }
 .drawer, .drawer-scrim { display: none; }
 @media (max-width: 69.99rem) {
+  /* Phones and tablets: the header is just the menu and New chat (icon);
+     Your chats and Settings live in the menu. */
+  #historyBtn, #settingsBtn { display: none; }
+  #newChat { width: 2.75rem; padding: 0; color: var(--ink); }
+  #newChat .new-chat-label { display: none; }
+  #newChat .new-chat-ico { display: block; }
   .menu-btn { display: inline-flex; margin-right: 0.15rem; color: var(--ink); }
   .menu-btn svg { stroke-width: 2; }
   .bar { gap: 0.25rem; }
