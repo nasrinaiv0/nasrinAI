@@ -12,7 +12,7 @@ server-side authorization.
 2. Paste the whole of [`db/migrations/001_core.sql`](../db/migrations/001_core.sql) and press **Run**.
 3. Expect "Success. No rows returned". Running it again is safe.
 4. Do the same with [`db/migrations/002_plans.sql`](../db/migrations/002_plans.sql) (plans for Max and Ultra).
-5. Apply later migrations in order only after checking the live schema and migration history. Migration 028 makes the server-only browser-role denial explicit; do not assume it is deployed until execution is confirmed.
+5. Apply later migrations in order only after checking the live schema and migration history. Migration 028 makes the server-only browser-role denial explicit; do not assume it is deployed until execution is confirmed. Migration 029 sets a 50 MB upload limit on the private `media` bucket; it was applied to production on 2026-10-12 (see [supabase-security-baseline.md](supabase-security-baseline.md)).
 
 ## Tables
 
