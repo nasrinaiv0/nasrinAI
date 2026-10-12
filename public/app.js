@@ -1668,7 +1668,7 @@
   }
 
   function shortcutImagePrompt(shortcut) {
-    const extra = shortcut.args ? '\\n\\nAdditional direction: ' + shortcut.args : '';
+    const extra = shortcut.args ? '\n\nAdditional direction: ' + shortcut.args : '';
     if (shortcut.name === 'clone') return 'Clone the attached reference image’s visual style, lighting, mood, and composition. Preserve its main subject and key content.' + extra;
     if (shortcut.name === 'blur') return 'Edit the attached image by blurring its background while keeping the main subject sharp. Use a natural, professional depth-of-field effect.' + extra;
     if (shortcut.name === 'remove-background') return 'Remove the background from the attached image and preserve clean edges around the subject.' + extra;
