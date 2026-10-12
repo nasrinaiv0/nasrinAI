@@ -13,6 +13,18 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Reply formatting: safe tables, code always copyable (`feature/reply-formatting`)
+
+- **Intent:** backlog item 3 of the 2026-10-12 upgrade: smarter, more organized, compact replies; code always in a copyable box. It also covers the table and depth gaps from the GPT-capability map in `docs/feature-audit.md`.
+- **Change:**
+  - `public/format.js` renders Markdown tables with DOM nodes only: a header row, a scroll box with `role="region"` and keyboard focus, capped at 8 × 50, inline formatting in cells. `plain()` flattens tables for Copy and Listen.
+  - `src/ai/prompt.js`: code, commands and data always go in fenced blocks with a language; tables only for comparisons; depth follows the person; short paragraphs; Markdown, never HTML. This replaces "No tables, no HTML."
+  - `public/app.css`: table styles (cells wrap between words; code in cells stays whole).
+- **Check (headless Chromium, local fake-provider run):** a 5-column table scrolls inside its own box at 320 and 390 px and fits at 1280 px. The code block keeps its Copy button.
+- **Tests:** `test/reply-format.test.js` (4 tests: tables, caps, code Copy, prompt rules). The table and prompt tests fail on the old code.
+- **Docs:** `docs/chat.md`.
+- **Validation:** local `npm test` (443 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## [#220](https://github.com/primusco20/nasrinAI/pull/220) — Center the sign-in security check; smaller on phones (open)
 
 - **Intent:** the Cloudflare Turnstile box was left-aligned under the email form. The owner asked for it lower-center and smaller on phones.
