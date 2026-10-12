@@ -167,6 +167,12 @@ test('Google: PKCE start, callback sets the session, failures go back to the pag
       assert.equal(r.headers.get('location'), '/?signin=failed', q);
       assert.equal(cookieOf(r, 'nasrin_rt'), '');
     }
+
+    // 2026-10-12: Google's answer reached the sign-in service twice; the
+    // second one ("state already used") must not undo the sign-in.
+    const repeat = await fetch(url + '/v1/auth/google/callback?error=server_error&error_description=State+has+already+been+used', { redirect: 'manual', headers: { Cookie: 'nasrin_rt=rt-existing' } });
+    assert.equal(repeat.headers.get('location'), '/?signin=ok');
+    assert.equal(cookieOf(repeat, 'nasrin_rt'), '', 'the existing sign-in cookie is left alone');
   } finally { await close(); }
 });
 
