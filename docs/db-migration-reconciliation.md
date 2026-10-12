@@ -8,6 +8,8 @@ These are deployment-history risks, not permission to rewrite or replay migratio
 
 ## Required production reconciliation
 
+A read-only diagnostic is available at [`db/ops/inspect_migration_history_conflict.sql`](../db/ops/inspect_migration_history_conflict.sql). Run its sections in the intended Supabase SQL Editor and retain the results. It checks the recorded migration labels, the actual media bucket limit, the realtime voice table/RPCs, and RPC grants without changing production. Run the migration-history SELECT only if the first query confirms that `supabase_migrations.schema_migrations` exists with the expected columns.
+
 Before applying any pending migration:
 
 1. In the intended Supabase project's SQL Editor, export the rows from supabase_migrations.schema_migrations (or the project's actual migration-history table) with version and name.
