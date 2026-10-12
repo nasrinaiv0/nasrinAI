@@ -347,8 +347,8 @@ export function authRoutes({ config, auth, limiter, logger }) {
           // phones): the first one signs the person in, the second fails with
           // "state already used" and arrives without a code. When this browser
           // already holds a sign-in cookie, report success; the page checks it.
-          if ((!code || !verifier) && cookies(req)[RT]) {
-            logger.info('google sign-in callback repeated; keeping the existing sign-in', { reason: !code ? 'missing_authorization_code' : 'missing_pkce_verifier_cookie' });
+          if (!code && cookies(req)[RT]) {
+            logger.info('google sign-in callback repeated; keeping the existing sign-in', { reason: 'missing_authorization_code' });
             return back(res, '/?signin=ok');
           }
           if (!code || !verifier || code.length > 512) {

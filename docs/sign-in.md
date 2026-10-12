@@ -16,11 +16,22 @@ screens up to 480 px wide it is scaled to 80% (the widget is a fixed-size
 iframe, so it is scaled rather than resized). Protected by a test in
 `test/page.test.js`.
 
+**Google code on the home page.** Supabase only sends people back to
+`/v1/auth/google/callback` when that address is in its Redirect URLs list;
+otherwise it falls back to the Site URL (`/?code=…`) and nobody is signed in
+(seen 2026-10-12: Google logins at 13:35 and 17:20 UTC with no code exchange).
+The page now forwards `?code=` to the callback on the same site, so the
+one-time PKCE cookie still applies. Keep both
+`https://nasrinai.com/v1/auth/google/callback` and
+`https://www.nasrinai.com/v1/auth/google/callback` in Supabase → Authentication
+→ URL Configuration → Redirect URLs.
+
 **Google's answer arriving twice.** On phones the answer from Google can
 reach the sign-in service twice; the first signs the person in, the second
 fails with "State has already been used" (seen in the Supabase auth logs on
 2026-10-12). The callback then keeps the existing sign-in (`?signin=ok`, the
-page checks the cookie) and the page shows "did not finish" only when the
+page checks the cookie) — only when no code arrived; a code without its PKCE
+cookie is always a failure and the page shows "did not finish" only when the
 person is really signed out.
 
 **Waiting for the check.** The check runs invisibly and can take a few

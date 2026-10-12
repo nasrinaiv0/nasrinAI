@@ -4,6 +4,14 @@
 - **Change:** `code-bot-{light,dark}-busy.svg` (same robot, about 4× faster sweep, blinks and twinkle) made by `scripts/pixelbot-logo.py`; the coding chat's thinking line shows it instead of the Nasrin ball; still version when motion is reduced. Normal chats keep the ball.
 - **Validation:** `npm test`; headless Chromium (light and dark).
 
+## Proposed PR — Google sign-in completes (`fix/google-signin-stale-cookie`)
+
+- **Owner report (2026-10-12):** Google sign-in fails after choosing the account.
+- **Found (Supabase auth logs):** Google accepts the person (13:35 and 17:20 UTC) but our server never exchanges the code; the page keeps the previous session (an old refresh token, "already used"). Supabase falls back to the Site URL (`/?code=…`) when `/v1/auth/google/callback` is not in its Redirect URLs list, and the home page ignored the code.
+- **Change:** the page forwards `?code=` to the callback on the same site (the PKCE cookie still guards it); the "repeated answer" shortcut now applies only when no code arrived, so a code without its PKCE cookie is a failure, never a silent "ok" with an old session. `docs/sign-in.md`.
+- **Owner step:** Supabase → Authentication → URL Configuration → Redirect URLs: add `https://nasrinai.com/v1/auth/google/callback` and `https://www.nasrinai.com/v1/auth/google/callback`.
+- **Validation:** `npm test`; headless Chromium (`/?code=…` → callback).
+
 ## Proposed PR — Pixel-robot logo for the Code chat (`ui/code-logo`)
 
 - **Owner request (2026-10-12):** the supplied pixel robot is the new Code chat logo.
