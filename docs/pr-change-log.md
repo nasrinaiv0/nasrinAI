@@ -1,3 +1,10 @@
+## Proposed PR — Themes: Orange, Charcoal, Galaxy (`feature/themes`)
+
+- **Owner request (2026-10-12):** besides Appearance, add themes: orange, charcoal, galaxy.
+- **Change:** Settings gets a Theme picker (Mono, Orange, Charcoal, Galaxy) under Appearance. Each theme has Light and Dark colours and an accent for the main actions. Mono (the default) is unchanged: every accent rule is scoped to `:root[data-palette]`. Files: `public/index.html`, `public/theme.js`, `public/app.js`, `public/app.css`, `docs/themes.md`.
+- **Data:** the theme is kept on the device like the appearance; nothing is sent. `public/legal/privacy.md` lists it among device choices; privacy version 2026-10-12a (`LEGAL_PRIVACY_VERSION` default). The file said 2026-10-08a while the app reported 2026-10-07a; both now say 2026-10-12a. No Terms change, so no one has to accept again.
+- **Validation:** `test/themes.test.js` (fails on `main`, passes here); updated legal/status tests for the new privacy version; local `npm test` and `npm run check:secrets`; headless Chromium, every theme in Light and Dark.
+
 ## Proposed PR — Diagnose server startup 503s (`fix/startup-503-diagnostics`)
 
 - **Problem:** production API routes return HTTP 503 when configuration loading or application initialization fails, but the client-facing message is generic and Vercel logs may be unavailable to the operator.
