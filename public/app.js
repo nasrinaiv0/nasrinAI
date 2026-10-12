@@ -2539,7 +2539,9 @@
   }
 
   function renderAccount() {
-    const can = signInMethods.email || signInMethods.google;
+    // Until the server has said sign-in is off, keep Sign in on screen: a slow
+    // or failed /v1/status must never leave a guest with no way to sign in.
+    const can = signInMethods.email || signInMethods.google || !authMethodsLoaded;
     accountBox.hidden = !can && !account;
     accountBox.classList.toggle('is-in', Boolean(account));
     accountLabel.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
@@ -5808,7 +5810,9 @@
   // the models and the conversation load for the right person.
   async function restoreAccount() {
     renderAccount();
-    if (!(signInMethods.email || signInMethods.google)) return;
+    // Skip only when the server said sign-in is off; a failed status check
+    // must not hide an existing sign-in (and its Log out).
+    if (authMethodsLoaded && !(signInMethods.email || signInMethods.google)) return;
     // The sign-in cookie, not this device's storage, says who is signed in: a
     // phone may clear a web app's storage while the cookie stays, so always ask.
     // A weak connection is retried, never mistaken for being signed out.

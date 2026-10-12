@@ -1,3 +1,10 @@
+## Proposed PR — Sign in always available when signed out (`fix/signin-always-visible`)
+
+- **Owner report (2026-10-12):** the Sign in button was missing. The header button hid whenever `/v1/status` had not said which sign-in methods exist, so a slow or failing status check (the 503 outage) left guests with no way to sign in, and a signed-in person's session was not restored (no Log out).
+- **Change:** Sign in (header and Settings) hides only when the server has said sign-in is off; until then it shows, and the sheet explains if sign-in is unavailable. The session is restored unless sign-in is explicitly off, so Log out stays in Settings whenever signed in.
+- **Files:** `public/app.js`, `test/ios-header-icons.test.js`.
+- **Validation:** `npm test`, `npm run check:secrets`; headless Chromium at 390/1280 with `/v1/status` normal and returning 503.
+
 ## Draft PR #246 — Expose safe startup stage in 503 responses (`fix/startup-503-stage-response`)
 
 - **Problem:** production `/v1/status` returns HTTP 503 quickly and Vercel function logs are unavailable, so the operator cannot tell whether startup fails while loading configuration or constructing the app.
