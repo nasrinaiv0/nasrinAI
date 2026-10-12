@@ -6249,7 +6249,8 @@
     .catch((err) => { console.error('NasrinAI start-up: restoring sign-in failed', err); })
     .then(() => {
       showFirstVisitNotice();
-      if (signinResult === 'failed') openSignIn('Google sign-in did not finish. Please try again.');
+      // A repeated Google answer can report a failure after the sign-in worked: only show it when signed out.
+      if (signinResult === 'failed' && !account) openSignIn('Google sign-in did not finish. Please try again.');
       // Load both catalogs before revealing the toolbar so its controls do not
       // pop in separately as their independent requests finish.
       loadingModels = loadModels();
