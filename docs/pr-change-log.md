@@ -1,3 +1,10 @@
+## Proposed PR — Wire the HNSW semantic cache into chat
+
+- **Owner request (2026-10-12):** connect the existing Supabase HNSW semantic cache to the active chat flow without changing unrelated behavior.
+- **Change:** initialize the existing semantic-cache implementation in `src/main.js` with the server-only Supabase secret and local `Xenova/all-MiniLM-L6-v2` embedder; pass it to `src/chat.js` as a second-level cache after the existing exact-match policy cache.
+- **Safety:** semantic lookup runs only when the existing policy cache key allows the request. Scope is hashed and bound to tenant, actor, plan tier, task, level and output variant. Cache failures fall through to the normal model path; cached responses are touched and logged as zero-cost cache hits. No token limits, SQL, RLS, or unrelated app behavior are changed.
+- **Validation:** focused semantic-cache unit tests and source-wiring regression tests, then full `npm test` and `npm run check:secrets` in CI. This change does not populate production rows until eligible chat requests occur after deployment.
+
 ## Proposed PR — Voice screen tier as an icon (`ui/tier-icon`)
 
 - **Owner request (2026-10-12):** the voice screen's tier pill ("Pro ⌄") becomes an icon, the same signal bars as the chat's model button (one bar per level); the name stays for screen readers. Then (owner: "make the buttons same all together") all four voice controls share one size and glass look; the mic is no longer larger and black, and turns filled only while muted.

@@ -47,9 +47,39 @@ import { createProjects } from './projects.js';
 import { createLibrary } from './library.js';
 import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
+import { createSemanticCache } from './semanticCache.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
+
+// Minimal server-only PostgREST/RPC adapter for the semantic cache. Keep this
+// dependency-free so importing the app in tests does not require the Supabase SDK.
+function createSemanticCacheClient({ url, secretKey, fetchImpl = fetch }) {
+  async function request(path, body, extraHeaders = {}) {
+    const response = await fetchImpl(url + '/rest/v1/' + path, {
+      method: 'POST',
+      headers: {
+        apikey: secretKey,
+        Authorization: 'Bearer ' + secretKey,
+        'Content-Type': 'application/json',
+        ...extraHeaders
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = typeof data?.message === 'string' ? data.message : 'Supabase request failed';
+      return { data: null, error: { message, code: data?.code || String(response.status) } };
+    }
+    return { data, error: null };
+  }
+  return {
+    rpc: (name, args) => request('rpc/' + name, args),
+    from: (table) => ({
+      insert: (row) => request(table, row, { Prefer: 'return=minimal' })
+    })
+  };
+}
 
 // Wires the real dependencies together. Tests call createApp with fakes instead.
 export function buildApp({ config, logger }) {
@@ -81,6 +111,16 @@ export function buildApp({ config, logger }) {
   const conversations = createConversations({ store, config: effective, logger });
   const prices = loadPrices(config.ai.routing.pricesJson);
   const reasoningBudget = createBudget({ store, config: effective, logger });
+  // Optional acceleration only: cache errors never make chat unavailable.
+  const semanticCache = config.supabaseUrl && config.supabaseSecretKey
+    ? createSemanticCache({
+        supabase: createSemanticCacheClient({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey }),
+        // Load the local embedding package only when an eligible chat request
+        // actually uses the cache; normal app imports/tests stay dependency-light.
+        embed: (text) => import('./embedder.js').then(({ embed }) => embed(text)),
+        modelName: process.env.EMBED_MODEL || 'Xenova/all-MiniLM-L6-v2'
+      })
+    : null;
   const provider = providerFromConfig(config, { logger });
   if (provider) logger.info('AI provider ready', { provider: provider.id, model: provider.model });
   else logger.warn('AI_PROVIDER is none: chat will answer "unavailable"');
@@ -142,7 +182,7 @@ export function buildApp({ config, logger }) {
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
-  const chat = createChat({ conversations, limiter, uploads, usageLog, provider, models, coding, plans, policy, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;

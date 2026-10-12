@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { HttpError } from './http/errors.js';
 import { ProviderError } from './ai/provider.js';
 import { buildSystemPrompt, fitHistory } from './ai/prompt.js';
@@ -95,7 +96,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, semanticCache = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
   const smart = Boolean(policy) && config.ai.routing.mode === 'smart';
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
   // so write/money tools are refused instead of proposed.
@@ -438,6 +439,36 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         await usageLog.record(caller, { provider: hit.provider, model: hit.model, outcome: 'ok', task: plan.task, level: plan.level, costUsd: 0, cacheHit: true });
         return finish(hit.text);
       }
+
+      // The persistent vector cache is a second level behind the existing exact-match
+      // cache. Reuse only requests that already pass policy.cacheKey's existing
+      // public/simple/history/tier safeguards; scope each search to this actor and task.
+      let semanticEntry = null;
+      const contextHash = createHash('sha256').update(JSON.stringify({
+        history: fullHistory,
+        attachments: files
+      })).digest('hex');
+      const semanticScope = createHash('sha256').update([
+        caller.tenantId, caller.actor.type, caller.actor.id, plan.tier,
+        plan.task, plan.level, variant, contextHash
+      ].join('|')).digest('hex');
+      if (semanticCache && key) {
+        try {
+          semanticEntry = await semanticCache.lookup(typed, semanticScope);
+          if (semanticEntry.hit) {
+            await semanticCache.touch(semanticEntry.hit.id).catch(() => {});
+            await usageLog.record(caller, {
+              provider: 'semantic_cache', model: 'hnsw-cosine', outcome: 'ok',
+              task: plan.task, level: plan.level, costUsd: 0, cacheHit: true
+            });
+            return finish(semanticEntry.hit.response);
+          }
+        } catch {
+          // A cache outage or embedding-model failure must never block a normal reply.
+          semanticEntry = null;
+          logger.warn('semantic cache lookup unavailable');
+        }
+      }
       let started = now();
       let run;
       const onFailure = (f) => { live?.reset(); return usageLog.record(caller, {
@@ -532,7 +563,13 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
       });
       if (!reply) throw unavailable();
-      if (!usedTools) policy.remember(key, { text: reply, provider: run.result.provider || run.spec.provider, model: run.spec.model });
+      if (!usedTools) {
+        policy.remember(key, { text: reply, provider: run.result.provider || run.spec.provider, model: run.spec.model });
+        if (semanticCache && key && semanticEntry?.embedding) {
+          semanticCache.store({ scope: semanticScope, prompt: typed, response: reply, embedding: semanticEntry.embedding })
+            .catch(() => logger.warn('semantic cache store unavailable'));
+        }
+      }
       return finish(reply);
     }
 
