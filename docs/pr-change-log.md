@@ -1,3 +1,9 @@
+## Proposed PR — Remove the Sign in button above the message box (`fix/remove-guest-signin`)
+
+- **Owner request (2026-10-12):** no Sign in button above the message box (#233 was merged before it could be closed). Sign in stays in the header on every screen; below 400 px the wordmark gives way so it fits. The iOS header icons from #233 stay.
+- **Files:** `public/index.html`, `public/app.js`, `public/app.css`, tests, `docs/redesign.md`.
+- **Validation:** `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`; `npm test`; headless Chromium at 320/390/1280.
+
 ## Proposed PR — Voice typing button: clear Stop while listening (`fix/dictation-button`)
 
 - **Owner request (2026-10-12):** fix the speech-to-text button and make it responsive.
