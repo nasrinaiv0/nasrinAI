@@ -89,6 +89,9 @@
   let activeAccountEmail = null;
   const identityKey = (key) => activeAccountEmail ? `${key}:${encodeURIComponent(activeAccountEmail.toLowerCase())}` : key;
   let conversationId = saved.get(identityKey(KEYS.conversation));
+  // Each visible conversation has a generation number. A request from an older
+  // view can finish and persist without writing into the newly opened chat.
+  let chatViewEpoch = 0;
   let busy = false;
   let aiAvailable = true;
   let listening = false;
@@ -1763,6 +1766,10 @@
     }
     if (replace) replace.remove();
     for (const p of log.querySelectorAll('.msg.problem, .ask-card')) p.remove();
+    const viewEpoch = chatViewEpoch;
+    let turnConversationId = conversationId;
+    const turnProject = chatProject ? { id: chatProject.id, name: chatProject.name } : null;
+    const isCurrentView = () => viewEpoch === chatViewEpoch;
     const tone = Nasrin.tone(text);
     let userEl = null;
     if (!regenerate) {
@@ -1776,7 +1783,8 @@
     const thinking = showThinking(regenerate ? 'Thinking again' : files.length ? 'Reading your file' : guessThinking(text));
     const live = liveBubble();
     const ctrl = new AbortController();
-    turn = { ctrl };
+    const turnState = { ctrl, viewEpoch };
+    turn = turnState;
     refreshSendButton();
     refreshTurnControls();
     let started = null;   // { conversation_id, user_message_id } once the message is saved
@@ -1788,7 +1796,7 @@
       ...(spoken && speakVoice ? { speak_voice: speakVoice } : {}),
       ...(editId ? { edit_message_id: editId } : {}),
       ...(id ? { conversation_id: id } : {}),
-      ...(!id && chatProject ? { project_id: chatProject.id } : {}),
+      ...(!id && turnProject ? { project_id: turnProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
@@ -1797,8 +1805,11 @@
       signal: ctrl.signal,
       onStart: (ev) => {
         started = ev;
-        conversationId = ev.conversation_id;
-        saved.set(identityKey(KEYS.conversation), conversationId);
+        turnConversationId = ev.conversation_id;
+        if (isCurrentView()) {
+          conversationId = turnConversationId;
+          saved.set(identityKey(KEYS.conversation), conversationId);
+        }
         if (userEl && typeof ev.user_message_id === 'string') userEl.dataset.id = ev.user_message_id;
       },
       onDelta: (piece) => { live.add(piece, thinking); if (onPiece) onPiece(piece); },
@@ -1809,21 +1820,28 @@
     try {
       let data;
       try {
-        data = await askStream(body(conversationId), hooks);
+        data = await askStream(body(turnConversationId), hooks);
       } catch (err) {
-        if (err.status !== 404 || !conversationId || regenerate || editId) throw err;
+        if (err.status !== 404 || !turnConversationId || regenerate || editId) throw err;
         // The earlier chat is gone (guest chats expire); carry on in a new one.
-        conversationId = null;
-        saved.del(identityKey(KEYS.conversation));
-        notice.textContent = 'Your earlier chat has expired, so this message starts a new one.';
+        turnConversationId = null;
+        if (isCurrentView()) {
+          conversationId = null;
+          saved.del(identityKey(KEYS.conversation));
+          notice.textContent = 'Your earlier chat has expired, so this message starts a new one.';
+        }
         data = await askStream(body(null), hooks);
       }
       thinking.remove();
       live.remove();
-      conversationId = data.conversation_id;
-      saved.set(identityKey(KEYS.conversation), conversationId);
+      turnConversationId = data.conversation_id;
+      if (isCurrentView()) {
+        conversationId = turnConversationId;
+        saved.set(identityKey(KEYS.conversation), conversationId);
+        if (data.project && typeof data.project.id === 'string') setChatProject(data.project);
+      }
       if (userEl && typeof data.user_message_id === 'string') userEl.dataset.id = data.user_message_id;
-      if (data.project && typeof data.project.id === 'string') setChatProject(data.project);
+      if (!isCurrentView()) return { data, shown: null, background: true };
       busy = false;
       if (!data.message) return;
       const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text() });
@@ -1855,18 +1873,22 @@
       thinking.remove();
       const partial = live.text();
       live.remove();
-      busy = false;
-      if (onFail) onFail(err, ctrl.signal.aborted);
+      if (isCurrentView()) busy = false;
+      if (onFail && isCurrentView()) onFail(err, ctrl.signal.aborted);
       if (ctrl.signal.aborted) {
         // Stopped: what was written stays (the server kept it too).
-        if (partial.trim()) {
+        if (isCurrentView() && partial.trim()) {
           const shown = show('assistant', partial, { animate: false });
           const note = document.createElement('p');
           note.className = 'pro-used';
           note.textContent = 'Stopped';
           shown.appendChild(note);
         }
-        Nasrin.mood('idle');
+        if (isCurrentView()) Nasrin.mood('idle');
+        return;
+      }
+      if (!isCurrentView()) {
+        if (document.hidden) deviceNotify('NasrinAI work failed', 'A reply in your previous chat could not be completed.', 'nasrinai-chat-failed-' + Date.now());
         return;
       }
       problem(err.message || 'Something went wrong. Please try again.', () => {
@@ -1880,10 +1902,13 @@
       if (err.code === 'plan_required') openPlans(err.message);
       if (err.code === 'terms_required') checkTerms('update_prompt');
     } finally {
-      busy = false;
-      turn = null;
-      refreshSendButton();
-      refreshTurnControls();
+      // A background turn must never clear the busy state of a newer turn.
+      if (turn === turnState) {
+        busy = false;
+        turn = null;
+        refreshSendButton();
+        refreshTurnControls();
+      }
     }
   }
 
@@ -1937,12 +1962,22 @@
   $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
   function startNewChat({ focus = true, message = '' } = {}) {
+    const continuingTurn = Boolean(turn);
+    // Detach the current turn from the visible composer without aborting its
+    // controller. It can finish and persist in its original conversation.
+    chatViewEpoch++;
+    turn = null;
+    busy = false;
     setChatProject(null);
     conversationId = null;
     saved.del(identityKey(KEYS.conversation));
     stopSpeaking();
-    notice.textContent = message;
+    notice.textContent = message || (continuingTurn
+      ? 'Your previous reply is continuing in the background and will be saved in Your chats.'
+      : '');
     clearScreen();
+    refreshSendButton();
+    refreshTurnControls();
     Nasrin.flash('happy', 1200);
     if (focus) input.focus();
     startNotes('new_chat');

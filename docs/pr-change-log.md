@@ -1,3 +1,10 @@
+## New chat without interrupting an ongoing reply
+
+- Starting a new chat detaches the active reply from the current composer without aborting its request.
+- The previous reply continues against its original conversation and project context, and is persisted on the server; it never renders into the new chat.
+- The new chat immediately becomes usable for another request. Completion of an older request cannot overwrite the new conversation ID or clear the new turn's busy state.
+- Existing request cancellation remains available for the active visible turn. No database, quota, or authorization changes.
+
 ## Exact project card layout from reference
 
 - Render Open, Chat, and Code as three equal-width vertical cards in a single row when a project is expanded.
