@@ -2406,8 +2406,9 @@
     settingsBtn.setAttribute('aria-expanded', 'false');
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
-  const headerSignIn = $('headerSignIn');
-  if (headerSignIn) headerSignIn.addEventListener('click', () => openSignIn());
+  // Guests see Sign in just above the message box (not in the header).
+  const guestSignIn = $('guestSignIn');
+  guestSignIn.addEventListener('click', () => openSignIn());
   settingsBtn.addEventListener('click', () => (sheet.hidden ? openSettings() : closeSettings()));
 
   // Canonical FAQ deep link: open the same in-app Help & Support page used by
@@ -2546,7 +2547,7 @@
     accountBtn.hidden = Boolean(account);
     if (accountOpen) accountOpen.hidden = !account;
     if (accountDetailEmail) accountDetailEmail.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
-    if (headerSignIn) headerSignIn.hidden = Boolean(account);
+    guestSignIn.hidden = Boolean(account) || !can;
     showConnectForSignedIn();
     $('logoutMenu').hidden = !account;
   }

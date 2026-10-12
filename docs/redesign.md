@@ -40,7 +40,8 @@ All sizes, spacing, motion and surfaces come from tokens on `:root` (`public/app
 |---|---|---|---|
 | R1 | `ui/redesign-foundation` | Design tokens, adaptive background, one press and focus style for every button | PR open |
 | R2 | `ui/ios-tab-bar` | Phone tab bar (Chat, Library, Projects, Settings); simpler header; desktop keeps its side rail | PR open (builds on R1) |
-| R3 | `ui/icon-set` | One consistent icon set across header, composer, reply actions, Settings | To do |
+| R3a | `ui/ios-header-icons` | iOS-style header icons (clock, gear, compose); a guest's Sign in moves above the message box | PR open (builds on #224, #231, #232) |
+| R3 | `ui/icon-set` | The same icon style for the composer, reply actions and Settings | To do |
 | R4 | `ui/motion` | Sheet, page and reply motion on the tokens; replies fade in without jumping the screen (handoff item 9); generation loader (item 8) | To do |
 | R5 | `ui/screens-pass` | Settings as iOS grouped lists; Library, Projects and Code screens; sign-in; checked at 320, 390, 768 and 1280 px, light and dark | To do |
 
@@ -73,6 +74,24 @@ Already open and part of this direction:
 - Checked in headless Chromium at 320, 390 and 768 px (touch, light and dark)
   and 1280 px (no bar): switching tabs, the active tab, sending a message, and
   no sideways scroll. Test: `test/ios-tab-bar.test.js`.
+
+## R3a: header icons and the guest Sign in
+
+Owner request (2026-10-12): "change these icons make it iOS like icons" and
+"move the sign in button at the top of composer if there is a guest using it".
+
+- Icons in the SF Symbols style (thin 1.6 stroke, round ends): history is a
+  clock with a back arrow, Settings is a gear (in place of the sliders), and
+  New chat is the iOS compose square and pencil. The same icons are used in
+  the header, the desktop rail and the tab bar.
+- Signed out, a "Sign in" capsule (person icon) sits just above the message
+  box on every screen size; the header no longer has a Sign in button, so the
+  wordmark always fits. It is hidden when signed in or when no sign-in method
+  is set up. It is 44 pt tall on touch screens, and it steps aside while the
+  keyboard is up.
+- Checked in headless Chromium at 320, 390 and 768 px (touch) and 1280 px,
+  light and dark: no sideways scroll, and the capsule opens sign-in. Tests:
+  `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`.
 
 ## How each phase is checked
 
