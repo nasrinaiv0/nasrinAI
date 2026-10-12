@@ -368,6 +368,16 @@ export function loadConfig(env = process.env) {
   const attachmentsMaxCount = softInt('ATTACHMENTS_MAX_COUNT', env.ATTACHMENTS_MAX_COUNT, 4, 0, 10);
   // Vercel accepts request bodies up to 4.5 MB; base64 adds a third.
   const attachmentsMaxMb = softInt('ATTACHMENTS_MAX_MB', env.ATTACHMENTS_MAX_MB, 3, 1, 3);
+  // Direct uploads (docs/uploads.md): the browser sends photos and files
+  // straight to a private Supabase Storage bucket with a one-time link, so they
+  // are not held to Vercel's 4.5 MB request limit. Off until switched on.
+  let uploadsEnabled = softFlag('UPLOADS_DIRECT', env.UPLOADS_DIRECT, 'false');
+  if (uploadsEnabled && !(supabaseUrl && supabaseSecretKey)) {
+    warnings.push('UPLOADS_DIRECT needs SUPABASE_URL and SUPABASE_SECRET_KEY. Direct uploads are off.');
+    uploadsEnabled = false;
+  }
+  const uploadsMaxMb = softInt('UPLOADS_MAX_MB', env.UPLOADS_MAX_MB, 20, 1, 50);
+  const uploadsPerHour = softInt('UPLOADS_PER_HOUR', env.UPLOADS_PER_HOUR, 60, 1, 1000);
   const turnstileSiteKey = String(env.TURNSTILE_SITE_KEY || '').trim();
   const turnstileSecretKey = String(env.TURNSTILE_SECRET_KEY || '').trim();
   if (Boolean(turnstileSiteKey) !== Boolean(turnstileSecretKey)) throw new ConfigError('set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together');
@@ -554,12 +564,18 @@ export function loadConfig(env = process.env) {
       annualPrices: Object.freeze({ max: price('PLAN_MAX_ANNUAL_PRICE', env.PLAN_MAX_ANNUAL_PRICE), ultra: price('PLAN_ULTRA_ANNUAL_PRICE', env.PLAN_ULTRA_ANNUAL_PRICE) })
     }),
     paymongo,
+    uploads: Object.freeze({
+      enabled: uploadsEnabled,
+      bucket: 'chat-uploads',
+      maxBytes: uploadsMaxMb * 1024 * 1024,
+      perHour: uploadsPerHour
+    }),
     video,
     // Legal documents: versions people accept, and whether signed-in people
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-07d').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12a').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12b').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -658,7 +674,10 @@ export function loadConfig(env = process.env) {
       // Files sent with a message: count, total size (decoded) and text length.
       attachments: Object.freeze({
         maxCount: attachmentsMaxCount,
-        maxTotalBytes: attachmentsMaxMb * 1024 * 1024,
+        // In total per message. Files sent inside the request itself stay
+        // within maxInlineBytes; direct uploads may reach the larger limit.
+        maxTotalBytes: (uploadsEnabled ? uploadsMaxMb : attachmentsMaxMb) * 1024 * 1024,
+        maxInlineBytes: attachmentsMaxMb * 1024 * 1024,
         maxTextChars: 30000
       }),
       // Tiers and who may pick them. NasrinAI (the default) is open to everyone.

@@ -95,7 +95,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
   const smart = Boolean(policy) && config.ai.routing.mode === 'smart';
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
   // so write/money tools are refused instead of proposed.
@@ -123,7 +123,10 @@ export function createChat({ conversations, limiter, usageLog, provider, models,
     }
     // A reply with a file in it may be longer than a normal reply (the database keeps 20,000 characters).
     const clean = (text) => cleanReply(text, blocks && /\[\[file\b/i.test(String(text)) ? 19000 : undefined);
-    const files = regenerate ? [] : parseAttachments(body.attachments, config.ai.attachments);
+    // Files uploaded straight to storage (docs/uploads.md) are read back here,
+    // then checked exactly like files sent inside the request.
+    const sent = !regenerate && uploads ? await uploads.resolve(caller, body.attachments) : body.attachments;
+    const files = regenerate ? [] : parseAttachments(sent, config.ai.attachments);
     let typed = regenerate || body.message === undefined || body.message === '' ? '' : cleanUserText(body.message, config.ai.maxMessageChars);
     if (!regenerate && (typed === null || (!typed && !files.length))) {
       throw new HttpError(400, 'invalid_message', `Send a message of 1 to ${config.ai.maxMessageChars} characters.`);

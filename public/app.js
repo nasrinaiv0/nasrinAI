@@ -957,9 +957,14 @@
 
   // ---------- photos and files ----------
 
-  // Files wait in the tray until sent: { name, type, data (base64), bytes, thumb? }.
+  // Files wait in the tray until sent: { name, type, bytes, thumb?, and either
+  // data (base64, sent inside the request) or upload (id of a direct upload)}.
   const MAX_FILES = 4;
-  const MAX_TOTAL = 3 * 1024 * 1024;
+  const MAX_INLINE = 3 * 1024 * 1024;   // what fits inside one request on Vercel
+  // Direct uploads (docs/uploads.md), when /v1/status offers them: files other
+  // than photos go straight to storage, so they can be larger.
+  let directUploads = null;           // { maxBytes } or null
+  const maxTotal = () => (directUploads ? directUploads.maxBytes : MAX_INLINE);
   const MAX_SIDE = 1600;              // photos are shrunk to this before upload
   let pending = [];
   let preparing = 0;
@@ -1053,6 +1058,27 @@
     refreshSendButton();
   }
 
+  const tooBig = () => `Files can be up to ${Math.round(maxTotal() / 1048576)} MB in total.`;
+
+  // A direct upload: a one-time link from the server, then the file goes
+  // straight to storage. Answers the upload id the message names.
+  async function uploadFile(file) {
+    const link = await api('/v1/uploads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: file.name, type: file.type || '', size: file.size })
+    });
+    if (!link || typeof link.id !== 'string' || typeof link.upload_url !== 'string' || !/^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/upload\/sign\//.test(link.upload_url)) {
+      throw new Error(`"${file.name}" could not be uploaded. Please try again.`);
+    }
+    let resp;
+    try {
+      resp = await fetch(link.upload_url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+    } catch { resp = null; }
+    if (!resp || !resp.ok) throw new Error(`"${file.name}" could not be uploaded. Please try again.`);
+    return link.id;
+  }
+
   async function addFiles(list) {
     notice.textContent = '';
     for (const file of list) {
@@ -1065,13 +1091,18 @@
           let blob;
           try { blob = await shrinkPhoto(file); } catch { throw new Error(`"${file.name}" could not be decoded by this device. Try exporting the picture as JPEG or PNG.`); }
           item = { name: file.name.replace(/\.[^.]+$/, '') + '.jpg', type: 'image/jpeg', bytes: blob.size, data: await toBase64(blob), thumb: URL.createObjectURL(blob) };
+        } else if (directUploads) {
+          // Checked before uploading, so nothing too big is sent.
+          if (pending.reduce((n, f) => n + f.bytes, 0) + file.size > maxTotal()) throw new Error(tooBig());
+          item = { name: file.name, type: file.type, bytes: file.size, upload: await uploadFile(file) };
         } else {
           item = { name: file.name, type: file.type, bytes: file.size, data: await toBase64(file) };
         }
         const total = pending.reduce((n, f) => n + f.bytes, 0) + item.bytes;
-        if (total > MAX_TOTAL) {
+        const inline = pending.reduce((n, f) => n + (f.data ? f.bytes : 0), 0) + (item.data ? item.bytes : 0);
+        if (total > maxTotal() || inline > MAX_INLINE) {
           if (item.thumb) URL.revokeObjectURL(item.thumb);
-          throw new Error(`Files can be up to ${MAX_TOTAL / 1048576} MB in total.`);
+          throw new Error(tooBig());
         }
         pending.push(item);
         renderTray();
@@ -1263,7 +1294,7 @@
 
   async function sendImage(text, files) {
     noticesOnSend();
-    const photo = files.find((f) => f.type && f.type.startsWith('image/'));
+    const photo = files.find((f) => f.type && f.type.startsWith('image/') && f.data);
     show('user', text, { files: photo ? [photo] : [] });
     input.value = '';
     autosize();
@@ -1669,7 +1700,7 @@
       ...(!id && chatProject ? { project_id: chatProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
-      ...(files.length ? { attachments: files.map((f) => ({ name: f.name, type: f.type, data: f.data })) } : {})
+      ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
     const hooks = {
       signal: ctrl.signal,
@@ -5875,6 +5906,7 @@
       libraryOn = s.library === true;
       projectsOn = s.projects === true;
       renderSpaceMenu();
+      directUploads = s.uploads && s.uploads.direct === true && Number(s.uploads.max_mb) > 0 ? { maxBytes: Number(s.uploads.max_mb) * 1048576 } : null;
       imagesOn = Boolean(s.images && s.images.available);
       $('pickImage').hidden = !imagesOn;
       $('starterImage').hidden = !imagesOn;
