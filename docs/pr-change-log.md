@@ -20,6 +20,7 @@ For every future NasrinAI PR:
 - **Check (headless Chromium, local fake-provider run, 390 px):** signed out, no `/v1/billing` request and the Sign in button opens sign-in. Signed in, the plan and "No payments yet." show as before (`/v1/billing` 200).
 - **Regression test:** `test/billing-signed-out.test.js` (fails without the change).
 - **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
 
 - **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.
