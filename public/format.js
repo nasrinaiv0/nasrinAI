@@ -64,6 +64,12 @@
     return parent;
   }
 
+  // Tables: at most 8 columns and 50 rows, cell text only (inline formatting).
+  const TABLE_SEP = /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$/;
+  const MAX_COLS = 8;
+  const MAX_ROWS = 50;
+  const cells = (row) => row.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+
   // Returns { node, blocks } where blocks are the top-level elements (for the
   // reveal animation) and steps are numbered items people can tick off.
   function render(text) {
@@ -104,6 +110,37 @@
         continue;
       }
       if (!line) { flushPara(); endList(); continue; }
+
+      // | a | b | table: a header row, a --- separator row, then body rows.
+      if (line.includes('|') && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1].trim())) {
+        flushPara(); endList();
+        const head = cells(line).slice(0, MAX_COLS);
+        const body = [];
+        i += 2;
+        while (i < lines.length && lines[i].trim().includes('|') && lines[i].trim()) {
+          if (body.length < MAX_ROWS) body.push(cells(lines[i].trim()).slice(0, MAX_COLS));
+          i++;
+        }
+        i--;
+        const wrap = add(el('div', 'table-wrap'));
+        wrap.setAttribute('role', 'region');
+        wrap.setAttribute('aria-label', 'Table');
+        wrap.setAttribute('tabindex', '0');
+        const table = el('table');
+        const thead = el('thead');
+        const hr = el('tr');
+        for (const c of head) hr.appendChild(inline(el('th'), c));
+        thead.appendChild(hr);
+        const tbody = el('tbody');
+        for (const r of body) {
+          const tr = el('tr');
+          for (let k = 0; k < head.length; k++) tr.appendChild(inline(el('td'), r[k] || ''));
+          tbody.appendChild(tr);
+        }
+        table.append(thead, tbody);
+        wrap.appendChild(table);
+        continue;
+      }
 
       let m = /^(#{1,4})\s+(.+)$/.exec(line);
       if (m) { flushPara(); endList(); add(inline(el(m[1].length <= 2 ? 'h3' : 'h4'), m[2].replace(/\s*#+\s*$/, ''))); continue; }
@@ -155,6 +192,8 @@
   // Plain words for copying and reading aloud: no Markdown symbols.
   function plain(text) {
     return String(text)
+      .replace(/^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$\n?/gm, '')
+      .replace(/^\|(.*)\|\s*$/gm, (row, inner) => inner.split('|').map((c) => c.trim()).join(' · '))
       .replace(/```[\s\S]*?```/g, (b) => b.replace(/```[^\n]*\n?/g, ''))
       .replace(/^#{1,4}\s+/gm, '')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
