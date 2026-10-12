@@ -13,6 +13,18 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Redesign R1: design tokens, adaptive background, press and focus states (`ui/redesign-foundation`)
+
+- **Intent:** first phase of the owner's 2026-10-12 redesign (iOS tab bar, refined monochrome look). Adds `docs/redesign.md`: the owner's choices, the design system and phases R1–R5.
+- **Change (`public/app.css`):**
+  - Design tokens on `:root`: spacing, 44 px `--tap`, radii, type, icon sizes, motion, elevation, press colour.
+  - An adaptive background: a soft top light over `--paper`, defined for light, system-dark and the Dark setting.
+  - One focus ring and one pressed state for every control.
+  - Reduce motion turns the press scale off.
+  No markup, script or data change.
+- **Check (headless Chromium, local fake-provider run):** home and Settings at 390 px light and dark and 1280 px dark render with no script errors.
+- **Regression test:** `test/redesign-foundation.test.js` (fails without the change).
+
 ## Proposed PR — Desktop: Enter sends, Shift+Enter new line (`fix/desktop-enter-to-send`)
 
 - **Intent:** owner request (2026-10-12): on desktop, Enter sends and Shift+Enter starts a new line.
