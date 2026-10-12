@@ -103,6 +103,13 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — iOS header icons; guest Sign in above the message box (`ui/ios-header-icons`)
+
+- **Intent:** owner request (2026-10-12), with iOS-like header icons, and a guest's Sign in moved from the header to just above the message box in the mobile view (under 70rem). Desktop keeps Sign in in the header.
+- **Files:** `public/index.html` (gear, clock and compose icons in the header and desktop rail; `#guestSignIn` in the dock), `public/app.js` (`guestSignIn` and `headerSignIn`, hidden when signed in or sign-in is off; `body.is-typing` while the message box has focus), `public/app.css` (capsule styles, 44 pt on touch, hidden while typing on touch screens, mobile-only; header Sign in desktop-only; the "wordmark yields to Sign in" rule removed), `docs/redesign.md`.
+- **Tab bar:** #232 was reverted on `main`; this PR keeps that revert and adds no tab bar.
+- **Validation:** `test/ios-header-icons.test.js`, updated `test/ios-header-fit.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/768 (touch) and 1280, light and dark. No server, data or legal change.
+
 ## Proposed PR — Redesign R1: design tokens, adaptive background, press and focus states (`ui/redesign-foundation`)
 
 - **Intent:** first phase of the owner's 2026-10-12 redesign (iOS tab bar, refined monochrome look). Adds `docs/redesign.md`: the owner's choices, the design system and phases R1–R5.
