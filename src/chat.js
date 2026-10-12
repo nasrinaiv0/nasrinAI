@@ -196,6 +196,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Streaming: the page learns where its message was saved before the answer
     // comes, so Stop and Retry always refer to the right conversation.
     opts.stream?.start?.({ conversation_id: conv.id, user_message_id: userMessage.id });
+    // What Nasrin is doing, for the page's "thinking" line (a fixed word, never text).
+    const stage = (name) => { try { opts.stream?.status?.(name); } catch { /* display only */ } };
+    if (files.length) stage('files');
 
     const fullHistory = await conversations.history(conv, 50);
     // A "knowledge only" business: only its own documents, nothing from outside.
@@ -281,6 +284,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Links the person shared: the server reads the pages (safely) and adds
     // their text to this turn, as data. Not saved with the conversation.
     const links = config.web.links && !only ? linksIn(typed) : [];
+    if (links.length) stage('links');
     if (links.length && history.length && await limiter.web(caller)) {
       const pages = await Promise.all(links.map((u) => readLinkImpl(u)));
       webSources = pages.filter((p) => !p.error).map((p) => ({ url: p.url, title: p.title || '' }));
@@ -320,7 +324,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       return finish(reply);
     }
     const extra = [known, founderText, productText, memoryText, pastChats?.text].filter(Boolean);
-    if (shelf) { extra.push(shelf.text); fromLibrary = shelf.titles; }
+    if (shelf) { extra.push(shelf.text); fromLibrary = shelf.titles; stage('library'); }
+    else if (pastChats?.text || memoryText) stage('memory');
     if (extra.length && history.length) {
       const last = history.at(-1);
       history[history.length - 1] = { role: last.role, content: last.content + extra.join('') };
@@ -360,6 +365,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Questions that need fresh facts get a web search (with sources), when it
     // is set up, allowed by the limits and affordable within the budget.
     if (smart && !only && webSearch && !files.length && !links.length && needsWeb(typed) && !isPastIntent(typed) && !isConversationMeta(typed) && await limiter.web(caller)) {
+      stage('web');
       const left = await policy.budgetLeft();
       const perCall = toolPrice('web_search');
       const webPrice = priceOf(prices, 'openai', webSearch.model);

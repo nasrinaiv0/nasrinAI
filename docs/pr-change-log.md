@@ -1,3 +1,10 @@
+## Proposed PR — Thinking line sets expectations (`ui/thinking-status`)
+
+- **Owner request (2026-10-12):** the "Thinking" line should say what is happening (browsing the internet, remembering, cooking, making your…, almost done).
+- **Change:** the chat stream sends a fixed status word (`files`, `links`, `library`, `memory`, `web`; never free text) as Nasrin starts each step; the page shows "Reading your file", "Reading the link", "Checking your Library", "Remembering", "Browsing the internet". Before that it guesses from the message (e.g. "Cooking up an answer", "Writing code", "Making your plan"), then shows "Putting it together" after 7 s and "Almost done" after 16 s. Gentle fade; reduce-motion respected.
+- **Files:** `src/chat.js`, `src/routes.js`, `public/app.js`, `public/app.css`, `test/chat-stream.test.js`.
+- **Validation:** `npm test`; headless Chromium (news → "Browsing the internet", recipe → "Cooking up an answer").
+
 ## Proposed PR — Privacy and Terms update, with #265, #266 and #267 combined (`legal/oct12-update`)
 
 - **Owner request (2026-10-12):** update the Privacy Notice and Terms of Use. This branch merges #265 (research), #266 (semantic cache) and #267 (web answers) so the legal pages are updated once, consistently.

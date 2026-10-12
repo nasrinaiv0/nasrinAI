@@ -910,7 +910,26 @@
   // Words are text nodes inside spans (never HTML); a screen reader gets it all at once.
 
 
-  function showThinking(text = 'Thinking') {
+  // The "thinking" line sets expectations: a first guess from the message,
+  // what the server says it is doing (`status` in the chat stream), and, as
+  // time passes, "Putting it together" then "Almost done".
+  const STAGE_TEXT = {
+    files: 'Reading your file', links: 'Reading the link', library: 'Checking your Library',
+    memory: 'Remembering', web: 'Browsing the internet'
+  };
+  function guessThinking(text) {
+    const t = String(text || '').toLowerCase();
+    if (/https?:\/\//.test(t)) return 'Reading the link';
+    if (/\b(latest|today|news|current|this week|right now|price of|weather|score)\b/.test(t)) return 'Browsing the internet';
+    if (/\b(remember|last time|we talked|earlier chat|you said)\b/.test(t)) return 'Remembering';
+    if (/\b(recipe|cook|bake|dish|meal)\b/.test(t)) return 'Cooking up an answer';
+    if (/\b(code|function|bug|error|script|javascript|python|sql)\b/.test(t)) return 'Writing code';
+    if (/\b(write|draft|letter|email|essay|story|poem|caption)\b/.test(t)) return 'Writing';
+    if (/\b(plan|itinerary|schedule|steps)\b/.test(t)) return 'Making your plan';
+    if (/\b(calculate|compute|how much|how many|convert)\b/.test(t)) return 'Working it out';
+    return 'Thinking';
+  }
+  function showThinking(text = 'Thinking', { timed = true } = {}) {
     const row = document.createElement('div');
     row.className = 'thinking';
     row.setAttribute('role', 'status');
@@ -923,7 +942,22 @@
     log.appendChild(row);
     const ch = Nasrin.attach(mini);
     scrollToEnd(row);
-    return { remove() { ch.remove(); row.remove(); } };
+    const set = (words) => {
+      if (!words || label.textContent === words) return;
+      label.textContent = words;
+      label.classList.remove('is-new');
+      void label.offsetWidth;   // restart the fade
+      label.classList.add('is-new');
+    };
+    const timers = timed ? [
+      setTimeout(() => set('Putting it together'), 7000),
+      setTimeout(() => set('Almost done'), 16000)
+    ] : [];
+    return {
+      set,
+      stage(name) { if (STAGE_TEXT[name]) set(STAGE_TEXT[name]); },
+      remove() { timers.forEach(clearTimeout); ch.remove(); row.remove(); }
+    };
   }
 
   function clearScreen() {
@@ -1455,7 +1489,7 @@
 
   // Asks for a reply and reads it as it is written (lines of JSON). Problems
   // found before the answer starts come back as ordinary errors.
-  async function askStream(body, { onStart, onDelta, onReset, onAudio, signal }) {
+  async function askStream(body, { onStart, onDelta, onReset, onAudio, onStatus = null, signal }) {
     const go = async (fresh) => {
       const token = await credential(fresh);
       try {
@@ -1486,6 +1520,7 @@
       if (ev.type === 'start') onStart(ev);
       else if (ev.type === 'delta' && typeof ev.text === 'string') onDelta(ev.text);
       else if (ev.type === 'reset') onReset();
+      else if (ev.type === 'status' && typeof ev.stage === 'string') { if (onStatus) onStatus(ev.stage); }
       else if (ev.type === 'audio' && typeof ev.data === 'string') { if (onAudio) onAudio(ev); }
       else if (ev.type === 'done') done = ev;
       else if (ev.type === 'error') {
@@ -1682,7 +1717,7 @@
     }
     Nasrin.mood(tone === 'negative' ? 'concerned' : 'thinking');
     if (tone === 'negative') setTimeout(() => { if (busy) Nasrin.mood('thinking'); }, 900);
-    const thinking = showThinking();
+    const thinking = showThinking(regenerate ? 'Thinking again' : files.length ? 'Reading your file' : guessThinking(text));
     const live = liveBubble();
     const ctrl = new AbortController();
     turn = { ctrl };
@@ -1712,6 +1747,7 @@
       },
       onDelta: (piece) => { live.add(piece, thinking); if (onPiece) onPiece(piece); },
       onReset: () => { live.clear(); if (onPiece) onPiece(null); },
+      onStatus: (name) => thinking.stage(name),
       onAudio
     };
     try {
