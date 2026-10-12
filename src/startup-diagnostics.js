@@ -19,6 +19,9 @@ export function createStartupDiagnostic(stage, error, id = randomUUID()) {
       error: {
         code: 'not_configured',
         message: 'NasrinAI is not set up correctly yet. Please try again later.',
+        // Safe stage labels help diagnose startup failures when platform logs
+        // are unavailable. Never return exception text or configuration values.
+        stage: normalizedStage,
         incident_id: id
       }
     }
