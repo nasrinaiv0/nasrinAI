@@ -389,6 +389,56 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });
+      await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
+    },
+
+    // Research agent (migration 036). Scans are always read by tenant AND owner.
+    async addResearchScan({ tenantId, ownerType, ownerId, query, sources, facts, expiresAt }) {
+      if (!UUID.test(String(tenantId))) throw new Error('invalid tenant');
+      assertOwner(ownerType, ownerId);
+      const rows = await request('POST', 'research_scans?select=id,created_at,expires_at', {
+        body: { tenant_id: tenantId, owner_type: ownerType, owner_id: ownerId, query, sources, facts, expires_at: expiresAt.toISOString() },
+        prefer: 'return=representation'
+      });
+      const r = rows[0];
+      return { id: r.id, createdAt: r.created_at, expiresAt: r.expires_at };
+    },
+    async getResearchScan({ tenantId, ownerType, ownerId, id }) {
+      if (!UUID.test(String(tenantId)) || !UUID.test(String(id))) return null;
+      assertOwner(ownerType, ownerId);
+      const rows = await request('GET', `research_scans?select=id,query,sources,facts,created_at,expires_at&id=eq.${id}&tenant_id=eq.${tenantId}&owner_type=eq.${ownerType}&owner_id=eq.${encodeURIComponent(ownerId)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}`);
+      const r = rows[0];
+      return r ? { id: r.id, query: r.query, sources: r.sources, facts: r.facts, createdAt: r.created_at, expiresAt: r.expires_at } : null;
+    },
+    async listResearchScans({ tenantId, ownerType, ownerId, limit = 50 }) {
+      if (!UUID.test(String(tenantId))) return [];
+      assertOwner(ownerType, ownerId);
+      const n = Math.max(1, Math.min(100, Number(limit) || 50));
+      const rows = await request('GET', `research_scans?select=id,query,sources,facts,created_at,expires_at&tenant_id=eq.${tenantId}&owner_type=eq.${ownerType}&owner_id=eq.${encodeURIComponent(ownerId)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.desc&limit=${n}`);
+      return rows.map((r) => ({ id: r.id, query: r.query, sources: r.sources, facts: r.facts, createdAt: r.created_at, expiresAt: r.expires_at }));
+    },
+    async deleteResearchScansOf({ tenantId, ownerType, ownerId }) {
+      if (!UUID.test(String(tenantId))) return;
+      assertOwner(ownerType, ownerId);
+      await request('DELETE', `research_scans?tenant_id=eq.${tenantId}&owner_type=eq.${ownerType}&owner_id=eq.${encodeURIComponent(ownerId)}`, { prefer: 'return=minimal' });
+    },
+    // Shared facts: only the fact and its source. A fact already known is skipped.
+    async addResearchFacts(rows) {
+      if (!rows.length) return 0;
+      const added = await request('POST', 'research_facts?on_conflict=fact_hash&select=id', {
+        body: rows.map((f) => ({ fact: f.fact, source_url: f.sourceUrl, source_title: f.sourceTitle || '', fact_hash: f.factHash })),
+        prefer: 'resolution=ignore-duplicates,return=representation'
+      });
+      return Array.isArray(added) ? added.length : 0;
+    },
+    async listResearchFacts({ status = 'pending', limit = 100 } = {}) {
+      if (!['pending', 'approved', 'rejected'].includes(status)) throw new Error('invalid status');
+      const n = Math.max(1, Math.min(500, Number(limit) || 100));
+      const rows = await request('GET', `research_facts?select=id,fact,source_url,source_title,status,created_at&status=eq.${status}&order=created_at.desc&limit=${n}`);
+      return rows.map((r) => ({ id: r.id, fact: r.fact, sourceUrl: r.source_url, sourceTitle: r.source_title, status: r.status, createdAt: r.created_at }));
+    },
+    async purgeResearch() {
+      await request('POST', 'rpc/purge_research', { body: {} });
     },
 
     // Retention: pictures of businesses older than `before`. Signed-in people's

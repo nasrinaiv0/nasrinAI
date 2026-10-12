@@ -34,6 +34,8 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const library = new Map();      // Library files (with their chunks)
   const projects = new Map();     // projects (with their tasks)
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
+  const researchScans = new Map();   // research agent: one person's scans (migration 036)
+  const researchFacts = new Map();   // shared facts by fact_hash; no owner, no question
   const iso = () => new Date(now()).toISOString();
 
   tenants.set(PLATFORM_TENANT_ID, { id: PLATFORM_TENANT_ID, kind: 'platform', status: 'active', daily_token_limit: 0 });
@@ -421,9 +423,46 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       await this.deleteAllMemories({ tenantId, userId });
       for (const [id, f] of library) if (f.tenantId === tenantId && f.userId === userId) library.delete(id);
       for (const [id, f] of sentFiles) if (f.tenantId === tenantId && f.userId === userId) sentFiles.delete(id);
+      await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
       for (const [id, p] of projects) if (p.tenantId === tenantId && p.userId === userId) await this.deleteProject({ tenantId, userId, id });
       for (const m of Object.values(links)) for (const [k, l] of m) if (l.tenantId === tenantId && l.userId === userId) m.delete(k);
       for (const e of usage) if (e.tenantId === tenantId && e.actorType === 'user' && e.actorId === userId) e.actorId = 'deleted-user';
+    },
+
+    // Research agent (migration 036).
+    async addResearchScan({ tenantId, ownerType, ownerId, query, sources, facts, expiresAt }) {
+      const row = { id: randomUUID(), tenantId, ownerType, ownerId, query, sources, facts, createdAt: iso(), expiresAt: expiresAt.toISOString() };
+      researchScans.set(row.id, row);
+      return { id: row.id, createdAt: row.createdAt, expiresAt: row.expiresAt };
+    },
+    async getResearchScan({ tenantId, ownerType, ownerId, id }) {
+      const r = researchScans.get(id);
+      if (!r || r.tenantId !== tenantId || r.ownerType !== ownerType || r.ownerId !== ownerId || Date.parse(r.expiresAt) <= now()) return null;
+      return { id: r.id, query: r.query, sources: r.sources, facts: r.facts, createdAt: r.createdAt, expiresAt: r.expiresAt };
+    },
+    async listResearchScans({ tenantId, ownerType, ownerId, limit = 50 }) {
+      return [...researchScans.values()]
+        .filter((r) => r.tenantId === tenantId && r.ownerType === ownerType && r.ownerId === ownerId && Date.parse(r.expiresAt) > now())
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit)
+        .map((r) => ({ id: r.id, query: r.query, sources: r.sources, facts: r.facts, createdAt: r.createdAt, expiresAt: r.expiresAt }));
+    },
+    async deleteResearchScansOf({ tenantId, ownerType, ownerId }) {
+      for (const [id, r] of researchScans) if (r.tenantId === tenantId && r.ownerType === ownerType && r.ownerId === ownerId) researchScans.delete(id);
+    },
+    async addResearchFacts(rows) {
+      let added = 0;
+      for (const f of rows) {
+        if (researchFacts.has(f.factHash)) continue;
+        researchFacts.set(f.factHash, { id: randomUUID(), fact: f.fact, sourceUrl: f.sourceUrl, sourceTitle: f.sourceTitle || '', factHash: f.factHash, status: 'pending', createdAt: iso() });
+        added += 1;
+      }
+      return added;
+    },
+    async listResearchFacts({ status = 'pending', limit = 100 } = {}) {
+      return [...researchFacts.values()].filter((f) => f.status === status).slice(0, limit).map(({ factHash, ...f }) => f);
+    },
+    async purgeResearch() {
+      for (const [id, r] of researchScans) if (Date.parse(r.expiresAt) <= now()) researchScans.delete(id);
     },
 
     async purgeImagesBefore(before) {

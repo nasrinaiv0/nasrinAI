@@ -104,6 +104,14 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       if (type !== 'service') await hit(`up:ip:${ip || 'unknown'}`, perHour * 2, message);
     },
 
+    // Research scans: per caller, plus per IP for people.
+    async research(caller, ip, perHour) {
+      const { type, id } = caller.actor;
+      const message = 'You have run a lot of research this hour. Please try again later.';
+      await hit(`rs:${type}:${caller.tenantId}:${id}`, perHour, message);
+      if (type !== 'service') await hit(`rs:ip:${ip || 'unknown'}`, perHour * 2, message);
+    },
+
     // Project and task changes: per person.
     async projects(caller) {
       await hit(`prj:${caller.tenantId}:${caller.actor.id}`, limits.userProjectsHour, 'You have changed your projects a lot this hour. Please try again later.');

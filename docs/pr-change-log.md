@@ -1,3 +1,11 @@
+## Proposed PR — Research agent (`feature/research-agent`)
+
+- **Owner request (2026-10-12):** an agent that reads web pages for a question and stores the facts in Supabase; owner approved the safe version (no package, robots.txt honoured, nothing bypassed; scans private per person; shared facts hold fact + source only, pending review).
+- **Change:** `POST/GET /v1/research`, `src/research.js`, store methods, limiter, hourly purge, export/delete, `/v1/status` `research`. Off until `RESEARCH_ENABLED=true`.
+- **Data:** privacy notice `2026-10-12c` (scan keep-times; shared facts without question or identity).
+- **Owner steps:** run migration 036 (staging first), set `RESEARCH_ENABLED=true`, redeploy; review `research_facts`.
+- **Validation:** `npm test`, DB tests (Postgres 16), `npm run check:secrets`.
+
 ## Proposed PR — Enable semantic cache for NasrinAI page responses
 
 - **Incident (2026-10-12):** production `semantic_cache` remained empty after chats. Code audit found the page sends `blocks: true`, while the smart-routing cache guard excluded every block-rich non-coding response; therefore the semantic lookup and store were never reached for ordinary page chats.
