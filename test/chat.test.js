@@ -200,7 +200,7 @@ test('semantic cache write is awaited before a successful chat response returns'
     env: { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'test-only-key', ROUTING: 'smart' }
   }, async ({ url }) => {
     const token = await guestToken(url);
-    const responsePromise = send(url, token, { message: 'Explain what an API is in simple terms.' });
+    const responsePromise = send(url, token, { message: 'Explain what an API is in simple terms.', blocks: true });
     // Give the request a turn to reach the delayed store without releasing it.
     for (let i = 0; i < 100 && !writeStarted; i++) await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(writeStarted, true, 'eligible chat should attempt the semantic cache write');
@@ -227,7 +227,7 @@ test('semantic cache insert failure does not fail a successful chat response', a
     env: { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'test-only-key', ROUTING: 'smart' }
   }, async ({ url, logger }) => {
     const token = await guestToken(url);
-    const response = await send(url, token, { message: 'Explain what an API is in simple terms.' });
+    const response = await send(url, token, { message: 'Explain what an API is in simple terms.', blocks: true });
     assert.equal(response.status, 200);
     assert.match((await response.json()).message.content, /You said:/);
     const log = logger.lines.find((line) => line.msg === 'semantic cache store unavailable');

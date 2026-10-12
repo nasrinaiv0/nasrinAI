@@ -431,8 +431,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // the Library, a pasted secret, or when the person pressed Regenerate.
       const codingTask = plan.task === 'coding' || plan.task === 'debugging';
       const secretInside = typed.split('\n').some((line) => looksSecret(line));
-      const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || regenerate || secretInside || (blocks && !codingTask));
-      const variant = codingTask ? `code|${caller.actor.type}:${caller.actor.id}|${plan.tier}|${blocks ? 'blocks' : 'plain'}` : '';
+      const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || regenerate || secretInside);
+      // The page's block-rich response format is cacheable too, but must never
+      // share an exact or semantic cache entry with plain API responses.
+      const variant = codingTask
+        ? `code|${caller.actor.type}:${caller.actor.id}|${plan.tier}|${blocks ? 'blocks' : 'plain'}`
+        : (blocks ? 'blocks' : 'plain');
       const key = cacheable ? policy.cacheKey(plan, { history: fullHistory, attachments: files, message: typed, tenantId: caller.tenantId, variant }) : null;
       const hit = policy.cached(key);
       if (hit) {

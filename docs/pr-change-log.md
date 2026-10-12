@@ -1,3 +1,11 @@
+## Proposed PR — Enable semantic cache for NasrinAI page responses
+
+- **Incident (2026-10-12):** production `semantic_cache` remained empty after chats. Code audit found the page sends `blocks: true`, while the smart-routing cache guard excluded every block-rich non-coding response; therefore the semantic lookup and store were never reached for ordinary page chats.
+- **Change:** allow block-rich requests through the existing cache policy when all other safeguards pass. Include `blocks` versus `plain` in the cache variant for non-coding requests, keeping exact and semantic entries isolated by response format. Coding variants retain actor, tier and markup isolation.
+- **Safety:** no changes to token limits, database schema, RLS, cache threshold, or unrelated routing. Existing policy still excludes sensitive requests, attachments, extra context, tools, voice, code files, regenerations and detected secrets.
+- **Regression coverage:** run awaited-write and non-fatal-insert-failure tests with `blocks: true`, matching the NasrinAI page request shape.
+- **Validation:** CI must pass `npm test` and `npm run check:secrets`; verify production row counts only after merge and deployment.
+
 ## Proposed PR — Wire the HNSW semantic cache into chat
 
 - **Owner request (2026-10-12):** connect the existing Supabase HNSW semantic cache to the active chat flow without changing unrelated behavior.
