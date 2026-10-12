@@ -357,6 +357,17 @@ export function loadConfig(env = process.env) {
     warnings.push(`${name}: use true or false. It is off until this is fixed.`);
     return false;
   };
+  // A bad optional limit falls back to its default with a warning instead of
+  // taking the whole site down.
+  const softInt = (name, value, fallback, min, max) => {
+    try { return toInt(name, value, fallback, min, max); } catch {
+      warnings.push(`${name}: use a whole number from ${min} to ${max}. Using ${fallback}.`);
+      return fallback;
+    }
+  };
+  const attachmentsMaxCount = softInt('ATTACHMENTS_MAX_COUNT', env.ATTACHMENTS_MAX_COUNT, 4, 0, 10);
+  // Vercel accepts request bodies up to 4.5 MB; base64 adds a third.
+  const attachmentsMaxMb = softInt('ATTACHMENTS_MAX_MB', env.ATTACHMENTS_MAX_MB, 3, 1, 3);
   const turnstileSiteKey = String(env.TURNSTILE_SITE_KEY || '').trim();
   const turnstileSecretKey = String(env.TURNSTILE_SECRET_KEY || '').trim();
   if (Boolean(turnstileSiteKey) !== Boolean(turnstileSecretKey)) throw new ConfigError('set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together');
@@ -646,9 +657,8 @@ export function loadConfig(env = process.env) {
       }),
       // Files sent with a message: count, total size (decoded) and text length.
       attachments: Object.freeze({
-        maxCount: toInt('ATTACHMENTS_MAX_COUNT', env.ATTACHMENTS_MAX_COUNT, 4, 0, 10),
-        // Vercel accepts request bodies up to 4.5 MB; base64 adds a third.
-        maxTotalBytes: toInt('ATTACHMENTS_MAX_MB', env.ATTACHMENTS_MAX_MB, 3, 1, 3) * 1024 * 1024,
+        maxCount: attachmentsMaxCount,
+        maxTotalBytes: attachmentsMaxMb * 1024 * 1024,
         maxTextChars: 30000
       }),
       // Tiers and who may pick them. NasrinAI (the default) is open to everyone.

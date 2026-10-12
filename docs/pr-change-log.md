@@ -1,3 +1,11 @@
+## Proposed PR — A bad attachment limit no longer takes the site down (`fix/attachments-limit-soft`)
+
+- **Incident (2026-10-12):** every `/v1/*` call returned 503 `not_configured`; `/v1/status` named `ATTACHMENTS_MAX_MB` (allowed 1–3; Vercel's 4.5 MB body limit) as the setting at fault.
+- **Change:** `ATTACHMENTS_MAX_MB` and `ATTACHMENTS_MAX_COUNT` out of range now fall back to their defaults (3 MB, 4 files) with a start-up warning, like other optional settings. The bad value is never echoed.
+- **Owner step:** in Vercel, set `ATTACHMENTS_MAX_MB` to 3 (or delete it), then redeploy.
+- **Files:** `src/config.js`, `test/config-soft-limits.test.js`.
+- **Validation:** `npm test`, `npm run check:secrets`.
+
 ## Draft PR #246 — Expose safe startup stage in 503 responses (`fix/startup-503-stage-response`)
 
 - **Problem:** production `/v1/status` returns HTTP 503 quickly and Vercel function logs are unavailable, so the operator cannot tell whether startup fails while loading configuration or constructing the app.
