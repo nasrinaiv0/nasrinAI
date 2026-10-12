@@ -472,7 +472,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           // An embedding failure has no embedding and safely skips the store.
           semanticEntry = err?.embedding ? { embedding: err.embedding, hit: null } : null;
           logger.warn('semantic cache lookup unavailable', {
-            stage: err?.embedding ? 'search' : 'embedding'
+            stage: err?.embedding ? 'search' : 'embedding',
+            error: String(err?.message || 'error').slice(0, 160)
           });
         }
       }

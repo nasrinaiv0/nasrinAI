@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-12b** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-12d** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -54,6 +54,7 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 
 ### When you share files, links or use voice
 - **Files** (photos, PDFs, text files) are used to answer your message. Signed-in people's files are also kept in their Library (see above); guests' files are **not stored** and only their names are saved with the message. Photos are re-saved on your device before upload, which removes location and camera details. When direct uploads are switched on, larger files go from your device straight to a private storage area in our Supabase project (Singapore) through a one-time link; our server reads each file once to answer, then deletes it from that storage area. Files uploaded but never sent are deleted within about 2 hours.
+- **Answer cache:** to answer repeated simple questions faster and at lower cost, the first message of a chat (when it has no files and nothing sensitive) and Nasrin's answer may be kept in a cache for up to **30 days**, only ever reused for the same person (or guest session) asking something very similar. To find similar questions, the message, with contact details removed, is sent to OpenAI to turn it into numbers (an embedding).
 - **Links:** our server opens the page and uses its text for that one answer. The page text is not stored. The website sees a request from our server, not from you.
 - **Web search:** questions that need current facts may be searched on the web through OpenAI's search tool. The answer lists its sources.
 - **Read aloud:** to read a reply in a natural voice, the text of Nasrin's reply is sent to OpenAI to make the audio. Your own messages are not.
@@ -130,6 +131,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Events sent by businesses' systems: **30 days**
 - Businesses' documents: until the business deletes them
 - Photos and files you send (signed in): until you delete them or your account, or your keep-time. Guests' files and link text: **not stored**. Files uploaded directly are held in private storage only until they are used, and at most about **2 hours** if they are never sent
+- Answer cache (first message and answer, per person): up to **30 days**
 - Rate-limit counters (with IP addresses): about **2 days**
 - Usage records (no text): 24 months; when you delete your account, your account identifier is removed from these records where technically and reasonably practicable.
 - Payment records: 10 years, or for the period otherwise required by applicable Philippine tax and accounting rules.

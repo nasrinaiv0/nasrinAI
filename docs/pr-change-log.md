@@ -1,3 +1,11 @@
+## Proposed PR — Semantic cache fills again (`fix/semantic-cache`)
+
+- **Owner report (2026-10-12):** `public.semantic_cache` has 0 rows.
+- **Cause:** embeddings came from an on-device model (`@huggingface/transformers`) that cannot load on Vercel; every lookup failed before reaching Supabase (Supabase API logs: no `match_semantic_cache` calls in 24 h), so nothing was ever stored.
+- **Change:** embeddings from OpenAI `text-embedding-3-small` with 384 dimensions (fits the existing column) through plain fetch, contact details removed first; the package and `src/embedder.js` are removed; the warning now says why a lookup failed. Needs `OPENAI_API_KEY` (already set for chat).
+- **Data:** privacy notice `2026-10-12d` now describes the answer cache (30 days, per person) and the embedding call.
+- **Validation:** `npm test`, `npm run check:secrets`.
+
 ## Proposed PR — Enable semantic cache for NasrinAI page responses
 
 - **Incident (2026-10-12):** production `semantic_cache` remained empty after chats. Code audit found the page sends `blocks: true`, while the smart-routing cache guard excluded every block-rich non-coding response; therefore the semantic lookup and store were never reached for ordinary page chats.

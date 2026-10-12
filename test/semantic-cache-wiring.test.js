@@ -57,8 +57,9 @@ test('semantic cache touch calls the server-side hit counter', async () => {
 test('active main/chat wiring uses the persistent cache only behind existing policy gates', async () => {
   const [main, chat] = await Promise.all([readFile(new URL('../src/main.js', import.meta.url), 'utf8'), readFile(new URL('../src/chat.js', import.meta.url), 'utf8')]);
   assert.match(main, /createSemanticCache/);
-  assert.match(main, /modelName: process\.env\.EMBED_MODEL/);
-  assert.match(main, /import\('\.\/embedder\.js'\)/);
+  assert.match(main, /createOpenAIEmbedder\(\{ apiKey: config\.ai\.openaiApiKey \}\)/);
+  assert.match(main, /modelName: embedder\.modelName/);
+  assert.doesNotMatch(main, /embedder\.js/, 'the on-device model that could not load on Vercel is gone');
   assert.match(main, /policy, semanticCache, legal/);
   assert.match(chat, /if \(semanticCache && key\)/);
   assert.match(chat, /semanticCache\.lookup\(typed, semanticScope\)/);

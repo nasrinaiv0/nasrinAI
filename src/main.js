@@ -48,6 +48,7 @@ import { createLibrary } from './library.js';
 import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
 import { createSemanticCache } from './semanticCache.js';
+import { createOpenAIEmbedder } from './ai/embeddings.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -112,13 +113,16 @@ export function buildApp({ config, logger }) {
   const prices = loadPrices(config.ai.routing.pricesJson);
   const reasoningBudget = createBudget({ store, config: effective, logger });
   // Optional acceleration only: cache errors never make chat unavailable.
-  const semanticCache = config.supabaseUrl && config.supabaseSecretKey
+  // Embeddings come from OpenAI's API (src/ai/embeddings.js): the earlier
+  // on-device model could not load on Vercel, so the cache never filled.
+  const embedder = config.supabaseUrl && config.supabaseSecretKey && config.ai.openaiApiKey
+    ? createOpenAIEmbedder({ apiKey: config.ai.openaiApiKey })
+    : null;
+  const semanticCache = embedder
     ? createSemanticCache({
         supabase: createSemanticCacheClient({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey }),
-        // Load the local embedding package only when an eligible chat request
-        // actually uses the cache; normal app imports/tests stay dependency-light.
-        embed: (text) => import('./embedder.js').then(({ embed }) => embed(text)),
-        modelName: process.env.EMBED_MODEL || 'Xenova/all-MiniLM-L6-v2'
+        embed: (text) => embedder.embed(text),
+        modelName: embedder.modelName
       })
     : null;
   const provider = providerFromConfig(config, { logger });

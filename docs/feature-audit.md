@@ -59,7 +59,7 @@ On the local run, every control responded: it either opened its sheet or page, o
 
 ## GPT capability list (owner's PDF) mapped to NasrinAI
 
-The list describes what large language models can do in general. For each item: what NasrinAI already does, the gap, and the plan. Model internals (transformers and attention, vector embeddings, test-time compute) are properties of the chosen model, not app features. NasrinAI already uses embeddings for its semantic cache (`src/embedder.js`).
+The list describes what large language models can do in general. For each item: what NasrinAI already does, the gap, and the plan. Model internals (transformers and attention, vector embeddings, test-time compute) are properties of the chosen model, not app features. NasrinAI already uses embeddings for its semantic cache (`src/ai/embeddings.js`).
 
 | Capability | NasrinAI today | Gap → plan |
 |---|---|---|
