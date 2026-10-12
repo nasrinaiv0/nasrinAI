@@ -16,7 +16,8 @@ test('voice screen markup: conversation, orb, four controls, no speed button', a
   assert.match(s, /<div class="voice-log" id="voiceLog" aria-live="polite" aria-label="Conversation"><\/div>/, 'the conversation shows (not hidden)');
   assert.match(s, /<button type="button" class="voice-orb" id="voiceSkip" disabled[^>]*>\s*<span class="voice-wave" id="voiceWave"/, 'the orb is the stop-talking button');
   for (const id of ['voicePlus', 'voiceTier', 'voiceMute', 'voiceEnd']) assert.match(s, new RegExp('id="' + id + '"'));
-  assert.match(s, /<span id="voiceTierLabel">Quick<\/span>/, 'the tier shows its name');
+  assert.match(s, /id="voiceTier"[^>]*>\s*<svg class="bars"/, 'the tier is the chat\'s signal-bars icon');
+  assert.match(s, /<span class="sr-only" id="voiceTierLabel">Quick<\/span>/, 'its name is still read out');
   assert.doesNotMatch(s, /voiceSpeed|voiceClose|Speech speed/, 'no speed button and one exit');
   assert.ok(s.indexOf('id="voiceLog"') < s.indexOf('id="voiceSkip"'), 'conversation above the orb');
 });

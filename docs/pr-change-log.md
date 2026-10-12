@@ -1,3 +1,9 @@
+## Proposed PR — Voice screen tier as an icon (`ui/tier-icon`)
+
+- **Owner request (2026-10-12):** the voice screen's tier pill ("Pro ⌄") becomes an icon, the same signal bars as the chat's model button (one bar per level); the name stays for screen readers. Then (owner: "make the buttons same all together") all four voice controls share one size and glass look; the mic is no longer larger and black, and turns filled only while muted.
+- **Files:** `public/index.html`, `public/app.js`, `public/voice-liquid-glass.css`, `test/voice-screen.test.js`.
+- **Validation:** `npm test`; headless Chromium at 390 px.
+
 ## Proposed PR — Direct uploads through Supabase Storage (`feature/direct-uploads`)
 
 - **Owner request (2026-10-12):** client-direct uploads so files are not held to Vercel's 4.5 MB request limit. Chosen: Supabase Storage signed upload links (no new package, private bucket), 20 MB per message.
