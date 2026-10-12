@@ -103,3 +103,8 @@ The local small-talk shortcut must run only after the per-turn `extra` context a
 ## Composer controls render immediately
 
 The model-tier selector and Professional AI mode control must both be present in the initial HTML without `hidden`. Their initial labels are Quick and Automatic. Model/professional catalogs may hydrate asynchronously and update available choices, but loading or API failures must not hide either control. The server remains authoritative for tier access and professional availability; a visible control is not an access grant.
+
+
+## Excel workbook export
+
+When creating an `.xlsx` deliverable, the assistant may return up to 8 named worksheet blocks inside one file block. Each worksheet uses `[[sheet name="Cleaned Data"]]`, comma-separated or tab-separated rows, and `[[/sheet]]`. The browser builds a real workbook with separate tabs, safe formulas, frozen header rows, and filters. This is not in-place editing of the uploaded workbook and does not create native Excel pivot tables or chart objects. Those capabilities must not be claimed until separately implemented and tested.

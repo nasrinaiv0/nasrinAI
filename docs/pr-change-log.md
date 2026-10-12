@@ -1,3 +1,11 @@
+## Proposed PR — Multi-sheet Excel workbook export (fix/excel-workbook-pr-conflict)
+
+- **Intent:** create a real downloadable `.xlsx` workbook with multiple named tabs.
+- **Change (`public/files.js`):** parse up to 8 named worksheet blocks; emit separate worksheet XML; preserve safe formula allow-listing; add frozen header rows, column widths, and autofilters.
+- **Prompt and docs:** document the multi-sheet syntax and prohibit claims that native pivot/chart objects exist unless they were actually created.
+- **Known gaps:** this does not provide direct 20 MB uploads, in-place editing of uploaded workbooks, or native Excel pivot tables/charts. Base64-in-JSON uploads remain subject to Vercel's function body-size limit.
+- **Validation:** automated tests and Excel/LibreOffice workbook-open checks remain pending.
+
 ## Proposed PR — Extract Excel workbooks inside ZIP attachments
 
 - **Problem:** an ordinary ZIP archive lists nested files and reads small UTF-8 text files, but does not inspect an embedded `.xlsx`/`.xlsm` workbook. This caused `b2b_invoices.zip` to be reported as a listing rather than readable invoice rows.
