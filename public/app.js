@@ -1950,7 +1950,8 @@
   input.addEventListener('blur', () => { if (Nasrin.current === 'typing') Nasrin.mood('idle'); });
   // Starter actions take people directly to the capability they selected.
   const starterActions = {
-    space: () => openNasrinSpace?.click(),
+    // Space lives inside Settings: open the sheet first, then its Space page.
+    space: () => { openSettings(); openNasrinSpace?.click(); },
     library: () => spaceLibrary?.click(),
     coding: () => spaceCoding?.click(),
     connect: () => spaceConnect?.click()
@@ -2629,6 +2630,7 @@
   const spaceConnect = $('spaceConnect');
   const spaceLibrary = $('spaceLibrary');
   const spaceCoding = $('spaceCoding');
+  const spaceProjects = $('spaceProjects');
   const spaceCloud = $('spaceCloud');
   const spaceFinance = $('spaceFinance');
   const signinSheet = $('signin');
@@ -2790,10 +2792,13 @@
   if (openNasrinSpace) openNasrinSpace.addEventListener('click', () => {
     const status = $('spaceStatus');
     if (status) status.textContent = '';
+    if (spaceProjects) spaceProjects.hidden = !projectsOn;
     showPage('space');
   });
   if (spaceConnect) spaceConnect.addEventListener('click', () => account ? openConnectPage() : openSignIn('Sign in to use NasrinAI Connect.'));
   if (spaceLibrary) spaceLibrary.addEventListener('click', () => account ? openHistory('library') : openSignIn('Sign in to use your Library.'));
+  // Projects: Open, Chat and Code sit under each project's arrow.
+  if (spaceProjects) spaceProjects.addEventListener('click', () => account ? openHistory('projects') : openSignIn('Sign in to keep chats, files, tasks and instructions together in projects.'));
   if (spaceCoding) spaceCoding.addEventListener('click', () => account ? openHistory('library') : openSignIn('Sign in to use Coding with your Library.'));
   if (spaceCloud) spaceCloud.addEventListener('click', () => {
     const status = $('spaceStatus');
