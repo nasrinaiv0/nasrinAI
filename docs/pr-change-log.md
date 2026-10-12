@@ -6,6 +6,13 @@
 - **Files:** `src/config.js`, `test/config-soft-limits.test.js`.
 - **Validation:** `npm test`, `npm run check:secrets`.
 
+## Proposed PR — Sign in always available when signed out (`fix/signin-always-visible`)
+
+- **Owner report (2026-10-12):** the Sign in button was missing. The header button hid whenever `/v1/status` had not said which sign-in methods exist, so a slow or failing status check (the 503 outage) left guests with no way to sign in, and a signed-in person's session was not restored (no Log out).
+- **Change:** Sign in (header and Settings) hides only when the server has said sign-in is off; until then it shows, and the sheet explains if sign-in is unavailable. The session is restored unless sign-in is explicitly off, so Log out stays in Settings whenever signed in.
+- **Files:** `public/app.js`, `test/ios-header-icons.test.js`.
+- **Validation:** `npm test`, `npm run check:secrets`; headless Chromium at 390/1280 with `/v1/status` normal and returning 503.
+
 ## Proposed PR — Themes: Orange, Charcoal, Galaxy (`feature/themes`)
 
 - **Owner request (2026-10-12):** besides Appearance, add themes: orange, charcoal, galaxy.
