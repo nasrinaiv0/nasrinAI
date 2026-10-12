@@ -1855,9 +1855,10 @@
   let speech = { available: false, voices: [], default: null };
   let speakOn = saved.get(KEYS.speak) === true;
   let voiceChoice = saved.get(KEYS.voice);
-  let speechRate = Number(saved.get(KEYS.speechRate));
-  if (!Number.isFinite(speechRate)) speechRate = 1;
-  speechRate = Math.min(2, Math.max(0.5, speechRate));
+  // Reading speed comes from the server's setting (the voice screen no longer
+  // has a speed button); an old per-device choice is cleared.
+  let speechRate = 1;
+  saved.del(KEYS.speechRate);
   let playing = null;            // { stop(), button }
 
   const canSpeakAnything = () => canDevice || (speech.available && Boolean(AudioCtx));
@@ -3857,40 +3858,10 @@
   const voiceTier = $('voiceTier');
   const voiceTierMenu = $('voiceTierMenu');
   const voiceTierLabel = $('voiceTierLabel');
-  const voiceSpeedWrap = $('voiceSpeedWrap');
-  const voiceSpeed = $('voiceSpeed');
-  const voiceSpeedPanel = $('voiceSpeedPanel');
-  const voiceSpeedRange = $('voiceSpeedRange');
-  const voiceSpeedValue = $('voiceSpeedValue');
-  const voiceSpeedOutput = $('voiceSpeedOutput');
   const SILENCE_MS = 800;       // this long after you stop talking, you are done
   const FINAL_SILENCE_MS = 350; // ...or this long once the phone has finalised your words
   const IDLE_MS = 90_000;       // nothing said for this long: the microphone pauses
   const MOODS = { listening: 'listening', thinking: 'thinking', speaking: 'speaking' };
-
-  function speedLabel(value) {
-    return Number(value).toFixed(2).replace(/\.?0+$/, '') + '×';
-  }
-
-  function renderVoiceSpeed() {
-    if (!voiceSpeedRange) return;
-    voiceSpeedRange.value = speechRate.toString();
-    const label = speedLabel(speechRate);
-    if (voiceSpeedValue) voiceSpeedValue.textContent = label;
-    if (voiceSpeedOutput) voiceSpeedOutput.value = label;
-    if (voiceSpeed) {
-      voiceSpeed.setAttribute('aria-label', 'Speech speed ' + label);
-      voiceSpeed.title = 'Speech speed: ' + label;
-    }
-  }
-
-  function setSpeechRate(value) {
-    const next = Math.min(2, Math.max(0.5, Number(value) || 1));
-    speechRate = next;
-    saved.set(KEYS.speechRate, next);
-    renderVoiceSpeed();
-    if (playing && typeof playing.setRate === 'function') playing.setRate(next);
-  }
 
   function closeVoicePopover(menu, button) {
     if (!menu) return;
@@ -3901,9 +3872,6 @@
   function closeVoiceMenus() {
     closeVoicePopover(voicePlusMenu, voicePlus);
     closeVoicePopover(voiceTierMenu, voiceTier);
-    voiceSpeedWrap?.classList.remove('is-open');
-    voiceSpeed?.setAttribute('aria-expanded', 'false');
-    if (voiceSpeedPanel) voiceSpeedPanel.hidden = true;
   }
 
   function renderVoiceTier() {
@@ -3913,8 +3881,6 @@
     voiceTierLabel.textContent = current;
     voiceTier.setAttribute('aria-label', 'AI tier: ' + current);
     voiceTier.title = 'AI tier: ' + current;
-    const tierLevel = { nasrinai: 1, pro: 2, max: 3, ultra: 4 }[currentModel] || 1;
-    voiceTier.querySelectorAll('.voice-tier-bars rect').forEach((r, i) => r.classList.toggle('on', i < tierLevel));
     voiceTierMenu.replaceChildren();
     const descriptions = { nasrinai: 'Fast everyday work', pro: 'Smarter professional work', max: 'Longer, deeper thinking', ultra: 'Deepest reasoning' };
     for (const id of ['nasrinai', 'pro', 'max', 'ultra']) {
@@ -3944,7 +3910,8 @@
     vc.state = state;
     voiceEl.dataset.state = state;
     voiceStatus.textContent = label;
-    voiceSkip.hidden = !(state === 'speaking' || state === 'thinking');
+    // The orb stops Nasrin while she talks or thinks.
+    voiceSkip.disabled = !(state === 'speaking' || state === 'thinking');
     Nasrin.mood(MOODS[state] || 'idle');
   }
 
@@ -4248,9 +4215,9 @@
           active: () => vc.realtime, muted: () => vc.muted,
           open: () => { vc.realtimeProvider='gemini'; vc.realtime=true; voiceState('listening','Listening…'); Nasrin.mood('idle'); },
           input: (t) => { voiceSay('user',t); voiceState('thinking','Thinking…'); },
-          output: (t) => { let x=voiceLog.querySelector('.voice-line.assistant.is-realtime'); if(!x){x=voiceSay('assistant is-live','');x.classList.add('is-realtime');} x.textContent+=t; voiceState('speaking','Talking…'); Nasrin.talk(1); },
+          output: (t) => { let x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(!x){x=voiceSay('assistant is-live','');x.classList.add('is-realtime');} x.textContent+=t; voiceState('speaking','Talking…'); Nasrin.talk(1); },
           interrupted: () => { voiceState('listening','Listening…'); Nasrin.talk(0); },
-          complete: () => { const x=voiceLog.querySelector('.voice-line.assistant.is-realtime'); if(x)x.classList.remove('is-realtime'); voiceState('listening','Listening…'); Nasrin.talk(0); },
+          complete: () => { const x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(x)x.classList.remove('is-realtime','is-live'); voiceState('listening','Listening…'); Nasrin.talk(0); },
           error: () => closeVoice('Gemini realtime voice stopped. Please try again.'),
           close: () => { if(vc.on&&vc.realtimeProvider==='gemini') closeVoice('Realtime voice connection ended. Please try again.'); }
         });
@@ -4274,11 +4241,11 @@
         if (msg.type === 'input_audio_transcription.done' && msg.transcript) {
           voiceSay('user', msg.transcript); voiceLog.scrollTop = voiceLog.scrollHeight; voiceState('thinking', 'Thinking…');
         } else if ((msg.type === 'response.audio_transcript.delta' || msg.type === 'response.output_audio_transcript.delta') && msg.delta) {
-          let last = voiceLog.querySelector('.voice-line.assistant.is-realtime');
+          let last = voiceLog.querySelector('.vmsg.assistant.is-realtime');
           if (!last) { last = voiceSay('assistant is-live', ''); last.classList.add('is-realtime'); }
           last.textContent += msg.delta; voiceLog.scrollTop = voiceLog.scrollHeight; voiceState('speaking', 'Talking…'); Nasrin.talk(1);
         } else if (msg.type === 'response.audio_transcript.done' || msg.type === 'response.output_audio_transcript.done') {
-          const last = voiceLog.querySelector('.voice-line.assistant.is-realtime'); if (last) last.classList.remove('is-realtime');
+          const last = voiceLog.querySelector('.vmsg.assistant.is-realtime'); if (last) last.classList.remove('is-realtime', 'is-live');
           voiceState('listening', 'Listening…'); Nasrin.talk(0);
         } else if (msg.type === 'input_audio_buffer.speech_started') {
           voiceState('listening', 'Listening…'); Nasrin.talk(0);
@@ -4331,16 +4298,16 @@
     voiceMute.setAttribute('aria-label', 'Mute microphone');
     voiceMute.title = 'Mute microphone';
     closeVoiceMenus();
-    renderVoiceSpeed();
     renderVoiceTier();
     voiceLog.replaceChildren();
-    voiceSay('hint', 'Realtime voice is on. Just talk naturally — you can interrupt Nasrin at any time.');
     voiceEl.hidden = false;
     document.body.classList.add('voice-open');
     keepAwake();
     $('voiceEnd').focus();
     const realtime = await startRealtimeVoice();
     if (!vc.on) return;
+    // Say which mode is on only once it is known.
+    if (realtime) voiceSay('hint', 'Realtime voice is on. Just talk naturally — you can interrupt Nasrin at any time.');
     if (!realtime) {
       voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
       if (Recognition) listenVoice();
@@ -4372,14 +4339,11 @@
   }
 
   $('voiceEnd').addEventListener('click', () => closeVoice());
-  $('voiceClose').addEventListener('click', () => closeVoice());
   voiceSkip.addEventListener('click', interruptVoice);
   voiceMute.addEventListener('click', () => {
     muteVoice(!vc.muted);
     try { navigator.vibrate?.(12); } catch { /* not supported: fine */ }   // a small tap you can feel
   });
-
-  renderVoiceSpeed();
 
   voicePlus?.addEventListener('click', () => {
     const open = voicePlusMenu && voicePlusMenu.hidden;
@@ -4393,16 +4357,9 @@
     closeVoiceMenus();
     if (open && voiceTierMenu) { renderVoiceTier(); voiceTierMenu.hidden = false; voiceTier.setAttribute('aria-expanded', 'true'); }
   });
-  voiceSpeed?.addEventListener('click', () => {
-    const open = !voiceSpeedWrap.classList.contains('is-open');
-    closeVoiceMenus();
-    if (open) { voiceSpeedWrap.classList.add('is-open'); voiceSpeed.setAttribute('aria-expanded', 'true'); voiceSpeedPanel.hidden = false; voiceSpeedRange?.focus(); }
-  });
-  voiceSpeedRange?.addEventListener('input', () => setSpeechRate(voiceSpeedRange.value));
   document.addEventListener('pointerdown', (e) => {
     if (voicePlusMenu && !voicePlusMenu.hidden && !voicePlus.contains(e.target) && !voicePlusMenu.contains(e.target)) closeVoicePopover(voicePlusMenu, voicePlus);
     if (voiceTierMenu && !voiceTierMenu.hidden && !voiceTier.contains(e.target) && !voiceTierMenu.contains(e.target)) closeVoicePopover(voiceTierMenu, voiceTier);
-    if (voiceSpeedWrap?.classList.contains('is-open') && !voiceSpeedWrap.contains(e.target)) { voiceSpeedWrap.classList.remove('is-open'); voiceSpeed?.setAttribute('aria-expanded', 'false'); voiceSpeedPanel.hidden = true; }
   });
   // Coming back to the tab: the browser may have stopped listening.
   document.addEventListener('visibilitychange', () => {
@@ -5904,9 +5861,7 @@
         authMethodsLoaded = true;
         renderAccount();
       }
-      if (s.speech && Number.isFinite(s.speech.rate) && saved.get(KEYS.speechRate) === null) speechRate = Math.min(2, Math.max(0.5, s.speech.rate));
-      speechRate = Math.min(2, Math.max(0.5, speechRate));
-      renderVoiceSpeed();
+      if (s.speech && Number.isFinite(s.speech.rate)) speechRate = Math.min(2, Math.max(0.5, s.speech.rate));
       if (s.speech && Array.isArray(s.speech.voices)) {
         // Keep the server's full provider catalog visible even when one or both
         // providers are unavailable. Unavailable voices are shown disabled.

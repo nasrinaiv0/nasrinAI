@@ -5,6 +5,14 @@
 - **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
 - **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
 
+## Proposed PR — Minimal voice screen: liquid orb, conversation on top (`ui/voice-screen`)
+
+- **Owner request (2026-10-12):** remove the speed button; a glowing liquid SVG orb in the lower centre that ripples out sound waves; Plus and tier on the left, mute and Exit on the right; the conversation at the top, fading out; minimalist.
+- **Files:** `public/index.html` (voice screen markup, class `voice-screen`), `public/voice-liquid-glass.css` (rewritten; all voice-screen styles), `public/app.css` (old voice-screen rules removed), `public/voice-wave.js` (`createOrb`; shared microphone `meter()`; the dictation wave is unchanged), `public/app.js` (speed control and second close button removed; the orb stops talking; realtime transcript fix), `docs/voice-screen.md`.
+- **Bugs fixed:** realtime replies split into one line per word (`.voice-line` selector matched nothing); Settings > Voice showed one voice only (the screen's `.voice` CSS also hit the rows); "Realtime voice is on" showed even in compatibility mode.
+- **Data:** none collected or kept differently; the per-device speech speed key is cleared (the server's rate is used).
+- **Validation:** `test/voice-screen.test.js` (fails on `main`, passes here); local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/1280, light and dark, with a fake microphone: open, tier and Plus menus, outside tap, mute, Exit.
+
 ## Proposed PR — Composer controls appear at once (`fix/composer-instant-controls`)
 
 - **Owner request (2026-10-12):** the composer buttons must show with the composer, with no loading or delay and no wait for the models.
