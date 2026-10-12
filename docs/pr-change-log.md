@@ -20,6 +20,13 @@ For every future NasrinAI PR:
 - **Check (headless Chromium, local fake-provider run):** desktop: Shift+Enter adds a line, Enter sends, and Enter during a streaming reply keeps the text and doesn't stop the reply. Phone (390 px touch): Enter adds a line and doesn't send.
 - **Regression test:** `test/desktop-enter.test.js` (fails without the change).
 - **Docs:** `docs/chat.md`.
+
+## Proposed PR — Touch targets at least 44 pt (`ui/ios-touch-targets`)
+
+- **Intent:** audit finding F2 (`docs/feature-audit.md`, PR #223). Header icons, composer buttons, reply actions, the edit pencil, the code Copy button, Listen, Retry, the home buttons and other buttons were 28–42 px: under Apple's 44 × 44 pt minimum.
+- **Change:** one `@media (pointer: coarse)` block at the end of `public/app.css` raises them to at least 44 × 44 on touch screens. Reply actions wrap instead of overflowing. Mouse layouts (desktop) keep their compact sizes. No markup or script change.
+- **Layout check (headless Chromium, iPhone touch profile, local fake-provider run):** with this PR, no visible control is under 44 pt on the home screen or in a chat at 320 and 390 px (before: 12 on home, 16 in a chat). Combined with PR #224 (header fit), page width equals the viewport at 320 and 390 px. On its own, the page still has the pre-existing header overflow that #224 fixes.
+- **Regression test:** `test/ios-touch-targets.test.js` (fails without the change).
 - **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
 
 ## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
