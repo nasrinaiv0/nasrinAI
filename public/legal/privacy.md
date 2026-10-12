@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-12a** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-12b** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -53,7 +53,7 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 - **Your acceptance of the Terms of Service**: the version and the time. *Basis: legal obligation and our legitimate interest in proving what was agreed.*
 
 ### When you share files, links or use voice
-- **Files** (photos, PDFs, text files) are used to answer your message. Signed-in people's files are also kept in their Library (see above); guests' files are **not stored** and only their names are saved with the message. Photos are re-saved on your device before upload, which removes location and camera details.
+- **Files** (photos, PDFs, text files) are used to answer your message. Signed-in people's files are also kept in their Library (see above); guests' files are **not stored** and only their names are saved with the message. Photos are re-saved on your device before upload, which removes location and camera details. When direct uploads are switched on, larger files go from your device straight to a private storage area in our Supabase project (Singapore) through a one-time link; our server reads each file once to answer, then deletes it from that storage area. Files uploaded but never sent are deleted within about 2 hours.
 - **Links:** our server opens the page and uses its text for that one answer. The page text is not stored. The website sees a request from our server, not from you.
 - **Web search:** questions that need current facts may be searched on the web through OpenAI's search tool. The answer lists its sources.
 - **Read aloud:** to read a reply in a natural voice, the text of Nasrin's reply is sent to OpenAI to make the audio. Your own messages are not.
@@ -101,7 +101,7 @@ We do not intentionally request sensitive personal information as a requirement 
 NasrinAI uses third-party service providers for AI processing, hosting, authentication, payments, email, analytics, and other functions needed to operate the service. The providers listed below may change as the service develops; material changes will be reflected in this notice.
 
 - **Vercel** (hosting, logs, performance metrics) — NasrinAI Functions are configured to execute in multiple Vercel regions, including Europe, North America, South America, and Asia Pacific. Vercel runtime logs are retained for 3 days on the current configuration/documentation.
-- **Supabase** (database and sign-in) — Singapore (ap-southeast-1). Supabase Pro daily database backups are retained for 7 days; other plans/configurations may have different retention.
+- **Supabase** (database, temporary file uploads and sign-in) — Singapore (ap-southeast-1). Supabase Pro daily database backups are retained for 7 days; other plans/configurations may have different retention.
 - **Cloudflare** (DNS, security, and network services, when enabled) — Cloudflare's current documentation states that HTTP request analytics data has at least 30 days of retention on relevant datasets, while specific log products can have different retention periods. NasrinAI does not promise a single Cloudflare retention period for every Cloudflare product.
 - **GitHub** (source-code repository and development services, when used) — GitHub does not publish one universal retention period for all account and repository data. GitHub Actions workflow logs, artifacts, checks, and related data have configurable retention, with a 90-day default for Actions artifacts and logs. NasrinAI does not intentionally place customer chat content or Library content in GitHub repositories.
 - **Third-party AI providers** (AI answers, images, videos, read-aloud audio, web search, or other AI features) — NasrinAI may use providers such as OpenAI and Google Gemini depending on the feature, model, availability, plan, and system configuration. The applicable provider's data-use terms may differ between free and paid services. Users should avoid submitting passwords, payment information, confidential business information, sensitive personal information, or other information they do not want processed under the applicable provider's terms. For the current OpenAI API service, OpenAI states that API data is not used to train or improve its models unless the customer explicitly opts in; default abuse-monitoring logs may be retained for up to 30 days. For Gemini API, Google's current documentation states that Paid Services do not use prompts or responses to improve Google products, while Free Tier services have different data-use terms.
@@ -129,7 +129,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Proposed actions waiting for Confirm: **10 minutes**
 - Events sent by businesses' systems: **30 days**
 - Businesses' documents: until the business deletes them
-- Photos and files you send (signed in): until you delete them or your account, or your keep-time. Guests' files and link text: **not stored**
+- Photos and files you send (signed in): until you delete them or your account, or your keep-time. Guests' files and link text: **not stored**. Files uploaded directly are held in private storage only until they are used, and at most about **2 hours** if they are never sent
 - Rate-limit counters (with IP addresses): about **2 days**
 - Usage records (no text): 24 months; when you delete your account, your account identifier is removed from these records where technically and reasonably practicable.
 - Payment records: 10 years, or for the period otherwise required by applicable Philippine tax and accounting rules.

@@ -21,7 +21,7 @@ function appOriginOf(req) {
   return /^[a-z0-9.-]+(:\d{1,5})?$/.test(host) && (proto === 'https' || proto === 'http') ? proto + '://' + host : null;
 }
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -30,6 +30,8 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
   }
 
   notices = notices || createNotices({ plans, store, config, now });
+  // Files sent inside a request (base64) stay within this; larger ones are direct uploads.
+  const inlineBytes = config.ai.attachments.maxInlineBytes ?? config.ai.attachments.maxTotalBytes;
   // Which moment the page asks about: ?when=open (default) or ?when=new_chat.
   const retentionAuthorized = (req) => {
     const expected = String(config.retentionCronSecret || '');
@@ -275,6 +277,11 @@ return { body: { sites: await connect.list(caller) } }; }
         await store.purgeImprovementConsent();
         if (!store.purgeImprovementExamples) throw new HttpError(503, 'retention_unavailable', 'Improvement example cleanup is not configured.');
         await store.purgeImprovementExamples();
+        // Direct uploads that were never used (docs/uploads.md). A storage
+        // problem is logged; it must not hide the clean-ups above.
+        if (uploads) {
+          try { await uploads.purge(); } catch (err) { logger?.warn?.('could not purge uploads', { error: err?.message }); }
+        }
         return { body: { ok: true } };
       }
     },
@@ -1078,7 +1085,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/images/brief',
       scope: 'chat',
       body: true,
-      maxBody: Math.ceil(config.ai.attachments.maxTotalBytes * 1.37) + 64 * 1024,
+      maxBody: Math.ceil(inlineBytes * 1.37) + 64 * 1024,
       handler: async ({ caller, body, ip }) => {
         if (!images) throw new HttpError(503, 'images_unavailable', 'Picture creation is not available yet.');
         return { body: await images.brief(caller, body, ip) };
@@ -1090,7 +1097,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/images',
       scope: 'chat',
       body: true,
-      maxBody: Math.ceil(config.ai.attachments.maxTotalBytes * 1.37) + 64 * 1024,
+      maxBody: Math.ceil(inlineBytes * 1.37) + 64 * 1024,
       handler: async ({ caller, body, ip }) => {
         if (!images) throw new HttpError(503, 'images_unavailable', 'Picture creation is not available yet.');
         return { body: await images.create(caller, body, ip) };
@@ -1187,6 +1194,7 @@ return { body: { sites: await connect.list(caller) } }; }
           plans: Boolean(plans) && config.plans.enabled,
           library: Boolean(library) && config.library?.enabled === true,
           projects: Boolean(projects) && config.projects?.enabled === true,
+          uploads: uploads ? { direct: true, max_mb: Math.round(uploads.maxBytes / 1048576) } : { direct: false },
           images: images && images.available ? { available: true, per_guest: config.images.perGuest, per_user_day: config.images.perUserDay } : { available: false },
           videos: videos && videos.available ? { available: true, ultra_only: true, max_seconds: config.video.maxSeconds } : { available: false },
           sign_in: { email: Boolean(auth) && config.auth.email, google: Boolean(auth) && config.auth.google },
@@ -1204,14 +1212,28 @@ return { body: { sites: await connect.list(caller) } }; }
       })
     },
     {
+      // A one-time link to upload one file straight to storage (docs/uploads.md).
+      // Body: { name, type, size }. Answers { id, upload_url, max_bytes }; the
+      // chat then names the file as { upload: id, name, type } in `attachments`.
+      method: 'POST',
+      path: '/v1/uploads',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body, ip }) => {
+        if (!uploads) throw new HttpError(404, 'not_found', 'Direct uploads are not available.');
+        return { body: await uploads.sign(caller, body, ip) };
+      }
+    },
+    {
       // One chat turn. Body: { message, conversation_id?, model?, attachments? }.
       // Without conversation_id a new conversation is started.
       method: 'POST',
       path: '/v1/chat',
       scope: 'chat',
       body: true,
-      // room for attachments (base64) plus the message
-      maxBody: Math.ceil(config.ai.attachments.maxTotalBytes * 4 / 3) + 64 * 1024,
+      // room for files sent inside the request (base64) plus the message;
+      // larger files come as direct uploads (docs/uploads.md)
+      maxBody: Math.ceil(inlineBytes * 4 / 3) + 64 * 1024,
       // With { stream: true } the answer comes as lines of JSON (NDJSON) while it
       // is written: { type: 'start', conversation_id, user_message_id } once the
       // message is saved, { type: 'delta', text } pieces, { type: 'reset' } when another
