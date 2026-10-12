@@ -153,3 +153,14 @@ test('sign-in Turnstile widget is centered below the email form and smaller on p
   const status = html.indexOf('id="signinStatus"');
   assert.ok(form > -1 && form < widget && widget < status, 'widget sits below the email form and above the status message');
 });
+
+test('oversized pasted composer text becomes a plain-text attachment', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(js, /function pastedTextOverflows\(text\)/, 'overflow is measured against the composer max height');
+  assert.match(js, /input\.addEventListener\('paste',[\s\S]{0,1600}pastedTextOverflows\(text\)/,
+    'the paste handler checks plain text before allowing it into the composer');
+  assert.match(js, /new File\(\[text\], 'pasted-message-'[\s\S]{0,100}type: 'text\/plain'/,
+    'overflowing pasted text is wrapped in a TXT file');
+  assert.match(js, /if \(!text \|\| !pastedTextOverflows\(text\)\) return;/,
+    'short text continues to paste normally');
+});
