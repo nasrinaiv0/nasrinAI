@@ -39,3 +39,17 @@ test('coding must be true or false', async () => {
     assert.equal((await postJson(srv.url + '/v1/chat', { message: 'hi', coding: 'yes' }, bearer(USER_TOKEN))).status, 400);
   } finally { await srv.close(); }
 });
+
+test('the coding chat never shows question cards', async () => {
+  const provider = createFakeProvider({ reply: () => 'Sure.\n[[ask]]\nWhat kind of coding are you interested in? | Websites/apps | Data/AI | Games\n[[/ask]]' });
+  const built = buildTestApp({ provider });
+  const srv = await serve(built.app);
+  try {
+    const r = await (await postJson(srv.url + '/v1/chat', { message: 'help me code', coding: true, blocks: true }, bearer(USER_TOKEN))).json();
+    assert.doesNotMatch(r.message.content, /\[\[ask\]\]/);
+    assert.match(r.message.content, /What kind of coding are you interested in\? \(Websites\/apps, Data\/AI, Games\)/);
+    assert.doesNotMatch(provider.calls.at(-1).system, /\[\[ask\]\]\nQuestion one\?/, 'no question-card rule in the coding chat');
+    const normal = await (await postJson(srv.url + '/v1/chat', { message: 'plan my week', blocks: true }, bearer(USER_TOKEN))).json();
+    assert.match(normal.message.content, /\[\[ask\]\]/, 'normal chats keep their question cards');
+  } finally { await srv.close(); }
+});

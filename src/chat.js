@@ -80,6 +80,14 @@ export function liveText(stream, maxChars = 8000) {
   };
 }
 
+// [[ask]] question lines ("Question? | A | B") as plain text: "Question? (A, B)".
+export function plainAsks(text) {
+  return String(text).replace(/\[\[ask\]\][ \t]*\n?([\s\S]*?)(?:\n?[ \t]*\[\[\/ask\]\]|$)/gi, (_, body) => body.split('\n')
+    .map((l) => l.trim()).filter(Boolean)
+    .map((l) => { const [q, ...opts] = l.split('|').map((x) => x.trim()).filter(Boolean); return q ? q + (opts.length ? ' (' + opts.join(', ') + ')' : '') : ''; })
+    .filter(Boolean).join('\n')).trim();
+}
+
 const unavailable = (retryAfter) => new HttpError(503, 'ai_unavailable',
   'NasrinAI cannot answer right now. Please try again in a moment.', retryAfter ? { retryAfter } : {});
 
@@ -255,6 +263,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const finish = async (reply) => {
       live?.flush();
       if (!codeFile && !codingChat && typeof reply === 'string') reply = documentFiles(reply, askedText);
+      // The coding chat never shows question cards: a stray [[ask]] block becomes plain questions.
+      if (codingChat && typeof reply === 'string') reply = plainAsks(reply);
       const assistant = await conversations.add(conv, 'assistant', reply);
       if (webAnswers && webSources.length && reply) {
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
@@ -400,7 +410,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         let webProviderStarted = false;
         try {
           if (!budget) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now.');
-          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) });
+          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat });
           const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
           const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
           webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
@@ -526,7 +536,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       try {
         try {
@@ -635,7 +645,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)

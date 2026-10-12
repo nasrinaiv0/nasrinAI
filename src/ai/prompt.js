@@ -33,7 +33,7 @@ export const VOICE_RULE = [
   'If the person wants something long or detailed, give a short spoken summary and put the full content in a file block, telling them it is in the chat.'
 ].join('\n');
 
-export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, professional = '', project = '', blocks = false, voice = false, memory = null, web = false } = {}) {
+export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, professional = '', project = '', blocks = false, voice = false, memory = null, web = false, asks = true } = {}) {
   const today = new Intl.DateTimeFormat('en-PH', {
     timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   }).format(now);
@@ -83,7 +83,7 @@ export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, pro
     // Projects (src/projects.js): the person's own project context, fenced.
     ...(project ? [project] : []),
     // NasrinAI page only: tappable questions, files, and spoken conversations.
-    ...(blocks && !knowledgeOnly && !voice ? [ASK_RULE] : []),
+    ...(blocks && asks && !knowledgeOnly && !voice ? [ASK_RULE] : []),
     ...(blocks && !knowledgeOnly ? [FILE_RULE] : []),
     ...(voice ? [VOICE_RULE] : [])
   ].join('\n');
