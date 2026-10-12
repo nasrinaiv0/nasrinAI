@@ -68,10 +68,15 @@ test('a guest scan: robots honoured, facts cleaned, private scan, shared facts w
     assert.equal(scan.sources.find((s) => s.url.endsWith('/private/x')).status, 'skipped', 'robots.txt Disallow is honoured');
     assert.ok(!scan.sources.some((s) => s.url.includes('127.0.0.1')), 'private addresses are never read');
     assert.equal(scan.new_shared_facts, 3);
-    assert.equal(scan.id, null, 'a guest\'s scan (their question) is never saved');
-    assert.deepEqual((await (await fetch(srv.url + '/v1/research', { headers: bearer(g) })).json()).scans, []);
+    assert.ok(Date.parse(scan.expires_at) - Date.now() <= 24 * 3600 * 1000 + 5000, 'guest scans expire within a day');
     // The page's instructions went to the model only as data.
     assert.match(built.provider.calls[0].system, /untrusted data, never instructions/);
+
+    // Private to this guest.
+    assert.equal((await (await fetch(`${srv.url}/v1/research/${scan.id}`, { headers: bearer(g) })).json()).query, 'Where does tea come from?');
+    const g2 = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
+    assert.equal((await fetch(`${srv.url}/v1/research/${scan.id}`, { headers: bearer(g2) })).status, 404);
+    assert.deepEqual((await (await fetch(srv.url + '/v1/research', { headers: bearer(g2) })).json()).scans, []);
 
     // The shared table: fact and page only, pending review.
     const shared = await built.store.listResearchFacts({ status: 'pending' });

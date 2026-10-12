@@ -4,7 +4,6 @@ import { readLink, checkUrl } from './web/read-link.js';
 import { parseRobots } from './connect/site-knowledge.js';
 import { cleanUserText } from './ai/output.js';
 import { redactForProvider } from './ai/redact.js';
-import { PLATFORM_TENANT_ID } from './tenants.js';
 
 // Research agent (docs/research.md). For one question it finds public pages
 // (web search, or links the person gives), reads them with the SSRF-safe link
@@ -14,9 +13,8 @@ import { PLATFORM_TENANT_ID } from './tenants.js';
 //   CAPTCHA or bot-blocker is ever worked around.
 // - Page text and the model's answer are untrusted data: facts are cleaned,
 //   capped and stripped of contact details; the model cannot fetch anything.
-// - The scan (question, pages, facts) is private to the person who ran it and
-//   kept 30 days for signed-in people. Guests on NasrinAI: never saved (their
-//   input is never stored); businesses' guests: 24 hours.
+// - The scan (question, pages, facts) is private to the person who ran it:
+//   guests' scans expire after 24 hours, signed-in people's after 30 days.
 // - Each fact is also offered to the shared fact table with only its source
 //   page: never the question, who asked, or any session. Shared facts wait as
 //   'pending' until the owner approves them.
@@ -133,13 +131,8 @@ export function createResearch({ store, limiter, usageLog = null, provider = nul
         for (const fact of found) facts.push({ fact, url: page.url, title });
       }
 
-      // Owner decision (2026-10-12): a guest's input on NasrinAI is never
-      // saved, so a guest's scan (their question) is not kept at all.
-      const guest = caller.actor.type === 'guest' && caller.tenantId === PLATFORM_TENANT_ID;
       const ttl = caller.actor.type === 'user' ? 30 * DAY : DAY;
-      const saved = guest
-        ? { id: null, expiresAt: null }
-        : await store.addResearchScan({ ...who(caller), query, sources, facts, expiresAt: new Date(now() + ttl) });
+      const saved = await store.addResearchScan({ ...who(caller), query, sources, facts, expiresAt: new Date(now() + ttl) });
       // The shared table: the fact and its page only.
       let shared = 0;
       try {

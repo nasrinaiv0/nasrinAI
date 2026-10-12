@@ -13,7 +13,7 @@
    characters) and contact details are removed.
 4. Saved:
    - `research_scans`: the question, pages and facts, private to the caller
-     (tenant + owner on every read). Signed in 30 days; NasrinAI guests: not saved (owner decision: guest input is never stored), business guests 24 h; purged by
+     (tenant + owner on every read). Guests 24 h, signed in 30 days; purged by
      the hourly clean-up; deleted with the account; included in the export.
    - `research_facts` (shared): fact, source page and title, status. Never the
      question, the person or the session. Duplicates skipped (hash of fact +
