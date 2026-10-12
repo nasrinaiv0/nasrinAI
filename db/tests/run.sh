@@ -15,3 +15,4 @@ done
 for t in db/tests/*.test.sql; do
   psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$t"
 done
+NASRINAI_TEST_DB="$DB" bash db/tests/027_daily_token_concurrency.sh
