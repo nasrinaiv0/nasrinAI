@@ -134,3 +134,12 @@ While a reply is prepared the stream may send `{ type: 'status', stage }` with o
 ## Universal slash commands
 
 NasrinAI uses an execute-first convention for supported slash commands. The browser registry and supported command list are documented in [Universal slash commands](features/universal-slash-commands.md). Chat shortcuts use the normal chat/tool pipeline; image and video shortcuts dispatch to the existing media endpoints. Media shortcuts skip optional brief questions and the extra confirmation sheet, but server-side plan, legal, ownership, budget, and safety checks remain in force. A reference-image command such as `/clone` or `/blur` requires an attached image. Unknown commands fall through to normal chat.
+
+## Replies keep going when you switch chats
+
+A reply that is still being written is never stopped by leaving its chat:
+New chat, opening another chat from Your chats or the menu, and a project's
+Chat/Code buttons all detach it from the screen (`detachTurn` in
+`public/app.js`). It finishes on the server and is saved in its own chat;
+the page says "Your previous reply is continuing in the background and will
+be saved in Your chats." Only Stop (or voice "stop") ends a reply early.
