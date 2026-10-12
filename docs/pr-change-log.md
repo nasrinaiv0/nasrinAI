@@ -13,6 +13,15 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — FAQ only when asked (`fix/faq-only-when-asked`)
+
+- **Intent:** backlog item 4 of the 2026-10-12 upgrade: stop adding the FAQ to replies unless the person asks about NasrinAI itself.
+- **Root cause:** `src/knowledge/product.js` added the product notes, which tell the model to cite the FAQ, whenever a message contained a common word: plan, function, image, account, support, feature, memory, video and others. Separately, the notes linked the raw `/faq.md`, which the system prompt says never to show.
+- **Change:** a new `aboutNasrinAI()` decides when the notes apply (explicit FAQ, Terms, Privacy or refund questions; own-data actions; "your plans", "do you remember", "who made you"; or NasrinAI named with a product topic). The FAQ link is now `[FAQ](https://nasrinai.com/?faq=1)`, and a link is added only where it supports a claim. No prompt-safety, refusal or tenant change: business chats still never get the notes.
+- **Tests:** `test/product-knowledge.test.js` adds 8 about-NasrinAI and 8 general messages plus the link check; both new tests fail on the old code. The existing tests are unchanged and pass.
+- **Docs:** `docs/knowledge.md`.
+- **Validation:** local `npm test` (441 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## [#220](https://github.com/primusco20/nasrinAI/pull/220) — Center the sign-in security check; smaller on phones (open)
 
 - **Intent:** the Cloudflare Turnstile box was left-aligned under the email form. The owner asked for it lower-center and smaller on phones.
