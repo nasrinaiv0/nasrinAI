@@ -5,6 +5,12 @@
 - **Data:** the theme is kept on the device like the appearance; nothing is sent. `public/legal/privacy.md` lists it among device choices; privacy version 2026-10-12a (`LEGAL_PRIVACY_VERSION` default). The file said 2026-10-08a while the app reported 2026-10-07a; both now say 2026-10-12a. No Terms change, so no one has to accept again.
 - **Validation:** `test/themes.test.js` (fails on `main`, passes here); updated legal/status tests for the new privacy version; local `npm test` and `npm run check:secrets`; headless Chromium, every theme in Light and Dark.
 
+## Proposed PR — Remove the Sign in button above the message box (`fix/remove-guest-signin`)
+
+- **Owner request (2026-10-12):** no Sign in button above the message box (#233 was merged before it could be closed). Sign in stays in the header on every screen; below 400 px the wordmark gives way so it fits. The iOS header icons from #233 stay.
+- **Files:** `public/index.html`, `public/app.js`, `public/app.css`, tests, `docs/redesign.md`.
+- **Validation:** `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`; `npm test`; headless Chromium at 320/390/1280.
+
 ## Proposed PR — Name the setting at fault in startup 503 replies (`fix/startup-config-hint`)
 
 - **Problem:** since 2026-10-12 ~12:15 (Manila) every `/v1/*` call on production and previews returns 503 "not set up correctly". The server is up but `loadConfig` rejects a Vercel setting; Vercel logs are not available to the owner, so the bad setting cannot be identified.
