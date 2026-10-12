@@ -1,3 +1,9 @@
+## Proposed PR — Voice screen tier as an icon (`ui/tier-icon`)
+
+- **Owner request (2026-10-12):** the voice screen's tier pill ("Pro ⌄") becomes an icon, the same signal bars as the chat's model button (one bar per level); the name stays for screen readers.
+- **Files:** `public/index.html`, `public/app.js`, `public/voice-liquid-glass.css`, `test/voice-screen.test.js`.
+- **Validation:** `npm test`; headless Chromium at 390 px.
+
 ## Proposed PR — Sign in always available when signed out (`fix/signin-always-visible`)
 
 - **Owner report (2026-10-12):** the Sign in button was missing. The header button hid whenever `/v1/status` had not said which sign-in methods exist, so a slow or failing status check (the 503 outage) left guests with no way to sign in, and a signed-in person's session was not restored (no Log out).

@@ -3908,6 +3908,9 @@
     const names = { nasrinai: 'Quick', pro: 'Pro', max: 'Max', ultra: 'Ultra' };
     const current = names[currentModel] || 'Quick';
     voiceTierLabel.textContent = current;
+    // The same signal bars as the chat's model button: one bar per level.
+    const level = Math.max(1, ['nasrinai', 'pro', 'max', 'ultra'].indexOf(currentModel) + 1);
+    voiceTier.querySelectorAll('.bars rect').forEach((r, i) => r.classList.toggle('on', i < level));
     voiceTier.setAttribute('aria-label', 'AI tier: ' + current);
     voiceTier.title = 'AI tier: ' + current;
     voiceTierMenu.replaceChildren();
