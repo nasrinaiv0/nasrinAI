@@ -93,6 +93,7 @@ push and PR. Vercel builds a preview for every PR.
 - `src/library.js` — the Library: people's own text files, notes, saved replies (`docs/library.md`, migration 012).
 - `src/projects.js` — Projects: instructions, tasks, scoped chats and Library items (`docs/projects.md`, migration 013).
 - `src/uploads.js` — direct uploads: one-time Supabase Storage links, files read once then deleted (`docs/uploads.md`, migration 031, `UPLOADS_DIRECT`).
+- `src/research.js` — research agent: public pages (robots.txt honoured) → facts; scans private per person, shared `research_facts` hold fact + source only, pending owner review (`docs/research.md`, migration 036, `RESEARCH_ENABLED`).
 - `src/storage.js` — Library as storage: lists/deletes a person's chats, files, sent photos/files and pictures, keeps sent files, and applies their keep-time (`prefs.retention`; migration 014; `docs/library.md`).
 - `src/tools/` — tool engine (Phase 5): registry, argument checks, first tools (`docs/tools.md`).
 - `src/connectors/` — business REST/GraphQL connectors (Phase 6): definition checks, encrypted keys, SSRF-safe calls (`docs/connectors.md`).
