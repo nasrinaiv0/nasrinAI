@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { buildSystemPrompt } from '../src/ai/prompt.js';
 
 const source = readFileSync(new URL('../public/creative-intent.js', import.meta.url), 'utf8');
 const sandbox = {};
@@ -40,4 +41,19 @@ test('normal natural-language creative intent continues to work', () => {
   assert.equal(shortcuts.detect('Create a picture of a cat'), 'image');
   assert.equal(shortcuts.detect('Create a short video'), 'video');
   assert.equal(shortcuts.detect('What is image generation?'), null);
+});
+
+test('system prompt enforces execute-first behavior for supported shortcuts', () => {
+  const prompt = buildSystemPrompt();
+  assert.match(prompt, /Universal slash commands are explicit task requests/);
+  assert.match(prompt, /Do not ask for optional preferences/);
+  assert.match(prompt, /Ask only when a genuinely required input is unavailable/);
+  assert.match(prompt, /do not pretend a text reply created media/);
+});
+
+test('image slash commands dispatch directly without optional brief questions or confirmation', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(executeFirst\) return makeImage\(job, \{ confirm: false \}\)/);
+  assert.match(app, /if \(shortcut && shortcut\.requiresPhoto && !pending\.some/);
+  assert.match(app, /if \(confirm && !window\.confirm/);
 });
