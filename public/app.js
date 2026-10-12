@@ -1326,14 +1326,18 @@
 
   const jobBody = (job) => ({ prompt: job.prompt, ...(job.photo ? { photo: job.photo } : {}) });
 
-  async function sendImage(text, files) {
+  async function sendImage(text, files, { executeFirst = false, prompt = text } = {}) {
     noticesOnSend();
     const photo = files.find((f) => f.type && f.type.startsWith('image/') && f.data);
     show('user', text, { files: photo ? [photo] : [] });
     input.value = '';
     autosize();
     setImageMode(false);
-    const job = { prompt: text, photo: photo ? { name: photo.name, type: photo.type, data: photo.data } : null, brief: null };
+    const job = { prompt, photo: photo ? { name: photo.name, type: photo.type, data: photo.data } : null, brief: null };
+    // Slash commands are explicit execution requests: use sensible defaults and
+    // skip the optional brief questions and confirmation sheet. Server-side
+    // plan, ownership, privacy, budget and safety checks still apply.
+    if (executeFirst) return makeImage(job, { confirm: false });
     const data = await imageStep('Looking at your idea', '/v1/images/brief', jobBody(job));
     if (!data) return;
     if (data.questions && data.questions.length) return showQuestions(job, data.questions);
@@ -1458,11 +1462,11 @@
   }
 
   // One picture from the brief. Resolves true when it was made.
-  async function makeImage(job) {
-    if (!window.confirm('Create this picture now? NasrinAI will send your prompt and selected image details to the configured AI image service. Choose Cancel to stop.')) return false;
+  async function makeImage(job, { confirm = true } = {}) {
+    if (confirm && !window.confirm('Create this picture now? NasrinAI will send your prompt and selected image details to the configured AI image service. Choose Cancel to stop.')) return false;
     const data = await imageStep('Making your picture', '/v1/images', {
       ...jobBody(job),
-      brief: job.brief,
+      ...(job.brief ? { brief: job.brief } : {}),
       ...(conversationId ? { conversation_id: conversationId } : {})
     });
     if (!data) return false;
@@ -1663,17 +1667,36 @@
     }
   }
 
+  function shortcutImagePrompt(shortcut) {
+    const extra = shortcut.args ? '\\n\\nAdditional direction: ' + shortcut.args : '';
+    if (shortcut.name === 'clone') return 'Clone the attached reference image’s visual style, lighting, mood, and composition. Preserve its main subject and key content.' + extra;
+    if (shortcut.name === 'blur') return 'Edit the attached image by blurring its background while keeping the main subject sharp. Use a natural, professional depth-of-field effect.' + extra;
+    if (shortcut.name === 'remove-background') return 'Remove the background from the attached image and preserve clean edges around the subject.' + extra;
+    if (shortcut.name === 'upscale') return 'Enhance and upscale the attached image, preserving its subject, composition, and natural details. Avoid inventing new content.' + extra;
+    if (shortcut.name === 'animate') return 'Animate the attached image into a short cinematic video, preserving the main subject and composition.' + extra;
+    if (shortcut.name === 'video') return 'Create a short cinematic video' + (shortcut.args ? ': ' + shortcut.args : ' inspired by the current conversation, using sensible defaults.');
+    return 'Create an image' + (shortcut.args ? ': ' + shortcut.args : ' inspired by NasrinAI’s minimal monochrome visual identity.');
+  }
+
   async function send(raw) {
     const text = String(raw || '').trim();
     if (turn) return;
     if ((!text && !pending.length) || busy || preparing || !aiAvailable) return;
-    const intent = window.NasrinCreativeIntent.detect(text);
-    if (!imageMode && intent === 'video') return sendVideo(text);
+    const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
+    const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
+    if (shortcut && shortcut.requiresPhoto && !pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) {
+      notice.textContent = 'Attach the image for /' + shortcut.name + ', then run the shortcut again.';
+      return;
+    }
+    if (!imageMode && intent === 'video') {
+      const prompt = shortcut ? shortcutImagePrompt(shortcut) : text;
+      return sendVideo(prompt);
+    }
     if (!imageMode && intent === 'image') {
       const files = pending;
       pending = [];
       renderTray();
-      return sendImage(text, files);
+      return sendImage(text, files, shortcut ? { executeFirst: true, prompt: shortcutImagePrompt(shortcut) } : {});
     }
     if (imageMode) {
       if (!text) { notice.textContent = 'Describe the picture you want.'; return; }
@@ -1684,6 +1707,8 @@
     }
     const files = editing ? [] : pending;
     if (!editing) { pending = []; renderTray(); }
+    // Supported chat shortcuts are explicit instructions. Keep the original
+    // command in the conversation so it remains visible and auditable.
     return runTurn({ text, files, editId: editing ? editing.id : null, editEl: editing ? editing.el : null });
   }
 
