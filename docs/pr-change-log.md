@@ -4,6 +4,13 @@
 - **Files:** `public/index.html`, `public/app.js`, `public/app.css`, tests, `docs/redesign.md`.
 - **Validation:** `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`; `npm test`; headless Chromium at 320/390/1280.
 
+## Proposed PR — Name the setting at fault in startup 503 replies (`fix/startup-config-hint`)
+
+- **Problem:** since 2026-10-12 ~12:15 (Manila) every `/v1/*` call on production and previews returns 503 "not set up correctly". The server is up but `loadConfig` rejects a Vercel setting; Vercel logs are not available to the owner, so the bad setting cannot be identified.
+- **Change:** the 503 JSON now carries `stage` (`configuration` or `application`) and, for configuration failures only, `settings`: the setting names in the error (capitals-and-underscores words such as `CRON_SECRET`). Never the message text, values or stacks. Supersedes draft #246.
+- **Use:** open `https://nasrinai.com/v1/status` and read `error.settings`.
+- **Validation:** `test/startup-diagnostics.test.js` (names returned; key-like values and message text not); `npm test`, `npm run check:secrets`.
+
 ## Proposed PR — Voice typing button: clear Stop while listening (`fix/dictation-button`)
 
 - **Owner request (2026-10-12):** fix the speech-to-text button and make it responsive.
