@@ -13,6 +13,12 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
+
+- **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.
+- **`CLAUDE.md`:** adds a "Start here" pointer and records the owner's 2026-10-12 branch rule (one pushed branch per category, PR into `main`, owner merges, no failing checks).
+- **Validation:** documentation only, with no code, schema or config change. Local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## [#220](https://github.com/primusco20/nasrinAI/pull/220) — Center the sign-in security check; smaller on phones (open)
 
 - **Intent:** the Cloudflare Turnstile box was left-aligned under the email form. The owner asked for it lower-center and smaller on phones.
