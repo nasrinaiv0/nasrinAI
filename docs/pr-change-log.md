@@ -1,3 +1,11 @@
+## Draft PR #246 — Expose safe startup stage in 503 responses (`fix/startup-503-stage-response`)
+
+- **Problem:** production `/v1/status` returns HTTP 503 quickly and Vercel function logs are unavailable, so the operator cannot tell whether startup fails while loading configuration or constructing the app.
+- **Change:** add only a fixed `stage` label (`configuration` or `application`) to the existing 503 JSON response. Keep the incident ID and header. Never return exception text, stack traces, environment values, credentials, or provider payloads.
+- **Regression coverage:** `test/startup-diagnostics.test.js` asserts both stage labels and verifies internal exception details remain absent from client responses.
+- **Scope:** diagnostic-only; no auth logic, limits, environment values, security checks, or deployment settings change. This narrows the failure location but does not itself repair the underlying exception.
+- **Validation:** CI is required before merge. After a separately authorized deployment, inspect `/v1/status` response `error.stage` to direct the next code investigation.
+
 ## Proposed PR — Diagnose server startup 503s (`fix/startup-503-diagnostics`)
 
 - **Problem:** production API routes return HTTP 503 when configuration loading or application initialization fails, but the client-facing message is generic and Vercel logs may be unavailable to the operator.
