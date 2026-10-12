@@ -30,9 +30,9 @@ const FILE_TOKENS = 5500;
 // words such as "in the Library". Retrieval remains signed-in and owner-scoped.
 export function isGeneratedImageRecallRequest(input) {
   const typed = String(input || '').trim();
-  return /\\b(show|find|retrieve|see|display|bring|open)\\b.{0,100}\\b(pictures?|images?)\\b.{0,100}\\b(library|generated|made|created|saved|history)\\b/i.test(typed)
-    || /\\b(show|find|retrieve|see|display|bring|open)\\b.{0,100}\\b(library|generated|made|created|saved|history)\\b.{0,100}\\b(pictures?|images?)\\b/i.test(typed)
-    || /\\b(pictures?|images?)\\b.{0,40}\\b(i|we)\\b.{0,15}\\b(generated|made|created)\\b/i.test(typed);
+  return /\b(show|find|retrieve|see|display|bring|open)\b.{0,100}\b(pictures?|images?)\b.{0,100}\b(library|generated|made|created|saved|history)\b/i.test(typed)
+    || /\b(show|find|retrieve|see|display|bring|open)\b.{0,100}\b(library|generated|made|created|saved|history)\b.{0,100}\b(pictures?|images?)\b/i.test(typed)
+    || /\b(pictures?|images?)\b.{0,40}\b(i|we)\b.{0,15}\b(generated|made|created)\b/i.test(typed);
 }
 
 // "Knowledge only" businesses (migration 011): fixed replies when their
