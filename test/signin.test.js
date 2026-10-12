@@ -173,6 +173,9 @@ test('Google: PKCE start, callback sets the session, failures go back to the pag
     const repeat = await fetch(url + '/v1/auth/google/callback?error=server_error&error_description=State+has+already+been+used', { redirect: 'manual', headers: { Cookie: 'nasrin_rt=rt-existing' } });
     assert.equal(repeat.headers.get('location'), '/?signin=ok');
     assert.equal(cookieOf(repeat, 'nasrin_rt'), '', 'the existing sign-in cookie is left alone');
+    // A code without its PKCE cookie is never treated as a repeat, even with an old sign-in cookie.
+    const noVerifier = await fetch(url + '/v1/auth/google/callback?code=good-code', { redirect: 'manual', headers: { Cookie: 'nasrin_rt=rt-existing' } });
+    assert.equal(noVerifier.headers.get('location'), '/?signin=failed');
   } finally { await close(); }
 });
 
