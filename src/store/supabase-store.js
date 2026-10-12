@@ -387,6 +387,10 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       assertOwner(ownerType, ownerId);
       await request('DELETE', `conversations?tenant_id=eq.${tenantId}&owner_type=eq.${ownerType}&owner_id=eq.${encodeURIComponent(ownerId)}`, { prefer: 'return=minimal' });
     },
+    // Permanent web answers (migration 037): no owner, no session.
+    async addWebAnswer({ question, answer, sources }) {
+      await request('POST', 'web_answers', { body: { question, answer, sources }, prefer: 'return=minimal' });
+    },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });

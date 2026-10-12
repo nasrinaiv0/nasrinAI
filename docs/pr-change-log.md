@@ -1,9 +1,30 @@
+## Proposed PR — Privacy and Terms update, with #265, #266 and #267 combined (`legal/oct12-update`)
+
+- **Owner request (2026-10-12):** update the Privacy Notice and Terms of Use. This branch merges #265 (research), #266 (semantic cache) and #267 (web answers) so the legal pages are updated once, consistently.
+- **Privacy `2026-10-12f`:** answer cache (30 days, per person), research (private scans; shared reviewed facts without who asked), web answers kept permanently without identity, direct uploads; summary bullet added.
+- **Terms `2026-10-12`** (signed-in people accept again): research reads public pages only and honours robots.txt; answers built from the internet are kept permanently without identity and may answer others; answer cache.
+- **Validation:** `npm test`, `npm run check:secrets`.
+
+## Proposed PR — Semantic cache fills again (`fix/semantic-cache`)
+
+- **Owner report (2026-10-12):** `public.semantic_cache` has 0 rows.
+- **Cause:** embeddings came from an on-device model (`@huggingface/transformers`) that cannot load on Vercel; every lookup failed before reaching Supabase (Supabase API logs: no `match_semantic_cache` calls in 24 h), so nothing was ever stored.
+- **Change:** embeddings from OpenAI `text-embedding-3-small` with 384 dimensions (fits the existing column) through plain fetch, contact details removed first; the package and `src/embedder.js` are removed; the warning now says why a lookup failed. Needs `OPENAI_API_KEY` (already set for chat).
+- **Data:** privacy notice `2026-10-12d` now describes the answer cache (30 days, per person) and the embedding call.
+- **Validation:** `npm test`, `npm run check:secrets`.
+
 ## Proposed PR — Research agent (`feature/research-agent`)
 
 - **Owner request (2026-10-12):** an agent that reads web pages for a question and stores the facts in Supabase; owner approved the safe version (no package, robots.txt honoured, nothing bypassed; scans private per person; shared facts hold fact + source only, pending review).
 - **Change:** `POST/GET /v1/research`, `src/research.js`, store methods, limiter, hourly purge, export/delete, `/v1/status` `research`. Off until `RESEARCH_ENABLED=true`.
 - **Data:** privacy notice `2026-10-12c` (scan keep-times; shared facts without question or identity).
 - **Owner steps:** run migration 036 (staging first), set `RESEARCH_ENABLED=true`, redeploy; review `research_facts`.
+
+## Proposed PR — Web-sourced answers kept permanently (`feature/guest-no-store-web-answers`)
+
+- **Owner decision (2026-10-12, revised):** guests' input stays 24 hours as before; NasrinAI replies built from internet facts (web search or a shared link's page) are kept permanently with their sources. Question kept only for signed-in people; never who asked.
+- **Change:** `src/web-answers.js` + `web_answers` (migration 037); saved from `finish()` in `src/chat.js`. Privacy notice `2026-10-12e`. `docs/web-answers.md`.
+- **Owner steps:** run migration 037 (staging first).
 - **Validation:** `npm test`, DB tests (Postgres 16), `npm run check:secrets`.
 
 ## Proposed PR — Enable semantic cache for NasrinAI page responses

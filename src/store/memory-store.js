@@ -36,6 +36,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
   const researchScans = new Map();   // research agent: one person's scans (migration 036)
   const researchFacts = new Map();   // shared facts by fact_hash; no owner, no question
+  const webAnswers = [];   // permanent web answers (migration 037): no owner
   const iso = () => new Date(now()).toISOString();
 
   tenants.set(PLATFORM_TENANT_ID, { id: PLATFORM_TENANT_ID, kind: 'platform', status: 'active', daily_token_limit: 0 });
@@ -464,6 +465,10 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     async purgeResearch() {
       for (const [id, r] of researchScans) if (Date.parse(r.expiresAt) <= now()) researchScans.delete(id);
     },
+    async addWebAnswer({ question, answer, sources }) {
+      webAnswers.push({ id: randomUUID(), question, answer, sources, createdAt: iso() });
+    },
+    listWebAnswers() { return webAnswers.map((a) => ({ ...a })); },
 
     async purgeImagesBefore(before) {
       for (const [id, r] of images) if (r.ownerType === 'service' && Date.parse(r.createdAt) < before.getTime()) images.delete(id);
