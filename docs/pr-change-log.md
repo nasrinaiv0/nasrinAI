@@ -1,3 +1,9 @@
+## Proposed PR — One Library icon (`ui/library-icon`)
+
+- **Owner request (2026-10-12):** use the Library app icon (bars with a dot and a base line) for Library everywhere, theme-adaptive, no background.
+- **Change:** one inline glyph (`svg.lib-glyph`, `currentColor`, two bars at half strength) in the menu, the tab bar and the NasrinAI Space tile; no badge background, follows light/dark and palettes.
+- **Validation:** `npm test`; headless Chromium screenshots in light and dark (menu and Space).
+
 ## Proposed PR — Documents download as PDF (`fix/doc-file-types`)
 
 - **Owner request (2026-10-12):** a meal plan and shopping list came as an `.html` download; documents should be PDF (or Word, etc.), `.html` only for coding.

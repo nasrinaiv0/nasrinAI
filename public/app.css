@@ -2403,3 +2403,8 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 @media (max-width: 400px) {
   .bar:has(#headerSignIn:not([hidden])) .wordmark { display: none; }
 }
+
+/* Library glyph: one filled, theme-adaptive icon (menu, tab bar, Space), no background. */
+svg.lib-glyph, .drawer-link svg.lib-glyph, :root[data-tabbar="on"] .tab-item svg.lib-glyph { fill: currentColor; stroke: none; }
+svg.lib-glyph .lib-glyph-dim { opacity: .5; }
+#pageSpace .space-app-glyph { padding: .35rem; box-sizing: border-box; color: var(--ink); background: transparent; filter: none !important; border-radius: 0; }
