@@ -26,6 +26,11 @@ begin
       references public.automation_workflows (id, tenant_id, owner_type, owner_id)
       on delete cascade;
   end if;
+
+  -- The composite FK subsumes the original id-only FK; remove the redundant
+  -- cascade path after the stronger constraint is present.
+  alter table public.automation_runs
+    drop constraint if exists automation_runs_workflow_id_fkey;
 end
 $migration$;
 commit;
