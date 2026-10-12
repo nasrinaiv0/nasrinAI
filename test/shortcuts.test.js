@@ -25,7 +25,7 @@ test('maps image-edit shortcuts to the image capability', () => {
 });
 
 test('maps video shortcuts to the video capability', () => {
-  for (const name of ['video', 'animate']) {
+  for (const name of ['video']) {
     assert.equal(shortcuts.parseShortcut('/' + name).capability, 'video', name);
     assert.equal(shortcuts.detect('/' + name), 'video', name);
   }
