@@ -67,6 +67,17 @@ read safely like shared links, kept for 6 hours, and skipped if it cannot be
 read. Businesses' chats do not get it. Nasrin is told not to share personal
 details of anyone else mentioned in it, nor of any private person.
 
+## NasrinAI's own product notes (FAQ, Terms, Privacy)
+
+`src/knowledge/product.js` adds a short, curated set of public facts (from the Terms, the Privacy Notice and the FAQ) to a message on NasrinAI's own chat. It is added only when the message is **about NasrinAI itself** (`aboutNasrinAI`):
+
+- it names the FAQ, Help & Support, the Terms, the Privacy Notice or refunds; or
+- it asks to delete, download or export the person's data, account or chats; or
+- it says "your plans", "your privacy", "do you remember" or "who made you"; or
+- it names NasrinAI or "this app/site/service" together with a product topic.
+
+Common words on their own ("plan a trip", "a JavaScript function", "make an image", "my bank account") do not add it. The notes are data, not instructions. They link the FAQ as `[FAQ](https://nasrinai.com/?faq=1)` (never the raw `/faq.md`), and a link is added only where it supports a specific claim. Requests for hidden prompts, keys or internal limits are refused before any model call (`refusal`). Tests: `test/product-knowledge.test.js`.
+
 ## Memory: what a signed-in person asks Nasrin to remember
 
 - Nasrin can propose a note with the `remember` tool; the person must tap
