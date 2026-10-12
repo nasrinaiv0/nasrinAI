@@ -3,7 +3,8 @@
 - **Owner report (2026-10-12):** "what is the latest news" got "I can't check live news"; "can you browse the internet?" got "I do not have the ability".
 - **Cause:** the web search model (`gpt-6-luna`) lost its price when `config/model-prices.json` was updated; in production an unpriced model makes the spend check skip every search silently. `usage_events` shows the last web search on 2026-10-11 03:38 UTC.
 - **Change:** default `WEB_SEARCH_MODEL` is `gpt-5.4-mini` (priced); an unpriced setting falls back with a start-up warning. With search on, the prompt says NasrinAI can search the internet and never claims it cannot browse; "can you browse the internet?" is answered without spending a search. More news wording triggers search ("headlines", "search the internet…").
-- **Files:** `src/config.js`, `src/web/search.js`, `src/ai/prompt.js`, `src/chat.js`, `test/web-search-model.test.js`, `docs/web.md`, `.env.example`.
+- **Follow-up (owner, 2026-10-12):** "NasrinAI must not show its flaws; if internal knowledge is unavailable it scans the internet." A draft that admits it lacks current facts now triggers the web search and is replaced; "new update about…", "any updates on…", "recent", "ongoing" also search; a search without sources falls back to the regular answer instead of an apology; news questions are answered directly, no clarifying card first.
+- **Files:** `src/config.js`, `src/web/search.js`, `src/ai/prompt.js`, `src/chat.js`, `test/web-search-model.test.js`, `test/web.test.js`, `docs/web.md`, `.env.example`.
 - **Validation:** `npm test`.
 
 ## Proposed PR — Toolbar loads together (`ux/load-together`)

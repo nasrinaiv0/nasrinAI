@@ -28,6 +28,14 @@ warning. If the model does not support the tool, the log says
 `web search failed` and Nasrin answers without the web. Set
 `WEB_SEARCH_MODEL=` (empty) to turn search off.
 
+If a question did not look current but the model's draft says it lacks
+current facts ("check the web", "knowledge may be outdated", "can't check live
+news"; `GAP` in `src/web/search.js`), Nasrin runs the web search instead and
+the page replaces the draft. A search without source links is never shown;
+the regular answer is used. The prompt also forbids mentioning a knowledge
+cutoff or an inability to browse, and asks for a direct answer (no clarifying
+questions first) on news and updates.
+
 Questions about browsing itself ("can you browse the internet?") are answered
 from the prompt without a search; with search on, the prompt tells the model
 it can search and never to claim it cannot browse.

@@ -24,7 +24,7 @@ test('an unpriced WEB_SEARCH_MODEL falls back with a warning; empty turns search
 });
 
 test('news questions search; questions about browsing itself do not', () => {
-  for (const t of ['what is the latest news', 'what is the latest news in the philippines', 'search the internet for typhoon updates', "what are today's headlines"]) assert.equal(needsWeb(t), true, t);
+  for (const t of ['what is the latest news', 'what is the latest news in the philippines', 'search the internet for typhoon updates', "what are today's headlines", 'can you check what is the new update about impeachment in the philippines']) assert.equal(needsWeb(t), true, t);
   for (const t of ['can you brows the internet?', 'can you browse the internet?', 'what is the internet', 'hello']) assert.equal(needsWeb(t), false, t);
 });
 
