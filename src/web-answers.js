@@ -4,7 +4,7 @@ import { redactForProvider } from './ai/redact.js';
 // (web search, or pages from links the person shared) is kept permanently in
 // web_answers (migration 037), with its sources. Never the person, their
 // session or their conversation. The question is kept only for signed-in
-// people (a guest's input is never saved). Contact details are removed from
+// people (a guest's input is kept 24 hours only). Contact details are removed from
 // both. A failure here never affects the reply.
 const MAX_ANSWER = 20000;
 const MAX_QUESTION = 4000;

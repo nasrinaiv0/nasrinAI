@@ -1,9 +1,9 @@
-## Proposed PR — Guest input not stored; web answers kept permanently (`feature/guest-no-store-web-answers`)
+## Proposed PR — Web-sourced answers kept permanently (`feature/guest-no-store-web-answers`)
 
-- **Owner decision (2026-10-12):** guests' input on NasrinAI is never stored; NasrinAI replies that came from the internet are stored permanently (reply + sources + question; question only for signed-in people since guest input is never saved).
-- **Change:** `keepsInput` in `src/conversations.js`; `guest_turns` from the page (user turns only); guest Regenerate; Edit needs an account; no semantic-cache seed from guests; `src/web-answers.js` + `web_answers` (migration 037). Privacy notice `2026-10-12e`. `docs/web-answers.md`.
+- **Owner decision (2026-10-12, revised):** guests' input stays 24 hours as before; NasrinAI replies built from internet facts (web search or a shared link's page) are kept permanently with their sources. Question kept only for signed-in people; never who asked.
+- **Change:** `src/web-answers.js` + `web_answers` (migration 037); saved from `finish()` in `src/chat.js`. Privacy notice `2026-10-12e`. `docs/web-answers.md`.
 - **Owner steps:** run migration 037 (staging first).
-- **Validation:** `npm test`, DB tests (Postgres 16), `npm run check:secrets`; headless Chromium: second guest message carries the first.
+- **Validation:** `npm test`, DB tests (Postgres 16), `npm run check:secrets`.
 
 ## Proposed PR — Enable semantic cache for NasrinAI page responses
 

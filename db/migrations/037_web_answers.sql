@@ -5,7 +5,7 @@
 -- Owner decision (2026-10-12): every NasrinAI reply that used the internet
 -- (web search, or pages from links shared in the chat) is kept permanently,
 -- with its sources. No owner, tenant, session or conversation is stored; the
--- question is kept only for signed-in people (guests' input is never saved).
+-- question is kept only for signed-in people (guests' input is kept 24 h only).
 -- Contact details are removed by the server before saving.
 -- Only the server (service role) can read or write this table.
 -- =============================================================================

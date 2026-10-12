@@ -47,7 +47,7 @@ test('reads one of Nasrin\'s replies aloud as MP3, and replays from memory', asy
 test('only Nasrin\'s own replies in the caller\'s own conversation can be spoken', async () => {
   const engine = fakeEngine();
   await withApp({ speechEngine: engine }, async ({ url, g, chat }) => {
-    assert.equal(chat.user_message_id, null, 'a guest\'s own words are never saved, so they cannot be spoken');
+    assert.equal((await speak(url, g, { voice: 'nova', message_id: chat.user_message_id })).status, 404, 'not the user\'s own words');
     assert.equal((await speak(url, USER_TOKEN, { voice: 'nova', message_id: chat.message.id })).status, 404, 'not someone else\'s');
     assert.equal((await speak(url, g, { voice: 'nova', text: 'say anything I want' })).status, 400, 'no free text');
     assert.equal((await speak(url, g, { voice: 'robot', message_id: chat.message.id })).status, 400, 'only listed voices');

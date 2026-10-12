@@ -1,5 +1,5 @@
 import { notFound } from './http/errors.js';
-import { UUID, PLATFORM_TENANT_ID } from './tenants.js';
+import { UUID } from './tenants.js';
 
 // Conversations belong to exactly one caller: same tenant, same actor type,
 // same actor id. Anyone else gets "not found", so ids cannot be probed.
@@ -45,12 +45,6 @@ export function recallWindowDays(text) {
 
 const RECALL_STOP = new Set(('what when where which would could about from with that this have has had been were was did does do you your yours our ours my mine me we us the and for are can please tell show give summarize summarise summary recap review chat chats conversation conversations history talk talked talking discuss discussed discussing working work worked ask asked last past previous earlier recent recently lately days day week weeks month months yesterday today night few couple remember recall saved all every entire any anything something everything know on').split(' '));
 export const recallTopicTerms = (text) => [...new Set(String(text || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [])].filter((w) => !RECALL_STOP.has(w)).slice(0, 8);
-
-// Owner decision (2026-10-12): what a guest types on NasrinAI's own site is
-// never saved. Their chats keep only Nasrin's replies (24 hours, as before);
-// the page sends the guest's earlier messages with each new one instead.
-// Businesses' guests (Connect, Messenger) are not affected.
-export const keepsInput = (conv) => !(conv.ownerType === 'guest' && conv.tenantId === PLATFORM_TENANT_ID);
 
 export const publicConversation = (c) => ({ id: c.id, title: c.title, created_at: c.createdAt, updated_at: c.updatedAt });
 export const publicMessage = (m) => ({ id: m.id, role: m.role, content: m.content, created_at: m.createdAt });
@@ -154,9 +148,6 @@ export function createConversations({ store, config, logger, now = () => Date.no
       }
     },
     add(conv, role, content) {
-      if (role === 'user' && !keepsInput(conv)) {
-        return Promise.resolve({ id: null, role, content, createdAt: new Date(now()).toISOString(), unsaved: true });
-      }
       return store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role, content });
     },
 
@@ -165,9 +156,7 @@ export function createConversations({ store, config, logger, now = () => Date.no
       return store.deleteMessage(conv.id, id);
     },
 
-    // A title is taken from what the person typed, so guests' chats get none.
     setTitle(conv, title) {
-      if (!keepsInput(conv)) return Promise.resolve();
       return store.setConversationTitle(conv.id, title);
     },
 

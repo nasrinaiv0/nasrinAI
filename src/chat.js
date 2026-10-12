@@ -3,7 +3,7 @@ import { HttpError } from './http/errors.js';
 import { ProviderError } from './ai/provider.js';
 import { buildSystemPrompt, fitHistory } from './ai/prompt.js';
 import { cleanReply, cleanUserText, keepIdentity, cleanPiece } from './ai/output.js';
-import { publicMessage, isPastIntent, isConversationMeta, keepsInput } from './conversations.js';
+import { publicMessage, isPastIntent, isConversationMeta } from './conversations.js';
 import { parseAttachments, attachmentNote } from './attachments.js';
 import { answerWithLogic } from './ai/logic.js';
 import { readLink, linksIn } from './web/read-link.js';
@@ -96,37 +96,6 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-// A guest's earlier messages sent by the page: at most 10, newest kept,
-// each cleaned like a message, 8000 characters in all.
-function readGuestTurns(list) {
-  if (list === undefined || list === null) return [];
-  if (!Array.isArray(list) || list.length > 20) throw new HttpError(400, 'invalid_request', 'guest_turns must be a short list of your earlier messages.');
-  const out = [];
-  let total = 0;
-  for (const item of list.slice(-10).reverse()) {
-    const text = cleanUserText(item, 4000);
-    if (!text) continue;
-    if (total + text.length > 8000) break;
-    total += text.length;
-    out.unshift(text);
-  }
-  return out;
-}
-
-// Pairs the guest's earlier messages with Nasrin's saved replies, newest
-// last, then adds this message.
-function guestHistory(saved, turns, message) {
-  const replies = saved.filter((m) => m.role === 'assistant');
-  const n = Math.min(turns.length, replies.length);
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    out.push({ role: 'user', content: turns[turns.length - n + i] });
-    out.push(replies[replies.length - n + i]);
-  }
-  out.push({ role: 'user', content: message });
-  return out;
-}
-
 export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, semanticCache = null, webAnswers = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
   const smart = Boolean(policy) && config.ai.routing.mode === 'smart';
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
@@ -196,29 +165,10 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       : await conversations.create(caller);
     if (startIn) await projects.linkChat(caller, startIn.id, conv.id);
 
-    // Guests on NasrinAI's own site: their messages are never saved
-    // (keepsInput). The page sends this chat's earlier messages (`guest_turns`,
-    // oldest first); they are the person's own words, so they only ever become
-    // user turns. Nasrin's replies still come from the database.
-    const unsaved = !keepsInput(conv);
-    let guestTurns = [];
-    if (unsaved) {
-      if (editId !== null) throw new HttpError(400, 'invalid_message', 'Sign in to edit your messages.');
-      guestTurns = readGuestTurns(body.guest_turns);
-    }
-
     // Regenerate / Retry / Edit work on the end of this (owner-checked)
     // conversation only, so nothing earlier can be rewritten.
     let userMessage;
-    if (unsaved && regenerate) {
-      const recent = await conversations.history(conv, 50);
-      const last = recent.at(-1);
-      if (!guestTurns.length) throw new HttpError(400, 'nothing_to_answer', 'There is no message to answer again.');
-      if (last && /^\[image:/.test(last.content)) throw new HttpError(400, 'invalid_message', 'Use the picture’s own Regenerate button to make it again.');
-      if (last && last.role === 'assistant') await conversations.removeMessage(conv, last.id);
-      typed = message = guestTurns.pop();
-      userMessage = { id: null };
-    } else if (regenerate || editId !== null) {
+    if (regenerate || editId !== null) {
       const recent = await conversations.history(conv, 50);
       const lastUser = recent.findLastIndex((m) => m.role === 'user');
       if (lastUser < 0) throw new HttpError(400, 'nothing_to_answer', 'There is no message to answer again.');
@@ -247,7 +197,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // comes, so Stop and Retry always refer to the right conversation.
     opts.stream?.start?.({ conversation_id: conv.id, user_message_id: userMessage.id });
 
-    const fullHistory = unsaved ? guestHistory(await conversations.history(conv, 50), guestTurns, message) : await conversations.history(conv, 50);
+    const fullHistory = await conversations.history(conv, 50);
     // A "knowledge only" business: only its own documents, nothing from outside.
     const only = caller.tenant?.knowledgeOnly === true;
     const metaQuestion = isPastIntent(typed) || isConversationMeta(typed);
@@ -630,8 +580,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (!reply) throw unavailable();
       if (!usedTools) {
         policy.remember(key, { text: reply, provider: run.result.provider || run.spec.provider, model: run.spec.model });
-        // A guest's message is never saved, so it is never cached either.
-        if (semanticCache && key && semanticEntry?.embedding && !unsaved) {
+        if (semanticCache && key && semanticEntry?.embedding) {
           // Await the optional write before returning so serverless runtimes do not
           // discard it after the response. Cache failure must never fail a valid reply.
           try {

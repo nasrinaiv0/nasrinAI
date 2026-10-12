@@ -11,7 +11,7 @@ This notice explains what NasrinAI does with personal information, written to ma
 - **Signed in:** we keep your email address, your chats and the photos and files you send until you delete them or your account, or until the keep-time you choose in your Library (30 days, 1 year or your own number of days). If you have not chosen, pictures Nasrin makes are deleted after **30 days**.
 - **Memory:** Nasrin remembers only notes you confirm, and you can delete them any time.
 - **To answer you**, your messages go to AI services (OpenAI, and Google Gemini when switched on). Emails, phone numbers and card numbers are removed first.
-- **Links** you share are used for that answer and not stored. **Photos and files** you send are kept in your Library if you are signed in (not for guests).
+- **Links** you share are used for that answer; the page itself is not stored, but Nasrin's answer from it is kept permanently, without who asked (see section 2). **Photos and files** you send are kept in your Library if you are signed in (not for guests).
 - **Businesses** that use NasrinAI (on their website or Facebook Page) can let Nasrin use their own documents and systems to answer you. Anything that changes something (an order, a payment) happens only after you tap **Confirm**.
 - **Payments** go through PayMongo. We never see your card or e-wallet details. Payment records include the plan, payment reference, dates, amount and currency so we can provide billing history and receipts.
 - **You can** download your data, delete all chats, or delete your account in Settings.
@@ -33,8 +33,7 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 
 ### When you chat as a guest
 - **A random guest ID**, inside a signed token stored in your browser. Used to keep your chat together and to apply fair-use limits. *Basis: providing the service you asked for (contract) and our legitimate interest in preventing abuse.*
-- **Your messages are not stored.** What you type as a guest on NasrinAI is used to answer you and is never saved on our servers. To let Nasrin follow the conversation, your browser keeps this chat's earlier messages (in the open page only) and sends them with your next message. *Basis: contract.*
-- **Nasrin's replies.** Kept with the chat so you can see them again and have them read aloud, and deleted automatically 24 hours after the chat starts. *Basis: contract.*
+- **Your messages and Nasrin's replies.** Used to answer you and to keep the conversation going. Deleted automatically 24 hours after the chat starts. *Basis: contract.*
 - **Answers from the internet.** When Nasrin's reply used web pages (a web search, or a link in your message), that reply and its source links are also kept permanently in NasrinAI's general answer library, without your guest ID, your chat or your message. Contact details are removed. *Basis: our legitimate interest in answering future questions well.*
 - **Pictures you ask Nasrin to make.** Kept with the chat and deleted with it.
 
@@ -57,7 +56,7 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 
 ### When you share files, links or use voice
 - **Files** (photos, PDFs, text files) are used to answer your message. Signed-in people's files are also kept in their Library (see above); guests' files are **not stored** and only their names are saved with the message. Photos are re-saved on your device before upload, which removes location and camera details. When direct uploads are switched on, larger files go from your device straight to a private storage area in our Supabase project (Singapore) through a one-time link; our server reads each file once to answer, then deletes it from that storage area. Files uploaded but never sent are deleted within about 2 hours.
-- **Links:** our server opens the page and uses its text for that one answer. The page text is not stored. The website sees a request from our server, not from you.
+- **Links:** our server opens the page and uses its text for that one answer. The page text is not stored; Nasrin's answer from it is (see Answers from the internet). The website sees a request from our server, not from you.
 - **Web search:** questions that need current facts may be searched on the web through OpenAI's search tool. The answer lists its sources.
 - **Read aloud:** to read a reply in a natural voice, the text of Nasrin's reply is sent to OpenAI to make the audio. Your own messages are not.
 - **Voice typing** uses your browser's or phone's speech service (for example Google or Apple), not ours. Their privacy terms apply.
@@ -123,7 +122,7 @@ Most of these providers process data outside the Philippines (for example in the
 
 ## 6. How long we keep information
 
-- Guests on NasrinAI: what you type is **not stored**; Nasrin's replies and pictures: **24 hours**. Guest chats on business websites and Facebook Pages: **24 hours**
+- Guest chats and pictures: **24 hours** (also on business websites and Facebook Pages)
 - Answers that used the internet (reply and source links; for signed-in people also the question, never who asked): **kept permanently**. They cannot be linked back to you, so they are not removed when you delete your account
 - Signed-in chats: until you delete them or your account, or the keep-time you choose (no automatic expiry for chats/files if you have not chosen), subject to applicable legal retention requirements.
 - Signed-in pictures: **30 days**, or the keep-time you choose
