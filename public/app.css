@@ -343,8 +343,9 @@ body:not(.has-chat) #newChat { display: none; }
 }
 .listen:hover, .listen.is-playing { color: var(--ink); border-color: var(--ink-3); }
 .listen.is-playing { background: var(--surface); }
-.act.listen-stop { width: 1.85rem; height: 1.85rem; }
-.act.listen-stop svg { width: 0.95rem; height: 0.95rem; fill: currentColor; stroke: none; }
+.act.listen { margin-top: 0; padding: 0; border: 0; gap: 0; }
+.act.listen svg { width: 0.95rem; height: 0.95rem; fill: currentColor; stroke: none; }
+.act.listen.is-playing { color: var(--ink); background: var(--surface); }
 .msg-body { white-space: pre-wrap; }
 .msg-body.rich { white-space: normal; }
 

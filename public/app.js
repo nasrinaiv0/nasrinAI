@@ -1890,29 +1890,19 @@
 
   // Listen states: idle (Listen), loading (tap to cancel), playing (Pause),
   // paused (Resume). A small Stop button sits next to it while it is active.
-  function setPlaying(button, on, loading = false, paused = false) {
+  // One play/stop button per reply: idle shows play; while loading or reading
+  // it shows stop, and tapping it stops.
+  function setPlaying(button, on, loading = false) {
     if (!button) return;
     button.classList.toggle('is-playing', on);
     button.classList.toggle('is-loading', on && loading);
-    button.classList.toggle('is-paused', on && paused);
-    const label = button.querySelector('.label');
-    if (label) label.textContent = !on ? 'Listen' : loading ? 'Loading' : paused ? 'Resume' : 'Pause';
     const shape = button.querySelector('path');
-    if (shape) shape.setAttribute('d', !on || paused ? ICON_PLAY : loading ? ICON_STOP : ICON_PAUSE);
-    button.setAttribute('aria-pressed', String(on && !paused));
-    button.setAttribute('aria-label', !on ? 'Listen to this reply' : loading ? 'Cancel listening' : paused ? 'Resume listening' : 'Pause listening');
-    let stop = button.nextElementSibling && button.nextElementSibling.classList.contains('listen-stop') ? button.nextElementSibling : null;
-    if (on && !loading && !stop) {
-      stop = document.createElement('button');
-      stop.type = 'button';
-      stop.className = 'act listen-stop';
-      stop.setAttribute('aria-label', 'Stop listening');
-      stop.title = 'Stop';
-      stop.appendChild(svgIcon(ICON_STOP, true));
-      stop.addEventListener('click', () => stopSpeaking());
-      button.after(stop);
-    } else if ((!on || loading) && stop) stop.remove();
+    if (shape) shape.setAttribute('d', on ? ICON_STOP : ICON_PLAY);
+    button.setAttribute('aria-pressed', String(on));
+    button.setAttribute('aria-label', on ? 'Stop reading aloud' : 'Play reply aloud');
+    button.title = on ? 'Stop' : 'Play';
   }
+
 
   // Plays a reply with a natural voice. Long replies come in parts: the first
   // (short) part starts playing as soon as it arrives while the next is
@@ -2191,17 +2181,14 @@
     if (canSpeakAnything()) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'listen';
+      b.className = 'act listen';
       b.setAttribute('aria-pressed', 'false');
-      const label = document.createElement('span');
-      label.className = 'label';
-      label.textContent = 'Listen';
-      b.append(svgIcon(ICON_PLAY, true), label);
+      b.setAttribute('aria-label', 'Play reply aloud');
+      b.title = 'Play';
+      b.append(svgIcon(ICON_PLAY, true));
       b.addEventListener('click', () => {
-        const mine = playing && playing.button === b ? playing : null;
-        if (mine && mine.loading) { stopSpeaking(); return; }   // cancel before it starts: no second request
-        if (mine && mine.paused) { mine.resume(); return; }
-        if (mine) { mine.pause(); return; }
+        // Tapping again (while loading or reading) stops; no second request.
+        if (playing && playing.button === b) { stopSpeaking(); return; }
         stopSpeaking();
         readReply(text, id, b);
       });

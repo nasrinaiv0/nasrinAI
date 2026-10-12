@@ -39,9 +39,12 @@ so stopping cannot be used to get around limits.
 
 ## Read aloud
 
-Listen → Pause → Resume, with a small Stop button while it plays. Works for
-natural voices (Web Audio, `suspend`/`resume`) and the device voice
-(`speechSynthesis.pause`/`resume`).
+Each reply has one round **play/stop** button, the same size as the other reply actions:
+
+- idle: a play icon, labelled "Play reply aloud";
+- loading or reading: a stop icon, labelled "Stop reading aloud".
+
+Tapping it while loading or reading stops, and no second voice request is made. It works for natural voices (Web Audio) and the device voice (`speechSynthesis`). The automatic "Read replies aloud" setting presses the same button. Test: `test/play-stop-audio.test.js`.
 
 ## Malformed archive metadata
 

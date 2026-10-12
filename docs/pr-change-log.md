@@ -13,6 +13,15 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — One play/stop button for reading a reply aloud (`ui/play-stop-audio`)
+
+- **Intent:** backlog item 6 of the 2026-10-12 upgrade: replace the reply's "Listen" pill (Listen / Loading / Pause / Resume, plus a separate Stop button) with a simple play/stop button.
+- **Change:** `public/app.js`: the button is a round `act listen` icon button. `setPlaying()` has two states, play ("Play reply aloud") and stop ("Stop reading aloud"); tapping while loading or reading stops. The extra Stop button is gone. `public/app.css`: icon-button styles. Auto read-aloud still clicks the same `.listen` button.
+- **Check (headless Chromium, 390 px touch, stand-in device voice):** play → stop label and pressed state; tap → back to play; playing to the end → back to play; no extra Stop button; no script errors.
+- **Regression test:** `test/play-stop-audio.test.js` (fails without the change).
+- **Docs:** `docs/chat.md` (Read aloud).
+- **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## [#220](https://github.com/primusco20/nasrinAI/pull/220) — Center the sign-in security check; smaller on phones (open)
 
 - **Intent:** the Cloudflare Turnstile box was left-aligned under the email form. The owner asked for it lower-center and smaller on phones.
