@@ -3,6 +3,19 @@
 (() => {
   'use strict';
 
+  // Google sign-in: when the sign-in service does not accept our return
+  // address it sends people back to the home page with ?code=… instead of
+  // /v1/auth/google/callback. Hand the code to the callback (same site, so the
+  // one-time PKCE cookie goes with it); without that cookie the code is useless.
+  {
+    const q = new URLSearchParams(location.search);
+    const code = q.get('code');
+    if (code && !q.get('signin') && /^[A-Za-z0-9._~-]{8,512}$/.test(code)) {
+      location.replace('/v1/auth/google/callback?code=' + encodeURIComponent(code));
+      return;
+    }
+  }
+
   const $ = (id) => document.getElementById(id);
   // Delegate desktop navigation to the established controls to preserve behavior.
   $('desktopNewChat')?.addEventListener('click', () => $('newChat')?.click());
