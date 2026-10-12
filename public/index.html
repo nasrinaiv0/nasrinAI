@@ -808,8 +808,11 @@
     </section>
     <p class="notice" id="notice" role="status"></p>
     <form class="composer" id="composer" autocomplete="off">
-      <div class="edit-bar project-bar" id="projectBar" hidden>
-        <span id="projectBarName"></span>
+      <div class="edit-bar project-bar" id="projectBar">
+        <label for="projectSwitcher">Project</label>
+        <select id="projectSwitcher" aria-label="Choose the project for this conversation">
+          <option value="__none__">No project · General chat</option>
+        </select>
         <button type="button" class="text-btn" id="projectLeave">Leave</button>
       </div>
       <div class="edit-bar" id="editBar" hidden>
