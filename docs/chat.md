@@ -83,3 +83,8 @@ The system prompt (`src/ai/prompt.js`) asks for:
 
 Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM that fails on any `innerHTML` use.
 
+
+
+## Read-aloud control
+
+Each assistant reply has one icon-only read-aloud control. It toggles between Play and Stop in the same button, with no visible button background in its idle, hover, pressed, or playing states. Accessible labels and a title identify the current action; no separate Stop control is shown.

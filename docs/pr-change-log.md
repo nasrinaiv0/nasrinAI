@@ -1,3 +1,10 @@
+## Proposed PR — Read-aloud play/stop icon has no background (`ui/read-aloud-no-background`)
+
+- **Intent:** the owner requests one icon button for read-aloud Play/Stop, with no background.
+- **Change (`public/app.css`):** remove the playing-state surface fill and keep the read-aloud icon background transparent in idle, hover, pressed, and playing states. The same button continues to toggle Play/Stop; no separate Stop button is added.
+- **Documentation:** `docs/chat.md` records the expected interaction and accessible labeling.
+- **Validation:** source-level change only; automated tests and browser checks have not been run for this PR.
+
 # Pull request change log
 
 This file records the intent and outcome of repository pull requests and is updated alongside code changes. Entries describe the work at PR level; the linked PR is the source of truth for the full diff and review history.
