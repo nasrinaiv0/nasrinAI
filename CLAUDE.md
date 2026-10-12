@@ -160,6 +160,8 @@ Connect is a no-code customer experience backed by a strict authorization bounda
 - Hosting on Vercel; sign-in by email code and Google; payments by PayMongo.
 - Logo: a ball with two pill-shaped eyes; monochrome, off-white look; the
   logo is an animated mood character.
+- Themes (2026-10-12): Mono is the default look; Orange, Charcoal and Galaxy
+  are optional themes in Settings (`docs/themes.md`). The logo stays monochrome.
 - Type: keep the soft rounded font for headings (`--round` in `public/app.css`:
   SF Pro Rounded on Apple devices); body text in the system font; no heavy
   bold or oversized text.

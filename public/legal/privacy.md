@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-08a** · Effective: 22 September 2026 · Last updated: 8 October 2026
+**Version 2026-10-12a** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -166,7 +166,7 @@ NasrinAI uses only what it needs to work:
 - **nasrin_rt** (cookie): keeps you signed in until you sign out, up to 1 year (renewed each time you open the app). HTTP-only, so page scripts cannot read it.
 - **nasrin_pkce** (cookie): used during Google sign-in, 10 minutes.
 - **nasrin_acc** (cookie): only when you add more than one account on a device (up to 3). It keeps the other accounts signed in on that device (their email address and sign-in token), up to 1 year. HTTP-only, so page scripts cannot read it. Each account keeps its own chats, plan and data; switching does not share them. Logging out of an account removes it from the device.
-- **Browser storage**: your guest session, the open chat's ID, when you last left the app (to start a new chat after 5 minutes away), the email shown in Settings, whether you have seen the first-visit notice, your choices (appearance, reduce motion, voice, read aloud, model, Professional AI, notifications) and which in-app notices you closed. Settings → Data controls → Clear cache removes the open chat's ID and the voice, read-aloud and model choices from the device; it does not sign you out or delete anything on your account.
+- **Browser storage**: your guest session, the open chat's ID, when you last left the app (to start a new chat after 5 minutes away), the email shown in Settings, whether you have seen the first-visit notice, your choices (appearance, theme, reduce motion, voice, read aloud, model, Professional AI, notifications) and which in-app notices you closed. Settings → Data controls → Clear cache removes the open chat's ID and the voice, read-aloud and model choices from the device; it does not sign you out or delete anything on your account.
 
 There are no advertising or cross-site tracking cookies. Clearing your browser's site data removes these.
 

@@ -43,7 +43,7 @@
   // scripts cannot read) and preferences. The conversation lives on the server.
   const KEYS = {
     session: 'nasrin.session', conversation: 'nasrin.conversation', speak: 'nasrin.speak',
-    model: 'nasrin.model', theme: 'nasrin.theme', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
+    model: 'nasrin.model', theme: 'nasrin.theme', palette: 'nasrin.palette', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
     notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', memoryAsk: 'nasrin.memoryAsk',
     notices: 'nasrin.notices', deviceRealtime: 'nasrin.deviceRealtime', deviceNotified: 'nasrin.deviceNotified', speechRate: 'nasrin.speechRate', language: 'nasrin.language', left: 'nasrin.left'
   };
@@ -2283,12 +2283,37 @@
   const themeMetas = [...document.querySelectorAll('meta[name="theme-color"]')];
   themeMetas.forEach((m) => { m.dataset.original = m.content; });
 
+  const PALETTES = ['orange', 'charcoal', 'galaxy'];   // Mono is the default: no attribute
+  function paintThemeColor() {
+    // The phone's status bar follows the page: the default Mono colours, or the
+    // chosen theme's paper colour.
+    const t = document.documentElement.getAttribute('data-theme') || 'system';
+    const themed = document.documentElement.hasAttribute('data-palette');
+    const paper = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
+    themeMetas.forEach((m) => { m.content = themed && paper ? paper : t === 'system' ? m.dataset.original : THEME_COLORS[t]; });
+  }
   function applyTheme(choice) {
     const t = choice === 'light' || choice === 'dark' ? choice : 'system';
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
-    themeMetas.forEach((m) => { m.content = t === 'system' ? m.dataset.original : THEME_COLORS[t]; });
+    paintThemeColor();
     for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === t;
+  }
+  function applyPalette(choice) {
+    const c = PALETTES.includes(choice) ? choice : 'mono';
+    if (c === 'mono') document.documentElement.removeAttribute('data-palette');
+    else document.documentElement.setAttribute('data-palette', c);
+    paintThemeColor();
+    for (const r of document.querySelectorAll('input[name="palette"]')) r.checked = r.value === c;
+  }
+  applyPalette(saved.get(KEYS.palette));
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', paintThemeColor);
+  for (const r of document.querySelectorAll('input[name="palette"]')) {
+    r.addEventListener('change', () => {
+      saved.set(KEYS.palette, r.value);
+      applyPalette(r.value);
+      Nasrin.blink(true);
+    });
   }
   applyTheme(saved.get(KEYS.theme));
   for (const r of document.querySelectorAll('input[name="theme"]')) {
