@@ -5793,12 +5793,42 @@
       if (run !== prjRun) return;
       const list = (data.projects || []).filter((p) => p && typeof p.id === 'string');
       $('prjList').replaceChildren(...list.map((p) => {
-        const li = mk('li', 'history-item');
+        const li = mk('li', 'history-item prj-list-item');
+        const row = mk('div', 'prj-list-row');
         const open = mk('button', 'history-open lib-open');
         open.type = 'button';
         open.append(mk('span', 'history-title', p.name), mk('span', 'history-time', `${PRJ_STATUS[p.status] || ''} · ${when(p.updated_at)}`));
         open.addEventListener('click', () => openProject(p.id));
-        li.appendChild(open);
+
+        const toggle = mk('button', 'icon-btn prj-expand');
+        toggle.type = 'button';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Show actions for ' + p.name);
+        toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+        const actions = mk('div', 'prj-actions');
+        actions.hidden = true;
+        const actionButton = (label, kind, onClick) => {
+          const button = mk('button', 'btn small' + (kind === 'code' ? ' outline' : ''));
+          button.type = 'button';
+          button.textContent = label;
+          button.addEventListener('click', onClick);
+          return button;
+        };
+        actions.append(
+          actionButton('Open', 'open', () => openProject(p.id)),
+          actionButton('Chat', 'chat', () => startProjectChat(p, 'chat')),
+          actionButton('Code', 'code', () => startProjectChat(p, 'code'))
+        );
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+          toggle.setAttribute('aria-expanded', String(expanded));
+          toggle.setAttribute('aria-label', (expanded ? 'Hide' : 'Show') + ' actions for ' + p.name);
+          actions.hidden = !expanded;
+          li.classList.toggle('is-expanded', expanded);
+        });
+        row.append(open, toggle);
+        li.append(row, actions);
         return li;
       }));
       $('prjStatusMsg').textContent = list.length ? '' : 'No projects yet. A project keeps chats, files, tasks and instructions together.';
@@ -5926,13 +5956,25 @@
   }
 
   $('prjBack').addEventListener('click', () => { prjOpen = null; prjShow('list'); loadProjects(); });
-  $('prjChat').addEventListener('click', () => {
-    if (!prjOpen || busy) return;
-    const p = { id: prjOpen.id, name: prjOpen.name };
+  function startProjectChat(project, mode) {
+    if (!project || busy) return;
+    const p = { id: project.id, name: project.name };
     closeHistory();
     $('newChat').click();
     setChatProject(p);
+    if (mode === 'code') {
+      input.value = 'Help me work on code for the ' + p.name + ' project.';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      notice.textContent = 'Code session for ' + p.name + '. Review or edit the prompt before sending.';
+    } else {
+      notice.textContent = 'New chat in ' + p.name + '.';
+    }
     input.focus();
+  }
+
+  $('prjChat').addEventListener('click', () => {
+    if (!prjOpen || busy) return;
+    startProjectChat(prjOpen, 'chat');
   });
   $('prjTaskForm').addEventListener('submit', async (e) => {
     e.preventDefault();
