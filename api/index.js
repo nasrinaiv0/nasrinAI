@@ -4,16 +4,11 @@
 import { loadConfig, ConfigError } from '../src/config.js';
 import { createLogger } from '../src/log.js';
 import { buildApp } from '../src/main.js';
+import { createStartupDiagnostic } from '../src/startup-diagnostics.js';
 
 const logger = createLogger();
 let app = null;
-
-function startupError(err) {
-  return {
-    name: String(err?.name || 'Error'),
-    message: String(err?.message || err || 'unknown startup error').slice(0, 500)
-  };
-}
+let startupDiagnostic = null;
 
 try {
   const config = loadConfig();
@@ -25,19 +20,14 @@ try {
     // Keep the function alive and fail closed. Log the initialization stage
     // separately so Vercel logs identify whether config or app construction
     // is the source of a startup failure.
-    logger.error('application initialization failed', {
-      stage: 'buildApp',
-      error: startupError(err)
-    });
+    startupDiagnostic = createStartupDiagnostic('buildApp', err);
+    logger.error('application initialization failed', startupDiagnostic.log);
   }
 } catch (err) {
   // Keep the function alive and fail closed. Do not expose internal startup
   // details to clients; the sanitized error is available in Vercel logs.
-  logger.error('configuration initialization failed', {
-    stage: 'loadConfig',
-    error: startupError(err),
-    config_error: err instanceof ConfigError
-  });
+  startupDiagnostic = createStartupDiagnostic('loadConfig', err);
+  logger.error('configuration initialization failed', { ...startupDiagnostic.log, config_error: err instanceof ConfigError });
 }
 
 // Vercel's rewrite also passes the original path as ?__path=. If the request
@@ -56,9 +46,10 @@ export function restorePath(url) {
 export default function handler(req, res) {
   req.url = restorePath(req.url);
   if (app) return app(req, res);
-  const body = JSON.stringify({ error: { code: 'not_configured', message: 'NasrinAI is not set up correctly yet. The server log says which setting is wrong.' } });
+  const body = JSON.stringify(startupDiagnostic?.response || { error: { code: 'not_configured', message: 'NasrinAI is not set up correctly yet. Please try again later.' } });
   res.statusCode = 503;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
+  if (startupDiagnostic?.id) res.setHeader('X-NasrinAI-Incident-ID', startupDiagnostic.id);
   res.end(body);
 }
