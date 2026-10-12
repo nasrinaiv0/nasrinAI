@@ -5,6 +5,12 @@
 - **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
 - **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
 
+## Proposed PR — Remove the Sign in button above the message box (`fix/remove-guest-signin`)
+
+- **Owner request (2026-10-12):** no Sign in button above the message box (#233 was merged before it could be closed). Sign in stays in the header on every screen; below 400 px the wordmark gives way so it fits. The iOS header icons from #233 stay.
+- **Files:** `public/index.html`, `public/app.js`, `public/app.css`, tests, `docs/redesign.md`.
+- **Validation:** `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`; `npm test`; headless Chromium at 320/390/1280.
+
 ## Proposed PR — Name the setting at fault in startup 503 replies (`fix/startup-config-hint`)
 
 - **Problem:** since 2026-10-12 ~12:15 (Manila) every `/v1/*` call on production and previews returns 503 "not set up correctly". The server is up but `loadConfig` rejects a Vercel setting; Vercel logs are not available to the owner, so the bad setting cannot be identified.

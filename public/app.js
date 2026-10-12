@@ -2408,11 +2408,7 @@
     settingsBtn.setAttribute('aria-expanded', 'false');
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
-  // Guests see Sign in just above the message box on phones and tablets, and
-  // in the header on desktop (CSS picks one by screen width).
-  const guestSignIn = $('guestSignIn');
   const headerSignIn = $('headerSignIn');
-  guestSignIn.addEventListener('click', () => openSignIn());
   headerSignIn.addEventListener('click', () => openSignIn());
   settingsBtn.addEventListener('click', () => (sheet.hidden ? openSettings() : closeSettings()));
 
@@ -2552,7 +2548,7 @@
     accountBtn.hidden = Boolean(account);
     if (accountOpen) accountOpen.hidden = !account;
     if (accountDetailEmail) accountDetailEmail.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
-    guestSignIn.hidden = headerSignIn.hidden = Boolean(account) || !can;
+    headerSignIn.hidden = Boolean(account) || !can;
     showConnectForSignedIn();
     $('logoutMenu').hidden = !account;
   }
