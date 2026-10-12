@@ -83,3 +83,28 @@ The system prompt (`src/ai/prompt.js`) asks for:
 
 Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM that fails on any `innerHTML` use.
 
+
+
+## Read-aloud control
+
+Each assistant reply has one icon-only read-aloud control. It toggles between Play and Stop in the same button, with no visible button background in its idle, hover, pressed, or playing states. Accessible labels and a title identify the current action; no separate Stop control is shown.
+
+
+## Instant small-talk replies
+
+In smart routing, plain greetings and brief acknowledgements from the NasrinAI platform chat use deterministic local replies after normal request validation, limits, message persistence, history loading, and policy checks. They do not call an AI provider. Requests with attachments, voice, professional selection, project context, personal context, or regeneration/edit operations continue through the normal path.
+
+
+## Greeting shortcut ordering
+
+The local small-talk shortcut must run only after the per-turn `extra` context array is initialized and populated. This prevents a temporal-dead-zone `ReferenceError` when a greeting reaches the shortcut. Regression tests must cover a plain greeting and verify it returns a local logic response without calling the model provider.
+
+
+## Composer controls render immediately
+
+The model-tier selector and Professional AI mode control must both be present in the initial HTML without `hidden`. Their initial labels are Quick and Automatic. Model/professional catalogs may hydrate asynchronously and update available choices, but loading or API failures must not hide either control. The server remains authoritative for tier access and professional availability; a visible control is not an access grant.
+
+
+## Excel workbook export
+
+When creating an `.xlsx` deliverable, the assistant may return up to 8 named worksheet blocks inside one file block. Each worksheet uses `[[sheet name="Cleaned Data"]]`, comma-separated or tab-separated rows, and `[[/sheet]]`. The browser builds a real workbook with separate tabs, safe formulas, frozen header rows, and filters. This is not in-place editing of the uploaded workbook and does not create native Excel pivot tables or chart objects. Those capabilities must not be claimed until separately implemented and tested.

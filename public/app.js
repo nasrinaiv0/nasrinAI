@@ -2410,6 +2410,15 @@
   const headerSignIn = $('headerSignIn');
   guestSignIn.addEventListener('click', () => openSignIn());
   headerSignIn.addEventListener('click', () => openSignIn());
+  // While typing on a phone the keyboard needs the room, so the capsule steps
+  // aside. It comes back a moment after the box loses focus, so a tap on Send
+  // lands before anything moves.
+  let typingTimer = 0;
+  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.add('is-typing'); });
+  input.addEventListener('blur', () => {
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.remove('is-typing'); }, 300);
+  });
   settingsBtn.addEventListener('click', () => (sheet.hidden ? openSettings() : closeSettings()));
 
   // Canonical FAQ deep link: open the same in-app Help & Support page used by
@@ -4557,7 +4566,7 @@
         .map((m) => ({ id: m.id, name: m.name, locked: m.locked === true, needs: m.needs, plan: m.plan }));
       const open = modelList.filter((m) => !m.locked).map((m) => m.id);
       // A valid one-tier catalog is still a usable selector; hide only when the API returns no tiers.
-      if (modelList.length === 0) { modelRow.hidden = true; currentModel = ''; return; }
+      if (modelList.length === 0) { currentModel = 'nasrinai'; showCurrentModel(false); return; }
       const wanted = saved.get(KEYS.model);
       currentModel = open.includes(wanted) ? wanted : (open.includes(data.default) ? data.default : open[0] || '');
       showCurrentModel(false);
@@ -4906,10 +4915,17 @@
 
   function renderProButton() {
     const btn = $('proBtn');
-    btn.hidden = !proCatalog;
+    btn.hidden = false;
     const openProRow = $('openPro');   // optional Settings row: the page may not have it
     if (openProRow) openProRow.hidden = !proCatalog;
-    if (!proCatalog) return;
+    if (!proCatalog) {
+      $('proBtnLabel').textContent = 'Automatic';
+      $('proBtnIcon').replaceChildren(nasrinAvatar(null));
+      btn.classList.remove('is-on');
+      btn.title = 'Automatic · Professional AI settings loading';
+      btn.setAttribute('aria-label', btn.title);
+      return;
+    }
     let label = 'Universal AI';
     let icon = null;
     const req = proRequest();
@@ -5191,45 +5207,6 @@
     $('historyBtn').title = libraryOn ? 'Chats and Library' : 'Your chats';
   }
   $('historyClose').addEventListener('click', closeHistory);
-
-  // Phone tab bar (docs/redesign.md R2): Chat, Library, Projects, Settings open
-  // the existing screens; the current tab follows whatever is open.
-  const tabbar = $('tabbar');
-  function setActiveTab(name) {
-    for (const b of tabbar.querySelectorAll('[data-tab]')) {
-      const on = b.dataset.tab === name;
-      b.classList.toggle('is-active', on);
-      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-    }
-  }
-  function syncTabs() {
-    if (!$('settings').hidden) return setActiveTab('settings');
-    if (!historySheet.hidden) {
-      const lib = $('tabLibrary'); const prj = $('tabProjects');
-      if (lib && lib.getAttribute('aria-selected') === 'true') return setActiveTab('library');
-      if (prj && prj.getAttribute('aria-selected') === 'true') return setActiveTab('projects');
-    }
-    setActiveTab('chat');
-  }
-  tabbar.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-tab]');
-    if (!b) return;
-    const tab = b.dataset.tab;
-    if (tab === 'chat') { closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); return; }
-    if (tab === 'settings') { openSettings(); return; }
-    openHistory(tab);
-  });
-  new MutationObserver(syncTabs).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-selected'] });
-  // While typing on a phone, the keyboard needs the room: the tab bar steps aside.
-  // The bar comes back a moment after the box loses focus, so a tap on Send
-  // lands before the message box moves up.
-  let typingTimer = 0;
-  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.toggle('is-typing', true); });
-  input.addEventListener('blur', () => {
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.toggle('is-typing', false); }, 300);
-  });
-  // End tab bar
 
   // ---------- the Library (signed in) ----------
   // The person's own files, notes and saved replies; only text is kept. The

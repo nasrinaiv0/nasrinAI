@@ -1,3 +1,64 @@
+## Proposed PR — Diagnose server startup 503s (`fix/startup-503-diagnostics`)
+
+- **Problem:** production API routes return HTTP 503 when configuration loading or application initialization fails, but the client-facing message is generic and Vercel logs may be unavailable to the operator.
+- **Change:** assign a unique startup incident ID, include the ID in a safe JSON error and `X-NasrinAI-Incident-ID` response header, and log the ID with the startup stage. Internal exception details remain server-side; no secrets, stack traces, environment values, or configuration details are returned to clients.
+- **Regression coverage:** tests verify both configuration and application startup failures, including that internal exception text is not exposed in the response.
+- **Scope:** diagnostic-only; does not change authentication behavior, rate limits, environment values, security checks, or deployment configuration.
+- **Validation:** tests must run in CI before merge. This change identifies the startup failure but does not itself claim to repair the underlying initialization exception.
+
+## Fix PR #242 — Excel workbook export regexes (`fix/pr242-xlsx-regex`)
+
+- **Root cause:** the multi-sheet marker and numeric-cell regexes in `public/files.js` were over-escaped, so `[[sheet name="..."]]` blocks were not recognized and numeric values were emitted as text. Worksheet-name sanitization also needed to safely escape the slash delimiter.
+- **Fix:** restore the intended JavaScript regular expressions; preserve formula allow-listing and existing workbook limits.
+- **Regression coverage:** added tests that exercise the same marker and numeric regexes used by the production builder against valid sheet blocks, numeric values, leading-zero identifiers, and non-matching input.
+- **Validation:** automated test execution and real Excel/LibreOffice open checks must pass before merge. This patch does not change authentication, rate limits, or deployment settings.
+
+## Proposed PR — Multi-sheet Excel workbook export (fix/excel-workbook-pr-conflict)
+
+- **Intent:** create a real downloadable `.xlsx` workbook with multiple named tabs.
+- **Change (`public/files.js`):** parse up to 8 named worksheet blocks; emit separate worksheet XML; preserve safe formula allow-listing; add frozen header rows, column widths, and autofilters.
+- **Prompt and docs:** document the multi-sheet syntax and prohibit claims that native pivot/chart objects exist unless they were actually created.
+- **Known gaps:** this does not provide direct 20 MB uploads, in-place editing of uploaded workbooks, or native Excel pivot tables/charts. Base64-in-JSON uploads remain subject to Vercel's function body-size limit.
+- **Validation:** automated tests and Excel/LibreOffice workbook-open checks remain pending.
+
+## Proposed PR — Extract Excel workbooks inside ZIP attachments
+
+- **Problem:** an ordinary ZIP archive lists nested files and reads small UTF-8 text files, but does not inspect an embedded `.xlsx`/`.xlsm` workbook. This caused `b2b_invoices.zip` to be reported as a listing rather than readable invoice rows.
+- **Change (`src/attachments.js`):** inspect nested workbook entries through the existing bounded ZIP reader and include their extracted worksheet text in the archive context. Do not execute archive contents; retain ZIP entry and decompression limits.
+- **Tests (`test/attachments.test.js`):** add a nested workbook fixture and assert worksheet headers and values are extracted.
+- **Documentation:** clarify the difference between extraction for analysis and workbook editing/generation; 20 MB upload support is not claimed until the Vercel request-body transport is changed.
+- **Validation:** source/test additions only; CI has not been run in this PR.
+
+## Proposed PR — Render composer tier and Automatic controls together (`ui/composer-controls-initial-render`)
+
+- **Problem:** `#modelRow` and `#proBtn` start hidden and appear only after their independent backend catalog calls resolve, causing controls to pop in late or separately.
+- **Change:** render both controls in initial HTML with Quick/Automatic fallback labels; keep them visible when catalogs load or fail, and hydrate labels/options when responses arrive.
+- **Security:** the server remains authoritative for model-tier access and professional availability; showing controls does not grant access.
+- **Docs:** `docs/chat.md` documents the initial-render contract.
+- **Validation:** source inspection only; automated tests and browser refresh checks remain pending.
+
+## Proposed PR — Fix greeting shortcut initialization order
+
+- **Bug:** the instant-greeting condition referenced `extra.length` before `extra` was declared, causing a `ReferenceError` for eligible greetings.
+- **Fix (`src/chat.js`):** move the shortcut after the extra context array is initialized and appended to history. This preserves the no-provider shortcut while avoiding use-before-initialization.
+- **Documentation:** `docs/chat.md` records the required ordering and regression coverage.
+- **Validation:** static source check only; automated tests have not yet been run.
+
+## Proposed PR — Return simple greetings without a provider call
+
+- **Problem:** a plain `hi` could proceed through smart routing and wait on the configured model despite needing no reasoning.
+- **Change (`src/chat.js`):** return a deterministic short greeting for eligible platform-chat small talk after request validation, existing limits, persistence, history, and policy checks. Record the response as a local logic/rules result with zero model cost.
+- **Guardrails:** attachments, voice, professional selection, projects, personal context, knowledge-only tenants, edits, and regenerations retain the normal path.
+- **Documentation:** `docs/chat.md` records the shortcut and exclusions.
+- **Validation:** source review only; automated tests and production latency measurements remain pending.
+
+## Proposed PR — Read-aloud play/stop icon has no background (`ui/read-aloud-no-background`)
+
+- **Intent:** the owner requests one icon button for read-aloud Play/Stop, with no background.
+- **Change (`public/app.css`):** remove the playing-state surface fill and keep the read-aloud icon background transparent in idle, hover, pressed, and playing states. The same button continues to toggle Play/Stop; no separate Stop button is added.
+- **Documentation:** `docs/chat.md` records the expected interaction and accessible labeling.
+- **Validation:** source-level change only; automated tests and browser checks have not been run for this PR.
+
 # Pull request change log
 
 This file records the intent and outcome of repository pull requests and is updated alongside code changes. Entries describe the work at PR level; the linked PR is the source of truth for the full diff and review history.
@@ -16,16 +77,9 @@ For every future NasrinAI PR:
 ## Proposed PR — iOS header icons; guest Sign in above the message box (`ui/ios-header-icons`)
 
 - **Intent:** owner request (2026-10-12), with iOS-like header icons, and a guest's Sign in moved from the header to just above the message box in the mobile view (under 70rem). Desktop keeps Sign in in the header.
-- **Files:** `public/index.html` (gear, clock and compose icons in the header, desktop rail and tab bar; `#guestSignIn` in the dock; header Sign in removed), `public/app.js` (`guestSignIn` replaces `headerSignIn`; hidden when signed in or sign-in is off), `public/app.css` (capsule styles, 44 pt on touch, hidden while typing; the "wordmark yields to Sign in" rule removed), `docs/redesign.md`.
-- **Builds on:** #224, #231, #232 (merged into this branch). Merge those first.
+- **Files:** `public/index.html` (gear, clock and compose icons in the header and desktop rail; `#guestSignIn` in the dock), `public/app.js` (`guestSignIn` and `headerSignIn`, hidden when signed in or sign-in is off; `body.is-typing` while the message box has focus), `public/app.css` (capsule styles, 44 pt on touch, hidden while typing on touch screens, mobile-only; header Sign in desktop-only; the "wordmark yields to Sign in" rule removed), `docs/redesign.md`.
+- **Tab bar:** #232 was reverted on `main`; this PR keeps that revert and adds no tab bar.
 - **Validation:** `test/ios-header-icons.test.js`, updated `test/ios-header-fit.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/768 (touch) and 1280, light and dark. No server, data or legal change.
-
-## Proposed PR — Redesign R2: iOS tab bar on phones and tablets (`ui/ios-tab-bar`)
-
-- **Intent:** the owner chose an iOS tab bar for phones (2026-10-12). Adds Chat, Library, Projects and Settings at the bottom under 70rem. The tabs open the existing screens; desktop keeps its side rail. Builds on R1 (#231, merged into this branch for its tokens).
-- **Files:** `public/index.html` (the `nav.tabbar`), `public/app.js` (tab clicks, active tab follows the open sheet, `is-typing`), `public/app.css` (bar, dock above it, header Settings button hidden on phones), `docs/redesign.md`.
-- **Fix found while testing:** hiding the bar while typing at first moved the message box up mid-tap, so Send missed. The bar now returns 300 ms after blur, and only touch screens hide it.
-- **Validation:** `test/ios-tab-bar.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/768 (touch, light/dark) and 1280. No server, data or legal change.
 
 ## Proposed PR — Redesign R1: design tokens, adaptive background, press and focus states (`ui/redesign-foundation`)
 
@@ -346,3 +400,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Map upstream errors explicitly mentioning CAPTCHA/Turnstile to a safe security-check message rather than the generic email-delivery message.
 - Logs never include the email address, CAPTCHA token, CAPTCHA secret, raw upstream response, or provider message text.
 - This does not bypass CAPTCHA or change production configuration. Validate with focused auth tests and full CI before merge; if Supabase rejects the token, verify its CAPTCHA provider configuration against the Cloudflare Turnstile secret.
+
+## Proposed PR — AI Automation policy foundation
+
+- Define owner-scoped workflows for Gmail/Google Workspace first and future official integrations for Facebook, Instagram, LinkedIn, X, and TikTok.
+- Add a bounded workflow validator and a fail-closed action decision policy. Sending email, publishing posts, replying to comments, and creating calendar events require approval unless the owner explicitly enables automation and allow-lists that exact action.
+- Add migration 030 for private workflow and run records; direct anon/authenticated table access is revoked. The migration is proposed and has not been run against Supabase.
+- Add regression tests for provider/action compatibility, approval defaults, explicit auto-allowlists, disabled workflows, and missing provider authorization.
+- Important scope limit: this PR is the policy/schema foundation only. It does not yet wire OAuth callbacks, encrypted user OAuth tokens, provider API calls, queue/scheduler, UI, or live sending/publishing. Social providers remain planned until each official API/app review is configured and tested.
+- Validate with npm test, secret scanning, SQL review, and focused OAuth/ownership tests before merge. Do not deploy or apply migration without explicit authorization.
+

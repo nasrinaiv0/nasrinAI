@@ -4,7 +4,7 @@ The owner asked for the whole app to be redesigned and organized: animations, UI
 
 ## Owner's choices (2026-10-12)
 
-- **Navigation on phones:** an iOS-style bottom **tab bar**: Chat, Library, Projects, Settings.
+- **Navigation on phones:** an iOS-style bottom **tab bar** was chosen, built (#232) and then reverted by the owner; phones keep the header buttons.
 - **Look:** **monochrome, refined.** Off-white and near-black, rounded headings (`--round`), the ball logo. No new colours.
 
 These follow the owner decisions in `CLAUDE.md` (logo, type, no heavy bold or oversized text).
@@ -38,10 +38,10 @@ All sizes, spacing, motion and surfaces come from tokens on `:root` (`public/app
 
 | # | Branch | What | Status |
 |---|---|---|---|
-| R1 | `ui/redesign-foundation` | Design tokens, adaptive background, one press and focus style for every button | PR open |
-| R2 | `ui/ios-tab-bar` | Phone tab bar (Chat, Library, Projects, Settings); simpler header; desktop keeps its side rail | PR open (builds on R1) |
-| R3a | `ui/ios-header-icons` | iOS-style header icons (clock, gear, compose); a guest's Sign in moves above the message box | PR open (builds on #224, #231, #232) |
-| R3 | `ui/icon-set` | The same icon style for the composer, reply actions and Settings | To do |
+| R1 | `ui/redesign-foundation` | Design tokens, adaptive background, one press and focus style for every button | Merged (#231) |
+| R2 | `ui/ios-tab-bar` | Phone tab bar (Chat, Library, Projects, Settings) | Merged as #232, then reverted by the owner (2026-10-12) |
+| R3a | `ui/ios-header-icons` | iOS-style header icons (clock, gear, compose); a guest's Sign in moves above the message box on mobile | PR open (#233) |
+| R3 | `ui/icon-set` | One consistent icon set across header, composer, reply actions, Settings | To do |
 | R4 | `ui/motion` | Sheet, page and reply motion on the tokens; replies fade in without jumping the screen (handoff item 9); generation loader (item 8) | To do |
 | R5 | `ui/screens-pass` | Settings as iOS grouped lists; Library, Projects and Code screens; sign-in; checked at 320, 390, 768 and 1280 px, light and dark | To do |
 
@@ -53,28 +53,6 @@ Already open and part of this direction:
 - #229: play/stop button
 - #230: desktop Enter sends
 
-## R2: the tab bar
-
-- Phones and tablets (under 70rem wide) get a bottom tab bar: **Chat, Library,
-  Projects, Settings**. Desktop keeps its side rail; there is no tab bar there.
-- The tabs open the screens that already exist: Library and Projects open the
-  chats sheet on that tab, and Settings opens Settings. Chat closes any open
-  sheet. There are no duplicate screens.
-- The current tab follows what is open (a `MutationObserver` on `hidden` and
-  `aria-selected`), so it stays right however a screen was opened.
-- The header's Settings button is hidden on phones, because the tab bar has it.
-- The bar sits clear of the iPhone home indicator (`safe-area-inset-bottom`),
-  and the message box sits above it.
-- While typing on a touch screen, the bar steps aside for the keyboard. It
-  comes back 300 ms after the message box loses focus, so a tap on Send lands
-  before the box moves (this was a real bug found in the browser check). A
-  tablet with a mouse or trackpad keeps its tabs while typing.
-- Signed out, Library and Projects show the existing "Sign in" prompt.
-- Sheets cover the bar, as iOS modal sheets do.
-- Checked in headless Chromium at 320, 390 and 768 px (touch, light and dark)
-  and 1280 px (no bar): switching tabs, the active tab, sending a message, and
-  no sideways scroll. Test: `test/ios-tab-bar.test.js`.
-
 ## R3a: header icons and the guest Sign in
 
 Owner request (2026-10-12): "change these icons make it iOS like icons" and
@@ -83,7 +61,7 @@ Owner request (2026-10-12): "change these icons make it iOS like icons" and
 - Icons in the SF Symbols style (thin 1.6 stroke, round ends): history is a
   clock with a back arrow, Settings is a gear (in place of the sliders), and
   New chat is the iOS compose square and pencil. The same icons are used in
-  the header, the desktop rail and the tab bar.
+  the header and the desktop rail.
 - Signed out, on phones and tablets (the mobile view, under 70rem) a
   "Sign in" capsule (person icon) sits just above the message box, and the
   header has no Sign in, so the wordmark always fits. On desktop, Sign in stays

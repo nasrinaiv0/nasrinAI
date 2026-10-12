@@ -315,6 +315,21 @@ export function createChat({ conversations, limiter, usageLog, provider, models,
       history[history.length - 1] = { role: last.role, content: last.content + extra.join('') };
     }
 
+    // Plain greetings are deterministic: avoid routing and provider latency for a one-word hello.
+    // Keep this after message persistence, history loading, policy refusals, and context checks.
+    if (smart && caller.tenantId === PLATFORM_TENANT_ID && SMALL_TALK.test(typed.trim())
+      && typed.trim().length <= 40 && !files.length && !only && !voice && !pro
+      && !extra.length && !codeFile && !regenerate && editId === null
+      && body.project_id === undefined && !body.professional) {
+      const greeting = /^(thanks?|thank|ty|salamat|daghang)/i.test(typed.trim())
+        ? 'You’re welcome! What can I help you with next?'
+        : /^(ok(ay)?|cool|great|nice)/i.test(typed.trim())
+          ? 'Got it! What would you like to do next?'
+          : 'Hi! What can I help you with?';
+      await usageLog.record(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: 'small_talk', level: 0, costUsd: 0 });
+      return finish(greeting);
+    }
+
     // Requests for previously generated pictures are retrieval, not a new image brief.
     // Return only this signed-in user's retained image IDs; the existing image endpoint
     // independently verifies ownership before any image bytes are served.
