@@ -5808,17 +5808,18 @@
 
         const actions = mk('div', 'prj-actions');
         actions.hidden = true;
-        const actionButton = (label, kind, onClick) => {
-          const button = mk('button', 'btn small' + (kind === 'code' ? ' outline' : ''));
+        const actionButton = (label, kind, path, onClick) => {
+          const button = mk('button', 'prj-action prj-action-' + kind);
           button.type = 'button';
-          button.textContent = label;
+          button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg><span></span>';
+          button.querySelector('span').textContent = label;
           button.addEventListener('click', onClick);
           return button;
         };
         actions.append(
-          actionButton('Open', 'open', () => openProject(p.id)),
-          actionButton('Chat', 'chat', () => startProjectChat(p, 'chat')),
-          actionButton('Code', 'code', () => startProjectChat(p, 'code'))
+          actionButton('Open', 'open', 'M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8A1.5 1.5 0 0 1 20.5 9.5v8A1.5 1.5 0 0 1 19 19H5A1.5 1.5 0 0 1 3.5 17.5z', () => openProject(p.id)),
+          actionButton('Chat', 'chat', 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z', () => startProjectChat(p, 'chat')),
+          actionButton('Code', 'code', 'm8 8-4 4 4 4m8-8 4 4-4 4m-3-12-2 16', () => startProjectChat(p, 'code'))
         );
         toggle.addEventListener('click', () => {
           const expanded = toggle.getAttribute('aria-expanded') !== 'true';
