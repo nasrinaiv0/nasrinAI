@@ -4553,7 +4553,7 @@
         .map((m) => ({ id: m.id, name: m.name, locked: m.locked === true, needs: m.needs, plan: m.plan }));
       const open = modelList.filter((m) => !m.locked).map((m) => m.id);
       // A valid one-tier catalog is still a usable selector; hide only when the API returns no tiers.
-      if (modelList.length === 0) { modelRow.hidden = true; currentModel = ''; return; }
+      if (modelList.length === 0) { currentModel = 'nasrinai'; showCurrentModel(false); return; }
       const wanted = saved.get(KEYS.model);
       currentModel = open.includes(wanted) ? wanted : (open.includes(data.default) ? data.default : open[0] || '');
       showCurrentModel(false);
@@ -4902,10 +4902,17 @@
 
   function renderProButton() {
     const btn = $('proBtn');
-    btn.hidden = !proCatalog;
+    btn.hidden = false;
     const openProRow = $('openPro');   // optional Settings row: the page may not have it
     if (openProRow) openProRow.hidden = !proCatalog;
-    if (!proCatalog) return;
+    if (!proCatalog) {
+      $('proBtnLabel').textContent = 'Automatic';
+      $('proBtnIcon').replaceChildren(nasrinAvatar(null));
+      btn.classList.remove('is-on');
+      btn.title = 'Automatic · Professional AI settings loading';
+      btn.setAttribute('aria-label', btn.title);
+      return;
+    }
     let label = 'Universal AI';
     let icon = null;
     const req = proRequest();
