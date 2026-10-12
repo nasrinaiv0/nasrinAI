@@ -5,6 +5,25 @@
 - The new chat immediately becomes usable for another request. Completion of an older request cannot overwrite the new conversation ID or clear the new turn's busy state.
 - Existing request cancellation remains available for the active visible turn. No database, quota, or authorization changes.
 
+## Exact project card layout from reference
+
+- Render Open, Chat, and Code as three equal-width vertical cards in a single row when a project is expanded.
+- Each card uses a centered monochrome outline icon, bold title, and muted two-line description; thin gray border and rounded corners on a matte charcoal/theme-adaptive surface.
+- Project heading uses a folder-with-bars outline icon and a chevron that flips upward when expanded.
+- Add a narrow-screen layout adjustment and retain keyboard focus and reduced-motion support.
+
+## Reference-matched project action styling
+
+- Match the supplied illustration with a matte theme-adaptive panel, rounded outline, generous row spacing, monochrome line icons, and subtle separators.
+- Add a folder icon to project rows and use matching folder, chat-bubble, and code icons for Open, Chat, and Code actions.
+- Preserve light/dark theme tokens and reduced-motion behavior; no new accent colors except existing theme semantics.
+
+## Expandable project actions
+
+- Each project row has an accessible expand/collapse control revealing Open, Chat, and Code actions.
+- Open shows the existing project details view. Chat starts a new conversation scoped to the selected project. Code starts a project-scoped chat and pre-fills an editable coding prompt; it does not auto-submit.
+- Keep the existing project detail view and its New chat action working through the same project-chat helper.
+- Respect reduced-motion preferences for the expansion animation. No API, database, RLS, authorization, quota, or environment changes.
 
 ## CI follow-up — gallery focus selector
 

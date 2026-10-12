@@ -1822,7 +1822,7 @@
       try {
         data = await askStream(body(turnConversationId), hooks);
       } catch (err) {
-        if (err.status !== 404 || !conversationId || regenerate || editId) throw err;
+        if (err.status !== 404 || !turnConversationId || regenerate || editId) throw err;
         // The earlier chat is gone (guest chats expire); carry on in a new one.
         turnConversationId = null;
         if (isCurrentView()) {
@@ -5828,12 +5828,59 @@
       if (run !== prjRun) return;
       const list = (data.projects || []).filter((p) => p && typeof p.id === 'string');
       $('prjList').replaceChildren(...list.map((p) => {
-        const li = mk('li', 'history-item');
+        const li = mk('li', 'history-item prj-list-item');
+        const row = mk('div', 'prj-list-row');
         const open = mk('button', 'history-open lib-open');
         open.type = 'button';
         open.append(mk('span', 'history-title', p.name), mk('span', 'history-time', `${PRJ_STATUS[p.status] || ''} · ${when(p.updated_at)}`));
         open.addEventListener('click', () => openProject(p.id));
-        li.appendChild(open);
+
+        const toggle = mk('button', 'icon-btn prj-expand');
+        toggle.type = 'button';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Show actions for ' + p.name);
+        const toggleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        toggleSvg.setAttribute('viewBox', '0 0 24 24');
+        toggleSvg.setAttribute('aria-hidden', 'true');
+        const togglePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        togglePath.setAttribute('d', 'm6 9 6 6 6-6');
+        toggleSvg.appendChild(togglePath);
+        toggle.appendChild(toggleSvg);
+
+        const actions = mk('div', 'prj-actions');
+        actions.hidden = true;
+        const actionButton = (label, kind, path, description, onClick) => {
+          const button = mk('button', 'prj-action prj-action-' + kind);
+          button.type = 'button';
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('aria-hidden', 'true');
+          const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          iconPath.setAttribute('d', path);
+          svg.appendChild(iconPath);
+          const title = document.createElement('strong');
+          title.textContent = label;
+          const detail = document.createElement('span');
+          detail.className = 'prj-action-description';
+          detail.textContent = description;
+          button.append(svg, title, detail);
+          button.addEventListener('click', onClick);
+          return button;
+        };
+        actions.append(
+          actionButton('Open', 'open', 'M3.5 8A2 2 0 0 1 5.5 6h4l2 2H18a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z M5 12h14', 'View project details', () => openProject(p.id)),
+          actionButton('Chat', 'chat', 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z', 'Start a project chat', () => startProjectChat(p, 'chat')),
+          actionButton('Code', 'code', 'm8 8-4 4 4 4m8-8 4 4-4 4m-3-12-2 16', 'Start a coding conversation', () => startProjectChat(p, 'code'))
+        );
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+          toggle.setAttribute('aria-expanded', String(expanded));
+          toggle.setAttribute('aria-label', (expanded ? 'Hide' : 'Show') + ' actions for ' + p.name);
+          actions.hidden = !expanded;
+          li.classList.toggle('is-expanded', expanded);
+        });
+        row.append(open, toggle);
+        li.append(row, actions);
         return li;
       }));
       $('prjStatusMsg').textContent = list.length ? '' : 'No projects yet. A project keeps chats, files, tasks and instructions together.';
@@ -5961,13 +6008,25 @@
   }
 
   $('prjBack').addEventListener('click', () => { prjOpen = null; prjShow('list'); loadProjects(); });
-  $('prjChat').addEventListener('click', () => {
-    if (!prjOpen || busy) return;
-    const p = { id: prjOpen.id, name: prjOpen.name };
+  function startProjectChat(project, mode) {
+    if (!project || busy) return;
+    const p = { id: project.id, name: project.name };
     closeHistory();
     $('newChat').click();
     setChatProject(p);
+    if (mode === 'code') {
+      input.value = 'Help me work on code for the ' + p.name + ' project.';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      notice.textContent = 'Code session for ' + p.name + '. Review or edit the prompt before sending.';
+    } else {
+      notice.textContent = 'New chat in ' + p.name + '.';
+    }
     input.focus();
+  }
+
+  $('prjChat').addEventListener('click', () => {
+    if (!prjOpen || busy) return;
+    startProjectChat(prjOpen, 'chat');
   });
   $('prjTaskForm').addEventListener('submit', async (e) => {
     e.preventDefault();
