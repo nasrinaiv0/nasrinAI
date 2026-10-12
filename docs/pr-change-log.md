@@ -1,3 +1,10 @@
+## Proposed PR — Fix natural-language recall of generated Library pictures
+
+- **Owner report (2026-10-12):** “show me the pictures generated in the library” received generic navigation instructions instead of the saved pictures.
+- **Cause:** the recall detector required “my/previous/past/generated” before “pictures/images”, or “pictures I generated”; it did not match the ordinary phrase “pictures generated in the Library”.
+- **Change:** use a dedicated, tested intent detector that accepts natural word order and Library/history/saved wording. The existing signed-in check, account-scoped storage listing, retention rules, and owner-checked image endpoint remain unchanged.
+- **Validation:** regression tests cover the reported wording, related phrasings, and unrelated image requests. Run full CI and verify the deployed Library on iPhone Safari before treating production as fixed.
+
 ## Proposed PR — Simple internet-data check (`ops/internet-data-check`)
 
 - **Owner request (2026-10-12):** a file to run in Supabase to see what NasrinAI stored from the internet.
