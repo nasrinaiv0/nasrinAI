@@ -1203,6 +1203,19 @@ body.legal-page .brand { opacity: 1; transform: none; pointer-events: auto; }
 .space-guest .btn { font-weight: 500; }
 .tab[hidden] { display: none; }
 .project-bar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prj-list-item { display: block; padding: 0.08rem 0; }
+.prj-list-row { display: flex; align-items: center; gap: 0.25rem; }
+.prj-list-row .history-open { min-width: 0; }
+.prj-expand { flex: none; width: 2.6rem; height: 2.6rem; color: var(--ink-2); transition: transform 180ms ease; }
+.prj-expand svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.prj-expand[aria-expanded="true"] { transform: rotate(180deg); }
+.prj-actions { display: flex; flex-wrap: wrap; gap: 0.55rem; padding: 0 0.65rem 0.85rem; animation: prj-actions-in 180ms ease both; }
+.prj-actions[hidden] { display: none; }
+.prj-list-item.is-expanded { background: var(--paper); border-radius: 0.9rem; }
+@keyframes prj-actions-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .prj-expand, .prj-actions { transition: none; animation: none; } }
+:root[data-motion="reduce"] .prj-expand, :root[data-motion="reduce"] .prj-actions { transition: none; animation: none; }
+
 .prj-desc { margin: 0.4rem 0 0.8rem; color: var(--ink-2); font-size: 0.92rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .prj-desc[hidden] { display: none; }
 .lib-text.short { min-height: 4rem; }
