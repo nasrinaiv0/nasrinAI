@@ -97,7 +97,10 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   assert.match(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-mark\.svg/);
   assert.doesNotMatch(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-dark\.svg/);
   assert.match(connectMark, /fill-rule="evenodd"/);
-  assert.match(html, /id="spaceLibrary"[\s\S]*?icon-library\.svg/);
+  // Library uses the one theme-adaptive glyph (owner request 2026-10-12), not a badge image.
+  assert.match(html, /id="spaceLibrary"[\s\S]*?class="space-app-logo space-app-glyph lib-glyph"/);
+  assert.match(html, /id="drawerLibrary"><svg class="lib-glyph"/);
+  assert.match(css, /svg\.lib-glyph[^{]*\{ fill: currentColor; stroke: none; \}/);
   assert.match(html, /id="spaceCoding"[\s\S]*?icon-coding\.svg/);
   assert.match(html, /id="spaceCloud"[\s\S]*?space-logos\/icon-cloud-orange\.svg/);
   assert.match(html, /id="pageSpace"[\s\S]*?nasrinai-space-icon\.svg/);
