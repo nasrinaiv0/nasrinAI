@@ -17,6 +17,9 @@ const LANG = { js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'jsx
 
 export const CODING_RULE = 'You are helping with the person\'s code. You cannot run code, tests or commands: never say you ran or tested anything. Values that looked like secrets were replaced with ********; never ask for them. Before any command or change that deletes data, changes a live system or needs admin rights, say so clearly and tell the person to review it first. Refer to line numbers when it helps.';
 
+// The coding chat (Code in the menu): a project-scoped chat for building software.
+export const CODING_CHAT_RULE = 'This is the coding chat for the person\'s project. Act as a senior software engineer: ask at most one short question when the goal is unclear, then give working code. Put code in fenced blocks with the language. For whole files, use one file block per file with its real name and extension (for example index.html, app.js, styles.css, main.py). Explain briefly what changed and how to run or test it. Never claim the code was run.';
+
 // Lines that look like they hold a secret: the value is hidden, the name stays.
 export function maskSecrets(text) {
   let masked = 0;
