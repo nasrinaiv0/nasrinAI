@@ -5771,85 +5771,12 @@
   let prjEditing = null;   // id while editing, null while creating
   let prjRun = 0;
 
-  const projectSwitcher = $('projectSwitcher');
-  let composerProjects = [];
-  let projectChoicesLoaded = false;
-  let projectChoicesLoading = false;
-
-  function renderProjectChoices() {
-    const current = chatProject ? chatProject.id : '__none__';
-    const options = [new Option('No project · General chat', '__none__')];
-    for (const p of composerProjects) {
-      if (!p || typeof p.id !== 'string' || typeof p.name !== 'string') continue;
-      options.push(new Option(p.name, p.id));
-    }
-    // A restored conversation can reference a project not in the latest list
-    // response; keep its current context visible instead of silently clearing it.
-    if (chatProject && !options.some((o) => o.value === chatProject.id)) {
-      options.push(new Option(chatProject.name, chatProject.id));
-    }
-    projectSwitcher.replaceChildren(...options);
-    projectSwitcher.value = current;
-    if (projectSwitcher.value !== current) projectSwitcher.value = '__none__';
-  }
-
   function setChatProject(p) {
     chatProject = p && typeof p.id === 'string' ? { id: p.id, name: String(p.name || 'Project') } : null;
-    if (chatProject && !composerProjects.some((item) => item.id === chatProject.id)) {
-      composerProjects = [...composerProjects, chatProject];
-    }
-    renderProjectChoices();
-    $('projectLeave').hidden = !chatProject;
+    $('projectBar').hidden = !chatProject;
+    $('projectBarName').textContent = chatProject ? 'In project: ' + chatProject.name : '';
   }
-
-  async function loadComposerProjects() {
-    if (projectChoicesLoading) return;
-    projectChoicesLoading = true;
-    try {
-      const data = await api('/v1/projects');
-      composerProjects = (data.projects || []).filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string');
-      projectChoicesLoaded = true;
-      renderProjectChoices();
-    } catch (err) {
-      // Projects are signed-in functionality. Keep general chat available and
-      // explain the requirement without blocking the composer.
-      projectSwitcher.title = err.message || 'Sign in to use projects.';
-    } finally {
-      projectChoicesLoading = false;
-    }
-  }
-
-  projectSwitcher.addEventListener('focus', () => {
-    if (!projectChoicesLoaded) loadComposerProjects();
-  });
-  projectSwitcher.addEventListener('change', async () => {
-    const chosen = projectSwitcher.value;
-    const target = chosen === '__none__' ? null : composerProjects.find((p) => p.id === chosen);
-    if (busy) {
-      notice.textContent = 'Wait for the current reply to finish before switching projects.';
-      renderProjectChoices();
-      return;
-    }
-    if (chosen !== '__none__' && !target) {
-      await loadComposerProjects();
-      renderProjectChoices();
-      return;
-    }
-    if ((chatProject?.id || null) === (target?.id || null)) return;
-    // A conversation cannot be reassigned to a different project. Start a new
-    // conversation in the chosen context; the previous chat remains in its
-    // original project and can be reopened from that project's chat list.
-    startNewChat({ focus: false });
-    setChatProject(target);
-    if (target) notice.textContent = 'New conversation in ' + target.name + '.';
-    else notice.textContent = 'New general conversation.';
-    input.focus();
-  });
-  $('projectLeave').addEventListener('click', () => {
-    if (busy) return;
-    projectSwitcher.value = '__none__';
-    projectSwitcher.dispatchEvent(new Event('change'));
-  });
+  $('projectLeave').addEventListener('click', () => $('newChat').click());
 
   function prjShow(view) {
     $('prjListView').hidden = view !== 'list';
