@@ -2271,5 +2271,9 @@ html.composer-controls-loading #composer .tools {
 .guest-signin:active { transform: scale(0.96); background: var(--press); }
 @media (pointer: coarse) { .guest-signin { min-height: 2.75rem; } }
 @media (max-width: 69.99rem) and (pointer: coarse) { body.is-typing .guest-signin { display: none; } }
+/* Mobile view only: desktop keeps Sign in in the header. */
+.header-signin { white-space: nowrap; }
+@media (min-width: 70rem) { .guest-signin { display: none; } }
+@media (max-width: 69.99rem) { .header-signin { display: none; } }
 :root[data-motion="reduce"] .guest-signin:active { transform: none; }
 @media (prefers-reduced-motion: reduce) { .guest-signin:active { transform: none; } }

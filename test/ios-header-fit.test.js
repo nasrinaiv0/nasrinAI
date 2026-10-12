@@ -19,7 +19,7 @@ test('phone header fits: New chat is an icon, wordmark yields to Sign in', async
   assert.ok(phone, 'phone header rules exist');
   assert.match(phone[1], /#newChat \.new-chat-label \{ display: none; \}/);
   assert.match(phone[1], /#newChat \.new-chat-ico \{ display: block; \}/);
-  // Sign in moved above the message box (test/ios-header-icons.test.js), so the wordmark no longer has to give way.
-  assert.doesNotMatch(html, /<header class="bar">[\s\S]*?Sign in[\s\S]*?<\/header>/);
+  // On phones Sign in sits above the message box (test/ios-header-icons.test.js).
+  assert.match(css, /@media \(max-width: 69\.99rem\) \{ \.header-signin \{ display: none; \} \}/);
   assert.match(css, /\.new-chat-ico \{ display: none;/, 'icon hidden on wider screens');
 });

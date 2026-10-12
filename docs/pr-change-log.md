@@ -15,7 +15,7 @@ For every future NasrinAI PR:
 
 ## Proposed PR — iOS header icons; guest Sign in above the message box (`ui/ios-header-icons`)
 
-- **Intent:** owner request (2026-10-12), with iOS-like header icons, and a guest's Sign in moved from the header to just above the message box.
+- **Intent:** owner request (2026-10-12), with iOS-like header icons, and a guest's Sign in moved from the header to just above the message box in the mobile view (under 70rem). Desktop keeps Sign in in the header.
 - **Files:** `public/index.html` (gear, clock and compose icons in the header, desktop rail and tab bar; `#guestSignIn` in the dock; header Sign in removed), `public/app.js` (`guestSignIn` replaces `headerSignIn`; hidden when signed in or sign-in is off), `public/app.css` (capsule styles, 44 pt on touch, hidden while typing; the "wordmark yields to Sign in" rule removed), `docs/redesign.md`.
 - **Builds on:** #224, #231, #232 (merged into this branch). Merge those first.
 - **Validation:** `test/ios-header-icons.test.js`, updated `test/ios-header-fit.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/768 (touch) and 1280, light and dark. No server, data or legal change.
