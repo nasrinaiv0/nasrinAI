@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { PAGE_CSP } from './headers.js';
 
@@ -38,7 +39,21 @@ export function createStatic(rootDir) {
     res.statusCode = 200;
     res.setHeader('Content-Type', type);
     res.setHeader('Content-Length', data.length);
-    res.setHeader('Cache-Control', type.startsWith('text/html') ? 'no-cache' : 'public, max-age=3600');
+    // The page, its script, styles and manifest are checked on every load
+    // (cheap with the ETag): a phone must never pair a new page with an old
+    // app.js, or new buttons do nothing. Pictures may be kept for an hour.
+    const fresh = /^(text\/html|text\/javascript|text\/css|application\/manifest)/.test(type);
+    const etag = '"' + createHash('sha1').update(data).digest('base64url') + '"';
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', fresh ? 'no-cache' : 'public, max-age=3600');
+    if (fresh && req.headers['if-none-match'] === etag) {
+      if (type.startsWith('text/html')) res.setHeader('Content-Security-Policy', PAGE_CSP);
+      res.statusCode = 304;
+      res.removeHeader('Content-Length');
+      res.removeHeader('Content-Type');
+      res.end();
+      return true;
+    }
     if (type.startsWith('text/html')) res.setHeader('Content-Security-Policy', PAGE_CSP);
     res.end(req.method === 'HEAD' ? undefined : data);
     return true;
