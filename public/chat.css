@@ -17,6 +17,6 @@ body { background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -app
 .chat-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
 .chat-form[hidden] { display: none; }
 .chat-form input { flex: 1; min-width: 0; padding: 12px 14px; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
-.chat-form button { padding: 12px 18px; font: 600 15px system-ui; color: var(--me-ink); background: var(--me); border: 0; border-radius: 12px; cursor: pointer; }
+.chat-form button { padding: 12px 18px; font: 500 15px system-ui; color: var(--me-ink); background: var(--me); border: 0; border-radius: 12px; cursor: pointer; }
 .chat-form button:disabled { opacity: .5; }
 .chat-foot { padding: 8px 14px 12px; text-align: center; font-size: 12px; color: var(--ink-3); }

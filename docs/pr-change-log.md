@@ -1,3 +1,9 @@
+## Proposed PR — Lighter type everywhere (`ui/lighter-type`, on top of #290)
+
+- **Owner request (2026-10-12):** lessen the bold fonts across the app.
+- **Change:** every heavy weight goes down: 700–900 → 600, 550–650 → 500 (so fonts without in-between weights never fall back to bold); `b`, `strong`, `th` and headings default to 600 instead of the browser's 700. App, shared-chat page, voice glass, FAQ and professional registry pages. PDF/Word downloads keep their bold.
+- **Validation:** `npm test`; headless Chromium screenshots; no horizontal scroll at 320–1280 px.
+
 ## Proposed PR — Premium coding replies (`feature/coding-replies`, on top of #288)
 
 - **Owner request (2026-10-12):** smaller, different fonts in coding; premium replies with icons that match the meaning (green outline check for success, shield for secured, ✕ for failed); a super simple summary of the work.
