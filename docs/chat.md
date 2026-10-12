@@ -88,3 +88,8 @@ Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM tha
 ## Read-aloud control
 
 Each assistant reply has one icon-only read-aloud control. It toggles between Play and Stop in the same button, with no visible button background in its idle, hover, pressed, or playing states. Accessible labels and a title identify the current action; no separate Stop control is shown.
+
+
+## Instant small-talk replies
+
+In smart routing, plain greetings and brief acknowledgements from the NasrinAI platform chat use deterministic local replies after normal request validation, limits, message persistence, history loading, and policy checks. They do not call an AI provider. Requests with attachments, voice, professional selection, project context, personal context, or regeneration/edit operations continue through the normal path.
