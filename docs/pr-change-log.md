@@ -3,6 +3,12 @@
 - **Owner request (2026-10-12):** every reply from internet sources is kept permanently, on every tier. Chat (web search, shared links) already saved on all tiers through `finish()`; the research agent's findings did not reach `web_answers`. Now they do (facts as the answer, their pages as sources; question only for signed-in people).
 - **Validation:** `npm test`.
 
+## Proposed PR — Science and Media professions (`feature/professions-science-media`)
+
+- **Owner request (2026-10-12):** new Professional AI models for Science (researcher, biologist, chemist…) and Multimedia (broadcaster, news anchor, reporter…).
+- **Change:** two groups and ten professions in `src/ai/professions.js`, with two safety rules (`science`, `journalism`); everyday words that would mis-route Automatic mode left out. The page reads the catalog, so no UI change. `docs/professional.md`.
+- **Validation:** `npm test` (routing examples and safety text in the prompt).
+
 ## Proposed PR — Thinking line sets expectations (`ui/thinking-status`)
 
 - **Owner request (2026-10-12):** the "Thinking" line should say what is happening (browsing the internet, remembering, cooking, making your…, almost done).
