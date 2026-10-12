@@ -1255,16 +1255,19 @@
         const resp = await fetch('/v1/images/' + encodeURIComponent(imageId), { headers: { Authorization: 'Bearer ' + token } });
         if (!resp.ok) throw new Error('gone');
         const url = URL.createObjectURL(await resp.blob());
-        img.src = url;
         dl.href = url;
         dl.setAttribute('download', `nasrin-${imageId.slice(0, 8)}.${(resp.headers.get('content-type') || 'image/png').split('/')[1]}`);
         dl.hidden = false;
+        // Register before setting src so cached/fast image loads cannot skip
+        // the entrance transition. Reveal only after the image has decoded.
         img.addEventListener('load', () => {
           fig.classList.remove('is-loading');
+          fig.classList.add('is-ready');
           // The newest picture: keep Download and Regenerate in view.
           const msg = fig.closest('.msg');
           if (msg && msg === log.lastElementChild) scrollToEnd(msg);
         }, { once: true });
+        img.src = url;
       } catch {
         fig.classList.remove('is-loading');
         fig.classList.add('is-gone');
