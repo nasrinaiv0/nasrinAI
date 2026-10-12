@@ -6,7 +6,8 @@ export const PAGE_CSP = [
   "script-src 'self' https://challenges.cloudflare.com",
   "style-src 'self'",
   "img-src 'self' data: blob:",
-  "connect-src 'self' https://challenges.cloudflare.com",
+  // *.supabase.co: direct uploads to the project's private bucket (docs/uploads.md).
+  "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co",
   "frame-src https://challenges.cloudflare.com",
   "media-src 'self' blob:",
   "object-src 'none'",
