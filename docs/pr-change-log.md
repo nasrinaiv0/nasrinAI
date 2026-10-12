@@ -12,6 +12,14 @@
 - **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
 - **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
 
+## Draft PR #246 — Expose safe startup stage in 503 responses (`fix/startup-503-stage-response`)
+
+- **Problem:** production `/v1/status` returns HTTP 503 quickly and Vercel function logs are unavailable, so the operator cannot tell whether startup fails while loading configuration or constructing the app.
+- **Change:** add only a fixed `stage` label (`configuration` or `application`) to the existing 503 JSON response. Keep the incident ID and header. Never return exception text, stack traces, environment values, credentials, or provider payloads.
+- **Regression coverage:** `test/startup-diagnostics.test.js` asserts both stage labels and verifies internal exception details remain absent from client responses.
+- **Scope:** diagnostic-only; no auth logic, limits, environment values, security checks, or deployment settings change. This narrows the failure location but does not itself repair the underlying exception.
+- **Validation:** CI is required before merge. After a separately authorized deployment, inspect `/v1/status` response `error.stage` to direct the next code investigation.
+
 ## Proposed PR — Remove the Sign in button above the message box (`fix/remove-guest-signin`)
 
 - **Owner request (2026-10-12):** no Sign in button above the message box (#233 was merged before it could be closed). Sign in stays in the header on every screen; below 400 px the wordmark gives way so it fits. The iOS header icons from #233 stay.
