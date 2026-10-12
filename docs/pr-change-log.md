@@ -21,6 +21,15 @@ For every future NasrinAI PR:
 - **Docs:** `docs/security.md`, plus a troubleshooting note in `docs/operations.md`.
 - **Follow-up:** after deploy, request one email code and confirm Supabase Auth logs show `/otp` 200. If the error changes to a secret mismatch, re-enter the Turnstile secret in Supabase → Authentication → Bot and Abuse Protection.
 
+## Proposed PR — Media bucket size limit and Supabase security baseline (`security/media-bucket-size-limit`)
+
+- **Intent:** record the 2026-10-12 read-only production audit and commit the one fix already applied there.
+- **Migration 029:** sets `file_size_limit = 52428800` (50 MB) on the `media` bucket. It is repeatable, skips cleanly without Supabase Storage, and changes nothing else. It was applied to production on 2026-10-12 via the Supabase connector, where the history lists it as `026_media_bucket_size_limit`. The bucket was empty, and privacy and the MIME list were verified unchanged afterwards. Rollback is in the file header.
+- **RLS/grants:** unchanged. The audit found RLS on all 34 tables with deny-all policies for `anon`/`authenticated`, no browser-role grants, and no browser-executable functions.
+- **DB test:** `db/tests/029_media_bucket_size_limit.test.sql` checks the limit, privacy, MIME list, other buckets untouched, and repeatability. Locally `db/tests/run.sh` passes on Postgres 16, and the test was confirmed to fail when the migration sets the wrong limit.
+- **Docs:** new `docs/supabase-security-baseline.md`; `docs/database.md`.
+- **Owner follow-up:** S1, leaked-password protection, is a dashboard setting (Pro plan).
+
 ## Proposed PR — Turnstile sign-in protection
 
 - Initial CI surfaced three compatibility failures: the Google PKCE test still expected a GET/302 flow, the strict-CSP test expected `script-src` to contain only `'self'`, and Vercel's CDN CSP did not yet match the server CSP. Updated the test to exercise the new POST/JSON start flow, retained the narrow Turnstile CSP policy in both server and Vercel headers, and aligned the regression assertion. Re-run all CI checks before merge.
