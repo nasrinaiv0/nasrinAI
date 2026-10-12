@@ -93,7 +93,7 @@
   let aiAvailable = true;
   let listening = false;
   // Hands-free voice conversation (see "talking with Nasrin" below).
-  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, geminiState: null };
+  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, geminiState: null, audioCtx: null, audioEl: null };
 
   // ---------- the character ----------
 
@@ -4240,6 +4240,7 @@
         const map = { coral:'Kore', nova:'Aoede', shimmer:'Leda', sage:'Charon', ash:'Puck', echo:'Orus', alloy:'Zephyr', ballad:'Fenrir', verse:'Puck', marin:'Kore', cedar:'Charon' };
         session.gemini_voice = map[selected.slice(3)] || 'Kore';
         vc.geminiState = await window.NasrinGeminiRealtime.start(session, {
+          audioContext: vc.audioCtx,
           state: (s) => { vc.geminiState = s; vc.realtimeStream = s.stream; window.NasrinVoiceWave?.attach(s.stream); },
           active: () => vc.realtime, muted: () => vc.muted,
           open: () => { vc.realtimeProvider='gemini'; vc.realtime=true; voiceState('listening','Listening…'); Nasrin.mood('idle'); },
@@ -4258,9 +4259,10 @@
       if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) return false;
       const pc = new RTCPeerConnection();
       const events = pc.createDataChannel('oai-events');
-      const audio = document.createElement('audio');
+      const audio = vc.audioEl || document.createElement('audio');
+      vc.audioEl = null;
       audio.autoplay = true; audio.playsInline = true; audio.setAttribute('aria-hidden', 'true'); audio.style.display = 'none';
-      document.body.appendChild(audio);
+      if (!audio.isConnected) document.body.appendChild(audio);
       pc.ontrack = (e) => { audio.srcObject = e.streams[0]; audio.play().catch(() => {}); };
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
@@ -4311,6 +4313,9 @@
     try { vc.realtimePc?.close(); } catch {}
     try { vc.realtimeStream?.getTracks().forEach((t) => t.stop()); } catch {}
     try { vc.realtimeAudio?.remove(); } catch {}
+    try { vc.audioEl?.remove(); } catch {}
+    try { if (vc.audioCtx && vc.audioCtx !== vc.geminiState?.ctx) vc.audioCtx.close(); } catch {}
+    vc.audioEl = null; vc.audioCtx = null;
     vc.realtimePc = null; vc.realtimeEvents = null; vc.realtimeStream = null; vc.realtimeAudio = null; vc.geminiState = null;
     vc.realtimeProvider = null; vc.realtime = false;
   }
@@ -4323,6 +4328,10 @@
     vc.on = true;
     vc.muted = false;
     vc.quick = 0;
+    // Phones (iOS above all) only let sound start from the tap itself: make
+    // the realtime voice's audio output now, before anything is awaited.
+    try { if (AudioCtx) { vc.audioCtx = new AudioCtx(); vc.audioCtx.resume().catch(() => {}); } } catch { vc.audioCtx = null; }
+    try { vc.audioEl = document.createElement('audio'); vc.audioEl.style.display = 'none'; document.body.appendChild(vc.audioEl); vc.audioEl.play().catch(() => {}); } catch { vc.audioEl = null; }
     voiceMute.setAttribute('aria-pressed', 'false');
     voiceMute.setAttribute('aria-label', 'Mute microphone');
     voiceMute.title = 'Mute microphone';

@@ -1,3 +1,11 @@
+## Proposed PR — Realtime voice has sound again (`fix/realtime-voice-sound`)
+
+- **Owner report (2026-10-12):** realtime voice gives no sound.
+- **Cause:** Quick and Pro use Gemini Live, which sends its JSON as binary WebSocket frames; `public/gemini-realtime.js` parsed only text frames, so every reply (audio and words) was dropped silently. Also, the audio output was created after network awaits, which iPhones may keep muted.
+- **Change:** frames are read as bytes (`binaryType = 'arraybuffer'`) and decoded; the audio context (Gemini) and the audio element (OpenAI, Max/Ultra) are created during the tap that opens voice, then used by the session.
+- **Files:** `public/gemini-realtime.js`, `public/app.js`, `test/gemini-realtime-browser.test.js`.
+- **Validation:** new test fails before / passes after; `npm test`; headless Chromium voice screen opens and closes without errors. Not yet tested against live Gemini on a phone.
+
 ## Proposed PR — Sign in always available when signed out (`fix/signin-always-visible`)
 
 - **Owner report (2026-10-12):** the Sign in button was missing. The header button hid whenever `/v1/status` had not said which sign-in methods exist, so a slow or failing status check (the 503 outage) left guests with no way to sign in, and a signed-in person's session was not restored (no Log out).

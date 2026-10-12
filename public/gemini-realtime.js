@@ -18,21 +18,26 @@
     const now=state.ctx.currentTime;state.next=Math.max(state.next||now,now+0.02);src.start(state.next);state.next+=buf.duration;state.sources.push(src);
     src.onended=()=>{const i=state.sources.indexOf(src);if(i>=0)state.sources.splice(i,1);};
   };
+  const decoder = new TextDecoder();
   const stop = (state) => { for(const s of state.sources.splice(0)){try{s.stop();}catch{}try{s.disconnect();}catch{}} if(state.ctx)state.next=state.ctx.currentTime; };
   window.NasrinGeminiRealtime = {
     async start(session, hooks) {
       if(!window.WebSocket||!window.AudioContext||!navigator.mediaDevices?.getUserMedia) throw new Error('Gemini realtime voice is not supported in this browser.');
       const state={ws:null,ctx:null,processor:null,stream:null,sources:[],next:0,buffer:[]};
       const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(session.value));
+      // Gemini sends its JSON messages as binary frames: read them as bytes.
+      ws.binaryType='arraybuffer';
       const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
-      const ctx=new AudioContext();await ctx.resume();
+      // A context made during the tap (hooks.audioContext) can play on iPhones;
+      // one made later, after awaits, may stay silent.
+      const ctx=hooks.audioContext||new AudioContext();try{await ctx.resume();}catch{}
       const processor=ctx.createScriptProcessor(4096,1,1),source=ctx.createMediaStreamSource(stream);
       Object.assign(state,{ws,ctx,processor,stream}); hooks.state(state);
       const flush=()=>{if(ws.readyState!==WebSocket.OPEN||!state.buffer.length)return;let n=0;for(const x of state.buffer)n+=x.length;const m=new Uint8Array(n);let o=0;for(const x of state.buffer){m.set(x,o);o+=x.length;}state.buffer=[];ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(m),mimeType:'audio/pcm;rate=16000'}}}));};
       processor.onaudioprocess=e=>{if(!hooks.active()||hooks.muted())return;state.buffer.push(downsample(e.inputBuffer.getChannelData(0),ctx.sampleRate));let n=0;for(const x of state.buffer)n+=x.length;if(n>=1600)flush();};
       source.connect(processor);processor.connect(ctx.destination);
       ws.onopen=()=>{ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Kore'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.'}]}}}));hooks.open();};
-      ws.onmessage=e=>{let msg;try{msg=JSON.parse(e.data);}catch{return;}const c=msg.serverContent;if(!c)return;if(c.inputTranscription?.text)hooks.input(c.inputTranscription.text);if(c.outputTranscription?.text)hooks.output(c.outputTranscription.text);if(c.modelTurn?.parts)for(const p of c.modelTurn.parts)if(p.inlineData?.data)play(state,p.inlineData.data);if(c.interrupted){stop(state);hooks.interrupted();}if(c.turnComplete)hooks.complete();};
+      ws.onmessage=e=>{let msg;try{msg=JSON.parse(typeof e.data==='string'?e.data:decoder.decode(e.data));}catch{return;}const c=msg.serverContent;if(!c)return;if(c.inputTranscription?.text)hooks.input(c.inputTranscription.text);if(c.outputTranscription?.text)hooks.output(c.outputTranscription.text);if(c.modelTurn?.parts)for(const p of c.modelTurn.parts)if(p.inlineData?.data)play(state,p.inlineData.data);if(c.interrupted){stop(state);hooks.interrupted();}if(c.turnComplete)hooks.complete();};
       ws.onerror=()=>hooks.error(); ws.onclose=()=>hooks.close();
       return state;
     },
