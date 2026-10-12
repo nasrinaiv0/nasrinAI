@@ -5808,18 +5808,19 @@
 
         const actions = mk('div', 'prj-actions');
         actions.hidden = true;
-        const actionButton = (label, kind, path, onClick) => {
+        const actionButton = (label, kind, path, description, onClick) => {
           const button = mk('button', 'prj-action prj-action-' + kind);
           button.type = 'button';
-          button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg><span></span>';
-          button.querySelector('span').textContent = label;
+          button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg><strong></strong><span class="prj-action-description"></span>';
+          button.querySelector('strong').textContent = label;
+          button.querySelector('.prj-action-description').textContent = description;
           button.addEventListener('click', onClick);
           return button;
         };
         actions.append(
-          actionButton('Open', 'open', 'M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8A1.5 1.5 0 0 1 20.5 9.5v8A1.5 1.5 0 0 1 19 19H5A1.5 1.5 0 0 1 3.5 17.5z', () => openProject(p.id)),
-          actionButton('Chat', 'chat', 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z', () => startProjectChat(p, 'chat')),
-          actionButton('Code', 'code', 'm8 8-4 4 4 4m8-8 4 4-4 4m-3-12-2 16', () => startProjectChat(p, 'code'))
+          actionButton('Open', 'open', 'M3.5 8A2 2 0 0 1 5.5 6h4l2 2H18a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z M5 12h14', 'View project details', () => openProject(p.id)),
+          actionButton('Chat', 'chat', 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z', 'Start a project chat', () => startProjectChat(p, 'chat')),
+          actionButton('Code', 'code', 'm8 8-4 4 4 4m8-8 4 4-4 4m-3-12-2 16', 'Start a coding conversation', () => startProjectChat(p, 'code'))
         );
         toggle.addEventListener('click', () => {
           const expanded = toggle.getAttribute('aria-expanded') !== 'true';
