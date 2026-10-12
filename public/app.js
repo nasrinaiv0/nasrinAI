@@ -4424,6 +4424,12 @@
   let modelList = [];
   let currentModel = '';
   let plansEnabled = false;
+  // The tier bars show the saved choice at once; they never wait for the
+  // model list to arrive.
+  {
+    const level = LEVEL[saved.get(KEYS.model)] || 1;
+    modelBtn.querySelectorAll('.bars rect').forEach((r, i) => r.classList.toggle('on', i < level));
+  }
 
   function barsIcon(level) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
