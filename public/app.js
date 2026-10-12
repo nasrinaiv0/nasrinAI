@@ -1776,6 +1776,17 @@
   }
 
   form.addEventListener('submit', (e) => { e.preventDefault(); if (turn) { turn.ctrl.abort(); return; } send(input.value); });
+  // Desktop (mouse and keyboard): Enter sends, Shift+Enter starts a new line.
+  // Phones and tablets: Enter starts a new line; the Send button sends.
+  // Typing with an input method (IME, e.g. Japanese) never sends early, and
+  // Enter never stops a reply that is being written.
+  const desktopKeys = window.matchMedia('(hover: hover) and (pointer: fine)');
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.isComposing || e.keyCode === 229 || !desktopKeys.matches) return;
+    e.preventDefault();
+    if (!turn) send(input.value);
+  });
   input.addEventListener('input', () => {
     autosize();
     if (busy || listening) return;

@@ -13,6 +13,15 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Desktop: Enter sends, Shift+Enter new line (`fix/desktop-enter-to-send`)
+
+- **Intent:** owner request (2026-10-12): on desktop, Enter sends and Shift+Enter starts a new line.
+- **Change:** `public/app.js` adds a keydown handler on the message box. It sends only on desktop (`(hover: hover) and (pointer: fine)`), never with Shift, Alt, Ctrl or Meta, never while an input method is composing, and never while a reply is being written. Touch devices keep the 2026-10-07 rule (Enter = new line, the Send button sends).
+- **Check (headless Chromium, local fake-provider run):** desktop: Shift+Enter adds a line, Enter sends, and Enter during a streaming reply keeps the text and doesn't stop the reply. Phone (390 px touch): Enter adds a line and doesn't send.
+- **Regression test:** `test/desktop-enter.test.js` (fails without the change).
+- **Docs:** `docs/chat.md`.
+- **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
 
 - **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.

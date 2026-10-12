@@ -49,3 +49,13 @@ Supported archive/document parsers must treat truncated archives, malformed mani
 
 
 ZIP archive validation is intentionally limited to classic single-disk ZIP files. The parser rejects inconsistent entry counts, central-directory bounds, truncated directory records, unsupported ZIP64 sentinel values, local-header mismatches, and entry payloads that extend into the central directory. Extracted data must match its declared uncompressed size and stay within existing per-entry and per-file limits.
+
+## Sending with the keyboard
+
+- **Desktop** (mouse and keyboard, `(hover: hover) and (pointer: fine)`): **Enter** sends; **Shift+Enter** starts a new line.
+- **Phones and tablets** (touch): Enter starts a new line; the Send button sends (owner's 2026-10-07 rule).
+- Typing with an input method (IME, e.g. Japanese or Chinese) never sends early (`isComposing`, key code 229).
+- Enter never stops or interrupts a reply that is being written; the text stays in the box.
+
+Test: `test/desktop-enter.test.js`.
+
