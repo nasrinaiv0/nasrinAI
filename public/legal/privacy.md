@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-12b** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-12e** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -33,13 +33,16 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 
 ### When you chat as a guest
 - **A random guest ID**, inside a signed token stored in your browser. Used to keep your chat together and to apply fair-use limits. *Basis: providing the service you asked for (contract) and our legitimate interest in preventing abuse.*
-- **Your messages and Nasrin's replies.** Used to answer you and to keep the conversation going. Deleted automatically 24 hours after the chat starts. *Basis: contract.*
+- **Your messages are not stored.** What you type as a guest on NasrinAI is used to answer you and is never saved on our servers. To let Nasrin follow the conversation, your browser keeps this chat's earlier messages (in the open page only) and sends them with your next message. *Basis: contract.*
+- **Nasrin's replies.** Kept with the chat so you can see them again and have them read aloud, and deleted automatically 24 hours after the chat starts. *Basis: contract.*
+- **Answers from the internet.** When Nasrin's reply used web pages (a web search, or a link in your message), that reply and its source links are also kept permanently in NasrinAI's general answer library, without your guest ID, your chat or your message. Contact details are removed. *Basis: our legitimate interest in answering future questions well.*
 - **Pictures you ask Nasrin to make.** Kept with the chat and deleted with it.
 
 ### When you sign in
 - **Your email address and account ID** (held by our sign-in provider, Supabase). Used to sign you in with a one-time code. *Basis: contract.*
 - **If you use Google sign-in**, Google shares your name, email address and profile picture with our sign-in provider. NasrinAI itself uses only your account ID and email address.
 - **Your chats**, kept until you delete them or your account. Signed-in chats are kept until you delete them or your account, or until the keep-time you choose.
+- **Answers from the internet:** when a reply used web pages (a web search, or a link in your message), your question and that reply, with their source links and with contact details removed, are also kept permanently in NasrinAI's general answer library, without your account ID or chat. *Basis: our legitimate interest in answering future questions well.*
 - **Changing a chat:** if you stop a reply, the part already written is kept in the chat. If you ask for a new answer or edit your last message, the earlier answer (and, for an edit, the old message) is deleted from the chat.
 - **Pictures Nasrin made for you**, deleted after **30 days** unless you choose another keep-time in your Library. Clean-up runs hourly on the server, including when you are not actively using NasrinAI. Download the ones you want to keep.
 - **Your Library**: text files you add (.txt, .md, .csv, .json), notes you write and replies you save. Only the text is kept, not the original file. Used to show them back to you, to search them, and, unless you turn it off (Settings → Privacy → Use my Library in chats), the parts that match your message are sent with that message to the AI service that writes the answer; the reply says which file was used. Library text is not added to your chats or to memory. Kept until you delete the item or your account, or until the keep-time you choose. *Basis: contract.*
@@ -120,7 +123,8 @@ Most of these providers process data outside the Philippines (for example in the
 
 ## 6. How long we keep information
 
-- Guest chats and pictures: **24 hours** (also on business websites and Facebook Pages)
+- Guests on NasrinAI: what you type is **not stored**; Nasrin's replies and pictures: **24 hours**. Guest chats on business websites and Facebook Pages: **24 hours**
+- Answers that used the internet (reply and source links; for signed-in people also the question, never who asked): **kept permanently**. They cannot be linked back to you, so they are not removed when you delete your account
 - Signed-in chats: until you delete them or your account, or the keep-time you choose (no automatic expiry for chats/files if you have not chosen), subject to applicable legal retention requirements.
 - Signed-in pictures: **30 days**, or the keep-time you choose
 - Memory notes: until you delete them or your account

@@ -34,6 +34,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const library = new Map();      // Library files (with their chunks)
   const projects = new Map();     // projects (with their tasks)
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
+  const webAnswers = [];   // permanent web answers (migration 037): no owner
   const iso = () => new Date(now()).toISOString();
 
   tenants.set(PLATFORM_TENANT_ID, { id: PLATFORM_TENANT_ID, kind: 'platform', status: 'active', daily_token_limit: 0 });
@@ -425,6 +426,11 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       for (const m of Object.values(links)) for (const [k, l] of m) if (l.tenantId === tenantId && l.userId === userId) m.delete(k);
       for (const e of usage) if (e.tenantId === tenantId && e.actorType === 'user' && e.actorId === userId) e.actorId = 'deleted-user';
     },
+
+    async addWebAnswer({ question, answer, sources }) {
+      webAnswers.push({ id: randomUUID(), question, answer, sources, createdAt: iso() });
+    },
+    listWebAnswers() { return webAnswers.map((a) => ({ ...a })); },
 
     async purgeImagesBefore(before) {
       for (const [id, r] of images) if (r.ownerType === 'service' && Date.parse(r.createdAt) < before.getTime()) images.delete(id);

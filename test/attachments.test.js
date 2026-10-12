@@ -225,8 +225,9 @@ test('end to end: files reach the model for this reply; only their names are sav
     assert.match(sentText, /\[phone\]/, 'text files are redacted before leaving the server');
 
     const page = await (await fetch(`${url}/v1/conversations/${conversation_id}/messages`, { headers: bearer(g) })).json();
-    assert.equal(page.messages[0].content, 'Summarise these\n\n[Attached: photo.jpg, notes.txt]');
-    assert.doesNotMatch(JSON.stringify(page), /Call 0917|\/9j/);
+    // A guest's message (even the file names) is never saved; only the reply is.
+    assert.deepEqual(page.messages.map((m) => [m.role, m.content]), [['assistant', 'Got it.']]);
+    assert.doesNotMatch(JSON.stringify(page), /Summarise|notes\.txt|Call 0917|\/9j/);
   });
 });
 

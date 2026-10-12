@@ -1652,6 +1652,18 @@
     return runTurn({ text, files, editId: editing ? editing.id : null, editEl: editing ? editing.el : null });
   }
 
+  // Guests: what they type is never saved on the server (owner decision,
+  // 2026-10-12). The page keeps this chat's earlier messages, in memory only,
+  // and sends them with the next one so Nasrin can follow the conversation.
+  let guestTurns = { conversation: null, list: [] };
+  const guestTurnsFor = (id) => (!account && id && guestTurns.conversation === id ? guestTurns.list.slice(-10) : []);
+  function rememberGuestTurn(id, text) {
+    if (account || !id || !text) return;
+    if (guestTurns.conversation !== id) guestTurns = { conversation: id, list: [] };
+    guestTurns.list.push(String(text).slice(0, 4000));
+    if (guestTurns.list.length > 10) guestTurns.list.shift();
+  }
+
   // One reply: a new message, Regenerate (replace: the old answer), Retry
   // (regenerate after a failure), or an edited last message.
   // spoken: this turn is part of a voice conversation (short, spoken-style reply).
@@ -1689,6 +1701,7 @@
     refreshSendButton();
     refreshTurnControls();
     let started = null;   // { conversation_id, user_message_id } once the message is saved
+    let turnKept = false; // a guest's message, kept on this page for the next turn (and for Retry)
 
     const body = (id) => ({
       ...(regenerate ? { regenerate: true } : { message: text }),
@@ -1700,6 +1713,7 @@
       ...(!id && chatProject ? { project_id: chatProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
+      ...(guestTurnsFor(id).length ? { guest_turns: guestTurnsFor(id) } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
     const hooks = {
@@ -1708,7 +1722,8 @@
         started = ev;
         conversationId = ev.conversation_id;
         saved.set(identityKey(KEYS.conversation), conversationId);
-        if (userEl) userEl.dataset.id = ev.user_message_id;
+        if (userEl && typeof ev.user_message_id === 'string') userEl.dataset.id = ev.user_message_id;
+        if (!regenerate && text && !turnKept) { rememberGuestTurn(ev.conversation_id, text); turnKept = true; }
       },
       onDelta: (piece) => { live.add(piece, thinking); if (onPiece) onPiece(piece); },
       onReset: () => { live.clear(); if (onPiece) onPiece(null); },
@@ -1730,7 +1745,8 @@
       live.remove();
       conversationId = data.conversation_id;
       saved.set(identityKey(KEYS.conversation), conversationId);
-      if (userEl && data.user_message_id) userEl.dataset.id = data.user_message_id;
+      if (userEl && typeof data.user_message_id === 'string') userEl.dataset.id = data.user_message_id;
+      if (!regenerate && text && !turnKept) { rememberGuestTurn(conversationId, text); turnKept = true; }
       if (data.project && typeof data.project.id === 'string') setChatProject(data.project);
       busy = false;
       if (!data.message) return;
