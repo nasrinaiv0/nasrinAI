@@ -29,6 +29,12 @@ How to run NasrinAI in production and what to do when something goes wrong.
 
 Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` together in Vercel for each environment that should use the challenge. The site key is public; the secret must remain a Sensitive server environment variable and must never be placed in client code. Configure Supabase Dashboard → Authentication → Bot and Abuse Protection → CAPTCHA to use Cloudflare Turnstile and enter the same secret for email OTP verification. The application uses Turnstile's `interaction-only` appearance so the widget is shown only when Cloudflare requires interaction. Each protected sign-in request gets a single-use token; the client resets the widget after the request finishes, not immediately before the request. Email challenge tokens are passed to Supabase and Google OAuth-start tokens are verified server-side. After changing environment variables, redeploy and test both email OTP and Google sign-in. If either key is missing, configuration fails; with both absent, Turnstile remains disabled.
 
+**Troubleshooting "Security check failed" on email codes.** The page shows this when Supabase Auth rejects the CAPTCHA. Check Supabase → Logs → Auth for `/otp` warnings:
+
+- `no captcha_token found`: the server sent the token in the wrong field. Fixed by sending it as `gotrue_meta_security.captcha_token` (see `test/signin.test.js`). Every email sign-in failed this way until that fix (seen 2026-10-11).
+- `invalid-input-secret` or similar: the Turnstile secret in Supabase's CAPTCHA settings does not belong to the widget whose site key is in Vercel. Re-enter the matching secret in Supabase.
+- `timeout-or-duplicate`: the token was expired or reused. The page resets the widget after each request; ask the user to try again.
+
 ## Manual live quality and red-team evaluations
 
 The `.github/workflows/manual-live-evaluations.yml` workflow is intentionally manual; it does not run on pushes or pull requests. It lets an operator launch the existing evaluation suites from GitHub Actions, including from a phone.
