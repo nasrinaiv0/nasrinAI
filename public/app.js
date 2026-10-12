@@ -936,13 +936,16 @@
   }
 
   function refreshSendButton() {
-    // While a reply is being written the button is Stop.
+    // While a reply is being written the button is Stop. While you dictate it
+    // stops listening (it never sends then), so it shows Stop too, even once
+    // words have arrived; after that it sends.
     const stopping = Boolean(turn);
     sendBtn.classList.toggle('is-stop', stopping);
+    sendBtn.classList.toggle('is-listening', listening && !stopping);
     const hasText = Boolean(input.value.trim() || pending.length);
     sendBtn.classList.toggle('has-text', hasText || stopping);
-    sendBtn.title = stopping ? 'Stop' : hasText ? 'Send' : 'Dictate';
-    sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : hasText ? 'Send message' : 'Dictate message');
+    sendBtn.title = stopping ? 'Stop' : listening ? 'Stop listening' : hasText ? 'Send' : 'Dictate';
+    sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : listening ? 'Stop listening' : hasText ? 'Send message' : 'Dictate message');
     sendBtn.disabled = !stopping && (busy || !aiAvailable || preparing > 0 || (!hasText && !Recognition));
   }
 
@@ -2430,8 +2433,21 @@
     settingsBtn.setAttribute('aria-expanded', 'false');
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
+  // Guests see Sign in just above the message box on phones and tablets, and
+  // in the header on desktop (CSS picks one by screen width).
+  const guestSignIn = $('guestSignIn');
   const headerSignIn = $('headerSignIn');
-  if (headerSignIn) headerSignIn.addEventListener('click', () => openSignIn());
+  guestSignIn.addEventListener('click', () => openSignIn());
+  headerSignIn.addEventListener('click', () => openSignIn());
+  // While typing on a phone the keyboard needs the room, so the capsule steps
+  // aside. It comes back a moment after the box loses focus, so a tap on Send
+  // lands before anything moves.
+  let typingTimer = 0;
+  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.add('is-typing'); });
+  input.addEventListener('blur', () => {
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.remove('is-typing'); }, 300);
+  });
   settingsBtn.addEventListener('click', () => (sheet.hidden ? openSettings() : closeSettings()));
 
   // Canonical FAQ deep link: open the same in-app Help & Support page used by
@@ -2570,7 +2586,7 @@
     accountBtn.hidden = Boolean(account);
     if (accountOpen) accountOpen.hidden = !account;
     if (accountDetailEmail) accountDetailEmail.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
-    if (headerSignIn) headerSignIn.hidden = Boolean(account);
+    guestSignIn.hidden = headerSignIn.hidden = Boolean(account) || !can;
     showConnectForSignedIn();
     $('logoutMenu').hidden = !account;
   }
@@ -3736,8 +3752,7 @@
     form?.classList.toggle('is-listening', on);
     voiceMeter?.classList.toggle('is-active', on);
     micBtn.setAttribute('aria-pressed', String(on));
-    micBtn.title = on ? 'Stop listening' : 'Dictate message';
-    micBtn.setAttribute('aria-label', on ? 'Stop listening' : 'Dictate message');
+    refreshSendButton();   // the icon and name follow: Stop while listening, then Send or Dictate
     if (on) Nasrin.mood('listening');
     else if (Nasrin.current === 'listening') Nasrin.mood('idle');
   }

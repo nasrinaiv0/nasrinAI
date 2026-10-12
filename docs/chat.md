@@ -108,3 +108,19 @@ The model-tier selector and Professional AI mode control must both be present in
 ## Excel workbook export
 
 When creating an `.xlsx` deliverable, the assistant may return up to 8 named worksheet blocks inside one file block. Each worksheet uses `[[sheet name="Cleaned Data"]]`, comma-separated or tab-separated rows, and `[[/sheet]]`. The browser builds a real workbook with separate tabs, safe formulas, frozen header rows, and filters. This is not in-place editing of the uploaded workbook and does not create native Excel pivot tables or chart objects. Those capabilities must not be claimed until separately implemented and tested.
+
+## Voice typing (the mic button)
+
+With an empty message box, the round button at the right is the mic. Tap it
+and talk; your words appear in the box as you speak.
+
+- **While listening**, the button shows **Stop** (a square) and is named
+  "Stop listening", even after words arrive: a tap stops listening and keeps
+  the text. It never sends while listening.
+- **After that**, with text in the box, it is **Send** (the arrow); with an
+  empty box it is the mic again.
+- The browser's own speech recognition is used; nothing extra is recorded or
+  kept. If it keeps failing, voice typing stops with a plain reason.
+
+Test: `test/dictation-button.test.js`.
+
