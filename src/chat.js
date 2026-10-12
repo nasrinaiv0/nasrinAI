@@ -444,9 +444,13 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // cache. Reuse only requests that already pass policy.cacheKey's existing
       // public/simple/history/tier safeguards; scope each search to this actor and task.
       let semanticEntry = null;
+      const contextHash = createHash('sha256').update(JSON.stringify({
+        history: fullHistory,
+        attachments: files
+      })).digest('hex');
       const semanticScope = createHash('sha256').update([
         caller.tenantId, caller.actor.type, caller.actor.id, plan.tier,
-        plan.task, plan.level, variant
+        plan.task, plan.level, variant, contextHash
       ].join('|')).digest('hex');
       if (semanticCache && key) {
         try {
