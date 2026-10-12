@@ -62,12 +62,9 @@ Owner request (2026-10-12): "change these icons make it iOS like icons" and
   clock with a back arrow, Settings is a gear (in place of the sliders), and
   New chat is the iOS compose square and pencil. The same icons are used in
   the header and the desktop rail.
-- Signed out, on phones and tablets (the mobile view, under 70rem) a
-  "Sign in" capsule (person icon) sits just above the message box, and the
-  header has no Sign in, so the wordmark always fits. On desktop, Sign in stays
-  in the header (owner, 2026-10-12: "for mobile view only"). It is hidden when signed in or when no sign-in method
-  is set up. It is 44 pt tall on touch screens, and it steps aside while the
-  keyboard is up.
+- Sign in stays in the header on every screen size (owner, 2026-10-12: the
+  button above the message box was removed). On phones up to 400 px the
+  wordmark gives way so the header fits.
 - Checked in headless Chromium at 320, 390 and 768 px (touch) and 1280 px,
   light and dark: no sideways scroll, and the capsule opens sign-in. Tests:
   `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`.
