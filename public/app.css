@@ -2430,3 +2430,8 @@ body.coding-mode .wordmark::after { content: " Code"; color: var(--ink-3); }
   body.coding-mode .wordmark::after { content: none; }
   .coding-project { max-width: 9rem; }
 }
+
+/* Library glyph: one filled, theme-adaptive icon (menu, tab bar, Space), no background. */
+svg.lib-glyph, .drawer-link svg.lib-glyph, :root[data-tabbar="on"] .tab-item svg.lib-glyph { fill: currentColor; stroke: none; }
+svg.lib-glyph .lib-glyph-dim { opacity: .5; }
+#pageSpace .space-app-glyph { padding: .35rem; box-sizing: border-box; color: var(--ink); background: transparent; filter: none !important; border-radius: 0; }

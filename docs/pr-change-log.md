@@ -5,6 +5,33 @@
 - **Data:** none new (coding chats are project chats); no legal change.
 - **Validation:** `npm test` (coding rules, files kept, flag check); headless Chromium at 390/1280 px (pick/create project, coding bar, Code experts, request carries `coding` + project + group, survives reload, switch, leave); no horizontal scroll at 320–1280 px.
 
+## Proposed PR — One Library icon (`ui/library-icon`)
+
+- **Owner request (2026-10-12):** use the Library app icon (bars with a dot and a base line) for Library everywhere, theme-adaptive, no background.
+- **Change:** one inline glyph (`svg.lib-glyph`, `currentColor`, two bars at half strength) in the menu, the tab bar and the NasrinAI Space tile; no badge background, follows light/dark and palettes.
+- **Validation:** `npm test`; headless Chromium screenshots in light and dark (menu and Space).
+
+## Proposed PR — Projects in NasrinAI Space (`ux/space-projects`)
+
+- **Owner report (2026-10-12):** the project expand features (#283) seem missing.
+- **Found:** #283 is live and works (checked in a browser: arrow → Open, Chat, Code), but NasrinAI Space had no Projects tile, so projects were only under Menu → Projects. Also the "Go to your space" starter did nothing visible: it switched pages inside the closed Settings sheet.
+- **Change:** a Projects tile in NasrinAI Space (hidden when Projects are off) opens Your projects; the starter opens Settings first, then Space. New icon `public/space-logos/icon-projects.svg` in the Library icon's style. `docs/projects.md`.
+- **Validation:** `npm test`; headless Chromium at 390 px and 1280 px (starter → Space → Projects tile → Your projects).
+
+## Proposed PR — Replies keep going when you open another chat (`fix/background-chat-switch`)
+
+- **Owner report (2026-10-12):** an ongoing reply should not be interrupted when another chat is started.
+- **Found:** New chat already let the reply finish (#281, checked in a browser), but opening another chat from Your chats or the menu was ignored or stopped the reply, and a project's Chat/Code buttons did nothing while a reply was running.
+- **Change:** one `detachTurn()` used by New chat, opening a chat and project Chat/Code; the earlier reply finishes and is saved in its own chat, with the same notice. `docs/chat.md`.
+- **Validation:** `npm test`; headless Chromium at 390 px and 1280 px: open another chat while a slow reply runs → both chats saved with their replies, composer free.
+
+## Proposed PR — Google sign-in waits for the security check (`fix/google-signin-check`)
+
+- **Owner report (2026-10-12):** Google sign-in does not work and keeps asking to complete the security check.
+- **Cause:** the Cloudflare check runs invisibly and takes a few seconds; tapping the button before it finished failed at once with "Complete the security check first". After coming back from Google with Back, the button stayed disabled.
+- **Change:** sign-in (Google and email code) waits up to 20 s for the check, shows "Checking your connection is secure…", and shows a clear message if Cloudflare reports an error; Back from Google re-enables the button with a fresh check. `docs/sign-in.md`.
+- **Validation:** `npm test`; headless Chromium with a stubbed Turnstile (slow success → request sent with the token; error → clear message).
+
 ## Proposed PR — Documents download as PDF (`fix/doc-file-types`)
 
 - **Owner request (2026-10-12):** a meal plan and shopping list came as an `.html` download; documents should be PDF (or Word, etc.), `.html` only for coding.
