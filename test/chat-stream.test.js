@@ -166,3 +166,17 @@ test('pictures keep their own Regenerate', async () => {
     assert.equal((await a.store.listMessages(conv.id)).length, 2, 'nothing removed');
   } finally { await a.close(); }
 });
+
+test('streaming: a status word says what Nasrin is doing (links), never free text', async () => {
+  const provider = createFakeProvider({ reply: () => 'The page is about tea.' });
+  const built = buildTestApp({ provider, verifyUser: users, readLinkImpl: async (u) => ({ url: u, title: 'Tea', text: 'Tea facts.' }) });
+  const srv = await serve(built.app);
+  try {
+    const r = await streamed(srv.url, { message: 'What is on https://example.com/tea ?' });
+    const statuses = r.events.filter((e) => e.type === 'status');
+    assert.deepEqual(statuses, [{ type: 'status', stage: 'links' }]);
+    assert.ok(r.events.indexOf(statuses[0]) > 0, 'after start');
+    const plain = await streamed(srv.url, { message: 'hello there friend' });
+    assert.equal(plain.events.filter((e) => e.type === 'status').length, 0);
+  } finally { await srv.close(); }
+});

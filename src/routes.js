@@ -21,6 +21,9 @@ function appOriginOf(req) {
   return /^[a-z0-9.-]+(:\d{1,5})?$/.test(host) && (proto === 'https' || proto === 'http') ? proto + '://' + host : null;
 }
 
+// Words the chat stream may send to say what Nasrin is doing (no free text).
+const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
+
 export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
@@ -1298,6 +1301,7 @@ return { body: { sites: await connect.list(caller) } }; }
         try {
           const out = await chat(caller, body, ip, { stream: {
             start: (info) => send({ type: 'start', ...info }),
+            status: (stage) => { if (STAGES.has(stage)) send({ type: 'status', stage }); },
             onText: (text) => { send({ type: 'delta', text }); speaker?.push(text); },
             reset: () => { speaker?.reset(); send({ type: 'reset' }); }
           }, signal: stop.signal });
