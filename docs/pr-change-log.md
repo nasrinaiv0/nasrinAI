@@ -617,3 +617,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep cache writes best-effort: a rejected insert is caught, logged with a fixed safe message, and does not turn a successful AI answer into a chat failure.
 - Add chat integration regression tests for both delayed writes (response remains pending until the write attempt settles) and failed inserts (chat still returns HTTP 200 without exposing database error details).
 - No SQL, RLS, authentication, token-limit, provider-routing, or unrelated UI changes.
+
+
+## Proposed PR — Universal slash commands execute first (`feature/universal-slash-execute-first`)
+
+- **Owner request (2026-10-12):** add universal shortcuts such as `/clone` and `/blur` across NasrinAI, and avoid unnecessary follow-up questions.
+- **Change:** add a dependency-free browser command registry for image, video and common chat tasks; dispatch image/video shortcuts to existing media endpoints; execute image shortcuts directly without optional brief questions or the extra confirmation sheet; add execute-first instructions to the chat system prompt. Commands needing a reference image require an attachment. Server-side authorization, plan, budget, legal and safety checks remain unchanged.
+- **Documentation:** `docs/features/universal-slash-commands.md`, `docs/chat.md`, `README.md`.
+- **Validation:** regression tests added in `test/shortcuts.test.js`. Full test, secret-scan, database, GitGuardian and Vercel Preview checks have not yet been observed; do not merge until required checks pass.
