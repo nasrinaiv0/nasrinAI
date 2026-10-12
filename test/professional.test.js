@@ -109,3 +109,19 @@ test('chat: businesses and PROFESSIONAL_AI=false stay Universal', async () => {
     assert.equal((await (await fetch(off.url + '/v1/professionals')).json()).enabled, false);
   } finally { await off.close(); }
 });
+
+test('science and media groups: automatic routing, and their safety rules reach the prompt', () => {
+  assert.deepEqual(membersOf('science'), ['scientific_researcher', 'biologist', 'chemist', 'physicist', 'environmental_scientist', 'statistician']);
+  assert.deepEqual(membersOf('media'), ['broadcaster', 'news_anchor', 'reporter', 'multimedia_producer']);
+  const top = (q) => resolve(auto, q)?.active[0];
+  assert.equal(top('Explain how DNA replication works'), 'biologist');
+  assert.equal(top('balance this chemical reaction: H2 + O2'), 'chemist');
+  assert.equal(top('a ball rolls with velocity 3 m/s and acceleration 2'), 'physicist');
+  assert.equal(top("write a news script for tonight's newscast"), 'news_anchor');
+  assert.equal(top('plan a podcast episode about coffee'), 'multimedia_producer');
+  assert.notEqual(top('general business plan for my cafe'), 'biologist', '"general" is not "gene"');
+  const chem = promptBlock(resolve({ enabled: true, mode: 'single', ids: ['chemist'] }, 'x'), 'x');
+  assert.match(chem, /Never give instructions for weapons/);
+  const news = promptBlock(resolve({ enabled: true, mode: 'single', ids: ['reporter'] }, 'x'), 'x');
+  assert.match(news, /never invent quotes/);
+});
