@@ -74,7 +74,10 @@ export function createSupabaseAuth({ url, publishableKey, fetchImpl = fetch, tim
     // Sends a sign-in code by email; creates the account on first sign-in.
     async sendCode(email, captchaToken) {
       const body = { email, create_user: true };
-      if (captchaToken) body.captcha_token = captchaToken;
+      // Supabase Auth reads the CAPTCHA token only from gotrue_meta_security
+      // (as supabase-js does); a top-level captcha_token is ignored and every
+      // request is rejected with "no captcha_token found".
+      if (captchaToken) body.gotrue_meta_security = { captcha_token: captchaToken };
       const r = await call('otp', body);
       if (r.ok) return;
       if (r.status === 429) throw new HttpError(429, 'rate_limited', 'Too many codes were sent. Please wait a few minutes and try again.', { retryAfter: 60 });
