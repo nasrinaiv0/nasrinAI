@@ -39,6 +39,9 @@ bar while coding, on NasrinAI Space → Coding and in the project picker.
 became SMIL `<animate>`, so the strict CSP (no inline styles) still allows
 them. CSS (`.code-logo`) picks the tile for the theme and motion setting:
 light UI → dark robot on a light tile, dark UI → the reverse.
+While Nasrin works in the coding chat (thinking, remembering, reading,
+searching) the thinking line shows `code-bot-*-busy.svg`: the same robot about
+4× faster (still when motion is reduced).
 
 ## Replies
 

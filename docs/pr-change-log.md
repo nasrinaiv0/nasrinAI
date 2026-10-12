@@ -1,3 +1,9 @@
+## Proposed PR — Busy pixel robot on the coding thinking line (`ui/code-thinking`)
+
+- **Owner request (2026-10-12):** in the coding chat the thinking avatar uses the pixel robot, with a more aggressive animation while thinking, remembering, etc.
+- **Change:** `code-bot-{light,dark}-busy.svg` (same robot, about 4× faster sweep, blinks and twinkle) made by `scripts/pixelbot-logo.py`; the coding chat's thinking line shows it instead of the Nasrin ball; still version when motion is reduced. Normal chats keep the ball.
+- **Validation:** `npm test`; headless Chromium (light and dark).
+
 ## Proposed PR — Pixel-robot logo for the Code chat (`ui/code-logo`)
 
 - **Owner request (2026-10-12):** the supplied pixel robot is the new Code chat logo.

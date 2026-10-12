@@ -103,7 +103,7 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   assert.match(css, /svg\.lib-glyph[^{]*\{ fill: currentColor; stroke: none; \}/);
   // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
   assert.match(html, /id="spaceCoding">\s*<span class="space-app-logo code-logo"/);
-  for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg']) {
+  for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg', 'code-bot-light-busy.svg', 'code-bot-dark-busy.svg']) {
     assert.match(css, new RegExp(f.replace('.', '\\.')), f);
     const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
     assert.doesNotMatch(svg, /<style|style=|<script|href=/i, f + ' needs no inline styles or scripts (strict CSP)');
