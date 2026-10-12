@@ -385,3 +385,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Map upstream errors explicitly mentioning CAPTCHA/Turnstile to a safe security-check message rather than the generic email-delivery message.
 - Logs never include the email address, CAPTCHA token, CAPTCHA secret, raw upstream response, or provider message text.
 - This does not bypass CAPTCHA or change production configuration. Validate with focused auth tests and full CI before merge; if Supabase rejects the token, verify its CAPTCHA provider configuration against the Cloudflare Turnstile secret.
+
+## Proposed PR — AI Automation policy foundation
+
+- Define owner-scoped workflows for Gmail/Google Workspace first and future official integrations for Facebook, Instagram, LinkedIn, X, and TikTok.
+- Add a bounded workflow validator and a fail-closed action decision policy. Sending email, publishing posts, replying to comments, and creating calendar events require approval unless the owner explicitly enables automation and allow-lists that exact action.
+- Add migration 030 for private workflow and run records; direct anon/authenticated table access is revoked. The migration is proposed and has not been run against Supabase.
+- Add regression tests for provider/action compatibility, approval defaults, explicit auto-allowlists, disabled workflows, and missing provider authorization.
+- Important scope limit: this PR is the policy/schema foundation only. It does not yet wire OAuth callbacks, encrypted user OAuth tokens, provider API calls, queue/scheduler, UI, or live sending/publishing. Social providers remain planned until each official API/app review is configured and tested.
+- Validate with npm test, secret scanning, SQL review, and focused OAuth/ownership tests before merge. Do not deploy or apply migration without explicit authorization.
+
