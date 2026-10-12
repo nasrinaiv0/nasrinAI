@@ -88,6 +88,12 @@ test('a guest scan: robots honoured, facts cleaned, private scan, shared facts w
     // The same facts again are not added twice.
     const again = await (await postJson(srv.url + '/v1/research', { query: 'tea again', urls: ['https://example.com/tea'] }, bearer(g))).json();
     assert.equal(again.new_shared_facts, 0);
+    // The findings are also kept in the permanent web-answer table, with sources, never who asked.
+    const kept = built.store.listWebAnswers();
+    assert.ok(kept.length >= 1);
+    assert.equal(kept[0].question, null, 'a guest\'s question is not kept permanently');
+    assert.match(kept[0].answer, /Camellia sinensis/);
+    assert.ok(kept[0].sources.some((x) => x.url === 'https://example.com/tea'));
   } finally { await srv.close(); }
 });
 

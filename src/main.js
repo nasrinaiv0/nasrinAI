@@ -188,7 +188,7 @@ export function buildApp({ config, logger }) {
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
-  const research = config.research?.enabled ? createResearch({ store, limiter, usageLog, provider, webSearch, config: effective, logger }) : null;
+  const research = config.research?.enabled ? createResearch({ store, limiter, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, config: effective, logger }) : null;
   const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
