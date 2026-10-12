@@ -1,6 +1,6 @@
 # Secure Coding and File Analysis: Scope and Security Boundaries
 
-**Status: scoped plan — analysis-only capabilities may use the existing app; isolated execution and artifact generation are excluded.**
+**Status: bounded file analysis and browser-side multi-sheet `.xlsx` export are in scope; isolated code execution and native Excel pivot/chart objects remain excluded unless separately implemented and verified.**
 
 ## Goal and scope
 
@@ -8,16 +8,16 @@ Improve NasrinAI's existing coding assistance and file analysis without requirin
 
 ## Explicit exclusions
 
-- **Artifact Generation feature: excluded from this plan.** Do not build or advertise a new artifact-generation workflow.
+- **Bounded workbook export:** the existing browser-side file builder can generate real `.xlsx` workbooks with up to 8 named worksheets, cell values, allow-listed formulas, frozen header rows, and autofilters. This does not edit the uploaded source in place and does not create native Excel pivot-table or chart objects.
 - **Executing code or shell commands:** excluded while no separately managed isolated runner exists. NasrinAI may analyze and suggest code but must not claim to have run tests or commands.
 - **Linux sandbox provisioning:** not a prerequisite for the analysis-only scope and not part of this implementation.
-- **OCR and new export/publishing workflows:** deferred; do not advertise them as available.
+- **OCR, native Excel pivot/chart objects, and file publishing:** not established by the multi-sheet export; do not advertise them as available.
 
 ## Current repository baseline
 
 - `src/coding.js` reads owner-checked Library code, masks likely secrets, and includes bounded, line-numbered source in a single model turn. It explicitly does not execute code.
 - `src/attachments.js` identifies file types from bytes and extracts bounded text from supported document/archive formats. Attachments are not persisted; images and PDFs use the current model path, and scanned-PDF OCR is not an established capability.
-- `public/files.js` creates browser-side downloads from assistant-provided file blocks, including text/code and selected Office formats. This existing behavior is not an expansion of the Artifact Generation feature and does not publish a web app.
+- `public/files.js` creates browser-side downloads from assistant-provided file blocks, including `.xlsx`. Multi-sheet `.xlsx` blocks use `[[sheet name="Tab Name"]]` and `[[/sheet]]` delimiters and are assembled locally in the browser. This does not modify uploaded files in place, create native Excel pivot/chart objects, or publish a web app.
 - The Library keeps text, not original uploaded binary files. Existing Library ownership is enforced through tenant/user-scoped backend calls.
 - The API runs on Vercel serverless functions. It is not a persistent Linux shell or a safe place to execute untrusted code.
 
