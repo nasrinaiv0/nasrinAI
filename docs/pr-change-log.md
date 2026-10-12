@@ -13,6 +13,13 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Redesign R2: iOS tab bar on phones and tablets (`ui/ios-tab-bar`)
+
+- **Intent:** the owner chose an iOS tab bar for phones (2026-10-12). Adds Chat, Library, Projects and Settings at the bottom under 70rem. The tabs open the existing screens; desktop keeps its side rail. Builds on R1 (#231, merged into this branch for its tokens).
+- **Files:** `public/index.html` (the `nav.tabbar`), `public/app.js` (tab clicks, active tab follows the open sheet, `is-typing`), `public/app.css` (bar, dock above it, header Settings button hidden on phones), `docs/redesign.md`.
+- **Fix found while testing:** hiding the bar while typing at first moved the message box up mid-tap, so Send missed. The bar now returns 300 ms after blur, and only touch screens hide it.
+- **Validation:** `test/ios-tab-bar.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/768 (touch, light/dark) and 1280. No server, data or legal change.
+
 ## Proposed PR — Redesign R1: design tokens, adaptive background, press and focus states (`ui/redesign-foundation`)
 
 - **Intent:** first phase of the owner's 2026-10-12 redesign (iOS tab bar, refined monochrome look). Adds `docs/redesign.md`: the owner's choices, the design system and phases R1–R5.

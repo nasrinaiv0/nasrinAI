@@ -2201,3 +2201,29 @@ html.composer-controls-loading #composer .tools {
 }
 :root[data-motion="reduce"] :where(.icon-btn, .text-btn, .tool, .act, .starter, .btn, .mic, .send):active { transform: none; }
 
+/* Phone and tablet tab bar (docs/redesign.md R2). Desktop keeps its side rail. */
+.tabbar { display: none; }
+@media (max-width: 69.99rem) {
+  /* Tab bar: fixed at the bottom, clear of the home indicator; the message box sits above it. */
+  :root { --tabbar-h: calc(3.4rem + env(safe-area-inset-bottom)); }
+  .tabbar { position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr);
+    padding: 0.2rem max(0.5rem, env(safe-area-inset-right)) 0 max(0.5rem, env(safe-area-inset-left)); padding-bottom: env(safe-area-inset-bottom);
+    background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-top: 0.5px solid var(--glass-line); }
+  .tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; min-height: 3.2rem; border: 0; background: none;
+    color: var(--ink-3); font: 500 0.68rem/1.1 var(--sans); letter-spacing: 0.01em; transition: color var(--dur-fast) var(--ease), transform var(--dur) var(--ease-spring); }
+  .tab-item svg { width: 1.45rem; height: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .tab-item.is-active { color: var(--ink); }
+  .tab-item.is-active svg { stroke-width: 2; }
+  .tab-item:active { transform: scale(0.92); }
+  /* The message box is drawn 1rem low (translateY), so the padding keeps it clear of the bar. */
+  .dock { bottom: var(--tabbar-h); padding-bottom: 1.5rem; }
+  .log { padding-bottom: calc(var(--dock-h, 7rem) + var(--tabbar-h) + 1.5rem); scroll-padding-bottom: calc(var(--dock-h, 7rem) + var(--tabbar-h) + 1rem); }
+  #settingsBtn { display: none; }
+}
+/* Only touch screens get an on-screen keyboard; a tablet with a keyboard keeps its tabs. */
+@media (max-width: 69.99rem) and (pointer: coarse) {
+  body.is-typing .tabbar { display: none; }
+  body.is-typing .dock { bottom: 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+}
+:root[data-motion="reduce"] .tab-item:active { transform: none; }
+
