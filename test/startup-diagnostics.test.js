@@ -9,6 +9,7 @@ test('startup diagnostics identify configuration failures without exposing them 
   assert.equal(d.log.stage, 'loadConfig');
   assert.match(d.log.error.message, /SUPABASE_SECRET_KEY/);
   assert.equal(d.response.error.incident_id, 'startup-test-1');
+  assert.equal(d.response.error.stage, 'configuration');
   assert.doesNotMatch(JSON.stringify(d.response), /SUPABASE_SECRET_KEY/);
   assert.doesNotMatch(JSON.stringify(d.response), /missing:/);
 });
@@ -20,5 +21,6 @@ test('startup diagnostics identify app initialization failures without exposing 
   assert.equal(d.stage, 'application');
   assert.equal(d.log.stage, 'buildApp');
   assert.equal(d.response.error.incident_id, 'startup-test-2');
+  assert.equal(d.response.error.stage, 'application');
   assert.doesNotMatch(JSON.stringify(d.response), /private configuration|secret stack details/);
 });
