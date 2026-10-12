@@ -131,3 +131,8 @@ Test: `test/dictation-button.test.js`.
 ## Status line
 
 While a reply is prepared the stream may send `{ type: 'status', stage }` with one of `files`, `links`, `library`, `memory`, `web` (fixed words, never free text). The page turns it into the thinking line ("Browsing the internet", "Remembering", …); without one it guesses from the message, then shows "Putting it together" and "Almost done".
+
+
+## Universal slash commands
+
+NasrinAI uses an execute-first convention for supported slash commands. The browser registry and supported command list are documented in [Universal slash commands](features/universal-slash-commands.md). Chat shortcuts use the normal chat/tool pipeline; image and video shortcuts dispatch to the existing media endpoints. Media shortcuts skip optional brief questions and the extra confirmation sheet, but server-side plan, legal, ownership, budget, and safety checks remain in force. A reference-image command such as `/clone` or `/blur` requires an attached image. Unknown commands fall through to normal chat.

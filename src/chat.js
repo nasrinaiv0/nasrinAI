@@ -27,6 +27,15 @@ export const MAX_TOOL_ROUNDS = 4;
 const FILE_WORDS = /\b(files?|docx?|pdf|xlsx?|excel|spreadsheet|csv|download|export)\b|\b(write|draft|create|make|prepare|generate)\b[^.?!\n]{0,40}\b(report|essay|letter|resume|cv|proposal|contract|ebook|document|article|story)\b/i;
 const FILE_TOKENS = 5500;
 
+// Recognize natural phrasing around generated images, including intervening
+// words such as "in the Library". Retrieval remains signed-in and owner-scoped.
+export function isGeneratedImageRecallRequest(input) {
+  const typed = String(input || '').trim();
+  return /\b(show|find|retrieve|see|display|bring|open)\b.{0,100}\b(pictures?|images?)\b.{0,100}\b(library|generated|made|created|saved|history)\b/i.test(typed)
+    || /\b(show|find|retrieve|see|display|bring|open)\b.{0,100}\b(library|generated|made|created|saved|history)\b.{0,100}\b(pictures?|images?)\b/i.test(typed)
+    || /\b(pictures?|images?)\b.{0,40}\b(i|we)\b.{0,15}\b(generated|made|created)\b/i.test(typed);
+}
+
 // "Knowledge only" businesses (migration 011): fixed replies when their
 // documents do not cover the message. No model call, so certain and free.
 const SMALL_TALK = /^(hi|hello|hey|hiya|yo|good (morning|afternoon|evening|day)|kumusta|musta|maayong (buntag|hapon|gabii)|thanks?( you)?( so much| a lot)?|thank u|ty|salamat( po)?|daghang salamat|ok(ay)?|cool|great|nice)[\s!.?,:)]*$/i;
@@ -355,10 +364,10 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Return only this signed-in user's retained image IDs; the existing image endpoint
     // independently verifies ownership before any image bytes are served.
     if (!only && storage && caller.actor.type === 'user'
-      && /\b(show|find|retrieve|see|display)\b.{0,50}\b(my|previous|past|generated)\b.{0,30}\b(pictures?|images?)\b|\b(pictures?|images?)\b.{0,30}\b(i|we)\b.{0,15}\b(generated|made)\b/i.test(typed)) {
+      && isGeneratedImageRecallRequest(typed)) {
       try {
         const inventory = await storage.list(caller);
-        const pictures = (inventory.items || []).filter((item) => item.kind === 'photo_generated').slice(0, 12);
+        const pictures = (inventory.items || []).filter((item) => item.kind === 'photo_generated').slice(0, 100);
         if (pictures.length) return finish(pictures.map((item) => `[image:${item.id}]`).join('\n') + '\nHere are your previously generated pictures that are still available in your Library.');
         return finish('I checked your saved Library, but there are no previously generated pictures available on this account. They may have expired under your retention settings or been deleted.');
       } catch (err) {

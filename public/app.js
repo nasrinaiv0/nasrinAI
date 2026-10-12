@@ -89,6 +89,9 @@
   let activeAccountEmail = null;
   const identityKey = (key) => activeAccountEmail ? `${key}:${encodeURIComponent(activeAccountEmail.toLowerCase())}` : key;
   let conversationId = saved.get(identityKey(KEYS.conversation));
+  // Each visible conversation has a generation number. A request from an older
+  // view can finish and persist without writing into the newly opened chat.
+  let chatViewEpoch = 0;
   let busy = false;
   let aiAvailable = true;
   let listening = false;
@@ -871,8 +874,36 @@
       // Each image is fetched through the existing owner-checked image endpoint.
       const pics = [...text.matchAll(/^\[image:([0-9a-f-]{36})\]\s*$/gm)];
       if (pics.length && pics[0].index === 0) {
-        for (const pic of pics) el.appendChild(imageFigure(pic[1], regenerate));
-        text = text.slice(pics[pics.length - 1].index + pics[pics.length - 1][0].length).trim() || 'Here is your picture.';
+        const ids = pics.map((pic) => pic[1]);
+        text = text.slice(pics[pics.length - 1].index + pics[pics.length - 1][0].length).trim()
+          || (ids.length === 1 ? 'Here is your picture.' : 'Here are your pictures.');
+        if (ids.length > 10) {
+          const grid = document.createElement('div');
+          grid.className = 'image-gallery-grid';
+          grid.setAttribute('aria-label', 'Generated pictures');
+          let shown = 0;
+          const pageSize = 8; // eight images + the Show more tile make a 3×3 grid
+          const renderNext = () => {
+            const next = ids.slice(shown, shown + pageSize);
+            for (const imageId of next) grid.appendChild(imageFigure(imageId, regenerate, true));
+            shown += next.length;
+            const more = grid.querySelector('.image-gallery-more');
+            if (more) more.remove();
+            if (shown < ids.length) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'image-gallery-more';
+              button.textContent = 'Show more';
+              button.setAttribute('aria-label', 'Show more generated pictures');
+              button.addEventListener('click', renderNext);
+              grid.appendChild(button);
+            }
+          };
+          renderNext();
+          el.appendChild(grid);
+        } else {
+          for (const imageId of ids) el.appendChild(imageFigure(imageId, regenerate));
+        }
       } else {
         const pic = /^\[image:([0-9a-f-]{36})\]\s*/.exec(text);
         if (pic) {
@@ -1200,9 +1231,9 @@
 
   // Pictures are private: fetched with the person's credential, shown from memory.
   // `regenerate`: makes the same picture again (only while the brief is in memory).
-  function imageFigure(imageId, regenerate = null) {
+  function imageFigure(imageId, regenerate = null, compact = false) {
     const fig = document.createElement('figure');
-    fig.className = 'made-image is-loading';
+    fig.className = 'made-image is-loading' + (compact ? ' is-compact' : '');
     const img = document.createElement('img');
     img.alt = 'Picture made by Nasrin';
     const bar = document.createElement('figcaption');
@@ -1227,16 +1258,19 @@
         const resp = await fetch('/v1/images/' + encodeURIComponent(imageId), { headers: { Authorization: 'Bearer ' + token } });
         if (!resp.ok) throw new Error('gone');
         const url = URL.createObjectURL(await resp.blob());
-        img.src = url;
         dl.href = url;
         dl.setAttribute('download', `nasrin-${imageId.slice(0, 8)}.${(resp.headers.get('content-type') || 'image/png').split('/')[1]}`);
         dl.hidden = false;
+        // Register before setting src so cached/fast image loads cannot skip
+        // the entrance transition. Reveal only after the image has decoded.
         img.addEventListener('load', () => {
           fig.classList.remove('is-loading');
+          fig.classList.add('is-ready');
           // The newest picture: keep Download and Regenerate in view.
           const msg = fig.closest('.msg');
           if (msg && msg === log.lastElementChild) scrollToEnd(msg);
         }, { once: true });
+        img.src = url;
       } catch {
         fig.classList.remove('is-loading');
         fig.classList.add('is-gone');
@@ -1326,14 +1360,18 @@
 
   const jobBody = (job) => ({ prompt: job.prompt, ...(job.photo ? { photo: job.photo } : {}) });
 
-  async function sendImage(text, files) {
+  async function sendImage(text, files, { executeFirst = false, prompt = text } = {}) {
     noticesOnSend();
     const photo = files.find((f) => f.type && f.type.startsWith('image/') && f.data);
     show('user', text, { files: photo ? [photo] : [] });
     input.value = '';
     autosize();
     setImageMode(false);
-    const job = { prompt: text, photo: photo ? { name: photo.name, type: photo.type, data: photo.data } : null, brief: null };
+    const job = { prompt, photo: photo ? { name: photo.name, type: photo.type, data: photo.data } : null, brief: null };
+    // Slash commands are explicit execution requests: use sensible defaults and
+    // skip the optional brief questions and confirmation sheet. Server-side
+    // plan, ownership, privacy, budget and safety checks still apply.
+    if (executeFirst) return makeImage(job, { confirm: false });
     const data = await imageStep('Looking at your idea', '/v1/images/brief', jobBody(job));
     if (!data) return;
     if (data.questions && data.questions.length) return showQuestions(job, data.questions);
@@ -1458,11 +1496,11 @@
   }
 
   // One picture from the brief. Resolves true when it was made.
-  async function makeImage(job) {
-    if (!window.confirm('Create this picture now? NasrinAI will send your prompt and selected image details to the configured AI image service. Choose Cancel to stop.')) return false;
+  async function makeImage(job, { confirm = true } = {}) {
+    if (confirm && !window.confirm('Create this picture now? NasrinAI will send your prompt and selected image details to the configured AI image service. Choose Cancel to stop.')) return false;
     const data = await imageStep('Making your picture', '/v1/images', {
       ...jobBody(job),
-      brief: job.brief,
+      ...(job.brief ? { brief: job.brief } : {}),
       ...(conversationId ? { conversation_id: conversationId } : {})
     });
     if (!data) return false;
@@ -1663,17 +1701,36 @@
     }
   }
 
+  function shortcutImagePrompt(shortcut) {
+    const extra = shortcut.args ? '\n\nAdditional direction: ' + shortcut.args : '';
+    if (shortcut.name === 'clone') return 'Clone the attached reference image’s visual style, lighting, mood, and composition. Preserve its main subject and key content.' + extra;
+    if (shortcut.name === 'blur') return 'Edit the attached image by blurring its background while keeping the main subject sharp. Use a natural, professional depth-of-field effect.' + extra;
+    if (shortcut.name === 'remove-background') return 'Remove the background from the attached image and preserve clean edges around the subject.' + extra;
+    if (shortcut.name === 'upscale') return 'Enhance and upscale the attached image, preserving its subject, composition, and natural details. Avoid inventing new content.' + extra;
+    if (shortcut.name === 'animate') return 'Animate the attached image into a short cinematic video, preserving the main subject and composition.' + extra;
+    if (shortcut.name === 'video') return 'Create a short cinematic video' + (shortcut.args ? ': ' + shortcut.args : ' inspired by the current conversation, using sensible defaults.');
+    return 'Create an image' + (shortcut.args ? ': ' + shortcut.args : ' inspired by NasrinAI’s minimal monochrome visual identity.');
+  }
+
   async function send(raw) {
     const text = String(raw || '').trim();
     if (turn) return;
     if ((!text && !pending.length) || busy || preparing || !aiAvailable) return;
-    const intent = window.NasrinCreativeIntent.detect(text);
-    if (!imageMode && intent === 'video') return sendVideo(text);
+    const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
+    const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
+    if (shortcut && shortcut.requiresPhoto && !pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) {
+      notice.textContent = 'Attach the image for /' + shortcut.name + ', then run the shortcut again.';
+      return;
+    }
+    if (!imageMode && intent === 'video') {
+      const prompt = shortcut ? shortcutImagePrompt(shortcut) : text;
+      return sendVideo(prompt);
+    }
     if (!imageMode && intent === 'image') {
       const files = pending;
       pending = [];
       renderTray();
-      return sendImage(text, files);
+      return sendImage(text, files, shortcut ? { executeFirst: true, prompt: shortcutImagePrompt(shortcut) } : {});
     }
     if (imageMode) {
       if (!text) { notice.textContent = 'Describe the picture you want.'; return; }
@@ -1684,6 +1741,8 @@
     }
     const files = editing ? [] : pending;
     if (!editing) { pending = []; renderTray(); }
+    // Supported chat shortcuts are explicit instructions. Keep the original
+    // command in the conversation so it remains visible and auditable.
     return runTurn({ text, files, editId: editing ? editing.id : null, editEl: editing ? editing.el : null });
   }
 
@@ -1707,6 +1766,10 @@
     }
     if (replace) replace.remove();
     for (const p of log.querySelectorAll('.msg.problem, .ask-card')) p.remove();
+    const viewEpoch = chatViewEpoch;
+    let turnConversationId = conversationId;
+    const turnProject = chatProject ? { id: chatProject.id, name: chatProject.name } : null;
+    const isCurrentView = () => viewEpoch === chatViewEpoch;
     const tone = Nasrin.tone(text);
     let userEl = null;
     if (!regenerate) {
@@ -1720,7 +1783,8 @@
     const thinking = showThinking(regenerate ? 'Thinking again' : files.length ? 'Reading your file' : guessThinking(text));
     const live = liveBubble();
     const ctrl = new AbortController();
-    turn = { ctrl };
+    const turnState = { ctrl, viewEpoch };
+    turn = turnState;
     refreshSendButton();
     refreshTurnControls();
     let started = null;   // { conversation_id, user_message_id } once the message is saved
@@ -1732,7 +1796,7 @@
       ...(spoken && speakVoice ? { speak_voice: speakVoice } : {}),
       ...(editId ? { edit_message_id: editId } : {}),
       ...(id ? { conversation_id: id } : {}),
-      ...(!id && chatProject ? { project_id: chatProject.id } : {}),
+      ...(!id && turnProject ? { project_id: turnProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
@@ -1741,8 +1805,11 @@
       signal: ctrl.signal,
       onStart: (ev) => {
         started = ev;
-        conversationId = ev.conversation_id;
-        saved.set(identityKey(KEYS.conversation), conversationId);
+        turnConversationId = ev.conversation_id;
+        if (isCurrentView()) {
+          conversationId = turnConversationId;
+          saved.set(identityKey(KEYS.conversation), conversationId);
+        }
         if (userEl && typeof ev.user_message_id === 'string') userEl.dataset.id = ev.user_message_id;
       },
       onDelta: (piece) => { live.add(piece, thinking); if (onPiece) onPiece(piece); },
@@ -1753,21 +1820,28 @@
     try {
       let data;
       try {
-        data = await askStream(body(conversationId), hooks);
+        data = await askStream(body(turnConversationId), hooks);
       } catch (err) {
-        if (err.status !== 404 || !conversationId || regenerate || editId) throw err;
+        if (err.status !== 404 || !turnConversationId || regenerate || editId) throw err;
         // The earlier chat is gone (guest chats expire); carry on in a new one.
-        conversationId = null;
-        saved.del(identityKey(KEYS.conversation));
-        notice.textContent = 'Your earlier chat has expired, so this message starts a new one.';
+        turnConversationId = null;
+        if (isCurrentView()) {
+          conversationId = null;
+          saved.del(identityKey(KEYS.conversation));
+          notice.textContent = 'Your earlier chat has expired, so this message starts a new one.';
+        }
         data = await askStream(body(null), hooks);
       }
       thinking.remove();
       live.remove();
-      conversationId = data.conversation_id;
-      saved.set(identityKey(KEYS.conversation), conversationId);
+      turnConversationId = data.conversation_id;
+      if (isCurrentView()) {
+        conversationId = turnConversationId;
+        saved.set(identityKey(KEYS.conversation), conversationId);
+        if (data.project && typeof data.project.id === 'string') setChatProject(data.project);
+      }
       if (userEl && typeof data.user_message_id === 'string') userEl.dataset.id = data.user_message_id;
-      if (data.project && typeof data.project.id === 'string') setChatProject(data.project);
+      if (!isCurrentView()) return { data, shown: null, background: true };
       busy = false;
       if (!data.message) return;
       const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text() });
@@ -1799,18 +1873,22 @@
       thinking.remove();
       const partial = live.text();
       live.remove();
-      busy = false;
-      if (onFail) onFail(err, ctrl.signal.aborted);
+      if (isCurrentView()) busy = false;
+      if (onFail && isCurrentView()) onFail(err, ctrl.signal.aborted);
       if (ctrl.signal.aborted) {
         // Stopped: what was written stays (the server kept it too).
-        if (partial.trim()) {
+        if (isCurrentView() && partial.trim()) {
           const shown = show('assistant', partial, { animate: false });
           const note = document.createElement('p');
           note.className = 'pro-used';
           note.textContent = 'Stopped';
           shown.appendChild(note);
         }
-        Nasrin.mood('idle');
+        if (isCurrentView()) Nasrin.mood('idle');
+        return;
+      }
+      if (!isCurrentView()) {
+        if (document.hidden) deviceNotify('NasrinAI work failed', 'A reply in your previous chat could not be completed.', 'nasrinai-chat-failed-' + Date.now());
         return;
       }
       problem(err.message || 'Something went wrong. Please try again.', () => {
@@ -1824,10 +1902,13 @@
       if (err.code === 'plan_required') openPlans(err.message);
       if (err.code === 'terms_required') checkTerms('update_prompt');
     } finally {
-      busy = false;
-      turn = null;
-      refreshSendButton();
-      refreshTurnControls();
+      // A background turn must never clear the busy state of a newer turn.
+      if (turn === turnState) {
+        busy = false;
+        turn = null;
+        refreshSendButton();
+        refreshTurnControls();
+      }
     }
   }
 
@@ -1881,12 +1962,22 @@
   $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
   function startNewChat({ focus = true, message = '' } = {}) {
+    const continuingTurn = Boolean(turn);
+    // Detach the current turn from the visible composer without aborting its
+    // controller. It can finish and persist in its original conversation.
+    chatViewEpoch++;
+    turn = null;
+    busy = false;
     setChatProject(null);
     conversationId = null;
     saved.del(identityKey(KEYS.conversation));
     stopSpeaking();
-    notice.textContent = message;
+    notice.textContent = message || (continuingTurn
+      ? 'Your previous reply is continuing in the background and will be saved in Your chats.'
+      : '');
     clearScreen();
+    refreshSendButton();
+    refreshTurnControls();
     Nasrin.flash('happy', 1200);
     if (focus) input.focus();
     startNotes('new_chat');
@@ -5737,12 +5828,59 @@
       if (run !== prjRun) return;
       const list = (data.projects || []).filter((p) => p && typeof p.id === 'string');
       $('prjList').replaceChildren(...list.map((p) => {
-        const li = mk('li', 'history-item');
+        const li = mk('li', 'history-item prj-list-item');
+        const row = mk('div', 'prj-list-row');
         const open = mk('button', 'history-open lib-open');
         open.type = 'button';
         open.append(mk('span', 'history-title', p.name), mk('span', 'history-time', `${PRJ_STATUS[p.status] || ''} · ${when(p.updated_at)}`));
         open.addEventListener('click', () => openProject(p.id));
-        li.appendChild(open);
+
+        const toggle = mk('button', 'icon-btn prj-expand');
+        toggle.type = 'button';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Show actions for ' + p.name);
+        const toggleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        toggleSvg.setAttribute('viewBox', '0 0 24 24');
+        toggleSvg.setAttribute('aria-hidden', 'true');
+        const togglePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        togglePath.setAttribute('d', 'm6 9 6 6 6-6');
+        toggleSvg.appendChild(togglePath);
+        toggle.appendChild(toggleSvg);
+
+        const actions = mk('div', 'prj-actions');
+        actions.hidden = true;
+        const actionButton = (label, kind, path, description, onClick) => {
+          const button = mk('button', 'prj-action prj-action-' + kind);
+          button.type = 'button';
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('aria-hidden', 'true');
+          const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          iconPath.setAttribute('d', path);
+          svg.appendChild(iconPath);
+          const title = document.createElement('strong');
+          title.textContent = label;
+          const detail = document.createElement('span');
+          detail.className = 'prj-action-description';
+          detail.textContent = description;
+          button.append(svg, title, detail);
+          button.addEventListener('click', onClick);
+          return button;
+        };
+        actions.append(
+          actionButton('Open', 'open', 'M3.5 8A2 2 0 0 1 5.5 6h4l2 2H18a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z M5 12h14', 'View project details', () => openProject(p.id)),
+          actionButton('Chat', 'chat', 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z', 'Start a project chat', () => startProjectChat(p, 'chat')),
+          actionButton('Code', 'code', 'm8 8-4 4 4 4m8-8 4 4-4 4m-3-12-2 16', 'Start a coding conversation', () => startProjectChat(p, 'code'))
+        );
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+          toggle.setAttribute('aria-expanded', String(expanded));
+          toggle.setAttribute('aria-label', (expanded ? 'Hide' : 'Show') + ' actions for ' + p.name);
+          actions.hidden = !expanded;
+          li.classList.toggle('is-expanded', expanded);
+        });
+        row.append(open, toggle);
+        li.append(row, actions);
         return li;
       }));
       $('prjStatusMsg').textContent = list.length ? '' : 'No projects yet. A project keeps chats, files, tasks and instructions together.';
@@ -5870,13 +6008,25 @@
   }
 
   $('prjBack').addEventListener('click', () => { prjOpen = null; prjShow('list'); loadProjects(); });
-  $('prjChat').addEventListener('click', () => {
-    if (!prjOpen || busy) return;
-    const p = { id: prjOpen.id, name: prjOpen.name };
+  function startProjectChat(project, mode) {
+    if (!project || busy) return;
+    const p = { id: project.id, name: project.name };
     closeHistory();
     $('newChat').click();
     setChatProject(p);
+    if (mode === 'code') {
+      input.value = 'Help me work on code for the ' + p.name + ' project.';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      notice.textContent = 'Code session for ' + p.name + '. Review or edit the prompt before sending.';
+    } else {
+      notice.textContent = 'New chat in ' + p.name + '.';
+    }
     input.focus();
+  }
+
+  $('prjChat').addEventListener('click', () => {
+    if (!prjOpen || busy) return;
+    startProjectChat(prjOpen, 'chat');
   });
   $('prjTaskForm').addEventListener('submit', async (e) => {
     e.preventDefault();

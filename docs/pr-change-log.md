@@ -4,6 +4,60 @@
 - **Change:** the prompt makes documents `.pdf` by default (`.docx` to edit) and keeps `.html`/`.css`/`.js` for coding or an asked-for web page; `src/ai/file-types.js` converts a plain document still handed over as `.html` into a `.pdf` (headings, bullets, bold kept) unless the person's recent messages ask for web or code work. `docs/chat.md`.
 - **Validation:** `npm test` (conversion, coding keeps `.html`, prompt, saved chat reply).
 
+## New chat without interrupting an ongoing reply
+
+- Starting a new chat detaches the active reply from the current composer without aborting its request.
+- The previous reply continues against its original conversation and project context, and is persisted on the server; it never renders into the new chat.
+- The new chat immediately becomes usable for another request. Completion of an older request cannot overwrite the new conversation ID or clear the new turn's busy state.
+- Existing request cancellation remains available for the active visible turn. No database, quota, or authorization changes.
+
+## Exact project card layout from reference
+
+- Render Open, Chat, and Code as three equal-width vertical cards in a single row when a project is expanded.
+- Each card uses a centered monochrome outline icon, bold title, and muted two-line description; thin gray border and rounded corners on a matte charcoal/theme-adaptive surface.
+- Project heading uses a folder-with-bars outline icon and a chevron that flips upward when expanded.
+- Add a narrow-screen layout adjustment and retain keyboard focus and reduced-motion support.
+
+## Reference-matched project action styling
+
+- Match the supplied illustration with a matte theme-adaptive panel, rounded outline, generous row spacing, monochrome line icons, and subtle separators.
+- Add a folder icon to project rows and use matching folder, chat-bubble, and code icons for Open, Chat, and Code actions.
+- Preserve light/dark theme tokens and reduced-motion behavior; no new accent colors except existing theme semantics.
+
+## Expandable project actions
+
+- Each project row has an accessible expand/collapse control revealing Open, Chat, and Code actions.
+- Open shows the existing project details view. Chat starts a new conversation scoped to the selected project. Code starts a project-scoped chat and pre-fills an editable coding prompt; it does not auto-submit.
+- Keep the existing project detail view and its New chat action working through the same project-chat helper.
+- Respect reduced-motion preferences for the expansion animation. No API, database, RLS, authorization, quota, or environment changes.
+
+## CI follow-up — gallery focus selector
+
+- CI exposed a theme audit failure because `.image-gallery-more:focus-visible` referenced `var(--accent)` outside a theme-scoped selector.
+- Use `currentColor` for the keyboard focus outline instead. This preserves a visible focus indicator without adding an unscoped theme accent reference.
+
+## Smooth generated-image entrance animation
+
+- Replace the hard pulsing image placeholder with a restrained, low-contrast shimmer while the saved image is fetched.
+- Reveal the actual image only after its `load` event, using a 560 ms opacity fade with a subtle upward settle and blur-to-sharp transition.
+- Register the load handler before assigning `src`, avoiding a race with fast/cached loads.
+- Honor `prefers-reduced-motion`; preserve the existing owner-checked image fetch, download, regenerate controls, and gallery behavior.
+
+## PR #278 follow-up — Generated picture gallery
+
+- Preserve the current full-size image presentation for 1–10 generated pictures.
+- For more than 10, render a responsive 3-column × 3-row gallery: eight square thumbnails and a **Show more** tile in the ninth slot. Each press appends the next eight pictures and keeps the next Show more tile until all results are visible.
+- Keep each picture's existing owner-checked `/v1/images/:id` fetch and download action.
+- Raise the recall response cap from 12 to 100 retained generated pictures so Show more can page through a larger history.
+- No schema, RLS, credentials, token limits, or retention settings changed.
+
+## Proposed PR — Fix natural-language recall of generated Library pictures
+
+- **Owner report (2026-10-12):** “show me the pictures generated in the library” received generic navigation instructions instead of the saved pictures.
+- **Cause:** the recall detector required “my/previous/past/generated” before “pictures/images”, or “pictures I generated”; it did not match the ordinary phrase “pictures generated in the Library”.
+- **Change:** use a dedicated, tested intent detector that accepts natural word order and Library/history/saved wording. The existing signed-in check, account-scoped storage listing, retention rules, and owner-checked image endpoint remain unchanged.
+- **Validation:** regression tests cover the reported wording, related phrasings, and unrelated image requests. Run full CI and verify the deployed Library on iPhone Safari before treating production as fixed.
+
 ## Proposed PR — Simple internet-data check (`ops/internet-data-check`)
 
 - **Owner request (2026-10-12):** a file to run in Supabase to see what NasrinAI stored from the internet.
@@ -623,3 +677,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep cache writes best-effort: a rejected insert is caught, logged with a fixed safe message, and does not turn a successful AI answer into a chat failure.
 - Add chat integration regression tests for both delayed writes (response remains pending until the write attempt settles) and failed inserts (chat still returns HTTP 200 without exposing database error details).
 - No SQL, RLS, authentication, token-limit, provider-routing, or unrelated UI changes.
+
+
+## Proposed PR — Universal slash commands execute first (`feature/universal-slash-execute-first`)
+
+- **Owner request (2026-10-12):** add universal shortcuts such as `/clone` and `/blur` across NasrinAI, and avoid unnecessary follow-up questions.
+- **Change:** add a dependency-free browser command registry for image, video and common chat tasks; dispatch image/video shortcuts to existing media endpoints; execute image shortcuts directly without optional brief questions or the extra confirmation sheet; add execute-first instructions to the chat system prompt. Commands needing a reference image require an attachment. Server-side authorization, plan, budget, legal and safety checks remain unchanged.
+- **Documentation:** `docs/features/universal-slash-commands.md`, `docs/chat.md`, `README.md`.
+- **Validation observed (commit `0c53e78`):** `npm test` passed 517/517; `npm run check:secrets` reported no secrets in 425 files; database tests passed; GitGuardian Security Checks passed; Vercel Preview reported Ready. Re-run checks on the final documentation commit before merge.
