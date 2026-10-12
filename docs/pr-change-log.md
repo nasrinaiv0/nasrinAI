@@ -4,6 +4,13 @@
 - **Change:** four SVGs in `public/space-logos/` (light/dark, animated/still), converted by `scripts/pixelbot-logo.py` so they need no inline styles (strict CSP); shown in the coding top bar (instead of the Nasrin ball), on Space → Coding and in the project picker; CSS picks theme and still versions. Metadata from the source files removed.
 - **Validation:** `npm test`; headless Chromium with the CSP Vercel sends (logo coloured and animated, light and dark).
 
+## Proposed PR — Phones always get the newest app files (`fix/fresh-app-files`)
+
+- **Owner report (2026-10-12):** after #283/#288 were live, the project list had no expand arrow and Code in the menu did nothing.
+- **Found:** the latest `main` works in a browser (arrow → Open, Chat, Code; Code → project picker). The phone showed the new menu (from a fresh page) with an older `app.js`: script and styles could be kept for an hour (`max-age=3600` in `src/http/static.js`) while the page was always fresh, so new buttons had no code behind them.
+- **Change:** the page, `app.js`, `app.css`, other scripts and the manifest are revalidated on every load (`Cache-Control: no-cache` with an ETag, so unchanged files answer 304); the same rule is set for Vercel's CDN in `vercel.json`. Pictures are still kept for an hour.
+- **Validation:** `npm test` (headers, 304, Vercel rule).
+
 ## Proposed PR — Lighter type everywhere (`ui/lighter-type`, on top of #290)
 
 - **Owner request (2026-10-12):** lessen the bold fonts across the app.

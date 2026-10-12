@@ -4,7 +4,10 @@
     "sin1"
   ],
   "crons": [
-    { "path": "/v1/internal/retention", "schedule": "0 * * * *" }
+    {
+      "path": "/v1/internal/retention",
+      "schedule": "0 * * * *"
+    }
   ],
   "functions": {
     "api/index.js": {
@@ -60,6 +63,15 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(js|css|webmanifest)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
         }
       ]
     }

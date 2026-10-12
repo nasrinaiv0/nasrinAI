@@ -103,3 +103,20 @@ test('raw traversal paths are refused too', async () => {
     assert.equal(await raw(p), 404, p);
   }
 });
+
+// 2026-10-12: a phone showed the new menu (Code) with an hour-old app.js, so
+// new buttons did nothing. The page, script and styles are checked on every load.
+test('page, script and styles are revalidated on every load; unchanged ones answer 304', async () => {
+  for (const p of ['/', '/app.js', '/app.css']) {
+    const r = await fetch(srv.url + p);
+    assert.equal(r.status, 200, p);
+    assert.equal(r.headers.get('cache-control'), 'no-cache', p);
+    const etag = r.headers.get('etag');
+    assert.match(etag, /^"[A-Za-z0-9_-]+"$/, p);
+    await r.arrayBuffer();
+    const again = await fetch(srv.url + p, { headers: { 'If-None-Match': etag } });
+    assert.equal(again.status, 304, p);
+  }
+  const pic = await fetch(srv.url + '/space-logos/icon-coding.svg');
+  assert.equal(pic.headers.get('cache-control'), 'public, max-age=3600');
+});
