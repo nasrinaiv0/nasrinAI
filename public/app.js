@@ -2414,15 +2414,6 @@
   const headerSignIn = $('headerSignIn');
   guestSignIn.addEventListener('click', () => openSignIn());
   headerSignIn.addEventListener('click', () => openSignIn());
-  // While typing on a phone the keyboard needs the room, so the capsule steps
-  // aside. It comes back a moment after the box loses focus, so a tap on Send
-  // lands before anything moves.
-  let typingTimer = 0;
-  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.add('is-typing'); });
-  input.addEventListener('blur', () => {
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.remove('is-typing'); }, 300);
-  });
   settingsBtn.addEventListener('click', () => (sheet.hidden ? openSettings() : closeSettings()));
 
   // Canonical FAQ deep link: open the same in-app Help & Support page used by
@@ -5269,10 +5260,10 @@
   // The bar comes back a moment after the box loses focus, so a tap on Send
   // lands before the message box moves up.
   let typingTimer = 0;
-  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.toggle('is-typing', true); });
+  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.add('is-typing'); });
   input.addEventListener('blur', () => {
     clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.toggle('is-typing', false); }, 300);
+    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.remove('is-typing'); }, 300);
   });
   // End tab bar
 
