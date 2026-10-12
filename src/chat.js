@@ -444,13 +444,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // cache. Reuse only requests that already pass policy.cacheKey's existing
       // public/simple/history/tier safeguards; scope each search to this actor and task.
       let semanticEntry = null;
-      const contextHash = createHash('sha256').update(JSON.stringify({
-        history: fullHistory,
-        attachments: files
-      })).digest('hex');
+      // cacheKey already restricts this path to first-turn, attachment-free,
+      // non-sensitive requests. Keep the persistent scope stable across separate
+      // conversations by excluding per-message IDs and conversation history hashes.
       const semanticScope = createHash('sha256').update([
         caller.tenantId, caller.actor.type, caller.actor.id, plan.tier,
-        plan.task, plan.level, variant, contextHash
+        plan.task, plan.level, variant
       ].join('|')).digest('hex');
       if (semanticCache && key) {
         try {
@@ -463,10 +462,14 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             });
             return finish(semanticEntry.hit.response);
           }
-        } catch {
-          // A cache outage or embedding-model failure must never block a normal reply.
-          semanticEntry = null;
-          logger.warn('semantic cache lookup unavailable');
+        } catch (err) {
+          // A search/RPC failure may happen after embedding succeeds. Preserve that
+          // embedding so a successful model reply can still seed the cache.
+          // An embedding failure has no embedding and safely skips the store.
+          semanticEntry = err?.embedding ? { embedding: err.embedding, hit: null } : null;
+          logger.warn('semantic cache lookup unavailable', {
+            stage: err?.embedding ? 'search' : 'embedding'
+          });
         }
       }
       let started = now();
