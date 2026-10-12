@@ -52,3 +52,25 @@ Supported archive/document parsers must treat truncated archives, malformed mani
 
 
 ZIP archive validation is intentionally limited to classic single-disk ZIP files. The parser rejects inconsistent entry counts, central-directory bounds, truncated directory records, unsupported ZIP64 sentinel values, local-header mismatches, and entry payloads that extend into the central directory. Extracted data must match its declared uncompressed size and stay within existing per-entry and per-file limits.
+
+## Reply formatting
+
+Replies use a small, safe subset of Markdown that `public/format.js` turns into DOM nodes with `textContent` (never `innerHTML`):
+
+- headings, paragraphs, bullet lists, numbered steps (tickable) and quotes;
+- `**bold**`, `` `code` `` and links;
+- code blocks with a **Copy** button that copies the exact code;
+- tables.
+
+**Tables:** a header row, a `---` separator row, then body rows. They render inside a box that scrolls sideways on phones, so the page never does. The box is keyboard-focusable and labelled. At most 8 columns and 50 rows; cells allow inline formatting only. A line with pipes but no separator row stays text. `plain()` (copy and read-aloud) turns rows into `a · b` lines.
+
+The system prompt (`src/ai/prompt.js`) asks for:
+
+- the direct answer first, then short paragraphs;
+- every piece of code, command, configuration or data to copy in a fenced block with its language;
+- tables only for comparisons (at most 6 columns);
+- depth matched to the person: simple or in depth on request;
+- Markdown only, never HTML.
+
+Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM that fails on any `innerHTML` use.
+

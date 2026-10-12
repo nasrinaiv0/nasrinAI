@@ -3226,8 +3226,18 @@
   async function loadBilling() {
     const cur = $('billingCurrent');
     const hist = $('billingHistory');
-    cur.replaceChildren(mk('p', 'setting-hint', 'Loading…'));
+    // Billing belongs to an account: signed out, offer Sign in instead of asking
+    // the server (which refuses) and showing an empty Payments box.
+    $('billingPaymentsLabel').hidden = hist.hidden = !account;
     hist.replaceChildren();
+    if (!account) {
+      const go = mk('button', 'btn small', 'Sign in');
+      go.type = 'button';
+      go.addEventListener('click', () => { closeSettings(); openSignIn(); });
+      cur.replaceChildren(mk('p', 'card-title', 'Sign in to see your plan and payments'), mk('p', 'setting-hint', 'Plans and receipts are kept with your account.'), go);
+      return;
+    }
+    cur.replaceChildren(mk('p', 'setting-hint', 'Loading…'));
     try {
       const b = await api('/v1/billing');
       const name = (id) => ({ free: 'Free', max: 'Max', ultra: 'Ultra' }[id] || 'Free');
