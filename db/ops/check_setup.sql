@@ -60,3 +60,5 @@ order by step;
 -- select (select count(*) from public.semantic_cache) as answer_cache_rows,
 --        (select count(*) from public.research_facts where status = 'pending') as facts_waiting_for_you,
 --        (select count(*) from public.web_answers) as internet_answers_kept;
+
+-- To see what Nasrin saved from the internet: db/ops/check_internet_data.sql
