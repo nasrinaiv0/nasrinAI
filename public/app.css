@@ -2464,3 +2464,27 @@ body.coding-mode .brand { opacity: 1; transform: none; pointer-events: auto; }
 /* Lighter type everywhere (owner, 2026-10-12): browsers draw b, strong,
    headings and table headers at 700 by default; NasrinAI uses softer weights. */
 b, strong, th, h1, h2, h3, h4, h5, h6 { font-weight: 600; }
+
+/* Code chat logo: the animated pixel robot (owner, 2026-10-12). CSS picks the
+   tile for the theme (light UI: dark robot on light; dark UI: the reverse) and
+   a still one when motion is reduced. Animation is SMIL inside the SVG, so the
+   strict CSP needs no inline styles. */
+.code-logo { display: inline-block; flex: none; background: url(/space-logos/code-bot-light.svg) center / contain no-repeat; }
+:root[data-theme="dark"] .code-logo { background-image: url(/space-logos/code-bot-dark.svg); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .code-logo { background-image: url(/space-logos/code-bot-dark.svg); } }
+:root[data-motion="reduce"] .code-logo { background-image: url(/space-logos/code-bot-light-still.svg); }
+:root[data-motion="reduce"][data-theme="dark"] .code-logo { background-image: url(/space-logos/code-bot-dark-still.svg); }
+@media (prefers-reduced-motion: reduce) {
+  .code-logo { background-image: url(/space-logos/code-bot-light-still.svg); }
+  :root[data-theme="dark"] .code-logo { background-image: url(/space-logos/code-bot-dark-still.svg); }
+}
+@media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .code-logo { background-image: url(/space-logos/code-bot-dark-still.svg); } }
+@media (prefers-color-scheme: dark) { :root[data-motion="reduce"]:not([data-theme="light"]) .code-logo { background-image: url(/space-logos/code-bot-dark-still.svg); } }
+.brand-code-logo { display: none; width: 2rem; height: 2rem; }
+body.coding-mode .brand-code-logo { display: inline-block; }
+body.coding-mode .brand .mark, body.coding-mode .brand .pro-badge { display: none; }
+#pageSpace .space-app-logo.code-logo { filter: none !important; }
+.code-picker-title { display: flex; align-items: center; gap: 0.55rem; }
+.code-picker-title .code-logo { width: 1.75rem; height: 1.75rem; }
+/* The coding chat starts empty: no Nasrin ball, greeting or starter buttons. */
+body.coding-mode #welcome { display: none; }

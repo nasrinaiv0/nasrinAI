@@ -1,3 +1,10 @@
+## Proposed PR — Pixel-robot logo for the Code chat (`ui/code-logo`)
+
+- **Owner request (2026-10-12):** the supplied pixel robot is the new Code chat logo.
+- **Change:** four SVGs in `public/space-logos/` (light/dark, animated/still), converted by `scripts/pixelbot-logo.py` so they need no inline styles (strict CSP); shown in the coding top bar (instead of the Nasrin ball), on Space → Coding and in the project picker; CSS picks theme and still versions. Metadata from the source files removed.
+- **Follow-up (owner):** the home screen (ball, greeting, starter buttons) is hidden in the coding chat.
+- **Validation:** `npm test`; headless Chromium with the CSP Vercel sends (logo coloured and animated, light and dark).
+
 ## Proposed PR — Phones always get the newest app files (`fix/fresh-app-files`)
 
 - **Owner report (2026-10-12):** after #283/#288 were live, the project list had no expand arrow and Code in the menu did nothing.
