@@ -5,12 +5,6 @@
 - The new chat immediately becomes usable for another request. Completion of an older request cannot overwrite the new conversation ID or clear the new turn's busy state.
 - Existing request cancellation remains available for the active visible turn. No database, quota, or authorization changes.
 
-## Composer project switcher
-
-- Add a project selector directly inside the chat composer, available in general chat and while working in a project.
-- Switching projects starts a fresh conversation with that project's context; it does not reassign or delete the previous conversation. Existing chats remain accessible from the project's chat list.
-- Add a clear general-chat option and keep the Leave control available only when a project is active.
-- Project options load from the signed-in user's existing `/v1/projects` endpoint. No database schema, project authorization, RLS, quotas, or credentials changed.
 
 ## CI follow-up — gallery focus selector
 
