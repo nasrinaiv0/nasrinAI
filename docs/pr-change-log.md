@@ -1,10 +1,8 @@
-## Proposed PR — Realtime voice has sound again (`fix/realtime-voice-sound`)
+## Proposed PR — Voice screen tier as an icon (`ui/tier-icon`)
 
-- **Owner report (2026-10-12):** realtime voice gives no sound.
-- **Cause:** Quick and Pro use Gemini Live, which sends its JSON as binary WebSocket frames; `public/gemini-realtime.js` parsed only text frames, so every reply (audio and words) was dropped silently. Also, the audio output was created after network awaits, which iPhones may keep muted.
-- **Change:** frames are read as bytes (`binaryType = 'arraybuffer'`) and decoded; the audio context (Gemini) and the audio element (OpenAI, Max/Ultra) are created during the tap that opens voice, then used by the session.
-- **Files:** `public/gemini-realtime.js`, `public/app.js`, `test/gemini-realtime-browser.test.js`.
-- **Validation:** new test fails before / passes after; `npm test`; headless Chromium voice screen opens and closes without errors. Not yet tested against live Gemini on a phone.
+- **Owner request (2026-10-12):** the voice screen's tier pill ("Pro ⌄") becomes an icon, the same signal bars as the chat's model button (one bar per level); the name stays for screen readers. Then (owner: "make the buttons same all together") all four voice controls share one size and glass look; the mic is no longer larger and black, and turns filled only while muted.
+- **Files:** `public/index.html`, `public/app.js`, `public/voice-liquid-glass.css`, `test/voice-screen.test.js`.
+- **Validation:** `npm test`; headless Chromium at 390 px.
 
 ## Proposed PR — Direct uploads through Supabase Storage (`feature/direct-uploads`)
 
