@@ -5,13 +5,6 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../public/files.js', import.meta.url), 'utf8');
 
-function productionRegex(lineStart) {
-  const line = source.split('\n').find((value) => value.includes(lineStart));
-  assert.ok(line, `production source contains ${lineStart}`);
-  const literal = line.slice(line.indexOf('/') , line.lastIndexOf(';')).trim();
-  return vm.runInNewContext(`(${literal.slice(0, literal.lastIndexOf('/'))}/${literal.slice(literal.lastIndexOf('/') + 1)})`);
-}
-
 test('PR #242 worksheet marker regex recognizes named worksheet blocks', () => {
   const line = source.split('\n').find((value) => value.includes('const marker ='));
   assert.ok(line);
