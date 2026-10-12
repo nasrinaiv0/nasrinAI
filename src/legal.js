@@ -106,6 +106,8 @@ export function createLegal({ store, config, logger, deleteAuthUser = null, now 
         memories: (await (store.listMemories ? store.listMemories({ tenantId: caller.tenantId, userId: caller.actor.id }) : []).catch(() => [])).map((m) => ({ text: m.text, created_at: m.createdAt })),
         library: await libraryExport(caller),
         projects: await projectsExport(caller),
+        research: (await (store.listResearchScans ? store.listResearchScans({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, limit: 100 }) : []).catch(() => []))
+          .map((s) => ({ query: s.query, facts: s.facts, sources: s.sources, created_at: s.createdAt })),
         plan_payments: await store.listPlanPeriods({ tenantId: caller.tenantId, userId: caller.actor.id }).catch(() => []),
         legal_acceptances: await store.listAcceptances({ tenantId: caller.tenantId, userId: caller.actor.id }).catch(() => [])
       };

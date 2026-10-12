@@ -21,7 +21,7 @@ function appOriginOf(req) {
   return /^[a-z0-9.-]+(:\d{1,5})?$/.test(host) && (proto === 'https' || proto === 'http') ? proto + '://' + host : null;
 }
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -277,6 +277,10 @@ return { body: { sites: await connect.list(caller) } }; }
         await store.purgeImprovementConsent();
         if (!store.purgeImprovementExamples) throw new HttpError(503, 'retention_unavailable', 'Improvement example cleanup is not configured.');
         await store.purgeImprovementExamples();
+        // Research scans past their keep-time (docs/research.md).
+        if (research && store.purgeResearch) {
+          try { await store.purgeResearch(); } catch (err) { logger?.warn?.('could not purge research', { error: err?.message }); }
+        }
         // Direct uploads that were never used (docs/uploads.md). A storage
         // problem is logged; it must not hide the clean-ups above.
         if (uploads) {
@@ -1194,6 +1198,7 @@ return { body: { sites: await connect.list(caller) } }; }
           plans: Boolean(plans) && config.plans.enabled,
           library: Boolean(library) && config.library?.enabled === true,
           projects: Boolean(projects) && config.projects?.enabled === true,
+          research: Boolean(research),
           uploads: uploads ? { direct: true, max_mb: Math.round(uploads.maxBytes / 1048576) } : { direct: false },
           images: images && images.available ? { available: true, per_guest: config.images.perGuest, per_user_day: config.images.perUserDay } : { available: false },
           videos: videos && videos.available ? { available: true, ultra_only: true, max_seconds: config.video.maxSeconds } : { available: false },
@@ -1210,6 +1215,37 @@ return { body: { sites: await connect.list(caller) } }; }
           }
         }
       })
+    },
+    {
+      // Research agent (docs/research.md). Body: { query, urls? }.
+      method: 'POST',
+      path: '/v1/research',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body, ip }) => {
+        if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
+        return { body: await research.scan(caller, body, ip) };
+      }
+    },
+    {
+      // The caller's own scans (newest first).
+      method: 'GET',
+      path: '/v1/research',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
+        return { body: await research.list(caller) };
+      }
+    },
+    {
+      // One of the caller's own scans.
+      method: 'GET',
+      path: '/v1/research/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
+        return { body: await research.get(caller, params.id) };
+      }
     },
     {
       // A one-time link to upload one file straight to storage (docs/uploads.md).

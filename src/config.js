@@ -378,6 +378,11 @@ export function loadConfig(env = process.env) {
   }
   const uploadsMaxMb = softInt('UPLOADS_MAX_MB', env.UPLOADS_MAX_MB, 20, 1, 50);
   const uploadsPerHour = softInt('UPLOADS_PER_HOUR', env.UPLOADS_PER_HOUR, 60, 1, 1000);
+  // Research agent (docs/research.md): reads public pages for a question and
+  // keeps the facts it finds. Off until switched on.
+  const researchEnabled = softFlag('RESEARCH_ENABLED', env.RESEARCH_ENABLED, 'false');
+  const researchMaxPages = softInt('RESEARCH_MAX_PAGES', env.RESEARCH_MAX_PAGES, 3, 1, 5);
+  const researchPerHour = softInt('RESEARCH_PER_HOUR', env.RESEARCH_PER_HOUR, 10, 1, 200);
   const turnstileSiteKey = String(env.TURNSTILE_SITE_KEY || '').trim();
   const turnstileSecretKey = String(env.TURNSTILE_SECRET_KEY || '').trim();
   if (Boolean(turnstileSiteKey) !== Boolean(turnstileSecretKey)) throw new ConfigError('set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together');
@@ -564,6 +569,7 @@ export function loadConfig(env = process.env) {
       annualPrices: Object.freeze({ max: price('PLAN_MAX_ANNUAL_PRICE', env.PLAN_MAX_ANNUAL_PRICE), ultra: price('PLAN_ULTRA_ANNUAL_PRICE', env.PLAN_ULTRA_ANNUAL_PRICE) })
     }),
     paymongo,
+    research: Object.freeze({ enabled: researchEnabled, maxPages: researchMaxPages, perHour: researchPerHour }),
     uploads: Object.freeze({
       enabled: uploadsEnabled,
       bucket: 'chat-uploads',
@@ -575,7 +581,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-07d').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12d').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12f').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
