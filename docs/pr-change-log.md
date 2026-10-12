@@ -1,3 +1,10 @@
+## Exact project card layout from reference
+
+- Render Open, Chat, and Code as three equal-width vertical cards in a single row when a project is expanded.
+- Each card uses a centered monochrome outline icon, bold title, and muted two-line description; thin gray border and rounded corners on a matte charcoal/theme-adaptive surface.
+- Project heading uses a folder-with-bars outline icon and a chevron that flips upward when expanded.
+- Add a narrow-screen layout adjustment and retain keyboard focus and reduced-motion support.
+
 ## Reference-matched project action styling
 
 - Match the supplied illustration with a matte theme-adaptive panel, rounded outline, generous row spacing, monochrome line icons, and subtle separators.
