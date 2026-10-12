@@ -1961,20 +1961,24 @@
   // Create image switches to picture mode; the person then describes it.
   $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
-  function startNewChat({ focus = true, message = '' } = {}) {
-    const continuingTurn = Boolean(turn);
-    // Detach the current turn from the visible composer without aborting its
-    // controller. It can finish and persist in its original conversation.
+  // Detaches a reply still being written from the screen without stopping it:
+  // it finishes and is saved in its own chat. True when one was running.
+  function detachTurn() {
+    const continuing = Boolean(turn);
     chatViewEpoch++;
     turn = null;
     busy = false;
+    return continuing;
+  }
+  const BACKGROUND_NOTE = 'Your previous reply is continuing in the background and will be saved in Your chats.';
+
+  function startNewChat({ focus = true, message = '' } = {}) {
+    const continuingTurn = detachTurn();
     setChatProject(null);
     conversationId = null;
     saved.del(identityKey(KEYS.conversation));
     stopSpeaking();
-    notice.textContent = message || (continuingTurn
-      ? 'Your previous reply is continuing in the background and will be saved in Your chats.'
-      : '');
+    notice.textContent = message || (continuingTurn ? BACKGROUND_NOTE : '');
     clearScreen();
     refreshSendButton();
     refreshTurnControls();
@@ -5364,10 +5368,13 @@
   }
   // Opens a past chat; the next message continues it.
   async function openChat(id) {
-    if (busy) return;
+    // A reply still being written keeps going in its own chat (like New chat).
+    const continuing = detachTurn();
+    refreshSendButton();
+    refreshTurnControls();
     closeHistory();
     stopSpeaking();
-    notice.textContent = '';
+    notice.textContent = continuing ? BACKGROUND_NOTE : '';
     conversationId = id;
     saved.set(identityKey(KEYS.conversation), id);
     clearScreen();
@@ -6035,7 +6042,7 @@
 
   $('prjBack').addEventListener('click', () => { prjOpen = null; prjShow('list'); loadProjects(); });
   function startProjectChat(project, mode) {
-    if (!project || busy) return;
+    if (!project) return;   // New chat below lets a running reply finish in the background
     const p = { id: project.id, name: project.name };
     closeHistory();
     $('newChat').click();
@@ -6051,7 +6058,7 @@
   }
 
   $('prjChat').addEventListener('click', () => {
-    if (!prjOpen || busy) return;
+    if (!prjOpen) return;
     startProjectChat(prjOpen, 'chat');
   });
   $('prjTaskForm').addEventListener('submit', async (e) => {
