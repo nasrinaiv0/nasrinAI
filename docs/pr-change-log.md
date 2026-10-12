@@ -13,6 +13,13 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Phone header fits (`ui/ios-header-fit`)
+
+- **Intent:** audit finding F1 (`docs/feature-audit.md`, PR #223). On phones up to 390 px, a signed-out chat made the header 404 px wide (brand, two icons, "New chat", "Sign in"): the page scrolled sideways and Sign in was cut off.
+- **Change:** `public/index.html` gives "New chat" an icon and a label span, with `aria-label="New chat"` so its accessible name is unchanged. In `public/app.css`, at ≤ 430 px the label hides and the icon shows. At ≤ 400 px, while Sign in shows (`.bar:has(#headerSignIn:not([hidden]))`), the wordmark gives way; the round mark stays. No script change.
+- **Layout check (headless Chromium, local fake-provider run, chat state):** page width equals the viewport at 320, 375, 390, 430 and 768 px (before: 404 at 320–390). Signed in, the wordmark still shows at 390 px.
+- **Regression test:** `test/ios-header-fit.test.js` (fails without the change).
+
 ## Proposed PR — Feature audit (`fix/feature-audit`)
 
 - **Intent:** backlog item 1 of the 2026-10-12 upgrade: record what works and what doesn't on the user side before fixing anything. Adds `docs/feature-audit.md`.
