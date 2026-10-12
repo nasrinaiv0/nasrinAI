@@ -2286,7 +2286,6 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 :root[data-motion="reduce"] .drawer:not([hidden]), :root[data-motion="reduce"] .drawer-scrim:not([hidden]) { animation: none; }
 
 /* iOS-style header icons (docs/redesign.md R3a). */
-/* iOS-style header icons (docs/redesign.md R3a). */
 .bar .icon-btn, .bar #newChat { color: var(--ink-2); }
 .bar .icon-btn svg, .bar .new-chat-ico, .desktop-rail-action svg { stroke-width: 1.6; }
 .header-signin { white-space: nowrap; }
