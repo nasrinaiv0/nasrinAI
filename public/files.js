@@ -246,11 +246,11 @@
 
   function makeXlsx(input) {
     const source = String(input || '');
-    const marker = /\\[\\[sheet\\s+name\\s*=\\s*"([^"\\n]{1,31})"\\s*\\]\\]([\\s\\S]*?)\\[\\[\\/sheet\\]\\]/gi;
+    const marker = /\[\[sheet\s+name\s*=\s*"([^"\n]{1,31})"\s*\]\]([\s\S]*?)\[\[\/sheet\]\]/gi;
     const tabs = [];
     let match;
     while ((match = marker.exec(source)) && tabs.length < 8) {
-      const name = match[1].replace(/[\\[\\]\\*?:\\/\\\\]/g, ' ').trim().slice(0, 31) || `Sheet${tabs.length + 1}`;
+      const name = match[1].replace(/[\[\]*?:\/\\]/g, ' ').trim().slice(0, 31) || `Sheet${tabs.length + 1}`;
       if (!tabs.some((t) => t.name.toLowerCase() === name.toLowerCase())) tabs.push({ name, rows: parseCsv(match[2]).slice(0, 5000) });
     }
     if (!tabs.length) tabs.push({ name: 'Data', rows: parseCsv(source).slice(0, 5000) });
@@ -263,7 +263,7 @@
           const ref = colName(ci) + (ri + 1);
           const style = ri === 0 && rows.length > 1 ? ' s="1"' : '';
           if (v === '') return '';
-          if (/^-?\\d{1,15}(\\.\\d+)?$/.test(v) && !/^-?0\\d/.test(v)) return `<c r="${ref}"${style}><v>${v}</v></c>`;
+          if (/^-?\d{1,15}(\.\d+)?$/.test(v) && !/^-?0\d/.test(v)) return `<c r="${ref}"${style}><v>${v}</v></c>`;
           if (v.startsWith('=') && safeFormula(v)) return `<c r="${ref}"${style}><f>${xml(v.slice(1))}</f></c>`;
           return `<c r="${ref}" t="inlineStr"${style}><is><t xml:space="preserve">${xml(raw)}</t></is></c>`;
         }).join('');

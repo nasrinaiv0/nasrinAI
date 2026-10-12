@@ -1,3 +1,10 @@
+## Fix PR #242 — Excel workbook export regexes (`fix/pr242-xlsx-regex`)
+
+- **Root cause:** the multi-sheet marker and numeric-cell regexes in `public/files.js` were over-escaped, so `[[sheet name="..."]]` blocks were not recognized and numeric values were emitted as text. Worksheet-name sanitization also needed to safely escape the slash delimiter.
+- **Fix:** restore the intended JavaScript regular expressions; preserve formula allow-listing and existing workbook limits.
+- **Regression coverage:** added tests that exercise the same marker and numeric regexes used by the production builder against valid sheet blocks, numeric values, leading-zero identifiers, and non-matching input.
+- **Validation:** automated test execution and real Excel/LibreOffice open checks must pass before merge. This patch does not change authentication, rate limits, or deployment settings.
+
 ## Proposed PR — Multi-sheet Excel workbook export (fix/excel-workbook-pr-conflict)
 
 - **Intent:** create a real downloadable `.xlsx` workbook with multiple named tabs.
