@@ -6,6 +6,23 @@
 - **Files:** `public/gemini-realtime.js`, `public/app.js`, `test/gemini-realtime-browser.test.js`.
 - **Validation:** new test fails before / passes after; `npm test`; headless Chromium voice screen opens and closes without errors. Not yet tested against live Gemini on a phone.
 
+## Proposed PR — Direct uploads through Supabase Storage (`feature/direct-uploads`)
+
+- **Owner request (2026-10-12):** client-direct uploads so files are not held to Vercel's 4.5 MB request limit. Chosen: Supabase Storage signed upload links (no new package, private bucket), 20 MB per message.
+- **Change:** `POST /v1/uploads` gives a one-time upload link; the page uploads files (photos stay inline) straight to the private bucket `chat-uploads`; the chat names them by id; the server reads each once, deletes it and checks it like any file. The hourly clean-up removes unused uploads. `/v1/status` → `uploads`. CSP `connect-src` adds `https://*.supabase.co`. Off until `UPLOADS_DIRECT=true`.
+- **Data:** files may sit in Supabase Storage until used (at most about 2 hours if never sent). Privacy notice updated, version `2026-10-12b`.
+- **Files:** `src/uploads.js`, `src/config.js`, `src/limits.js`, `src/chat.js`, `src/routes.js`, `src/main.js`, `src/http/headers.js`, `vercel.json`, `public/app.js`, `db/migrations/031_chat_uploads_bucket.sql` + DB test, `test/uploads.test.js`, `docs/uploads.md`, `.env.example`, `public/legal/privacy.md`, `CLAUDE.md`.
+- **Owner steps:** run migration 031 (staging first), set `UPLOADS_DIRECT=true`, redeploy.
+- **Validation:** `npm test`, DB tests on Postgres 16, `npm run check:secrets`; headless Chromium: a 5 MB file is signed, PUT and named in the chat request.
+
+## Proposed PR — A bad attachment limit no longer takes the site down (`fix/attachments-limit-soft`)
+
+- **Incident (2026-10-12):** every `/v1/*` call returned 503 `not_configured`; `/v1/status` named `ATTACHMENTS_MAX_MB` (allowed 1–3; Vercel's 4.5 MB body limit) as the setting at fault.
+- **Change:** `ATTACHMENTS_MAX_MB` and `ATTACHMENTS_MAX_COUNT` out of range now fall back to their defaults (3 MB, 4 files) with a start-up warning, like other optional settings. The bad value is never echoed.
+- **Owner step:** in Vercel, set `ATTACHMENTS_MAX_MB` to 3 (or delete it), then redeploy.
+- **Files:** `src/config.js`, `test/config-soft-limits.test.js`.
+- **Validation:** `npm test`, `npm run check:secrets`.
+
 ## Proposed PR — Sign in always available when signed out (`fix/signin-always-visible`)
 
 - **Owner report (2026-10-12):** the Sign in button was missing. The header button hid whenever `/v1/status` had not said which sign-in methods exist, so a slow or failing status check (the 503 outage) left guests with no way to sign in, and a signed-in person's session was not restored (no Log out).

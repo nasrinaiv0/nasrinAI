@@ -8,6 +8,7 @@ import { clientIpFrom } from '../src/net.js';
 import { buildRoutes } from '../src/routes.js';
 import { hashSecret } from '../src/auth/keys.js';
 import { createLimiter, createUsageLog } from '../src/limits.js';
+import { createUploads } from '../src/uploads.js';
 import { createConversations } from '../src/conversations.js';
 import { createChat } from '../src/chat.js';
 import { createModelCatalog } from '../src/ai/models.js';
@@ -64,7 +65,7 @@ export function seededStore() {
 }
 
 // The real app wiring, with in-memory storage and a fake sign-in check.
-export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = [], logger = memoryLogger(), env = {}, provider = null, speechEngine = null, realtime = null, auth = null, payments = null, webSearch = null, readLinkImpl, imageProvider = null, imageBackup = null, videos = null, connectorCall = null, facebookFetch = null, settings = null, notices = null } = {}) {
+export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = [], logger = memoryLogger(), env = {}, provider = null, speechEngine = null, realtime = null, auth = null, payments = null, webSearch = null, readLinkImpl, imageProvider = null, imageBackup = null, videos = null, connectorCall = null, facebookFetch = null, settings = null, notices = null, storageFetch = null } = {}) {
   const config = testConfig(env);
   const deletedUsers = [];
   const users = verifyUser ?? (async (t) => (t === USER_TOKEN ? { id: 'user-1' } : null));
@@ -90,18 +91,19 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   const projects = createProjects({ store, conversations, limiter, config, logger });
   const storage = createStorage({ store, config, conversations, library, logger });
   const coding = createCoding({ store, config });
+  const uploads = config.uploads.enabled ? createUploads({ config, limiter, logger, ...(storageFetch ? { fetchImpl: storageFetch } : {}) }) : null;
   const founder = config.founderKnowledgeUrl ? createFounderKnowledge({ url: config.founderKnowledgeUrl, logger, ...(readLinkImpl ? { readLinkImpl } : {}) }) : null;
   const productKnowledge = createProductKnowledge();
   const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store })], usageLog, config, logger, ...(connectorCall ? { call: connectorCall } : {}) });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: config.guestSecret, store, tools, conversations, logger }) : null;
-  const chat = createChat({ conversations, limiter, usageLog, provider, models, coding, plans, policy, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, ...(readLinkImpl ? { readLinkImpl } : {}), config, logger });
+  const chat = createChat({ conversations, limiter, uploads, usageLog, provider, models, coding, plans, policy, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, ...(readLinkImpl ? { readLinkImpl } : {}), config, logger });
   const images = createImages({ store, conversations, limiter, usageLog, imageProvider, backup: imageBackup, plans, budget: createBudget({ store, config, logger, kind: 'image' }), provider, policy, price: 0.0336, legal, config, logger });
   const facebook = config.facebook ? createFacebook({ config, store, chat, conversations, logger, ...(facebookFetch ? { fetchImpl: facebookFetch } : {}) }) : null;
   const voice = createVoice({ engine: speechEngine, conversations, limiter, usageLog, budget: reasoningBudget, config, logger });
   const app = createApp({
     config, logger, gateway,
-    routes: buildRoutes({ config, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime, auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: connectors.routes, knowledge, memory, settings, notices, library, projects, storage, budget: reasoningBudget, logger }).concat(extraRoutes),
+    routes: buildRoutes({ config, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime, auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: connectors.routes, knowledge, memory, settings, notices, library, projects, storage, uploads, budget: reasoningBudget, logger }).concat(extraRoutes),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });
   return { app, store, logger, config, limiter, usageLog, conversations, provider, models, plans, storage, deletedUsers };
