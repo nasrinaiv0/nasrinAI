@@ -1,3 +1,9 @@
+## Proposed PR — Documents download as PDF (`fix/doc-file-types`)
+
+- **Owner request (2026-10-12):** a meal plan and shopping list came as an `.html` download; documents should be PDF (or Word, etc.), `.html` only for coding.
+- **Change:** the prompt makes documents `.pdf` by default (`.docx` to edit) and keeps `.html`/`.css`/`.js` for coding or an asked-for web page; `src/ai/file-types.js` converts a plain document still handed over as `.html` into a `.pdf` (headings, bullets, bold kept) unless the person's recent messages ask for web or code work. `docs/chat.md`.
+- **Validation:** `npm test` (conversion, coding keeps `.html`, prompt, saved chat reply).
+
 ## New chat without interrupting an ongoing reply
 
 - Starting a new chat detaches the active reply from the current composer without aborting its request.

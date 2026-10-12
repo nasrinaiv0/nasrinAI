@@ -16,6 +16,7 @@ import { PLATFORM_TENANT_ID } from './tenants.js';
 import { readSelection, resolve as resolveProfessionals, promptBlock } from './ai/professional.js';
 import { projectBlock } from './projects.js';
 import { CODING_RULE } from './coding.js';
+import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
@@ -246,8 +247,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Pages read for this answer (links shared, or web search sources): the
     // answer is then also kept in the permanent web-answer table (webAnswers).
     let webSources = [];
+    // What the person asked in this chat decides whether an .html file stays one.
+    let askedText = typed;
     const finish = async (reply) => {
       live?.flush();
+      if (!codeFile && typeof reply === 'string') reply = documentFiles(reply, askedText);
       const assistant = await conversations.add(conv, 'assistant', reply);
       if (webAnswers && webSources.length && reply) {
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
@@ -275,6 +279,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Smart routing decides the level, and with it how much history and reply length.
     const plan = smart ? policy.plan({ tier: choice.tier, message: typed, history: fullHistory, attachments: files }) : null;
     const history = fitHistory(fullHistory, plan ? plan.historyChars : config.ai.historyChars);
+    askedText = history.filter((m) => m.role === 'user').slice(-6).map((m) => m.content || '').join('\n') || typed;
     if (codeFile && history.length) {
       const last = history.at(-1);
       history[history.length - 1] = { role: last.role, content: last.content + codeFile.block };
