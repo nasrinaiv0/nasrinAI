@@ -7,7 +7,7 @@ import { publicMessage, isPastIntent, isConversationMeta } from './conversations
 import { parseAttachments, attachmentNote } from './attachments.js';
 import { answerWithLogic } from './ai/logic.js';
 import { readLink, linksIn } from './web/read-link.js';
-import { needsWeb } from './web/search.js';
+import { needsWeb, GAP } from './web/search.js';
 import { costOf, priceOf, toolPrice, estimateTokens } from './ai/pricing.js';
 import { createProviderSpendHooks } from './ai/budget.js';
 import { redactForProvider } from './ai/redact.js';
@@ -364,7 +364,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     // Questions that need fresh facts get a web search (with sources), when it
     // is set up, allowed by the limits and affordable within the budget.
-    if (smart && !only && webSearch && !files.length && !links.length && needsWeb(typed) && !isPastIntent(typed) && !isConversationMeta(typed) && await limiter.web(caller)) {
+    // Also used after a draft answer that admits it lacks current facts (GAP).
+    let webTried = false;
+    const webAllowed = () => smart && !only && webSearch && !files.length && !links.length && !isPastIntent(typed) && !isConversationMeta(typed);
+    async function webAnswer() {
+      webTried = true;
+      if (!(await limiter.web(caller))) return null;
       stage('web');
       const left = await policy.budgetLeft();
       const perCall = toolPrice('web_search');
@@ -378,7 +383,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         let webProviderStarted = false;
         try {
           if (!budget) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now.');
-          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null });
+          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) });
           const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
           const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
           webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
@@ -406,7 +411,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
               latencyMs: now() - started, outcome: 'rejected_output', task: 'web', level: plan.level, costUsd,
               reservationId: webReservation.id, spendReservationId: webSpendReservation.id
             });
-            return finish('I searched the web but could not verify source links for this answer, so I do not want to guess. Please try the search again.');
+            return null;   // no sources: answered without the web, never a guess presented as checked
           }
           const sources = found.citations.length ? '\n\n**Sources**\n' + found.citations.map((c) => {
             const title = String(c.title || new URL(c.url).hostname).replace(/[\[\]\r\n]/g, '').slice(0, 120);
@@ -419,7 +424,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', task: 'web', level: plan.level, costUsd,
             reservationId: webReservation.id, spendReservationId: webSpendReservation.id
           });
-          if (reply) return finish(reply);
+          if (reply) return reply;
         } catch (err) {
           if (webReservation) await limiter.settleTokens(webReservation, webProviderStarted ? webReservation.reservedTokens : 0);
           if (webSpendReservation) await budget.settleSpend(webSpendReservation, webSpendReservation.reservedUsd).catch(() => {});
@@ -429,6 +434,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           (err?.kind === 'config' ? logger.error : logger.warn)('web search failed; answering without it', { kind: err?.kind, status: err?.status, model: webSearch.model });
         }
       }
+      return null;
+    }
+    if (webAllowed() && needsWeb(typed)) {
+      const found = await webAnswer();
+      if (found) return finish(found);
     }
 
     if (smart) {
@@ -499,7 +509,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null }) + (codeFile ? '\n\n' + CODING_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile ? '\n\n' + CODING_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       try {
         try {
@@ -585,6 +595,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
       });
       if (!reply) throw unavailable();
+      // The draft says it lacks current facts: search instead of showing that.
+      if (!usedTools && !webTried && webAllowed() && GAP.test(reply)) {
+        live?.reset();   // the page drops the draft; `done` carries the final text either way
+        const found = await webAnswer();
+        if (found) return finish(found);
+      }
       if (!usedTools) {
         policy.remember(key, { text: reply, provider: run.result.provider || run.spec.provider, model: run.spec.model });
         if (semanticCache && key && semanticEntry?.embedding) {
@@ -602,7 +618,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null }) + (codeFile ? '\n\n' + CODING_RULE : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile ? '\n\n' + CODING_RULE : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)

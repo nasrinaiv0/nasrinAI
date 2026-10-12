@@ -2,6 +2,7 @@
 // Invalid or missing values stop the server in production instead of failing later.
 
 import { parseKey as parseConnectorKey } from './connectors/secret.js';
+import { loadPrices, priceOf } from './ai/pricing.js';
 
 export class ConfigError extends Error {}
 
@@ -334,6 +335,22 @@ export function loadConfig(env = process.env) {
   // taking the whole site down: off is the safe state for an optional feature.
   const warnings = [];
 
+  // Web search model. It must have a price in config/model-prices.json (or
+  // MODEL_PRICES_JSON): without one the spend check cannot size the call and
+  // every search is skipped. An unpriced setting falls back to the default.
+  const WEB_SEARCH_DEFAULT = 'gpt-5.4-mini';
+  function webSearchModel() {
+    const set = String(env.WEB_SEARCH_MODEL ?? '').trim();
+    if (env.WEB_SEARCH_MODEL !== undefined && !set) return '';   // empty = web search off
+    if (!env.OPENAI_API_KEY && !set) return '';
+    if (!set && (aiProvider === 'fake' || aiProvider === 'none')) return '';
+    if (!set) return WEB_SEARCH_DEFAULT;
+    let table = {};
+    try { table = loadPrices(String(env.MODEL_PRICES_JSON || '').trim()); } catch { table = loadPrices(''); }
+    if (priceOf(table, 'openai', set)) return set;
+    warnings.push(`WEB_SEARCH_MODEL: ${set} has no price in config/model-prices.json, so web search could not run. Using ${WEB_SEARCH_DEFAULT}.`);
+    return WEB_SEARCH_DEFAULT;
+  }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
   const wantSpeech = String(env.SPEECH_PROVIDER || 'auto').trim().toLowerCase();
@@ -612,7 +629,7 @@ export function loadConfig(env = process.env) {
     // that need fresh information (OpenAI web search tool).
     web: Object.freeze({
       links: String(env.WEB_LINKS ?? 'true').toLowerCase() !== 'false',
-      searchModel: String(env.WEB_SEARCH_MODEL ?? (env.OPENAI_API_KEY && aiProvider !== 'fake' && aiProvider !== 'none' ? 'gpt-6-luna' : '')).trim()
+      searchModel: webSearchModel()
     }),
     tools: Object.freeze({ enabled: toolsEnabled }),
     professional: Object.freeze({ enabled: professionalEnabled }),

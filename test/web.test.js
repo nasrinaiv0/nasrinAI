@@ -78,7 +78,7 @@ test('web search: Responses API with the web_search tool; answer with sources; r
 });
 
 
-test('web search: does not present an answer without verifiable source links', async () => {
+test('web search: an answer without verifiable source links is never shown', async () => {
   const ws = createWebSearch({ apiKey: 'sk-x', model: 'gpt-6-luna', fetchImpl: async () => Response.json({
     output: [{ type: 'web_search_call' }, { type: 'message', content: [{ type: 'output_text', text: 'Unverified current claim.' }] }],
     usage: { input_tokens: 20, output_tokens: 10 }
@@ -88,9 +88,10 @@ test('web search: does not present an answer without verifiable source links', a
   const srv = await serve(built.app);
   try {
     const r = await (await postJson(srv.url + '/v1/chat', { message: 'What is the weather in Cebu today?' }, bearer(USER_TOKEN))).json();
-    assert.match(r.message.content, /could not verify source links/);
     assert.doesNotMatch(r.message.content, /Unverified current claim/);
-    assert.equal(provider.calls.length, 0);
+    // No sources: the regular model answers instead (no web claim, no apology).
+    assert.equal(provider.calls.length, 1);
+    assert.match(r.message.content, /You said:/);
   } finally { await srv.close(); }
 });
 
@@ -109,4 +110,22 @@ test('web search: streams first answer text before the response completes', asyn
   assert.deepEqual(seen, ['The answer is ', '42.']);
   assert.equal(found.text, 'The answer is 42.');
   assert.equal(found.citations[0].url, 'https://example.com/');
+});
+
+test('a draft that admits it lacks current facts is replaced by a web search', async () => {
+  let searches = 0;
+  const ws = createWebSearch({ apiKey: 'sk-x', model: 'gpt-6-luna', fetchImpl: async () => { searches += 1; return Response.json({
+    output: [{ type: 'web_search_call' }, { type: 'message', content: [{ type: 'output_text', text: 'The Senate opened the trial on Monday.', annotations: [{ type: 'url_citation', url: 'https://news.example.ph/a', title: 'News' }] }] }],
+    usage: { input_tokens: 20, output_tokens: 10 }
+  }); } });
+  const provider = createFakeProvider({ reply: () => 'I can help, but I’ll need to check the web to give the latest. My built-in knowledge may be outdated.' });
+  const built = buildTestApp({ provider, webSearch: ws, env: { ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30) } });
+  const srv = await serve(built.app);
+  try {
+    const r = await (await postJson(srv.url + '/v1/chat', { message: 'what happened with the impeachment case' }, bearer(USER_TOKEN))).json();
+    assert.equal(searches, 1);
+    assert.match(r.message.content, /Senate opened the trial/);
+    assert.match(r.message.content, /Sources/);
+    assert.doesNotMatch(r.message.content, /check the web|outdated/);
+  } finally { await srv.close(); }
 });
