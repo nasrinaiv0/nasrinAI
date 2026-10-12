@@ -14,7 +14,7 @@ select pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('${tenant}':
 select pg_catalog.pg_sleep(1);
 select allowed::text || ':' || coalesce(reason, '')
   from public.reserve_daily_tokens(
-    '27000000-0000-4000-8000-000000000011', '${tenant}', 'service', 'm027-concurrent-a', 60, 0, 0, 100);
+    '27000000-0000-4000-8000-000000000011', '${tenant}', 'service', 'm027-concurrent-a', 600, 0, 0, 1000);
 commit;
 SQL
 pid_a=$!
@@ -22,7 +22,7 @@ sleep 0.2
 psql -qAt -v ON_ERROR_STOP=1 -d "$DB" >"$b_out" <<SQL
 select allowed::text || ':' || coalesce(reason, '')
   from public.reserve_daily_tokens(
-    '27000000-0000-4000-8000-000000000012', '${tenant}', 'service', 'm027-concurrent-b', 60, 0, 0, 100);
+    '27000000-0000-4000-8000-000000000012', '${tenant}', 'service', 'm027-concurrent-b', 600, 0, 0, 1000);
 SQL
 wait "$pid_a"
 
