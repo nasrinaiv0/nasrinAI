@@ -1,3 +1,10 @@
+## Proposed PR — Voice typing button: clear Stop while listening (`fix/dictation-button`)
+
+- **Owner request (2026-10-12):** fix the speech-to-text button and make it responsive.
+- **Bug:** while dictating, every recognised word switched the button to the Send arrow named "Send message", but a tap only stopped listening and sent nothing; after stopping, the name stayed "Dictate message" next to the arrow.
+- **Change:** `public/app.js` names and draws the button in one place (`refreshSendButton`): Stop ("Stop listening") while listening, then Send or the mic. `public/app.css` shows the Stop square while listening. Docs: `docs/chat.md` ("Voice typing").
+- **Validation:** `test/dictation-button.test.js` (fails on `main`, passes here); local `npm test` and `npm run check:secrets`; headless Chromium with a fake recogniser: mic → Stop (also after words arrive) → Send → sent, mic again. No server, data or legal change.
+
 ## Proposed PR — Minimal voice screen: liquid orb, conversation on top (`ui/voice-screen`)
 
 - **Owner request (2026-10-12):** remove the speed button; a glowing liquid SVG orb in the lower centre that ripples out sound waves; Plus and tier on the left, mute and Exit on the right; the conversation at the top, fading out; minimalist.

@@ -1084,6 +1084,9 @@ body.legal-page .brand { opacity: 1; transform: none; pointer-events: auto; }
 .send.is-stop { background: var(--ink); color: var(--on-ink); }
 .send.is-stop .send-ico { display: none; }
 .send.is-stop .stop-ico { display: block; }
+/* Dictating: the button stops listening, so it shows Stop, even after words arrive. */
+.send.is-listening .dictate-ico, .send.is-listening .send-ico { display: none; }
+.send.is-listening .stop-ico { display: block; }
 .msg.is-live .msg-body { white-space: pre-wrap; }
 .msg.user { position: relative; }
 .edit-msg { position: absolute; left: -2.6rem; bottom: 0.1rem; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 0; border-radius: 50%; background: none; color: var(--ink-3); cursor: pointer; }
