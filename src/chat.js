@@ -15,7 +15,7 @@ import { ToolError } from './tools/registry.js';
 import { PLATFORM_TENANT_ID } from './tenants.js';
 import { readSelection, resolve as resolveProfessionals, promptBlock } from './ai/professional.js';
 import { projectBlock } from './projects.js';
-import { CODING_RULE } from './coding.js';
+import { CODING_RULE, CODING_CHAT_RULE } from './coding.js';
 import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 
@@ -128,6 +128,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       throw new HttpError(400, 'invalid_conversation', 'Choose the conversation to change.');
     }
     if (editId !== null && (typeof editId !== 'string' || regenerate)) throw new HttpError(400, 'invalid_message', 'That message cannot be edited.');
+    // The coding chat (page's Code window): coding rules, code files kept as they are.
+    if (body.coding !== undefined && typeof body.coding !== 'boolean') throw new HttpError(400, 'invalid_coding', 'That chat mode is not available.');
+    const codingChat = body.coding === true;
     // A new chat can start inside one of the person's projects.
     if (body.project_id !== undefined && (typeof body.project_id !== 'string' || body.conversation_id)) {
       throw new HttpError(400, 'invalid_project', 'A project can be chosen only for a new chat.');
@@ -251,7 +254,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     let askedText = typed;
     const finish = async (reply) => {
       live?.flush();
-      if (!codeFile && typeof reply === 'string') reply = documentFiles(reply, askedText);
+      if (!codeFile && !codingChat && typeof reply === 'string') reply = documentFiles(reply, askedText);
       const assistant = await conversations.add(conv, 'assistant', reply);
       if (webAnswers && webSources.length && reply) {
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
@@ -469,7 +472,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // the Library, a pasted secret, or when the person pressed Regenerate.
       const codingTask = plan.task === 'coding' || plan.task === 'debugging';
       const secretInside = typed.split('\n').some((line) => looksSecret(line));
-      const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || regenerate || secretInside);
+      const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || codingChat || regenerate || secretInside);
       // The page's block-rich response format is cacheable too, but must never
       // share an exact or semantic cache entry with plain API responses.
       const variant = codingTask
@@ -523,7 +526,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile ? '\n\n' + CODING_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       try {
         try {
@@ -632,7 +635,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile ? '\n\n' + CODING_RULE : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)

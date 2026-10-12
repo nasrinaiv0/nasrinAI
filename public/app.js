@@ -44,7 +44,7 @@
   const KEYS = {
     session: 'nasrin.session', conversation: 'nasrin.conversation', speak: 'nasrin.speak',
     model: 'nasrin.model', theme: 'nasrin.theme', palette: 'nasrin.palette', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
-    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
+    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', coding: 'nasrin.coding', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
     notices: 'nasrin.notices', deviceRealtime: 'nasrin.deviceRealtime', deviceNotified: 'nasrin.deviceNotified', speechRate: 'nasrin.speechRate', language: 'nasrin.language', left: 'nasrin.left'
   };
   const saved = {
@@ -92,6 +92,8 @@
   // Each visible conversation has a generation number. A request from an older
   // view can finish and persist without writing into the newly opened chat.
   let chatViewEpoch = 0;
+  // The coding chat (Code in the menu): a project-scoped chat with coding experts.
+  let codingProject = null;   // { id, name } while the coding chat is open
   let busy = false;
   let aiAvailable = true;
   let listening = false;
@@ -1799,6 +1801,7 @@
       ...(!id && turnProject ? { project_id: turnProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
+      ...(codingProject ? { coding: true } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
     const hooks = {
@@ -1973,7 +1976,8 @@
   }
   const BACKGROUND_NOTE = 'Your previous reply is continuing in the background and will be saved in Your chats.';
 
-  function startNewChat({ focus = true, message = '' } = {}) {
+  function startNewChat({ focus = true, message = '', keepCoding = false } = {}) {
+    if (codingProject && !keepCoding) setCoding(null);
     const continuingTurn = detachTurn();
     setChatProject(null);
     conversationId = null;
@@ -2613,7 +2617,7 @@
     showPage('helpSupport');
   }, { once: true });
   $('settingsClose').addEventListener('click', closeSettings);
-  scrim.addEventListener('click', () => { closeSettings(); closeSignIn(); closePlans(); closeHistory(); closePro(); closeReceipt(); });
+  scrim.addEventListener('click', () => { closeSettings(); closeSignIn(); closePlans(); closeHistory(); closePro(); closeReceipt(); closeCodePicker(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeVoice(); closeSettings(); closeSignIn(); closePlans(); closeHistory(); closePro(); closeReceipt(); closeMenu(true); } });
 
   // ---------- account and sign-in ----------
@@ -2799,7 +2803,8 @@
   if (spaceLibrary) spaceLibrary.addEventListener('click', () => account ? openHistory('library') : openSignIn('Sign in to use your Library.'));
   // Projects: Open, Chat and Code sit under each project's arrow.
   if (spaceProjects) spaceProjects.addEventListener('click', () => account ? openHistory('projects') : openSignIn('Sign in to keep chats, files, tasks and instructions together in projects.'));
-  if (spaceCoding) spaceCoding.addEventListener('click', () => account ? openHistory('library') : openSignIn('Sign in to use Coding with your Library.'));
+  // Coding (Space tile and the "Start coding" starter) opens the coding chat's project picker.
+  if (spaceCoding) spaceCoding.addEventListener('click', () => { closeSettings(); openCodePicker(); });
   if (spaceCloud) spaceCloud.addEventListener('click', () => {
     const status = $('spaceStatus');
     if (status) status.textContent = 'Cloud will appear here when its secure NasrinAI connection is ready.';
@@ -5088,6 +5093,8 @@
 
   // What goes with each message.
   function proRequest() {
+    // The coding chat always asks the Technology experts; the server picks the ones a message needs.
+    if (codingProject) return { enabled: true, mode: 'group', groups: ['technology'] };
     if (!proCatalog || !proState.enabled) return { enabled: false };
     if (proState.mode !== 'custom' || !proState.ids.length) return { enabled: true, mode: 'automatic' };
     if (proState.ids.length === proCatalog.professions.length) return { enabled: true, mode: 'all' };
@@ -5112,6 +5119,14 @@
       $('proBtnIcon').replaceChildren(nasrinAvatar(null));
       btn.classList.remove('is-on');
       btn.title = 'Professional AI settings loading';
+      btn.setAttribute('aria-label', btn.title);
+      return;
+    }
+    if (codingProject) {
+      $('proBtnLabel').textContent = 'Code experts';
+      $('proBtnIcon').replaceChildren(nasrinAvatar('glasses'));
+      btn.classList.add('is-on');
+      btn.title = 'Coding experts: Software and Web Developer, QA, Cybersecurity, Data and IT experts';
       btn.setAttribute('aria-label', btn.title);
       return;
     }
@@ -5244,6 +5259,7 @@
   }
 
   function openPro() {
+    if (codingProject) { notice.textContent = 'In the coding chat Nasrin uses its coding experts. Leave the coding chat to choose others.'; return; }
     if (!proCatalog) return;
     closeSettings();
     closeSignIn();
@@ -5373,6 +5389,7 @@
   }
   // Opens a past chat; the next message continues it.
   async function openChat(id) {
+    if (codingProject) setCoding(null);
     // A reply still being written keeps going in its own chat (like New chat).
     const continuing = detachTurn();
     refreshSendButton();
@@ -5851,6 +5868,86 @@
   }
   $('projectLeave').addEventListener('click', () => $('newChat').click());
 
+  // ---------- the coding chat ----------
+  // Code (menu, desktop rail, "Start coding", a project's Code) asks for a
+  // project first, then opens a coding chat in it: coding experts, coding
+  // rules on the server, and the project + leave buttons at the top.
+  const inputHint = input.placeholder;
+  function setCoding(p) {
+    codingProject = p && typeof p.id === 'string' ? { id: p.id, name: String(p.name || 'Project') } : null;
+    document.body.classList.toggle('coding-mode', Boolean(codingProject));
+    $('codingBar').hidden = !codingProject;
+    $('codingProjectName').textContent = codingProject ? codingProject.name : '';
+    input.placeholder = codingProject ? 'Describe what to build, or paste code' : inputHint;
+    if (codingProject) saved.set(KEYS.coding, codingProject); else saved.del(KEYS.coding);
+    renderProButton();
+  }
+  function enterCoding(p) {
+    startNewChat({ keepCoding: true, focus: false });
+    setCoding(p);
+    setChatProject(p);
+    notice.textContent = 'Coding chat in ' + codingProject.name + '.';
+    input.focus();
+  }
+  const codePicker = $('codePicker');
+  async function openCodePicker() {
+    if (!account) { openSignIn('Sign in to use the coding chat with your projects.'); return; }
+    if (!projectsOn) { notice.textContent = 'Projects are turned off, so the coding chat is not available.'; return; }
+    closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro();
+    lastFocus = document.activeElement;
+    scrim.hidden = false;
+    codePicker.hidden = false;
+    $('codePickerName').value = '';
+    const list = $('codePickerList');
+    const status = $('codePickerStatus');
+    list.replaceChildren();
+    status.textContent = 'Loading your projects…';
+    try {
+      const data = await api('/v1/projects');
+      const projects = (data.projects || []).filter((p) => p && typeof p.id === 'string' && p.status !== 'done');
+      list.replaceChildren(...projects.map((p) => {
+        const li = mk('li', 'history-item');
+        const b = mk('button', 'history-open code-picker-item' + (codingProject && codingProject.id === p.id ? ' is-current' : ''));
+        b.type = 'button';
+        b.append(mk('span', 'history-title', p.name), mk('span', 'history-time', codingProject && codingProject.id === p.id ? 'Current · new coding chat' : when(p.updated_at)));
+        b.addEventListener('click', () => { closeCodePicker(); enterCoding(p); });
+        li.appendChild(b);
+        return li;
+      }));
+      status.textContent = projects.length ? '' : 'No projects yet. Name one below to start.';
+      if (!projects.length) $('codePickerName').focus();
+    } catch (err) {
+      status.textContent = err.message || 'Your projects could not be loaded.';
+    }
+  }
+  function closeCodePicker() {
+    if (codePicker.hidden) return;
+    codePicker.hidden = true;
+    scrim.hidden = true;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  $('codePickerClose').addEventListener('click', closeCodePicker);
+  $('codePickerNew').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('codePickerName').value.trim();
+    if (!name) return;
+    const btn = $('codePickerCreate');
+    btn.disabled = true;
+    $('codePickerStatus').textContent = 'Creating…';
+    try {
+      const p = await api('/v1/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description: '', instructions: '' }) });
+      closeCodePicker();
+      enterCoding(p);
+    } catch (err) {
+      $('codePickerStatus').textContent = err.message || 'The project could not be created.';
+    } finally { btn.disabled = false; }
+  });
+  $('codingProject').addEventListener('click', openCodePicker);
+  $('codingExit').addEventListener('click', () => { setCoding(null); startNewChat(); });
+  $('drawerCode').addEventListener('click', () => { closeDrawer(false); openCodePicker(); });
+  $('desktopCodeBtn')?.addEventListener('click', openCodePicker);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !codePicker.hidden) closeCodePicker(); });
+
   function prjShow(view) {
     $('prjListView').hidden = view !== 'list';
     $('prjFormView').hidden = view !== 'form';
@@ -6047,6 +6144,7 @@
 
   $('prjBack').addEventListener('click', () => { prjOpen = null; prjShow('list'); loadProjects(); });
   function startProjectChat(project, mode) {
+    if (project && mode === 'code') { closeHistory(); enterCoding(project); return; }
     if (!project) return;   // New chat below lets a running reply finish in the background
     const p = { id: project.id, name: project.name };
     closeHistory();
@@ -6263,6 +6361,14 @@
       if (awayLong() && conversationId) { conversationId = null; saved.del(identityKey(KEYS.conversation)); notice.textContent = 'Started a new chat. Your last one is in Your chats.'; }
       saved.del(KEYS.left);
       return loadConversation();
+    })
+    .then(() => {
+      // Back in the coding chat after a reload, while still signed in.
+      const sc = saved.get(KEYS.coding);
+      if (sc && typeof sc.id === 'string' && account && projectsOn) {
+        setCoding(sc);
+        if (!conversationId) setChatProject(sc);
+      } else saved.del(KEYS.coding);
     })
     .finally(() => Promise.allSettled([loadingModels, loadingPro]).then(() => {
       document.documentElement.classList.remove('composer-controls-loading');

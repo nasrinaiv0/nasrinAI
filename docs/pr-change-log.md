@@ -1,3 +1,16 @@
+## Proposed PR — Coding chat (`feature/coding-window`)
+
+- **Owner request (2026-10-12):** a dedicated coding chat. Code under Library in the menu; a window to choose or create a project first; a top bar with the project and leave (right) and the menu (left); Professional AI becomes coding experts (automatic).
+- **Change:** `Code` in the phone menu and desktop rail (also Start coding, Space → Coding, a project's Code); project picker sheet with create; coding mode in the header; pill "Code experts" sending the Technology group; `coding: true` adds `CODING_RULE` + new `CODING_CHAT_RULE`, keeps code files as their real type and skips the answer cache. `docs/coding-chat.md`, `CLAUDE.md` map.
+- **Data:** none new (coding chats are project chats); no legal change.
+- **Validation:** `npm test` (coding rules, files kept, flag check); headless Chromium at 390/1280 px (pick/create project, coding bar, Code experts, request carries `coding` + project + group, survives reload, switch, leave); no horizontal scroll at 320–1280 px.
+
+## Proposed PR — One Library icon (`ui/library-icon`)
+
+- **Owner request (2026-10-12):** use the Library app icon (bars with a dot and a base line) for Library everywhere, theme-adaptive, no background.
+- **Change:** one inline glyph (`svg.lib-glyph`, `currentColor`, two bars at half strength) in the menu, the tab bar and the NasrinAI Space tile; no badge background, follows light/dark and palettes.
+- **Validation:** `npm test`; headless Chromium screenshots in light and dark (menu and Space).
+
 ## Proposed PR — Projects in NasrinAI Space (`ux/space-projects`)
 
 - **Owner report (2026-10-12):** the project expand features (#283) seem missing.

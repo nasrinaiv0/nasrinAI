@@ -2403,3 +2403,35 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 @media (max-width: 400px) {
   .bar:has(#headerSignIn:not([hidden])) .wordmark { display: none; }
 }
+
+/* Coding chat (Code in the menu): project + leave at the top right, menu at the left. */
+.coding-bar { display: flex; align-items: center; gap: 0.25rem; }
+.coding-bar[hidden] { display: none; }
+.coding-project {
+  display: inline-flex; align-items: center; gap: 0.35rem; max-width: 11.5rem; min-height: 2.25rem;
+  padding: 0 0.7rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 0.86rem; cursor: pointer;
+}
+.coding-project svg { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.coding-project .coding-chev { width: 0.85rem; height: 0.85rem; color: var(--ink-3); }
+.coding-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coding-project:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+body.coding-mode .bar-actions > :not(#codingBar) { display: none; }
+body.coding-mode #projectBar { display: none; }
+body.coding-mode .wordmark { white-space: nowrap; }
+body.coding-mode .wordmark::after { content: " Code"; color: var(--ink-3); }
+.code-picker-lede { margin: 0 0 0.6rem; }
+.code-picker-list { max-height: 45vh; overflow-y: auto; }
+.code-picker-item.is-current { background: var(--paper); }
+.code-picker-new { margin-top: 0.75rem; }
+.code-picker-row { display: flex; gap: 0.5rem; align-items: center; }
+.code-picker-row .lib-input { flex: 1; min-width: 0; margin: 0; }
+@media (max-width: 440px) {
+  body.coding-mode .wordmark::after { content: none; }
+  .coding-project { max-width: 9rem; }
+}
+
+/* Library glyph: one filled, theme-adaptive icon (menu, tab bar, Space), no background. */
+svg.lib-glyph, .drawer-link svg.lib-glyph, :root[data-tabbar="on"] .tab-item svg.lib-glyph { fill: currentColor; stroke: none; }
+svg.lib-glyph .lib-glyph-dim { opacity: .5; }
+#pageSpace .space-app-glyph { padding: .35rem; box-sizing: border-box; color: var(--ink); background: transparent; filter: none !important; border-radius: 0; }
