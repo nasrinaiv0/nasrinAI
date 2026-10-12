@@ -2163,3 +2163,4 @@ html.composer-controls-loading #composer .tools {
   white-space: nowrap;
 }
 .settings-sheet .menu-row .billing-plan-label[hidden] { display: none; }
+.billing-current-card .btn { margin-top: 0.6rem; }
