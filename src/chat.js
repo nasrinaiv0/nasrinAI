@@ -96,7 +96,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, semanticCache = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, semanticCache = null, webAnswers = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
   const smart = Boolean(policy) && config.ai.routing.mode === 'smart';
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
   // so write/money tools are refused instead of proposed.
@@ -231,9 +231,15 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (!partial) return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: null, stopped: true };
       return { ...(await finish(partial)), stopped: true };
     }
+    // Pages read for this answer (links shared, or web search sources): the
+    // answer is then also kept in the permanent web-answer table (webAnswers).
+    let webSources = [];
     const finish = async (reply) => {
       live?.flush();
       const assistant = await conversations.add(conv, 'assistant', reply);
+      if (webAnswers && webSources.length && reply) {
+        await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
+      }
       return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
@@ -277,6 +283,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const links = config.web.links && !only ? linksIn(typed) : [];
     if (links.length && history.length && await limiter.web(caller)) {
       const pages = await Promise.all(links.map((u) => readLinkImpl(u)));
+      webSources = pages.filter((p) => !p.error).map((p) => ({ url: p.url, title: p.title || '' }));
       const last = history.at(-1);
       history[history.length - 1] = {
         role: last.role,
@@ -400,6 +407,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             return `- [${title}](<${c.url}>)`;
           }).join('\n') : '';
           const reply = clean(keepIdentity(found.text) + sources);
+          webSources = found.citations.map((c) => ({ url: c.url, title: c.title || '' }));
           await usageLog.record(caller, {
             provider: 'openai', model: webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
             latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', task: 'web', level: plan.level, costUsd,

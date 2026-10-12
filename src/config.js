@@ -580,7 +580,7 @@ export function loadConfig(env = process.env) {
     // Legal documents: versions people accept, and whether signed-in people
     // must accept the current Terms before using the service.
     legal: Object.freeze({
-      terms: String(env.LEGAL_TERMS_VERSION || '2026-10-07d').trim().slice(0, 40),
+      terms: String(env.LEGAL_TERMS_VERSION || '2026-10-12').trim().slice(0, 40),
       privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12f').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),

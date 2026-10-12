@@ -1708,7 +1708,7 @@
         started = ev;
         conversationId = ev.conversation_id;
         saved.set(identityKey(KEYS.conversation), conversationId);
-        if (userEl) userEl.dataset.id = ev.user_message_id;
+        if (userEl && typeof ev.user_message_id === 'string') userEl.dataset.id = ev.user_message_id;
       },
       onDelta: (piece) => { live.add(piece, thinking); if (onPiece) onPiece(piece); },
       onReset: () => { live.clear(); if (onPiece) onPiece(null); },
@@ -1730,7 +1730,7 @@
       live.remove();
       conversationId = data.conversation_id;
       saved.set(identityKey(KEYS.conversation), conversationId);
-      if (userEl && data.user_message_id) userEl.dataset.id = data.user_message_id;
+      if (userEl && typeof data.user_message_id === 'string') userEl.dataset.id = data.user_message_id;
       if (data.project && typeof data.project.id === 'string') setChatProject(data.project);
       busy = false;
       if (!data.message) return;

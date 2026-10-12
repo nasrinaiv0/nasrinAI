@@ -50,6 +50,7 @@ import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
 import { createSemanticCache } from './semanticCache.js';
 import { createOpenAIEmbedder } from './ai/embeddings.js';
+import { createWebAnswers } from './web-answers.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -188,7 +189,7 @@ export function buildApp({ config, logger }) {
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
   const research = config.research?.enabled ? createResearch({ store, limiter, usageLog, provider, webSearch, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
