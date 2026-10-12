@@ -1,3 +1,9 @@
+## Proposed PR — Simple internet-data check (`ops/internet-data-check`)
+
+- **Owner request (2026-10-12):** a file to run in Supabase to see what NasrinAI stored from the internet.
+- **Change:** `db/ops/check_internet_data.sql` (read-only): one table with a summary row (answers kept, last 24 h, web searches today, facts waiting for review) and the 20 newest internet answers; optional parts for web-search health, research facts and one full answer.
+- **Validation:** main query run read-only against production (returns the summary plus saved answers).
+
 ## Proposed PR — Web search runs again (`fix/web-search-on`)
 
 - **Owner report (2026-10-12):** "what is the latest news" got "I can't check live news"; "can you browse the internet?" got "I do not have the ability".
