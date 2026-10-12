@@ -7,6 +7,10 @@ export function plainForSpeech(text) {
     .replace(/\[\[ask\]\][\s\S]*?(?:\[\[\/ask\]\]|$)/gi, ' ')
     .replace(/\[\[file\b[^\]]*\]\][\s\S]*?(?:\[\[\/file\]\]|$)/gi, ' (The file is ready to download in the chat.) ')
     .replace(/```[\s\S]*?```/g, ' (The code is shown on screen.) ')
+    // Status rows: [[checks title="..."]] tags go, "ok | item | badge" reads "item, badge".
+    .replace(/^\[\[checks(?:\s+title\s*=\s*"([^"\n]*)")?\s*\]\]$/gim, (_, t) => (t ? t + '.' : ''))
+    .replace(/^\[\[\/checks\]\]$/gim, '')
+    .replace(/^(?:ok|done|pass|passed|success|fail|failed|error|x|warn|warning|risk|secure|secured|shield|blocked|info|note|todo|action|key)\s*\|\s*([^|\n]*?)\s*(?:\|\s*([^|\n]*))?$/gim, (_, item, badge) => item + (badge ? ', ' + badge : '') + '.')
     .replace(/^#{1,4}\s+/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/`([^`]+)`/g, '$1')

@@ -83,6 +83,7 @@
     const visible = raw
       .replace(/\[\[file\b[\s\S]*?(?:\[\[\/file\]\]|$)/gi, ' ')
       .replace(/\[\[ask\]\][\s\S]*?(?:\[\[\/ask\]\]|$)/gi, ' ')
+      .replace(/^\[\[\/?checks\b[^\]\n]*\]\]$/gim, '')            // status rows show as text until the reply is done
       .replace(/\[\[?[a-z/]{0,5}$/i, '');                       // a block's first letters, still arriving
     return visible.replace(/\n{3,}/g, '\n\n').trim() + (writing ? '\n\nWriting your file…' : '');
   }
