@@ -945,20 +945,13 @@ body.legal-page .brand { opacity: 1; transform: none; pointer-events: auto; }
 .menu-row.danger { color: #B3261E; }
 :root[data-theme="dark"] .menu-row.danger { color: #F2B8B5; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .menu-row.danger { color: #F2B8B5; } }
-.header-signin { white-space: nowrap; }
-@media (max-width: 560px) {
-  .header-signin { padding: .55rem .75rem; }
-}
-/* Phones: the header must fit with Sign in showing (docs/feature-audit.md F1).
-   New chat becomes an icon; below 400 px the wordmark gives way to Sign in. */
+/* Phones: New chat becomes an icon so the header fits (docs/feature-audit.md F1).
+   Sign in now sits above the message box, so the wordmark always fits. */
 .new-chat-ico { display: none; width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 430px) {
   #newChat { width: 2.5rem; padding: 0; }
   #newChat .new-chat-label { display: none; }
   #newChat .new-chat-ico { display: block; }
-}
-@media (max-width: 400px) {
-  .bar:has(#headerSignIn:not([hidden])) .wordmark { display: none; }
 }
 .settings-sheet .account, .settings-sheet .plan-menu { margin-top: 0.25rem; }
 .about-name { margin: 0 0 0.2rem; font-weight: 700; font-size: 1.05rem; }
@@ -1084,6 +1077,9 @@ body.legal-page .brand { opacity: 1; transform: none; pointer-events: auto; }
 .send.is-stop { background: var(--ink); color: var(--on-ink); }
 .send.is-stop .send-ico { display: none; }
 .send.is-stop .stop-ico { display: block; }
+/* Dictating: the button stops listening, so it shows Stop, even after words arrive. */
+.send.is-listening .dictate-ico, .send.is-listening .send-ico { display: none; }
+.send.is-listening .stop-ico { display: block; }
 .msg.is-live .msg-body { white-space: pre-wrap; }
 .msg.user { position: relative; }
 .edit-msg { position: absolute; left: -2.6rem; bottom: 0.1rem; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 0; border-radius: 50%; background: none; color: var(--ink-3); cursor: pointer; }
@@ -2082,3 +2078,24 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
   .rich .code-copy { padding-inline: 0.85rem; }
   .reply-actions { flex-wrap: wrap; }
 }
+
+/* iOS-style header icons and the guest Sign in above the message box
+   (docs/redesign.md R3). */
+.bar .icon-btn, .bar #newChat { color: var(--ink-2); }
+.bar .icon-btn svg, .bar .new-chat-ico, .desktop-rail-action svg { stroke-width: 1.6; }
+.guest-signin { display: flex; align-items: center; gap: 0.4rem; width: fit-content; margin: 0 auto 0.3rem; min-height: 2.25rem; padding: 0 1rem 0 0.8rem;
+  border: 0.5px solid var(--glass-line); border-radius: 999px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  color: var(--ink); font: 500 0.9rem/1 var(--sans); box-shadow: var(--elev-1);
+  transition: transform var(--dur) var(--ease-spring), background-color var(--dur-fast) var(--ease); }
+.guest-signin[hidden] { display: none; }
+.guest-signin svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.guest-signin:hover { background: var(--surface); }
+.guest-signin:active { transform: scale(0.96); background: var(--press); }
+@media (pointer: coarse) { .guest-signin { min-height: 2.75rem; } }
+@media (max-width: 69.99rem) and (pointer: coarse) { body.is-typing .guest-signin { display: none; } }
+/* Mobile view only: desktop keeps Sign in in the header. */
+.header-signin { white-space: nowrap; }
+@media (min-width: 70rem) { .guest-signin { display: none; } }
+@media (max-width: 69.99rem) { .header-signin { display: none; } }
+:root[data-motion="reduce"] .guest-signin:active { transform: none; }
+@media (prefers-reduced-motion: reduce) { .guest-signin:active { transform: none; } }

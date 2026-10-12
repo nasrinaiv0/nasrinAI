@@ -9,9 +9,27 @@ test('startup diagnostics identify configuration failures without exposing them 
   assert.equal(d.log.stage, 'loadConfig');
   assert.match(d.log.error.message, /SUPABASE_SECRET_KEY/);
   assert.equal(d.response.error.incident_id, 'startup-test-1');
+  // Owner (2026-10-12): Vercel logs are unavailable during an outage, so the
+  // reply names the setting at fault, but never the message text or a value.
   assert.equal(d.response.error.stage, 'configuration');
-  assert.doesNotMatch(JSON.stringify(d.response), /SUPABASE_SECRET_KEY/);
+  assert.deepEqual(d.response.error.settings, ['SUPABASE_SECRET_KEY']);
   assert.doesNotMatch(JSON.stringify(d.response), /missing:/);
+});
+
+test('only setting names leave the server, never values or other text', () => {
+  const cases = [
+    ['CRON_SECRET is required in production for scheduled retention cleanup', ['CRON_SECRET']],
+    ['set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together', ['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY']],
+    ['AI_PROVIDER=openai needs OPENAI_API_KEY', ['AI_PROVIDER', 'OPENAI_API_KEY']],
+    ['ROUTING: smart or fixed', ['ROUTING']],
+    ['GUEST_SESSION_SECRET: use at least 32 random characters sk-proj-abc123 sb_secret_xyz', ['GUEST_SESSION_SECRET']]
+  ];
+  for (const [message, names] of cases) {
+    const d = createStartupDiagnostic('loadConfig', new Error(message), 'x');
+    assert.deepEqual(d.response.error.settings, names, message);
+    const body = JSON.stringify(d.response);
+    assert.doesNotMatch(body, /sk-proj|sb_secret|random characters|required in production|together/);
+  }
 });
 
 test('startup diagnostics identify app initialization failures without exposing stack or exception', () => {
@@ -22,5 +40,6 @@ test('startup diagnostics identify app initialization failures without exposing 
   assert.equal(d.log.stage, 'buildApp');
   assert.equal(d.response.error.incident_id, 'startup-test-2');
   assert.equal(d.response.error.stage, 'application');
+  assert.equal(d.response.error.settings, undefined, 'application errors name no settings');
   assert.doesNotMatch(JSON.stringify(d.response), /private configuration|secret stack details/);
 });
