@@ -1,3 +1,8 @@
+## CI follow-up — gallery focus selector
+
+- CI exposed a theme audit failure because `.image-gallery-more:focus-visible` referenced `var(--accent)` outside a theme-scoped selector.
+- Use `currentColor` for the keyboard focus outline instead. This preserves a visible focus indicator without adding an unscoped theme accent reference.
+
 ## Smooth generated-image entrance animation
 
 - Replace the hard pulsing image placeholder with a restrained, low-contrast shimmer while the saved image is fetched.
