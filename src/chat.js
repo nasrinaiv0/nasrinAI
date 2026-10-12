@@ -378,7 +378,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         let webProviderStarted = false;
         try {
           if (!budget) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now.');
-          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null });
+          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) });
           const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
           const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
           webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
@@ -499,7 +499,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null }) + (codeFile ? '\n\n' + CODING_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile ? '\n\n' + CODING_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       try {
         try {
@@ -602,7 +602,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null }) + (codeFile ? '\n\n' + CODING_RULE : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch) }) + (codeFile ? '\n\n' + CODING_RULE : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)

@@ -120,5 +120,8 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
 }
 
 // Messages that need fresh information from the web.
-const FRESH = /\b(latest|today|tonight|yesterday|this week|right now|currently|current|news|breaking|weather|forecast|score|who won|stock price|exchange rate|price of|how much is .* (now|today)|search (the )?(web|internet|online)|look (it )?up|google|research|find sources|provide sources|cite sources|with citations|source links|browse the web|search online|on the internet|20(2[6-9]|3\d))\b/i;
-export const needsWeb = (text) => FRESH.test(String(text || ''));
+const FRESH = /\b(latest|today|tonight|yesterday|this week|right now|currently|current|news|breaking|weather|forecast|score|who won|stock price|exchange rate|price of|how much is .* (now|today)|search (the )?(web|internet|online)|look (it )?up|google|research|find sources|provide sources|cite sources|with citations|source links|browse (the )?(web|internet)|search (for|online)|on the internet|(check|search|use) the internet|headlines?|what'?s happening|happening (now|today)|20(2[6-9]|3\d))\b/i;
+// "Can you browse the internet?" asks about NasrinAI itself: answered from the
+// prompt, without spending a search.
+const CAPABILITY = /^\s*(can|could|do|are|will) (you|nasrin(ai)?) (be able to |able to )?(browse|search|access|use|check|go on|surf)\b[^.!]*\b(internet|web|online)\b[^.!]*\??\s*$/i;
+export const needsWeb = (text) => FRESH.test(String(text || '')) && !CAPABILITY.test(String(text || ''));
