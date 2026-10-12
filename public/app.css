@@ -2486,3 +2486,5 @@ body.coding-mode .brand .mark, body.coding-mode .brand .pro-badge { display: non
 #pageSpace .space-app-logo.code-logo { filter: none !important; }
 .code-picker-title { display: flex; align-items: center; gap: 0.55rem; }
 .code-picker-title .code-logo { width: 1.75rem; height: 1.75rem; }
+/* The coding chat starts empty: no Nasrin ball, greeting or starter buttons. */
+body.coding-mode #welcome { display: none; }
