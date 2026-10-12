@@ -362,7 +362,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       && isGeneratedImageRecallRequest(typed)) {
       try {
         const inventory = await storage.list(caller);
-        const pictures = (inventory.items || []).filter((item) => item.kind === 'photo_generated').slice(0, 12);
+        const pictures = (inventory.items || []).filter((item) => item.kind === 'photo_generated').slice(0, 100);
         if (pictures.length) return finish(pictures.map((item) => `[image:${item.id}]`).join('\n') + '\nHere are your previously generated pictures that are still available in your Library.');
         return finish('I checked your saved Library, but there are no previously generated pictures available on this account. They may have expired under your retention settings or been deleted.');
       } catch (err) {

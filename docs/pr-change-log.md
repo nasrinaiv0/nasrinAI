@@ -1,3 +1,23 @@
+## CI follow-up — gallery focus selector
+
+- CI exposed a theme audit failure because `.image-gallery-more:focus-visible` referenced `var(--accent)` outside a theme-scoped selector.
+- Use `currentColor` for the keyboard focus outline instead. This preserves a visible focus indicator without adding an unscoped theme accent reference.
+
+## Smooth generated-image entrance animation
+
+- Replace the hard pulsing image placeholder with a restrained, low-contrast shimmer while the saved image is fetched.
+- Reveal the actual image only after its `load` event, using a 560 ms opacity fade with a subtle upward settle and blur-to-sharp transition.
+- Register the load handler before assigning `src`, avoiding a race with fast/cached loads.
+- Honor `prefers-reduced-motion`; preserve the existing owner-checked image fetch, download, regenerate controls, and gallery behavior.
+
+## PR #278 follow-up — Generated picture gallery
+
+- Preserve the current full-size image presentation for 1–10 generated pictures.
+- For more than 10, render a responsive 3-column × 3-row gallery: eight square thumbnails and a **Show more** tile in the ninth slot. Each press appends the next eight pictures and keeps the next Show more tile until all results are visible.
+- Keep each picture's existing owner-checked `/v1/images/:id` fetch and download action.
+- Raise the recall response cap from 12 to 100 retained generated pictures so Show more can page through a larger history.
+- No schema, RLS, credentials, token limits, or retention settings changed.
+
 ## Proposed PR — Fix natural-language recall of generated Library pictures
 
 - **Owner report (2026-10-12):** “show me the pictures generated in the library” received generic navigation instructions instead of the saved pictures.
