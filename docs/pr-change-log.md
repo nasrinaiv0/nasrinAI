@@ -21,6 +21,7 @@ For every future NasrinAI PR:
 - **Tests:** `test/product-knowledge.test.js` adds 8 about-NasrinAI and 8 general messages plus the link check; both new tests fail on the old code. The existing tests are unchanged and pass.
 - **Docs:** `docs/knowledge.md`.
 - **Validation:** local `npm test` (441 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
 
 - **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.
