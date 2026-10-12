@@ -1,3 +1,9 @@
+## Proposed PR — Science and Media professions (`feature/professions-science-media`)
+
+- **Owner request (2026-10-12):** new Professional AI models for Science (researcher, biologist, chemist…) and Multimedia (broadcaster, news anchor, reporter…).
+- **Change:** two groups and ten professions in `src/ai/professions.js`, with two safety rules (`science`, `journalism`); everyday words that would mis-route Automatic mode left out. The page reads the catalog, so no UI change. `docs/professional.md`.
+- **Validation:** `npm test` (routing examples and safety text in the prompt).
+
 ## Proposed PR — Thinking line sets expectations (`ui/thinking-status`)
 
 - **Owner request (2026-10-12):** the "Thinking" line should say what is happening (browsing the internet, remembering, cooking, making your…, almost done).
