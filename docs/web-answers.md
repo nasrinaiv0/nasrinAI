@@ -9,4 +9,5 @@ permanently:
   or conversation. The question only for signed-in people (a guest's input is
   kept 24 hours only). Contact details removed. A save failure never affects
   the reply.
+- Research scans (`src/research.js`) save their findings here too, the same way.
 - Owner steps: run `db/migrations/037_web_answers.sql` (staging first).
