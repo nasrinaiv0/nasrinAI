@@ -5,6 +5,20 @@
 - **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
 - **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
 
+## Proposed PR — Name the setting at fault in startup 503 replies (`fix/startup-config-hint`)
+
+- **Problem:** since 2026-10-12 ~12:15 (Manila) every `/v1/*` call on production and previews returns 503 "not set up correctly". The server is up but `loadConfig` rejects a Vercel setting; Vercel logs are not available to the owner, so the bad setting cannot be identified.
+- **Change:** the 503 JSON now carries `stage` (`configuration` or `application`) and, for configuration failures only, `settings`: the setting names in the error (capitals-and-underscores words such as `CRON_SECRET`). Never the message text, values or stacks. Supersedes draft #246.
+- **Use:** open `https://nasrinai.com/v1/status` and read `error.settings`.
+- **Validation:** `test/startup-diagnostics.test.js` (names returned; key-like values and message text not); `npm test`, `npm run check:secrets`.
+
+## Proposed PR — Voice typing button: clear Stop while listening (`fix/dictation-button`)
+
+- **Owner request (2026-10-12):** fix the speech-to-text button and make it responsive.
+- **Bug:** while dictating, every recognised word switched the button to the Send arrow named "Send message", but a tap only stopped listening and sent nothing; after stopping, the name stayed "Dictate message" next to the arrow.
+- **Change:** `public/app.js` names and draws the button in one place (`refreshSendButton`): Stop ("Stop listening") while listening, then Send or the mic. `public/app.css` shows the Stop square while listening. Docs: `docs/chat.md` ("Voice typing").
+- **Validation:** `test/dictation-button.test.js` (fails on `main`, passes here); local `npm test` and `npm run check:secrets`; headless Chromium with a fake recogniser: mic → Stop (also after words arrive) → Send → sent, mic again. No server, data or legal change.
+
 ## Proposed PR — Minimal voice screen: liquid orb, conversation on top (`ui/voice-screen`)
 
 - **Owner request (2026-10-12):** remove the speed button; a glowing liquid SVG orb in the lower centre that ripples out sound waves; Plus and tier on the left, mute and Exit on the right; the conversation at the top, fading out; minimalist.
@@ -102,6 +116,13 @@ For every future NasrinAI PR:
 4. For API/backend work, document behavior, authorization, errors, limits, and compatibility.
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
+
+## Proposed PR — iOS header icons; guest Sign in above the message box (`ui/ios-header-icons`)
+
+- **Intent:** owner request (2026-10-12), with iOS-like header icons, and a guest's Sign in moved from the header to just above the message box in the mobile view (under 70rem). Desktop keeps Sign in in the header.
+- **Files:** `public/index.html` (gear, clock and compose icons in the header and desktop rail; `#guestSignIn` in the dock), `public/app.js` (`guestSignIn` and `headerSignIn`, hidden when signed in or sign-in is off; `body.is-typing` while the message box has focus), `public/app.css` (capsule styles, 44 pt on touch, hidden while typing on touch screens, mobile-only; header Sign in desktop-only; the "wordmark yields to Sign in" rule removed), `docs/redesign.md`.
+- **Tab bar:** #232 was reverted on `main`; this PR keeps that revert and adds no tab bar.
+- **Validation:** `test/ios-header-icons.test.js`, updated `test/ios-header-fit.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium at 320/390/768 (touch) and 1280, light and dark. No server, data or legal change.
 
 ## Proposed PR — Redesign R1: design tokens, adaptive background, press and focus states (`ui/redesign-foundation`)
 

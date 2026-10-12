@@ -4,7 +4,7 @@ The owner asked for the whole app to be redesigned and organized: animations, UI
 
 ## Owner's choices (2026-10-12)
 
-- **Navigation on phones:** an iOS-style bottom **tab bar**: Chat, Library, Projects, Settings.
+- **Navigation on phones:** an iOS-style bottom **tab bar** was chosen, built (#232) and then reverted by the owner; phones keep the header buttons.
 - **Look:** **monochrome, refined.** Off-white and near-black, rounded headings (`--round`), the ball logo. No new colours.
 
 These follow the owner decisions in `CLAUDE.md` (logo, type, no heavy bold or oversized text).
@@ -38,8 +38,9 @@ All sizes, spacing, motion and surfaces come from tokens on `:root` (`public/app
 
 | # | Branch | What | Status |
 |---|---|---|---|
-| R1 | `ui/redesign-foundation` | Design tokens, adaptive background, one press and focus style for every button | PR open |
-| R2 | `ui/ios-tab-bar` | Phone tab bar (Chat, Library, Projects, Settings); simpler header; desktop keeps its side rail | To do |
+| R1 | `ui/redesign-foundation` | Design tokens, adaptive background, one press and focus style for every button | Merged (#231) |
+| R2 | `ui/ios-tab-bar` | Phone tab bar (Chat, Library, Projects, Settings) | Merged as #232, then reverted by the owner (2026-10-12) |
+| R3a | `ui/ios-header-icons` | iOS-style header icons (clock, gear, compose); a guest's Sign in moves above the message box on mobile | PR open (#233) |
 | R3 | `ui/icon-set` | One consistent icon set across header, composer, reply actions, Settings | To do |
 | R4 | `ui/motion` | Sheet, page and reply motion on the tokens; replies fade in without jumping the screen (handoff item 9); generation loader (item 8) | To do |
 | R5 | `ui/screens-pass` | Settings as iOS grouped lists; Library, Projects and Code screens; sign-in; checked at 320, 390, 768 and 1280 px, light and dark | To do |
@@ -51,6 +52,25 @@ Already open and part of this direction:
 - #228: reply formatting
 - #229: play/stop button
 - #230: desktop Enter sends
+
+## R3a: header icons and the guest Sign in
+
+Owner request (2026-10-12): "change these icons make it iOS like icons" and
+"move the sign in button at the top of composer if there is a guest using it".
+
+- Icons in the SF Symbols style (thin 1.6 stroke, round ends): history is a
+  clock with a back arrow, Settings is a gear (in place of the sliders), and
+  New chat is the iOS compose square and pencil. The same icons are used in
+  the header and the desktop rail.
+- Signed out, on phones and tablets (the mobile view, under 70rem) a
+  "Sign in" capsule (person icon) sits just above the message box, and the
+  header has no Sign in, so the wordmark always fits. On desktop, Sign in stays
+  in the header (owner, 2026-10-12: "for mobile view only"). It is hidden when signed in or when no sign-in method
+  is set up. It is 44 pt tall on touch screens, and it steps aside while the
+  keyboard is up.
+- Checked in headless Chromium at 320, 390 and 768 px (touch) and 1280 px,
+  light and dark: no sideways scroll, and the capsule opens sign-in. Tests:
+  `test/ios-header-icons.test.js`, `test/ios-header-fit.test.js`.
 
 ## How each phase is checked
 
