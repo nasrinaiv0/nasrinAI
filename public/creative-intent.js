@@ -9,7 +9,6 @@
     upscale: { capability: 'image', executeFirst: true, requiresPhoto: true },
     image: { capability: 'image', executeFirst: true, requiresPhoto: false },
     video: { capability: 'video', executeFirst: true, requiresPhoto: false },
-    animate: { capability: 'video', executeFirst: true, requiresPhoto: true },
     rewrite: { capability: 'chat', executeFirst: true },
     translate: { capability: 'chat', executeFirst: true },
     summarize: { capability: 'chat', executeFirst: true },
@@ -26,7 +25,15 @@
     email: { capability: 'chat', executeFirst: true },
     code: { capability: 'chat', executeFirst: true },
     analyze: { capability: 'chat', executeFirst: true },
-    automate: { capability: 'chat', executeFirst: true }
+    automate: { capability: 'chat', executeFirst: true },
+    search: { capability: 'chat', executeFirst: true },
+    browse: { capability: 'chat', executeFirst: true },
+    remember: { capability: 'chat', executeFirst: true },
+    recall: { capability: 'chat', executeFirst: true },
+    library: { capability: 'chat', executeFirst: true },
+    file: { capability: 'chat', executeFirst: true },
+    document: { capability: 'chat', executeFirst: true },
+    connect: { capability: 'chat', executeFirst: true }
   });
 
   const informational = /^(how|what|why|when|where|who|can you explain|tell me about|define)\b/i;
