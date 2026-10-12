@@ -1,3 +1,10 @@
+## Proposed PR — Projects in NasrinAI Space (`ux/space-projects`)
+
+- **Owner report (2026-10-12):** the project expand features (#283) seem missing.
+- **Found:** #283 is live and works (checked in a browser: arrow → Open, Chat, Code), but NasrinAI Space had no Projects tile, so projects were only under Menu → Projects. Also the "Go to your space" starter did nothing visible: it switched pages inside the closed Settings sheet.
+- **Change:** a Projects tile in NasrinAI Space (hidden when Projects are off) opens Your projects; the starter opens Settings first, then Space. New icon `public/space-logos/icon-projects.svg` in the Library icon's style. `docs/projects.md`.
+- **Validation:** `npm test`; headless Chromium at 390 px and 1280 px (starter → Space → Projects tile → Your projects).
+
 ## New chat without interrupting an ongoing reply
 
 - Starting a new chat detaches the active reply from the current composer without aborting its request.

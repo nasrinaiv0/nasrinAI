@@ -38,3 +38,10 @@ Optional settings (`.env.example`): `PROJECTS_ENABLED` (default `true`),
 - `POST /v1/project-links` `{ kind: chat|file, id, project_id | null }`
 - `POST /v1/chat` with `project_id` starts a new chat in a project;
   `POST /v1/library` with `project_id` adds straight into one.
+
+## Where to find Projects
+
+NasrinAI Space (Settings → NasrinAI Space, or the "Go to your space" starter)
+has a **Projects** tile; the phone menu and Your chats also have a Projects
+entry. Each project row has an arrow that shows **Open**, **Chat** and
+**Code**. The tile is hidden when the server has Projects off.
