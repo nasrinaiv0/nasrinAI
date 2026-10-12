@@ -23,6 +23,7 @@
 - **Owner report (2026-10-12):** Google sign-in does not work and keeps asking to complete the security check.
 - **Cause:** the Cloudflare check runs invisibly and takes a few seconds; tapping the button before it finished failed at once with "Complete the security check first". After coming back from Google with Back, the button stayed disabled.
 - **Change:** sign-in (Google and email code) waits up to 20 s for the check, shows "Checking your connection is secure…", and shows a clear message if Cloudflare reports an error; Back from Google re-enables the button with a fresh check. `docs/sign-in.md`.
+- **Follow-up (owner: "the sign in for google did not go through"):** Supabase auth logs show the Google sign-up succeeded at 15:57:13 UTC, then the same answer arrived again at 15:57:14 ("State has already been used"), and the page showed the failure. The callback now keeps an existing sign-in when the answer repeats, and the page shows "did not finish" only when really signed out.
 - **Validation:** `npm test`; headless Chromium with a stubbed Turnstile (slow success → request sent with the token; error → clear message).
 
 ## Proposed PR — Documents download as PDF (`fix/doc-file-types`)
