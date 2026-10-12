@@ -1,3 +1,11 @@
+## Proposed PR — Return simple greetings without a provider call
+
+- **Problem:** a plain `hi` could proceed through smart routing and wait on the configured model despite needing no reasoning.
+- **Change (`src/chat.js`):** return a deterministic short greeting for eligible platform-chat small talk after request validation, existing limits, persistence, history, and policy checks. Record the response as a local logic/rules result with zero model cost.
+- **Guardrails:** attachments, voice, professional selection, projects, personal context, knowledge-only tenants, edits, and regenerations retain the normal path.
+- **Documentation:** `docs/chat.md` records the shortcut and exclusions.
+- **Validation:** source review only; automated tests and production latency measurements remain pending.
+
 ## Proposed PR — Read-aloud play/stop icon has no background (`ui/read-aloud-no-background`)
 
 - **Intent:** the owner requests one icon button for read-aloud Play/Stop, with no background.
