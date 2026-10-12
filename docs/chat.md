@@ -98,3 +98,8 @@ In smart routing, plain greetings and brief acknowledgements from the NasrinAI p
 ## Greeting shortcut ordering
 
 The local small-talk shortcut must run only after the per-turn `extra` context array is initialized and populated. This prevents a temporal-dead-zone `ReferenceError` when a greeting reaches the shortcut. Regression tests must cover a plain greeting and verify it returns a local logic response without calling the model provider.
+
+
+## Composer controls render immediately
+
+The model-tier selector and Professional AI mode control must both be present in the initial HTML without `hidden`. Their initial labels are Quick and Automatic. Model/professional catalogs may hydrate asynchronously and update available choices, but loading or API failures must not hide either control. The server remains authoritative for tier access and professional availability; a visible control is not an access grant.

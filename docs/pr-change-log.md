@@ -1,3 +1,11 @@
+## Proposed PR — Render composer tier and Automatic controls together (`ui/composer-controls-initial-render`)
+
+- **Problem:** `#modelRow` and `#proBtn` start hidden and appear only after their independent backend catalog calls resolve, causing controls to pop in late or separately.
+- **Change:** render both controls in initial HTML with Quick/Automatic fallback labels; keep them visible when catalogs load or fail, and hydrate labels/options when responses arrive.
+- **Security:** the server remains authoritative for model-tier access and professional availability; showing controls does not grant access.
+- **Docs:** `docs/chat.md` documents the initial-render contract.
+- **Validation:** source inspection only; automated tests and browser refresh checks remain pending.
+
 ## Proposed PR — Fix greeting shortcut initialization order
 
 - **Bug:** the instant-greeting condition referenced `extra.length` before `extra` was declared, causing a `ReferenceError` for eligible greetings.
