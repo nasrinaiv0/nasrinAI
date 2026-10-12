@@ -227,7 +227,7 @@ test('semantic cache insert failure does not fail a successful chat response', a
     env: { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'test-only-key', ROUTING: 'smart' }
   }, async ({ url, logger }) => {
     const token = await guestToken(url);
-    const response = await send(url, token, { message: 'Explain what an API is in simple terms.' });
+    const response = await send(url, token, { message: 'Explain what an API is in simple terms.', blocks: true });
     assert.equal(response.status, 200);
     assert.match((await response.json()).message.content, /You said:/);
     const log = logger.lines.find((line) => line.msg === 'semantic cache store unavailable');
