@@ -5,6 +5,13 @@
 - **Data:** the theme is kept on the device like the appearance; nothing is sent. `public/legal/privacy.md` lists it among device choices; privacy version 2026-10-12a (`LEGAL_PRIVACY_VERSION` default). The file said 2026-10-08a while the app reported 2026-10-07a; both now say 2026-10-12a. No Terms change, so no one has to accept again.
 - **Validation:** `test/themes.test.js` (fails on `main`, passes here); updated legal/status tests for the new privacy version; local `npm test` and `npm run check:secrets`; headless Chromium, every theme in Light and Dark.
 
+## Proposed PR — Menu drawer on phones and tablets; bottom tab bar as an option (`feature/mobile-nav`)
+
+- **Owner request (2026-10-12):** top bar with a menu button that shows the content; the bottom bar becomes an option.
+- **Change:** `public/index.html`, `public/app.js`, `public/app.css`, `public/theme.js`; docs `docs/mobile-nav.md`. The bar is the reverted #232 code, now behind Settings > General > Layout (off by default).
+- **Data:** a device-only layout choice (`nasrin.tabbar`), like appearance; nothing sent.
+- **Validation:** `test/mobile-nav.test.js`; `npm test`, `npm run check:secrets`; headless Chromium at 320/390/768/1280.
+
 ## Proposed PR — Remove the Sign in button above the message box (`fix/remove-guest-signin`)
 
 - **Owner request (2026-10-12):** no Sign in button above the message box (#233 was merged before it could be closed). Sign in stays in the header on every screen; below 400 px the wordmark gives way so it fits. The iOS header icons from #233 stay.

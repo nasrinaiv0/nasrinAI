@@ -2206,6 +2206,85 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 .palette-option input:focus-visible + .palette-swatch { outline: 2px solid var(--ink); outline-offset: 4px; }
 .palette-option:has(input:checked) { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .palette-swatch { transition: none; } }
+/* Optional bottom tab bar (docs/mobile-nav.md): phones and tablets, only when
+   turned on in Settings > General (data-tabbar="on"). Desktop keeps its side rail. */
+.tabbar { display: none; }
+@media (max-width: 69.99rem) {
+  /* Tab bar: fixed at the bottom, clear of the home indicator; the message box sits above it. */
+  :root[data-tabbar="on"] { --tabbar-h: calc(3.4rem + env(safe-area-inset-bottom)); }
+  :root[data-tabbar="on"] .tabbar { position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr);
+    padding: 0.2rem max(0.5rem, env(safe-area-inset-right)) 0 max(0.5rem, env(safe-area-inset-left)); padding-bottom: env(safe-area-inset-bottom);
+    background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-top: 0.5px solid var(--glass-line); }
+  :root[data-tabbar="on"] .tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; min-height: 3.2rem; border: 0; background: none;
+    color: var(--ink-3); font: 500 0.68rem/1.1 var(--sans); letter-spacing: 0.01em; transition: color var(--dur-fast) var(--ease), transform var(--dur) var(--ease-spring); }
+  :root[data-tabbar="on"] .tab-item svg { width: 1.45rem; height: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  :root[data-tabbar="on"] .tab-item.is-active { color: var(--ink); }
+  :root[data-tabbar="on"] .tab-item.is-active svg { stroke-width: 2; }
+  :root[data-tabbar="on"] .tab-item:active { transform: scale(0.92); }
+  /* The message box is drawn 1rem low (translateY), so the padding keeps it clear of the bar. */
+  :root[data-tabbar="on"] .dock { bottom: var(--tabbar-h); padding-bottom: 1.5rem; }
+  :root[data-tabbar="on"] .log { padding-bottom: calc(var(--dock-h, 7rem) + var(--tabbar-h) + 1.5rem); scroll-padding-bottom: calc(var(--dock-h, 7rem) + var(--tabbar-h) + 1rem); }
+  :root[data-tabbar="on"] #settingsBtn { display: none; }
+}
+/* Only touch screens get an on-screen keyboard; a tablet with a keyboard keeps its tabs. */
+@media (max-width: 69.99rem) and (pointer: coarse) {
+  :root[data-tabbar="on"] body.is-typing .tabbar { display: none; }
+  :root[data-tabbar="on"] body.is-typing .dock { bottom: 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+}
+:root[data-motion="reduce"] .tab-item:active { transform: none; }
+
+/* Menu button and drawer on phones and tablets (docs/mobile-nav.md). */
+.menu-btn { display: none; }
+.drawer, .drawer-scrim { display: none; }
+@media (max-width: 69.99rem) {
+  /* Phones and tablets: the header is just the menu and New chat (icon);
+     Your chats and Settings live in the menu. */
+  #historyBtn, #settingsBtn { display: none; }
+  #newChat { width: 2.75rem; padding: 0; color: var(--ink); }
+  #newChat .new-chat-label { display: none; }
+  #newChat .new-chat-ico { display: block; }
+  .menu-btn { display: inline-flex; margin-right: 0.15rem; color: var(--ink); }
+  .menu-btn svg { stroke-width: 2; }
+  .bar { gap: 0.25rem; }
+  .drawer-scrim:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.32); animation: fade-in var(--dur, 220ms) var(--ease, ease) both; }
+  .drawer:not([hidden]) {
+    position: fixed; z-index: 41; top: 0; bottom: 0; left: 0; width: min(84vw, 21rem);
+    display: flex; flex-direction: column; gap: 0.25rem;
+    padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    background: var(--surface); color: var(--ink); box-shadow: 12px 0 40px -18px rgba(0, 0, 0, 0.45);
+    border-radius: 0 1.5rem 1.5rem 0; overflow: hidden;
+    animation: drawer-in var(--dur-slow, 320ms) var(--ease, ease) both;
+  }
+}
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+.drawer-title { margin: 0; font: 650 1.45rem/1.2 var(--round); letter-spacing: -0.015em; }
+.drawer-search { width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--paper); color: var(--ink); }
+.drawer-nav { display: flex; flex-direction: column; }
+.drawer-link, .drawer-chat, .drawer-more {
+  display: flex; align-items: center; gap: 0.85rem; width: 100%; min-height: 2.75rem; padding: 0.5rem 0.6rem;
+  border: 0; border-radius: 0.85rem; background: none; color: var(--ink); text-align: left; font: 500 1.02rem/1.25 var(--sans); cursor: pointer;
+}
+.drawer-link svg { flex: none; width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.drawer-link:active, .drawer-chat:active, .drawer-more:active { background: var(--press); }
+.drawer-link[hidden] { display: none; }
+.drawer-recent { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--line); overscroll-behavior: contain; }
+.drawer-label { margin: 0 0.6rem 0.25rem; color: var(--ink-3); font: 600 0.74rem/1.2 var(--sans); }
+.drawer-chats { margin: 0; padding: 0; list-style: none; }
+.drawer-chat { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 450; }
+.drawer-chat.is-current { background: var(--paper); }
+.drawer-more { color: var(--ink-3); }
+.drawer-more[hidden] { display: none; }
+.drawer-status { margin: 0.25rem 0.6rem; color: var(--ink-3); font-size: 0.86rem; }
+.drawer-status:empty { display: none; }
+.drawer-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding-top: 0.75rem; }
+.drawer-new { display: inline-flex; align-items: center; gap: 0.55rem; min-height: 3rem; padding: 0 1.4rem 0 1.15rem; border: 0; border-radius: 999px; background: var(--ink); color: var(--on-ink); font: 600 1rem/1 var(--sans); box-shadow: var(--elev-1); cursor: pointer; }
+.drawer-new svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.drawer-new:active { transform: scale(0.96); }
+.drawer-settings { width: 3rem; height: 3rem; border-radius: 50%; background: var(--paper); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .drawer:not([hidden]), .drawer-scrim:not([hidden]) { animation: none; } }
+:root[data-motion="reduce"] .drawer:not([hidden]), :root[data-motion="reduce"] .drawer-scrim:not([hidden]) { animation: none; }
+
 /* iOS-style header icons (docs/redesign.md R3a). */
 /* iOS-style header icons (docs/redesign.md R3a). */
 .bar .icon-btn, .bar #newChat { color: var(--ink-2); }
