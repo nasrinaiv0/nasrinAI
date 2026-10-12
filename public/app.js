@@ -936,13 +936,16 @@
   }
 
   function refreshSendButton() {
-    // While a reply is being written the button is Stop.
+    // While a reply is being written the button is Stop. While you dictate it
+    // stops listening (it never sends then), so it shows Stop too, even once
+    // words have arrived; after that it sends.
     const stopping = Boolean(turn);
     sendBtn.classList.toggle('is-stop', stopping);
+    sendBtn.classList.toggle('is-listening', listening && !stopping);
     const hasText = Boolean(input.value.trim() || pending.length);
     sendBtn.classList.toggle('has-text', hasText || stopping);
-    sendBtn.title = stopping ? 'Stop' : hasText ? 'Send' : 'Dictate';
-    sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : hasText ? 'Send message' : 'Dictate message');
+    sendBtn.title = stopping ? 'Stop' : listening ? 'Stop listening' : hasText ? 'Send' : 'Dictate';
+    sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : listening ? 'Stop listening' : hasText ? 'Send message' : 'Dictate message');
     sendBtn.disabled = !stopping && (busy || !aiAvailable || preparing > 0 || (!hasText && !Recognition));
   }
 
@@ -3710,8 +3713,7 @@
     form?.classList.toggle('is-listening', on);
     voiceMeter?.classList.toggle('is-active', on);
     micBtn.setAttribute('aria-pressed', String(on));
-    micBtn.title = on ? 'Stop listening' : 'Dictate message';
-    micBtn.setAttribute('aria-label', on ? 'Stop listening' : 'Dictate message');
+    refreshSendButton();   // the icon and name follow: Stop while listening, then Send or Dictate
     if (on) Nasrin.mood('listening');
     else if (Nasrin.current === 'listening') Nasrin.mood('idle');
   }
