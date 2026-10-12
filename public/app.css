@@ -368,8 +368,9 @@ body:not(.has-chat) #newChat { display: none; }
 }
 .listen:hover, .listen.is-playing { color: var(--ink); border-color: var(--ink-3); }
 .listen.is-playing { background: var(--surface); }
-.act.listen-stop { width: 1.85rem; height: 1.85rem; }
-.act.listen-stop svg { width: 0.95rem; height: 0.95rem; fill: currentColor; stroke: none; }
+.act.listen { margin-top: 0; padding: 0; border: 0; gap: 0; }
+.act.listen svg { width: 0.95rem; height: 0.95rem; fill: currentColor; stroke: none; }
+.act.listen.is-playing { color: var(--ink); background: var(--surface); }
 .msg-body { white-space: pre-wrap; }
 .msg-body.rich { white-space: normal; }
 
@@ -2231,6 +2232,17 @@ html.composer-controls-loading #composer .tools {
 }
 :root[data-motion="reduce"] .tab-item:active { transform: none; }
 
+.billing-current-card .btn { margin-top: 0.6rem; }
+
+/* Tables in replies: comparisons only, scroll sideways inside their own box
+   on phones so the page never does. */
+.rich .table-wrap { max-width: 100%; margin: 0.7rem 0; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 0.9rem; }
+.rich .table-wrap:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
+.rich table { width: 100%; border-collapse: collapse; font-size: 0.9rem; line-height: 1.45; }
+.rich th, .rich td { min-width: 6rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: normal; word-break: normal; }
+.rich td code { white-space: nowrap; }
+.rich th { color: var(--ink-2); font-weight: 600; background: var(--paper); white-space: nowrap; }
+.rich tr:last-child td { border-bottom: 0; }
 /* Touch targets (docs/feature-audit.md F2): on touch screens every control is
    at least 44 x 44 pt, Apple's minimum. Mouse layouts keep their compact sizes.
    Kept last so it wins over the rules it raises. */
