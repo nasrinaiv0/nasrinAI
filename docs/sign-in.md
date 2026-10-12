@@ -16,6 +16,24 @@ screens up to 480 px wide it is scaled to 80% (the widget is a fixed-size
 iframe, so it is scaled rather than resized). Protected by a test in
 `test/page.test.js`.
 
+**Google's answer arriving twice.** On phones the answer from Google can
+reach the sign-in service twice; the first signs the person in, the second
+fails with "State has already been used" (seen in the Supabase auth logs on
+2026-10-12). The callback then keeps the existing sign-in (`?signin=ok`, the
+page checks the cookie) and the page shows "did not finish" only when the
+person is really signed out.
+
+**Waiting for the check.** The check runs invisibly and can take a few
+seconds. Tapping "Continue with Google" or "Email me a code" before it is
+done now waits for it ("Checking your connection is secure…", up to 20 s)
+instead of failing with "Complete the security check first". If Cloudflare
+reports an error, the person sees "The security check could not finish" and
+the widget restarts. Coming back from Google with the browser's Back button
+re-enables the button and starts a fresh check. If the error appears every
+time, check in Cloudflare → Turnstile that the widget's hostnames include
+`nasrinai.com`, and that `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in
+Vercel belong to the same widget.
+
 ## 1. Supabase: where people come back to
 
 **Authentication > URL Configuration**
