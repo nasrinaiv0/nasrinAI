@@ -1,3 +1,12 @@
+## Proposed PR — Multi-sheet Excel workbook export (feature/excel-workbook-generation)
+
+- **Intent:** let NasrinAI create a real downloadable `.xlsx` workbook with multiple named tabs instead of being limited to a single CSV-like sheet.
+- **Change (`public/files.js`):** parse up to 8 named sheet blocks; write separate worksheet XML files; preserve safe formula allow-listing; add frozen header rows, column widths, and autofilters.
+- **Prompt (`src/ai/prompt.js`):** document the multi-sheet block format and prohibit claims that native pivot/chart objects exist unless actually created.
+- **Documentation:** update `docs/chat.md` and `docs/architecture/secure-workspace.md`.
+- **Known gaps:** this does not yet provide direct 20 MB uploads, edit the uploaded workbook in place, or create native Excel pivot tables/chart objects. The current base64 JSON upload path remains subject to Vercel's function body-size limit.
+- **Validation:** automated tests and workbook-open checks have not been run; CI and manual Excel/LibreOffice checks are required before merge.
+
 ## Proposed PR — Render composer tier and Automatic controls together (`ui/composer-controls-initial-render`)
 
 - **Problem:** `#modelRow` and `#proBtn` start hidden and appear only after their independent backend catalog calls resolve, causing controls to pop in late or separately.
