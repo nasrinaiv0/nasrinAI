@@ -107,6 +107,8 @@ The model-tier selector and Professional AI mode control must both be present in
 
 ## Excel workbook export
 
+Downloads match what was made: documents (plans, meal plans, lists, letters, reports, guides) are `.pdf` unless the person asks for another format (`.docx` to edit). `.html`, `.css`, `.js` and other code extensions are for coding work or an asked-for web page only. If the model still hands a plain document over as `.html` and nothing in the person's recent messages asks for web or code work, `src/ai/file-types.js` turns it into a `.pdf` in the reply format before the reply is saved.
+
 When creating an `.xlsx` deliverable, the assistant may return up to 8 named worksheet blocks inside one file block. Each worksheet uses `[[sheet name="Cleaned Data"]]`, comma-separated or tab-separated rows, and `[[/sheet]]`. The browser builds a real workbook with separate tabs, safe formulas, frozen header rows, and filters. This is not in-place editing of the uploaded workbook and does not create native Excel pivot tables or chart objects. Those capabilities must not be claimed until separately implemented and tested.
 
 ## Voice typing (the mic button)
