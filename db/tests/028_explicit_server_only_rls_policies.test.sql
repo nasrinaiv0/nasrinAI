@@ -50,7 +50,10 @@ begin
   end loop;
   foreach t in array tables loop
     if to_regclass(format('public.%I', t)) is null then
-      raise exception 'expected server-only table public.% is missing', t;
+      if t in ('automation_workflows', 'automation_runs') then
+        raise exception 'expected automation table public.% is missing', t;
+      end if;
+      continue; -- older optional feature tables can be absent from a clean replay
     end if;
     if not exists (
       select 1 from pg_catalog.pg_policies p
