@@ -20,6 +20,7 @@ For every future NasrinAI PR:
 - **Layout check (headless Chromium, iPhone touch profile, local fake-provider run):** with this PR, no visible control is under 44 pt on the home screen or in a chat at 320 and 390 px (before: 12 on home, 16 in a chat). Combined with PR #224 (header fit), page width equals the viewport at 320 and 390 px. On its own, the page still has the pre-existing header overflow that #224 fixes.
 - **Regression test:** `test/ios-touch-targets.test.js` (fails without the change).
 - **Validation:** local `npm test` and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Claude Code handoff (`docs/claude-code-upgrade-handoff`)
 
 - **Intent:** move the 2026-10-12 upgrade into Claude Code sessions. Adds `docs/claude-code-handoff.md` with the owner's rules for the upgrade, what is done (#219, #220, #221), and a 10-item category-branch backlog mapped to the existing code.
