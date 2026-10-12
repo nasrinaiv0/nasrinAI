@@ -25,6 +25,35 @@ For every future NasrinAI PR:
 - **Docs:** `docs/chat.md`.
 - **Validation:** local `npm test` (443 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
 
+## Proposed PR — FAQ only when asked (`fix/faq-only-when-asked`)
+
+- **Intent:** backlog item 4 of the 2026-10-12 upgrade: stop adding the FAQ to replies unless the person asks about NasrinAI itself.
+- **Root cause:** `src/knowledge/product.js` added the product notes, which tell the model to cite the FAQ, whenever a message contained a common word: plan, function, image, account, support, feature, memory, video and others. Separately, the notes linked the raw `/faq.md`, which the system prompt says never to show.
+- **Change:** a new `aboutNasrinAI()` decides when the notes apply (explicit FAQ, Terms, Privacy or refund questions; own-data actions; "your plans", "do you remember", "who made you"; or NasrinAI named with a product topic). The FAQ link is now `[FAQ](https://nasrinai.com/?faq=1)`, and a link is added only where it supports a claim. No prompt-safety, refusal or tenant change: business chats still never get the notes.
+- **Tests:** `test/product-knowledge.test.js` adds 8 about-NasrinAI and 8 general messages plus the link check; both new tests fail on the old code. The existing tests are unchanged and pass.
+- **Docs:** `docs/knowledge.md`.
+- **Validation:** local `npm test` (441 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
+## Proposed PR — Signed-out Billing offers Sign in (`fix/billing-signed-out`)
+
+- **Intent:** audit finding F3 (`docs/feature-audit.md`, PR #223). Signed out, Settings → Billing called `/v1/billing` (refused with 403, correctly), then showed "Sign in to see billing." as plain text with an empty Payments box.
+- **Change:** `public/app.js` `loadBilling()` checks sign-in first. Signed out, it makes no request, shows "Sign in to see your plan and payments" with a **Sign in** button (closes Settings, opens sign-in), and hides the Payments label and box (`#billingPaymentsLabel` in `public/index.html`). The signed-in path is unchanged. One spacing rule in `public/app.css`. No server change.
+- **Check (headless Chromium, local fake-provider run, 390 px):** signed out, no `/v1/billing` request and the Sign in button opens sign-in. Signed in, the plan and "No payments yet." show as before (`/v1/billing` 200).
+- **Regression test:** `test/billing-signed-out.test.js` (fails without the change).
+
+## Proposed PR — Phone header fits (`ui/ios-header-fit`)
+
+- **Intent:** audit finding F1 (`docs/feature-audit.md`, PR #223). On phones up to 390 px, a signed-out chat made the header 404 px wide (brand, two icons, "New chat", "Sign in"): the page scrolled sideways and Sign in was cut off.
+- **Change:** `public/index.html` gives "New chat" an icon and a label span, with `aria-label="New chat"` so its accessible name is unchanged. In `public/app.css`, at ≤ 430 px the label hides and the icon shows. At ≤ 400 px, while Sign in shows (`.bar:has(#headerSignIn:not([hidden]))`), the wordmark gives way; the round mark stays. No script change.
+- **Layout check (headless Chromium, local fake-provider run, chat state):** page width equals the viewport at 320, 375, 390, 430 and 768 px (before: 404 at 320–390). Signed in, the wordmark still shows at 390 px.
+- **Regression test:** `test/ios-header-fit.test.js` (fails without the change).
+
+## Proposed PR — Feature audit (`fix/feature-audit`)
+
+- **Intent:** backlog item 1 of the 2026-10-12 upgrade: record what works and what doesn't on the user side before fixing anything. Adds `docs/feature-audit.md`.
+- **Findings:** F1 header overflows on phones ≤ 390 px in a signed-out chat (page 404 px wide); F2 tap targets under 44 pt; F3 the signed-out Billing page has no way forward. It also maps the owner's GPT-capability list to NasrinAI and sets the iOS design principles and work order.
+- **Validation:** documentation only, no code change. Findings come from a local fake-provider run in headless Chromium (every control clicked, signed out and signed in, at 390 and 1280 px; header measured at 320–768 px). Local `npm test` (439 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Touch targets at least 44 pt (`ui/ios-touch-targets`)
 
 - **Intent:** audit finding F2 (`docs/feature-audit.md`, PR #223). Header icons, composer buttons, reply actions, the edit pencil, the code Copy button, Listen, Retry, the home buttons and other buttons were 28–42 px: under Apple's 44 × 44 pt minimum.
