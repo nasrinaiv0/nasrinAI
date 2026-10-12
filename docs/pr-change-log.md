@@ -1,3 +1,8 @@
+## Proposed PR — Research findings kept as web answers too (`fix/web-answers-all-tiers`)
+
+- **Owner request (2026-10-12):** every reply from internet sources is kept permanently, on every tier. Chat (web search, shared links) already saved on all tiers through `finish()`; the research agent's findings did not reach `web_answers`. Now they do (facts as the answer, their pages as sources; question only for signed-in people).
+- **Validation:** `npm test`.
+
 ## Proposed PR — Science and Media professions (`feature/professions-science-media`)
 
 - **Owner request (2026-10-12):** new Professional AI models for Science (researcher, biologist, chemist…) and Multimedia (broadcaster, news anchor, reporter…).

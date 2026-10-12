@@ -57,7 +57,7 @@ export function parseFacts(text) {
 
 export const factHash = (fact, url) => createHash('sha256').update(fact.toLowerCase() + '\n' + url).digest('hex');
 
-export function createResearch({ store, limiter, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
+export function createResearch({ store, limiter, webAnswers = null, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
   const { enabled, maxPages, perHour } = config.research;
   const who = (caller) => ({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id });
 
@@ -139,6 +139,15 @@ export function createResearch({ store, limiter, usageLog = null, provider = nul
         shared = await store.addResearchFacts(facts.map((f) => ({ fact: f.fact, sourceUrl: f.url, sourceTitle: f.title, factHash: factHash(f.fact, f.url) })));
       } catch (err) {
         logger?.warn?.('could not add shared research facts', { error: err?.message });
+      }
+      // Like every reply built from the internet, the findings are also kept
+      // permanently in web_answers with their sources (never who asked).
+      if (webAnswers && facts.length) {
+        await webAnswers.save({
+          caller, question: query,
+          answer: facts.map((f) => `- ${f.fact}`).join('\n'),
+          sources: [...new Map(facts.map((f) => [f.url, { url: f.url, title: f.title }])).values()]
+        });
       }
       return { id: saved.id, query, facts, sources, new_shared_facts: shared, expires_at: saved.expiresAt };
     },
