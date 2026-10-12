@@ -5,6 +5,20 @@
 - **Change:** a Projects tile in NasrinAI Space (hidden when Projects are off) opens Your projects; the starter opens Settings first, then Space. New icon `public/space-logos/icon-projects.svg` in the Library icon's style. `docs/projects.md`.
 - **Validation:** `npm test`; headless Chromium at 390 px and 1280 px (starter → Space → Projects tile → Your projects).
 
+## Proposed PR — Replies keep going when you open another chat (`fix/background-chat-switch`)
+
+- **Owner report (2026-10-12):** an ongoing reply should not be interrupted when another chat is started.
+- **Found:** New chat already let the reply finish (#281, checked in a browser), but opening another chat from Your chats or the menu was ignored or stopped the reply, and a project's Chat/Code buttons did nothing while a reply was running.
+- **Change:** one `detachTurn()` used by New chat, opening a chat and project Chat/Code; the earlier reply finishes and is saved in its own chat, with the same notice. `docs/chat.md`.
+- **Validation:** `npm test`; headless Chromium at 390 px and 1280 px: open another chat while a slow reply runs → both chats saved with their replies, composer free.
+
+## Proposed PR — Google sign-in waits for the security check (`fix/google-signin-check`)
+
+- **Owner report (2026-10-12):** Google sign-in does not work and keeps asking to complete the security check.
+- **Cause:** the Cloudflare check runs invisibly and takes a few seconds; tapping the button before it finished failed at once with "Complete the security check first". After coming back from Google with Back, the button stayed disabled.
+- **Change:** sign-in (Google and email code) waits up to 20 s for the check, shows "Checking your connection is secure…", and shows a clear message if Cloudflare reports an error; Back from Google re-enables the button with a fresh check. `docs/sign-in.md`.
+- **Validation:** `npm test`; headless Chromium with a stubbed Turnstile (slow success → request sent with the token; error → clear message).
+
 ## Proposed PR — Documents download as PDF (`fix/doc-file-types`)
 
 - **Owner request (2026-10-12):** a meal plan and shopping list came as an `.html` download; documents should be PDF (or Word, etc.), `.html` only for coding.

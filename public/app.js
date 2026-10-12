@@ -1962,20 +1962,24 @@
   // Create image switches to picture mode; the person then describes it.
   $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
-  function startNewChat({ focus = true, message = '' } = {}) {
-    const continuingTurn = Boolean(turn);
-    // Detach the current turn from the visible composer without aborting its
-    // controller. It can finish and persist in its original conversation.
+  // Detaches a reply still being written from the screen without stopping it:
+  // it finishes and is saved in its own chat. True when one was running.
+  function detachTurn() {
+    const continuing = Boolean(turn);
     chatViewEpoch++;
     turn = null;
     busy = false;
+    return continuing;
+  }
+  const BACKGROUND_NOTE = 'Your previous reply is continuing in the background and will be saved in Your chats.';
+
+  function startNewChat({ focus = true, message = '' } = {}) {
+    const continuingTurn = detachTurn();
     setChatProject(null);
     conversationId = null;
     saved.del(identityKey(KEYS.conversation));
     stopSpeaking();
-    notice.textContent = message || (continuingTurn
-      ? 'Your previous reply is continuing in the background and will be saved in Your chats.'
-      : '');
+    notice.textContent = message || (continuingTurn ? BACKGROUND_NOTE : '');
     clearScreen();
     refreshSendButton();
     refreshTurnControls();
@@ -2640,6 +2644,8 @@
   let turnstileWidgetId = null;
   let turnstileToken = '';
   let turnstileReady = null;
+  let turnstileWaiters = [];   // sign-in taps waiting for the invisible check to finish
+  const settleTurnstile = (err) => { const w = turnstileWaiters; turnstileWaiters = []; for (const f of w) f(err); };
   let authMethodsLoaded = false;
   let authMethodsLoading = null;
   let pendingEmail = '';
@@ -2700,16 +2706,31 @@
         sitekey: turnstileSiteKey,
         // Keep the widget out of the way unless Cloudflare actually needs interaction.
         appearance: 'interaction-only',
-        callback: (token) => { turnstileToken = token; },
+        callback: (token) => { turnstileToken = token; settleTurnstile(null); },
         'expired-callback': () => { turnstileToken = ''; },
-        'error-callback': () => { turnstileToken = ''; }
+        'error-callback': () => { turnstileToken = ''; settleTurnstile(new Error('The security check could not finish. Please try again.')); }
       });
     }
   }
 
-  function getCaptchaToken() {
+  // The check runs invisibly and can take a few seconds: a tap waits for it
+  // instead of failing with "Complete the security check first".
+  async function getCaptchaToken() {
     if (!turnstileSiteKey) return '';
-    if (!turnstileToken) throw new Error('Complete the security check first.');
+    if (!turnstileToken) {
+      await setupTurnstile();
+      if (!turnstileToken) {
+        signinStatus.textContent = 'Checking your connection is secure…';
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            turnstileWaiters = turnstileWaiters.filter((f) => f !== done);
+            reject(new Error('The security check is taking too long. Check your connection and try again.'));
+          }, 20000);
+          const done = (err) => { clearTimeout(timer); if (err) reject(err); else resolve(); };
+          turnstileWaiters.push(done);
+        });
+      }
+    }
     const token = turnstileToken;
     // A Turnstile token is single-use. Consume it here, but don't reset the
     // widget until the protected request finishes; resetting here immediately
@@ -3676,7 +3697,7 @@
     $('emailBtn').disabled = true;
     signinStatus.textContent = 'Sending…';
     try {
-      const captcha_token = getCaptchaToken();
+      const captcha_token = await getCaptchaToken();
       await postAuth('/v1/auth/email/start', { email, ...(captcha_token ? { captcha_token } : {}) });
       pendingEmail = email;
       $('codeLabel').textContent = `Enter the code we sent to ${email}`;
@@ -3696,7 +3717,7 @@
     $('googleBtn').disabled = true;
     signinStatus.textContent = 'Starting Google sign-in…';
     try {
-      const captcha_token = getCaptchaToken();
+      const captcha_token = await getCaptchaToken();
       const result = await postAuth('/v1/auth/google/start', captcha_token ? { captcha_token } : {});
       const target = typeof result.url === 'string' ? new URL(result.url) : null;
       if (!target || target.protocol !== 'https:' || target.pathname !== '/auth/v1/authorize') throw new Error('Google sign-in is temporarily unavailable.');
@@ -3707,6 +3728,15 @@
     } finally {
       resetCaptchaWidget();
     }
+  });
+
+  // Back from Google (Safari restores the page from its cache): the button and
+  // the single-use security check start fresh.
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    $('googleBtn').disabled = false;
+    if (signinStatus.textContent === 'Starting Google sign-in…') signinStatus.textContent = '';
+    resetCaptchaWidget();
   });
 
   codeForm.addEventListener('submit', async (e) => {
@@ -5343,10 +5373,13 @@
   }
   // Opens a past chat; the next message continues it.
   async function openChat(id) {
-    if (busy) return;
+    // A reply still being written keeps going in its own chat (like New chat).
+    const continuing = detachTurn();
+    refreshSendButton();
+    refreshTurnControls();
     closeHistory();
     stopSpeaking();
-    notice.textContent = '';
+    notice.textContent = continuing ? BACKGROUND_NOTE : '';
     conversationId = id;
     saved.set(identityKey(KEYS.conversation), id);
     clearScreen();
@@ -6014,7 +6047,7 @@
 
   $('prjBack').addEventListener('click', () => { prjOpen = null; prjShow('list'); loadProjects(); });
   function startProjectChat(project, mode) {
-    if (!project || busy) return;
+    if (!project) return;   // New chat below lets a running reply finish in the background
     const p = { id: project.id, name: project.name };
     closeHistory();
     $('newChat').click();
@@ -6030,7 +6063,7 @@
   }
 
   $('prjChat').addEventListener('click', () => {
-    if (!prjOpen || busy) return;
+    if (!prjOpen) return;
     startProjectChat(prjOpen, 'chat');
   });
   $('prjTaskForm').addEventListener('submit', async (e) => {
