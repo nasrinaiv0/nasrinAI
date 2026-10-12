@@ -25,6 +25,63 @@ For every future NasrinAI PR:
 - **Check (headless Chromium, local fake-provider run):** home and Settings at 390 px light and dark and 1280 px dark render with no script errors.
 - **Regression test:** `test/redesign-foundation.test.js` (fails without the change).
 
+## Proposed PR — Desktop: Enter sends, Shift+Enter new line (`fix/desktop-enter-to-send`)
+
+- **Intent:** owner request (2026-10-12): on desktop, Enter sends and Shift+Enter starts a new line.
+- **Change:** `public/app.js` adds a keydown handler on the message box. It sends only on desktop (`(hover: hover) and (pointer: fine)`), never with Shift, Alt, Ctrl or Meta, never while an input method is composing, and never while a reply is being written. Touch devices keep the 2026-10-07 rule (Enter = new line, the Send button sends).
+- **Check (headless Chromium, local fake-provider run):** desktop: Shift+Enter adds a line, Enter sends, and Enter during a streaming reply keeps the text and doesn't stop the reply. Phone (390 px touch): Enter adds a line and doesn't send.
+- **Regression test:** `test/desktop-enter.test.js` (fails without the change).
+- **Docs:** `docs/chat.md`.
+
+## Proposed PR — One play/stop button for reading a reply aloud (`ui/play-stop-audio`)
+
+- **Intent:** backlog item 6 of the 2026-10-12 upgrade: replace the reply's "Listen" pill (Listen / Loading / Pause / Resume, plus a separate Stop button) with a simple play/stop button.
+- **Change:** `public/app.js`: the button is a round `act listen` icon button. `setPlaying()` has two states, play ("Play reply aloud") and stop ("Stop reading aloud"); tapping while loading or reading stops. The extra Stop button is gone. `public/app.css`: icon-button styles. Auto read-aloud still clicks the same `.listen` button.
+- **Check (headless Chromium, 390 px touch, stand-in device voice):** play → stop label and pressed state; tap → back to play; playing to the end → back to play; no extra Stop button; no script errors.
+- **Regression test:** `test/play-stop-audio.test.js` (fails without the change).
+- **Docs:** `docs/chat.md` (Read aloud).
+
+## Proposed PR — Reply formatting: safe tables, code always copyable (`feature/reply-formatting`)
+
+- **Intent:** backlog item 3 of the 2026-10-12 upgrade: smarter, more organized, compact replies; code always in a copyable box. It also covers the table and depth gaps from the GPT-capability map in `docs/feature-audit.md`.
+- **Change:**
+  - `public/format.js` renders Markdown tables with DOM nodes only: a header row, a scroll box with `role="region"` and keyboard focus, capped at 8 × 50, inline formatting in cells. `plain()` flattens tables for Copy and Listen.
+  - `src/ai/prompt.js`: code, commands and data always go in fenced blocks with a language; tables only for comparisons; depth follows the person; short paragraphs; Markdown, never HTML. This replaces "No tables, no HTML."
+  - `public/app.css`: table styles (cells wrap between words; code in cells stays whole).
+- **Check (headless Chromium, local fake-provider run):** a 5-column table scrolls inside its own box at 320 and 390 px and fits at 1280 px. The code block keeps its Copy button.
+- **Tests:** `test/reply-format.test.js` (4 tests: tables, caps, code Copy, prompt rules). The table and prompt tests fail on the old code.
+- **Docs:** `docs/chat.md`.
+- **Validation:** local `npm test` (443 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
+## Proposed PR — FAQ only when asked (`fix/faq-only-when-asked`)
+
+- **Intent:** backlog item 4 of the 2026-10-12 upgrade: stop adding the FAQ to replies unless the person asks about NasrinAI itself.
+- **Root cause:** `src/knowledge/product.js` added the product notes, which tell the model to cite the FAQ, whenever a message contained a common word: plan, function, image, account, support, feature, memory, video and others. Separately, the notes linked the raw `/faq.md`, which the system prompt says never to show.
+- **Change:** a new `aboutNasrinAI()` decides when the notes apply (explicit FAQ, Terms, Privacy or refund questions; own-data actions; "your plans", "do you remember", "who made you"; or NasrinAI named with a product topic). The FAQ link is now `[FAQ](https://nasrinai.com/?faq=1)`, and a link is added only where it supports a claim. No prompt-safety, refusal or tenant change: business chats still never get the notes.
+- **Tests:** `test/product-knowledge.test.js` adds 8 about-NasrinAI and 8 general messages plus the link check; both new tests fail on the old code. The existing tests are unchanged and pass.
+- **Docs:** `docs/knowledge.md`.
+- **Validation:** local `npm test` (441 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
+## Proposed PR — Signed-out Billing offers Sign in (`fix/billing-signed-out`)
+
+- **Intent:** audit finding F3 (`docs/feature-audit.md`, PR #223). Signed out, Settings → Billing called `/v1/billing` (refused with 403, correctly), then showed "Sign in to see billing." as plain text with an empty Payments box.
+- **Change:** `public/app.js` `loadBilling()` checks sign-in first. Signed out, it makes no request, shows "Sign in to see your plan and payments" with a **Sign in** button (closes Settings, opens sign-in), and hides the Payments label and box (`#billingPaymentsLabel` in `public/index.html`). The signed-in path is unchanged. One spacing rule in `public/app.css`. No server change.
+- **Check (headless Chromium, local fake-provider run, 390 px):** signed out, no `/v1/billing` request and the Sign in button opens sign-in. Signed in, the plan and "No payments yet." show as before (`/v1/billing` 200).
+- **Regression test:** `test/billing-signed-out.test.js` (fails without the change).
+
+## Proposed PR — Phone header fits (`ui/ios-header-fit`)
+
+- **Intent:** audit finding F1 (`docs/feature-audit.md`, PR #223). On phones up to 390 px, a signed-out chat made the header 404 px wide (brand, two icons, "New chat", "Sign in"): the page scrolled sideways and Sign in was cut off.
+- **Change:** `public/index.html` gives "New chat" an icon and a label span, with `aria-label="New chat"` so its accessible name is unchanged. In `public/app.css`, at ≤ 430 px the label hides and the icon shows. At ≤ 400 px, while Sign in shows (`.bar:has(#headerSignIn:not([hidden]))`), the wordmark gives way; the round mark stays. No script change.
+- **Layout check (headless Chromium, local fake-provider run, chat state):** page width equals the viewport at 320, 375, 390, 430 and 768 px (before: 404 at 320–390). Signed in, the wordmark still shows at 390 px.
+- **Regression test:** `test/ios-header-fit.test.js` (fails without the change).
+
+## Proposed PR — Feature audit (`fix/feature-audit`)
+
+- **Intent:** backlog item 1 of the 2026-10-12 upgrade: record what works and what doesn't on the user side before fixing anything. Adds `docs/feature-audit.md`.
+- **Findings:** F1 header overflows on phones ≤ 390 px in a signed-out chat (page 404 px wide); F2 tap targets under 44 pt; F3 the signed-out Billing page has no way forward. It also maps the owner's GPT-capability list to NasrinAI and sets the iOS design principles and work order.
+- **Validation:** documentation only, no code change. Findings come from a local fake-provider run in headless Chromium (every control clicked, signed out and signed in, at 390 and 1280 px; header measured at 320–768 px). Local `npm test` (439 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Touch targets at least 44 pt (`ui/ios-touch-targets`)
 
 - **Intent:** audit finding F2 (`docs/feature-audit.md`, PR #223). Header icons, composer buttons, reply actions, the edit pencil, the code Copy button, Listen, Retry, the home buttons and other buttons were 28–42 px: under Apple's 44 × 44 pt minimum.
