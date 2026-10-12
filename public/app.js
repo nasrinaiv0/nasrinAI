@@ -5804,16 +5804,31 @@
         toggle.type = 'button';
         toggle.setAttribute('aria-expanded', 'false');
         toggle.setAttribute('aria-label', 'Show actions for ' + p.name);
-        toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+        const toggleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        toggleSvg.setAttribute('viewBox', '0 0 24 24');
+        toggleSvg.setAttribute('aria-hidden', 'true');
+        const togglePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        togglePath.setAttribute('d', 'm6 9 6 6 6-6');
+        toggleSvg.appendChild(togglePath);
+        toggle.appendChild(toggleSvg);
 
         const actions = mk('div', 'prj-actions');
         actions.hidden = true;
         const actionButton = (label, kind, path, description, onClick) => {
           const button = mk('button', 'prj-action prj-action-' + kind);
           button.type = 'button';
-          button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg><strong></strong><span class="prj-action-description"></span>';
-          button.querySelector('strong').textContent = label;
-          button.querySelector('.prj-action-description').textContent = description;
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('aria-hidden', 'true');
+          const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          iconPath.setAttribute('d', path);
+          svg.appendChild(iconPath);
+          const title = document.createElement('strong');
+          title.textContent = label;
+          const detail = document.createElement('span');
+          detail.className = 'prj-action-description';
+          detail.textContent = description;
+          button.append(svg, title, detail);
           button.addEventListener('click', onClick);
           return button;
         };
