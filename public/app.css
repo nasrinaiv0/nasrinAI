@@ -2085,10 +2085,6 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
 }
 
 
-/* Hold the complete composer toolbar until its initial controls finish resolving. */
-html.composer-controls-loading #composer .tools {
-  visibility: hidden;
-}
 
 
 /* Align the account switch chevron to the card's right inset and vertical center. */
