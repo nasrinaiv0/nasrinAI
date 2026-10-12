@@ -5188,45 +5188,6 @@
   }
   $('historyClose').addEventListener('click', closeHistory);
 
-  // Phone tab bar (docs/redesign.md R2): Chat, Library, Projects, Settings open
-  // the existing screens; the current tab follows whatever is open.
-  const tabbar = $('tabbar');
-  function setActiveTab(name) {
-    for (const b of tabbar.querySelectorAll('[data-tab]')) {
-      const on = b.dataset.tab === name;
-      b.classList.toggle('is-active', on);
-      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-    }
-  }
-  function syncTabs() {
-    if (!$('settings').hidden) return setActiveTab('settings');
-    if (!historySheet.hidden) {
-      const lib = $('tabLibrary'); const prj = $('tabProjects');
-      if (lib && lib.getAttribute('aria-selected') === 'true') return setActiveTab('library');
-      if (prj && prj.getAttribute('aria-selected') === 'true') return setActiveTab('projects');
-    }
-    setActiveTab('chat');
-  }
-  tabbar.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-tab]');
-    if (!b) return;
-    const tab = b.dataset.tab;
-    if (tab === 'chat') { closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); return; }
-    if (tab === 'settings') { openSettings(); return; }
-    openHistory(tab);
-  });
-  new MutationObserver(syncTabs).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-selected'] });
-  // While typing on a phone, the keyboard needs the room: the tab bar steps aside.
-  // The bar comes back a moment after the box loses focus, so a tap on Send
-  // lands before the message box moves up.
-  let typingTimer = 0;
-  input.addEventListener('focus', () => { clearTimeout(typingTimer); document.body.classList.toggle('is-typing', true); });
-  input.addEventListener('blur', () => {
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => { if (document.activeElement !== input) document.body.classList.toggle('is-typing', false); }, 300);
-  });
-  // End tab bar
-
   // ---------- the Library (signed in) ----------
   // The person's own files, notes and saved replies; only text is kept. The
   // server checks everything; this page only shows it.
