@@ -180,3 +180,58 @@ test('creator attribution is allowed when asked; false provider identity is stil
     assert.doesNotMatch(out.message.content, /I'm NasrinAI, created by Nasrin Abubakar/);
   } finally { await srv.close(); }
 });
+
+
+test('semantic cache write is awaited before a successful chat response returns', async () => {
+  let releaseWrite;
+  let writeStarted = false;
+  let writeFinished = false;
+  const semanticCache = {
+    lookup: async () => ({ embedding: [0.1, 0.2, 0.3], hit: null }),
+    store: async () => {
+      writeStarted = true;
+      await new Promise((resolve) => { releaseWrite = resolve; });
+      writeFinished = true;
+    }
+  };
+  await withApp({
+    provider: createFakeProvider(),
+    semanticCache,
+    env: { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'test-only-key', ROUTING: 'smart' }
+  }, async ({ url }) => {
+    const token = await guestToken(url);
+    const responsePromise = send(url, token, { message: 'Explain what an API is in simple terms.' });
+    // Give the request a turn to reach the delayed store without releasing it.
+    for (let i = 0; i < 100 && !writeStarted; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(writeStarted, true, 'eligible chat should attempt the semantic cache write');
+    let responseReturned = false;
+    responsePromise.then(() => { responseReturned = true; });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(responseReturned, false, 'chat response must wait for the cache write attempt');
+    releaseWrite();
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.equal(writeFinished, true);
+  });
+});
+
+test('semantic cache insert failure does not fail a successful chat response', async () => {
+  const loggerMessages = [];
+  const semanticCache = {
+    lookup: async () => ({ embedding: [0.1, 0.2, 0.3], hit: null }),
+    store: async () => { throw new Error('simulated insert failure with private details'); }
+  };
+  await withApp({
+    provider: createFakeProvider(),
+    semanticCache,
+    env: { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'test-only-key', ROUTING: 'smart' }
+  }, async ({ url, logger }) => {
+    const token = await guestToken(url);
+    const response = await send(url, token, { message: 'Explain what an API is in simple terms.' });
+    assert.equal(response.status, 200);
+    assert.match((await response.json()).message.content, /You said:/);
+    const log = logger.lines.find((line) => line.msg === 'semantic cache store unavailable');
+    assert.ok(log, 'cache failure should be recorded safely');
+    assert.doesNotMatch(JSON.stringify(log), /simulated insert failure|private details/);
+  });
+});

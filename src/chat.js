@@ -569,8 +569,13 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (!usedTools) {
         policy.remember(key, { text: reply, provider: run.result.provider || run.spec.provider, model: run.spec.model });
         if (semanticCache && key && semanticEntry?.embedding) {
-          semanticCache.store({ scope: semanticScope, prompt: typed, response: reply, embedding: semanticEntry.embedding })
-            .catch(() => logger.warn('semantic cache store unavailable'));
+          // Await the optional write before returning so serverless runtimes do not
+          // discard it after the response. Cache failure must never fail a valid reply.
+          try {
+            await semanticCache.store({ scope: semanticScope, prompt: typed, response: reply, embedding: semanticEntry.embedding });
+          } catch {
+            logger.warn('semantic cache store unavailable');
+          }
         }
       }
       return finish(reply);

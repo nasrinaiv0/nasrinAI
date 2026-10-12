@@ -520,3 +520,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Remove per-conversation history hashing from the semantic scope. Existing policy eligibility already restricts this path to first-turn, attachment-free, non-sensitive requests; the stable actor/tier/task scope allows eligible repeats across separate conversations without sharing cache entries between actors.
 - Add regression coverage for retaining embeddings on search-RPC errors and for the stable scope behavior.
 - No SQL, RLS, auth, token limits, or unrelated UI changes. Require focused tests, full CI, and production verification before considering the fix complete.
+
+
+## Proposed PR — Await semantic cache writes safely
+
+- Await the persistent semantic-cache insert attempt before returning a successful chat response, preventing serverless execution from ending while the write is still pending.
+- Keep cache writes best-effort: a rejected insert is caught, logged with a fixed safe message, and does not turn a successful AI answer into a chat failure.
+- Add chat integration regression tests for both delayed writes (response remains pending until the write attempt settles) and failed inserts (chat still returns HTTP 200 without exposing database error details).
+- No SQL, RLS, authentication, token-limit, provider-routing, or unrelated UI changes.
