@@ -10,6 +10,12 @@ Settings > Professional AI. The choice is kept on the device.
   method, output, safety rules, words for Automatic, accessory). A new
   profession is one new entry; `checkRegistry()` runs in the tests.
   The General Recruiter holds 15 recruitment specialties inside.
+  Groups added 2026-10-12: **Science** (Researcher, Biologist, Chemist,
+  Physicist, Environmental Scientist, Statistician; safety rule `science`:
+  no invented studies, lab safety first, no weapons, pathogens, toxins,
+  explosives or drugs) and **Media & Broadcasting** (Broadcaster, News
+  Anchor, Reporter, Multimedia Producer; rule `journalism`: accuracy, no
+  invented quotes or sources, fairness, no defamation).
 - **Orchestrator:** `src/ai/professional.js`. The server checks every choice
   (unknown ids or modes: 400 before anything is spent), then code (no model
   call) picks at most 3 professions the message needs, the ★ primary first;

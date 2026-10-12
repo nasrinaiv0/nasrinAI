@@ -5,6 +5,12 @@
 - **Change (`public/app.js`, `public/index.html`):** the public profession list is requested at once (no longer behind status and sign-in) and kept on the device, so the button shows the right choice at first paint; the placeholder follows the saved choice (off = "Universal AI"); "Sign in" shows immediately when this device has no sign-in; the Library label remembers the last server answer. No personal data is stored (public list and an on/off flag).
 - **Validation:** `npm test`; headless Chromium: all toolbar and header buttons appear in the same frame (~240 ms) with their final labels; click crawl unchanged.
 
+## Proposed PR — Science and Media professions (`feature/professions-science-media`)
+
+- **Owner request (2026-10-12):** new Professional AI models for Science (researcher, biologist, chemist…) and Multimedia (broadcaster, news anchor, reporter…).
+- **Change:** two groups and ten professions in `src/ai/professions.js`, with two safety rules (`science`, `journalism`); everyday words that would mis-route Automatic mode left out. The page reads the catalog, so no UI change. `docs/professional.md`.
+- **Validation:** `npm test` (routing examples and safety text in the prompt).
+
 ## Proposed PR — Thinking line sets expectations (`ui/thinking-status`)
 
 - **Owner request (2026-10-12):** the "Thinking" line should say what is happening (browsing the internet, remembering, cooking, making your…, almost done).
