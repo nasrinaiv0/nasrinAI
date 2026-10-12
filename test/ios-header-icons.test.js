@@ -31,5 +31,10 @@ test('Sign in is only in the header, never above the message box', async () => {
   assert.doesNotMatch(html + js + css, /guestSignIn|guest-signin/);
   assert.match(html, /<button type="button" class="btn header-signin" id="headerSignIn" hidden>Sign in<\/button>/);
   assert.match(js, /headerSignIn\.hidden = Boolean\(account\) \|\| !can;/);
+  // Owner (2026-10-12): Sign in must not vanish when /v1/status is slow or
+  // fails; only the server saying sign-in is off hides it.
+  assert.match(js, /const can = signInMethods\.email \|\| signInMethods\.google \|\| !authMethodsLoaded;/);
+  assert.match(js, /if \(authMethodsLoaded && !\(signInMethods\.email \|\| signInMethods\.google\)\) return;/);
+  assert.match(js, /\$\('logoutMenu'\)\.hidden = !account;/, 'Log out is offered whenever signed in');
   assert.doesNotMatch(css, /\.header-signin \{ display: none; \}/, 'shown on phones too');
 });
