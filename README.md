@@ -80,3 +80,8 @@ NasrinAI can help inspect code and supported attachments, explain errors, and su
 - [ADR-002: No third-party runtime packages](docs/decisions/002-no-runtime-dependencies.md)
 - [ADR-003: Host the API on Vercel](docs/decisions/003-host-on-vercel.md)
 - [ADR-004: Local model runtime](docs/decisions/004-local-model-runtime.md)
+
+
+## Composer controls on startup
+
+Composer toolbar controls render immediately with the composer on page load. Their visibility must not depend on model or professional-catalog availability; asynchronous catalog loading may update functionality, but must not hide or delay the controls. Keep the initial HTML and CSS free of startup rules that set the composer toolbar to `visibility: hidden`.
