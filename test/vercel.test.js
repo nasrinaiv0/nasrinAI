@@ -59,3 +59,11 @@ test('the function restores only API paths', async () => {
     assert.equal(restorePath('/api/index?__path=' + encodeURIComponent(bad)), '/api/index?__path=' + encodeURIComponent(bad));
   }
 });
+
+test('on Vercel the script, styles and manifest are revalidated on every load', () => {
+  const fresh = config.headers.find((r) => r.headers.some((h) => h.key === 'Cache-Control' && h.value === 'no-cache'));
+  assert.ok(fresh, 'a no-cache rule exists');
+  const re = new RegExp('^' + fresh.source + '$');
+  for (const p of ['/app.js', '/app.css', '/format.js', '/connect/smartchat.js', '/manifest.webmanifest']) assert.ok(re.test(p), p);
+  for (const p of ['/icon.svg', '/v1/chat', '/']) assert.ok(!re.test(p), p);
+});
