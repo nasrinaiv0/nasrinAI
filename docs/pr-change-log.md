@@ -1,3 +1,11 @@
+## Proposed PR — Diagnose server startup 503s (`fix/startup-503-diagnostics`)
+
+- **Problem:** production API routes return HTTP 503 when configuration loading or application initialization fails, but the client-facing message is generic and Vercel logs may be unavailable to the operator.
+- **Change:** assign a unique startup incident ID, include the ID in a safe JSON error and `X-NasrinAI-Incident-ID` response header, and log the ID with the startup stage. Internal exception details remain server-side; no secrets, stack traces, environment values, or configuration details are returned to clients.
+- **Regression coverage:** tests verify both configuration and application startup failures, including that internal exception text is not exposed in the response.
+- **Scope:** diagnostic-only; does not change authentication behavior, rate limits, environment values, security checks, or deployment configuration.
+- **Validation:** tests must run in CI before merge. This change identifies the startup failure but does not itself claim to repair the underlying initialization exception.
+
 ## Fix PR #242 — Excel workbook export regexes (`fix/pr242-xlsx-regex`)
 
 - **Root cause:** the multi-sheet marker and numeric-cell regexes in `public/files.js` were over-escaped, so `[[sheet name="..."]]` blocks were not recognized and numeric values were emitted as text. Worksheet-name sanitization also needed to safely escape the slash delimiter.
