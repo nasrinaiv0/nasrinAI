@@ -10,6 +10,12 @@ server keeps the sign-in in an HttpOnly cookie that page scripts cannot read;
 the page holds a one-hour access token in memory. Details in
 [security.md](security.md).
 
+**Security check layout.** When Turnstile is on, the Cloudflare widget sits
+centered below the "Email me a code" button, above the status message. On
+screens up to 480 px wide it is scaled to 80% (the widget is a fixed-size
+iframe, so it is scaled rather than resized). Protected by a test in
+`test/page.test.js`.
+
 ## 1. Supabase: where people come back to
 
 **Authentication > URL Configuration**

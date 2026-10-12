@@ -266,6 +266,12 @@ body:not(.has-chat) #newChat { display: none; }
 .signin-form .text-btn { align-self: center; }
 .signin-status { min-height: 1.3em; margin: 0.8rem 0 0; color: var(--ink-2); font-size: 0.88rem; text-align: center; }
 .signin-status:empty { margin: 0; }
+/* Cloudflare Turnstile: centered below the email button; smaller on phones.
+   The widget is a fixed-size iframe, so it is scaled rather than resized. */
+.signin-captcha { display: flex; justify-content: center; width: 100%; margin: 1rem auto 0; }
+@media (max-width: 480px) {
+  .signin-captcha { transform: scale(0.8); transform-origin: top center; margin: 0.75rem auto -0.8rem; }
+}
 
 /* Appearance: three-way segmented control */
 .segmented { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 0.25rem; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); }
