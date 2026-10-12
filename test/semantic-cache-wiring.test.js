@@ -35,6 +35,18 @@ test('semantic cache miss returns the embedding for reuse when storing', async (
   assert.ok(Date.parse(inserted.expires_at) > Date.now());
 });
 
+test('semantic cache lookup preserves an embedding when the search RPC fails', async () => {
+  const cache = createSemanticCache({
+    supabase: { rpc: async () => ({ data: null, error: { message: 'temporary RPC failure' } }) },
+    embed: async () => [0.3, 0.4],
+    modelName: 'test-embedding'
+  });
+  await assert.rejects(cache.lookup('question', 'scope-hash'), (error) => {
+    assert.deepEqual(error.embedding, [0.3, 0.4]);
+    return true;
+  });
+});
+
 test('semantic cache touch calls the server-side hit counter', async () => {
   let args;
   const cache = createSemanticCache({ supabase: { rpc: async (...values) => { args = values; return { error: null }; } }, embed: async () => [], modelName: 'test-embedding' });
@@ -50,6 +62,9 @@ test('active main/chat wiring uses the persistent cache only behind existing pol
   assert.match(main, /policy, semanticCache, legal/);
   assert.match(chat, /if \(semanticCache && key\)/);
   assert.match(chat, /semanticCache\.lookup\(typed, semanticScope\)/);
+  assert.match(chat, /semanticEntry = err\?\.embedding \? \{ embedding: err\.embedding, hit: null \} : null/);
+  assert.match(chat, /stage: err\?\.embedding \? 'search' : 'embedding'/);
+  assert.doesNotMatch(chat, /const contextHash/);
   assert.match(chat, /semanticCache\.store\(/);
   assert.match(chat, /semantic cache lookup unavailable/);
 });
