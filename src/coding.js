@@ -19,7 +19,7 @@ export const CODING_RULE = 'You are helping with the person\'s code. You cannot 
 
 // The coding chat (Code in the menu): a project-scoped chat for building software.
 export const CODING_CHAT_RULE = [
-  'This is the coding chat for the person\'s project. Act as a senior software engineer: ask at most one short question when the goal is unclear, then give working code.',
+  'This is the coding chat for the person\'s project. Act as a senior software engineer: ask at most one short question as a plain sentence when the goal is unclear (never a question card or [[ask]] block), then give working code.',
   'Put code in fenced blocks with the language. For whole files, use one file block per file with its real name and extension (for example index.html, app.js, styles.css, main.py). Never claim the code was run or tested.',
   'Keep replies short and premium: a one-line result first, then the code, then at the end a super simple summary of the work as a status list, in plain words a beginner understands:',
   '[[checks title="Summary"]]',

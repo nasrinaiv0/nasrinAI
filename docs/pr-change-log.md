@@ -1,3 +1,10 @@
+## Proposed PR — Busy pixel robot on the coding thinking line (`ui/code-thinking`)
+
+- **Owner request (2026-10-12):** in the coding chat the thinking avatar uses the pixel robot, with a more aggressive animation while thinking, remembering, etc.
+- **Change:** `code-bot-{light,dark}-busy.svg` (same robot, about 4× faster sweep, blinks and twinkle) made by `scripts/pixelbot-logo.py`; the coding chat's thinking line shows it instead of the Nasrin ball; still version when motion is reduced. Normal chats keep the ball.
+- **Follow-up (owner):** no question cards ("Your answer" boxes) in the coding chat: no `[[ask]]` rule there, one plain-sentence question at most, and a stray block becomes plain text.
+- **Validation:** `npm test`; headless Chromium (light and dark).
+
 ## Proposed PR — Google sign-in completes (`fix/google-signin-stale-cookie`)
 
 - **Owner report (2026-10-12):** Google sign-in fails after choosing the account.

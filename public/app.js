@@ -986,7 +986,10 @@
     label.textContent = text;
     row.append(mini, label);
     log.appendChild(row);
-    const ch = Nasrin.attach(mini);
+    // In the coding chat the pixel robot works instead (faster while busy).
+    const ch = document.body.classList.contains('coding-mode')
+      ? (mini.classList.add('code-logo', 'is-busy'), { remove() {} })
+      : Nasrin.attach(mini);
     scrollToEnd(row);
     const set = (words) => {
       if (!words || label.textContent === words) return;

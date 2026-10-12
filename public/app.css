@@ -2488,3 +2488,15 @@ body.coding-mode .brand .mark, body.coding-mode .brand .pro-badge { display: non
 .code-picker-title .code-logo { width: 1.75rem; height: 1.75rem; }
 /* The coding chat starts empty: no Nasrin ball, greeting or starter buttons. */
 body.coding-mode #welcome { display: none; }
+/* Thinking line in the coding chat: the pixel robot, about 4x faster while
+   Nasrin thinks, remembers, reads or searches; still when motion is reduced. */
+.thinking .mini.code-logo { height: 1.75rem; border-radius: 0.45rem; }
+.code-logo.is-busy { background-image: url(/space-logos/code-bot-light-busy.svg); }
+:root[data-theme="dark"] .code-logo.is-busy { background-image: url(/space-logos/code-bot-dark-busy.svg); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .code-logo.is-busy { background-image: url(/space-logos/code-bot-dark-busy.svg); } }
+:root[data-motion="reduce"] .code-logo.is-busy { background-image: url(/space-logos/code-bot-light-still.svg); }
+:root[data-motion="reduce"][data-theme="dark"] .code-logo.is-busy { background-image: url(/space-logos/code-bot-dark-still.svg); }
+@media (prefers-reduced-motion: reduce) {
+  .code-logo.is-busy { background-image: url(/space-logos/code-bot-light-still.svg); }
+  :root[data-theme="dark"] .code-logo.is-busy { background-image: url(/space-logos/code-bot-dark-still.svg); }
+}

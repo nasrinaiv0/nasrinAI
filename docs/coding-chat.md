@@ -18,6 +18,9 @@ to **choose a project or create one** first; done projects are not listed.
   project or start a fresh coding chat in the same one) and **×** to leave. New chat, Your chats and Settings are hidden meanwhile.
 - The home screen (Nasrin ball, greeting and starter buttons) is hidden; the
   coding chat starts empty with the message box.
+- No question cards: the prompt leaves out the `[[ask]]` rule, the coding
+  rule asks for one plain-sentence question at most, and a stray `[[ask]]`
+  block is turned into plain text (`plainAsks` in `src/chat.js`).
 - The Professional AI pill becomes **Code experts**: every message asks the
   Technology group (`mode: 'group', groups: ['technology']`); the server picks
   the experts a message needs (at most 3).
@@ -39,6 +42,9 @@ bar while coding, on NasrinAI Space → Coding and in the project picker.
 became SMIL `<animate>`, so the strict CSP (no inline styles) still allows
 them. CSS (`.code-logo`) picks the tile for the theme and motion setting:
 light UI → dark robot on a light tile, dark UI → the reverse.
+While Nasrin works in the coding chat (thinking, remembering, reading,
+searching) the thinking line shows `code-bot-*-busy.svg`: the same robot about
+4× faster (still when motion is reduced).
 
 ## Replies
 
