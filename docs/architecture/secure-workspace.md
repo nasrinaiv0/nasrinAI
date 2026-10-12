@@ -71,3 +71,8 @@ Any future proposal for persistent jobs or artifacts must separately define the 
 ## Release gate
 
 Review the exact diff and require CI, the secret scan, and relevant regression tests to pass before merging. Do not merge while required checks are failing or pending. This scope change adds no runtime behavior and requires no SQL migration.
+
+
+## ZIP archives containing workbooks
+
+The bounded attachment parser can inspect `.xlsx` and `.xlsm` workbooks nested inside a regular ZIP archive. Nested workbook entries are read only through the existing ZIP reader and its per-entry/total decompression limits; no archived file is executed. This is text extraction for analysis, not workbook editing or generation. Upload transport remains subject to the configured attachment cap and hosting request-body limits; do not advertise 20 MB uploads until a transport that bypasses Vercel's 4.5 MB function-body limit is implemented and verified.

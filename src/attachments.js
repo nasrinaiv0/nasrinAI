@@ -300,6 +300,19 @@ function zipText(bytes, limits) {
   }
   if (has(/^META-INF\/container\.xml$/) && /epub/.test(get('mimetype'))) return { source: 'EPUB book', text: epubText(zip) };
 
+  // For an ordinary archive, inspect supported office/data files inside it too.
+  // Each nested entry is read through the same bounded ZIP reader; no file is executed.
+  const nestedWorkbooks = [];
+  for (const e of zip.entries) {
+    if (!/\.(?:xlsx|xlsm)$/i.test(e.name) || e.size > ZIP_ENTRY_BYTES) continue;
+    const nestedBytes = zip.read(e);
+    if (!nestedBytes) continue;
+    const nestedZip = openZip(nestedBytes);
+    if (!nestedZip || !nestedZip.entries.some((x) => /^xl\/workbook\.xml$/.test(x.name))) continue;
+    const text = xlsxText(nestedZip);
+    if (text) nestedWorkbooks.push(`### Embedded workbook: ${cleanName(e.name)}\n${text}`);
+  }
+
   // Any other ZIP: what is inside, and the text of the readable text files.
   const files = zip.entries.filter((e) => !e.name.endsWith('/'));
   const listing = files.slice(0, 200).map((e) => `- ${e.name} (${e.size} bytes)`).join('\n');
@@ -315,7 +328,7 @@ function zipText(bytes, limits) {
     used += t.length;
     bodies.push(`### ${e.name}\n${t}`);
   }
-  return { source: 'ZIP archive', text: `Files inside (${files.length}):\n${listing}${bodies.length ? '\n\nText files:\n\n' + bodies.join('\n\n') : ''}` };
+  return { source: 'ZIP archive', text: `Files inside (${files.length}):\n${listing}${nestedWorkbooks.length ? '\n\nEmbedded workbooks:\n\n' + nestedWorkbooks.join('\n\n') : ''}${bodies.length ? '\n\nText files:\n\n' + bodies.join('\n\n') : ''}` };
 }
 
 // Text that is not UTF-8 but says so in its first bytes (UTF-16 with a mark).

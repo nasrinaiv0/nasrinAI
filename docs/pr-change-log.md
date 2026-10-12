@@ -1,3 +1,11 @@
+## Proposed PR — Extract Excel workbooks inside ZIP attachments
+
+- **Problem:** an ordinary ZIP archive lists nested files and reads small UTF-8 text files, but does not inspect an embedded `.xlsx`/`.xlsm` workbook. This caused `b2b_invoices.zip` to be reported as a listing rather than readable invoice rows.
+- **Change (`src/attachments.js`):** inspect nested workbook entries through the existing bounded ZIP reader and include their extracted worksheet text in the archive context. Do not execute archive contents; retain ZIP entry and decompression limits.
+- **Tests (`test/attachments.test.js`):** add a nested workbook fixture and assert worksheet headers and values are extracted.
+- **Documentation:** clarify the difference between extraction for analysis and workbook editing/generation; 20 MB upload support is not claimed until the Vercel request-body transport is changed.
+- **Validation:** source/test additions only; CI has not been run in this PR.
+
 ## Proposed PR — Render composer tier and Automatic controls together (`ui/composer-controls-initial-render`)
 
 - **Problem:** `#modelRow` and `#proBtn` start hidden and appear only after their independent backend catalog calls resolve, causing controls to pop in late or separately.
