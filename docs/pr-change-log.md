@@ -1,3 +1,10 @@
+## Proposed PR — Fix greeting shortcut initialization order
+
+- **Bug:** the instant-greeting condition referenced `extra.length` before `extra` was declared, causing a `ReferenceError` for eligible greetings.
+- **Fix (`src/chat.js`):** move the shortcut after the extra context array is initialized and appended to history. This preserves the no-provider shortcut while avoiding use-before-initialization.
+- **Documentation:** `docs/chat.md` records the required ordering and regression coverage.
+- **Validation:** static source check only; automated tests have not yet been run.
+
 ## Proposed PR — Return simple greetings without a provider call
 
 - **Problem:** a plain `hi` could proceed through smart routing and wait on the configured model despite needing no reasoning.
