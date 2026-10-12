@@ -13,6 +13,12 @@ For every future NasrinAI PR:
 5. For migrations, document the migration and audit RLS enabled/forced state as appropriate, policies, grants/revokes, tenant/owner isolation, and database tests.
 6. State what was actually tested. Do not call a check passing unless its result was observed. Do not merge while required checks are failing or pending.
 
+## Proposed PR — Feature audit (`fix/feature-audit`)
+
+- **Intent:** backlog item 1 of the 2026-10-12 upgrade: record what works and what doesn't on the user side before fixing anything. Adds `docs/feature-audit.md`.
+- **Findings:** F1 header overflows on phones ≤ 390 px in a signed-out chat (page 404 px wide); F2 tap targets under 44 pt; F3 the signed-out Billing page has no way forward. It also maps the owner's GPT-capability list to NasrinAI and sets the iOS design principles and work order.
+- **Validation:** documentation only, no code change. Findings come from a local fake-provider run in headless Chromium (every control clicked, signed out and signed in, at 390 and 1280 px; header measured at 320–768 px). Local `npm test` (439 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
+
 ## Proposed PR — Touch targets at least 44 pt (`ui/ios-touch-targets`)
 
 - **Intent:** audit finding F2 (`docs/feature-audit.md`, PR #223). Header icons, composer buttons, reply actions, the edit pencil, the code Copy button, Listen, Retry, the home buttons and other buttons were 28–42 px: under Apple's 44 × 44 pt minimum.
