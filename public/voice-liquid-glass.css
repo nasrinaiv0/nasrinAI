@@ -105,10 +105,10 @@ body.voice-open { overflow: hidden; }
 .voice-control:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 /* The tier: an icon, the same signal bars as the chat's model button. */
 .voice-tier .bars { width: 1.45rem; height: 1.45rem; stroke: none; }
-.voice-control-mic { width: 3.75rem; height: 3.75rem; background: var(--ink); color: var(--on-ink); border-color: transparent; }
-.voice-control-mic svg { width: 1.55rem; height: 1.55rem; }
+/* The mic looks like every other control; muted, it shows the crossed-out
+   mic on a filled circle so the state is clear. */
 .voice-control-mic .voice-icon-mic-off { display: none; }
-.voice-control-mic[aria-pressed="true"] { background: var(--glass); color: var(--ink); border-color: var(--glass-line); }
+.voice-control-mic[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: transparent; }
 .voice-control-mic[aria-pressed="true"] .voice-icon-mic { display: none; }
 .voice-control-mic[aria-pressed="true"] .voice-icon-mic-off { display: block; }
 
@@ -134,7 +134,6 @@ body.voice-open { overflow: hidden; }
 /* ---------- small and wide screens ---------- */
 @media (max-width: 360px) {
   .voice-control { width: 2.9rem; height: 2.9rem; }
-  .voice-control-mic { width: 3.4rem; height: 3.4rem; }
   .voice-control-group { gap: 0.45rem; }
 }
 @media (max-height: 560px) {
