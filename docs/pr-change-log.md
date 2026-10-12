@@ -6,6 +6,20 @@
 - **Scope:** diagnostic-only; no auth logic, limits, environment values, security checks, or deployment settings change. This narrows the failure location but does not itself repair the underlying exception.
 - **Validation:** CI is required before merge. After a separately authorized deployment, inspect `/v1/status` response `error.stage` to direct the next code investigation.
 
+## Proposed PR — Composer controls appear at once (`fix/composer-instant-controls`)
+
+- **Owner request (2026-10-12):** the composer buttons must show with the composer, with no loading or delay and no wait for the models.
+- **Before:** the buttons already showed at once on `main` (#235, #239), but the tier bars filled in and the "Automatic" face icon popped in only after `/v1/models` and `/v1/professionals` answered.
+- **Change:** `public/index.html` carries the face icon and a filled first bar; `public/app.js` shows the saved tier's bars before any request. The server data still updates them when it arrives.
+- **Validation:** `test/composer-instant-controls.test.js`; local `npm test` and `npm run check:secrets`; headless Chromium with the model, professional and status requests held for 4 s: the face and the saved tier (1 bar by default, 3 for a saved Max) show at 0.8 s. No server, data or legal change.
+
+## Proposed PR — Fix the broken downloads script (`fix/files-js-syntax`)
+
+- **Problem:** on `main`, `public/files.js` did not parse ("Unexpected token ';'"): the last entry of the Excel workbook file list (`xl/styles.xml`) was missing its closing `]` since the multi-sheet Excel builder was reapplied. The browser therefore skipped the whole file, so the downloads it builds (Excel, Word, PDF and other files) could not run. #244 fixed the over-escaped regexes in the same function, but this bracket was still missing.
+- **Change:** adds the missing `]` (one character). No behaviour change beyond the file loading again.
+- **Regression test:** `test/public-scripts-parse.test.js` compiles every `public/**/*.js` browser script; it fails on `main` (files.js) and passes with the fix. The existing #242 tests only checked single regex lines, which is why CI stayed green.
+- **Validation:** local `npm test` and `npm run check:secrets`; headless Chromium loads the app with no page errors. No server, data or legal change.
+
 ## Proposed PR — Diagnose server startup 503s (`fix/startup-503-diagnostics`)
 
 - **Problem:** production API routes return HTTP 503 when configuration loading or application initialization fails, but the client-facing message is generic and Vercel logs may be unavailable to the operator.
