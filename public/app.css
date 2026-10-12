@@ -367,10 +367,12 @@ body:not(.has-chat) #newChat { display: none; }
   transition: color 160ms, border-color 160ms, background-color 160ms;
 }
 .listen:hover, .listen.is-playing { color: var(--ink); border-color: var(--ink-3); }
-.listen.is-playing { background: var(--surface); }
 .act.listen { margin-top: 0; padding: 0; border: 0; gap: 0; }
 .act.listen svg { width: 0.95rem; height: 0.95rem; fill: currentColor; stroke: none; }
-.act.listen.is-playing { color: var(--ink); background: var(--surface); }
+.act.listen, .act.listen:hover, .act.listen:active, .act.listen.is-playing {
+  background: transparent;
+}
+.act.listen.is-playing { color: var(--ink); }
 .msg-body { white-space: pre-wrap; }
 .msg-body.rich { white-space: normal; }
 
