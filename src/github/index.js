@@ -392,7 +392,6 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       }, required: ['repo', 'test_command', 'start_command'] },
       run: (args, ctx) => browserTestRunner.run(args, ctx)
     },
-    },
   ];
 
   return { available, routes, tools, tokenFor };
