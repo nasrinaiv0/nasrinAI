@@ -277,3 +277,14 @@ test('the person’s message bubble is a softer charcoal in light mode only (own
   assert.match(css, /:root\[data-theme="dark"\] \{[^}]*--bubble: var\(--ink\);/);
   assert.match(css, /\.msg\.user \{[^}]*background: var\(--bubble, var\(--ink\)\);/);
 });
+
+test('the Sources button shows overlapping site badges and the word Sources (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.match(toggle, /b\.setAttribute\('aria-label', `Sources \(\$\{links\.length\}\)`\);/);
+  assert.match(toggle, /const hosts = \[\.\.\.new Set\(links\.map\(\(l\) => l\.host\)\)\]\.slice\(0, 3\);/);
+  assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
+  assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
+  assert.match(css, /\.src-face \+ \.src-face \{ margin-left: -0\.38rem; \}/);
+});

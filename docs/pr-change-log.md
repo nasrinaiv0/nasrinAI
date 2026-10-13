@@ -1,3 +1,9 @@
+## Proposed PR — Sources button with site badges (`ui/sources-faces`)
+
+- **Owner request (2026-10-13, screenshot):** the sources control should look like overlapping site icons followed by "Sources".
+- **Change:** `public/app.js` / `app.css`: up to three overlapping round badges (each site's first letter, first on top, shades of the ink colour) then "Sources"; the count stays in the accessible label. Real site logos are not loaded: the strict CSP allows only our own images and no third-party requests. `docs/web.md`.
+- **Validation:** `npm test`; browser at 390 px, light and dark.
+
 ## Proposed PR — Softer message bubble in light mode (`ui/softer-user-bubble`)
 
 - **Owner request (2026-10-13, screenshot):** in light mode, lessen the darkness of the person's message bubble.
