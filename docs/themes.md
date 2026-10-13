@@ -44,3 +44,11 @@ Nothing is sent to the server.
 `test/themes.test.js`. Checked in headless Chromium at 390 px for every theme
 in Light and Dark: Settings picker, chat, Send colour, status-bar colour, and
 the theme kept after a reload.
+
+## The person's message bubble
+
+In light mode the bubble is a softer charcoal than the ink
+(`--bubble: color-mix(in srgb, var(--ink) 76%, var(--paper))`, about `#454545`
+in Mono, white text well above 7:1 contrast), so it reads less heavy (owner,
+2026-10-13). Each palette's light mode mixes its own ink and paper the same
+way. In dark mode the bubble stays the ink colour.
