@@ -962,3 +962,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Change:** validate repository gzip/tar archives before sandbox extraction; cap compressed/expanded sizes, entry count, and individual entry sizes; reject unsafe traversal paths and links/special file types; reconcile the secure-workspace document with the implemented GitHub runner.
 - **Validation:** pending CI. The real Vercel Sandbox integration test remains opt-in and must not be reported as passed when skipped.
+
+
+## Proposed PR — Browser render, test, and screenshots
+
+- Add `github_render_test_screenshot` as a separate, signed-in GitHub coding tool.
+- Use a disposable Vercel Sandbox browser with Chromium via `@agent-browser/sandbox`; validate the bounded repository archive before extraction.
+- Run a user-specified allowlisted test command, start a local preview process without shell-string execution, inspect the page title/accessibility snapshot, and capture a screenshot with a strict byte cap.
+- Restrict the preview target to localhost, allow only the npm registry during dependency installation, disable network egress before tests/browser work, enforce a per-user hourly rate limit, and never deploy or write to GitHub.
+- Keep the existing `github_run_command` contract and all production limits/schema/RLS unchanged.
+- Validation: pending CI and review; live sandbox/browser startup must be tested with real Vercel credentials before claiming production-ready behavior.
