@@ -1,3 +1,9 @@
+## Proposed PR — Loader while a picture, video or file is made (`ui/generation-loader`)
+
+- **Owner request (2026-10-12 backlog #8):** a tech-style loading animation while an image, video or file is being made.
+- **Change:** `genLoader` in `public/app.js`: a pixel screen lighting up in diagonal waves under a scan line, with the step and elapsed seconds. Shown while the picture itself is made (sized like the picture), while a video renders (with its %), and, slim, while a reply writes a file (replaces the "Writing your file…" text note in `public/files.js`). Element-only (CSP), `role="status"`, still with reduced motion. `docs/chat.md`.
+- **Validation:** `npm test`; browser at 390 px, light and dark: the file loader appears under the text while the file is written and is gone when the reply is done.
+
 ## Proposed PR — Smooth, bouncy, pixel-perfect busy robot (`ui/robot-smooth`)
 
 - **Owner request (2026-10-13, screenshot):** the busy robot's turn looked like noise; make it smooth and bouncy, with a pixel-perfect turn and burst.

@@ -1065,6 +1065,46 @@
     };
   }
 
+  // While a picture, video or file is being made: a pixel grid that lights up
+  // in waves under a moving scan line, with what is happening and the time so
+  // far. Built from elements (no HTML strings); still when motion is reduced.
+  function genLoader(text, { compact = false, timer = true } = {}) {
+    const box = document.createElement('div');
+    box.className = 'gen-loader' + (compact ? ' is-compact' : '');
+    box.setAttribute('role', 'status');
+    const screen = document.createElement('div');
+    screen.className = 'gen-screen';
+    screen.setAttribute('aria-hidden', 'true');
+    const cols = compact ? 24 : 16, rows = compact ? 3 : 16;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = document.createElement('span');
+        cell.className = 'gen-cell';
+        // A diagonal wave, with a few cells out of step so it looks alive.
+        cell.style.setProperty('--d', ((r + c) * 70 + ((r * 7 + c * 13) % 5 === 0 ? 400 : 0)) + 'ms');
+        screen.appendChild(cell);
+      }
+    }
+    const scan = document.createElement('span');
+    scan.className = 'gen-scan';
+    screen.appendChild(scan);
+    const label = document.createElement('p');
+    label.className = 'gen-label';
+    const words = document.createElement('span');
+    words.textContent = text;
+    const time = document.createElement('span');
+    time.className = 'gen-time';
+    label.append(words, time);
+    box.append(screen, label);
+    const started = Date.now();
+    const tick = timer ? setInterval(() => { time.textContent = Math.round((Date.now() - started) / 1000) + 's'; }, 1000) : null;
+    return {
+      el: box,
+      set(t) { if (t && words.textContent !== t) words.textContent = t; },
+      remove() { if (tick) clearInterval(tick); box.remove(); }
+    };
+  }
+
   function clearScreen() {
     // Leaving this chat: a reply still being written is stopped, an edit dropped.
     if (turn) turn.ctrl.abort();
@@ -1455,7 +1495,16 @@
     stopSpeaking();
     refreshSendButton();
     Nasrin.mood('thinking');
-    const thinking = showThinking(label);
+    // Making the picture itself takes longest: the generation loader, sized
+    // like the picture to come. The quick steps keep the thinking line.
+    let thinking;
+    if (path === '/v1/images') {
+      startChat();
+      thinking = genLoader(label);
+      thinking.el.classList.add('msg', 'assistant');
+      log.appendChild(thinking.el);
+      scrollToEnd(thinking.el);
+    } else thinking = showThinking(label);
     try {
       return await api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     } catch (err) {
@@ -1706,16 +1755,21 @@
     el.appendChild(body);
     let shown = false;
     let raw = '';
+    let fileLoader = null;
     return {
       add(piece, thinking) {
         if (!shown) { thinking.remove(); startChat(); log.appendChild(el); shown = true; }
         raw += piece;
         text.data = window.NasrinFiles.strip(raw);   // questions and files appear as cards when the reply is done
+        // A file being written: the compact generation loader under the text.
+        const making = /\[\[file\b/i.test(raw);
+        if (making && !fileLoader) { fileLoader = genLoader('Writing your file', { compact: true }); body.appendChild(fileLoader.el); }
+        if (!making && fileLoader) { fileLoader.remove(); fileLoader = null; }
         scrollToEnd(el);
       },
-      clear() { raw = ''; text.data = ''; },
+      clear() { raw = ''; text.data = ''; if (fileLoader) { fileLoader.remove(); fileLoader = null; } },
       text() { return raw; },
-      remove() { el.remove(); }
+      remove() { if (fileLoader) fileLoader.remove(); el.remove(); }
     };
   }
 
@@ -1782,12 +1836,15 @@
       const body = document.createElement('div');
       body.className = 'msg-body';
       body.textContent = 'I’m creating your video. You can keep using NasrinAI while it renders.';
-      card.appendChild(body);
+      const loader = genLoader('Creating your video');
+      card.append(body, loader.el);
       log.appendChild(card);
+      scrollToEnd(card);
       const poll = async () => {
         try {
           const state = await api('/v1/videos/' + encodeURIComponent(id));
           if (state.status === 'completed') {
+            loader.remove();
             body.textContent = 'Your video is ready.';
             const a = document.createElement('a');
             a.className = 'btn small';
@@ -1798,11 +1855,11 @@
             deviceNotify('NasrinAI video ready', 'Your Ultra video has finished rendering.', 'nasrinai-video-' + id);
             return;
           }
-          if (state.status === 'failed') { body.textContent = state.error?.message || 'The video could not be completed.'; return; }
-          body.textContent = 'Creating your video… ' + Math.max(1, Number(state.progress) || 1) + '%';
+          if (state.status === 'failed') { loader.remove(); body.textContent = state.error?.message || 'The video could not be completed.'; return; }
+          loader.set('Creating your video · ' + Math.max(1, Number(state.progress) || 1) + '%');
           setTimeout(poll, 10000);
         } catch (err) {
-          if (err.code === 'video_plan_required' || err.status === 403) { body.textContent = err.message || 'Video creation is available on Ultra.'; return; }
+          if (err.code === 'video_plan_required' || err.status === 403) { loader.remove(); body.textContent = err.message || 'Video creation is available on Ultra.'; return; }
           setTimeout(poll, 15000);
         }
       };

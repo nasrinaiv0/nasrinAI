@@ -21,6 +21,16 @@ text the final reply would not. Errors before `start` are normal JSON errors.
 Whether Vercel delivers the stream in pieces cannot be verified from the
 repository; the page also works when the whole answer arrives at once.
 
+### While something is being made
+
+Making a picture, a video or a file shows a loader instead of the plain
+thinking line: a small pixel screen that lights up in diagonal waves under a
+moving scan line, with what is happening and the seconds so far
+(`genLoader` in `public/app.js`). The picture loader is the size of the
+picture to come; a file being written gets a slim one under the reply text;
+a video shows its progress (%). Built from elements only (strict CSP), announced
+as a status, and still when motion is reduced.
+
 ## Stop
 
 Closing the request (the Stop button) aborts the model call. The part
