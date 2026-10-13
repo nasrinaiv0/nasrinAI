@@ -4,8 +4,11 @@ import { readFile } from 'node:fs/promises';
 import { buildTestApp, serve, bearer, USER_TOKEN } from './helpers.js';
 import { cleanEmail, cleanPhone, cleanTags, cleanValue, readContact, readDeal, readTask } from '../src/ncc.js';
 import { readAutomation, matches, fill } from '../src/ncc-automations.js';
+import { createMeta, explain } from '../src/ncc-meta.js';
+import { whatsappNumber } from '../src/ncc.js';
 
 const OTHER = 'other.user.token';
+const CH = '00000000-0000-4000-8000-0000000000aa';
 const PLAIN = 'plain.user.token';
 const users = async (t) => (t === USER_TOKEN ? { id: 'user-1', email: 'owner@business.example' }
   : t === OTHER ? { id: 'user-2', email: 'second@business.example' }
@@ -175,7 +178,12 @@ test('automations are checked: only known triggers, fields and steps; social ste
   const ok = readAutomation({ name: ' Welcome ', enabled: true, trigger: { type: 'contact_created', extra: 1 }, conditions: [{ field: 'contact.email', op: 'is_set', value: 'x' }], actions: [{ type: 'add_tag', tag: 'New' }, { type: 'create_task', title: 'Call {{contact.first_name}}', due_days: '2' }] }, true);
   assert.deepEqual(ok, { name: 'Welcome', enabled: true, trigger: { type: 'contact_created' }, conditions: [{ field: 'contact.email', op: 'is_set' }], actions: [{ type: 'add_tag', tag: 'new' }, { type: 'create_task', title: 'Call {{contact.first_name}}', due_days: 2 }] });
   assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'webhook' }, actions: [{ type: 'add_tag', tag: 'a' }] }, true), /what starts/);
-  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'facebook_post', text: 'hi' }] }, true), /needs your Meta connection/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'messenger_send', text: 'hi' }] }, true), /not available yet/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'facebook_post', text: 'hi' }] }, true), /choose a connected channel/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'instagram_post', channel: CH, text: 'hi', image_url: 'http://10.0.0.1/a.jpg' }] }, true), /public https/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'threads_post', channel: CH, text: 'x'.repeat(501) }] }, true), /too long/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'whatsapp_send', channel: CH, template: 'Hello World!' }] }, true), /template name/);
+  assert.deepEqual(readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'whatsapp_send', channel: CH, template: 'welcome_1', language: 'en_US', send: 'yes please' }] }, true).actions[0], { type: 'whatsapp_send', channel: CH, send: 'approve', mode: 'template', template: 'welcome_1', language: 'en_US' }, 'anything but "auto" waits for approval');
   assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'http_request', url: 'https://x' }] }, true), /choose what to do/);
   assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'move_deal', stage: 'won' }] }, true), /only when a deal starts/);
   assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'tag_added', tag: 'vip' }, actions: [{ type: 'remove_tag', tag: 'vip' }] }, true), /cannot remove the tag that starts it/);
@@ -225,7 +233,7 @@ test('automations run on events, change only NCC records, and cannot loop', asyn
     const theirs = (await json(await call(url, '/v1/ncc', 'GET', OTHER))).body;
     assert.deepEqual([theirs.automations.length, theirs.tasks.length], [0, 0]);
     assert.equal((await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', OTHER, { enabled: false })).status, 404);
-    assert.equal((await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { actions: [{ type: 'whatsapp_send', text: 'hi' }] })).status, 400);
+    assert.equal((await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { actions: [{ type: 'whatsapp_send', channel: CH, template: 'hi' }] })).status, 400, 'a channel that is not connected');
     assert.equal((await json(await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { enabled: false }))).body.enabled, false);
     // Imports never start automations.
     await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { enabled: true });
@@ -265,5 +273,130 @@ test('the NCC address opens the NCC app; the main address does not', async () =>
     assert.notEqual((await get('/', 'nasrinai.com')).statusCode, 302);
     const s = await json(await call(url, '/v1/ncc/status', 'GET', USER_TOKEN));
     assert.deepEqual([s.body.enabled, s.body.url], [true, 'https://ncc.nasrinai.com']);
+  } finally { await close(); }
+});
+
+// A fake Meta: answers the official endpoints NCC uses and records each call.
+function fakeMeta() {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    const u = new URL(url);
+    const body = init.body ? (init.headers['Content-Type'] === 'application/json' ? JSON.parse(init.body) : Object.fromEntries(new URLSearchParams(init.body))) : null;
+    const token = u.searchParams.get('access_token') || body?.access_token || String(init.headers.Authorization || '').replace('Bearer ', '');
+    calls.push({ host: u.host, path: u.pathname, method: init.method, body, auth: init.headers.Authorization ? 'header' : 'param', token });
+    const ok = (data) => new Response(JSON.stringify(data), { status: 200 });
+    if (token === 'EAAexpiredtoken000000000') return new Response(JSON.stringify({ error: { message: 'Session has expired', code: 190 } }), { status: 400 });
+    const p = u.pathname.replace(/^\/v\d+\.\d/, '').replace(/^\/v1\.0/, '');
+    if (p === '/me' && u.host === 'graph.facebook.com') return ok({ id: '111', name: 'Cafe Uno' });
+    if (p === '/111' && init.method === 'GET') return ok({ instagram_business_account: { id: '222', username: 'cafeuno' } });
+    if (p === '/me' && u.host === 'graph.threads.net') return ok({ id: '333', username: 'cafeuno' });
+    if (p === '/444' && init.method === 'GET') return ok({ display_phone_number: '+63 917 000 0000', verified_name: 'Cafe Uno' });
+    if (p === '/111/feed') return ok({ id: '111_9' });
+    if (p === '/222/media') return ok({ id: '555' });
+    if (p === '/555') return ok({ status_code: 'FINISHED' });
+    if (p === '/222/media_publish') return ok({ id: '666' });
+    if (p === '/333/threads') return ok({ id: '777' });
+    if (p === '/333/threads_publish') return ok({ id: '888' });
+    if (p === '/444/messages') return body.type === 'text' ? new Response(JSON.stringify({ error: { message: 'Re-engagement message', code: 131047 } }), { status: 400 }) : ok({ messages: [{ id: 'wamid.ABC' }] });
+    return new Response(JSON.stringify({ error: { message: 'Unknown path', code: 100 } }), { status: 400 });
+  };
+  return { calls, meta: createMeta({ graphVersion: 'v23.0', fetchImpl, wait: async () => {} }) };
+}
+const KEY = { CONNECTOR_SECRET_KEY: 'a'.repeat(64) };
+const PAGE_TOKEN = 'EAApagetokenabcdef0123456789';
+
+test('Meta calls use the official endpoints; errors become plain reasons; numbers must be international', async () => {
+  const { calls, meta } = fakeMeta();
+  assert.deepEqual(await meta.checkPage(PAGE_TOKEN), { id: '111', name: 'Cafe Uno', instagram: { id: '222', name: 'cafeuno' } });
+  assert.deepEqual(await meta.postInstagram('222', PAGE_TOKEN, { text: 'New menu', image_url: 'https://cdn.example.com/m.jpg' }), { id: '666' });
+  assert.deepEqual(await meta.postThreads('333', 'THtoken0000000000000000', { text: 'Hi' }), { id: '888' });
+  assert.deepEqual(await meta.sendWhatsapp('444', 'WAtoken000000000000000', { to: '639170000000', mode: 'template', template: 'welcome_1', language: 'en_US' }), { id: 'wamid.ABC' });
+  assert.ok(calls.every((c) => (c.host === 'graph.threads.net' ? c.auth === 'param' : c.auth === 'header')));
+  assert.ok(calls.filter((c) => c.host === 'graph.facebook.com').every((c) => c.path.startsWith('/v23.0/')));
+  assert.deepEqual(calls.find((c) => c.path.endsWith('/messages')).body, { messaging_product: 'whatsapp', to: '639170000000', type: 'template', template: { name: 'welcome_1', language: { code: 'en_US' } } });
+  assert.deepEqual(calls.find((c) => c.path.endsWith('/333/threads')).body.media_type, 'TEXT');
+  await assert.rejects(meta.sendWhatsapp('444', 'WAtoken000000000000000', { to: '639170000000', mode: 'text', text: 'Hi' }), /24-hour window/);
+  assert.equal(explain({ code: 190 }, 400).category, 'token');
+  assert.equal(explain({ code: 200 }, 403).category, 'permission');
+  assert.equal(whatsappNumber('+63 917-000 0000'), '639170000000');
+  assert.throws(() => whatsappNumber('0917 000 0000'), /international format/);
+});
+
+test('channels: connect with a Meta token (sealed, never shown), post now, approve or discard the outbox, auto steps', async () => {
+  const { calls, meta } = fakeMeta();
+  const built = buildTestApp({ verifyUser: users, env: { ...ON, ...KEY }, nccMeta: meta });
+  const { url, close } = await serve(built.app);
+  try {
+    assert.equal((await call(url, '/v1/ncc/channels', 'POST', USER_TOKEN, { kind: 'facebook_page', token: 'short' })).status, 400);
+    assert.equal((await json(await call(url, '/v1/ncc/channels', 'POST', USER_TOKEN, { kind: 'facebook_page', token: 'EAAexpiredtoken000000000' }))).body.error.message, 'The connection has expired. Connect this channel again.');
+    const fb = await json(await call(url, '/v1/ncc/channels', 'POST', USER_TOKEN, { kind: 'facebook_page', token: PAGE_TOKEN }));
+    assert.equal(fb.status, 201);
+    assert.deepEqual(fb.body.channels.map((c) => [c.kind, c.name]), [['facebook_page', 'Cafe Uno'], ['instagram', 'cafeuno']]);
+    const wa = (await json(await call(url, '/v1/ncc/channels', 'POST', USER_TOKEN, { kind: 'whatsapp', phone_number_id: '444', token: 'WAtoken000000000000000' }))).body.channels[0];
+    const all = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body;
+    assert.equal(all.channels.length, 3);
+    assert.equal(all.channels_ready, true);
+    assert.doesNotMatch(JSON.stringify(all), /EAApagetoken|WAtoken|v1\./, 'tokens never come back');
+    const sealed = await built.store.getNccChannel({ tenantId: '00000000-0000-0000-0000-000000000001', userId: 'user-1', id: fb.body.channels[0].id });
+    assert.match(sealed.tokenEnc, /^v1\./);
+    assert.equal((await json(await call(url, '/v1/ncc', 'GET', OTHER))).body.channels.length, 0, 'other accounts never see them');
+    assert.equal((await call(url, '/v1/ncc/channels/' + wa.id, 'DELETE', OTHER)).status, 404);
+
+    // Post now: the person's tap is the approval.
+    const posted = await json(await call(url, '/v1/ncc/posts', 'POST', USER_TOKEN, { channel_ids: [fb.body.channels[0].id], text: 'Open today until 9pm' }));
+    assert.deepEqual(posted.body.outbox.map((o) => [o.action, o.status, o.external_ref]), [['facebook_post', 'sent', '111_9']]);
+    assert.equal((await call(url, '/v1/ncc/posts', 'POST', USER_TOKEN, { channel_ids: [wa.id], text: 'x' })).status, 400, 'WhatsApp goes to a contact, not a post');
+
+    // An automation with an approval step and an auto step.
+    const ig = fb.body.channels[1];
+    const auto = await json(await call(url, '/v1/ncc/automations', 'POST', USER_TOKEN, { name: 'Welcome', enabled: true, trigger: { type: 'contact_created' }, actions: [
+      { type: 'whatsapp_send', channel: wa.id, mode: 'template', template: 'welcome_1', language: 'en_US' },
+      { type: 'instagram_post', channel: ig.id, text: 'Welcome {{contact.first_name}}!', image_url: 'https://cdn.example.com/w.jpg', send: 'auto' }
+    ] }));
+    assert.equal(auto.status, 201);
+    assert.equal((await call(url, '/v1/ncc/automations', 'POST', USER_TOKEN, { name: 'Wrong kind', trigger: { type: 'contact_created' }, actions: [{ type: 'threads_post', channel: wa.id, text: 'x' }] })).status, 400);
+    assert.equal((await call(url, '/v1/ncc/automations', 'POST', OTHER, { name: 'Theirs', trigger: { type: 'contact_created' }, actions: [{ type: 'facebook_post', channel: fb.body.channels[0].id, text: 'x' }] })).status, 400, 'another account cannot use these channels');
+
+    const before = calls.length;
+    const ana = (await json(await call(url, '/v1/ncc/contacts', 'POST', USER_TOKEN, { name: 'Ana Cruz', phone: '+63 917 000 0000' }))).body;
+    const box = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body.outbox;
+    const waItem = box.find((o) => o.action === 'whatsapp_send');
+    const igItem = box.find((o) => o.action === 'instagram_post');
+    assert.deepEqual([waItem.status, waItem.payload.to, waItem.contact_id], ['pending', '639170000000', ana.id], 'waits for approval: nothing sent to WhatsApp yet');
+    assert.deepEqual([igItem.status, igItem.payload.text], ['sent', 'Welcome Ana!'], 'the auto step sent by itself');
+    assert.ok(!calls.slice(before).some((c) => c.path.endsWith('/messages')));
+
+    const sent = await json(await call(url, '/v1/ncc/outbox/' + waItem.id + '/send', 'POST', USER_TOKEN));
+    assert.deepEqual([sent.body.status, sent.body.external_ref], ['sent', 'wamid.ABC']);
+    assert.equal((await call(url, '/v1/ncc/outbox/' + waItem.id + '/send', 'POST', USER_TOKEN)).status, 409, 'never sent twice');
+    assert.equal((await call(url, '/v1/ncc/outbox/' + igItem.id + '/discard', 'POST', OTHER)).status, 409, 'another account cannot touch this outbox');
+
+    // A contact without an international number: the step stops with a reason.
+    await json(await call(url, '/v1/ncc/contacts', 'POST', USER_TOKEN, { name: 'Ben', phone: '0917 111 2222' }));
+    const ben = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body;
+    assert.match(ben.automations[0].last_result, /international format/);
+
+    // Discard; a plain-text WhatsApp outside the window fails with a reason.
+    const third = (await json(await call(url, '/v1/ncc/contacts', 'POST', USER_TOKEN, { name: 'Carla', phone: '+63 917 333 4444' }))).body;
+    const pending = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body.outbox.find((o) => o.status === 'pending' && o.contact_id === third.id);
+    assert.equal((await json(await call(url, '/v1/ncc/outbox/' + pending.id + '/discard', 'POST', USER_TOKEN))).body.status, 'discarded');
+    const msg = await json(await call(url, '/v1/ncc/contacts/' + third.id + '/whatsapp', 'POST', USER_TOKEN, { channel_id: wa.id, mode: 'text', text: 'Hi {{contact.first_name}}' }));
+    assert.deepEqual([msg.body.status, msg.body.result], ['failed', 'Outside WhatsApp\'s 24-hour window: send an approved template instead.']);
+
+    // Disconnecting removes the channel and its outbox items.
+    assert.equal((await call(url, '/v1/ncc/channels/' + wa.id, 'DELETE', USER_TOKEN)).status, 200);
+    const after = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body;
+    assert.equal(after.outbox.filter((o) => o.action === 'whatsapp_send').length, 0);
+  } finally { await close(); }
+});
+
+test('without the server key, channels say so plainly and nothing is stored', async () => {
+  const { meta } = fakeMeta();
+  const built = buildTestApp({ verifyUser: users, env: ON, nccMeta: meta });
+  const { url, close } = await serve(built.app);
+  try {
+    const r = await json(await call(url, '/v1/ncc/channels', 'POST', USER_TOKEN, { kind: 'facebook_page', token: PAGE_TOKEN }));
+    assert.deepEqual([r.status, r.body.error.code], [503, 'ncc_channels_off']);
+    assert.equal((await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body.channels_ready, false);
   } finally { await close(); }
 });

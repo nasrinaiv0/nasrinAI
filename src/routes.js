@@ -718,6 +718,63 @@ return { body: { sites: await connect.list(caller) } }; }
     },
     {
       method: 'POST',
+      path: '/v1/ncc/channels',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { status: 201, body: await ncc.connectChannel(caller, body) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/ncc/channels/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.removeChannel(caller, params.id) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/posts',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.post(caller, body) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/contacts/:id/whatsapp',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.message(caller, params.id, body) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/outbox/:id/send',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.approve(caller, params.id) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/outbox/:id/discard',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.discard(caller, params.id) };
+      }
+    },
+    {
+      method: 'POST',
       path: '/v1/ncc/deals',
       scope: 'chat',
       body: true,

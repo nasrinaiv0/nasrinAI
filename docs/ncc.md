@@ -5,8 +5,10 @@ automation, in the spirit of GoHighLevel (contacts, pipelines,
 conversations, follow-ups) and n8n (visual workflows: trigger → steps).
 
 **Status:** built, off by default: NCC is its own app at
-**ncc.nasrinai.com** with contacts, pipeline, tasks, timelines and
-automations. Social steps (Meta) are not built yet.
+**ncc.nasrinai.com** with contacts, pipeline, tasks, timelines,
+automations, and the business's own Meta channels (Facebook Page,
+Instagram, Threads posts; WhatsApp messages) with an approval outbox.
+Messenger is not built yet (it needs the Messenger inbox).
 
 **Owner decisions (2026-10-13):**
 
@@ -31,8 +33,8 @@ automations. Social steps (Meta) are not built yet.
   "contact the team" message on the tile.
 - **Keep-time:** contacts and deals are kept until the business deletes them,
   or deletes its NasrinAI account.
-- **Social channels for automations (N4):** Facebook Pages, Instagram,
-  Messenger, Threads and WhatsApp (all through Meta's official APIs).
+- **Social channels:** Facebook Pages, Instagram, Messenger, Threads and
+  WhatsApp, all through Meta's official APIs. Built: all but Messenger.
 
 - **Separate app (owner, 2026-10-13):** NCC lives at `ncc.nasrinai.com`,
   desktop-friendly and iPhone-friendly, a full CRM with automation.
@@ -81,13 +83,40 @@ automations. Social steps (Meta) are not built yet.
   is recorded; it never fails the person's change. Imports never start
   automations. The AI cannot create or run automations. Each run is shown
   on the automation (runs, last result) and on the contact's timeline.
-- **Social steps** (Facebook Page, Instagram, Threads posts; Messenger,
-  WhatsApp messages) are listed as planned and refused by the server until
-  each business connects Meta through the official APIs (Meta app review
-  needed).
+- **Social steps:** post on the Facebook Page, Instagram (needs a public
+  picture link) or Threads; send a WhatsApp template or plain text to the
+  contact (international number). Each step waits in the **outbox** for the
+  business to tap Send, unless the business switched on "Send by itself"
+  for that exact step. At most 5 sends per request.
+
+**Meta channels** (`src/ncc-meta.js`, official APIs only):
+
+- Connect by pasting a token from Meta: a **Page access token** (connects the
+  Page and its linked Instagram professional account), a **Threads** token,
+  or a **WhatsApp** phone number ID with a system-user token. The server
+  checks it with Meta, seals it (AES-256-GCM, `CONNECTOR_SECRET_KEY`, bound
+  to the account and channel) and never returns it.
+- Calls: Page `POST /{page-id}/feed`; Instagram `POST /{ig-user-id}/media`
+  then `/media_publish`; Threads `POST graph.threads.net/v1.0/{id}/threads`
+  then `/threads_publish`; WhatsApp `POST /{phone-number-id}/messages`.
+  `FACEBOOK_GRAPH_VERSION` sets the Graph version.
+- Meta errors become plain reasons (expired connection, permission not
+  approved, rate limit, outside WhatsApp's 24-hour window, unknown
+  template). Tokens and message text are never logged.
+- The **outbox** (`ncc_outbox`): pending → sending (claimed once, so never
+  sent twice) → sent/failed, or discarded. The Social screen shows what
+  waits for approval, the channels, a "New post" composer (the person's tap
+  is the approval) and recent results. Contacts with a phone get a
+  WhatsApp button.
+- Meta's own rules still apply: each permission needs Meta's app review
+  (`pages_manage_posts`, `instagram_content_publish`,
+  `threads_content_publish`, `whatsapp_business_messaging`); WhatsApp plain
+  text only within 24 hours of the customer's last message, otherwise an
+  approved template.
 
 **Data:** migration `040_ncc.sql`: `ncc_contacts`, `ncc_deals`,
-`ncc_tasks`, `ncc_activities`, `ncc_automations`. RLS on, browser roles
+`ncc_tasks`, `ncc_activities`, `ncc_automations`, `ncc_channels` (sealed
+tokens only), `ncc_outbox`. RLS on, browser roles
 denied, server only. Deleting a contact deletes its deals, tasks and
 timeline. DB test `db/tests/040_ncc.test.sql`.
 
@@ -102,6 +131,9 @@ tenant AND user id. Limits `NCC_CONTACTS_MAX`, `NCC_DEALS_MAX`,
 deals `POST /v1/ncc/deals`, `PUT|DELETE /v1/ncc/deals/:id`; tasks
 `POST /v1/ncc/tasks`, `PUT|DELETE /v1/ncc/tasks/:id`; automations
 `POST /v1/ncc/automations`, `PUT|DELETE /v1/ncc/automations/:id`;
+channels `POST /v1/ncc/channels`, `DELETE /v1/ncc/channels/:id`; posting
+`POST /v1/ncc/posts`, `POST /v1/ncc/contacts/:id/whatsapp`; outbox
+`POST /v1/ncc/outbox/:id/send`, `POST /v1/ncc/outbox/:id/discard`;
 `GET /v1/ncc/export`, `POST /v1/ncc/delete-all` (`{ "confirm": "DELETE" }`).
 
 **Main app:** the NCC tile in NasrinAI Space shows "Open NCC" for enabled
@@ -123,6 +155,10 @@ data processing agreement is `[REQUIRES INPUT]`.
    `https://ncc.nasrinai.com/v1/auth/google/callback`.
 5. Cloudflare Turnstile (if used): add `ncc.nasrinai.com` to the widget's
    hostnames.
+6. For channels: Vercel `CONNECTOR_SECRET_KEY` must be set (64 hex
+   characters, already used by connectors). In the Meta app, request app
+   review for the permissions above; until approved, only accounts with a
+   role on the Meta app can post.
 
 ## What NCC will be
 
