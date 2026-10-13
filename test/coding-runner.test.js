@@ -52,9 +52,10 @@ test('archive download never forwards the GitHub bearer token to codeload', asyn
 test('runner applies proposed patch, returns real command output, disables network, and stops sandbox', async () => {
   const events = [];
   const sandbox = {
-    async writeFiles(files) { events.push(['write', ...files.map(f => f.path)]); },
+    async writeFiles(files) { events.push(['write', ...files.map(f => f.path)]); for (const f of files) assert.ok(f.path.startsWith('/vercel/sandbox/')); },
     async updateNetworkPolicy(policy) { events.push(['network', policy.allow.length]); },
-    async runCommand({ cmd, args = [] }) {
+    async runCommand({ cmd, args = [], cwd }) {
+      if (cwd) assert.equal(cwd, '/vercel/sandbox/repo');
       if (cmd === 'git') { events.push(['git', ...args]); return { exitCode: 0, stdout: async () => '', stderr: async () => '' }; }
       if (['test', 'npm', 'mkdir', 'tar'].includes(cmd)) return { exitCode: 0, stdout: async () => '', stderr: async () => '' };
       if (cmd === 'node') return { exitCode: 0, stdout: async () => 'passed', stderr: async () => '' };
@@ -81,8 +82,8 @@ test('runner applies proposed patch, returns real command output, disables netwo
   assert.equal(out.exit_code, 0);
   assert.equal(out.stdout, 'passed');
   assert.equal(out.patch_applied, true);
-  assert.ok(events.some(e => e[0] === 'write' && e.includes('repo/changes.patch')));
-  assert.ok(events.some(e => e[0] === 'git' && e[1] === 'apply' && e[2] === '--check'));
+  assert.ok(events.some(e => e[0] === 'write' && e.includes('/vercel/sandbox/repo/changes.patch')));
+  assert.ok(events.some(e => e[0] === 'git' && e[1] === 'apply' && e[2] === '--check' && e[3] === '/vercel/sandbox/repo/changes.patch'));
   assert.ok(events.some(e => e[0] === 'network' && e[1] === 0));
   assert.deepEqual(events.at(-1), ['stop']);
   assert.equal((await runner.run({ repo: 'o/r', command: 'node --test' }, { tenantId: 't', actor: { type: 'guest', id: 'g' } })).error, 'sign_in_required');
@@ -108,8 +109,9 @@ function executionSandbox({runCommand, updateNetworkPolicy, stop}={}) {
     async updateNetworkPolicy(policy) {
       if (updateNetworkPolicy) return updateNetworkPolicy(policy);
     },
-    async runCommand({cmd,args=[]}) {
-      if (runCommand) return runCommand({cmd,args});
+    async runCommand({cmd,args=[],cwd}) {
+      if (cwd) assert.equal(cwd,'/vercel/sandbox/repo');
+      if (runCommand) return runCommand({cmd,args,cwd});
       if (cmd==='mkdir'||cmd==='tar') return {exitCode:0,stdout:async()=>'',stderr:async()=>''};
       if (cmd==='test') return {exitCode:1,stdout:async()=>'',stderr:async()=>''};
       if (cmd==='node') return {exitCode:0,stdout:async()=> 'v22.0.0',stderr:async()=>''};
@@ -150,7 +152,8 @@ test('runner reports network restriction failures instead of masking them', asyn
 
 test('runner reports command execution failures and still stops the sandbox', async()=>{
   let stopped=false;
-  const sandbox=executionSandbox({runCommand:async({cmd})=>{
+  const sandbox=executionSandbox({runCommand:async({cmd,cwd})=>{
+    if(cwd)assert.equal(cwd,'/vercel/sandbox/repo');
     if(cmd==='mkdir'||cmd==='tar')return {exitCode:0,stdout:async()=>'',stderr:async()=>''};
     if(cmd==='test')return {exitCode:1,stdout:async()=>'',stderr:async()=>''};
     if(cmd==='node')throw new Error('runtime process failed');
@@ -164,7 +167,8 @@ test('runner reports command execution failures and still stops the sandbox', as
 
 test('runner preserves dependency install failure when network restriction also fails', async()=>{
   const sandbox=executionSandbox({
-    runCommand:async({cmd,args=[]})=>{
+    runCommand:async({cmd,args=[],cwd})=>{
+      if(cwd)assert.equal(cwd,'/vercel/sandbox/repo');
       if(cmd==='mkdir'||cmd==='tar')return {exitCode:0,stdout:async()=>'',stderr:async()=>''};
       if(cmd==='test')return {exitCode:args[1]==='package.json'?0:1,stdout:async()=>'',stderr:async()=>''};
       if(cmd==='npm')return {exitCode:1,stdout:async()=>'',stderr:async()=> 'registry unavailable'};

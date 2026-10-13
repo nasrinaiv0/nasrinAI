@@ -1,4 +1,5 @@
 const MAX_ARCHIVE_BYTES=15*1024*1024, MAX_OUTPUT_CHARS=2800, MAX_PATCH_BYTES=100_000;
+const SANDBOX_ROOT='/vercel/sandbox', WORKSPACE=`${SANDBOX_ROOT}/repo`, ARCHIVE_PATH=`${SANDBOX_ROOT}/source.tar.gz`;
 const COMMANDS=new Set(['npm','node','python','python3','pytest','git','ls','cat','grep','rg','find','sed','awk','tsc','eslint','prettier']);
 const BLOCKED_NPM=new Set(['install','ci','add','remove','uninstall','exec','init','publish','link','login','config']);
 export function parseCodingCommand(raw){
@@ -82,29 +83,29 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
    stage='sandbox_create';
    sandbox=await createSandbox({runtime:parsed.runtime,timeout:70_000,persistent:false,networkPolicy:{allow:['registry.npmjs.org','pypi.org','files.pythonhosted.org']}});
    stage='workspace_write';
-   await sandbox.writeFiles([{path:'source.tar.gz',content:archive}]);
+   await sandbox.writeFiles([{path:ARCHIVE_PATH,content:archive}]);
    stage='workspace_create';
-   let r=await run(sandbox,'mkdir',['-p','repo']);if(r.exitCode!==0)throw Error('workspace_create_failed');
+   let r=await run(sandbox,'mkdir',['-p',WORKSPACE]);if(r.exitCode!==0)throw Error('workspace_create_failed');
    stage='snapshot_extract';
-   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','-xzf','source.tar.gz','--strip-components=1','-C','repo']);
+   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
    if(r.exitCode!==0)return finish({error:'snapshot_extract_failed',stage,exit_code:r.exitCode,stdout:trim(await r.stdout()),stderr:trim(await r.stderr()),message:'The repository snapshot could not be unpacked.'});
    if(patch){
     stage='patch_write';
-    await sandbox.writeFiles([{path:'repo/changes.patch',content:Buffer.from(patch,'utf8')}]);
+    await sandbox.writeFiles([{path:`${WORKSPACE}/changes.patch`,content:Buffer.from(patch,'utf8')}]);
     stage='patch_check';
-    const check=await run(sandbox,'git',['apply','--check','changes.patch'],'repo');
+    const check=await run(sandbox,'git',['apply','--check',`${WORKSPACE}/changes.patch`],WORKSPACE);
     if(check.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:check.exitCode,stdout:trim(await check.stdout()),stderr:trim(await check.stderr()),message:'The proposed changes do not apply cleanly to this repository snapshot.'});
     stage='patch_apply';
-    const applied=await run(sandbox,'git',['apply','changes.patch'],'repo');
+    const applied=await run(sandbox,'git',['apply',`${WORKSPACE}/changes.patch`],WORKSPACE);
     if(applied.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:applied.exitCode,stdout:trim(await applied.stdout()),stderr:trim(await applied.stderr()),message:'The proposed changes could not be applied to the isolated workspace.'});
    }
    stage='dependency_detect';
-   const hasPkg=(await run(sandbox,'test',['-f','package.json'],'repo')).exitCode===0;
-   const hasLock=(await run(sandbox,'test',['-f','package-lock.json'],'repo')).exitCode===0;
-   const hasReq=(await run(sandbox,'test',['-f','requirements.txt'],'repo')).exitCode===0;
+   const hasPkg=(await run(sandbox,'test',['-f','package.json'],WORKSPACE)).exitCode===0;
+   const hasLock=(await run(sandbox,'test',['-f','package-lock.json'],WORKSPACE)).exitCode===0;
+   const hasReq=(await run(sandbox,'test',['-f','requirements.txt'],WORKSPACE)).exitCode===0;
    if(hasPkg&&parsed.runtime==='node22'){
     stage='dependency_install';
-    const ins=await run(sandbox,'npm',hasLock?['ci','--ignore-scripts','--no-audit','--no-fund']:['install','--ignore-scripts','--no-audit','--no-fund'],'repo');
+    const ins=await run(sandbox,'npm',hasLock?['ci','--ignore-scripts','--no-audit','--no-fund']:['install','--ignore-scripts','--no-audit','--no-fund'],WORKSPACE);
     if(ins.exitCode!==0){
      const result={error:'dependency_install_failed',stage,exit_code:ins.exitCode,stdout:trim(await ins.stdout()),stderr:trim(await ins.stderr()),message:'Dependencies could not be installed safely; lifecycle scripts are disabled and egress is limited to registries.'};
      try{await sandbox.updateNetworkPolicy({allow:[]});}catch(cleanup){result.cleanup_error=safeErrorDetail('network_restrict',cleanup);logger?.warn('coding runner network restriction failed',{stage:'dependency_install',cleanup_error:result.cleanup_error});}
@@ -112,7 +113,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
     }
    }else if(hasReq&&parsed.runtime==='python3.13'){
     stage='dependency_install';
-    const ins=await run(sandbox,'python',['-m','pip','install','--disable-pip-version-check','--no-input','--only-binary=:all:','-r','requirements.txt'],'repo');
+    const ins=await run(sandbox,'python',['-m','pip','install','--disable-pip-version-check','--no-input','--only-binary=:all:','-r','requirements.txt'],WORKSPACE);
     if(ins.exitCode!==0){
      const result={error:'dependency_install_failed',stage,exit_code:ins.exitCode,stdout:trim(await ins.stdout()),stderr:trim(await ins.stderr()),message:'Python dependencies could not be installed as binary wheels from approved registries.'};
      try{await sandbox.updateNetworkPolicy({allow:[]});}catch(cleanup){result.cleanup_error=safeErrorDetail('network_restrict',cleanup);logger?.warn('coding runner network restriction failed',{stage:'dependency_install',cleanup_error:result.cleanup_error});}
@@ -122,7 +123,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
    stage='network_restrict';
    await sandbox.updateNetworkPolicy({allow:[]});
    stage='command_execute';
-   const out=await run(sandbox,parsed.executable,parsed.args,'repo'),stdout=trim(await out.stdout()),stderr=trim(await out.stderr());
+   const out=await run(sandbox,parsed.executable,parsed.args,WORKSPACE),stdout=trim(await out.stdout()),stderr=trim(await out.stderr());
    logger?.info('coding command completed',{durationMs:Date.now()-started,exitCode:out.exitCode,runtime:parsed.runtime,repo,command:parsed.executable});
    return finish({ok:out.exitCode===0,repo,ref:ref||null,command:input.command,patch_applied:!!patch,exit_code:out.exitCode,stdout,stderr,runtime:parsed.runtime,sandboxed:true,network_after_install:'disabled',duration_ms:Date.now()-started,message:out.exitCode===0?'Command completed; use captured output as evidence.':'Command failed; inspect the real output and fix the cause.'});
   }catch(e){
