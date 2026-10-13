@@ -187,10 +187,19 @@ screenshot ≤ 1.5 MB, recording ≤ 6 MB. It never deploys, pushes or merges.
 Screenshots follow the picture keep-time (30 days or the person's
 keep-time); recordings are kept with their chat.
 
-**Setup (owner, once):** run
-`VERCEL_TOKEN=… VERCEL_TEAM_ID=… VERCEL_PROJECT_ID=… node scripts/create-browser-snapshot.mjs`
-(installs agent-browser, Chrome and ffmpeg in a sandbox and saves a
-snapshot), then set the printed `AGENT_BROWSER_SNAPSHOT_ID` in Vercel.
+**Setup (owner, once, from a phone):**
+
+1. vercel.com → Account Settings → Tokens → Create (scope: the NasrinAI
+   team). Copy it.
+2. GitHub → the repository → Settings → Secrets and variables → Actions →
+   New repository secret: name `VERCEL_TOKEN`, value the token.
+3. GitHub → Actions → "Set up render-and-test browser" → Run workflow
+   (`.github/workflows/browser-snapshot.yml` runs
+   `scripts/create-browser-snapshot.mjs`: agent-browser, Chrome and ffmpeg
+   in a sandbox, saved as a snapshot). Open the finished run; the last log
+   line is `AGENT_BROWSER_SNAPSHOT_ID=…`.
+4. Vercel → Project → Settings → Environment Variables: add
+   `AGENT_BROWSER_SNAPSHOT_ID` with that value, then redeploy.
 Without it the tool answers "not set up" and runs nothing. Live runs still
 need a real test with the owner's Vercel account before calling this
 production-ready.
