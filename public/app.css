@@ -2504,7 +2504,7 @@ body.coding-mode #welcome { display: none; }
 /* GitHub in the coding chat (docs/github.md) */
 .github-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 0.6rem; }
 .github-sheet .code-picker-title .gh-mark { width: 1.5rem; height: 1.5rem; }
-.plugin-card { margin-top: 0.75rem; padding: 0.85rem 0.9rem; border: 1px solid var(--line); border-radius: 1rem; }
+.plugin-card { margin-top: 0.75rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--surface); overflow: hidden; }
 .plugin-card .setting-hint { margin: 0.35rem 0 0; }
 .plugin-name { display: flex; align-items: center; gap: 0.5rem; margin: 0; color: var(--ink); font-weight: 500; }
 .gh-mark { flex: none; width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -2553,3 +2553,30 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugins-glyph { flex: none; width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .plugins-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plugins-soon { flex: none; padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--paper); color: var(--ink-3); font-size: 0.72rem; }
+
+/* Plugins: a row per plugin that opens its actions; Settings opens its page. */
+.plugin-head { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.6rem; padding: 0.55rem 0.9rem; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.plugin-head:hover { background: var(--paper); }
+.plugin-icon { display: grid; place-items: center; flex: none; width: 2.4rem; height: 2.4rem; border-radius: 0.75rem; background: #ECEBE7; color: #111; }
+:root[data-theme="dark"] .plugin-icon { background: #3A3A3C; color: #F4F4F1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plugin-icon { background: #3A3A3C; color: #F4F4F1; } }
+.plugin-icon .gh-mark { width: 1.35rem; height: 1.35rem; }
+.plugin-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.plugin-title { font-weight: 500; }
+.plugin-sub { color: var(--ink-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-chev { flex: none; width: 1.1rem; height: 1.1rem; fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 160ms ease; }
+.plugin-head[aria-expanded="true"] .plugin-chev { transform: rotate(180deg); }
+.plugin-actions { margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.plugin-actions .menu-row { min-height: 3rem; font-size: 0.94rem; }
+.plugin-detail { padding-bottom: 0.5rem; }
+.plugin-back { margin: 0 0 0.6rem; }
+.plugin-hero { padding: 1rem; border: 1px solid var(--line); border-radius: 1.25rem; background: var(--surface); }
+.plugin-icon-big { width: 3.4rem; height: 3.4rem; border-radius: 1rem; }
+.plugin-icon-big .gh-mark { width: 2rem; height: 2rem; }
+.plugin-hero-title { margin: 0.75rem 0 0.2rem; font: 500 1.35rem/1.2 var(--round, var(--sans)); }
+.plugin-hero-text { margin: 0; }
+.plugin-account { cursor: default; }
+.plugin-account:hover, .plugin-info:hover { background: none; }
+.plugin-avatar { display: grid; place-items: center; flex: none !important; width: 2rem; height: 2rem; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 0.9rem; }
+.plugin-info { cursor: default; }
+.plugin-info em { font-style: normal; color: var(--ink-3); font-size: 0.92rem; }

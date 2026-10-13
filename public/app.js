@@ -6079,35 +6079,66 @@
   }
   function renderGithub() {
     document.body.classList.toggle('github-on', github.available && Boolean(account));
+    const on = github.connected;
+    $('ghSub').textContent = !github.available ? 'Not switched on for this site yet' : on ? 'Connected · @' + github.login + (github.autoPr ? ' · automatic pull requests' : '') : 'Not connected';
     $('codeGithubBtn').hidden = !github.available;
-    $('autoPrRow').hidden = !github.connected;
+    $('codeGithubBtn').firstElementChild.textContent = on ? 'Disconnect' : 'Connect GitHub';
+    $('codeGithubBtn').classList.toggle('danger', on);
+    $('ghReconnect').hidden = !on;
+    const inst = $('codeGithubInstall');
+    inst.hidden = !(on && github.install);
+    if (github.install) inst.href = github.install;
+    // Settings page
+    $('autoPrRow').hidden = !on;
     $('autoPrOn').checked = github.autoPr;
     $('codeGithubText').textContent = !github.available
       ? 'GitHub is not switched on for this site yet.'
-      : github.connected
-      ? 'Connected as @' + github.login + '. Nasrin reads your repositories and opens pull requests on a new branch ' + (github.autoPr ? 'automatically after it writes files' : 'only after you tap Confirm') + '. Choose repositories picks where it may open them.'
-      : 'Connect GitHub so Nasrin can read your repositories and open pull requests in the coding chat. Nothing changes on GitHub until you tap Confirm.';
-    $('codeGithubBtn').textContent = github.connected ? 'Disconnect' : 'Connect GitHub';
-    const inst = $('codeGithubInstall');
-    inst.hidden = !(github.connected && github.install);
-    if (github.install) inst.href = github.install;
+      : 'Read your repositories and open pull requests on a new branch from the coding chat, ' + (on && github.autoPr ? 'automatically after Nasrin writes files.' : 'after you confirm each one.');
+    $('ghAccount').textContent = on ? '@' + github.login : 'Not connected';
+    $('ghAvatar').textContent = on ? github.login.slice(0, 1).toUpperCase() : '?';
+    $('ghDetailConnect').hidden = !github.available;
+    $('ghDetailConnect').firstElementChild.textContent = on ? 'Reconnect' : 'Connect GitHub';
+    $('ghDetailDisconnect').hidden = !on;
   }
-  $('codeGithubBtn').addEventListener('click', async () => {
-    const btn = $('codeGithubBtn');
-    btn.disabled = true;
+  async function ghConnect(btn) {
+    if (btn) btn.disabled = true;
     try {
-      if (github.connected) {
-        if (!confirm('Disconnect GitHub? Nasrin will forget your GitHub sign-in.')) return;
-        await api('/v1/github', { method: 'DELETE' });
-        await loadGithub();
-      } else {
-        const r = await api('/v1/github/connect', { method: 'POST' });
-        if (r && typeof r.url === 'string' && r.url.startsWith('https://github.com/')) location.assign(r.url);
-      }
+      const r = await api('/v1/github/connect', { method: 'POST' });
+      if (r && typeof r.url === 'string' && r.url.startsWith('https://github.com/')) location.assign(r.url);
     } catch (err) {
       $('githubStatus').textContent = err.message || 'GitHub could not be reached.';
-    } finally { btn.disabled = false; }
+    } finally { if (btn) btn.disabled = false; }
+  }
+  async function ghDisconnect(btn) {
+    if (!confirm('Disconnect GitHub? Nasrin will forget your GitHub sign-in.')) return;
+    if (btn) btn.disabled = true;
+    try {
+      await api('/v1/github', { method: 'DELETE' });
+      await loadGithub();
+      $('githubStatus').textContent = 'GitHub is disconnected.';
+    } catch (err) {
+      $('githubStatus').textContent = err.message || 'GitHub could not be reached.';
+    } finally { if (btn) btn.disabled = false; }
+  }
+  $('codeGithubBtn').addEventListener('click', (e) => (github.connected ? ghDisconnect(e.currentTarget) : ghConnect(e.currentTarget)));
+  $('ghReconnect').addEventListener('click', (e) => ghConnect(e.currentTarget));
+  $('ghDetailConnect').addEventListener('click', (e) => ghConnect(e.currentTarget));
+  $('ghDetailDisconnect').addEventListener('click', (e) => ghDisconnect(e.currentTarget));
+  // The GitHub row opens its actions; Settings opens the GitHub page.
+  $('ghToggle').addEventListener('click', () => {
+    const open = $('ghActions').hidden;
+    $('ghActions').hidden = !open;
+    $('ghToggle').setAttribute('aria-expanded', String(open));
   });
+  function showPluginDetail(on) {
+    $('pluginsList').hidden = on;
+    $('pluginDetail').hidden = !on;
+    $('githubTitle').lastChild.textContent = on ? 'GitHub' : 'Plugins';
+    (on ? $('ghBack') : $('ghToggle')).focus();
+  }
+  $('ghSettingsBtn').addEventListener('click', () => showPluginDetail(true));
+  $('ghBack').addEventListener('click', () => showPluginDetail(false));
+  $('ghReport').addEventListener('click', () => { closeGithub(); openSettings(); showPage('helpSupport'); });
   {
     const back = new URLSearchParams(location.search).get('github');
     if (back) {
@@ -6170,6 +6201,9 @@
     closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); closeCodePicker();
     lastFocus = document.activeElement;
     $('githubStatus').textContent = '';
+    $('pluginsList').hidden = false;
+    $('pluginDetail').hidden = true;
+    $('githubTitle').lastChild.textContent = 'Plugins';
     scrim.hidden = false;
     githubSheet.hidden = false;
     loadGithub();
