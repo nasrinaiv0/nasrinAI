@@ -906,6 +906,9 @@
     const raw = text;
     if (role === 'assistant') {
       // Files and questions are written into the reply as blocks; the page shows them as cards.
+      // The coding chat settled on a repository for this project: keep it.
+      const chosenRepo = codingProject && fresh ? window.NasrinFiles.repoOf(text) : null;
+      if (chosenRepo) saved.set(KEYS.coding + ':repo:' + codingProject.id, chosenRepo);
       made = window.NasrinFiles.parse(text);
       text = made.text || (made.files.length ? 'Here is your file.' : '');
       // Render one or more retained pictures returned by a history-recall request.
@@ -1908,7 +1911,7 @@
       ...(!id && turnProject ? { project_id: turnProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
-      ...(codingProject ? { coding: true } : {}),
+      ...(codingProject ? { coding: true, ...(saved.get(KEYS.coding + ':repo:' + codingProject.id) ? { repo: saved.get(KEYS.coding + ':repo:' + codingProject.id) } : {}) } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
     const turnCoding = codingProject ? { id: codingProject.id, name: codingProject.name } : null;

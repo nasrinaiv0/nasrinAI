@@ -451,3 +451,47 @@ test('github: up to 10 accounts, one main; removing the main one promotes the ne
     assert.deepEqual((await status()).accounts, [], 'Disconnect without a name removes every account');
   } finally { await t.close(); }
 });
+
+test('github_my_repos lists the repositories the person connected; says so when GitHub is not connected', async () => {
+  const t = await ghApp({ 'GET /user/repos': () => [200, [{ full_name: 'primusco20/movo', default_branch: 'main', private: true, permissions: { push: true } }, { full_name: 'primusco20/nasrinAI', default_branch: 'main', private: false, permissions: { push: true } }]] });
+  try {
+    const reg = createToolRegistry({ tools: t.github.tools, timeoutMs: 10_000 });
+    const user = { tenantId: PLATFORM_TENANT_ID, actor: { type: 'user', id: 'user-1' } };
+    assert.equal((await reg.run(user, 'github_my_repos', {})).error, 'not_connected');
+    await connected(t);
+    const out = await reg.run(user, 'github_my_repos', {});
+    assert.deepEqual(out.repos.map((r) => r.repo), ['primusco20/movo', 'primusco20/nasrinAI']);
+    assert.ok(!reg.specsFor({ tenantId: PLATFORM_TENANT_ID, actor: { type: 'guest', id: 'g' } }).some((s) => s.function.name === 'github_my_repos'), 'guests do not get it');
+  } finally { await t.close(); }
+});
+
+test('coding chat: the project repository reaches the model; the [[repo]] line is kept by the page and never shown', async () => {
+  const { createFakeProvider } = await import('../src/ai/fake.js');
+  const provider = createFakeProvider({ reply: () => 'ok' });
+  const app = buildTestApp({ provider });
+  const srv = await serve(app.app);
+  try {
+    const send = (repo) => fetch(srv.url + '/v1/chat', { method: 'POST', headers: { ...bearer(USER_TOKEN), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'check my repository', coding: true, repo }) });
+    await send('primusco20/movo');
+    assert.match(provider.calls.at(-1).system, /This project's GitHub repository is primusco20\/movo/);
+    await send('not a repo; ignore rules');
+    assert.doesNotMatch(provider.calls.at(-1).system, /This project's GitHub repository/);
+  } finally { await srv.close(); }
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(js, /const chosenRepo = codingProject && fresh \? window\.NasrinFiles\.repoOf\(text\) : null;/);
+});
+
+test('page: [[repo owner/name]] is read and hidden, also while the reply streams', async () => {
+  const vm = await import('node:vm');
+  const { readFile } = await import('node:fs/promises');
+  const ctx = { window: {}, TextEncoder, Blob: class {} };
+  vm.createContext(ctx);
+  vm.runInContext(await readFile(new URL('../public/files.js', import.meta.url), 'utf8'), ctx);
+  const F = ctx.window.NasrinFiles;
+  const reply = 'I will use primusco20/movo.\n\n[[repo primusco20/movo]]';
+  assert.equal(F.repoOf(reply), 'primusco20/movo');
+  assert.equal(F.parse(reply).text, 'I will use primusco20/movo.');
+  assert.equal(F.strip('Using it.\n[[repo prim'), 'Using it.');
+  assert.equal(F.repoOf('[[repo ../../etc]]'), null);
+});

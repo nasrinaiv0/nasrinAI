@@ -58,6 +58,16 @@ one (without `login`: all).
 **Order:** run migration 039 in Supabase **before** this code goes live (the
 server reads `is_main` and saves by `tenant_id, user_id, login`).
 
+## Which repository ("check my repository")
+
+When the person means their own repository without naming it, the model calls
+`github_my_repos` (signed-in, connected GitHub only; up to 40 repositories the
+main account reaches). One clear match (for example the project's name) is used;
+otherwise the model lists them and asks which one in a plain sentence. Once the
+repository is settled, the reply ends with `[[repo owner/name]]`: the page keeps
+it for the project (same key as Open pull request), hides the line, and sends it
+with each coding message (`repo`), so the model is told the project's repository.
+
 ## Pull request text, automatic pull requests, many files
 
 - **Description:** the page writes it from Nasrin's reply: Summary, Files,

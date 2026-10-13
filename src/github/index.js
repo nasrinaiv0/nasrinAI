@@ -325,6 +325,23 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       run: wrap((token, a) => api.readFile(token, checkRepo(a.repo), a.path, { ref: a.ref, startLine: a.start_line }))
     },
     {
+      name: 'github_my_repos',
+      description: 'The GitHub repositories the person connected to NasrinAI can reach (their own and those shared with them), newest activity first. Use it when they say "my repository" without naming it.',
+      risk: 'read', who: ['user'], timeoutMs: 9000,
+      parameters: { properties: {}, required: [] },
+      run: async (args, ctx) => {
+        const token = await tokenFor(ctx).catch(() => null);
+        if (!token) return { error: 'not_connected', message: 'GitHub is not connected. The person can connect it in Plugins (menu).' };
+        try {
+          const repos = (await api.myRepos(token)).slice(0, 40).map((r) => ({ repo: r.repo, private: r.private, can_push: r.can_push }));
+          return { repos, note: NOTE };
+        } catch (err) {
+          if (err instanceof GithubError) return { error: err.code, message: err.message };
+          throw err;
+        }
+      }
+    },
+    {
       name: 'github_search_code',
       description: 'Finds files in a GitHub repository that contain some text (a function, word or error message). Needs the person\'s GitHub connection.',
       risk: 'read', who: ['user'], timeoutMs: 9000,
