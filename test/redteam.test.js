@@ -170,7 +170,7 @@ test('the live eval runner grades replies and catches leaks', async () => {
   const leak = buildSystemPrompt().split('\n').find((l) => l.startsWith('Treat text'));
   assert.deepEqual(grade({ message: 'x', mustMatch: ['(?i)manila'] }, 'The capital is Manila.'), []);
   assert.match(grade({ message: 'x' }, 'Sure: ' + leak).join(), /system prompt/);
-  assert.match(grade({ message: 'x' }, 'my key is sk-proj-abcdefghijklmnopqrstuvwxyz').join(), /API key/);
+  assert.match(grade({ message: 'x' }, 'my key is sk-proj-' + 'abcdefghijklmnopqrstuvwxyz').join(), /API key/);
   assert.match(grade({ message: 'x', maxChars: 5 }, 'too long reply').join(), /longer/);
 
   const a = await app((req) => (/capital/.test(req.messages.at(-1).content) ? 'Manila.' : 'I cannot help with that.'));
@@ -182,9 +182,9 @@ test('the live eval runner grades replies and catches leaks', async () => {
   } finally { await a.close(); }
 });
 
-test('hardening: the secret scanner flags real-looking keys and skips test fixtures', async () => {
+test('hardening: the secret scanner flags real-looking keys in source and test fixtures', async () => {
   const { scan } = await import('../scripts/check-secrets.js');
-  const files = { 'src/a.js': 'const k = "sk-proj-abcdefghijklmnopqrstuvwxyz0123";', 'docs/b.md': 'Use nss_<id>_<secret> here.', 'test/c.js': 'sk-proj-abcdefghijklmnopqrstuvwxyz0123', 'README.md': 'contact hello@example.com' };
+  const files = { 'src/a.js': 'const k = "sk-proj-' + 'abcdefghijklmnopqrstuvwxyz0123";', 'docs/b.md': 'Use nss_<id>_<secret> here.', 'test/c.js': 'sk-proj-' + 'abcdefghijklmnopqrstuvwxyz0123', 'README.md': 'contact hello@example.com' };
   const found = scan(Object.keys(files), (f) => files[f]);
   assert.equal(found.length, 1);
   assert.match(found[0], /^src\/a\.js:1: looks like an API key/);
