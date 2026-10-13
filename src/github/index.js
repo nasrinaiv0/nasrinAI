@@ -3,6 +3,7 @@ import { HttpError } from '../http/errors.js';
 import { seal, open } from '../connectors/secret.js';
 import { createGithubApi, checkRepo, GithubError } from './api.js';
 import { createCodingRunner } from './runner.js';
+import { createBrowserTestRunner } from './browser-runner.js';
 
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
@@ -27,11 +28,12 @@ function cookies(req) {
 const nonceCookie = (value, maxAge) => `${NONCE}=${encodeURIComponent(value)}; Path=/v1/github; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=None`;
 const sha = (s) => createHash('sha256').update(s).digest('base64url');
 
-export function createGithub({ config, store, logger = null, fetchImpl = (...a) => fetch(...a), now = () => Date.now() }) {
+export function createGithub({ config, store, logger = null, fetchImpl = (...a) => fetch(...a), now = () => Date.now(), browserDeps = null }) {
   const gh = config.github || null;
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
   const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
+  const browserTestRunner = createBrowserTestRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger, snapshotId: config.codingBrowser?.snapshotId || null, ...(browserDeps || {}) });
   const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
   const installUrl = gh?.slug ? `https://github.com/apps/${gh.slug}/installations/new` : null;
@@ -376,6 +378,21 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
         patch: { type: 'string', maxLength: 100_000 }
       }, required: ['repo', 'command'] },
       run: (args, ctx) => codingRunner.run(args, ctx)
+    },
+    {
+      name: 'github_render_test_screenshot',
+      description: 'Render and test a connected GitHub repository like a developer would: in disposable sandboxes it installs dependencies (no install scripts), runs one test command, starts the preview server, opens it in a real browser, records a short scroll-through video and takes a screenshot. The screenshot and video are shown to the person under your reply automatically; you get the test output, page title and accessibility snapshot. test_command and start_command are each one allowlisted command with no shell operators. viewport: desktop or phone. It never writes to GitHub or deploys. Takes up to about a minute; at most 3 runs per hour.',
+      risk: 'read', who: ['user'], timeoutMs: 90_000, longRunning: true, media: true,
+      parameters: { properties: {
+        repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' },
+        ref: { type: 'string', maxLength: 200, pattern: '^[A-Za-z0-9._/-]+$' },
+        test_command: { type: 'string', maxLength: 300 },
+        start_command: { type: 'string', maxLength: 300 },
+        port: { type: 'integer', minimum: 1024, maximum: 65535 },
+        viewport: { type: 'string', enum: ['desktop', 'phone'] },
+        record_video: { type: 'boolean' }
+      }, required: ['repo', 'test_command', 'start_command'] },
+      run: (args, ctx) => browserTestRunner.run(args, ctx)
     },
   ];
 

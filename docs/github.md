@@ -154,3 +154,52 @@ The runner is for signed-in users with GitHub connected. It fetches a source arc
 ## Coding runner archive safety (2026-10-13)
 
 Before a repository archive reaches the sandbox extractor, `src/github/runner.js` performs bounded gzip decompression and tar-header inspection. Limits: compressed archive 15 MB, expanded tar stream 64 MB, any one entry 16 MB, and 10,000 entries. Unsafe traversal paths and links/special files are rejected. The sandbox still uses a 70-second timeout, disposable execution, bounded patch/output, and network denial before the requested command. This preflight is defense in depth, not a substitute for live integration verification: `test/sandbox-integration.test.js` is skipped unless `RUN_SANDBOX_INTEGRATION=1` and Vercel Sandbox credentials are present. Do not interpret a skipped live integration test as proof that production isolation has been verified.
+
+
+## Browser render, test, screenshot and recording
+
+`github_render_test_screenshot` (`src/github/browser-runner.js`) lets Nasrin
+render and test a signed-in person's own connected repository, then show
+them what it looks like, the way a developer would.
+
+1. **App sandbox** (Vercel Sandbox, disposable): the archive is checked
+   (same limits as the runner), extracted, dependencies installed from the
+   npm registry only with lifecycle scripts off, then the network is closed,
+   the person's one allowlisted test command runs and the preview server
+   starts on a temporary sandbox address.
+2. **Browser sandbox** (`@agent-browser/sandbox`, booted from a prepared
+   snapshot): may reach only that preview address. It sets a desktop
+   (1280×800) or phone (390×844) viewport, opens the page, reads the title
+   and accessibility snapshot, records a short scroll-through video (WebM,
+   needs ffmpeg in the snapshot; skipped if it cannot record) and takes a
+   JPEG screenshot.
+3. **Shown in the chat:** the screenshot is saved as a picture and the
+   recording as a video (`provider: browser`), owned by the person and tied
+   to that chat. The chat puts them above the reply (`[image:id]`,
+   `[video:id]`); the page plays recordings from `GET /v1/recordings/:id`
+   (owner-checked, no video plan needed). Only the chat server can attach
+   them: tools marked `media: true`, with the chat id passed by the server,
+   never by the model. The model gets only small text (exit code, trimmed
+   output, title, snapshot).
+
+Limits: 3 runs per person per hour; the tool's own time limit is 90 s;
+screenshot ≤ 1.5 MB, recording ≤ 6 MB. It never deploys, pushes or merges.
+Screenshots follow the picture keep-time (30 days or the person's
+keep-time); recordings are kept with their chat.
+
+**Setup (owner, once, from a phone):**
+
+1. vercel.com → Account Settings → Tokens → Create (scope: the NasrinAI
+   team). Copy it.
+2. GitHub → the repository → Settings → Secrets and variables → Actions →
+   New repository secret: name `VERCEL_TOKEN`, value the token.
+3. GitHub → Actions → "Set up render-and-test browser" → Run workflow
+   (`.github/workflows/browser-snapshot.yml` runs
+   `scripts/create-browser-snapshot.mjs`: agent-browser, Chrome and ffmpeg
+   in a sandbox, saved as a snapshot). Open the finished run; the last log
+   line is `AGENT_BROWSER_SNAPSHOT_ID=…`.
+4. Vercel → Project → Settings → Environment Variables: add
+   `AGENT_BROWSER_SNAPSHOT_ID` with that value, then redeploy.
+Without it the tool answers "not set up" and runs nothing. Live runs still
+need a real test with the owner's Vercel account before calling this
+production-ready.

@@ -1256,6 +1256,11 @@
           text = text.slice(pic[0].length) || 'Here is your picture.';
         }
       }
+      // Screen recordings from render-and-test, right under the screenshot.
+      for (let vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text); vid; vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text)) {
+        el.appendChild(recordingFigure(vid[1]));
+        text = text.slice(vid[0].length) || 'Here is the recording.';
+      }
       // Web sources fold away under a Sources button beside the reply actions.
       const full = text;
       const cited = window.NasrinFormat.sources(text);
@@ -1694,6 +1699,46 @@
 
   // Pictures are private: fetched with the person's credential, shown from memory.
   // `regenerate`: makes the same picture again (only while the brief is in memory).
+  // A browser recording (owner-checked GET /v1/recordings/:id), played inline.
+  function recordingFigure(videoId) {
+    const fig = document.createElement('figure');
+    fig.className = 'made-image made-video is-loading';
+    const video = document.createElement('video');
+    video.controls = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.setAttribute('aria-label', 'Screen recording of the app');
+    const bar = document.createElement('figcaption');
+    const dl = document.createElement('a');
+    dl.className = 'btn outline small';
+    dl.textContent = 'Download';
+    dl.hidden = true;
+    bar.appendChild(dl);
+    fig.append(video, bar);
+    (async () => {
+      try {
+        const token = await credential(false);
+        const resp = await fetch('/v1/recordings/' + encodeURIComponent(videoId), { headers: { Authorization: 'Bearer ' + token } });
+        if (!resp.ok) throw new Error('gone');
+        const type = resp.headers.get('content-type') === 'video/mp4' ? 'mp4' : 'webm';
+        const url = URL.createObjectURL(await resp.blob());
+        dl.href = url;
+        dl.setAttribute('download', `nasrin-recording-${videoId.slice(0, 8)}.${type}`);
+        dl.hidden = false;
+        video.addEventListener('loadeddata', () => { fig.classList.remove('is-loading'); fig.classList.add('is-ready'); }, { once: true });
+        video.src = url;
+      } catch {
+        fig.classList.remove('is-loading');
+        const gone = document.createElement('p');
+        gone.className = 'setting-hint';
+        gone.textContent = 'This recording is no longer available.';
+        fig.replaceChildren(gone);
+      }
+    })();
+    return fig;
+  }
+
   function imageFigure(imageId, regenerate = null, compact = false) {
     const fig = document.createElement('figure');
     fig.className = 'made-image is-loading' + (compact ? ' is-compact' : '');

@@ -55,7 +55,7 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
 
     // Runs one call the model asked for. rawArgs: a JSON string (as models
     // send it) or an object. Resolves the tool's result; rejects with ToolError.
-    async run(caller, name, rawArgs, { confirmed = false } = {}) {
+    async run(caller, name, rawArgs, { confirmed = false, conversationId = null } = {}) {
       const started = now();
       const fail = async (code, detail, outcome = 'rejected_output') => {
         await record(caller, byName.has(name) ? name : 'unknown', outcome, started);
@@ -77,7 +77,9 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
       if (problem) return fail('invalid_arguments', problem);
       if (tool.risk !== 'read' && confirmed !== true) return fail('needs_confirmation', 'This action needs your confirmation first.');
 
-      const ctx = Object.freeze({ tenantId: caller.tenantId, actor: Object.freeze({ ...caller.actor }) });
+      // The chat this call belongs to (from the server, never the model): lets a
+      // tool save a picture or video for the person in that chat.
+      const ctx = Object.freeze({ tenantId: caller.tenantId, actor: Object.freeze({ ...caller.actor }), ...(conversationId ? { conversationId } : {}) });
       let timer;
       let result;
       try {
@@ -96,6 +98,14 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
       if (text === undefined || text.length > MAX_RESULT) return fail('failed', 'The tool returned something that cannot be used.', 'provider_error');
       await record(caller, name, 'ok', started);
       return JSON.parse(text);
+    },
+
+    // Pictures and videos a tool saved for the person ({ type, id } list).
+    // Only tools marked `media: true` may attach them; anything else is ignored.
+    mediaOf(name, result) {
+      const tool = byName.get(name);
+      if (!tool || tool.media !== true || !result || !Array.isArray(result.media)) return [];
+      return result.media.filter((m) => m && (m.type === 'image' || m.type === 'video') && /^[0-9a-f-]{36}$/.test(String(m.id))).slice(0, 4).map((m) => ({ type: m.type, id: String(m.id) }));
     }
   };
 }

@@ -1361,6 +1361,21 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // A browser recording made by render-and-test (src/github/browser-runner.js),
+      // only for the person it belongs to. Not tied to a video plan.
+      method: 'GET',
+      path: '/v1/recordings/:id',
+      scope: 'chat',
+      handler: async ({ caller, params, res }) => {
+        if (caller.actor.type !== 'user' || !store?.getVideo) throw new HttpError(404, 'not_found', 'Not found.');
+        const v = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id: params.id });
+        if (!v || v.provider !== 'browser' || v.status !== 'completed' || !v.bytes) throw new HttpError(404, 'not_found', 'Not found.');
+        const mime = v.mime === 'video/mp4' ? 'video/mp4' : 'video/webm';
+        res.writeHead(200, { 'Content-Type': mime, 'Content-Length': v.bytes.length, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': `inline; filename="nasrin-recording-${v.id.slice(0, 8)}.${mime.split('/')[1]}"` });
+        res.end(v.bytes);
+      }
+    },
+    {
       // Starts an Ultra-only asynchronous MP4 video job.
       method: 'POST',
       path: '/v1/videos',

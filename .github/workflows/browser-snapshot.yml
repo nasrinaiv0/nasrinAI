@@ -1,0 +1,30 @@
+name: Set up render-and-test browser
+
+# Run by hand (Actions → "Set up render-and-test browser" → Run workflow), from
+# a phone or any browser. It prepares a Vercel Sandbox snapshot with
+# agent-browser, Chrome and ffmpeg and prints AGENT_BROWSER_SNAPSHOT_ID to copy
+# into Vercel (docs/github.md). Needs one repository secret: VERCEL_TOKEN.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Create the browser snapshot
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # The project's Vercel ids (not secrets); repository variables override them.
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID || 'team_KthCrTNwdIvA7rh12L0tB7Mh' }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || 'prj_ih4baHcswf8P9TuNNZGtb7ScEYwh' }}
+        run: node scripts/create-browser-snapshot.mjs

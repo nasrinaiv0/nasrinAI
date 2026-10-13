@@ -2717,3 +2717,4 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plugin-link.danger { color: #F2B8B5; } }
 .plugin-add { font-size: 1.1rem; }
 .plugin-accounts-hint { margin: -0.4rem 0.4rem 0.75rem; }
+.made-video video { display: block; width: 100%; max-height: 70vh; border-radius: inherit; background: #000; }
