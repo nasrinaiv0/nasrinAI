@@ -15,15 +15,16 @@ export function parseCodingCommand(raw){
 }
 const trim=v=>{const s=String(v||'');return s.length>MAX_OUTPUT_CHARS?s.slice(0,MAX_OUTPUT_CHARS)+'\n[output truncated]':s;};
 const run=(s,c,a,cwd)=>s.runCommand({cmd:c,args:a,...(cwd?{cwd}:{})});
-export function createCodingRunner({downloadArchive,tokenFor,store,logger=null,sandboxFactory=null}){
+export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store,logger=null,sandboxFactory=null}){
  const createSandbox=sandboxFactory||(async o=>{const{Sandbox}=await import('@vercel/sandbox');return Sandbox.create(o);});
  return{async run(input,ctx){
   if(ctx?.actor?.type!=='user'||!ctx.actor.id||!ctx.tenantId)return{error:'sign_in_required',message:'Sign in and connect GitHub to run repository code.'};
   let parsed;try{parsed=parseCodingCommand(input?.command);}catch(e){return{error:'invalid_command',message:e.message};}
-  const repo=String(input?.repo||'').trim(),ref=String(input?.ref||'').trim();
+  const repo=String(input?.repo||'').trim();let ref=String(input?.ref||'').trim();
   if(!/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(repo)||ref.length>200||(ref&&!/^(?!.*\.\.)(?!\/)[A-Za-z0-9._/-]{1,200}$/.test(ref)))return{error:'invalid_arguments',message:'Choose a valid repository and branch or commit.'};
   const token=await tokenFor(ctx).catch(()=>null);if(!token)return{error:'github_not_connected',message:'Connect GitHub first in Plugins → GitHub.'};
   try{const lim=await store.rateHit('ghrun:'+ctx.tenantId+':'+ctx.actor.id,3600,10);if(!lim?.allowed)return{error:'rate_limited',message:'You have run the coding environment 10 times this hour. Try again later.'};}catch{return{error:'rate_limit_unavailable',message:'The coding runner is temporarily unavailable. Please try again later.'};}
+  if(!ref){try{ref=await defaultBranch(token,repo);}catch{return{error:'default_branch_unavailable',message:'Nasrin could not determine the repository default branch. Specify a branch or commit.'};}}
   let archive;try{archive=await downloadArchive(token,repo,ref);}catch(e){logger?.warn('coding runner source fetch failed',{code:e?.code||'failed'});return{error:'source_unavailable',message:'Could not safely fetch that repository snapshot. Check the repository, branch, and GitHub access.'};}
   if(!Buffer.isBuffer(archive)||archive.length<1||archive.length>MAX_ARCHIVE_BYTES)return{error:'repository_too_large',message:'The repository snapshot is empty or exceeds the 15 MB limit.'};
   let sandbox;const started=Date.now();
