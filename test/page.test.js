@@ -112,7 +112,22 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
     const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
     assert.doesNotMatch(svg, /<rect width="1024" height="1024"/, f + ' has no background tile');
   }
-  assert.match(await readFile(new URL('../public/space-logos/code-bot-light-busy.svg', import.meta.url), 'utf8'), /animateTransform attributeName="transform" type="translate"/);
+  const busy = await readFile(new URL('../public/space-logos/code-bot-light-busy.svg', import.meta.url), 'utf8');
+  assert.match(busy, /animateTransform attributeName="transform" type="translate"/);
+  // Grows from small, bursts and comes back; spins horizontally only while burst (owner, 2026-10-13).
+  assert.doesNotMatch(busy, /type="rotate"/);
+  // A sphere turning like a globe while it bursts (not a flat flip): every
+  // pixel has a back-of-the-sphere copy and moves along its row, hidden when behind.
+  assert.doesNotMatch(busy, /values="1 1;1 1;-1 1/);
+  assert.match(busy, /type="scale" values="\.55;\.9;\.9;\.55"/);
+  assert.equal((busy.match(/<rect /g) || []).length, 1300);
+  assert.match(busy, /attributeName="opacity" values="[^"]*;0;/);
+  // Two more moods (remember, write), light and dark, CSP-safe, chosen by the thinking line.
+  for (const f of ['code-bot-light-remember.svg', 'code-bot-dark-remember.svg', 'code-bot-light-write.svg', 'code-bot-dark-write.svg']) {
+    const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
+    assert.doesNotMatch(svg, /<style|style=|<script|href=/i, f);
+    assert.match(css, new RegExp(f.replace('.', '\\.')), f);
+  }
   for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg', 'code-bot-light-busy.svg', 'code-bot-dark-busy.svg']) {
     assert.match(css, new RegExp(f.replace('.', '\\.')), f);
     const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');

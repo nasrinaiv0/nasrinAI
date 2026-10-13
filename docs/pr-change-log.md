@@ -1,3 +1,9 @@
+## Proposed PR — Robot turns, grows and bursts while busy (`ui/robot-burst`)
+
+- **Owner request (2026-10-13):** the busy robot rotates, starts smaller, grows bigger and explodes, like connecting to its sources.
+- **Change:** `scripts/pixelbot-logo.py` busy version: the ball grows from small, its pixels burst further out and return while it spins horizontally once (only during the burst; owner follow-up), pauses, turns back into its normal form and shrinks (3.2 s cycle). The turn is a 3D sphere like a globe (owner follow-up): each pixel moves along its row of the ball, a copy on the back comes into view, edges are shaded; ~67 KB gzipped. Two more robot moods for the thinking line: **Remembering** (a ripple of light through the pixels; Remembering, Checking your Library, Reading) and **Writing** (rows fill in like typing; Writing code, Writing, Putting it together); other stages use the burst. SMIL, CSP-safe; still version for reduced motion.
+- **Validation:** `npm test`; rendered frames (small → big → burst → back).
+
 ## Proposed PR — Coding replies no longer fail after a GitHub lookup (`fix/gemini-tool-rounds`)
 
 - **Owner report (2026-10-13):** in the coding chat, "create a prototype financial tracker in my repository" → "NasrinAI cannot answer right now".
