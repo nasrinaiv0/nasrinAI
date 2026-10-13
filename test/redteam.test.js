@@ -186,8 +186,9 @@ test('hardening: the secret scanner flags real-looking keys in source and test f
   const { scan } = await import('../scripts/check-secrets.js');
   const files = { 'src/a.js': 'const k = "sk-proj-' + 'abcdefghijklmnopqrstuvwxyz0123";', 'docs/b.md': 'Use nss_<id>_<secret> here.', 'test/c.js': 'sk-proj-' + 'abcdefghijklmnopqrstuvwxyz0123', 'README.md': 'contact hello@example.com' };
   const found = scan(Object.keys(files), (f) => files[f]);
-  assert.equal(found.length, 1);
-  assert.match(found[0], /^src\/a\.js:1: looks like an API key/);
+  assert.equal(found.length, 2);
+  assert.ok(found.some((line) => line.includes('src/a.js:1: looks like an API key')));
+  assert.ok(found.some((line) => line.includes('test/c.js:1: looks like an API key')));
 });
 
 test('hardening: old pictures are removed when retention is set (businesses globally, people by their own keep-time)', async () => {
