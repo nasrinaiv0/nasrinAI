@@ -3,6 +3,7 @@ import { HttpError } from '../http/errors.js';
 import { seal, open } from '../connectors/secret.js';
 import { createGithubApi, checkRepo, GithubError } from './api.js';
 import { createCodingRunner } from './runner.js';
+import { createBrowserTestRunner } from './browser-runner.js';
 
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
@@ -32,6 +33,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
   const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
+  const browserTestRunner = createBrowserTestRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
   const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
   const installUrl = gh?.slug ? `https://github.com/apps/${gh.slug}/installations/new` : null;
@@ -376,6 +378,27 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
         patch: { type: 'string', maxLength: 100_000 }
       }, required: ['repo', 'command'] },
       run: (args, ctx) => codingRunner.run(args, ctx)
+    },
+    {
+      name: 'github_render_test_screenshot',
+      description: 'Render a connected GitHub repository in an isolated disposable Vercel Sandbox, run a test command, launch a local preview server, inspect its accessibility snapshot, and capture a bounded screenshot. Use after inspecting code or applying a proposed change. Requires start_command and test_command to be one allowlisted command each, with no shell operators; preview_url must be localhost. It never writes to GitHub or deploys. Screenshot evidence is returned as bounded base64 image data.',
+      risk: 'read', who: ['user'], timeoutMs: 150_000, longRunning: true, maxArgs: 240_000,
+      parameters: { properties: {
+        repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}
+
+  return { available, routes, tools, tokenFor };
+}
+ },
+        ref: { type: 'string', maxLength: 200, pattern: '^(?!.*\\.\\.)(?!/)[A-Za-z0-9._/-]{1,200}
+
+  return { available, routes, tools, tokenFor };
+}
+ },
+        test_command: { type: 'string', maxLength: 300 },
+        start_command: { type: 'string', maxLength: 300 },
+        preview_url: { type: 'string', maxLength: 300 }
+      }, required: ['repo', 'test_command', 'start_command'] },
+      run: (args, ctx) => browserTestRunner.run(args, ctx)
     },
   ];
 
