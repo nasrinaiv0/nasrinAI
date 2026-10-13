@@ -577,6 +577,15 @@ body:not(.has-chat) #newChat { display: none; }
 /* Under each reply: Listen, Copy, Share. */
 .reply-actions { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.55rem; }
 .reply-actions .listen { margin-top: 0; }
+/* Web sources, folded under "Sources · n" in the reply actions. */
+.reply-actions .sources-toggle { width: auto; padding: 0 0.65rem; border-radius: 999px; font-size: 0.8rem; color: var(--ink-2); }
+.reply-actions .sources-toggle[aria-expanded="true"] { color: var(--ink); background: var(--surface); }
+.reply-sources { list-style: none; margin: 0.4rem 0 0; padding: 0.35rem; border: 1px solid var(--line); border-radius: 0.9rem; background: var(--paper); white-space: normal; animation: fade-in 220ms var(--glide) both; }
+.reply-sources[hidden] { display: none; }
+.reply-sources a { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; color: var(--ink); text-decoration: none; }
+.reply-sources a:hover, .reply-sources a:focus-visible { background: var(--surface); }
+.reply-source-title { font-size: 0.88rem; overflow-wrap: anywhere; }
+.reply-source-host { font-size: 0.76rem; color: var(--ink-3); }
 .act { width: 2rem; height: 2rem; border: 0; border-radius: 50%; background: transparent; color: var(--ink-3); display: grid; place-items: center; transition: color 160ms, background-color 160ms, transform 220ms var(--spring); }
 .act:hover { color: var(--ink); background: var(--surface); }
 .act:active { transform: scale(0.88); }

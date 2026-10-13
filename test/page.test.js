@@ -227,3 +227,18 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(js, /el\.className = 'msg assistant is-live is-new';/);
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
 });
+
+test('web sources fold under a Sources button beside the reply actions (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
+  assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
+  const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.match(toggle, /list\.hidden = true;/);
+  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'false'\);/);
+  assert.match(toggle, /a\.rel = 'noopener noreferrer';/);
+  assert.doesNotMatch(toggle, /innerHTML/);
+  // Copy, share and Save to Library keep the sources; read-aloud skips them.
+  assert.match(js, /const plainText = window\.NasrinFormat\.plain\(full\);/);
+  assert.match(css, /\.reply-sources\[hidden\] \{ display: none; \}/);
+});

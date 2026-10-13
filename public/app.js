@@ -973,6 +973,10 @@
           text = text.slice(pic[0].length) || 'Here is your picture.';
         }
       }
+      // Web sources fold away under a Sources button beside the reply actions.
+      const full = text;
+      const cited = window.NasrinFormat.sources(text);
+      text = cited.text || text;
       const body = document.createElement('div');
       body.className = 'msg-body rich';
       const { node, blocks } = window.NasrinFormat.render(text);
@@ -1002,7 +1006,9 @@
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       if (asks && made.asks.length) el.appendChild(askCard(made.asks));
-      el.appendChild(replyActions(text, id));
+      const actions = replyActions(text, id, full);
+      el.appendChild(actions);
+      if (cited.links.length) sourcesToggle(actions, cited.links);
       const disclaimer = document.createElement('p');
       disclaimer.className = 'reply-disclaimer';
       disclaimer.setAttribute('role', 'note');
@@ -2549,7 +2555,47 @@
   }
 
   // Under each reply: Listen, Copy, Share.
-  function replyActions(text, id) {
+  // "Sources · n": a folded list of the pages a web answer used, opened in a
+  // new tab (never with the page's access to this one).
+  let sourcesCount = 0;
+  function sourcesToggle(row, links) {
+    const list = document.createElement('ul');
+    list.className = 'reply-sources';
+    list.id = 'reply-sources-' + (++sourcesCount);
+    list.hidden = true;
+    for (const l of links) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = l.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      const t = document.createElement('span');
+      t.className = 'reply-source-title';
+      t.textContent = l.title;
+      const h = document.createElement('span');
+      h.className = 'reply-source-host';
+      h.textContent = l.host;
+      a.append(t, h);
+      li.appendChild(a);
+      list.appendChild(li);
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'act sources-toggle';
+    b.dataset.kind = 'sources';
+    b.setAttribute('aria-expanded', 'false');
+    b.setAttribute('aria-controls', list.id);
+    b.textContent = 'Sources · ' + links.length;
+    b.addEventListener('click', () => {
+      const open = list.hidden;
+      list.hidden = !open;
+      b.setAttribute('aria-expanded', String(open));
+    });
+    row.appendChild(b);
+    row.after(list);
+  }
+
+  function replyActions(text, id, full = text) {
     const row = document.createElement('div');
     row.className = 'reply-actions';
     if (canSpeakAnything()) {
@@ -2568,7 +2614,7 @@
       });
       row.appendChild(b);
     }
-    const plainText = window.NasrinFormat.plain(text);
+    const plainText = window.NasrinFormat.plain(full);   // copies keep the sources
     const copy = document.createElement('button');
     copy.type = 'button';
     copy.className = 'act';
@@ -2608,7 +2654,7 @@
         keep.disabled = true;
         const first = plainText.split('\n').map((l) => l.trim()).find(Boolean) || 'Saved reply';
         try {
-          await api('/v1/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'reply', title: first.length > 60 ? first.slice(0, 59) + '…' : first, text }) });
+          await api('/v1/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'reply', title: first.length > 60 ? first.slice(0, 59) + '…' : first, text: full }) });
           flashDone(keep, 'Saved to Library');
           notice.textContent = 'Saved to your Library.';
         } catch (err) {
