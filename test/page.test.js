@@ -269,3 +269,11 @@ test('normal chats use a slightly smaller text size (owner, 2026-10-13)', async 
   // The coding chat keeps its own, smaller size.
   assert.match(css, /body\.coding-mode \.msg\.assistant \{ font-family: var\(--sans\); font-size: 0\.875rem;/);
 });
+
+test('the person’s message bubble is a softer charcoal in light mode only (owner, 2026-10-13)', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /:root \{[^}]*--bubble: color-mix\(in srgb, var\(--ink\) 76%, var\(--paper\)\);/);
+  assert.match(css, /:root:not\(\[data-theme="light"\]\) \{[^}]*--bubble: var\(--ink\);/);
+  assert.match(css, /:root\[data-theme="dark"\] \{[^}]*--bubble: var\(--ink\);/);
+  assert.match(css, /\.msg\.user \{[^}]*background: var\(--bubble, var\(--ink\)\);/);
+});

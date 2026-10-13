@@ -1,3 +1,9 @@
+## Proposed PR — Softer message bubble in light mode (`ui/softer-user-bubble`)
+
+- **Owner request (2026-10-13, screenshot):** in light mode, lessen the darkness of the person's message bubble.
+- **Change:** `public/app.css`: new `--bubble` token, in light mode 76% ink mixed with the page colour (about #454545 in Mono, each palette its own); dark mode unchanged. `docs/themes.md`.
+- **Validation:** `npm test`; browser: light bubble rgb(69,69,69) with white text, dark bubble unchanged.
+
 ## Proposed PR — Research citations, facts only (`feature/research-citations`)
 
 - **Owner request (2026-10-13):** show author and citation in an organized format with a choice of citation formats; researcher-friendly, facts only (professors, researchers, students), with publication details.

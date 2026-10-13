@@ -18,6 +18,9 @@
   --paper: #F4F4F1;
   --surface: #FBFBF9;
   --ink: #0E0E0F;
+  /* The person's message bubble: in light mode a softer charcoal than the
+     ink (owner, 2026-10-13); in dark mode the ink itself. */
+  --bubble: color-mix(in srgb, var(--ink) 76%, var(--paper));
   --ink-2: #3D3D3F;
   --ink-3: #8B8B87;
   --line: #E1E0DB;
@@ -69,6 +72,7 @@
     --paper: #1B1B1D;
     --surface: #252528;
     --ink: #F4F4F1;
+    --bubble: var(--ink);
     --ink-2: #C8C8C3;
     --ink-3: #7D7D79;
     --line: #343438;
@@ -100,6 +104,7 @@
   --paper: #1B1B1D;
   --surface: #252528;
   --ink: #F4F4F1;
+  --bubble: var(--ink);
   --ink-2: #C8C8C3;
   --ink-3: #7D7D79;
   --line: #343438;
@@ -355,7 +360,7 @@ body:not(.has-chat) #newChat { display: none; }
 .msg.user {
   align-self: flex-end; max-width: 84%;
   padding: 0.62rem 1rem; border-radius: 1.35rem 1.35rem 0.4rem 1.35rem;
-  background: var(--ink); color: var(--on-ink); font-size: 0.95rem; line-height: 1.5;
+  background: var(--bubble, var(--ink)); color: var(--on-ink); font-size: 0.95rem; line-height: 1.5;
   transform-origin: 100% 100%;
   animation: pop-in 320ms var(--spring) both;
 }
