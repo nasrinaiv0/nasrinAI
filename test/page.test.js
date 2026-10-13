@@ -116,12 +116,15 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   assert.match(busy, /animateTransform attributeName="transform" type="translate"/);
   // Grows from small, bursts and comes back; spins horizontally only while burst (owner, 2026-10-13).
   assert.doesNotMatch(busy, /type="rotate"/);
-  // A sphere turning like a globe while it bursts (not a flat flip): every
-  // pixel has a back-of-the-sphere copy and moves along its row, hidden when behind.
+  // Perfect pixel (owner, 2026-10-13): no copies, no fading, no overlap. The
+  // grid spreads evenly and bounces; the face (eyes, speckle) slides across
+  // the fixed grid like a turning globe, in whole-pixel frames.
   assert.doesNotMatch(busy, /values="1 1;1 1;-1 1/);
-  assert.match(busy, /type="scale" values="\.55;\.9;\.9;\.55"/);
-  assert.equal((busy.match(/<rect /g) || []).length, 1300);
-  assert.match(busy, /attributeName="opacity" values="[^"]*;0;/);
+  assert.match(busy, /type="scale" values="\.55;\.8;\.72;\.72;\.5;\.55"[^>]*calcMode="spline"/);
+  assert.equal((busy.match(/<rect /g) || []).length, 616);
+  assert.doesNotMatch(busy, /attributeName="opacity"/);
+  assert.match(busy, /attributeName="fill" calcMode="discrete" values="[^"]*#0b0b0c/);
+  assert.match(busy, /type="translate" values="0 0;0 0;[^"]*"[^>]*calcMode="spline"/);
   // Two more moods (remember, write), light and dark, CSP-safe, chosen by the thinking line.
   for (const f of ['code-bot-light-remember.svg', 'code-bot-dark-remember.svg', 'code-bot-light-write.svg', 'code-bot-dark-write.svg']) {
     const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');

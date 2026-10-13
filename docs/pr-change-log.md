@@ -1,3 +1,9 @@
+## Proposed PR — Smooth, bouncy, pixel-perfect busy robot (`ui/robot-smooth`)
+
+- **Owner request (2026-10-13, screenshot):** the busy robot's turn looked like noise; make it smooth and bouncy, with a pixel-perfect turn and burst.
+- **Change:** `scripts/pixelbot-logo.py` busy version (3.6 s): pops up with a bounce, the pixel grid spreads evenly (gaps, no overlap) with a bounce out and in, then shrinks. The turn now slides the face across the fixed grid (eyes and speckle move along each row and come round from the back; the light stays put) in 60 fps whole-pixel frames, so pixels never overlap or fade. Fixes the eyes, which the old busy version dropped. ~32 KB gzipped (was ~67 KB).
+- **Validation:** `npm test`; rendered frames, light and dark.
+
 ## Proposed PR — Nasrin finds your repositories and asks which (`feature/repo-pick`, on top of #309)
 
 - **Owner request (2026-10-13):** "check my github repository" asked for owner/repo; NasrinAI should detect the allowed repositories and ask which one.
