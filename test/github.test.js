@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import { inspectCodingArchive } from '../src/github/runner.js';
 import { createGithub } from '../src/github/index.js';
 import { createGithubApi, checkRepo, checkPath, checkRef, GithubError } from '../src/github/api.js';
 import { createToolRegistry } from '../src/tools/registry.js';
@@ -25,6 +27,35 @@ function fakeGithub(table) {
   };
   return { fetchImpl, calls };
 }
+
+
+function tarArchive({ name = 'repo-main/file.txt', data = 'x', type = '0', declaredSize = Buffer.byteLength(data) } = {}) {
+  const header = Buffer.alloc(512);
+  header.write(name, 0, 100, 'utf8');
+  header.write('0000644\\0', 100, 8, 'ascii');
+  header.write('0000000\\0', 108, 8, 'ascii');
+  header.write('0000000\\0', 116, 8, 'ascii');
+  header.write(declaredSize.toString(8).padStart(11, '0') + '\\0', 124, 12, 'ascii');
+  header.write('00000000000\\0', 136, 12, 'ascii');
+  header.fill(0x20, 148, 156);
+  header[156] = type.charCodeAt(0);
+  header.write('ustar\\0', 257, 6, 'ascii');
+  header.write('00', 263, 2, 'ascii');
+  const checksum = header.reduce((sum, byte) => sum + byte, 0);
+  header.write(checksum.toString(8).padStart(6, '0') + '\\0 ', 148, 8, 'ascii');
+  const body = Buffer.from(data);
+  const padded = Buffer.alloc(Math.ceil(body.length / 512) * 512);
+  body.copy(padded);
+  return gzipSync(Buffer.concat([header, padded, Buffer.alloc(1024)]));
+}
+
+test('coding runner rejects oversized, unsafe and linked repository archives before sandbox creation', () => {
+  assert.equal(inspectCodingArchive(tarArchive()).entries, 1);
+  assert.throws(() => inspectCodingArchive(tarArchive({ name: 'repo-main/../../outside' })), /unsafe path/);
+  assert.throws(() => inspectCodingArchive(tarArchive({ name: 'repo-main/link', type: '2' })), /link or unsupported/);
+  assert.throws(() => inspectCodingArchive(tarArchive({ name: 'repo-main/large.bin', data: '', declaredSize: 17 * 1024 * 1024 })), /16 MB expanded limit/);
+  assert.throws(() => inspectCodingArchive(gzipSync(Buffer.from('not a tar archive'))), /malformed|no readable files/);
+});
 
 test('github: repository, path and branch inputs are checked', () => {
   assert.equal(checkRepo('https://github.com/primusco20/nasrinAI.git'), 'primusco20/nasrinAI');
