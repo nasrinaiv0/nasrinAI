@@ -193,6 +193,25 @@ test('oversized pasted composer text becomes a plain-text attachment', async () 
     'short text continues to paste normally');
 });
 
+test('a tech-style loader shows while a picture, video or file is being made (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const files = await readFile(new URL('../public/files.js', import.meta.url), 'utf8');
+  // Built from elements, announced as a status, with the time so far.
+  assert.match(js, /function genLoader\(text, \{ compact = false, timer = true \} = \{\}\) \{/);
+  assert.match(js, /box\.setAttribute\('role', 'status'\);/);
+  const loader = js.slice(js.indexOf('function genLoader('), js.indexOf('function clearScreen('));
+  assert.doesNotMatch(loader, /innerHTML|insertAdjacentHTML/);
+  // Used for the picture itself, the video and a file being written.
+  assert.match(js, /if \(path === '\/v1\/images'\) \{[\s\S]{0,120}thinking = genLoader\(label\);/);
+  assert.match(js, /const loader = genLoader\('Creating your video'\);/);
+  assert.match(js, /fileLoader = genLoader\('Writing your file', \{ compact: true \}\)/);
+  assert.doesNotMatch(files, /Writing your file…/);   // the loader replaces the old text note
+  // Still when motion is reduced (system setting and the in-app setting).
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.gen-cell, \.gen-scan, \.gen-label > span:first-child \{ animation: none; \}/);
+  assert.match(css, /:root\[data-motion="reduce"\] \.gen-scan \{ display: none; \}/);
+});
+
 test('replies fade in and the chat stays where the person is reading (owner, 2026-10-13)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
@@ -203,7 +222,7 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(js, /if \(Date\.now\(\) - touchedAt > 1000\) return;\s*following = log\.scrollHeight - log\.scrollTop - log\.clientHeight < 96;/);
   assert.match(js, /scrollToEnd\(el, \{ force: role === 'user' \}\);/);
   // Streaming text follows instantly (a smooth scroll per word would lag).
-  assert.match(js, /strip\(raw\);[^\n]*\n\s*scrollToEnd\(el, \{ instant: true \}\);/);
+  assert.match(js, /strip\(raw\);[\s\S]{0,500}?scrollToEnd\(el, \{ instant: true \}\);\s*\},/);
   // Fade: the live reply, and a reply shown at once.
   assert.match(js, /el\.className = 'msg assistant is-live is-new';/);
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
