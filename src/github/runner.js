@@ -1,7 +1,40 @@
-const MAX_ARCHIVE_BYTES=15*1024*1024, MAX_OUTPUT_CHARS=2800, MAX_PATCH_BYTES=100_000;
+import { gunzipSync } from 'node:zlib';
+
+const MAX_ARCHIVE_BYTES=15*1024*1024, MAX_EXPANDED_ARCHIVE_BYTES=64*1024*1024, MAX_ARCHIVE_ENTRIES=10_000, MAX_ARCHIVE_FILE_BYTES=16*1024*1024, MAX_OUTPUT_CHARS=2800, MAX_PATCH_BYTES=100_000;
 const SANDBOX_ROOT='/vercel/sandbox', WORKSPACE=`${SANDBOX_ROOT}/repo`, ARCHIVE_PATH=`${SANDBOX_ROOT}/source.tar.gz`;
 const COMMANDS=new Set(['npm','node','python','python3','pytest','git','ls','cat','grep','rg','find','sed','awk','tsc','eslint','prettier']);
 const BLOCKED_NPM=new Set(['install','ci','add','remove','uninstall','exec','init','publish','link','login','config']);
+// Validate GitHub's compressed tarball before passing it to the sandbox extractor.
+// gunzipSync has a hard output cap; tar headers then enforce file-count, per-file,
+// total expanded-size, path, and file-type limits. Links/special files are refused.
+export function inspectCodingArchive(archive){
+ if(!Buffer.isBuffer(archive)||archive.length<1||archive.length>MAX_ARCHIVE_BYTES)throw Error('Repository snapshot exceeds the compressed 15 MB limit.');
+ let tar;
+ try{tar=gunzipSync(archive,{maxOutputLength:MAX_EXPANDED_ARCHIVE_BYTES});}
+ catch{throw Error('Repository snapshot exceeds the expanded 64 MB limit or is not a valid gzip archive.');}
+ let offset=0,entries=0,totalFiles=0,hasFile=false;
+ const octal=(b)=>{const s=b.toString('ascii').replace(/\0.*$/s,'').trim();if(!s)return 0;if(!/^[0-7]+$/.test(s))throw Error('Repository archive contains an invalid tar size.');return Number.parseInt(s,8);};
+ while(offset+512<=tar.length){
+  const h=tar.subarray(offset,offset+512);
+  if(h.every(v=>v===0))break;
+  entries++;if(entries>MAX_ARCHIVE_ENTRIES)throw Error('Repository archive contains too many entries.');
+  const name=h.toString('utf8',0,100).replace(/\0.*$/s,'');
+  const prefix=h.toString('utf8',345,500).replace(/\0.*$/s,'');
+  const full=prefix?prefix+'/'+name:name;
+  const size=octal(h.subarray(124,136));
+  const type=h[156]===0?'0':String.fromCharCode(h[156]);
+  if(!full||full.startsWith('/')||full.includes('\\')||full.split('/').some(p=>p==='..'))throw Error('Repository archive contains an unsafe path.');
+  if(!['0','5','x','g'].includes(type))throw Error('Repository archive contains a link or unsupported special file.');
+  if(size>MAX_ARCHIVE_FILE_BYTES)throw Error('A repository file exceeds the 16 MB expanded limit.');
+  if(type==='0')hasFile=true;
+  totalFiles+=size;if(totalFiles>MAX_EXPANDED_ARCHIVE_BYTES)throw Error('Repository archive exceeds the 64 MB expanded limit.');
+  const blocks=Math.ceil(size/512);offset+=512+blocks*512;
+  if(offset>tar.length)throw Error('Repository archive is truncated or malformed.');
+ }
+ if(!hasFile||entries===0)throw Error('Repository archive contains no readable files.');
+ return {expandedBytes:tar.length,entries};
+}
+
 export function parseCodingCommand(raw){
  if(typeof raw!=='string'||!raw.trim()||raw.length>300)throw Error('Give one command, up to 300 characters.');
  if(/[\0\r\n;&|<>$\\*?{}()[\]]/.test(raw)||raw.includes(String.fromCharCode(96)))throw Error('Use one command without shell operators, substitutions, pipes, or wildcards.');
@@ -76,7 +109,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
   try{const lim=await store.rateHit('ghrun:'+ctx.tenantId+':'+ctx.actor.id,3600,10);if(!lim?.allowed)return{error:'rate_limited',message:'You have run the coding environment 10 times this hour. Try again later.'};}catch{return{error:'rate_limit_unavailable',message:'The coding runner is temporarily unavailable. Please try again later.'};}
   if(!ref){try{ref=await defaultBranch(token,repo);}catch{return{error:'default_branch_unavailable',message:'Nasrin could not determine the repository default branch. Specify a branch or commit.'};}}
   let archive;try{archive=await downloadArchive(token,repo,ref);}catch(e){logger?.warn('coding runner source fetch failed',{code:e?.code||'failed'});return{error:'source_unavailable',message:'Could not safely fetch that repository snapshot. Check the repository, branch, and GitHub access.'};}
-  if(!Buffer.isBuffer(archive)||archive.length<1||archive.length>MAX_ARCHIVE_BYTES)return{error:'repository_too_large',message:'The repository snapshot is empty or exceeds the 15 MB limit.'};
+  try{inspectCodingArchive(archive);}catch(e){return{error:'repository_too_large',message:e.message};}
   let sandbox;const started=Date.now();let stage='sandbox_create',activeResult=null;
   const finish=value=>(activeResult=value,value);
   try{
@@ -87,7 +120,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
    stage='workspace_create';
    let r=await run(sandbox,'mkdir',['-p',WORKSPACE]);if(r.exitCode!==0)throw Error('workspace_create_failed');
    stage='snapshot_extract';
-   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
+   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','--no-overwrite-dir','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
    if(r.exitCode!==0)return finish({error:'snapshot_extract_failed',stage,exit_code:r.exitCode,stdout:trim(await r.stdout()),stderr:trim(await r.stderr()),message:'The repository snapshot could not be unpacked.'});
    if(patch){
     stage='patch_write';

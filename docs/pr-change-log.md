@@ -956,3 +956,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Change:** remove the blanket `test/` exclusion from `scripts/check-secrets.js`; split synthetic key examples in tests into fragments; extend the scanner regression to require detection in both source and test paths.
 - **Validation:** pending CI on the PR; do not merge until `npm test`, `npm run check:secrets`, and required repository checks pass.
+
+
+## Proposed PR — Bound GitHub coding archive expansion (`security/harden-runner-archive-limits`)
+
+- **Change:** validate repository gzip/tar archives before sandbox extraction; cap compressed/expanded sizes, entry count, and individual entry sizes; reject unsafe traversal paths and links/special file types; reconcile the secure-workspace document with the implemented GitHub runner.
+- **Validation:** pending CI. The real Vercel Sandbox integration test remains opt-in and must not be reported as passed when skipped.
