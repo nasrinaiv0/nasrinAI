@@ -13,7 +13,7 @@ const trim = (value) => {
 function safeError(stage, error) {
   const name = String(error?.name || 'Error').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'Error';
   const message = String(error?.message || 'Unknown failure')
-    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [REMOVED]')
     .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_-]{12,})\b/g, '[redacted]')
     .replace(/https?:\/\/\S+/gi, '[url redacted]')
     .replace(/[\r\n\t]+/g, ' ').slice(0, 160);
