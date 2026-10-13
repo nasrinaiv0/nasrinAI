@@ -235,3 +235,25 @@ test('semantic cache insert failure does not fail a successful chat response', a
     assert.doesNotMatch(JSON.stringify(log), /simulated insert failure|private details/);
   });
 });
+
+test('comparison replies never reuse an older cached answer; other cache entries keep their keys', async () => {
+  const scopes = [];
+  const semanticCache = {
+    lookup: async (prompt, scope) => { scopes.push([prompt, scope]); return { embedding: [0.1, 0.2, 0.3], hit: null }; },
+    store: async () => {}
+  };
+  await withApp({
+    provider: createFakeProvider(),
+    semanticCache,
+    env: { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'test-only-key', ROUTING: 'smart' }
+  }, async ({ url }) => {
+    const token = await guestToken(url);
+    await send(url, token, { message: 'What is an API?', blocks: true });
+    await send(url, token, { message: 'API vs SDK?', blocks: true });
+  });
+  assert.equal(scopes.length, 2, 'both questions use the cache');
+  assert.notEqual(scopes[0][1], scopes[1][1], 'a comparison has its own cache scope');
+  const src = await (await import('node:fs/promises')).readFile(new URL('../src/chat.js', import.meta.url), 'utf8');
+  // Every non-comparison variant is exactly what it was, so existing entries still match.
+  assert.match(src, /: \(blocks \? 'blocks' : 'plain'\)\) \+ \(compare \? '\|compare' : ''\);/);
+});
