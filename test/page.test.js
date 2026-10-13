@@ -242,3 +242,21 @@ test('web sources fold under a Sources button beside the reply actions (owner, 2
   assert.match(js, /const plainText = window\.NasrinFormat\.plain\(full\);/);
   assert.match(css, /\.reply-sources\[hidden\] \{ display: none; \}/);
 });
+
+test('"clean this" with a spreadsheet runs the cleaner on the device, never the chat (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<script src="\/cleaner\.js" defer><\/script>/);
+  // Asked to clean, with a .xlsx/.csv attached: cleaned here, no chat request.
+  assert.match(js, /if \(!editing && !shortcut && CLEAN_ASK\.test\(text\) && pending\.some\(isSheetFile\)\) \{[\s\S]{0,120}return cleanFiles\(text, files\);/);
+  assert.match(js, /const isSheetFile = \(f\) => f\.local && \/\\\.\(csv\|tsv\|xlsx\|xlsm\)\$\/i\.test/);
+  const flow = js.slice(js.indexOf('async function cleanFiles('), js.indexOf('function cleanerCard('));
+  assert.doesNotMatch(flow, /api\(|fetch\(|runTurn\(/);
+  // The local File is kept on the item but never put in a request body.
+  assert.match(js, /attachments: files\.map\(\(f\) => \(f\.upload \? \{ name: f\.name, type: f\.type, upload: f\.upload \} : \{ name: f\.name, type: f\.type, data: f\.data \}\)\)/);
+  // The card: the check, a dashboard, the first rows, the full workbook to download.
+  const card = js.slice(js.indexOf('function cleanerCard('), js.indexOf('// A file Nasrin wrote for the person'));
+  assert.match(card, /values accounted for · nothing lost/);
+  assert.match(card, /window\.NasrinCleaner\.workbook\(result, fileName\)/);
+  assert.doesNotMatch(card, /innerHTML/);
+});

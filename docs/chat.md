@@ -40,6 +40,13 @@ picture to come; a file being written gets a slim one under the reply text;
 a video shows its progress (%). Built from elements only (strict CSP), announced
 as a status, and still when motion is reduced.
 
+### Cleaning a messy spreadsheet
+
+Attach a `.xlsx` or `.csv` and ask to clean, tidy or organize it: the file is
+cleaned on the device by fixed rules (no AI, nothing sent) and shown as clean
+tables, a dashboard and a cleaned workbook to download, with a check that no
+value was lost. See `docs/file-cleaner.md`.
+
 ## Stop
 
 Closing the request (the Stop button) aborts the model call. The part

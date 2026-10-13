@@ -1,3 +1,9 @@
+## Proposed PR — Messy file cleaner (`feature/messy-file-cleaner`)
+
+- **Owner request (2026-10-12 backlog #2):** upload a messy Excel/CSV; get clean, organized tables and a dashboard with no data lost.
+- **Change:** `public/cleaner.js` (new, browser only, no packages): reads .xlsx (shared strings, date styles, several sheets) and CSV/TSV (separator found automatically), tidies spacing, removes empty rows/columns and repeated headers, finds the header (title rows kept as notes), writes numbers/dates/percents one way (IDs with leading zeros and long digit strings left alone; ambiguous dates left as written), lists odd values and same-looking rows (never deleted), and proves every original value is accounted for. `public/app.js`: "clean/tidy/organize this" with a spreadsheet attached shows a card with the check, a dashboard, the first rows and **Download cleaned workbook** (data tabs + Summary + Changes). The file is never sent anywhere and nothing is stored. `docs/file-cleaner.md`, `docs/chat.md`.
+- **Validation:** `npm test` (new `test/cleaner.test.js`: messy CSV with value check, dates, numbers, hand-made .xlsx, workbook round trip, formula text, limits; page wiring test); browser at 390 px, light and dark: no chat request made, "All 217 values accounted for", download opened again with openpyxl (real dates and numbers, IDs as text, frozen header, filters).
+
 ## Proposed PR — Web sources folded beside the reply actions (`feature/web-sources-collapsed`)
 
 - **Owner request (2026-10-12 backlog #5):** web search with sources as links, collapsed beside the Retry button.

@@ -818,6 +818,148 @@
     }
   }
 
+  // ---------- the messy-file cleaner (public/cleaner.js) ----------
+
+  const CLEAN_ASK = /\b(clean|cleanup|tidy|organi[sz]e|sort out|fix|messy|dashboard|arrange)\b/i;
+  const isSheetFile = (f) => f.local && /\.(csv|tsv|xlsx|xlsm)$/i.test(f.name || '');
+  const inflateRaw = async (u8) => {
+    if (typeof DecompressionStream !== 'function') throw Object.assign(new Error('This browser cannot open Excel files here. Save the file as CSV, then try again.'), { code: 'clean_refused' });
+    return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  };
+  const fmtNum = (n, pct) => (pct ? (n * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%' : n.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+
+  async function cleanFiles(text, files) {
+    noticesOnSend();
+    show('user', text, { files });
+    input.value = '';
+    autosize();
+    busy = true;
+    refreshSendButton();
+    const sheetFiles = files.filter(isSheetFile);
+    for (const f of sheetFiles) {
+      startChat();
+      const loading = genLoader('Cleaning ' + f.name, { compact: true });
+      loading.el.classList.add('msg', 'assistant');
+      log.appendChild(loading.el);
+      scrollToEnd(loading.el);
+      try {
+        const bytes = new Uint8Array(await f.local.arrayBuffer());
+        const sheets = await window.NasrinCleaner.read({ name: f.name, bytes }, inflateRaw);
+        const result = await window.NasrinCleaner.clean(sheets);
+        loading.remove();
+        const el = mk('div', 'msg assistant is-new');
+        el.appendChild(cleanerCard(result, f.name));
+        log.appendChild(el);
+        scrollToEnd(el);
+      } catch (err) {
+        loading.remove();
+        show('problem', err.code === 'clean_refused' ? err.message : `"${f.name}" could not be cleaned. Check that it is a .xlsx or .csv file.`);
+      }
+    }
+    if (sheetFiles.length < files.length) show('problem', 'Only spreadsheets and CSV files can be cleaned; the other files were not used.');
+    busy = false;
+    refreshSendButton();
+    Nasrin.flash('happy', 1600);
+  }
+
+  // The result: the check, what was done, a small dashboard per sheet, the
+  // first rows, and the cleaned workbook to download.
+  function cleanerCard(result, fileName) {
+    const card = mk('section', 'clean-card');
+    card.setAttribute('aria-label', 'Cleaned ' + fileName);
+    card.appendChild(mk('h3', 'clean-title', 'Cleaned · ' + fileName));
+    const check = mk('p', 'clean-check' + (result.check.ok ? ' is-ok' : ' is-warn'),
+      result.check.ok
+        ? `All ${result.check.values.toLocaleString()} values accounted for · nothing lost`
+        : 'Not verified: some values could not be matched. Compare with the original before using it.');
+    check.setAttribute('role', 'status');
+    card.appendChild(check);
+    for (const s of result.sheets) {
+      const sec = mk('div', 'clean-sheet');
+      if (result.sheets.length > 1) sec.appendChild(mk('h4', 'clean-sheet-name', s.name));
+      const c = s.counts;
+      const facts = mk('ul', 'clean-facts');
+      const fact = (t) => facts.appendChild(mk('li', '', t));
+      fact(`${c.rows.toLocaleString()} rows · ${c.columns} columns`);
+      if (s.headerRow) fact(`Headers found on row ${s.headerRow}`); else fact('No header row found; columns were numbered');
+      const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+      const empties = [c.emptyRows ? plural(c.emptyRows, 'empty row') : '', c.emptyCols ? plural(c.emptyCols, 'empty column') : ''].filter(Boolean);
+      if (empties.length) fact('Removed ' + empties.join(' and '));
+      if (c.repeatedHeaders) fact(`Removed ${c.repeatedHeaders} repeated header row${c.repeatedHeaders === 1 ? '' : 's'}`);
+      if (c.changed) fact(`${c.changed.toLocaleString()} numbers and dates written one way (listed in Changes)`);
+      if (c.review) fact(`${c.review} value${c.review === 1 ? '' : 's'} to look at, kept as written (listed in Summary)`);
+      if (c.duplicates) fact(`${c.duplicates} row${c.duplicates === 1 ? '' : 's'} look the same as another (kept, listed)`);
+      for (const n of s.notes) fact('Note from the file: ' + n);
+      sec.appendChild(facts);
+      // Dashboard
+      const d = s.dashboard;
+      if (d.numbers.length || d.dates.length || d.categories.length) {
+        const tiles = mk('div', 'clean-tiles');
+        for (const n of d.numbers) {
+          const t = mk('div', 'clean-tile');
+          t.append(mk('span', 'clean-tile-label', n.label), mk('strong', 'clean-tile-value', n.percent ? fmtNum(n.avg, true) + ' avg' : fmtNum(n.sum)),
+            mk('span', 'clean-tile-sub', n.percent ? `${fmtNum(n.min, true)} – ${fmtNum(n.max, true)}` : `avg ${fmtNum(n.avg)} · ${fmtNum(n.min)} – ${fmtNum(n.max)}`));
+          tiles.appendChild(t);
+        }
+        for (const x of d.dates) {
+          const t = mk('div', 'clean-tile');
+          t.append(mk('span', 'clean-tile-label', x.label), mk('strong', 'clean-tile-value', x.first === x.last ? x.first : `${x.first} → ${x.last}`), mk('span', 'clean-tile-sub', `${x.count} dates`));
+          tiles.appendChild(t);
+        }
+        sec.appendChild(tiles);
+        for (const cat of d.categories) {
+          const box = mk('div', 'clean-bars');
+          box.appendChild(mk('span', 'clean-tile-label', `${cat.label} · top ${cat.top.length} of ${cat.distinct}`));
+          const max = cat.top[0].count;
+          for (const item of cat.top) {
+            const row = mk('div', 'clean-bar');
+            const fill = mk('span', 'clean-bar-fill');
+            fill.style.setProperty('--w', Math.max(4, Math.round((item.count / max) * 100)) + '%');
+            row.append(mk('span', 'clean-bar-name', item.value), fill, mk('span', 'clean-bar-count', String(item.count)));
+            box.appendChild(row);
+          }
+          sec.appendChild(box);
+        }
+      }
+      // The first rows
+      const wrap = mk('div', 'clean-table-wrap');
+      wrap.tabIndex = 0;
+      wrap.setAttribute('role', 'region');
+      wrap.setAttribute('aria-label', 'First rows of ' + s.name);
+      const table = mk('table', 'clean-table');
+      const head = mk('tr');
+      for (const h of s.header) head.appendChild(mk('th', '', h));
+      table.appendChild(mk('thead')).appendChild(head);
+      const body = mk('tbody');
+      for (const r of s.rows.slice(0, 20)) {
+        const tr = mk('tr');
+        r.cells.forEach((cell) => tr.appendChild(mk('td', cell.t === 'number' || cell.t === 'percent' ? 'is-num' : '', cell.t === 'blank' ? '' : cell.t === 'number' ? fmtNum(cell.v) : cell.t === 'percent' ? fmtNum(cell.v, true) : String(cell.v))));
+        body.appendChild(tr);
+      }
+      table.appendChild(body);
+      wrap.appendChild(table);
+      sec.appendChild(wrap);
+      if (s.rows.length > 20) sec.appendChild(mk('p', 'clean-more', `Showing 20 of ${s.rows.length.toLocaleString()} rows. The download has them all.`));
+      card.appendChild(sec);
+    }
+    const get = mk('button', 'btn small clean-get', 'Download cleaned workbook');
+    get.type = 'button';
+    get.addEventListener('click', () => {
+      const blob = window.NasrinCleaner.workbook(result, fileName);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.replace(/\.[^.]+$/, '') + '-cleaned.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    });
+    card.appendChild(get);
+    card.appendChild(mk('p', 'clean-foot', 'Cleaned on this device by fixed rules; the file was not sent anywhere. Your original file is unchanged.'));
+    return card;
+  }
+
   // A file Nasrin wrote for the person: name, kind, and Download.
   function fileCard(file) {
     const card = document.createElement('div');
@@ -1301,9 +1443,9 @@
         } else if (directUploads) {
           // Checked before uploading, so nothing too big is sent.
           if (pending.reduce((n, f) => n + f.bytes, 0) + file.size > maxTotal()) throw new Error(tooBig());
-          item = { name: file.name, type: file.type, bytes: file.size, upload: await uploadFile(file) };
+          item = { name: file.name, type: file.type, bytes: file.size, upload: await uploadFile(file), local: file };
         } else {
-          item = { name: file.name, type: file.type, bytes: file.size, data: await toBase64(file) };
+          item = { name: file.name, type: file.type, bytes: file.size, data: await toBase64(file), local: file };
         }
         const total = pending.reduce((n, f) => n + f.bytes, 0) + item.bytes;
         const inline = pending.reduce((n, f) => n + (f.data ? f.bytes : 0), 0) + (item.data ? item.bytes : 0);
@@ -1935,6 +2077,14 @@
       pending = [];
       renderTray();
       return sendImage(text, files);
+    }
+    // "Clean this file" with a spreadsheet or CSV: cleaned here, in the
+    // browser, by fixed rules (no AI, nothing sent).
+    if (!editing && !shortcut && CLEAN_ASK.test(text) && pending.some(isSheetFile)) {
+      const files = pending;
+      pending = [];
+      renderTray();
+      return cleanFiles(text, files);
     }
     const files = editing ? [] : pending;
     if (!editing) { pending = []; renderTray(); }

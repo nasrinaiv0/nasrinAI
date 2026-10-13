@@ -505,6 +505,34 @@ body:not(.has-chat) #newChat { display: none; }
 :root[data-motion="reduce"] .gen-scan { display: none; }
 :root[data-motion="reduce"] .gen-label > span:first-child { color: var(--ink-3); background: none; }
 
+/* The messy-file cleaner's result (cleanerCard in app.js). */
+.clean-card { width: min(100%, 40rem); padding: 1rem; border: 1px solid var(--line); border-radius: 1.2rem; background: var(--surface); white-space: normal; }
+.clean-title { margin: 0 0 0.35rem; font-family: var(--round); font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.clean-check { margin: 0 0 0.6rem; font-size: 0.86rem; }
+.clean-check.is-ok { color: var(--ink-2); }
+.clean-check.is-ok::before { content: "✓ "; }
+.clean-check.is-warn { color: #b3261e; }
+.clean-sheet + .clean-sheet { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+.clean-sheet-name { margin: 0 0 0.3rem; font-size: 0.92rem; font-weight: 600; }
+.clean-facts { margin: 0 0 0.7rem; padding-left: 1.1rem; color: var(--ink-2); font-size: 0.85rem; line-height: 1.5; }
+.clean-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.5rem; margin-bottom: 0.6rem; }
+.clean-tile { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.6rem 0.7rem; border-radius: 0.9rem; background: var(--paper); border: 1px solid var(--line); min-width: 0; }
+.clean-tile-label { color: var(--ink-3); font-size: 0.76rem; overflow-wrap: anywhere; }
+.clean-tile-value { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.clean-tile-sub { color: var(--ink-3); font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+.clean-bars { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.7rem; }
+.clean-bar { display: grid; grid-template-columns: minmax(4rem, 9rem) 1fr auto; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+.clean-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clean-bar-fill { height: 0.55rem; width: var(--w, 4%); border-radius: 999px; background: var(--ink); opacity: 0.7; }
+.clean-bar-count { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.clean-table-wrap { overflow: auto; max-height: 22rem; border: 1px solid var(--line); border-radius: 0.8rem; background: var(--paper); }
+.clean-table { border-collapse: collapse; font-size: 0.8rem; min-width: 100%; }
+.clean-table th, .clean-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+.clean-table th { position: sticky; top: 0; background: var(--surface); font-weight: 600; }
+.clean-table td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.clean-more, .clean-foot { margin: 0.45rem 0 0; color: var(--ink-3); font-size: 0.76rem; }
+.clean-get { margin-top: 0.8rem; }
+
 /* Retained-image history: a compact 3×3 mobile-friendly gallery. Eight images
    and the Show more tile fill each page without squeezing the image controls. */
 .image-gallery-grid {
