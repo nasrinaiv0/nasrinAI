@@ -27,7 +27,7 @@ async function appCommand(sandbox, cmd, args = [], cwd = WORKSPACE) {
 
 export function createBrowserTestRunner({
   downloadArchive, defaultBranch, tokenFor, store, logger = null,
-  createAppSandbox = null, withBrowserSandbox = null, browserCommand = null
+  createAppSandbox = null, createBrowserSandbox = null, browserCommand = null
 }) {
   async function defaults() {
     const [{ Sandbox }, browser] = await Promise.all([
@@ -36,7 +36,7 @@ export function createBrowserTestRunner({
     ]);
     return {
       createAppSandbox: options => Sandbox.create(options),
-      withBrowserSandbox: browser.withAgentBrowserSandbox,
+      createBrowserSandbox: options => browser.createAgentBrowserSandbox(options),
       browserCommand: browser.runAgentBrowserCommand
     };
   }
@@ -79,7 +79,7 @@ export function createBrowserTestRunner({
       catch (error) { return { error: 'repository_too_large', message: trim(error.message) }; }
 
       let deps;
-      try { deps = createAppSandbox && withBrowserSandbox && browserCommand ? { createAppSandbox, withBrowserSandbox, browserCommand } : await defaults(); }
+      try { deps = createAppSandbox && createBrowserSandbox && browserCommand ? { createAppSandbox, createBrowserSandbox, browserCommand } : await defaults(); }
       catch { return { error: 'browser_runtime_unavailable', message: 'Browser automation is not installed in this deployment. No repository code was executed.' }; }
 
       const started = Date.now();
@@ -146,7 +146,17 @@ if (!ready) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} process.exit
         if (typeof previewUrl !== 'string' || !/^https:\/\//.test(previewUrl)) throw Error('The sandbox did not provide a secure temporary preview URL.');
 
         stage = 'browser_open';
-        const browser = await deps.withBrowserSandbox(async browserSandbox => {
+        const previewHost = new URL(previewUrl).hostname;
+        const browserSandbox = await deps.createBrowserSandbox({
+          timeout: 120_000,
+          createOptions: { networkPolicy: { allow: [
+            previewHost, 'registry.npmjs.org', 'storage.googleapis.com',
+            'repo.almalinux.org', 'mirrors.almalinux.org',
+            'dl.fedoraproject.org', 'mirrors.fedoraproject.org', 'cdn.redhat.com'
+          ] } }
+        });
+        let browser;
+        try {
           await deps.browserCommand(browserSandbox, ['open', previewUrl], { json: false });
           stage = 'browser_inspect';
           const titleResult = await deps.browserCommand(browserSandbox, ['get', 'title']);
@@ -156,16 +166,19 @@ if (!ready) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} process.exit
           const screenshotPath = screenshotResult?.json?.data?.path;
           if (!screenshotPath) throw Error('The browser did not return a screenshot path.');
           const imageResult = await browserSandbox.runCommand('base64', ['-w', '0', screenshotPath]);
-          const screenshot = String(await imageResult.stdout()).replace(/\s/g, '');
+          const screenshot = String(await imageResult.stdout()).replace(/\\s/g, '');
           const size = Math.floor(screenshot.length * 3 / 4);
           if (!screenshot || size > MAX_SCREENSHOT_BYTES) throw Error('The screenshot exceeds the 120 KB artifact limit.');
           try { await deps.browserCommand(browserSandbox, ['close'], { json: false }); } catch {}
-          return {
+          browser = {
             title: titleResult?.json?.data?.title || '',
             snapshot: trim(snapshotResult?.stdout || snapshotResult?.text || ''),
             screenshot: { mime_type: 'image/png', encoding: 'base64', data: screenshot, bytes: size }
           };
-        });
+        } finally {
+          try { await browserSandbox.stop(); }
+          catch (error) { logger?.warn('github browser sandbox cleanup failed', safeError('browser_cleanup', error)); }
+        }
         logger?.info('github browser render/test completed', {
           durationMs: Date.now() - started, repo, testExitCode: test.exitCode,
           screenshotBytes: browser.screenshot.bytes, tenantId: ctx.tenantId
