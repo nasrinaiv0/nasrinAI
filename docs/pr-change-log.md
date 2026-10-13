@@ -1,3 +1,9 @@
+## Proposed PR — Plugin row with actions and a Settings page (`ui/plugin-details`, on top of #303)
+
+- **Owner request (2026-10-13):** instead of the message and buttons, an expand row with Choose repositories, Disconnect/Reconnect and Settings; Settings like the reference (header card, Permissions, Connected account, Information).
+- **Change:** GitHub is one row (icon, name, connected @name) that expands to Choose repositories, Reconnect, Settings, Disconnect. Settings: header card with what it does; Permissions (Open pull requests automatically); Connected account (@name, Reconnect, Disconnect); Information (Category, Developer, Website, Privacy Policy, Report an issue → Help & support).
+- **Validation:** `npm test`; headless Chromium (light/dark).
+
 ## Proposed PR — More plugins listed (`feature/more-plugins`, on top of #302)
 
 - **Owner request (2026-10-13):** add Outlook, OneDrive, Teams, Excel, PowerPoint, Canva; Gmail, Google Cloud, Google Meet, Google Calendar; Facebook, Instagram, Threads, X, Messenger, WhatsApp.
