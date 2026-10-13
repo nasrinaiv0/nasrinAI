@@ -13,13 +13,13 @@ export function inspectCodingArchive(archive){
  try{tar=gunzipSync(archive,{maxOutputLength:MAX_EXPANDED_ARCHIVE_BYTES});}
  catch{throw Error('Repository snapshot exceeds the expanded 64 MB limit or is not a valid gzip archive.');}
  let offset=0,entries=0,totalFiles=0,hasFile=false;
- const octal=(b)=>{const s=b.toString('ascii').replace(/\\0.*$/s,'').trim();if(!s)return 0;if(!/^[0-7]+$/.test(s))throw Error('Repository archive contains an invalid tar size.');return Number.parseInt(s,8);};
+ const octal=(b)=>{const s=b.toString('ascii').replace(/\0.*$/s,'').trim();if(!s)return 0;if(!/^[0-7]+$/.test(s))throw Error('Repository archive contains an invalid tar size.');return Number.parseInt(s,8);};
  while(offset+512<=tar.length){
   const h=tar.subarray(offset,offset+512);
   if(h.every(v=>v===0))break;
   entries++;if(entries>MAX_ARCHIVE_ENTRIES)throw Error('Repository archive contains too many entries.');
-  const name=h.toString('utf8',0,100).replace(/\\0.*$/s,'');
-  const prefix=h.toString('utf8',345,500).replace(/\\0.*$/s,'');
+  const name=h.toString('utf8',0,100).replace(/\0.*$/s,'');
+  const prefix=h.toString('utf8',345,500).replace(/\0.*$/s,'');
   const full=prefix?prefix+'/'+name:name;
   const size=octal(h.subarray(124,136));
   const type=h[156]===0?'0':String.fromCharCode(h[156]);
