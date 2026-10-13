@@ -33,7 +33,15 @@ export const VOICE_RULE = [
   'If the person wants something long or detailed, give a short spoken summary and put the full content in a file block, telling them it is in the chat.'
 ].join('\n');
 
-export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, professional = '', project = '', blocks = false, voice = false, memory = null, web = false, asks = true } = {}) {
+// A message asking to compare things ("A vs B", "compare…", "difference
+// between…", "which is better…", "pros and cons…"): the reply leads with a table.
+const COMPARE_ASK = /\b(compare|compared|comparing|comparison|versus|vs\.?|differences? between|differ(?:s)? from|which (?:one )?is better|better than|pros and cons|side[- ]by[- ]side|contrast)\b/i;
+export function isComparison(text) {
+  return COMPARE_ASK.test(String(text || ''));
+}
+export const COMPARE_RULE = 'This message asks for a comparison. Present it as a Markdown table: one sentence with the direct answer first, then the table (the items as columns, at most 5, and the points compared as rows; with more items, the items as rows), short cells, facts only (write "—" when something is unknown or not public, never guess). After the table add a short "**Bottom line:**" with the recommendation when they asked which to choose.';
+
+export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, professional = '', project = '', blocks = false, voice = false, memory = null, web = false, asks = true, compare = false } = {}) {
   const today = new Intl.DateTimeFormat('en-PH', {
     timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   }).format(now);
@@ -85,7 +93,8 @@ export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, pro
     // NasrinAI page only: tappable questions, files, and spoken conversations.
     ...(blocks && asks && !knowledgeOnly && !voice ? [ASK_RULE] : []),
     ...(blocks && !knowledgeOnly ? [FILE_RULE] : []),
-    ...(voice ? [VOICE_RULE] : [])
+    ...(voice ? [VOICE_RULE] : []),
+    ...(compare && !voice ? [COMPARE_RULE] : [])
   ].join('\n');
 }
 

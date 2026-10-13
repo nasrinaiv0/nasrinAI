@@ -111,6 +111,15 @@ Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM tha
 
 
 
+
+**Comparisons as tables:** a message asking to compare ("A vs B", "compare…",
+"difference between…", "which is better…", "pros and cons…") adds
+`COMPARE_RULE` to that turn's instructions (`isComparison` in
+`src/ai/prompt.js`; also on Regenerate of such a message). The reply gives
+the direct answer in one sentence, then a table (items as columns, at most 5;
+more items as rows), facts only with "—" for anything unknown, then a short
+**Bottom line** when they asked which to choose. Not in the coding chat or
+spoken replies.
 ## Read-aloud control
 
 Each assistant reply has one icon-only read-aloud control. It toggles between Play and Stop in the same button, with no visible button background in its idle, hover, pressed, or playing states. Accessible labels and a title identify the current action; no separate Stop control is shown.
