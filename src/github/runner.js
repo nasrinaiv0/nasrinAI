@@ -96,7 +96,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
     if(check.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:check.exitCode,stdout:trim(await check.stdout()),stderr:trim(await check.stderr()),message:'The proposed changes do not apply cleanly to this repository snapshot.'});
     stage='patch_apply';
     const applied=await run(sandbox,'git',['apply','changes.patch'],'repo');
-    if(applied.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:applied.exitCode,stdout:trim(await applied.stdout()),stderr:trim(await applied.stderr()),message:'The proposed changes could not be applied to the isolated workspace.'}
+    if(applied.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:applied.exitCode,stdout:trim(await applied.stdout()),stderr:trim(await applied.stderr()),message:'The proposed changes could not be applied to the isolated workspace.'});
    }
    stage='dependency_detect';
    const hasPkg=(await run(sandbox,'test',['-f','package.json'],'repo')).exitCode===0;
