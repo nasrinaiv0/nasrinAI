@@ -305,8 +305,16 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
       } catch { return false; }
     }));
     const saved = report(finals).map((r) => (r.status === 'unchanged' ? r : { ...r, saved: checked[changed.findIndex((c) => c.path === r.path)] }));
-    return { number: pr.number, url: pr.html_url, branch, base: baseRef, files: saved, verified: checked.every(Boolean) };
+    // A comment on the pull request with what was checked (best effort: the
+    // pull request stands even if the comment cannot be added).
+    const commented = await call('POST', `/repos/${name}/issues/${pr.number}/comments`, { token, body: { body: checkComment(saved) } }).then(() => true, () => false);
+    return { number: pr.number, url: pr.html_url, branch, base: baseRef, files: saved, verified: checked.every(Boolean), commented };
   }
+  const checkComment = (files) => [
+    '**NasrinAI check after opening this pull request**', '',
+    ...files.map((f) => `- \`${f.path}\` — ${f.status === 'unchanged' ? 'already matched, left as it is' : f.saved ? `${f.status === 'added' ? 'new file, ' : ''}saved exactly as written` : 'could not be confirmed; please look at it'}`),
+    '', 'NasrinAI cannot run this code. Review the changes and this repository\'s checks before merging.'
+  ].join('\n');
   const report = (finals) => finals.map((f) => ({ path: f.path, status: f.unchanged ? 'unchanged' : f.created ? 'added' : 'changed' }));
 
   return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, createPullRequest, checkFiles, applyEdits, blobSha };

@@ -119,7 +119,7 @@
   // view can finish and persist without writing into the newly opened chat.
   let chatViewEpoch = 0;
   // The coding chat (Code in the menu): a project-scoped chat with coding experts.
-  let github = { available: false, connected: false, login: null, install: null };   // GitHub connection (docs/github.md)
+  let github = { available: false, connected: false, login: null, install: null, autoPr: false };   // GitHub connection (docs/github.md)
   let codingProject = null;   // { id, name } while the coding chat is open
   let busy = false;
   let aiAvailable = true;
@@ -872,7 +872,7 @@
     return card;
   }
 
-  function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true } = {}) {
+  function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false } = {}) {
     startChat();
     const el = document.createElement('div');
     el.className = 'msg ' + role;
@@ -948,11 +948,25 @@
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
-      for (const f of made.files) el.appendChild(fileCard(f));
-      // Shown only in the coding chat with GitHub on (CSS: body.coding-mode.github-on).
-      if (made.files.length) {
-        const sources = window.NasrinFiles.sources(raw);
-        if (sources.length) el.appendChild(prButton(sources, made.text));
+      // Coding chat with GitHub on: more than five files become one card
+      // (pull request), never a pile of files in the chat. With automatic pull
+      // requests on, a fresh reply's files go straight to a pull request.
+      const sources = made.files.length ? window.NasrinFiles.sources(raw) : [];
+      const many = sources.length > MANY_FILES && codingProject && github.available;
+      if (many) el.appendChild(changesCard(sources, made.text, fresh));
+      else {
+        for (const f of made.files) el.appendChild(fileCard(f));
+        // Shown only in the coding chat with GitHub on (CSS: body.coding-mode.github-on).
+        if (sources.length) {
+          const b = prButton(sources, made.text);
+          el.appendChild(b);
+          if (fresh && codingProject && github.autoPr) {
+            const status = mk('p', 'pr-card-status');
+            status.setAttribute('role', 'status');
+            el.appendChild(status);
+            autoOpen(sources, made.text, status, b);
+          }
+        }
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       if (asks && made.asks.length) el.appendChild(askCard(made.asks));
@@ -1924,7 +1938,7 @@
       if (!isCurrentView()) return { data, shown: null, background: true };
       busy = false;
       if (!data.message) return;
-      const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text() });
+      const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true });
       shown.dataset.id = data.message.id;
       const used = Array.isArray(data.professionals) ? data.professionals.map(proById).filter(Boolean) : [];
       if (used.length) {
@@ -6058,17 +6072,20 @@
   async function loadGithub() {
     try {
       const st = await api('/v1/github/status');
-      github = { available: st.available === true, connected: st.connected === true, login: st.login || null, install: st.install_url || null };
-    } catch { github = { available: false, connected: false, login: null, install: null }; }
+      github = { available: st.available === true, connected: st.connected === true, login: st.login || null, install: st.install_url || null, autoPr: false };
+      if (github.connected) github.autoPr = (await api('/v1/settings').catch(() => null))?.prefs?.autoPr === true;
+    } catch { github = { available: false, connected: false, login: null, install: null, autoPr: false }; }
     renderGithub();
   }
   function renderGithub() {
     document.body.classList.toggle('github-on', github.available && Boolean(account));
     $('codeGithubBtn').hidden = !github.available;
+    $('autoPrRow').hidden = !github.connected;
+    $('autoPrOn').checked = github.autoPr;
     $('codeGithubText').textContent = !github.available
       ? 'GitHub is not switched on for this site yet.'
       : github.connected
-      ? 'Connected as @' + github.login + '. Nasrin reads your repositories and opens pull requests only after you tap Confirm. Choose repositories picks where it may open them.'
+      ? 'Connected as @' + github.login + '. Nasrin reads your repositories and opens pull requests on a new branch ' + (github.autoPr ? 'automatically after it writes files' : 'only after you tap Confirm') + '. Choose repositories picks where it may open them.'
       : 'Connect GitHub so Nasrin can read your repositories and open pull requests in the coding chat. Nothing changes on GitHub until you tap Confirm.';
     $('codeGithubBtn').textContent = github.connected ? 'Disconnect' : 'Connect GitHub';
     const inst = $('codeGithubInstall');
@@ -6122,8 +6139,112 @@
   scrim.addEventListener('click', closeGithub);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !githubSheet.hidden) closeGithub(); });
 
+  $('autoPrOn').addEventListener('change', async () => {
+    const box = $('autoPrOn');
+    box.disabled = true;
+    try {
+      const r = await api('/v1/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoPr: box.checked }) });
+      github.autoPr = r?.prefs?.autoPr === true;
+      if (myPrefs) myPrefs = r.prefs;
+      renderGithub();
+      $('githubStatus').textContent = github.autoPr ? 'Automatic pull requests are on.' : 'Automatic pull requests are off.';
+    } catch (err) {
+      box.checked = github.autoPr;
+      $('githubStatus').textContent = err.message || 'This could not be saved.';
+    } finally { box.disabled = false; }
+  });
+
+  // A pull request's title and description, written from Nasrin's reply:
+  // summary, files, what was done, the steps still needed, what to check.
+  function prTitleOf(text) {
+    return String(text || '').replace(/\[\[checks[\s\S]*?\[\[\/checks\]\]/gi, '').split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').trim()).find(Boolean)?.slice(0, 120) || 'Changes from Nasrin';
+  }
+  function prDescription(text, sources, auto) {
+    const rows = [];
+    const summary = String(text || '')
+      .replace(/\[\[checks[^\]]*\]\]([\s\S]*?)\[\[\/checks\]\]/gi, (_, body) => {
+        for (const line of body.split('\n')) {
+          const p = line.split('|').map((s) => s.trim());
+          if (p.length >= 2 && p[1]) rows.push({ status: p[0].toLowerCase(), item: p[1].slice(0, 200) });
+        }
+        return '';
+      })
+      .replace(/```[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 3000);
+    const list = (kinds) => rows.filter((r) => kinds.includes(r.status)).map((r) => '- ' + r.item);
+    const out = ['## Summary', summary || 'Changes prepared by NasrinAI.', '', '## Files',
+      ...sources.map((f) => '- `' + f.path + '` — ' + (f.edits ? f.edits.length + ' change' + (f.edits.length === 1 ? '' : 's') + ' to the existing file' : 'whole file')), ''];
+    const done = list(['ok', 'secure', 'info']);
+    if (done.length) out.push('## What was done', ...done, '');
+    const steps = list(['todo']);
+    out.push('## Steps needed', ...(steps.length ? steps : ['- Review the changes and this repository\'s checks, then merge.']), '');
+    const watch = list(['warn', 'fail']);
+    if (watch.length) out.push('## Check before merging', ...watch, '');
+    out.push('---', auto ? '_Opened automatically by NasrinAI (automatic pull requests are on). Nothing is merged until you merge it._' : '_Opened by NasrinAI after you confirmed. Nothing is merged until you merge it._');
+    return out.join('\n').slice(0, 10000);
+  }
+  // What GitHub reported back, in one line (and a link).
+  function prResult(el, pr) {
+    const files = Array.isArray(pr.files) ? pr.files : [];
+    const savedOk = files.filter((f) => f.saved === true).length;
+    const written = files.filter((f) => f.status !== 'unchanged').length;
+    const same = files.filter((f) => f.status === 'unchanged').length;
+    el.textContent = (pr.existing ? 'This pull request was already open: #' + pr.number + ' on ' : 'Pull request #' + pr.number + ' is open on branch ')
+      + pr.branch + '. '
+      + (pr.existing ? '' : pr.verified ? 'Checked on GitHub: ' + savedOk + ' of ' + written + ' files saved exactly as written. ' : 'Check the files on GitHub: ' + savedOk + ' of ' + written + ' could be confirmed. ')
+      + (same ? same + ' already matched and were left as they are. ' : '');
+    if (typeof pr.url === 'string' && pr.url.startsWith('https://github.com/')) {
+      const a = mk('a', '', 'View on GitHub');
+      a.href = pr.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      el.appendChild(a);
+    }
+  }
+  // More than five files: the chat shows one card instead of the files.
+  const MANY_FILES = 5;
+  function changesCard(sources, text, fresh) {
+    const card = mk('div', 'pr-card');
+    card.appendChild(mk('p', 'pr-card-title', 'Nasrin prepared changes to ' + sources.length + ' files.'));
+    const ul = mk('ul', 'pr-card-files');
+    for (const f of sources) ul.appendChild(mk('li', '', f.path + (f.edits ? ' · changes' : '')));
+    card.appendChild(ul);
+    const status = mk('p', 'pr-card-status');
+    status.setAttribute('role', 'status');
+    card.appendChild(status);
+    const b = prButton(sources, text);
+    card.appendChild(b);
+    if (fresh) autoOpen(sources, text, status, b);
+    else status.textContent = 'Open a pull request to see and keep these changes.';
+    return card;
+  }
+  // Automatic pull requests (when on): opened right after the reply, into the
+  // repository this project used last. Without one yet, the person picks it once.
+  async function autoOpen(sources, text, status, button) {
+    if (!(codingProject && github.connected && github.autoPr)) {
+      if (status) status.textContent = 'Open a pull request to see and keep these changes.';
+      return;
+    }
+    const repo = saved.get(KEYS.coding + ':repo:' + codingProject.id);
+    if (!repo) { if (status) status.textContent = 'Choose the repository once with Open pull request; after that they open automatically.'; return; }
+    const el = status || mk('p', 'pr-card-status');
+    el.textContent = 'Opening a pull request in ' + repo + '…';
+    if (button) button.disabled = true;
+    try {
+      const pr = await api('/v1/github/pull-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, auto: true, repo, title: prTitleOf(text), body: prDescription(text, sources, true), files: sources })
+      });
+      prResult(el, pr);
+      if (button) button.hidden = true;
+    } catch (err) {
+      el.textContent = (err.message || 'The pull request could not be opened.') + ' ';
+      if (button) button.disabled = false;
+    }
+    return el;
+  }
+
   const prSheet = $('prSheet');
   let prFiles = [];
+  let prText = '';
   function prButton(sources, text) {
     const b = mk('button', 'btn small outline pr-open', 'Open pull request');
     b.type = 'button';
@@ -6138,7 +6259,8 @@
     const key = codingProject ? KEYS.coding + ':repo:' + codingProject.id : null;
     $('prRepo').value = (key && saved.get(key)) || '';
     $('prBase').value = '';
-    $('prTitle').value = String(text || '').split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').trim()).find(Boolean)?.slice(0, 120) || 'Changes from Nasrin';
+    prText = text;
+    $('prTitle').value = prTitleOf(text);
     $('prStatus').textContent = '';
     $('prStatus').className = 'signin-status';
     $('prConfirm').disabled = false;
@@ -6183,24 +6305,11 @@
       const pr = await api('/v1/github/pull-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirm: true, repo, base: $('prBase').value.trim(), title: $('prTitle').value.trim(), files: prFiles })
+        body: JSON.stringify({ confirm: true, repo, base: $('prBase').value.trim(), title: $('prTitle').value.trim(), body: prDescription(prText, prFiles, false), files: prFiles })
       });
       if (codingProject) saved.set(KEYS.coding + ':repo:' + codingProject.id, repo);
       status.className = 'signin-status pr-done';
-      // Only what GitHub reported back: which files were saved exactly as written.
-      const files = Array.isArray(pr.files) ? pr.files : [];
-      const savedOk = files.filter((f) => f.saved === true).length;
-      const written = files.filter((f) => f.status !== 'unchanged').length;
-      const same = files.filter((f) => f.status === 'unchanged').length;
-      status.textContent = (pr.existing ? 'This pull request was already open: #' + pr.number + ' on ' : 'Pull request #' + pr.number + ' is open on branch ')
-        + pr.branch + '. '
-        + (pr.existing ? '' : pr.verified ? 'Checked on GitHub: ' + savedOk + ' of ' + written + ' files saved exactly as written. ' : 'Check the files on GitHub: ' + savedOk + ' of ' + written + ' could be confirmed. ')
-        + (same ? same + ' already matched and were left as they are. ' : '');
-      if (typeof pr.url === 'string' && pr.url.startsWith('https://github.com/')) {
-        const a = mk('a', '', 'View on GitHub');
-        a.href = pr.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-        status.appendChild(a);
-      }
+      prResult(status, pr);
     } catch (err) {
       status.textContent = err.message || 'The pull request could not be opened.';
       btn.disabled = false;
