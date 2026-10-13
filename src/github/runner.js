@@ -1,7 +1,7 @@
 import { gunzipSync } from 'node:zlib';
 
 const MAX_ARCHIVE_BYTES=15*1024*1024, MAX_EXPANDED_ARCHIVE_BYTES=64*1024*1024, MAX_ARCHIVE_ENTRIES=10_000, MAX_ARCHIVE_FILE_BYTES=16*1024*1024, MAX_OUTPUT_CHARS=2800, MAX_PATCH_BYTES=100_000;
-const SANDBOX_ROOT='/vercel/sandbox', WORKSPACE=`${SANDBOX_ROOT}/repo`, ARCHIVE_PATH=`${SANDBOX_ROOT}/source.tar`;
+const SANDBOX_ROOT='/vercel/sandbox', WORKSPACE=`${SANDBOX_ROOT}/repo`, ARCHIVE_PATH=`${SANDBOX_ROOT}/source.tar.gz`;
 const COMMANDS=new Set(['npm','node','python','python3','pytest','git','ls','cat','grep','rg','find','sed','awk','tsc','eslint','prettier']);
 const BLOCKED_NPM=new Set(['install','ci','add','remove','uninstall','exec','init','publish','link','login','config']);
 // Validate GitHub's compressed tarball before passing it to the sandbox extractor.
@@ -120,7 +120,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
    stage='workspace_create';
    let r=await run(sandbox,'mkdir',['-p',WORKSPACE]);if(r.exitCode!==0)throw Error('workspace_create_failed');
    stage='snapshot_extract';
-   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','--no-overwrite-dir','-xf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
+   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','--no-overwrite-dir','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
    if(r.exitCode!==0)return finish({error:'snapshot_extract_failed',stage,exit_code:r.exitCode,stdout:trim(await r.stdout()),stderr:trim(await r.stderr()),message:'The repository snapshot could not be unpacked.'});
    if(patch){
     stage='patch_write';
