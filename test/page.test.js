@@ -114,8 +114,9 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   }
   const busy = await readFile(new URL('../public/space-logos/code-bot-light-busy.svg', import.meta.url), 'utf8');
   assert.match(busy, /animateTransform attributeName="transform" type="translate"/);
-  // It turns, grows from small, bursts and comes back (owner, 2026-10-13).
-  assert.match(busy, /type="rotate" values="0;360"/);
+  // Grows from small, bursts and comes back; spins horizontally only while burst (owner, 2026-10-13).
+  assert.doesNotMatch(busy, /type="rotate"/);
+  assert.match(busy, /type="scale" values="1 1;1 1;-1 1;1 1;1 1" keyTimes="0;\.35;\.6;\.85;1"/);
   assert.match(busy, /type="scale" values="\.55;\.9;\.9;\.9;\.9;\.55"/);
   for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg', 'code-bot-light-busy.svg', 'code-bot-dark-busy.svg']) {
     assert.match(css, new RegExp(f.replace('.', '\\.')), f);

@@ -2,8 +2,8 @@
 # colours as attributes, motion as SMIL <animate> (no <style>, no style=""),
 # no background tile (the robot alone), plus still versions for reduced
 # motion and a busy version: while Nasrin thinks, remembers or writes code,
-# the ball turns, starts small, grows, bursts into its pixels (reaching out,
-# like connecting to its sources) and comes back together.
+# the ball starts small, grows, bursts into its pixels (reaching out, like
+# connecting to its sources) while spinning horizontally, and comes back together.
 # Usage: pixelbot-logo.py SRC_DIR OUT_DIR
 import math, re, sys
 src, out = sys.argv[1], sys.argv[2]
@@ -54,11 +54,12 @@ def convert(path, mode, speed=1.0):
             anim += f'<animate attributeName="opacity" values="1;1;.1;.85;.15;1;1" keyTimes="0;.88;.9;.93;.95;.97;1" dur="{f(v.get("u","5"))}s" begin="{f(v.get("v","0"))}s" repeatCount="indefinite"/>'
         body.append(f'<rect {geo} fill="{col}">{anim}</rect>')
     if mode == 'busy':
-        # The whole ball turns all the time; it grows from small, holds while
-        # its pixels burst out and return, then shrinks back (about the centre).
+        # It grows from small, holds while its pixels burst out and return, then
+        # shrinks back; only while burst it spins horizontally once (a flip of
+        # its width, 1 -> -1 -> 1, about the centre).
         return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
                 '<g transform="translate(512 512)"><g>'
-                f'<animateTransform attributeName="transform" type="rotate" values="0;360" dur="{BUSY}s" repeatCount="indefinite"/><g>'
+                f'<animateTransform attributeName="transform" type="scale" values="1 1;1 1;-1 1;1 1;1 1" keyTimes="0;.35;.6;.85;1" calcMode="spline" keySplines="0 0 1 1;.45 0 .55 1;.45 0 .55 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/><g>'
                 f'<animateTransform attributeName="transform" type="scale" values=".55;.9;.9;.9;.9;.55" keyTimes="0;.35;.55;.65;.85;1" calcMode="spline" keySplines=".3 0 .2 1;0 0 1 1;0 0 1 1;0 0 1 1;.6 0 .4 1" dur="{BUSY}s" repeatCount="indefinite"/>'
                 '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></g></svg>\n')
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code"><g>'

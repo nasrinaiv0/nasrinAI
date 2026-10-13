@@ -1,7 +1,7 @@
 ## Proposed PR — Robot turns, grows and bursts while busy (`ui/robot-burst`)
 
 - **Owner request (2026-10-13):** the busy robot rotates, starts smaller, grows bigger and explodes, like connecting to its sources.
-- **Change:** `scripts/pixelbot-logo.py` busy version: the ball turns the whole time, grows from small, its pixels burst further out and return, then it shrinks back (2.4 s cycle, SMIL, CSP-safe, ~11.5 KB gzipped). Still version unchanged for reduced motion.
+- **Change:** `scripts/pixelbot-logo.py` busy version: the ball grows from small, its pixels burst further out and return while it spins horizontally once (only during the burst; owner follow-up), then it shrinks back (2.4 s cycle, SMIL, CSP-safe, ~11.5 KB gzipped). Still version unchanged for reduced motion.
 - **Validation:** `npm test`; rendered frames (small → big → burst → back).
 
 ## Proposed PR — Connected plugins first (`ui/plugins-connected-first`, on top of #304)
