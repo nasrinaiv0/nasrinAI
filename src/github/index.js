@@ -384,21 +384,14 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       description: 'Render a connected GitHub repository in an isolated disposable Vercel Sandbox, run a test command, launch a local preview server, inspect its accessibility snapshot, and capture a bounded screenshot. Use after inspecting code or applying a proposed change. Requires start_command and test_command to be one allowlisted command each, with no shell operators; the preview runs on an ephemeral sandbox port. It never writes to GitHub or deploys. Screenshot evidence is returned as bounded base64 image data.',
       risk: 'read', who: ['user'], timeoutMs: 240_000, longRunning: true, maxArgs: 240_000,
       parameters: { properties: {
-        repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}
-
-  return { available, routes, tools, tokenFor };
-}
- },
-        ref: { type: 'string', maxLength: 200, pattern: '^(?!.*\\.\\.)(?!/)[A-Za-z0-9._/-]{1,200}
-
-  return { available, routes, tools, tokenFor };
-}
- },
+        repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' },
+        ref: { type: 'string', maxLength: 200, pattern: '^[A-Za-z0-9._/-]+$' },
         test_command: { type: 'string', maxLength: 300 },
         start_command: { type: 'string', maxLength: 300 },
         port: { type: 'integer', minimum: 1024, maximum: 65535 }
       }, required: ['repo', 'test_command', 'start_command'] },
       run: (args, ctx) => browserTestRunner.run(args, ctx)
+    },
     },
   ];
 
