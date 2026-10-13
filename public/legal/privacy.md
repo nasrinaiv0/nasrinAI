@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-13d** · Effective: 22 September 2026 · Last updated: 13 October 2026
+**Version 2026-10-13e** · Effective: 22 September 2026 · Last updated: 13 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -73,6 +73,7 @@ Businesses can connect NasrinAI to their website, their Facebook Page, their doc
 - **The business's documents** (menu, FAQ, policies) may be used to answer you. They are searched by our software; nothing about you is added to them.
 - **The business's systems:** to answer (for example "where is my order?") Nasrin may look things up in the business's system with the details you gave. Anything that changes something there waits for you to tap **Confirm**, and is not possible in Messenger. The business receives what is needed for that request.
 - **Events the business sends us** (for example "order ready") are kept 30 days so Nasrin can answer about them.
+- **NCC (Nasrin Client Connect, ncc.nasrinai.com):** a business that the NasrinAI team has set up for NCC can keep its customers' details in NasrinAI: names, email addresses, phone numbers, companies, tags, notes, a timeline of what happened, deals (a name, a stage and a value) and tasks. The business adds them itself, by hand or from its own file, and its own automations can change them (for example add a tag or a task). For these records the business is the controller and NasrinAI processes them on its behalf, under a separate enterprise agreement [REQUIRES INPUT: NCC enterprise and data processing agreement]. They are used only to show them to that business and to run that business's own automations; they are not given to the AI, not sent anywhere, and not used to train any model. If a business keeps your details in NCC, ask that business first; you can also contact us.
 - For what a business does with your information in its own systems, its own privacy notice applies. NasrinAI is generally the controller for information it processes for its own service. When NasrinAI processes personal information solely on a business customer's instructions, NasrinAI may act as a processor and the business may act as the controller, subject to the applicable agreement and law. Business customers may be required to enter into a separate data processing agreement.
 
 ### Tools Nasrin uses
@@ -136,6 +137,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Memory notes: until you delete them or your account
 - Library items: until you delete them or your account, or the keep-time you choose, subject to applicable legal retention requirements.
 - Projects (instructions, tasks): until you delete them or your account
+- NCC contacts, deals, tasks, timelines and automations kept by a business: until the business deletes them or deletes its NasrinAI account
 - GitHub connections (user names, main account, encrypted tokens): until you remove that account, disconnect GitHub or delete your account; GitHub's own tokens also expire on their own if unused
 - Proposed actions waiting for Confirm: **10 minutes**
 - Events sent by businesses' systems: **30 days**

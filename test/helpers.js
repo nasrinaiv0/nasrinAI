@@ -29,6 +29,7 @@ import { createFacebook } from '../src/channels/facebook.js';
 import { createKnowledge } from '../src/knowledge/index.js';
 import { createStorage } from '../src/storage.js';
 import { createProjects } from '../src/projects.js';
+import { createNcc } from '../src/ncc.js';
 import { createLibrary } from '../src/library.js';
 import { createMemory, memoryTools } from '../src/knowledge/memory.js';
 import { createFounderKnowledge } from '../src/knowledge/founder.js';
@@ -93,6 +94,7 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   const memory = createMemory({ store, logger });
   const library = createLibrary({ store, limiter, config, logger });
   const projects = createProjects({ store, conversations, limiter, config, logger });
+  const ncc = createNcc({ store, limiter, config, logger });
   const storage = createStorage({ store, config, conversations, library, logger });
   const coding = createCoding({ store, config });
   const uploads = config.uploads.enabled ? createUploads({ config, limiter, logger, ...(storageFetch ? { fetchImpl: storageFetch } : {}) }) : null;
@@ -108,7 +110,7 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   const voice = createVoice({ engine: speechEngine, conversations, limiter, usageLog, budget: reasoningBudget, config, logger });
   const app = createApp({
     config, logger, gateway,
-    routes: buildRoutes({ config, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime, auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: connectors.routes, knowledge, memory, settings, notices, library, projects, storage, uploads, research, cite: createCite({ limiter, ...(citeReadLink ? { readLinkImpl: citeReadLink } : {}), ...(citeFetch ? { fetchImpl: citeFetch } : {}) }), siteIcons: createSiteIcons({ ...(iconReadLink ? { readLinkImpl: iconReadLink } : {}), ...(iconReadBytes ? { readBytesImpl: iconReadBytes } : {}) }), budget: reasoningBudget, logger }).concat(extraRoutes),
+    routes: buildRoutes({ config, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime, auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: connectors.routes, knowledge, memory, settings, notices, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter, ...(citeReadLink ? { readLinkImpl: citeReadLink } : {}), ...(citeFetch ? { fetchImpl: citeFetch } : {}) }), siteIcons: createSiteIcons({ ...(iconReadLink ? { readLinkImpl: iconReadLink } : {}), ...(iconReadBytes ? { readBytesImpl: iconReadBytes } : {}) }), budget: reasoningBudget, logger }).concat(extraRoutes),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });
   return { app, store, logger, config, limiter, usageLog, conversations, provider, models, plans, storage, deletedUsers };

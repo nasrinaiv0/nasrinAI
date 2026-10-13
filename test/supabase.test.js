@@ -46,14 +46,14 @@ test('user check: valid, invalid, outage, and caching of valid answers', async (
     n += 1;
     if (init.headers.apikey !== 'anon') return { status: 401, body: {} };
     const token = init.headers.Authorization.slice(7);
-    if (token === 'good.good.good') return { body: { id: 'u1' } };
+    if (token === 'good.good.good') return { body: { id: 'u1', email: ' Ana@Example.COM ' } };
     if (token === 'down.down.down') return { status: 502, body: {} };
     return { status: 401, body: {} };
   });
   const verify = createSupabaseUserVerifier({ url: 'https://p.supabase.co', publishableKey: 'anon', fetchImpl: f });
 
-  assert.deepEqual(await verify('good.good.good'), { id: 'u1', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null, autoPr: false } });
-  assert.deepEqual(await verify('good.good.good'), { id: 'u1', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null, autoPr: false } });
+  assert.deepEqual(await verify('good.good.good'), { id: 'u1', email: 'ana@example.com', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null, autoPr: false } });
+  assert.deepEqual(await verify('good.good.good'), { id: 'u1', email: 'ana@example.com', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null, autoPr: false } });
   assert.equal(n, 1, 'second check served from the short cache');
   verify.forget('good.good.good');
   await verify('good.good.good');

@@ -14,6 +14,19 @@
       "maxDuration": 120
     }
   },
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ncc.nasrinai.com"
+        }
+      ],
+      "destination": "/ncc/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/chat/:code",

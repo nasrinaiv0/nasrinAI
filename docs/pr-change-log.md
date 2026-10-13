@@ -1,3 +1,10 @@
+## Proposed PR — NCC: its own CRM app with automations (`feature/ncc-contacts-pipeline`)
+
+- **Owner decisions (2026-10-13):** NCC on its own subdomain (ncc.nasrinai.com), desktop and iPhone friendly, a full CRM with automation; team-enabled access; kept until the business deletes it; social channels later (Facebook, Instagram, Messenger, Threads, WhatsApp).
+- **Change:** migration `040_ncc.sql` (contacts, deals, tasks, timelines, automations) + DB test; `src/ncc.js`, `src/ncc-automations.js`, `/v1/ncc/*`; the caller's verified sign-in email for the access check; Google sign-in returns to the NCC address; `/ncc/` app (`public/ncc/`) with redirect from the subdomain root (`vercel.json`, `src/http/app.js`); Space tile links to it; account export and deletion include NCC; Privacy Notice 2026-10-13e (no re-acceptance); docs.
+- **Effect on the live site:** none until migration 040 is run, the domain is added and `NCC_ENABLED` / `NCC_ACCOUNTS` are set.
+- **Validation:** `npm test`; DB tests on Postgres 16; browser at 1440 px and 390 px (touch): sign in, import, contact, deal drag-and-drop, tasks, automation from a template running on a new contact.
+
 ## Proposed PR — NCC logo: B · Flow (`ui/ncc-logo-flow`)
 
 - **Owner choice (2026-10-13):** NCC logo option B, Flow (three triangles).

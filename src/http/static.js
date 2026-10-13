@@ -25,6 +25,7 @@ export function createStatic(rootDir) {
     try { rel = decodeURIComponent(pathname); } catch { return false; }
     if (rel.includes('\0') || rel.includes('\\')) return false;
     if (rel === '/' || rel === '') rel = '/index.html';
+    else if (rel.endsWith('/')) rel += 'index.html';   // a folder's own page, like /ncc/
 
     const file = path.resolve(root, '.' + rel);
     if (!file.startsWith(root + path.sep)) return false;

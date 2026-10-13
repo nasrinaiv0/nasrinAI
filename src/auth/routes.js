@@ -329,7 +329,14 @@ export function authRoutes({ config, auth, limiter, logger }) {
   }
 
   if (methods.google) {
-    const callback = config.publicUrl + '/v1/auth/google/callback';
+    // NCC has its own address (ncc.nasrinai.com): sign-in started there comes
+    // back there. Only these two configured addresses are ever used.
+    const nccOrigin = config.ncc?.url || '';
+    const fromNcc = (req) => {
+      const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+      try { return Boolean(nccOrigin) && new URL(nccOrigin).host === host; } catch { return false; }
+    };
+    const callbackFor = (req) => (fromNcc(req) ? nccOrigin : config.publicUrl) + '/v1/auth/google/callback';
     const back = (res, to) => { res.writeHead(302, { Location: to }); res.end(); };
     routes.push(
       {
@@ -357,7 +364,7 @@ export function authRoutes({ config, auth, limiter, logger }) {
           }
           const { verifier, challenge } = pkcePair();
           res.appendHeader('Set-Cookie', cookie(PKCE, verifier, { path: '/v1/auth/google', maxAge: 600, sameSite: 'None' }));
-          return { body: { url: auth.googleUrl({ redirectTo: callback, challenge }) } };
+          return { body: { url: auth.googleUrl({ redirectTo: callbackFor(req), challenge }) } };
         }
       },
       {
@@ -365,6 +372,7 @@ export function authRoutes({ config, auth, limiter, logger }) {
         path: '/v1/auth/google/callback',
         public: true,
         handler: async ({ req, res }) => {
+          const home = fromNcc(req) ? '/ncc/' : '/';
           const code = new URL(req.url, 'http://local').searchParams.get('code') || '';
           const verifier = cookies(req)[PKCE];
           res.appendHeader('Set-Cookie', cookie(PKCE, '', { path: '/v1/auth/google', maxAge: 0, sameSite: 'None' }));
@@ -374,23 +382,23 @@ export function authRoutes({ config, auth, limiter, logger }) {
           // already holds a sign-in cookie, report success; the page checks it.
           if (!code && cookies(req)[RT]) {
             logger.info('google sign-in callback repeated; keeping the existing sign-in', { reason: 'missing_authorization_code' });
-            return back(res, '/?signin=ok');
+            return back(res, home + '?signin=ok');
           }
           if (!code || !verifier || code.length > 512) {
             // Diagnose callback failures without logging authorization codes or cookies.
             const reason = !code ? 'missing_authorization_code' : !verifier ? 'missing_pkce_verifier_cookie' : 'authorization_code_invalid';
             logger.warn('google sign-in callback rejected', { reason });
-            return back(res, '/?signin=failed');
+            return back(res, home + '?signin=failed');
           }
           try {
             const s = await auth.exchangeCode(code, verifier);
             finishPendingAdd(req, res, s);
             setRefresh(res, s.refreshToken);
             logger.info('signed in', { method: 'google' });
-            return back(res, '/?signin=ok');
+            return back(res, home + '?signin=ok');
           } catch (err) {
             logger.warn('google sign-in failed', { error: err.message });
-            return back(res, '/?signin=failed');
+            return back(res, home + '?signin=failed');
           }
         }
       }
