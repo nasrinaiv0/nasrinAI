@@ -1,6 +1,6 @@
 # Secure Coding and File Analysis: Scope and Security Boundaries
 
-**Status: bounded file analysis and browser-side multi-sheet `.xlsx` export are in scope; isolated code execution and native Excel pivot/chart objects remain excluded unless separately implemented and verified.**
+**Status (2026-10-13): bounded file analysis, browser-side multi-sheet `.xlsx` export, and a separately isolated GitHub coding runner are implemented. Live Vercel Sandbox verification remains an explicit release check; native Excel pivot/chart objects remain unsupported.**
 
 ## Goal and scope
 
@@ -9,7 +9,7 @@ Improve NasrinAI's existing coding assistance and file analysis without requirin
 ## Explicit exclusions
 
 - **Bounded workbook export:** the browser-side file builder can generate real `.xlsx` workbooks with up to 8 named worksheets, cell values, allow-listed formulas, frozen header rows, and autofilters. This does not edit the uploaded source in place and does not create native Excel pivot-table or chart objects.
-- **Executing code or shell commands:** excluded while no separately managed isolated runner exists. NasrinAI may analyze and suggest code but must not claim to have run tests or commands.
+- **Executing code or shell commands:** supported only for signed-in users with GitHub connected, through `src/github/runner.js` in a disposable Vercel Sandbox. It is not available in the API process or the Library-file analysis path. Report command execution only when the runner returns a real exit code and output.
 - **Linux sandbox provisioning:** not a prerequisite for the analysis-only scope and not part of this implementation.
 - **OCR, native Excel pivot/chart objects, and file publishing:** not established by the multi-sheet export; do not advertise them as available.
 
@@ -25,7 +25,7 @@ Improve NasrinAI's existing coding assistance and file analysis without requirin
 
 **Never execute model output, uploaded files, shell commands, or package lifecycle scripts inside the NasrinAI API process.** Do not use `child_process`, `eval`, dynamic imports, or an in-process interpreter as a shortcut.
 
-Real execution is out of scope unless a separately deployed, disposable sandbox service is provisioned and independently passes isolation tests. Until then, Coding must state that it cannot run code or commands. Do not claim tests passed unless a real test runner returned a successful result.
+The GitHub coding chat has a separately deployed disposable Vercel Sandbox runner (`src/github/runner.js`). The API process must never execute repository code. The runner bounds compressed archives to 15 MB, gzip-expanded tar data to 64 MB, individual files to 16 MB, entries to 10,000, command time to 70 seconds, patch size to 100 KB, and displayed output to 2,800 characters. It rejects archive paths containing traversal, symlinks/hardlinks, and special file types, and disables network access before the requested command. Live Vercel Sandbox execution still requires an explicitly enabled integration test with valid Vercel credentials; a skipped integration test is not evidence of live isolation. Do not claim tests passed unless a real test runner returned a successful result.
 
 If a separately scoped future project ever proposes a runner, it must at minimum provide:
 - One disposable, non-root environment per job; no host filesystem, Docker socket, cloud metadata, internal network, or other users' workspaces.
@@ -51,7 +51,7 @@ If a separately scoped future project ever proposes a runner, it must at minimum
 - **PDFs and images:** distinguish what the configured model can inspect from embedded-text extraction. Scanned-document OCR is not available unless separately implemented and verified.
 - **Existing browser downloads:** do not expand or advertise new artifact-generation formats as part of this plan. Never label a text file with an extension that falsely claims a validated Office/PDF format.
 - **Editing existing files:** preserve the original until a proposed replacement is reviewed. Where the existing UI supports downloads, do not silently overwrite user data.
-- **ZIP/program files:** inspect as data only. Never execute uploaded binaries, macros, scripts, or package hooks automatically.
+- **ZIP/program files:** uploaded attachments are inspected as data only. The separate connected-GitHub runner may execute an explicitly requested allowlisted command in its disposable sandbox; it never executes uploaded attachments or package lifecycle scripts.
 - **Web apps:** local preview and production publication are different capabilities. Do not say an app is published unless a real deployment provider confirms it.
 
 ## Data model and RLS decision
@@ -66,7 +66,7 @@ Any future proposal for persistent jobs or artifacts must separately define the 
 - Audit and test file type spoofing, malformed archives, size limits, unsafe names, secret redaction, and owner isolation before expanding supported formats.
 - Keep file parsing bounded and non-executing; make unsupported formats and truncation explicit.
 - Ensure the UI and assistant never represent planned execution as completed execution.
-- No new runner, OCR, Artifact Generation, publishing, schema, or RLS behavior is enabled by this scope.
+- No new OCR, Artifact Generation, publishing, schema, or RLS behavior is enabled by this scope. The separate GitHub runner is a distinct capability and must retain its own security boundary.
 
 ## Release gate
 
