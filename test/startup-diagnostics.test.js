@@ -22,7 +22,7 @@ test('only setting names leave the server, never values or other text', () => {
     ['set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together', ['TURNSTILE_SITE_KEY', 'TURNSTILE_SECRET_KEY']],
     ['AI_PROVIDER=openai needs OPENAI_API_KEY', ['AI_PROVIDER', 'OPENAI_API_KEY']],
     ['ROUTING: smart or fixed', ['ROUTING']],
-    ['GUEST_SESSION_SECRET: use at least 32 random characters sk-proj-abc123 sb_secret_xyz', ['GUEST_SESSION_SECRET']]
+    ['GUEST_SESSION_SECRET: use at least 32 random characters sk-proj-' + 'abc123 sb_secret_xyz', ['GUEST_SESSION_SECRET']]
   ];
   for (const [message, names] of cases) {
     const d = createStartupDiagnostic('loadConfig', new Error(message), 'x');
