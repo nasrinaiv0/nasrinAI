@@ -1,3 +1,9 @@
+## Proposed PR — NCC is for enterprises: contact the team (`feature/ncc-enterprise`)
+
+- **Owner decision (2026-10-13):** NCC is separate from Connect and is for enterprises, who contact the team.
+- **Change:** the NCC tile says it is the CRM with automations for enterprises, separate from Connect, not live yet, with a "Contact the NasrinAI team" link (support@nasrinai.com, subject "NCC (Nasrin Client Connect) enterprise enquiry"). `docs/ncc.md` records the decisions and the logo options.
+- **Validation:** `npm test`.
+
 ## Proposed PR — Real site logos for sources (`feature/site-logos`)
 
 - **Owner request (2026-10-13):** show each source's real site logo, to credit it (credits and copyright).
