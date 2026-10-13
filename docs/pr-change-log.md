@@ -1,3 +1,9 @@
+## Proposed PR — NCC logo: B · Flow (`ui/ncc-logo-flow`)
+
+- **Owner choice (2026-10-13):** NCC logo option B, Flow (three triangles).
+- **Change:** the NCC tile in NasrinAI Space shows the Flow mark (inline SVG, follows light/dark); `public/space-logos/ncc-logo-flow.svg` kept as the brand file; `docs/ncc.md`.
+- **Validation:** `npm test`; browser at 390 px, light and dark.
+
 ## Proposed PR — NCC is for enterprises: contact the team (`feature/ncc-enterprise`)
 
 - **Owner decision (2026-10-13):** NCC is separate from Connect and is for enterprises, who contact the team.
