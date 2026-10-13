@@ -1336,6 +1336,39 @@
     if (/\b(calculate|compute|how much|how many|convert)\b/.test(t)) return 'Working it out';
     return 'Thinking';
   }
+  // The thinking sign: a sphere of dots that bursts apart, turns a full
+  // circle and gathers again (app.css .dots). Dots nearer the front are
+  // larger and brighter. Offsets go through the CSSOM (allowed by the CSP).
+  function dotSphere(box) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 40 40');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('dots');
+    const spin = document.createElementNS(NS, 'g');
+    spin.classList.add('spin');
+    const n = 64, tilt = 0.45;
+    for (let i = 0; i < n; i++) {
+      const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
+      const x = Math.cos(a) * r, z0 = Math.sin(a) * r;
+      const yy = y * Math.cos(tilt) - z0 * Math.sin(tilt), z = y * Math.sin(tilt) + z0 * Math.cos(tilt);
+      const depth = (z + 1) / 2, push = 7 + 6 * ((i * 37) % 11) / 10;
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', (20 + x * 13).toFixed(2));
+      c.setAttribute('cy', (20 + yy * 13).toFixed(2));
+      c.setAttribute('r', (0.55 + 0.75 * depth).toFixed(2));
+      c.setAttribute('fill-opacity', (0.3 + 0.7 * depth).toFixed(2));
+      c.style.setProperty('--dx', (x * push).toFixed(1) + 'px');
+      c.style.setProperty('--dy', (yy * push).toFixed(1) + 'px');
+      c.style.setProperty('--d', Math.round((1 - depth) * 120) + 'ms');
+      spin.appendChild(c);
+    }
+    svg.appendChild(spin);
+    box.classList.add('dot-sphere');
+    box.appendChild(svg);
+    return { remove() { svg.remove(); } };
+  }
+
   function showThinking(text = 'Thinking', { timed = true } = {}) {
     const row = document.createElement('div');
     row.className = 'thinking';
@@ -1360,7 +1393,7 @@
       mini.classList.toggle('is-writing', write && !remember);
       mini.classList.toggle('is-busy', !remember && !write);
     };
-    const ch = coding ? (mini.classList.add('code-logo'), mood(text), { remove() {} }) : Nasrin.attach(mini);
+    const ch = coding ? (mini.classList.add('code-logo'), mood(text), { remove() {} }) : dotSphere(mini);
     scrollToEnd(row);
     const set = (words) => {
       if (!words || label.textContent === words) return;

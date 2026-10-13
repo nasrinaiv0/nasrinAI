@@ -671,6 +671,20 @@ body:not(.has-chat) #newChat { display: none; }
 .thinking .mini { width: 1.75rem; flex: none; }
 .thinking .label.is-new { animation: fade-in 320ms var(--glide) both, shimmer 1.8s linear infinite; }
 .thinking .mini .nasrin { display: block; }
+.thinking .mini.dot-sphere { color: var(--ink); }
+.dots { display: block; width: 100%; height: auto; overflow: visible; }
+.dots circle { fill: currentColor; transform-box: fill-box; transform-origin: center; animation: dot-burst 2.4s cubic-bezier(.45,0,.2,1) infinite; animation-delay: var(--d, 0ms); }
+.dots .spin { transform-box: view-box; transform-origin: 50% 50%; animation: dot-spin 2.4s cubic-bezier(.6,0,.25,1) infinite; }
+@keyframes dot-burst {
+  0%, 12% { transform: translate(0, 0) scale(1); }
+  42% { transform: translate(var(--dx), var(--dy)) scale(.55); opacity: .55; }
+  78%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes dot-spin { 0%, 10% { transform: rotate(0deg); } 85%, 100% { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .dots circle, .dots .spin { animation: none; }
+  .dots { animation: soft-pulse 1.6s ease-in-out infinite; }
+}
 .thinking .label {
   font-size: 0.92rem; font-weight: 500;
   background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%, var(--ink-3) 100%);
