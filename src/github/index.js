@@ -30,7 +30,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const gh = config.github || null;
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
-  const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, tokenFor, store, logger });
+  const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
   const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
   const installUrl = gh?.slug ? `https://github.com/apps/${gh.slug}/installations/new` : null;
