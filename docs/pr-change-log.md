@@ -1,3 +1,9 @@
+## Proposed PR — Research citations, facts only (`feature/research-citations`)
+
+- **Owner request (2026-10-13):** show author and citation in an organized format with a choice of citation formats; researcher-friendly, facts only (professors, researchers, students), with publication details.
+- **Change:** `POST /v1/cite` (`src/web/cite.js`): the source's own publication tags (citation_*, Dublin Core, PRISM, Open Graph, JSON-LD) via the SSRF-safe reader, and Crossref's DOI record when there is a DOI; nothing found → refused, never filled in. `public/cite.js`: APA 7, MLA 9, Chicago, Harvard, IEEE, Vancouver, BibTeX from those details only. `public/app.js`: **Cite** on each web source, and "cite <link or DOI>" in the chat, show a card with the organized details, where they came from, a remembered style picker and Copy (with italics where allowed). Prompt: research answers prefer peer-reviewed/official sources and never invent authors, titles, dates, pages or DOIs. Privacy Notice 2026-10-13c (Crossref lookup; duplicate Links line removed). `docs/citations.md`, `docs/web.md`, `CLAUDE.md`.
+- **Validation:** `npm test` (new `test/cite.test.js`); browser at 390 px: "cite <link>" card in APA then IEEE, the style remembered for a source's Cite, no author/date stated as missing.
+
 ## Proposed PR — Comparisons shown as a table (`feature/comparison-tables`)
 
 - **Owner request (2026-10-13):** show a table when the person wants a comparison.

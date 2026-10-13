@@ -85,7 +85,7 @@ push and PR. Vercel builds a preview for every PR.
   (fallback, redaction for outside models), smart routing: `classify.js`
   (levels 1–5), `logic.js` (tier 0, no model), `policy.js`, `budget.js`,
   `pricing.js` + `config/model-prices.json`. See `docs/routing.md`.
-- `src/web/` — SSRF-safe link reader and web search (`docs/web.md`).
+- `src/web/` — SSRF-safe link reader and web search (`docs/web.md`); `cite.js` + `public/cite.js` — citations, facts only, 7 styles (`docs/citations.md`).
 - `src/images.js`, `src/ai/image.js` — pictures: tiers (`IMAGE_TIER_n_*`), Gemini / GPT Image, own budget.
 - `src/ai/professions.js`, `src/ai/professional.js` — Professional AI registry and orchestrator (`docs/professional.md`).
 - `src/chat.js` — one chat turn: streaming (NDJSON), Stop, Regenerate, Edit (`docs/chat.md`).

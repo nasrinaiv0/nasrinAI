@@ -129,8 +129,8 @@ export function htmlToText(html) {
   return { title: decode(title).replace(/\s+/g, ' ').trim().slice(0, 200), text };
 }
 
-// Resolves { url, title, text } or { url, error }.
-export async function readLink(raw, { maxChars = 12_000, getImpl = get } = {}) {
+// Resolves { url, title, text } (plus the page's `html` with withHtml) or { url, error }.
+export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml = false } = {}) {
   let u = checkUrl(raw);
   if (!u) return { url: raw, error: 'not a public web address' };
   try {
@@ -156,7 +156,7 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get } = {}) {
       const body = Buffer.concat(chunks).toString('utf8');
       const { title, text } = /html/i.test(type) ? htmlToText(body) : { title: '', text: body };
       if (!text.trim()) return { url: raw, error: 'the page has no readable text' };
-      return { url: u.href, title, text: text.length > maxChars ? text.slice(0, maxChars) + '\n[… the page continues]' : text };
+      return { url: u.href, title, text: text.length > maxChars ? text.slice(0, maxChars) + '\n[… the page continues]' : text, ...(withHtml && /html/i.test(type) ? { html: body } : {}) };
     }
     return { url: raw, error: 'too many redirects' };
   } catch (err) {

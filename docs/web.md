@@ -34,7 +34,8 @@ the reply text and shows a **Sources · n** button beside the reply actions
 (next to Regenerate); tapping it unfolds the links, each with its site name,
 opening in a new tab (`noopener noreferrer`). Only `http(s)` links are folded;
 anything else is left in the text as written (`NasrinFormat.sources` in
-`public/format.js`). Read-aloud skips the list.
+`public/format.js`). Read-aloud skips the list. Each source has a **Cite**
+button for its publication details and citation formats (`docs/citations.md`).
 
 If a question did not look current but the model's draft says it lacks
 current facts ("check the web", "knowledge may be outdated", "can't check live
