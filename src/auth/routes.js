@@ -124,8 +124,33 @@ function readEmail(body) {
 
 const signedIn = (s) => ({ access_token: s.accessToken, expires_in: s.expiresIn, user: { email: s.user.email } });
 
+// The same refresh token sent again within a few seconds (two tabs, a retry
+// after a lost answer during a deploy) gets the answer of the first request
+// instead of a second call: the sign-in service treats a reused refresh token
+// as theft and ends the whole sign-in. Kept in this server's memory only,
+// keyed by a hash of the token, for REFRESH_SHARE_MS.
+export const REFRESH_SHARE_MS = 20_000;
+export function createRefreshSharing(refresh, now = () => Date.now()) {
+  const recent = new Map();   // sha256(token) -> { at, promise }
+  return (token) => {
+    const key = createHash('sha256').update(token).digest('hex');
+    const t = now();
+    for (const [k, v] of recent) if (t - v.at > REFRESH_SHARE_MS) recent.delete(k);
+    let entry = recent.get(key);
+    if (!entry) {
+      entry = { at: t, promise: refresh(token) };
+      recent.set(key, entry);
+      // A failure is not shared: the next try asks the service again.
+      entry.promise.then((s) => { if (!s) recent.delete(key); }, () => recent.delete(key));
+      if (recent.size > 1000) recent.delete(recent.keys().next().value);
+    }
+    return entry.promise;
+  };
+}
+
 export function authRoutes({ config, auth, limiter, logger }) {
   if (!auth) return [];
+  const refreshShared = createRefreshSharing((token) => auth.refresh(token));
   const { limits } = config;
   const methods = config.auth;
 
@@ -140,7 +165,7 @@ export function authRoutes({ config, auth, limiter, logger }) {
         const token = cookies(req)[RT];
         if (!token) return { status: 401, body: { error: { code: 'signed_out', message: 'Not signed in.' } } };
         await limiter.signIn(`rf:ip:${ip || 'unknown'}`, limits.signInRefreshIpHour);
-        const s = await auth.refresh(token);
+        const s = await refreshShared(token);
         if (!s) {
           // Do not expire the cookie here: two tabs can refresh concurrently.
           // A stale request may fail after the other tab has already rotated the

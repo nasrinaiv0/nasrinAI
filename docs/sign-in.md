@@ -143,3 +143,18 @@ read on every request with the token check, enforced on the server. Today:
 | `LIMIT_SIGNIN_CODES_IP_HOUR` | 10 | Codes requested per IP per hour |
 | `LIMIT_SIGNIN_CODES_EMAIL_HOUR` | 4 | Codes sent to one address per hour |
 | `LIMIT_SIGNIN_TRIES_HOUR` | 10 | Code attempts per address per hour |
+
+
+## Staying signed in across deploys and tabs (2026-10-13)
+
+The sign-in service ends the whole sign-in when the same refresh token is used
+twice ("refresh_token_already_used"). Supabase auth logs showed this right after
+deploys: the page sent the same token 2–4 times within seconds. Now:
+
+- **Page:** refreshes run one at a time across every tab (`navigator.locks`,
+  lock `nasrin-auth-refresh`), so a second tab waits and then uses the new cookie.
+- **Server:** the same refresh token within 20 s (`REFRESH_SHARE_MS`) gets the
+  first request's answer instead of a second call (per server instance, kept in
+  memory by a hash of the token; failures are not shared).
+- **Owner option:** Supabase → Authentication → the refresh token reuse interval
+  can be raised for extra margin (I cannot verify the current value from the repository).

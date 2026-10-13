@@ -1,3 +1,10 @@
+## Proposed PR — People stay signed in across deploys (`fix/refresh-race`)
+
+- **Owner report (2026-10-13):** users are logged out after every merge.
+- **Found (Supabase auth logs, read-only):** right after deploys (03:16, 03:53, 04:16 UTC) the same refresh token reached Supabase 2–4 times within seconds → `refresh_token_already_used` ("possible abuse") → the session is revoked.
+- **Change:** the page refreshes one at a time across tabs (Web Locks); the server answers a repeated refresh token (within 20 s) with the first answer instead of calling Supabase again. `docs/sign-in.md`.
+- **Validation:** `npm test` (three refreshes at once → one Supabase call, same new cookie for all; a later retry gets it too; failures not shared).
+
 ## Proposed PR — Robot turns, grows and bursts while busy (`ui/robot-burst`)
 
 - **Owner request (2026-10-13):** the busy robot rotates, starts smaller, grows bigger and explodes, like connecting to its sources.

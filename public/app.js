@@ -675,14 +675,22 @@
   async function refreshAccount() {
     if (!refreshing) {
       refreshing = (async () => {
-        let resp;
-        // A different tab may have just rotated the shared refresh cookie. Retry
-        // one 401 after a short pause before treating the session as unavailable.
-        for (let attempt = 0; attempt < 2; attempt++) {
-          resp = await net('/v1/auth/refresh', { method: 'POST' });
-          if (resp.status !== 401 || attempt === 1) break;
-          await new Promise((resolve) => setTimeout(resolve, 250));
-        }
+        // One refresh at a time across every tab of this site (Web Locks):
+        // the sign-in service ends the whole sign-in when the same refresh
+        // token is used twice, and two tabs share one refresh cookie.
+        const oneAtATime = (fn) => (navigator.locks && typeof navigator.locks.request === 'function'
+          ? navigator.locks.request('nasrin-auth-refresh', fn) : fn());
+        const resp = await oneAtATime(async () => {
+          let r;
+          // A different tab may have just rotated the shared refresh cookie. Retry
+          // one 401 after a short pause before treating the session as unavailable.
+          for (let attempt = 0; attempt < 2; attempt++) {
+            r = await net('/v1/auth/refresh', { method: 'POST' });
+            if (r.status !== 401 || attempt === 1) break;
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+          return r;
+        });
         if (resp.status === 401) {
           const was = account;
           signedOut();

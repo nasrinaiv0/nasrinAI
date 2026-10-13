@@ -427,3 +427,39 @@ test('email code: a Supabase CAPTCHA rejection becomes a safe captcha_failed err
     (err) => err.status === 400 && err.code === 'captcha_failed' && !/captcha_token found/.test(err.message)
   );
 });
+
+test('the same refresh token sent twice at once is refreshed once, both get the new sign-in', async () => {
+  const { url, close } = await setup();
+  try {
+    const go = () => fetch(url + '/v1/auth/refresh', { method: 'POST', headers: { ...same(url), Cookie: 'nasrin_rt=rt-1' } });
+    const [a, b, c] = await Promise.all([go(), go(), go()]);
+    for (const r of [a, b, c]) assert.equal(r.status, 200, 'no tab is signed out by a duplicate refresh');
+    const cookies = [a, b, c].map((r) => cookieOf(r, 'nasrin_rt').split(';')[0]);
+    assert.equal(new Set(cookies).size, 1, 'every answer carries the same new refresh token');
+    // A retry a few seconds later (the first answer was lost) still gets that session.
+    const later = await go();
+    assert.equal(later.status, 200);
+    assert.equal(cookieOf(later, 'nasrin_rt').split(';')[0], cookies[0]);
+  } finally { await close(); }
+});
+
+test('refresh sharing: failures are not shared, and shared answers expire', async () => {
+  const { createRefreshSharing, REFRESH_SHARE_MS } = await import('../src/auth/routes.js');
+  let calls = 0;
+  let clock = 0;
+  const share = createRefreshSharing(async (t) => { calls++; return t === 'bad' ? null : { refreshToken: 'new-' + calls }; }, () => clock);
+  assert.deepEqual(await share('rt'), { refreshToken: 'new-1' });
+  assert.deepEqual(await share('rt'), { refreshToken: 'new-1' });
+  assert.equal(await share('bad'), null);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(await share('bad'), null);
+  assert.equal(calls, 3, 'a failed refresh is asked again');
+  clock += REFRESH_SHARE_MS + 1;
+  assert.deepEqual(await share('rt'), { refreshToken: 'new-4' }, 'after the window the service is asked again');
+});
+
+test('page: one refresh at a time across tabs (Web Locks)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(js, /navigator\.locks\.request\('nasrin-auth-refresh', fn\)/);
+});
