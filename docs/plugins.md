@@ -10,7 +10,8 @@ Plugins connect Nasrin to a person's other apps. They live in the menu →
 | Gmail, Google Cloud, Google Meet, Google Calendar | Coming soon (listed only) |
 | Facebook, Instagram, Threads, X, Messenger, WhatsApp | Coming soon (listed only) |
 
-"Coming soon" plugins are shown with plain shared glyphs (not the companies'
+Connected plugins are listed first, under **Connected**; the rest follow in
+their groups. "Coming soon" plugins are shown with plain shared glyphs (not the companies'
 logos) and never as connected. Nothing is sent to these services.
 
 Messenger here means a person's own Messenger. Businesses already answer on

@@ -1,3 +1,9 @@
+## Proposed PR — Connected plugins first (`ui/plugins-connected-first`, on top of #304)
+
+- **Owner request (2026-10-13):** all connected apps are listed at the top of Plugins.
+- **Change:** a **Connected** group at the top holds every connected plugin (now GitHub); when disconnected it moves back to its group (Developer). `docs/plugins.md`.
+- **Validation:** `npm test`; headless Chromium (connected → top; disconnect → back down).
+
 ## Proposed PR — Plugin row with actions and a Settings page (`ui/plugin-details`, on top of #303)
 
 - **Owner request (2026-10-13):** instead of the message and buttons, an expand row with Choose repositories, Disconnect/Reconnect and Settings; Settings like the reference (header card, Permissions, Connected account, Information).
