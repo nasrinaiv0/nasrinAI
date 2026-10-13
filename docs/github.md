@@ -11,8 +11,8 @@ from the coding chat (Code in the menu). GitHub REST reads use Node's own `fetch
 | Signed in + GitHub connected | The same with their own GitHub token (higher limit, plus private repositories the app is installed on), and **Open pull request** under coding replies that contain files. |
 
 Never: merge, push to an existing branch, force-push, delete branches or files,
-or act on the model's own say-so. The model only has the read tools; a pull
-request is opened only by the page, after the person taps **Confirm**
+or act on the model's own say-so. The model can read repositories and run commands in an isolated sandbox; repository changes are made only through a pull
+request opened by the page after the person taps **Confirm**
 (`POST /v1/github/pull-requests` requires `confirm: true` and a signed-in
 person). Repository text is marked to the model as data, not instructions.
 
