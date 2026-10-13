@@ -30,7 +30,9 @@ warning. If the model does not support the tool, the log says
 
 The sources stay in the saved reply as a "**Sources**" list of links (so
 history, copy, share and Library keep them). The page takes that list out of
-the reply text and shows a **Sources · n** button beside the reply actions
+the reply text and shows a **Sources** button beside the reply actions (up to three overlapping
+round badges with each site's first letter, then the word Sources; no outside
+images are loaded)
 (next to Regenerate); tapping it unfolds the links, each with its site name,
 opening in a new tab (`noopener noreferrer`). Only `http(s)` links are folded;
 anything else is left in the text as written (`NasrinFormat.sources` in

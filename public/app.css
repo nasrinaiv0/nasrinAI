@@ -611,8 +611,14 @@ body:not(.has-chat) #newChat { display: none; }
 .reply-actions { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.55rem; }
 .reply-actions .listen { margin-top: 0; }
 /* Web sources, folded under "Sources · n" in the reply actions. */
-.reply-actions .sources-toggle { width: auto; padding: 0 0.65rem; border-radius: 999px; font-size: 0.8rem; color: var(--ink-2); }
+.reply-actions .sources-toggle { width: auto; display: inline-flex; align-items: center; gap: 0.45rem; padding: 0 0.6rem 0 0.35rem; border-radius: 999px; font-size: 0.86rem; color: var(--ink-2); }
 .reply-actions .sources-toggle[aria-expanded="true"] { color: var(--ink); background: var(--surface); }
+/* One round badge per site, overlapping like stacked avatars. */
+.src-faces { display: inline-flex; align-items: center; }
+.src-face { position: relative; z-index: 3; width: 1.35rem; height: 1.35rem; border-radius: 50%; display: grid; place-items: center; font: 600 0.62rem/1 var(--round); color: var(--on-ink); background: var(--ink); box-shadow: 0 0 0 2px var(--paper); }
+.src-face + .src-face { margin-left: -0.38rem; }
+.src-face[data-n="1"] { z-index: 2; background: color-mix(in srgb, var(--ink) 70%, var(--paper)); }
+.src-face[data-n="2"] { z-index: 1; background: color-mix(in srgb, var(--ink) 45%, var(--paper)); }
 .reply-sources { list-style: none; margin: 0.4rem 0 0; padding: 0.35rem; border: 1px solid var(--line); border-radius: 0.9rem; background: var(--paper); white-space: normal; animation: fade-in 220ms var(--glide) both; }
 .reply-sources[hidden] { display: none; }
 .reply-sources li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }

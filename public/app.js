@@ -2850,7 +2850,7 @@
   }
 
   // Under each reply: Listen, Copy, Share.
-  // "Sources · n": a folded list of the pages a web answer used, opened in a
+  // The Sources button (site badges + "Sources"): a folded list of the pages a web answer used, opened in a
   // new tab (never with the page's access to this one).
   let sourcesCount = 0;
   function sourcesToggle(row, links) {
@@ -2884,7 +2884,18 @@
     b.dataset.kind = 'sources';
     b.setAttribute('aria-expanded', 'false');
     b.setAttribute('aria-controls', list.id);
-    b.textContent = 'Sources · ' + links.length;
+    b.setAttribute('aria-label', `Sources (${links.length})`);
+    // Overlapping round badges, one per site (its first letter; no outside
+    // images, so the strict CSP holds), then the word Sources.
+    const faces = mk('span', 'src-faces');
+    faces.setAttribute('aria-hidden', 'true');
+    const hosts = [...new Set(links.map((l) => l.host))].slice(0, 3);
+    hosts.forEach((h, i) => {
+      const f = mk('span', 'src-face', (h.replace(/^(?:www|m|en)\./, '')[0] || '?').toUpperCase());
+      f.dataset.n = String(i);
+      faces.appendChild(f);
+    });
+    b.append(faces, mk('span', 'src-word', 'Sources'));
     b.addEventListener('click', () => {
       const open = list.hidden;
       list.hidden = !open;
