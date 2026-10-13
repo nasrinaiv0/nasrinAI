@@ -12,10 +12,10 @@ function responseMock() {
 }
 
 test('logger redacts credential-like values inside strings', () => {
-  const value = 'Authorization: Bearer nss_super_secret_token sk-ant-abcdefghijklmnopqrstuvwxyz1234 access_token=topsecret';
+  const value = 'Authorization: Bearer nss_super_secret_token sk-ant-' + 'abcdefghijklmnopqrstuvwxyz1234 access_token=topsecret';
   const redacted = redact(value);
   assert.equal(redacted.includes('nss_super_secret_token'), false);
-  assert.equal(redacted.includes('sk-ant-abcdefghijklmnopqrstuvwxyz1234'), false);
+  assert.equal(redacted.includes('sk-ant-' + 'abcdefghijklmnopqrstuvwxyz1234'), false);
   assert.equal(redacted.includes('topsecret'), false);
   assert.match(redacted, /Bearer \[redacted\]/);
   assert.match(redacted, /access_token=\[redacted\]/);
@@ -24,7 +24,7 @@ test('logger redacts credential-like values inside strings', () => {
 test('logger redacts sensitive object keys and nested credential values', () => {
   const redacted = redact({
     authorization: 'Bearer nss_super_secret_token',
-    nested: { message: 'sk-ant-abcdefghijklmnopqrstuvwxyz1234' },
+    nested: { message: 'sk-ant-' + 'abcdefghijklmnopqrstuvwxyz1234' },
     normal: 'safe'
   });
   assert.equal(redacted.authorization, '[redacted]');

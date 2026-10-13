@@ -950,3 +950,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Document the current missing committed lockfile and the mismatch between `package.json` and ADR-002; reconcile those separately based on actual import and hosting requirements.
 - No application runtime, authentication, token limits, database schema/RLS, production secrets, or deployment configuration changes.
 - Validation required: review the dependency-audit job and all required CI results on this PR before merge. The temporary-lockfile audit is not a substitute for a committed lockfile and reproducible dependency installation.
+
+
+## Proposed PR — Scan test files for committed secrets (`security/scan-test-fixtures`)
+
+- **Change:** remove the blanket `test/` exclusion from `scripts/check-secrets.js`; split synthetic key examples in tests into fragments; extend the scanner regression to require detection in both source and test paths.
+- **Validation:** pending CI on the PR; do not merge until `npm test`, `npm run check:secrets`, and required repository checks pass.

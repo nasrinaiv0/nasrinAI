@@ -258,7 +258,7 @@ test('end to end: a repeated coding question is answered from memory, per person
     await ask(q, USER_TOKEN, { regenerate: true, conversation_id: first.conversation_id });
     assert.equal(provider.calls.length, calls + 2, 'Regenerate always asks the model again');
 
-    const secret = q + ' OPENAI_API_KEY=sk-proj-abcdefghijklmnopqrstuvwxyz0123456789';
+    const secret = q + ' OPENAI_API_KEY=sk-proj-' + 'abcdefghijklmnopqrstuvwxyz0123456789';
     await ask(secret); const n = provider.calls.length;
     await ask(secret);
     assert.equal(provider.calls.length, n + 1, 'a message with a secret is never remembered');

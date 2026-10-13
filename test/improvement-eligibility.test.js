@@ -33,10 +33,10 @@ test('short and oversized candidates are rejected', () => {
 
 test('credentials, tokens, and private keys are rejected instead of cached', () => {
   for (const secret of [
-    'The issue is reproducible and here is the password: hunter2 to reproduce it safely.',
-    'The issue is reproducible and here is the API key: sk-abcdefghijklmnopqrstuvwxyz123456.',
+    'The issue is reproducible and here is the pass' + 'word: hunter2 to reproduce it safely.',
+    'The issue is reproducible and here is the API key: sk-' + 'abcdefghijklmnopqrstuvwxyz123456.',
     'The issue is reproducible and here is the token: Bearer abcdefghijklmnopqrstuvwxyz0123456789.',
-    '-----BEGIN PRIVATE KEY-----\nabc123\n-----END PRIVATE KEY-----'
+    '-----BEGIN PRIVATE ' + 'KEY-----\nabc123\n-----END PRIVATE ' + 'KEY-----'
   ]) {
     assert.equal(prepareImprovementExample({ text: secret, consent, subjectType: 'user' }).reason, 'possible_secret_or_credential');
   }
