@@ -154,3 +154,10 @@ The runner is for signed-in users with GitHub connected. It fetches a source arc
 ## Coding runner archive safety (2026-10-13)
 
 Before a repository archive reaches the sandbox extractor, `src/github/runner.js` performs bounded gzip decompression and tar-header inspection. Limits: compressed archive 15 MB, expanded tar stream 64 MB, any one entry 16 MB, and 10,000 entries. Unsafe traversal paths and links/special files are rejected. The sandbox still uses a 70-second timeout, disposable execution, bounded patch/output, and network denial before the requested command. This preflight is defense in depth, not a substitute for live integration verification: `test/sandbox-integration.test.js` is skipped unless `RUN_SANDBOX_INTEGRATION=1` and Vercel Sandbox credentials are present. Do not interpret a skipped live integration test as proof that production isolation has been verified.
+
+
+## Browser render, test, and screenshot
+
+The `github_render_test_screenshot` tool is a separate opt-in coding workflow for signed-in users with GitHub connected. It validates the same bounded repository archive before extraction, installs Node dependencies with lifecycle scripts disabled, runs the supplied test command, starts a local preview process in the disposable sandbox, opens only a localhost URL in the sandbox browser, captures a bounded accessibility snapshot and screenshot, and cleans up the browser/sandbox when the helper exits. It does not deploy, push, open a PR, or merge code.
+
+Required inputs: repository; one allowlisted `test_command` (for example `npm test`); one allowlisted `start_command` (for example `npm run dev -- --host 127.0.0.1 --port 3000)); and optionally a `preview_url` on localhost. Public URLs, arbitrary shell chaining, and private-network targets are rejected. Browser runs are limited to 3 per user per hour and screenshot payloads to 180 KB. A successful test command is not proof of visual correctness; the screenshot and accessibility snapshot are evidence to inspect. Live Vercel Sandbox execution still requires an opt-in integration test and production verification.
