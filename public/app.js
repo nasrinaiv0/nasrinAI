@@ -1261,6 +1261,11 @@
         el.appendChild(recordingFigure(vid[1]));
         text = text.slice(vid[0].length) || 'Here is the recording.';
       }
+      // Pull request chips the server made from GitHub's answer: Diff +/- and
+      // merged or not, linking to the pull request.
+      const chips = [];
+      for (let m = PR_CHIP.exec(text); m; m = PR_CHIP.exec(text)) { chips.push(m); text = text.slice(m[0].length); }
+      if (chips.length) el.appendChild(prChips(chips));
       // Web sources fold away under a Sources button beside the reply actions.
       const full = text;
       const cited = window.NasrinFormat.sources(text);
@@ -1733,6 +1738,51 @@
   // Pictures are private: fetched with the person's credential, shown from memory.
   // `regenerate`: makes the same picture again (only while the brief is in memory).
   // A browser recording (owner-checked GET /v1/recordings/:id), played inline.
+  const PR_CHIP = /^\[(?:pr:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#(\d{1,9}) (open|closed|merged|draft) \+(\d{1,9}) -(\d{1,9})|prs:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+) (\d{1,3}))\][ \t]*(?:\r?\n|$)/;
+  const PR_STATE = { open: 'Open', closed: 'Closed', merged: 'Merged', draft: 'Draft' };
+  function prIcon() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const [tag, attrs] of [['circle', { cx: 6, cy: 6, r: 2.2 }], ['circle', { cx: 6, cy: 18, r: 2.2 }], ['circle', { cx: 18, cy: 18, r: 2.2 }],
+      ['path', { d: 'M6 8.2v7.6' }], ['path', { d: 'M18 15.8V9a3 3 0 0 0-3-3h-4' }], ['path', { d: 'm13 3.5-2.5 2.5L13 8.5' }]]) {
+      const n = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+      svg.appendChild(n);
+    }
+    return svg;
+  }
+  function prChips(list) {
+    const row = document.createElement('div');
+    row.className = 'pr-chips';
+    const chip = (href, label) => {
+      const a = document.createElement('a');
+      a.className = 'pr-chip';
+      a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.setAttribute('aria-label', label);
+      return a;
+    };
+    const span = (cls, text) => { const n = document.createElement('span'); n.className = cls; n.textContent = text; return n; };
+    for (const m of list) {
+      if (m[1]) {
+        const url = 'https://github.com/' + m[1] + '/pull/' + m[2];
+        const diff = chip(url + '/files', 'Diff: ' + m[4] + ' lines added, ' + m[5] + ' removed');
+        diff.append(span('pr-chip-name', 'Diff'), span('pr-add', '+' + Number(m[4]).toLocaleString()));
+        if (Number(m[5])) diff.appendChild(span('pr-del', '\u2212' + Number(m[5]).toLocaleString()));
+        const pr = chip(url, 'Pull request #' + m[2] + ': ' + PR_STATE[m[3]]);
+        pr.classList.add('is-' + m[3]);
+        pr.append(prIcon(), span('pr-chip-name', '#' + m[2]), span('pr-chip-dot', '\u00b7'), span('pr-state', PR_STATE[m[3]]));
+        row.append(diff, pr);
+      } else {
+        const all = chip('https://github.com/' + m[6] + '/pulls', m[7] + ' pull requests');
+        all.append(prIcon(), span('pr-chip-name', 'Pull requests'), span('pr-chip-dot', '\u00b7'), span('pr-count', m[7]));
+        row.appendChild(all);
+      }
+    }
+    return row;
+  }
+
   function recordingFigure(videoId) {
     const fig = document.createElement('figure');
     fig.className = 'made-image made-video is-loading';
@@ -2562,7 +2612,9 @@
     if (focus) input.focus();
     startNotes('new_chat');
   }
-  $('newChat').addEventListener('click', () => startNewChat());
+  // In the coding chat, New chat opens a fresh coding chat in the same
+  // project; leaving the coding chat is the header's leave button.
+  $('newChat').addEventListener('click', () => (codingProject ? enterCoding(codingProject) : startNewChat()));
 
   // ---------- a fresh chat after 5 minutes away ----------
   // When the person leaves the app (the tab or app goes to the background or
@@ -6565,7 +6617,7 @@
     $('projectBar').hidden = !chatProject;
     $('projectBarName').textContent = chatProject ? 'In project: ' + chatProject.name : '';
   }
-  $('projectLeave').addEventListener('click', () => $('newChat').click());
+  $('projectLeave').addEventListener('click', () => startNewChat());
 
   // ---------- the coding chat ----------
   // Code (menu, desktop rail, "Start coding", a project's Code) asks for a
@@ -7222,7 +7274,7 @@
     if (!project) return;   // New chat below lets a running reply finish in the background
     const p = { id: project.id, name: project.name };
     closeHistory();
-    $('newChat').click();
+    startNewChat();
     setChatProject(p);
     if (mode === 'code') {
       input.value = 'Help me work on code for the ' + p.name + ' project.';
