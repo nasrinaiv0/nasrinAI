@@ -775,12 +775,14 @@
       </div>
       <p class="menu-label">Permissions</p>
       <div class="menu-card setting-row" id="autoPrRow"><label for="autoPrOn">Open pull requests automatically<span class="setting-hint">Off: Nasrin asks before each pull request. On: in the coding chat, it opens one in the project's repository after writing files. Nothing is merged; you review and merge on GitHub.</span></label><input type="checkbox" role="switch" class="switch" id="autoPrOn"></div>
-      <p class="menu-label">Connected account</p>
+      <p class="menu-label">Connected accounts</p>
       <div class="menu">
-        <div class="menu-row plugin-account"><span class="plugin-avatar" id="ghAvatar" aria-hidden="true">?</span><span id="ghAccount">Not connected</span></div>
+        <div id="ghAccounts"></div>
+        <button type="button" class="menu-row" id="ghAddAccount" hidden><span class="plugin-avatar plugin-add" aria-hidden="true">+</span><span>Add account</span></button>
         <button type="button" class="menu-row" id="ghDetailConnect"><span>Connect GitHub</span></button>
-        <button type="button" class="menu-row danger" id="ghDetailDisconnect" hidden><span>Disconnect</span></button>
+        <button type="button" class="menu-row danger" id="ghDetailDisconnect" hidden><span>Disconnect all</span></button>
       </div>
+      <p class="setting-hint plugin-accounts-hint" id="ghAccountsHint" hidden>Up to 10 accounts. The main account is the one Nasrin reads with and opens pull requests from.</p>
       <p class="menu-label">Information</p>
       <div class="menu">
         <div class="menu-row plugin-info"><span>Category</span><em>Developer tools</em></div>
