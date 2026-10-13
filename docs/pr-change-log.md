@@ -1,3 +1,9 @@
+## Proposed PR — Replies fade in; the chat stays where you read (`ui/reply-fade-no-autoscroll`)
+
+- **Owner request (2026-10-12 backlog #9):** replies fade in; the screen stays where the user is reading instead of scrolling down.
+- **Change:** `public/app.js` follows new text only while the person is at the bottom; scrolling up (wheel, finger, keys) stops it at once, scrolling back down or sending a message resumes it; streaming follows instantly instead of a smooth scroll per word. Replies fade in (`.msg.assistant.is-new`). `docs/chat.md`.
+- **Validation:** `npm test`; in a browser (390 px), scrolling up mid-reply kept the position for 4 s while the reply grew (before: pulled back to the bottom); sending again followed to the end.
+
 ## Proposed PR — Smooth, bouncy, pixel-perfect busy robot (`ui/robot-smooth`)
 
 - **Owner request (2026-10-13, screenshot):** the busy robot's turn looked like noise; make it smooth and bouncy, with a pixel-perfect turn and burst.

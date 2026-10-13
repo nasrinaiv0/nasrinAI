@@ -21,6 +21,15 @@ text the final reply would not. Errors before `start` are normal JSON errors.
 Whether Vercel delivers the stream in pieces cannot be verified from the
 repository; the page also works when the whole answer arrives at once.
 
+### Reading while it streams
+
+A reply fades in as it appears. The chat follows new text only while the
+person is at the bottom: as soon as they scroll up (wheel, finger or keys), it
+stays where they are reading and never pulls them back down. Scrolling back to
+the bottom, or sending a message, makes it follow again. Only the person's own
+scrolling stops following; the page's own scrolling never does
+(`scrollToEnd` in `public/app.js`). Reduced motion turns the fade off.
+
 ## Stop
 
 Closing the request (the Stop button) aborts the model call. The part

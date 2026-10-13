@@ -192,3 +192,19 @@ test('oversized pasted composer text becomes a plain-text attachment', async () 
   assert.match(js, /if \(!text \|\| !pastedTextOverflows\(text\)\) return;/,
     'short text continues to paste normally');
 });
+
+test('replies fade in and the chat stays where the person is reading (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  // Following stops as soon as the person moves up, and only their own
+  // scrolling can stop it; sending a message starts following again.
+  assert.match(js, /function scrollToEnd\(el, \{ force = false, instant = false \} = \{\}\) \{\s*if \(force\) following = true;\s*if \(!following\) return;/);
+  assert.match(js, /log\.addEventListener\('wheel', \(e\) => \{ touchedAt = Date\.now\(\); if \(e\.deltaY < 0\) up\(\); \}/);
+  assert.match(js, /if \(Date\.now\(\) - touchedAt > 1000\) return;\s*following = log\.scrollHeight - log\.scrollTop - log\.clientHeight < 96;/);
+  assert.match(js, /scrollToEnd\(el, \{ force: role === 'user' \}\);/);
+  // Streaming text follows instantly (a smooth scroll per word would lag).
+  assert.match(js, /strip\(raw\);[^\n]*\n\s*scrollToEnd\(el, \{ instant: true \}\);/);
+  // Fade: the live reply, and a reply shown at once.
+  assert.match(js, /el\.className = 'msg assistant is-live is-new';/);
+  assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
+});
