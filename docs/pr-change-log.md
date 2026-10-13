@@ -1,3 +1,9 @@
+## Proposed PR — More plugins listed (`feature/more-plugins`, on top of #302)
+
+- **Owner request (2026-10-13):** add Outlook, OneDrive, Teams, Excel, PowerPoint, Canva; Gmail, Google Cloud, Google Meet, Google Calendar; Facebook, Instagram, Threads, X, Messenger, WhatsApp.
+- **Change:** the Plugins sheet lists them in three groups (Microsoft, Google, Social) as **Coming soon** with plain glyphs; nothing connects yet. `docs/plugins.md` says what each real plugin needs.
+- **Validation:** `npm test`; headless Chromium.
+
 ## Proposed PR — PR descriptions, automatic pull requests, many-file card (`feature/auto-pr`)
 
 - **Owner request (2026-10-13):** NasrinAI writes the pull request's comments and documentation (summary, steps); an option for automatic pull requests; more than 5 files are not shown in the chat but go to a pull request.

@@ -379,3 +379,12 @@ test('coding chat page: PR description from the reply, many-file card, automatic
   assert.match(js, /show\('assistant', data\.message\.content, \{ id: data\.message\.id, animate: !live\.text\(\), fresh: true \}\)/);
   assert.match(js, /data\.messages\.forEach\(\(m, i\) => show\([^)]*\{ animate: false, id: m\.id/, 'history replies are not fresh');
 });
+
+test('plugins: more apps are listed as Coming soon, never as connected', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Gmail', 'Google Cloud', 'Google Meet', 'Google Calendar', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
+    assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
+  }
+  assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
+});
