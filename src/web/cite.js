@@ -146,7 +146,7 @@ export function createCite({ limiter, readLinkImpl = readLink, fetchImpl = fetch
     const url = typeof body?.url === 'string' ? body.url.trim().slice(0, 2000) : '';
     const askedDoi = typeof body?.doi === 'string' ? doiOf(body.doi) : null;
     if (!url && !askedDoi) throw new HttpError(400, 'invalid_request', 'Send a web address (url) or a DOI.');
-    if (!(await limiter.web(caller))) throw new HttpError(429, 'web_limit', 'Too many lookups this hour. Please try again later.');
+    if (!(await limiter.cite(caller))) throw new HttpError(429, 'web_limit', 'Too many lookups this hour. Please try again later.');
     let fromPage = null;
     let doi = askedDoi || doiOf(url);
     if (url && !askedDoi) {
