@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // Fails when a committed file looks like it holds a real key, token or
 // password (Phase 10). Runs in CI and with `npm run check:secrets`.
-// Tests are skipped (they use made-up keys on purpose), and so is the file
-// that defines the patterns.
+// Tests are scanned too. Synthetic secret examples in tests should be assembled
+// from fragments so a complete credential-like string is not committed.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sensitive } from './teacher/pipeline.js';
 
-const SKIP = [/^test\//, /^scripts\/teacher\/pipeline\.js$/, /^reference\//, /\.(png|ico|jpg|jpeg|webp|gif|pdf)$/i];
+const SKIP = [/^scripts\/teacher\/pipeline\.js$/, /^reference\//, /\.(png|ico|jpg|jpeg|webp|gif|pdf)$/i];
 
 export function scan(files, read) {
   const found = [];
