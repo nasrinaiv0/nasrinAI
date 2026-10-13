@@ -93,6 +93,7 @@ push and PR. Vercel builds a preview for every PR.
 - `src/library.js` — the Library: people's own text files, notes, saved replies (`docs/library.md`, migration 012).
 - `src/projects.js` — Projects: instructions, tasks, scoped chats and Library items (`docs/projects.md`, migration 013).
 - Coding chat — Code in the menu: project picker first, Code experts, `coding: true` → `CODING_CHAT_RULE` in `src/coding.js` (`docs/coding-chat.md`).
+- `src/github/` — GitHub for the coding chat: fetch client, GitHub App sign-in (sealed tokens, migration 038), read-only tools, pull requests only after Confirm (`docs/github.md`).
 - `src/uploads.js` — direct uploads: one-time Supabase Storage links, files read once then deleted (`docs/uploads.md`, migration 031, `UPLOADS_DIRECT`).
 - `src/research.js` — research agent: public pages (robots.txt honoured) → facts; scans private per person, shared `research_facts` hold fact + source only, pending owner review (`docs/research.md`, migration 036, `RESEARCH_ENABLED`).
 - `src/web-answers.js` — replies that used the internet kept permanently with sources, never who asked (`web_answers`, migration 037; `docs/web-answers.md`).

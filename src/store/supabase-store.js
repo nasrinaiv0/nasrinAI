@@ -391,8 +391,26 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     async addWebAnswer({ question, answer, sources }) {
       await request('POST', 'web_answers', { body: { question, answer, sources }, prefer: 'return=minimal' });
     },
+    // GitHub connections (migration 038): sealed tokens only.
+    async getGithubConnection({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId))) return null;
+      const rows = await request('GET', `github_connections?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&select=login,access_token_enc,refresh_token_enc,expires_at,refresh_expires_at`);
+      const r = Array.isArray(rows) ? rows[0] : null;
+      return r ? { tenantId, userId, login: r.login, accessTokenEnc: r.access_token_enc, refreshTokenEnc: r.refresh_token_enc, expiresAt: r.expires_at, refreshExpiresAt: r.refresh_expires_at } : null;
+    },
+    async saveGithubConnection({ tenantId, userId, login, accessTokenEnc, refreshTokenEnc = null, expiresAt = null, refreshExpiresAt = null }) {
+      await request('POST', 'github_connections?on_conflict=tenant_id,user_id', {
+        prefer: 'resolution=merge-duplicates,return=minimal',
+        body: { tenant_id: tenantId, user_id: userId, login, access_token_enc: accessTokenEnc, refresh_token_enc: refreshTokenEnc, expires_at: expiresAt, refresh_expires_at: refreshExpiresAt, updated_at: new Date().toISOString() }
+      });
+    },
+    async deleteGithubConnection({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId))) return;
+      await request('DELETE', `github_connections?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`, { prefer: 'return=minimal' });
+    },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });
+      await this.deleteGithubConnection({ tenantId, userId });
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
     },
 

@@ -1,7 +1,7 @@
 # Terms of Service
 
 
-**Version 2026-10-12** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-12b** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 These terms are an agreement between you and **NasrinAI**, 142 Pag-asa Village, Matina Apalaya, Davao City, Philippines ("we"), for using NasrinAI at https://nasrinai.com. These terms describe the NasrinAI service and its current terms of use.
 
@@ -112,6 +112,7 @@ If you connect NasrinAI to your business (website key, documents, your own syste
 
 - If you voluntarily send suggestions, ideas or feedback about NasrinAI, you allow us to use that feedback without owing you compensation, unless applicable law requires otherwise.
 - NasrinAI depends on third-party services, including hosting, authentication, payment, email, security and AI providers. Those services may have their own terms, policies, availability limits and service interruptions. Your use of a third-party service may also be subject to that provider's terms.
+- **GitHub.** If you connect your GitHub account, you allow NasrinAI to read the repositories you choose and, each time you tap **Confirm**, to create a new branch and open a pull request with the files shown. NasrinAI does not merge, push to existing branches or delete anything. You are responsible for reviewing code before you merge it and for having the right to change the repository. GitHub's own terms apply to your GitHub account. You can disconnect at any time.
 - Third-party output or services are not necessarily endorsed by or affiliated with NasrinAI. We are not responsible for third-party services to the extent their own terms and applicable law govern them.
 
 ## 9. Suspension and ending

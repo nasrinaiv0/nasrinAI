@@ -76,6 +76,17 @@
     return { text: text.replace(/\n{3,}/g, '\n\n').trim(), asks, files };
   }
 
+  // The files of a reply with their names as written (folder paths kept), for
+  // a pull request. Up to 20; the server checks every path again.
+  function sources(input) {
+    const out = [];
+    for (const m of String(input || '').matchAll(FILE_BLOCK)) {
+      const path = m[1].trim().replace(/^\.?\/+/, '');
+      if (out.length < 20 && path && !out.some((f) => f.path === path)) out.push({ path, content: unfence(m[2]).replace(/\s+$/, '') + '\n' });
+    }
+    return out;
+  }
+
   // While a reply is still arriving: blocks hidden, and a note where a file is being written.
   function strip(input) {
     const raw = String(input || '');
@@ -473,5 +484,5 @@
 
   const sizeLabel = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
 
-  window.NasrinFiles = { parse, strip, make, sizeLabel, cleanFileName };
+  window.NasrinFiles = { parse, strip, make, sizeLabel, cleanFileName, sources };
 })();

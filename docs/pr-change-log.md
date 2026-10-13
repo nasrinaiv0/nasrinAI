@@ -1,3 +1,10 @@
+## Proposed PR — GitHub in the coding chat (`feature/github`)
+
+- **Owner request (2026-10-12):** full GitHub repository management for coding: read code, pull updates, push changes or pull requests. Owner choices: built-in `fetch` (not Octokit, ADR-002), a GitHub App with user sign-in (OAuth), read + pull requests only after Confirm.
+- **Change:** `src/github/` — REST client (read repo, folders, files in parts, commits; pull request = new `nasrin/…` branch + one commit + PR, never touching existing branches), GitHub sign-in (signed state + one-time cookie, tokens sealed with `CONNECTOR_SECRET_KEY`, refreshed before expiry, revoked on disconnect), routes `/v1/github/*`, four read-only model tools. Coding chat: Connect GitHub in the project picker; "Open pull request" under replies with files → Confirm sheet. Migration `038_github_connections.sql` (server-only table) + DB test. Privacy `2026-10-12h`, Terms `2026-10-12b`. `docs/github.md`.
+- **Owner steps:** create the GitHub App, set three Vercel env vars, run migration 038 (staging first) — see `docs/github.md`.
+- **Validation:** `npm test`, DB tests, secret scan, headless Chromium.
+
 ## Proposed PR — Busy pixel robot on the coding thinking line (`ui/code-thinking`)
 
 - **Owner request (2026-10-12):** in the coding chat the thinking avatar uses the pixel robot, with a more aggressive animation while thinking, remembering, etc.
