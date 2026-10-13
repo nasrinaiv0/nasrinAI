@@ -3,7 +3,7 @@ import { inspectCodingArchive, parseCodingCommand } from './runner.js';
 const ROOT = '/vercel/sandbox';
 const WORKSPACE = `${ROOT}/repo`;
 const ARCHIVE_PATH = `${ROOT}/source.tar.gz`;
-const MAX_SCREENSHOT_BYTES = 700 * 1024;
+const MAX_SCREENSHOT_BYTES = 180 * 1024;
 const MAX_TEXT = 2400;
 const trim = (value) => {
   const text = String(value || '');
@@ -172,7 +172,7 @@ if (!ready) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} process.exit
             if (imageResult.exitCode !== 0) throw Error('Could not read the captured screenshot.');
             const screenshot = imageResult.stdout.replace(/\s/g, '');
             const size = Math.floor(screenshot.length * 3 / 4);
-            if (!screenshot || size > MAX_SCREENSHOT_BYTES) throw Error('The screenshot exceeds the 700 KB artifact limit.');
+            if (!screenshot || size > MAX_SCREENSHOT_BYTES) throw Error('The screenshot exceeds the 180 KB artifact limit.');
             stage = 'browser_close';
             try { await browserDeps.browserCommand(sandbox, ['close'], { json: false }); } catch {}
             stopped = true;
