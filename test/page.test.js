@@ -120,7 +120,7 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   // grid spreads evenly and bounces; the face (eyes, speckle) slides across
   // the fixed grid like a turning globe, in whole-pixel frames.
   assert.doesNotMatch(busy, /values="1 1;1 1;-1 1/);
-  assert.match(busy, /type="scale" values="\.55;\.74;\.66;\.66;\.5;\.55"[^>]*calcMode="spline"/);
+  assert.match(busy, /type="scale" values="\.76;1\.02;\.9;\.9;\.69;\.76"[^>]*calcMode="spline"/);
   assert.equal((busy.match(/<rect /g) || []).length, 616);
   assert.doesNotMatch(busy, /attributeName="opacity"/);
   assert.match(busy, /attributeName="fill" calcMode="discrete" values="[^"]*#0b0b0c/);

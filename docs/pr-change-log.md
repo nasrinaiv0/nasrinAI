@@ -2,7 +2,7 @@
 
 - **Owner request (2026-10-13, screenshot):** the busy robot's turn looked like noise; make it smooth and bouncy, with a pixel-perfect turn and burst.
 - **Change:** `scripts/pixelbot-logo.py` busy version (3.6 s): pops up with a bounce, the pixel grid spreads evenly (gaps, no overlap) with a bounce out and in, then shrinks. The turn now slides the face across the fixed grid (eyes and speckle move along each row and come round from the back; the light stays put) in 60 fps whole-pixel frames, so pixels never overlap or fade. Fixes the eyes, which the old busy version dropped. ~32 KB gzipped (was ~67 KB).
-- **Owner follow-up:** keep it explosive; pause only at 360°. The burst now throws outer pixels further (gaps grow outwards, still no overlap) with a sharp ease-out and bounce, the face turns one full turn while burst, pauses facing front, then snaps back in with a bounce.
+- **Owner follow-up:** keep it explosive; pause only at 360°. The burst now throws outer pixels further (gaps grow outwards, still no overlap) with a sharp ease-out and bounce, the face turns one full turn while burst, pauses facing front, then snaps back in with a bounce. Second follow-up: wider burst (edge thrown 1.75× its distance, wider view so nothing is cut off) and a small fixed random scatter per pixel, under half the gap so pixels never touch.
 - **Validation:** `npm test`; rendered frames, light and dark.
 
 ## Proposed PR — Nasrin finds your repositories and asks which (`feature/repo-pick`, on top of #309)

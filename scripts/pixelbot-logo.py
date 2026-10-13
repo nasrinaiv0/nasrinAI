@@ -20,7 +20,8 @@ BUSY = 3.6   # seconds per busy cycle
 # each row, squeeze towards the edge and come back round from the other side,
 # while the light (darker edges) stays where it is.
 T_POP, T_GROW, T_BURST, T_SETTLE, T_OUT, T_PAUSE, T_GATHER, T_IN, T_SHRINK = .08, .13, .22, .32, .56, .70, .80, .85, .94
-SPREAD, OVER, UNDER = .6, .7, -.07   # how far the burst throws the edge (x its distance) / at the bounce out / in
+SPREAD, OVER, UNDER = .75, .82, -.07   # how far the burst throws the edge (x its distance) / at the bounce out / in
+SCATTER = .4   # random nudge per pixel, as a share of the gap to its neighbour (under .5: never touch)
 FPS = 60    # face frames per second while turning (no faster than a screen)
 
 def ease(u):
@@ -108,8 +109,15 @@ def convert(path, mode, speed=1.0):
             # outwards and pixels never overlap), bounces, turns, waits, is
             # pulled back in with a bounce; its colour follows the turning face.
             cx, cy = float(x) + float(w) / 2 - 512, float(y) + float(w) / 2 - 512
-            far = .5 + .5 * min(1, math.hypot(cx, cy) / 420)
-            mv = lambda k: f'{round(k * far * cx)} {round(k * far * cy)}'
+            rho = min(1, math.hypot(cx, cy) / 420)
+            far = .5 + .5 * rho
+            # A small fixed random nudge (same file every run), less than half
+            # the gap to the next pixel, so the burst looks scattered but no
+            # two pixels ever touch.
+            gap = 30 * (1 + SPREAD * far) - 27
+            jx = (((i * 2654435761) % 1000) / 500 - 1) * SCATTER * gap
+            jy = (((i * 40503 + 17) % 997) / 498.5 - 1) * SCATTER * gap
+            mv = lambda k: f'{round(k * far * cx + k / SPREAD * jx)} {round(k * far * cy + k / SPREAD * jy)}'
             vals, times = faces[i]
             fill = (f'<animate attributeName="fill" calcMode="discrete" values="{";".join(vals)}" keyTimes="{";".join(f3(t) for t in times)}" dur="{BUSY}s" repeatCount="indefinite"/>' if len(vals) > 1 else '')
             body.append(f'<rect {geo} fill="{vals[0]}">{fill}<animateTransform attributeName="transform" type="translate" '
@@ -139,12 +147,12 @@ def convert(path, mode, speed=1.0):
             anim += f'<animate attributeName="opacity" values="1;1;.1;.85;.15;1;1" keyTimes="0;.88;.9;.93;.95;.97;1" dur="{f(v.get("u","5"))}s" begin="{f(v.get("v","0"))}s" repeatCount="indefinite"/>'
         body.append(f'<rect {geo} fill="{col}">{anim}</rect>')
     if mode == 'busy':
-        # Grows from small; bursts while the sphere turns half way about its
-        # vertical axis; pauses; turns the rest of the way while the pixels
-        # gather into the ball; shrinks back.
-        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
+        # Pops up; explodes while the sphere turns once about its vertical
+        # axis; pauses at 360 degrees; snaps back together; shrinks. A wider
+        # view (same centre) leaves room for the burst.
+        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="-192 -192 1408 1408" role="img" aria-label="NasrinAI Code">'
                 '<g transform="translate(512 512)"><g>'
-                f'<animateTransform attributeName="transform" type="scale" values=".55;.74;.66;.66;.5;.55" keyTimes="0;{T_POP};{T_GROW};{T_IN};{T_SHRINK};1" calcMode="spline" keySplines=".2 .9 .3 1;.5 0 .5 1;0 0 1 1;.5 0 .7 1;.3 0 .3 1" dur="{BUSY}s" repeatCount="indefinite"/>'
+                f'<animateTransform attributeName="transform" type="scale" values=".76;1.02;.9;.9;.69;.76" keyTimes="0;{T_POP};{T_GROW};{T_IN};{T_SHRINK};1" calcMode="spline" keySplines=".2 .9 .3 1;.5 0 .5 1;0 0 1 1;.5 0 .7 1;.3 0 .3 1" dur="{BUSY}s" repeatCount="indefinite"/>'
                 '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></svg>\n')
     if mode == 'remember':
         # The ball breathes a little while the light runs through it.
