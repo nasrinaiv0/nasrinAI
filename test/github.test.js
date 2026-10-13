@@ -219,3 +219,113 @@ test('github: the model gets read-only tools, and repository text is marked as d
     assert.equal(missing.error, 'not_found');
   } finally { await t.close(); }
 });
+
+// A small in-memory GitHub repository: one base commit, files by path.
+function fakeRepo({ files = {}, openPulls = [], failPull = false } = {}) {
+  const branches = { main: 'base1' };
+  const commits = { base1: { tree: 'tree0', files } };
+  const trees = {};
+  let n = 0;
+  const made = [];
+  const blob = (t) => createGithubApi().blobSha(t);
+  const table = {
+    'GET /repos/o/r': () => [200, { full_name: 'o/r', default_branch: 'main', permissions: { push: true } }],
+    'GET /repos/o/r/git/ref/heads/main': () => [200, { object: { sha: branches.main } }],
+    'POST /repos/o/r/git/trees': (init) => {
+      const b = JSON.parse(init.body);
+      const id = 'tree' + (++n);
+      const base = Object.values(commits).find((c) => c.tree === b.base_tree);
+      trees[id] = { ...base.files, ...Object.fromEntries(b.tree.map((e) => [e.path, e.content])) };
+      return [201, { sha: id }];
+    },
+    'POST /repos/o/r/git/commits': (init) => { const b = JSON.parse(init.body); const id = 'c' + (++n); commits[id] = { tree: b.tree, files: trees[b.tree] }; return [201, { sha: id }]; },
+    'POST /repos/o/r/git/refs': (init) => { const b = JSON.parse(init.body); branches[b.ref.replace('refs/heads/', '')] = b.sha; made.push(b.ref); return [201, {}]; },
+    'POST /repos/o/r/pulls': (init) => (failPull ? [422, { message: 'Validation Failed' }] : [201, { number: 9, html_url: 'https://github.com/o/r/pull/9', head: JSON.parse(init.body).head }]),
+    'GET /repos/o/r/pulls': () => [200, openPulls]
+  };
+  const fetchImpl = async (url, init = {}) => {
+    const u = new URL(url);
+    const key = `${init.method || 'GET'} ${u.pathname}`;
+    if (key.startsWith('GET /repos/o/r/git/commits/')) {
+      const c = commits[u.pathname.split('/').pop()];
+      return c ? Response.json({ tree: { sha: c.tree } }) : Response.json({ message: 'Not Found' }, { status: 404 });
+    }
+    if (key.startsWith('GET /repos/o/r/contents/')) {
+      const path = decodeURIComponent(u.pathname.slice('/repos/o/r/contents/'.length));
+      const ref = u.searchParams.get('ref');
+      const c = commits[ref] || commits[branches[ref]];
+      const text = c?.files[path];
+      return text === undefined ? Response.json({ message: 'Not Found' }, { status: 404 }) : Response.json({ type: 'file', encoding: 'base64', content: b64(text), sha: blob(text), size: text.length });
+    }
+    const h = table[key];
+    if (!h) return Response.json({ message: 'Not Found' }, { status: 404 });
+    const [status, body] = h(init, u);
+    return Response.json(body, { status });
+  };
+  return { fetchImpl, made, branches, commits };
+}
+
+test('github: changes apply only where the text still matches, and saved files are read back', async () => {
+  const repo = fakeRepo({ files: { 'src/a.js': 'const a = 1;\nfoo();\n', 'README.md': 'hi\n' } });
+  const api = createGithubApi({ fetchImpl: repo.fetchImpl });
+  const pr = await api.createPullRequest('tok', { repo: 'o/r', title: 'Bump a', now: 1, files: [
+    { path: 'src/a.js', edits: [{ search: 'const a = 1;', replace: 'const a = 2;' }] },
+    { path: 'README.md', content: 'hi\n' },
+    { path: 'new.txt', content: 'new\n' }
+  ] });
+  assert.equal(pr.verified, true);
+  assert.deepEqual(pr.files, [
+    { path: 'src/a.js', status: 'changed', saved: true },
+    { path: 'README.md', status: 'unchanged' },
+    { path: 'new.txt', status: 'added', saved: true }
+  ]);
+  const head = repo.commits[repo.branches[pr.branch]];
+  assert.equal(head.files['src/a.js'], 'const a = 2;\nfoo();\n', 'only the matched part changed');
+  assert.equal(repo.branches.main, 'base1', 'the base branch is untouched');
+
+  await assert.rejects(api.createPullRequest('tok', { repo: 'o/r', title: 'x', files: [{ path: 'src/a.js', edits: [{ search: 'const a = 9;', replace: 'y' }] }] }), (e) => e.code === 'conflict' && /may have changed/.test(e.message), 'stale text is refused');
+  const twice = fakeRepo({ files: { 'a.js': 'x();\nx();\n' } });
+  await assert.rejects(createGithubApi({ fetchImpl: twice.fetchImpl }).createPullRequest('tok', { repo: 'o/r', title: 'x', files: [{ path: 'a.js', edits: [{ search: 'x();', replace: 'y();' }] }] }), (e) => e.code === 'conflict' && /more than one place/.test(e.message));
+  await assert.rejects(api.createPullRequest('tok', { repo: 'o/r', title: 'x', files: [{ path: 'missing.js', edits: [{ search: 'a', replace: 'b' }] }] }), (e) => e.code === 'conflict');
+  await assert.rejects(api.createPullRequest('tok', { repo: 'o/r', title: 'x', files: [{ path: 'README.md', content: 'hi\n' }] }), /Nothing to change/);
+});
+
+test('github: a repeated request returns the open pull request instead of a second one', async () => {
+  const first = fakeRepo({ files: { 'a.txt': 'old\n' } });
+  const api = createGithubApi({ fetchImpl: first.fetchImpl });
+  const pr = await api.createPullRequest('tok', { repo: 'o/r', title: 'Update a', now: 5, files: [{ path: 'a.txt', content: 'new\n' }] });
+  const again = fakeRepo({ files: { 'a.txt': 'old\n' }, openPulls: [{ number: 9, title: 'Update a', html_url: 'https://github.com/o/r/pull/9', head: { ref: pr.branch, sha: 'prhead', repo: { full_name: 'o/r' } } }] });
+  // The open pull request's head commit has the same tree the repeat builds (tree1).
+  const orig = again.fetchImpl;
+  const fetchImpl = async (url, init) => (new URL(url).pathname === '/repos/o/r/git/commits/prhead' ? Response.json({ tree: { sha: 'tree1' } }) : orig(url, init));
+  const dup = await createGithubApi({ fetchImpl }).createPullRequest('tok', { repo: 'o/r', title: 'Update a', now: 6, files: [{ path: 'a.txt', content: 'new\n' }] });
+  assert.equal(dup.existing, true);
+  assert.equal(dup.number, 9);
+  assert.equal(again.made.length, 0, 'no second branch');
+});
+
+test('github: when the branch is saved but the pull request fails, the answer says so', async () => {
+  const repo = fakeRepo({ files: { 'a.txt': 'old\n' }, failPull: true });
+  const api = createGithubApi({ fetchImpl: repo.fetchImpl });
+  await assert.rejects(api.createPullRequest('tok', { repo: 'o/r', title: 'T', now: 7, files: [{ path: 'a.txt', content: 'new\n' }] }),
+    (e) => e.code === 'partial' && e.message.includes(repo.made[0].replace('refs/heads/', '')));
+});
+
+test('github: pull request status reports files and the repository checks, or why checks are not visible', async () => {
+  const { fetchImpl } = fakeGithub({
+    'GET /repos/o/r/pulls/4': () => [200, { title: 'T', state: 'open', merged: false, mergeable: true, mergeable_state: 'clean', head: { ref: 'nasrin/t', sha: 'h1' }, base: { ref: 'main' }, html_url: 'https://github.com/o/r/pull/4' }],
+    'GET /repos/o/r/pulls/4/files': () => [200, [{ filename: 'a.js', status: 'modified', additions: 2, deletions: 1 }]],
+    'GET /repos/o/r/commits/h1/check-runs': () => [403, { message: 'Resource not accessible by integration' }],
+    'GET /repos/o/r/commits/h1/status': () => [200, { state: 'success', total_count: 1 }]
+  });
+  const st = await createGithubApi({ fetchImpl }).prStatus('tok', 'o/r', 4);
+  assert.equal(st.state, 'open');
+  assert.deepEqual(st.files, [{ path: 'a.js', status: 'modified', additions: 2, deletions: 1 }]);
+  assert.deepEqual(st.checks, { unavailable: 'not_installed' });
+  assert.deepEqual(st.statuses, { state: 'success', count: 1 });
+  await assert.rejects(createGithubApi({ fetchImpl }).searchCode(null, 'o/r', 'foo'), (e) => e.code === 'unauthorized');
+  let asked = '';
+  const search = createGithubApi({ fetchImpl: async (url) => { asked = new URL(url).searchParams.get('q'); return Response.json({ total_count: 1, items: [{ path: 'src/a.js' }] }); } });
+  assert.deepEqual(await search.searchCode('tok', 'o/r', 'signIn repo:evil/x org:evil'), { query: 'signIn', total: 1, files: ['src/a.js'] });
+  assert.equal(asked, 'signIn repo:o/r', 'search stays in the chosen repository');
+});

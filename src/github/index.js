@@ -115,7 +115,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
 
   const asHttp = (err) => {
     if (!(err instanceof GithubError)) throw err;
-    const status = { invalid: 400, not_found: 404, unauthorized: 409, forbidden: 403, no_push_access: 403, not_installed: 403, rate_limited: 429, conflict: 409 }[err.code] || 502;
+    const status = { invalid: 400, partial: 502, not_found: 404, unauthorized: 409, forbidden: 403, no_push_access: 403, not_installed: 403, rate_limited: 429, conflict: 409 }[err.code] || 502;
     throw new HttpError(status, `github_${err.code}`, err.message);
   };
   const needUser = (caller) => {
@@ -233,7 +233,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
         if (!token) throw new HttpError(409, 'github_not_connected', 'Connect GitHub first.');
         try {
           const pr = await api.createPullRequest(token, { repo: body.repo, base: body.base, title: body.title, body: body.body, files: body.files, now: now() });
-          logger?.info('github pull request opened', { files: body.files.length });
+          logger?.info('github pull request opened', { files: body.files.length, verified: pr.verified === true, existing: pr.existing === true });
           return { status: 201, body: pr };
         } catch (err) { return asHttp(err); }
       }
@@ -273,6 +273,20 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       risk: 'read', who: ['guest', 'user'], timeoutMs: 9000,
       parameters: { properties: { repo: repoParam, path: pathParam, ref: refParam, start_line: { type: 'integer', minimum: 1, maximum: 1_000_000 } }, required: ['repo', 'path'] },
       run: wrap((token, a) => api.readFile(token, checkRepo(a.repo), a.path, { ref: a.ref, startLine: a.start_line }))
+    },
+    {
+      name: 'github_search_code',
+      description: 'Finds files in a GitHub repository that contain some text (a function, word or error message). Needs the person\'s GitHub connection.',
+      risk: 'read', who: ['user'], timeoutMs: 9000,
+      parameters: { properties: { repo: repoParam, query: { type: 'string', maxLength: 120 } }, required: ['repo', 'query'] },
+      run: wrap((token, a) => api.searchCode(token, checkRepo(a.repo), a.query))
+    },
+    {
+      name: 'github_pr_status',
+      description: 'A pull request now: open, merged or closed, whether it can merge, the files it changes, and the repository\'s own checks (CI) with their results. Use it to report test results; never claim checks passed without it.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000,
+      parameters: { properties: { repo: repoParam, number: { type: 'integer', minimum: 1, maximum: 10_000_000 } }, required: ['repo', 'number'] },
+      run: wrap((token, a) => api.prStatus(token, checkRepo(a.repo), a.number))
     },
     {
       name: 'github_recent_commits',

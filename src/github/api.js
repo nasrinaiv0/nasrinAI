@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 // A small GitHub REST client on built-in fetch (ADR-002: no Octokit).
 // Reads public repositories (and the person's own, with their token) and
 // opens pull requests on a new branch. It never writes to an existing
@@ -10,7 +12,7 @@ export const MAX_PR_FILES = 20;
 export const MAX_PR_BYTES = 500_000;
 
 export class GithubError extends Error {
-  // code: invalid | not_found | unauthorized | forbidden | rate_limited | no_push_access | not_installed | conflict | failed
+  // code: invalid | not_found | unauthorized | forbidden | rate_limited | no_push_access | not_installed | conflict | partial | failed
   constructor(code, message, status = 0) { super(message); this.name = 'GithubError'; this.code = code; this.status = status; }
 }
 
@@ -139,26 +141,114 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     return (Array.isArray(list) ? list : []).map((r) => ({ repo: r.full_name, default_branch: r.default_branch, private: r.private === true, can_push: r.permissions?.push === true }));
   }
 
+  // Code search inside one repository (GitHub allows it only when signed in).
+  async function searchCode(token, repo, query) {
+    const name = checkRepo(repo);
+    // Search stays inside this repository: other scope words are dropped.
+    const q = String(query || '').replace(/\b(repo|org|user|owner):\S*/gi, ' ').replace(/\s+/g, ' ').trim();
+    if (!q || q.length > 120 || /[\0\n]/.test(q)) throw new GithubError('invalid', 'Give a short search text.');
+    if (!token) throw new GithubError('unauthorized', 'Connect GitHub (Plugins in the menu) to search code.');
+    const data = await call('GET', `/search/code?${new URLSearchParams({ q: `${q} repo:${name}`, per_page: '20' })}`, { token });
+    return { query: q, total: data?.total_count ?? 0, files: (data?.items || []).slice(0, 20).map((i) => String(i.path)) };
+  }
+
+  // A pull request as GitHub sees it now: state, changed files, and the
+  // repository's own checks (CI) on its latest commit, when visible.
+  async function prStatus(token, repo, number) {
+    const name = checkRepo(repo);
+    const n = Number(number);
+    if (!Number.isInteger(n) || n < 1) throw new GithubError('invalid', 'Give the pull request number.');
+    const pr = await call('GET', `/repos/${name}/pulls/${n}`, { token });
+    const files = await call('GET', `/repos/${name}/pulls/${n}/files?per_page=50`, { token }).catch(() => []);
+    const sha = pr?.head?.sha;
+    let checks = null;
+    try {
+      const runs = await call('GET', `/repos/${name}/commits/${sha}/check-runs?per_page=30`, { token });
+      checks = (runs?.check_runs || []).slice(0, 30).map((c) => ({ name: String(c.name).slice(0, 80), status: c.status, conclusion: c.conclusion || null }));
+    } catch (err) { if (!(err instanceof GithubError)) throw err; checks = { unavailable: err.code }; }
+    let statuses = null;
+    try {
+      const st = await call('GET', `/repos/${name}/commits/${sha}/status`, { token });
+      statuses = { state: st?.state || null, count: st?.total_count ?? 0 };
+    } catch (err) { if (!(err instanceof GithubError)) throw err; statuses = { unavailable: err.code }; }
+    return {
+      number: n, title: String(pr.title || '').slice(0, 200), state: pr.merged ? 'merged' : pr.state,
+      mergeable: pr.mergeable ?? null, mergeable_state: pr.mergeable_state || null,
+      head: pr.head?.ref || null, base: pr.base?.ref || null, url: pr.html_url,
+      files: (Array.isArray(files) ? files : []).slice(0, 50).map((f) => ({ path: String(f.filename), status: f.status, additions: f.additions ?? 0, deletions: f.deletions ?? 0 })),
+      checks, statuses
+    };
+  }
+
   // Checks a pull request's files: text only, safe paths, size limits.
+  // A file is { path, content } (the whole new file) or { path, edits:
+  // [{ search, replace }] } (exact parts of the current file to change).
   function checkFiles(files) {
     if (!Array.isArray(files) || !files.length) throw new GithubError('invalid', 'Add at least one file.');
     if (files.length > MAX_PR_FILES) throw new GithubError('invalid', `A pull request here can change up to ${MAX_PR_FILES} files.`);
     let total = 0;
     const seen = new Set();
+    const text = (v) => typeof v === 'string' && !v.includes('\0');
     return files.map((f) => {
       const path = checkPath(f?.path);
       if (seen.has(path)) throw new GithubError('invalid', 'A file is listed twice.');
       seen.add(path);
-      if (typeof f.content !== 'string') throw new GithubError('invalid', 'Every file needs its text.');
+      if (Array.isArray(f.edits)) {
+        if (!f.edits.length || f.edits.length > 50) throw new GithubError('invalid', `${path}: give between 1 and 50 changes.`);
+        const edits = f.edits.map((e) => {
+          if (!text(e?.search) || !e.search || !text(e?.replace)) throw new GithubError('invalid', `${path}: every change needs the exact text to find and its replacement.`);
+          total += Buffer.byteLength(e.search) + Buffer.byteLength(e.replace);
+          return { search: e.search, replace: e.replace };
+        });
+        if (total > MAX_PR_BYTES) throw new GithubError('invalid', 'These changes are too large for one pull request.');
+        return { path, edits };
+      }
+      if (!text(f.content)) throw new GithubError('invalid', 'Every file needs its text (text files only).');
       total += Buffer.byteLength(f.content);
       if (total > MAX_PR_BYTES) throw new GithubError('invalid', 'These files are too large for one pull request.');
-      if (f.content.includes('\0')) throw new GithubError('invalid', 'Only text files can be added.');
       return { path, content: f.content };
     });
   }
 
+  // The current text of a file on a commit, or null when it does not exist.
+  async function fileAt(token, name, path, sha) {
+    let data;
+    try { data = await call('GET', `/repos/${name}/contents/${enc(path)}?ref=${sha}`, { token }); } catch (err) {
+      if (err.code === 'not_found') return null;
+      throw err;
+    }
+    if (Array.isArray(data) || data?.type !== 'file') throw new GithubError('invalid', `${path} is a folder, not a file.`);
+    let buf;
+    if (data.encoding === 'base64' && data.content) buf = Buffer.from(data.content, 'base64');
+    else buf = Buffer.from((await call('GET', `/repos/${name}/git/blobs/${data.sha}`, { token })).content || '', 'base64');
+    if (isBinary(buf)) throw new GithubError('invalid', `${path} is not a text file.`);
+    return buf.toString('utf8');
+  }
+
+  // Each change must match exactly one place in the current file, so a
+  // file that changed since Nasrin read it is never silently overwritten.
+  function applyEdits(path, current, edits) {
+    let out = current;
+    for (const { search, replace } of edits) {
+      const at = out.indexOf(search);
+      if (at < 0) throw new GithubError('conflict', `${path}: a part to change was not found. The file may have changed since Nasrin read it; ask Nasrin to read it again.`);
+      if (out.indexOf(search, at + 1) >= 0) throw new GithubError('conflict', `${path}: a part to change matches more than one place; it needs more surrounding lines.`);
+      out = out.slice(0, at) + replace + out.slice(at + search.length);
+    }
+    return out;
+  }
+
+  // Git's own id for a file's content (what GitHub reports back), to check
+  // that what was saved is exactly what was meant.
+  const blobSha = (text) => {
+    const body = Buffer.from(text, 'utf8');
+    return createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body])).digest('hex');
+  };
+
   // New branch from base -> one commit with the files -> pull request.
-  // The base branch itself is never changed.
+  // The base branch itself is never changed. Steps that change GitHub come
+  // last; the same request repeated (an uncertain answer, a double tap)
+  // returns the pull request already opened instead of a second one.
   async function createPullRequest(token, { repo, base = '', title, body = '', files, now = Date.now() }) {
     const name = checkRepo(repo);
     const t = String(title || '').trim().replace(/\s+/g, ' ');
@@ -171,16 +261,53 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     const head = await call('GET', `/repos/${name}/git/ref/heads/${enc(baseRef)}`, { token });
     const baseSha = head?.object?.sha;
     const commit = await call('GET', `/repos/${name}/git/commits/${baseSha}`, { token });
+
+    // The final text of every file, and which ones end up unchanged.
+    const finals = [];
+    for (const f of list) {
+      const current = await fileAt(token, name, f.path, baseSha);
+      if (f.edits && current === null) throw new GithubError('conflict', `${f.path} does not exist on ${baseRef}, so it cannot be edited.`);
+      const content = f.edits ? applyEdits(f.path, current, f.edits) : f.content;
+      finals.push({ path: f.path, content, created: current === null, unchanged: current === content });
+    }
+    const changed = finals.filter((f) => !f.unchanged);
+    if (!changed.length) throw new GithubError('invalid', `Nothing to change: these files already match ${baseRef}.`);
+
     const tree = await call('POST', `/repos/${name}/git/trees`, {
-      token, body: { base_tree: commit.tree.sha, tree: list.map((f) => ({ path: f.path, mode: '100644', type: 'blob', content: f.content })) }
+      token, body: { base_tree: commit.tree.sha, tree: changed.map((f) => ({ path: f.path, mode: '100644', type: 'blob', content: f.content })) }
     });
+
+    // Already opened (same title, same files on the same base)? Return it.
+    const open = await call('GET', `/repos/${name}/pulls?state=open&base=${encodeURIComponent(baseRef)}&per_page=30`, { token }).catch(() => []);
+    for (const pr of Array.isArray(open) ? open : []) {
+      if (pr?.title !== t || !String(pr?.head?.ref || '').startsWith('nasrin/') || pr?.head?.repo?.full_name !== name) continue;
+      const c = await call('GET', `/repos/${name}/git/commits/${pr.head.sha}`, { token }).catch(() => null);
+      if (c?.tree?.sha === tree.sha) return { number: pr.number, url: pr.html_url, branch: pr.head.ref, base: baseRef, existing: true, files: report(finals), verified: true };
+    }
+
     const made = await call('POST', `/repos/${name}/git/commits`, { token, body: { message: t, tree: tree.sha, parents: [baseSha] } });
     const slug = t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'change';
     const branch = `nasrin/${slug}-${Number(now).toString(36)}`;
     await call('POST', `/repos/${name}/git/refs`, { token, body: { ref: `refs/heads/${branch}`, sha: made.sha } });
-    const pr = await call('POST', `/repos/${name}/pulls`, { token, body: { title: t, head: branch, base: baseRef, body: text } });
-    return { number: pr.number, url: pr.html_url, branch, base: baseRef };
-  }
+    let pr;
+    try {
+      pr = await call('POST', `/repos/${name}/pulls`, { token, body: { title: t, head: branch, base: baseRef, body: text } });
+    } catch (err) {
+      // Say exactly what exists: the branch was made, the pull request was not.
+      throw new GithubError('partial', `The branch ${branch} was saved on GitHub, but the pull request could not be opened (${err.message}) Open it from GitHub, or try again.`, err.status);
+    }
 
-  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, createPullRequest, checkFiles };
+    // Read back what GitHub saved on the new branch and compare it with what was meant.
+    const checked = await Promise.all(changed.map(async (f) => {
+      try {
+        const got = await call('GET', `/repos/${name}/contents/${enc(f.path)}?ref=${encodeURIComponent(branch)}`, { token });
+        return got?.sha === blobSha(f.content);
+      } catch { return false; }
+    }));
+    const saved = report(finals).map((r) => (r.status === 'unchanged' ? r : { ...r, saved: checked[changed.findIndex((c) => c.path === r.path)] }));
+    return { number: pr.number, url: pr.html_url, branch, base: baseRef, files: saved, verified: checked.every(Boolean) };
+  }
+  const report = (finals) => finals.map((f) => ({ path: f.path, status: f.unchanged ? 'unchanged' : f.created ? 'added' : 'changed' }));
+
+  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, createPullRequest, checkFiles, applyEdits, blobSha };
 }
