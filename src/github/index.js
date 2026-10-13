@@ -363,8 +363,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       risk: 'read', who: ['guest', 'user'], timeoutMs: 9000,
       parameters: { properties: { repo: repoParam, ref: refParam, path: pathParam }, required: ['repo'] },
       run: wrap((token, a) => api.recentCommits(token, checkRepo(a.repo), { ref: a.ref, path: a.path }))
-    }
-
+    },
     {
       name: 'github_run_command',
       description: 'Run one command on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. Use after inspecting repository files when tests/builds/linting/debugging need real execution. It never writes to GitHub, receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Supports Node.js and Python. Use one command without shell operators or chaining.',
