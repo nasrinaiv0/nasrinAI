@@ -45,7 +45,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
  const createSandbox=sandboxFactory||(async o=>{const{Sandbox}=await import('@vercel/sandbox');return Sandbox.create(o);});
  return{async run(input,ctx){
   if(ctx?.actor?.type!=='user'||!ctx.actor.id||!ctx.tenantId)return{error:'sign_in_required',message:'Sign in and connect GitHub to run repository code.'};
-  let parsed,patch;try{parsed=parseCodingCommand(input?.command);patch=validateCodingPatch(input?.patch);}catch(e){return{error:input?.patch?'invalid_patch':'invalid_command',message:e.message};}
+  let parsed,patch;try{parsed=parseCodingCommand(input?.command);}catch(e){return{error:'invalid_command',message:e.message};}try{patch=validateCodingPatch(input?.patch);}catch(e){return{error:'invalid_patch',message:e.message};}
   const repo=String(input?.repo||'').trim();let ref=String(input?.ref||'').trim();
   if(!/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(repo)||ref.length>200||(ref&&!/^(?!.*\.\.)(?!\/)[A-Za-z0-9._/-]{1,200}$/.test(ref)))return{error:'invalid_arguments',message:'Choose a valid repository and branch or commit.'};
   const token=await tokenFor(ctx).catch(()=>null);if(!token)return{error:'github_not_connected',message:'Connect GitHub first in Plugins → GitHub.'};
