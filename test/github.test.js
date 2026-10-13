@@ -287,7 +287,7 @@ test('github: changes apply only where the text still matches, and saved files a
   assert.equal(pr.commented, true);
   assert.match(repo.comments[0], /`src\/a\.js` — saved exactly as written/);
   assert.match(repo.comments[0], /`README\.md` — already matched/);
-  assert.match(repo.comments[0], /cannot run this code/);
+  assert.match(repo.comments[0], /does not prove the code runs/);
 
   await assert.rejects(api.createPullRequest('tok', { repo: 'o/r', title: 'x', files: [{ path: 'src/a.js', edits: [{ search: 'const a = 9;', replace: 'y' }] }] }), (e) => e.code === 'conflict' && /may have changed/.test(e.message), 'stale text is refused');
   const twice = fakeRepo({ files: { 'a.js': 'x();\nx();\n' } });
