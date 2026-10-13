@@ -20,7 +20,7 @@ Library items (`.js`, `.py`, `.html`, … kept as plain text; never `.env`,
   one message as data. The code is not saved with the chat.
 - The Software Developer professional (Web Developer for HTML/CSS/JSX-like
   files) answers unless the person chose other professionals.
-- The system prompt requires production-grade work and evidence-based reporting. For connected GitHub repositories, `github_run_command` runs one command in an isolated Vercel Sandbox microVM; the server never executes repository code directly. See `docs/github.md` for limits and security boundaries.
+- The system prompt requires production-grade work and evidence-based reporting. For connected GitHub repositories, `github_run_command` runs one command in an isolated Vercel Sandbox microVM. It can apply a bounded text-only unified diff to the temporary workspace before running checks, enabling test-fix-retest without writing to GitHub; the server never executes repository code directly. See `docs/github.md` for limits and security boundaries.
 - A file in a project gets that project's instructions too.
 
 Files: `src/coding.js`, `src/library.js` (code extensions, `replace`),
