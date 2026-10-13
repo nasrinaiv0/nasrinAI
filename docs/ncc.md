@@ -14,8 +14,12 @@ conversations, follow-ups) and n8n (visual workflows: trigger → steps).
   `support@nasrinai.com` with the subject "NCC (Nasrin Client Connect)
   enterprise enquiry". `[REQUIRES INPUT]`: a dedicated sales address, if
   there is one.
-- **Logo:** three triangles. Three original options were drawn (Rise, Flow,
-  Nest); the owner picks one.
+- **Logo:** three triangles. The owner chose **B · Flow**: three rounded
+  right-pointing triangles in a row, fading in (automations running step by
+  step). Drawn originally for NasrinAI; it stays clear of the Triforce, Citgo,
+  Mitsubishi and Google Drive marks. A formal trademark search (IPOPHL, WIPO
+  Global Brand Database) is still advised before registration. File:
+  `public/space-logos/ncc-logo-flow.svg`; inline on the Space tile.
 
 ## What NCC would be
 

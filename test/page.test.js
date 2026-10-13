@@ -299,3 +299,11 @@ test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact 
   assert.match(ncc, /separate from Connect\. It is not live yet\./);
   assert.doesNotMatch(ncc, /innerHTML/);
 });
+
+test('the NCC tile uses the owner’s chosen logo: B · Flow, three triangles (owner, 2026-10-13)', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const tile = html.slice(html.indexOf('id="spaceNcc"'), html.indexOf('</button>', html.indexOf('id="spaceNcc"')));
+  assert.match(tile, /<svg class="space-app-logo space-app-glyph space-ncc-glyph" viewBox="0 0 120 120" aria-hidden="true">/);
+  assert.equal((tile.match(/<path d="M[^"]+Z" fill="currentColor"/g) || []).length, 3);
+  assert.doesNotMatch(tile, /space-movo-glyph|<circle/);
+});
