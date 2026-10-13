@@ -6027,9 +6027,11 @@
   }
   function renderGithub() {
     document.body.classList.toggle('github-on', github.available && Boolean(account));
-    const box = $('codeGithub');
-    box.hidden = !github.available || !account;
-    $('codeGithubText').textContent = github.connected ? 'GitHub: @' + github.login : 'Connect GitHub to read your repositories and open pull requests.';
+    $('drawerGithub').hidden = !github.available;
+    $('desktopGithubBtn').hidden = !github.available;
+    $('codeGithubText').textContent = github.connected
+      ? 'Connected as @' + github.login + '. Nasrin reads your repositories and opens pull requests only after you tap Confirm. Choose repositories picks where it may open them.'
+      : 'Connect GitHub so Nasrin can read your repositories and open pull requests in the coding chat. Nothing changes on GitHub until you tap Confirm.';
     $('codeGithubBtn').textContent = github.connected ? 'Disconnect' : 'Connect GitHub';
     const inst = $('codeGithubInstall');
     inst.hidden = !(github.connected && github.install);
@@ -6048,7 +6050,7 @@
         if (r && typeof r.url === 'string' && r.url.startsWith('https://github.com/')) location.assign(r.url);
       }
     } catch (err) {
-      $('codePickerStatus').textContent = err.message || 'GitHub could not be reached.';
+      $('githubStatus').textContent = err.message || 'GitHub could not be reached.';
     } finally { btn.disabled = false; }
   });
   {
@@ -6059,6 +6061,29 @@
     }
   }
 
+  // The Plugins sheet (Plugins in the menu); GitHub is the first plugin.
+  const githubSheet = $('githubSheet');
+  function openGithub() {
+    if (!account) { openSignIn('Sign in to use plugins.'); return; }
+    closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); closeCodePicker();
+    lastFocus = document.activeElement;
+    $('githubStatus').textContent = '';
+    scrim.hidden = false;
+    githubSheet.hidden = false;
+    loadGithub();
+  }
+  function closeGithub() {
+    if (githubSheet.hidden) return;
+    githubSheet.hidden = true;
+    scrim.hidden = true;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  $('drawerGithub').addEventListener('click', () => { closeDrawer(false); openGithub(); });
+  $('desktopGithubBtn').addEventListener('click', openGithub);
+  $('githubClose').addEventListener('click', closeGithub);
+  scrim.addEventListener('click', closeGithub);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !githubSheet.hidden) closeGithub(); });
+
   const prSheet = $('prSheet');
   let prFiles = [];
   function prButton(sources, text) {
@@ -6068,7 +6093,7 @@
     return b;
   }
   async function openPr(sources, text) {
-    if (!github.connected) { openCodePicker(); $('codePickerStatus').textContent = 'Connect GitHub first.'; return; }
+    if (!github.connected) { openGithub(); $('githubStatus').textContent = 'Connect GitHub first.'; return; }
     closeCodePicker();
     lastFocus = document.activeElement;
     prFiles = sources;
@@ -6556,6 +6581,7 @@
         setCoding(sc);
         if (!conversationId) setChatProject(sc);
       } else saved.del(KEYS.coding);
+      if (!codingProject) loadGithub();   // GitHub in the menu (setCoding loads it otherwise)
     })
     .finally(() => Promise.allSettled([loadingModels, loadingPro]).then(() => {
       document.documentElement.classList.remove('composer-controls-loading');
