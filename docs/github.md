@@ -156,8 +156,41 @@ The runner is for signed-in users with GitHub connected. It fetches a source arc
 Before a repository archive reaches the sandbox extractor, `src/github/runner.js` performs bounded gzip decompression and tar-header inspection. Limits: compressed archive 15 MB, expanded tar stream 64 MB, any one entry 16 MB, and 10,000 entries. Unsafe traversal paths and links/special files are rejected. The sandbox still uses a 70-second timeout, disposable execution, bounded patch/output, and network denial before the requested command. This preflight is defense in depth, not a substitute for live integration verification: `test/sandbox-integration.test.js` is skipped unless `RUN_SANDBOX_INTEGRATION=1` and Vercel Sandbox credentials are present. Do not interpret a skipped live integration test as proof that production isolation has been verified.
 
 
-## Browser render, test, and screenshot
+## Browser render, test, screenshot and recording
 
-The `github_render_test_screenshot` tool is a separate opt-in coding workflow for signed-in users with GitHub connected. It validates the same bounded repository archive before extraction, installs Node dependencies with lifecycle scripts disabled, runs the supplied test command, starts a local preview process in the disposable sandbox, opens the generated temporary preview URL in a separate sandbox browser, captures a bounded accessibility snapshot and screenshot, and cleans up the browser/sandbox when the helper exits. It does not deploy, push, open a PR, or merge code.
+`github_render_test_screenshot` (`src/github/browser-runner.js`) lets Nasrin
+render and test a signed-in person's own connected repository, then show
+them what it looks like, the way a developer would.
 
-Required inputs: repository; one allowlisted `test_command` (for example `npm test`); one allowlisted `start_command` (for example `npm run dev -- --host 0.0.0.0 --port 3000); and optionally a `port` (default 3000). The app runs on a temporary Vercel Sandbox preview domain; it is not a production URL. Arbitrary shell chaining is rejected. Browser runs are limited to 3 per user per hour and screenshot payloads to 120 KB. A successful test command is not proof of visual correctness; the screenshot and accessibility snapshot are evidence to inspect. Live Vercel Sandbox execution still requires an opt-in integration test and production verification.
+1. **App sandbox** (Vercel Sandbox, disposable): the archive is checked
+   (same limits as the runner), extracted, dependencies installed from the
+   npm registry only with lifecycle scripts off, then the network is closed,
+   the person's one allowlisted test command runs and the preview server
+   starts on a temporary sandbox address.
+2. **Browser sandbox** (`@agent-browser/sandbox`, booted from a prepared
+   snapshot): may reach only that preview address. It sets a desktop
+   (1280×800) or phone (390×844) viewport, opens the page, reads the title
+   and accessibility snapshot, records a short scroll-through video (WebM,
+   needs ffmpeg in the snapshot; skipped if it cannot record) and takes a
+   JPEG screenshot.
+3. **Shown in the chat:** the screenshot is saved as a picture and the
+   recording as a video (`provider: browser`), owned by the person and tied
+   to that chat. The chat puts them above the reply (`[image:id]`,
+   `[video:id]`); the page plays recordings from `GET /v1/recordings/:id`
+   (owner-checked, no video plan needed). Only the chat server can attach
+   them: tools marked `media: true`, with the chat id passed by the server,
+   never by the model. The model gets only small text (exit code, trimmed
+   output, title, snapshot).
+
+Limits: 3 runs per person per hour; the tool's own time limit is 90 s;
+screenshot ≤ 1.5 MB, recording ≤ 6 MB. It never deploys, pushes or merges.
+Screenshots follow the picture keep-time (30 days or the person's
+keep-time); recordings are kept with their chat.
+
+**Setup (owner, once):** run
+`VERCEL_TOKEN=… VERCEL_TEAM_ID=… VERCEL_PROJECT_ID=… node scripts/create-browser-snapshot.mjs`
+(installs agent-browser, Chrome and ffmpeg in a sandbox and saves a
+snapshot), then set the printed `AGENT_BROWSER_SNAPSHOT_ID` in Vercel.
+Without it the tool answers "not set up" and runs nothing. Live runs still
+need a real test with the owner's Vercel account before calling this
+production-ready.

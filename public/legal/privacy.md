@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-13e** · Effective: 22 September 2026 · Last updated: 13 October 2026
+**Version 2026-10-13g** · Effective: 22 September 2026 · Last updated: 13 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -137,6 +137,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Memory notes: until you delete them or your account
 - Library items: until you delete them or your account, or the keep-time you choose, subject to applicable legal retention requirements.
 - Projects (instructions, tasks): until you delete them or your account
+- Coding render-and-test (your own repository's app): the screenshot is kept like a picture (30 days, or your keep-time); the short screen recording is kept with that chat until you delete it or your account
 - NCC contacts, deals, tasks, timelines and automations kept by a business: until the business deletes them or deletes its NasrinAI account
 - GitHub connections (user names, main account, encrypted tokens): until you remove that account, disconnect GitHub or delete your account; GitHub's own tokens also expire on their own if unused
 - Proposed actions waiting for Confirm: **10 minutes**

@@ -971,11 +971,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** pending CI. The real Vercel Sandbox integration test remains opt-in and must not be reported as passed when skipped.
 
 
-## Proposed PR — Browser render, test, and screenshots
+## Proposed PR — Browser render, test, screenshots and recordings (`feature/browser-render-test-screenshots-ci`)
 
-- Add `github_render_test_screenshot` as a separate, signed-in GitHub coding tool.
-- Use a disposable Vercel Sandbox browser with Chromium via `@agent-browser/sandbox`; validate the bounded repository archive before extraction.
-- Run a user-specified allowlisted test command, start a local preview process without shell-string execution, inspect the page title/accessibility snapshot, and capture a screenshot with a strict byte cap.
-- Restrict the app sandbox to the npm registry during dependency installation, disable its egress before tests/browser work, and allow the browser sandbox only the preview host plus browser bootstrap hosts, enforce a per-user hourly rate limit, and never deploy or write to GitHub.
-- Keep the existing `github_run_command` contract and all production limits/schema/RLS unchanged.
-- Validation: pending CI and review; live sandbox/browser startup must be tested with real Vercel credentials before claiming production-ready behavior.
+- **Owner request (2026-10-13):** NasrinAI renders and tests code, and sends screenshots and videos to the person, like Claude does.
+- **Change:** `github_render_test_screenshot` (`src/github/browser-runner.js`): app sandbox (npm registry only during install, then no network) runs the test and preview; a browser sandbox booted from a prepared snapshot (`AGENT_BROWSER_SNAPSHOT_ID`, `scripts/create-browser-snapshot.mjs`) reaches only the preview, records a short WebM and takes a JPEG; both saved for the person in that chat and shown above the reply (`[image:id]`, `[video:id]`, `GET /v1/recordings/:id`). Registry: tools marked `media: true` may attach media; the chat id comes from the server. Tool time 90 s (registry limit). Privacy Notice 2026-10-13g (no re-acceptance).
+- **Fixed from the first version:** the base64 screenshot could never pass the 8 KB tool-result limit; the 240 s time could not run (90 s registry cap, 120 s function); the browser sandbox reinstalled Chrome on every run and had wide network access.
+- **Validation:** `npm test`; live sandbox runs need the owner's Vercel account.

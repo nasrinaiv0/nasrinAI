@@ -216,7 +216,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (lastUser < 0) throw new HttpError(400, 'nothing_to_answer', 'There is no message to answer again.');
       if (editId !== null && recent[lastUser].id !== editId) throw new HttpError(400, 'invalid_message', 'Only your last message can be edited.');
       // Pictures have their own Regenerate (it makes a new picture from the brief).
-      if (/^Create an image: /.test(recent[lastUser].content) || recent.slice(lastUser + 1).some((m) => /^\[image:/.test(m.content))) {
+      if (/^Create an image: /.test(recent[lastUser].content) || recent.slice(lastUser + 1).some((m) => /^\[image:[0-9a-f-]{36}\]\s*\n(Here is your picture|Here are your)/.test(m.content))) {
         throw new HttpError(400, 'invalid_message', 'Use the picture’s own Regenerate button to make it again.');
       }
       for (const m of recent.slice(lastUser + 1)) await conversations.removeMessage(conv, m.id);
@@ -564,6 +564,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       }); };
       let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
+      const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
       try {
         try {
           run = await policy.run(plan, req, {
@@ -600,7 +601,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           for (const c of calls) {
             let content;
             try {
-              content = JSON.stringify(await reg.run(caller, c.name, c.arguments));
+              const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id });
+              if (reg.mediaOf) toolMedia.push(...reg.mediaOf(c.name, out));
+              content = JSON.stringify(out);
             } catch (err) {
               if (err instanceof ToolError && err.code === 'needs_confirmation' && confirmations && opts.confirm !== false && !pending) {
                 // Not run: the person decides, on a card the page shows.
@@ -659,6 +662,10 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
       });
       if (!reply) throw unavailable();
+      if (toolMedia.length) {
+        const lines = [...toolMedia.filter((m) => m.type === 'image'), ...toolMedia.filter((m) => m.type === 'video')].map((m) => `[${m.type}:${m.id}]`);
+        return finish(lines.join('\n') + '\n' + reply);
+      }
       // The draft says it lacks current facts: search instead of showing that.
       if (!usedTools && !webTried && webAllowed() && GAP.test(reply)) {
         live?.reset();   // the page drops the draft; `done` carries the final text either way

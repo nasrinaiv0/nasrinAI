@@ -512,6 +512,12 @@ export function loadConfig(env = process.env) {
     else { github = Object.freeze({ clientId: ghId, clientSecret: ghSecret, slug: ghSlug || null }); githubOff = null; }
   }
 
+  // Render and test in a browser (docs/github.md): the prepared agent-browser
+  // snapshot (scripts/create-browser-snapshot.mjs). Unset: the tool says it is not set up.
+  const browserSnapshot = String(env.AGENT_BROWSER_SNAPSHOT_ID || '').trim();
+  if (browserSnapshot && !/^[A-Za-z0-9_-]{4,100}$/.test(browserSnapshot)) warnings.push('AGENT_BROWSER_SNAPSHOT_ID: the snapshot id printed by scripts/create-browser-snapshot.mjs. Render and test is off.');
+  const codingBrowser = Object.freeze({ snapshotId: /^[A-Za-z0-9_-]{4,100}$/.test(browserSnapshot) ? browserSnapshot : null });
+
   // The founder's public portfolio, read for questions about Nasrin Abubakar
   // (for example https://nasrinai.com/api/knowledge). Empty: off.
   let founderUrl = String(env.FOUNDER_KNOWLEDGE_URL || '').trim();
@@ -633,7 +639,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13e').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13g').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -677,6 +683,7 @@ export function loadConfig(env = process.env) {
     facebook,
     github,
     githubOff,
+    codingBrowser,
     // Settings that were wrong but only switched an optional feature off.
     warnings: Object.freeze(warnings),
     guestTtlSeconds: toInt('GUEST_SESSION_TTL_HOURS', env.GUEST_SESSION_TTL_HOURS, 24, 1, 168) * 3600,
