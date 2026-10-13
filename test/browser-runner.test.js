@@ -47,6 +47,7 @@ function setup(overrides = {}) {
     tokenFor: async () => 'github-token',
     store: { rateHit: async () => ({ allowed: true }) },
     createAppSandbox: async options => {
+      events.push(['initial-network', options.networkPolicy.allow]);
       assert.deepEqual(options.networkPolicy, { allow: ['registry.npmjs.org'] });
       return appSandbox;
     },
@@ -88,7 +89,7 @@ test('browser runner executes tests, opens temporary preview, and captures bound
   assert.match(result.browser.snapshot, /Save/);
   assert.equal(result.browser.screenshot.mime_type, 'image/png');
   assert.equal(Buffer.from(result.browser.screenshot.data, 'base64').toString(), 'fake-png');
-  assert.ok(events.some(event => event[0] === 'network' && event[1].includes('registry.npmjs.org')));
+  assert.ok(events.some(event => event[0] === 'initial-network' && event[1].includes('registry.npmjs.org')));
   assert.ok(events.some(event => event[0] === 'network' && event[1].length === 0));
   assert.ok(events.some(event => event[0] === 'browser' && event[1][0] === 'open'));
   assert.ok(events.some(event => event[0] === 'stop-app'));
