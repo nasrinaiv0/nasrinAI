@@ -22,15 +22,22 @@ function tinyArchive() {
 
 function setup(overrides = {}) {
   const events = [];
-  const sandbox = {
+  const appSandbox = {
     async writeFiles(files) { events.push(['write', ...files.map(file => file.path)]); },
     async updateNetworkPolicy(policy) { events.push(['network', policy.allow]); },
-    async readFileBuffer(path) { assert.equal(path, '/tmp/page.png'); return Buffer.from('fake-png'); },
+    domain(port) { assert.equal(port, 3000); return 'https://preview-example.vercel.run'; },
+    async stop() { events.push(['stop-app']); },
     async runCommand({ cmd, args = [], cwd }) {
-      events.push(['run', cmd, args, cwd]);
+      events.push(['app-run', cmd, args, cwd]);
       if (cmd === 'test') return { exitCode: 1, stdout: async () => '', stderr: async () => '' };
       if (cmd === 'npm' || cmd === 'tar' || cmd === 'mkdir' || cmd === 'node') return { exitCode: 0, stdout: async () => 'ok', stderr: async () => '' };
-      throw Error('unexpected command: ' + cmd);
+      throw Error('unexpected app command: ' + cmd);
+    }
+  };
+  const browserSandbox = {
+    async runCommand(cmd, args) {
+      events.push(['browser-run', cmd, args]);
+      return { exitCode: 0, stdout: async () => Buffer.from('fake-png').toString('base64'), stderr: async () => '' };
     }
   };
   const runner = createBrowserTestRunner({
@@ -38,7 +45,11 @@ function setup(overrides = {}) {
     defaultBranch: async () => 'main',
     tokenFor: async () => 'github-token',
     store: { rateHit: async () => ({ allowed: true }) },
-    withBrowserSandbox: async fn => fn(sandbox),
+    createAppSandbox: async options => {
+      assert.deepEqual(options.networkPolicy, { allow: ['registry.npmjs.org'] });
+      return appSandbox;
+    },
+    withBrowserSandbox: async fn => fn(browserSandbox),
     browserCommand: async (_sandbox, args) => {
       events.push(['browser', args]);
       if (args[0] === 'get') return { json: { data: { title: 'Demo app' } } };
@@ -52,17 +63,17 @@ function setup(overrides = {}) {
 }
 
 const user = { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } };
-const input = { repo: 'owner/repo', test_command: 'npm test', start_command: 'npm run dev -- --host 127.0.0.1 --port 3000' };
+const input = { repo: 'owner/repo', test_command: 'npm test', start_command: 'npm run dev -- --host 0.0.0.0 --port 3000' };
 
-test('browser runner rejects public preview targets before creating a sandbox', async () => {
+test('browser runner rejects malformed arguments before creating sandboxes', async () => {
   let created = false;
-  const { runner } = setup({ withBrowserSandbox: async fn => { created = true; return fn({}); } });
-  const result = await runner.run({ ...input, preview_url: 'http://169.254.169.254/latest/meta-data' }, user);
+  const { runner } = setup({ createAppSandbox: async () => { created = true; return {}; } });
+  const result = await runner.run({ ...input, port: 80 }, user);
   assert.equal(result.error, 'invalid_arguments');
   assert.equal(created, false);
 });
 
-test('browser runner executes tests, opens local preview, and captures bounded screenshot evidence', async () => {
+test('browser runner executes tests, opens temporary preview, and captures bounded screenshot evidence', async () => {
   const { runner, events } = setup();
   const result = await runner.run(input, user);
   assert.equal(result.ok, true);
@@ -70,29 +81,26 @@ test('browser runner executes tests, opens local preview, and captures bounded s
   assert.equal(result.ref, 'main');
   assert.equal(result.browser.title, 'Demo app');
   assert.match(result.browser.snapshot, /Save/);
-  assert.equal(result.screenshot.mime_type, 'image/png');
-  assert.equal(Buffer.from(result.screenshot.data, 'base64').toString(), 'fake-png');
+  assert.equal(result.browser.screenshot.mime_type, 'image/png');
+  assert.equal(Buffer.from(result.browser.screenshot.data, 'base64').toString(), 'fake-png');
   assert.ok(events.some(event => event[0] === 'network' && event[1].includes('registry.npmjs.org')));
   assert.ok(events.some(event => event[0] === 'network' && event[1].length === 0));
   assert.ok(events.some(event => event[0] === 'browser' && event[1][0] === 'open'));
+  assert.ok(events.some(event => event[0] === 'stop-app'));
 });
 
 test('browser runner reports failing test exit code instead of calling it success', async () => {
   const { runner } = setup({
-    withBrowserSandbox: async fn => {
-      const base = setup().events;
-      void base;
-      const sandbox = {
-        async writeFiles() {},
-        async updateNetworkPolicy() {},
-        async readFileBuffer() { return Buffer.from('fake-png'); },
-        async runCommand({ cmd }) {
-          const exitCode = cmd === 'npm' ? 1 : cmd === 'test' ? 1 : 0;
-          return { exitCode, stdout: async () => 'failure output', stderr: async () => 'test failed' };
-        }
-      };
-      return fn(sandbox);
-    }
+    createAppSandbox: async () => ({
+      async writeFiles() {},
+      async updateNetworkPolicy() {},
+      domain: () => 'https://preview-example.vercel.run',
+      async stop() {},
+      async runCommand({ cmd }) {
+        const exitCode = cmd === 'npm' ? 1 : cmd === 'test' ? 1 : 0;
+        return { exitCode, stdout: async () => 'failure output', stderr: async () => 'test failed' };
+      }
+    })
   });
   const result = await runner.run(input, user);
   assert.equal(result.ok, false);
