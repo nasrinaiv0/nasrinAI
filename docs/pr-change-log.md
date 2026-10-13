@@ -941,3 +941,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** add a dependency-free browser command registry for image, video and common chat tasks; dispatch image/video shortcuts to existing media endpoints; execute image shortcuts directly without optional brief questions or the extra confirmation sheet; add execute-first instructions to the chat system prompt. Commands needing a reference image require an attachment. Server-side authorization, plan, budget, legal and safety checks remain unchanged.
 - **Documentation:** `docs/features/universal-slash-commands.md`, `docs/chat.md`, `README.md`.
 - **Validation observed (commit `0c53e78`):** `npm test` passed 517/517; `npm run check:secrets` reported no secrets in 425 files; database tests passed; GitGuardian Security Checks passed; Vercel Preview reported Ready. Re-run checks on the final documentation commit before merge.
+
+
+## Security hardening — automated dependency audit
+
+- Add a CI dependency-audit job that resolves npm dependency metadata with lifecycle scripts disabled and fails on high-severity or critical npm advisories.
+- Keep the existing test, secret-scanning, and database jobs intact.
+- Document the current missing committed lockfile and the mismatch between `package.json` and ADR-002; reconcile those separately based on actual import and hosting requirements.
+- No application runtime, authentication, token limits, database schema/RLS, production secrets, or deployment configuration changes.
+- Validation required: review the dependency-audit job and all required CI results on this PR before merge. The temporary-lockfile audit is not a substitute for a committed lockfile and reproducible dependency installation.

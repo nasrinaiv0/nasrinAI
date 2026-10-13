@@ -59,3 +59,11 @@ Cross-chat recall is intended to read only conversations matching the authentica
 - Supabase's built-in email sender is for testing only (few emails, team addresses); real users need custom SMTP.
 - Two tabs renewing the sign-in at the same moment can sign one of them out (Supabase rotates refresh tokens).
 - Tested against a local PostgreSQL copy of Supabase's roles, not yet against the live project. Not yet penetration tested.
+
+
+## Dependency-audit CI coverage (2026-10-13)
+
+- CI now runs an npm advisory audit with a high-severity failure threshold, in addition to the existing test, secret-scan, and database jobs.
+- The repository currently has no committed `package-lock.json`. The audit job creates a temporary lockfile with package lifecycle scripts disabled, then audits the resolved dependency tree. This detects known advisories for that resolution but does not make installs reproducible.
+- Follow-up required: decide which dependencies in `package.json` are genuinely required. The manifest currently lists `@vercel/sandbox`, `@supabase/supabase-js`, and `express`, while ADR-002 states that runtime dependencies were removed. Reconcile the manifest with the actual imports and hosting behavior before removing or pinning anything.
+- CI results must be checked on the PR before merge. This change does not modify production settings, database schema, credentials, or application runtime code.
