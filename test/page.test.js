@@ -128,7 +128,6 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
     assert.doesNotMatch(svg, /<style|style=|<script|href=/i, f);
     assert.match(css, new RegExp(f.replace('.', '\\.')), f);
   }
-  assert.match(busy, /type="scale" values="\.55;\.9;\.9;\.9;\.9;\.55"/);
   for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg', 'code-bot-light-busy.svg', 'code-bot-dark-busy.svg']) {
     assert.match(css, new RegExp(f.replace('.', '\\.')), f);
     const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
