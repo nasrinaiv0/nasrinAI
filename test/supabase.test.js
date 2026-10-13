@@ -52,8 +52,8 @@ test('user check: valid, invalid, outage, and caching of valid answers', async (
   });
   const verify = createSupabaseUserVerifier({ url: 'https://p.supabase.co', publishableKey: 'anon', fetchImpl: f });
 
-  assert.deepEqual(await verify('good.good.good'), { id: 'u1', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null } });
-  assert.deepEqual(await verify('good.good.good'), { id: 'u1', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null } });
+  assert.deepEqual(await verify('good.good.good'), { id: 'u1', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null, autoPr: false } });
+  assert.deepEqual(await verify('good.good.good'), { id: 'u1', prefs: { memory: null, notices: { features: true, tips: true }, seen: [], library: true, retention: null, autoPr: false } });
   assert.equal(n, 1, 'second check served from the short cache');
   verify.forget('good.good.good');
   await verify('good.good.good');

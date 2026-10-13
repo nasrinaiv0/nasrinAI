@@ -227,6 +227,8 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       handler: async ({ caller, body }) => {
         const who = needUser(caller);
         if (body?.confirm !== true) throw new HttpError(400, 'needs_confirmation', 'Confirm the pull request first.');
+        // Automatic pull requests only for people who turned them on (Plugins → GitHub).
+        if (body.auto === true && caller.prefs?.autoPr !== true) throw new HttpError(403, 'auto_pr_off', 'Automatic pull requests are off. Turn them on in Plugins → GitHub, or open this one yourself.');
         const r = await store.rateHit(`ghpr:${who.tenantId}:${who.userId}`, 3600, 20);
         if (!r.allowed) throw new HttpError(429, 'rate_limited', 'You have opened a lot of pull requests this hour. Please try again later.');
         const token = await tokenFor(caller);

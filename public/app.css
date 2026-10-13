@@ -2516,3 +2516,12 @@ body.coding-mode #welcome { display: none; }
 .pr-done a { color: inherit; text-decoration: underline; }
 .pr-open { display: none; }
 body.coding-mode.github-on .pr-open { display: inline-flex; }
+
+/* Coding replies with many files: one card, opened as a pull request. */
+.pr-card { margin: 0.5rem 0; padding: 0.85rem 0.95rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--surface); }
+.pr-card-title { margin: 0 0 0.4rem; font-weight: 500; }
+.pr-card-files { margin: 0 0 0.5rem; padding-left: 1.1rem; max-height: 9.5rem; overflow-y: auto; font: 0.78rem/1.45 var(--mono, ui-monospace, monospace); color: var(--ink-2); overflow-wrap: anywhere; }
+.pr-card-status { margin: 0.35rem 0; color: var(--ink-2); font-size: 0.84rem; }
+.pr-card-status a { color: inherit; text-decoration: underline; }
+body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
+.plugin-option { margin-top: 0.75rem; }

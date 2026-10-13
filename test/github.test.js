@@ -227,6 +227,7 @@ function fakeRepo({ files = {}, openPulls = [], failPull = false } = {}) {
   const trees = {};
   let n = 0;
   const made = [];
+  const comments = [];
   const blob = (t) => createGithubApi().blobSha(t);
   const table = {
     'GET /repos/o/r': () => [200, { full_name: 'o/r', default_branch: 'main', permissions: { push: true } }],
@@ -241,7 +242,8 @@ function fakeRepo({ files = {}, openPulls = [], failPull = false } = {}) {
     'POST /repos/o/r/git/commits': (init) => { const b = JSON.parse(init.body); const id = 'c' + (++n); commits[id] = { tree: b.tree, files: trees[b.tree] }; return [201, { sha: id }]; },
     'POST /repos/o/r/git/refs': (init) => { const b = JSON.parse(init.body); branches[b.ref.replace('refs/heads/', '')] = b.sha; made.push(b.ref); return [201, {}]; },
     'POST /repos/o/r/pulls': (init) => (failPull ? [422, { message: 'Validation Failed' }] : [201, { number: 9, html_url: 'https://github.com/o/r/pull/9', head: JSON.parse(init.body).head }]),
-    'GET /repos/o/r/pulls': () => [200, openPulls]
+    'GET /repos/o/r/pulls': () => [200, openPulls],
+    'POST /repos/o/r/issues/9/comments': (init) => { comments.push(JSON.parse(init.body).body); return [201, {}]; }
   };
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(url);
@@ -262,7 +264,7 @@ function fakeRepo({ files = {}, openPulls = [], failPull = false } = {}) {
     const [status, body] = h(init, u);
     return Response.json(body, { status });
   };
-  return { fetchImpl, made, branches, commits };
+  return { fetchImpl, made, branches, commits, comments };
 }
 
 test('github: changes apply only where the text still matches, and saved files are read back', async () => {
@@ -282,6 +284,10 @@ test('github: changes apply only where the text still matches, and saved files a
   const head = repo.commits[repo.branches[pr.branch]];
   assert.equal(head.files['src/a.js'], 'const a = 2;\nfoo();\n', 'only the matched part changed');
   assert.equal(repo.branches.main, 'base1', 'the base branch is untouched');
+  assert.equal(pr.commented, true);
+  assert.match(repo.comments[0], /`src\/a\.js` — saved exactly as written/);
+  assert.match(repo.comments[0], /`README\.md` — already matched/);
+  assert.match(repo.comments[0], /cannot run this code/);
 
   await assert.rejects(api.createPullRequest('tok', { repo: 'o/r', title: 'x', files: [{ path: 'src/a.js', edits: [{ search: 'const a = 9;', replace: 'y' }] }] }), (e) => e.code === 'conflict' && /may have changed/.test(e.message), 'stale text is refused');
   const twice = fakeRepo({ files: { 'a.js': 'x();\nx();\n' } });
@@ -328,4 +334,48 @@ test('github: pull request status reports files and the repository checks, or wh
   const search = createGithubApi({ fetchImpl: async (url) => { asked = new URL(url).searchParams.get('q'); return Response.json({ total_count: 1, items: [{ path: 'src/a.js' }] }); } });
   assert.deepEqual(await search.searchCode('tok', 'o/r', 'signIn repo:evil/x org:evil'), { query: 'signIn', total: 1, files: ['src/a.js'] });
   assert.equal(asked, 'signIn repo:o/r', 'search stays in the chosen repository');
+});
+
+test('github: automatic pull requests only for people who turned them on', async () => {
+  const { createGithub } = await import('../src/github/index.js');
+  for (const autoPr of [false, true]) {
+    const repo = fakeRepo({ files: { 'a.txt': 'old\n' } });
+    const gh = fakeGithub({
+      'POST github.com/login/oauth/access_token': () => [200, { access_token: 'ghu_first', expires_in: 28800, refresh_token: 'ghr_first', refresh_token_expires_in: 15897600 }],
+      'GET /user': () => [200, { login: 'octo-cat' }]
+    });
+    const fetchImpl = async (url, init) => (/github\.com\/login|api\.github\.com\/user$/.test(url) ? gh.fetchImpl(url, init) : repo.fetchImpl(url, init));
+    const verifyUser = async (t) => (t === USER_TOKEN ? { id: 'user-1', prefs: { autoPr } } : null);
+    const built = buildTestApp({ env: ENV, verifyUser });
+    const github = createGithub({ config: built.config, store: built.store, fetchImpl });
+    const app = buildTestApp({ env: ENV, store: built.store, verifyUser, extraRoutes: github.routes });
+    const srv = await serve(app.app);
+    try {
+      await connected(srv);
+      const res = await fetch(srv.url + '/v1/github/pull-requests', { method: 'POST', headers: { ...bearer(USER_TOKEN), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, auto: true, repo: 'o/r', title: 'Auto', body: '## Summary\nx', files: [{ path: 'a.txt', content: 'new\n' }] }) });
+      assert.equal(res.status, autoPr ? 201 : 403, `autoPr ${autoPr}`);
+      if (!autoPr) assert.equal((await res.json()).error.code, 'auto_pr_off');
+    } finally { await srv.close(); }
+  }
+});
+
+test('settings: automatic pull requests are off unless turned on, and saved with the account', async () => {
+  const { readPrefs } = await import('../src/settings.js');
+  assert.equal(readPrefs(undefined).autoPr, false);
+  assert.equal(readPrefs({ nasrin_prefs: { autoPr: 'yes' } }).autoPr, false);
+  assert.equal(readPrefs({ nasrin_prefs: { autoPr: true } }).autoPr, true);
+});
+
+test('coding chat page: PR description from the reply, many-file card, automatic pull requests only for fresh replies', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="autoPrOn"/);
+  for (const h of ["'## Summary'", "'## Files'", "'## Steps needed'", "'## Check before merging'"]) assert.ok(js.includes(h), h);
+  assert.match(js, /const MANY_FILES = 5;/);
+  assert.match(js, /const many = sources\.length > MANY_FILES && codingProject && github\.available;/);
+  assert.match(js, /if \(fresh && codingProject && github\.autoPr\)/);
+  assert.match(js, /show\('assistant', data\.message\.content, \{ id: data\.message\.id, animate: !live\.text\(\), fresh: true \}\)/);
+  assert.match(js, /data\.messages\.forEach\(\(m, i\) => show\([^)]*\{ animate: false, id: m\.id/, 'history replies are not fresh');
 });

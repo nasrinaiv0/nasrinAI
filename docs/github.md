@@ -44,6 +44,21 @@ shows `available`, or `off` with the missing setting (`not_set`, `client_id`,
 | Push to existing branches, merge, deploy | Unavailable by design | Never offered |
 | Live GitHub | Unverified | Waits for the owner's GitHub App setup |
 
+## Pull request text, automatic pull requests, many files
+
+- **Description:** the page writes it from Nasrin's reply: Summary, Files,
+  What was done, Steps needed (the reply's `todo` rows), Check before merging
+  (`warn`/`fail` rows), and who opened it. After opening, the server adds a
+  comment listing each file as saved exactly as written / could not be
+  confirmed / already matched.
+- **Automatic pull requests** (Plugins → GitHub, off by default, `prefs.autoPr`
+  with the account): right after a coding reply with files, the page opens the
+  pull request into the repository the project used last (the person picks it
+  once with Open pull request). The server accepts `auto: true` only when the
+  person's own setting is on. Old replies never open pull requests again.
+- **More than five files:** the chat shows one card listing the files with
+  Open pull request (or the automatic result) instead of the files.
+
 ## How a pull request is made (`src/github/api.js`)
 
 1. Check the person can push to the repository.
