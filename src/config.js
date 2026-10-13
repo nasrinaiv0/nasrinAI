@@ -618,7 +618,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13b').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13c').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -748,6 +748,9 @@ export function loadConfig(env = process.env) {
       userSpeechHour: toInt('LIMIT_USER_SPEECH_HOUR', env.LIMIT_USER_SPEECH_HOUR, 120, 0, 5000),
       guestWebHour: toInt('LIMIT_GUEST_WEB_HOUR', env.LIMIT_GUEST_WEB_HOUR, 6, 0, 1000),
       userWebHour: toInt('LIMIT_USER_WEB_HOUR', env.LIMIT_USER_WEB_HOUR, 40, 0, 5000),
+      // Citation lookups (docs/citations.md): their own hourly allowance, so citing sources never uses up web search.
+      guestCiteHour: toInt('LIMIT_GUEST_CITE_HOUR', env.LIMIT_GUEST_CITE_HOUR, 20, 0, 1000),
+      userCiteHour: toInt('LIMIT_USER_CITE_HOUR', env.LIMIT_USER_CITE_HOUR, 120, 0, 5000),
       userLibraryHour: toInt('LIMIT_USER_LIBRARY_HOUR', env.LIMIT_USER_LIBRARY_HOUR, 60, 1, 5000),
       userProjectsHour: toInt('LIMIT_USER_PROJECTS_HOUR', env.LIMIT_USER_PROJECTS_HOUR, 300, 1, 10000),
       // Sign-in: codes emailed per IP and per address, code tries per address, refreshes per IP.

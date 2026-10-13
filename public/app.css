@@ -610,7 +610,23 @@ body:not(.has-chat) #newChat { display: none; }
 .reply-actions .sources-toggle[aria-expanded="true"] { color: var(--ink); background: var(--surface); }
 .reply-sources { list-style: none; margin: 0.4rem 0 0; padding: 0.35rem; border: 1px solid var(--line); border-radius: 0.9rem; background: var(--paper); white-space: normal; animation: fade-in 220ms var(--glide) both; }
 .reply-sources[hidden] { display: none; }
-.reply-sources a { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; color: var(--ink); text-decoration: none; }
+.reply-sources li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.reply-sources a { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; color: var(--ink); text-decoration: none; }
+.cite-btn { flex: none; border: 1px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.78rem; min-height: 2rem; }
+.cite-btn:hover, .cite-btn[aria-expanded="true"] { color: var(--ink); background: var(--surface); }
+/* A source's citation: organized details, a style picker, the citation, Copy. */
+.cite-card { flex: 1 1 100%; width: min(100%, 40rem); margin: 0.3rem 0 0.5rem; padding: 0.85rem 0.95rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--surface); white-space: normal; animation: fade-in 220ms var(--glide) both; }
+.cite-details { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 0.8rem; margin: 0 0 0.5rem; font-size: 0.84rem; }
+.cite-details dt { color: var(--ink-3); }
+.cite-details dd { margin: 0; overflow-wrap: anywhere; }
+.cite-details a, .reply-sources .cite-details a { display: inline; flex: none; padding: 0; border-radius: 0; color: var(--ink); text-decoration: underline; }
+.cite-from { margin: 0 0 0.5rem; color: var(--ink-3); font-size: 0.76rem; }
+.cite-styles { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0.55rem; }
+.cite-style { border: 1px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 0.25rem 0.65rem; font-size: 0.78rem; min-height: 2rem; }
+.cite-style[aria-checked="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.cite-out { padding: 0.65rem 0.75rem; border-radius: 0.75rem; background: var(--paper); border: 1px solid var(--line); font-size: 0.86rem; line-height: 1.55; overflow-wrap: anywhere; padding-left: 1.6rem; text-indent: -0.85rem; }
+.cite-out.is-code { white-space: pre; overflow-x: auto; text-indent: 0; padding-left: 0.75rem; font: 0.78rem/1.5 var(--mono, ui-monospace, monospace); }
+.cite-copy { margin-top: 0.55rem; }
 .reply-sources a:hover, .reply-sources a:focus-visible { background: var(--surface); }
 .reply-source-title { font-size: 0.88rem; overflow-wrap: anywhere; }
 .reply-source-host { font-size: 0.76rem; color: var(--ink-3); }

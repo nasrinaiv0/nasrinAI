@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-13b** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-13c** · Effective: 22 September 2026 · Last updated: 13 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -59,9 +59,9 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 - **Files** (photos, PDFs, text files) are used to answer your message. Signed-in people's files are also kept in their Library (see above); guests' files are **not stored** and only their names are saved with the message. Photos are re-saved on your device before upload, which removes location and camera details. When direct uploads are switched on, larger files go from your device straight to a private storage area in our Supabase project (Singapore) through a one-time link; our server reads each file once to answer, then deletes it from that storage area. Files uploaded but never sent are deleted within about 2 hours.
 - **Answer cache:** to answer repeated simple questions faster and at lower cost, the first message of a chat (when it has no files and nothing sensitive) and Nasrin's answer may be kept in a cache for up to **30 days**, only ever reused for the same person (or guest session) asking something very similar. To find similar questions, the message, with contact details removed, is sent to OpenAI to turn it into numbers (an embedding).
 - **Research** (when switched on): for a research question, our server finds public web pages (through web search or the links you give), reads them, and an AI model lists the facts they state. Sites that ask robots not to read a page are skipped. Your question, the pages and the facts are kept for you only: guests **24 hours**, signed-in people **30 days**. Each fact may also be added, with only its source page, to a shared fact list that NasrinAI reviews before using; that list never holds your question, your identity or your session, and contact details are removed from facts.
-- **Links:** our server opens the page and uses its text for that one answer. The page text is not stored. The website sees a request from our server, not from you.
 - **Links:** our server opens the page and uses its text for that one answer. The page text is not stored; Nasrin's answer from it is (see Answers from the internet). The website sees a request from our server, not from you.
 - **Web search:** questions that need current facts may be searched on the web through OpenAI's search tool. The answer lists its sources.
+- **Citations:** when you ask to cite a source, our server opens that page (as for links) to read its publication details and, when it has a DOI, asks **Crossref** (a public registry of scholarly publications) for that DOI's record. Only the page address or DOI is sent; nothing about you. The details are shown to you and not stored.
 - **Read aloud:** to read a reply in a natural voice, the text of Nasrin's reply is sent to OpenAI to make the audio. Your own messages are not.
 - **Voice typing** uses your browser's or phone's speech service (for example Google or Apple), not ours. Their privacy terms apply.
 

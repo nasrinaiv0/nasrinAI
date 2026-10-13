@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, cite = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1230,6 +1230,18 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, body, ip }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.scan(caller, body, ip) };
+      }
+    },
+    {
+      // Citation details for one source, facts only (docs/citations.md).
+      // Body: { url } or { doi }. Answers { citation }.
+      method: 'POST',
+      path: '/v1/cite',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!cite) throw new HttpError(404, 'not_found', 'Citations are not available.');
+        return { body: await cite.lookup(caller, body) };
       }
     },
     {

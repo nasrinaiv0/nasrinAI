@@ -57,7 +57,7 @@
   const KEYS = {
     session: 'nasrin.session', conversation: 'nasrin.conversation', speak: 'nasrin.speak',
     model: 'nasrin.model', theme: 'nasrin.theme', palette: 'nasrin.palette', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
-    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', coding: 'nasrin.coding', codeChats: 'nasrin.codeChats', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
+    notice: 'nasrin.notice', citeStyle: 'nasrin.citeStyle', motion: 'nasrin.motion', pro: 'nasrin.pro', coding: 'nasrin.coding', codeChats: 'nasrin.codeChats', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
     notices: 'nasrin.notices', deviceRealtime: 'nasrin.deviceRealtime', deviceNotified: 'nasrin.deviceNotified', speechRate: 'nasrin.speechRate', language: 'nasrin.language', left: 'nasrin.left'
   };
   const saved = {
@@ -816,6 +816,147 @@
     } finally {
       if (button) button.disabled = false;
     }
+  }
+
+  // ---------- citations (public/cite.js, POST /v1/cite) ----------
+
+  // "cite …", "citation for …", "reference for …" with one link or DOI.
+  function citeTarget(text) {
+    if (!/\b(cite|citation|citations|reference|bibliography|bibtex)\b/i.test(text)) return null;
+    const doi = (/\b(10\.\d{4,9}\/[^\s"<>]+)/i.exec(text) || [])[1];
+    const urls = text.match(/https?:\/\/[^\s<>"']+/g) || [];
+    if (urls.length > 1) return null;
+    if (urls.length === 1) return { url: urls[0].replace(/[.,;)\]]+$/, '') };
+    return doi ? { doi: doi.replace(/[.,;)\]]+$/, '') } : null;
+  }
+
+  async function citeMessage(text, target) {
+    noticesOnSend();
+    show('user', text);
+    input.value = '';
+    autosize();
+    busy = true;
+    refreshSendButton();
+    startChat();
+    const loading = genLoader('Finding the publication details', { compact: true, timer: false });
+    loading.el.classList.add('msg', 'assistant');
+    log.appendChild(loading.el);
+    scrollToEnd(loading.el);
+    try {
+      const { citation } = await api('/v1/cite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) });
+      loading.remove();
+      const el = mk('div', 'msg assistant is-new');
+      el.appendChild(citeCard(citation));
+      log.appendChild(el);
+      scrollToEnd(el);
+    } catch (err) {
+      loading.remove();
+      show('problem', err.message || 'The publication details could not be found.');
+    } finally {
+      busy = false;
+      refreshSendButton();
+    }
+  }
+
+  // Under a source in a reply's Sources list: open (or close) its citation.
+  async function toggleCite(li, button, target) {
+    const open = li.querySelector('.cite-card');
+    if (open) { open.remove(); button.setAttribute('aria-expanded', 'false'); return; }
+    button.disabled = true;
+    button.textContent = 'Looking up…';
+    try {
+      const { citation } = await api('/v1/cite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(target) });
+      li.appendChild(citeCard(citation));
+      button.setAttribute('aria-expanded', 'true');
+    } catch (err) {
+      notice.textContent = err.message || 'The publication details could not be found.';
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Cite';
+    }
+  }
+
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const fullName = (a) => a.literal || [a.given, a.family].filter(Boolean).join(' ');
+
+  // The details, organized, then the citation in the chosen style with Copy.
+  function citeCard(c) {
+    const card = mk('section', 'cite-card');
+    card.setAttribute('aria-label', 'Citation');
+    const dl = mk('dl', 'cite-details');
+    const row = (label, value, href) => {
+      if (!value) return;
+      dl.appendChild(mk('dt', '', label));
+      const dd = mk('dd');
+      if (href) {
+        const a = mk('a', '', value);
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        dd.appendChild(a);
+      } else dd.textContent = value;
+      dl.appendChild(dd);
+    };
+    const p = c.published;
+    row(c.authors.length === 1 ? 'Author' : 'Authors', c.authors.map(fullName).join('; '));
+    row('Title', c.title);
+    row(c.type === 'webpage' || c.type === 'article' ? 'Website' : 'Published in', c.container);
+    row('Published', p ? [p.day, p.month ? MONTH_NAMES[p.month - 1] : '', p.year].filter(Boolean).join(' ') : '');
+    row('Volume / issue', [c.volume ? 'Vol. ' + c.volume : '', c.issue ? 'No. ' + c.issue : ''].filter(Boolean).join(', '));
+    row('Pages', c.pages);
+    row('Publisher', c.publisher);
+    row('ISSN', c.issn);
+    row('ISBN', c.isbn);
+    row('DOI', c.doi, c.doi ? 'https://doi.org/' + c.doi : '');
+    if (!c.doi && /^https?:\/\//.test(c.url || '')) row('Link', c.url.replace(/^https?:\/\//, ''), c.url);
+    row('Accessed', c.accessed);
+    card.appendChild(dl);
+    card.appendChild(mk('p', 'cite-from', c.from === 'crossref'
+      ? 'Details from Crossref, the publisher’s DOI record.'
+      : 'Details from the page’s own publication information. Check them against the source before you rely on them.'));
+    const missing = [!c.authors.length ? 'author' : '', !p ? 'date' : ''].filter(Boolean);
+    if (missing.length) card.appendChild(mk('p', 'cite-from', `No ${missing.join(' or ')} was given by the source, so none is shown.`));
+
+    const styles = mk('div', 'cite-styles');
+    styles.setAttribute('role', 'radiogroup');
+    styles.setAttribute('aria-label', 'Citation style');
+    const out = mk('div', 'cite-out');
+    out.setAttribute('aria-live', 'polite');
+    let style = saved.get(KEYS.citeStyle) || 'apa';
+    if (!window.NasrinCite.STYLES.some((x) => x.id === style)) style = 'apa';
+    let parts = [];
+    const render = () => {
+      parts = window.NasrinCite.format(c, style);
+      out.replaceChildren(...parts.map((x) => (x.i ? mk('i', '', x.t) : document.createTextNode(x.t))));
+      out.classList.toggle('is-code', style === 'bibtex');
+      for (const b of styles.children) b.setAttribute('aria-checked', String(b.dataset.style === style));
+    };
+    for (const s of window.NasrinCite.STYLES) {
+      const b = mk('button', 'cite-style', s.label);
+      b.type = 'button';
+      b.dataset.style = s.id;
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => { style = s.id; saved.set(KEYS.citeStyle, style); render(); });
+      styles.appendChild(b);
+    }
+    const copy = mk('button', 'btn small cite-copy', 'Copy citation');
+    copy.type = 'button';
+    copy.addEventListener('click', async () => {
+      const text = window.NasrinCite.plain(parts);
+      let ok = false;
+      // With italics for Word and Google Docs, where the browser allows it.
+      if (window.ClipboardItem && navigator.clipboard?.write && style !== 'bibtex') {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([text], { type: 'text/plain' }), 'text/html': new Blob([window.NasrinCite.html(parts)], { type: 'text/html' }) })]);
+          ok = true;
+        } catch { ok = false; }
+      }
+      if (!ok) ok = await copyText(text);
+      if (ok) { copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy citation'; }, 1600); }
+    });
+    card.append(styles, out, copy);
+    render();
+    return card;
   }
 
   // ---------- the messy-file cleaner (public/cleaner.js) ----------
@@ -2078,6 +2219,10 @@
       renderTray();
       return sendImage(text, files);
     }
+    // "Cite <link or DOI>": the source's publication details and citation
+    // formats, looked up (facts only), not written by the AI.
+    const citeAsk = !editing && !shortcut && !pending.length && citeTarget(text);
+    if (citeAsk) return citeMessage(text, citeAsk);
     // "Clean this file" with a spreadsheet or CSV: cleaned here, in the
     // browser, by fixed rules (no AI, nothing sent).
     if (!editing && !shortcut && CLEAN_ASK.test(text) && pending.some(isSheetFile)) {
@@ -2726,7 +2871,11 @@
       h.className = 'reply-source-host';
       h.textContent = l.host;
       a.append(t, h);
-      li.appendChild(a);
+      const cite = mk('button', 'cite-btn', 'Cite');
+      cite.type = 'button';
+      cite.setAttribute('aria-label', 'Cite ' + l.title);
+      cite.addEventListener('click', () => toggleCite(li, cite, { url: l.url }));
+      li.append(a, cite);
       list.appendChild(li);
     }
     const b = document.createElement('button');
