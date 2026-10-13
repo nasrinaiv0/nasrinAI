@@ -104,7 +104,7 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
   assert.match(html, /id="spaceCoding">\s*<span class="space-app-icon" aria-hidden="true"><span class="space-app-logo code-logo"/);
   // Every app sits on the same tile (owner, 2026-10-13): light grey, lifted grey in dark mode.
-  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 6);
+  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 7);
   assert.match(css, /#pageSpace \.space-app-icon \{[^}]*background: #ECEBE7;/);
   assert.match(css, /:root\[data-theme="dark"\] #pageSpace \.space-app-icon \{ background: #3A3A3C; \}/);
   // The robot has no tile of its own; while busy it breaks into pixels and comes back.
@@ -287,4 +287,12 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
   assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
   assert.match(css, /\.src-face \+ \.src-face \{ margin-left: -0\.38rem; \}/);
+});
+
+test('NCC (Nasrin Client Connect) is in NasrinAI Space, honestly marked as coming soon (owner, 2026-10-13)', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /<button type="button" class="space-app-tile" id="spaceNcc" aria-label="NCC, Nasrin Client Connect: client CRM with automations, coming soon" title="Coming soon">/);
+  assert.match(html, /<span class="space-app-name">NCC<\/span>/);
+  assert.match(js, /spaceNcc\.addEventListener\('click'[\s\S]{0,400}It is not live yet\./);
 });

@@ -3185,6 +3185,7 @@
   const spaceProjects = $('spaceProjects');
   const spaceCloud = $('spaceCloud');
   const spaceFinance = $('spaceFinance');
+  const spaceNcc = $('spaceNcc');
   const signinSheet = $('signin');
   const emailForm = $('emailForm');
   const codeForm = $('codeForm');
@@ -3360,6 +3361,11 @@
   if (spaceFinance) spaceFinance.addEventListener('click', () => {
     const status = $('spaceStatus');
     if (status) status.textContent = 'Movo is planned as a separate financial tracking app.';
+  });
+  // NCC (Nasrin Client Connect): the client CRM with automations, planned (docs/ncc.md).
+  if (spaceNcc) spaceNcc.addEventListener('click', () => {
+    const status = $('spaceStatus');
+    if (status) status.textContent = 'NCC (Nasrin Client Connect) is being built: your clients, pipeline and follow-ups in one place, with automations you approve. It is not live yet.';
   });
 
   // ---------- Terms acceptance (recorded on the server) ----------

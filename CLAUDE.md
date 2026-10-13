@@ -131,7 +131,7 @@ push and PR. Vercel builds a preview for every PR.
 | Upgrade phases A–G | Done: A Professional AI, B opt-in memory, C chat (streaming, Stop, Retry, Edit, Regenerate, read-aloud Pause), D in-app notices, E Library (012), F Projects (013), G Coding (since removed; the Library is now a storage view, migration 014). All upgrade phases done |
 | NasrinAI Connect | Gate A is on `main`: safe website discovery, authorization, configuration/approval state machine, provider registry, explicit approval, and fail-closed installation contract. No production provider is registered; Gate B installation remains blocked until a real provider adapter is implemented and verified. |
 
-Full plan: `docs/roadmap.md`.
+Full plan: `docs/roadmap.md`. NCC (Nasrin Client Connect, CRM + automations): Space tile only, plan awaiting approval in `docs/ncc.md`.
 
 PR #17 (smart routing, web, pictures, privacy and terms) is merged into
 `main`. Migrations `003_routing.sql`, `004_images.sql`, `005_legal.sql` must

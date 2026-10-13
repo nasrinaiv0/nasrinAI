@@ -1,3 +1,9 @@
+## Proposed PR — NCC tile in NasrinAI Space, plan for approval (`feature/ncc-space`)
+
+- **Owner request (2026-10-13):** add NCC (Nasrin Client Connect), a CRM with automation like n8n and GoHighLevel, to NasrinAI Space.
+- **Change:** Space tile "NCC" (people-and-steps glyph, Coming soon); tapping it says plainly it is being built and not live yet. `docs/ncc.md`: what NCC would be, the rules it must follow (tenant-scoped, AI drafts only, Confirm for outward actions, processor duties), five phases, and the owner decisions needed before the first one. No data, routes or tables yet.
+- **Validation:** `npm test`.
+
 ## Proposed PR — Sources button with site badges (`ui/sources-faces`)
 
 - **Owner request (2026-10-13, screenshot):** the sources control should look like overlapping site icons followed by "Sources".
