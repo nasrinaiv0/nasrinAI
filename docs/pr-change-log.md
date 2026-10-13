@@ -1,3 +1,9 @@
+## Proposed PR — Smaller text in normal chats (`ui/chat-smaller-text`)
+
+- **Owner request (2026-10-13):** make the fonts a bit smaller in normal chats.
+- **Change:** `public/app.css`: replies 1.02 → 0.95 rem, the person's messages 1 → 0.95 rem, reply headings 1.06/0.98 → 1/0.93 rem, tables 0.9 → 0.86 rem. The coding chat keeps its own sizes.
+- **Validation:** `npm test`; screenshots at 390 px before and after.
+
 ## Proposed PR — Messy file cleaner (`feature/messy-file-cleaner`)
 
 - **Owner request (2026-10-12 backlog #2):** upload a messy Excel/CSV; get clean, organized tables and a dashboard with no data lost.

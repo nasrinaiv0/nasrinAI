@@ -260,3 +260,12 @@ test('"clean this" with a spreadsheet runs the cleaner on the device, never the 
   assert.match(card, /window\.NasrinCleaner\.workbook\(result, fileName\)/);
   assert.doesNotMatch(card, /innerHTML/);
 });
+
+test('normal chats use a slightly smaller text size (owner, 2026-10-13)', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.msg\.assistant \{ align-self: flex-start; font-size: 0\.95rem; line-height: 1\.62; \}/);
+  assert.match(css, /\.msg\.user \{[^}]*font-size: 0\.95rem;/);
+  assert.match(css, /\.rich h3, \.rich h4 \{ font: 500 1rem\/1\.35 var\(--round\);/);
+  // The coding chat keeps its own, smaller size.
+  assert.match(css, /body\.coding-mode \.msg\.assistant \{ font-family: var\(--sans\); font-size: 0\.875rem;/);
+});
