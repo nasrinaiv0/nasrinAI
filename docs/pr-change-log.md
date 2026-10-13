@@ -1,3 +1,10 @@
+## Proposed PR — Plugins always visible, GitHub settings check (`fix/github-status`)
+
+- **Owner report (2026-10-13):** Plugins is not showing.
+- **Cause:** Plugins was hidden until GitHub is on (all GitHub settings valid and `CONNECTOR_SECRET_KEY` set, then a redeploy).
+- **Change:** Plugins is always in the menu; the GitHub card says when GitHub is not switched on yet. `/v1/status` shows `github.available` or `github.off` (the missing setting's name, never a value). The slug may be pasted as the whole public link or with capitals; quotes around values are dropped.
+- **Validation:** `npm test`; headless Chromium.
+
 ## Proposed PR — Plugins in the menu (`feature/github-menu`)
 
 - **Owner request (2026-10-13):** put the GitHub plug-in in the menu instead of the project picker, named "Plugins".

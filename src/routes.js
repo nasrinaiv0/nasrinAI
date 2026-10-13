@@ -1198,6 +1198,8 @@ return { body: { sites: await connect.list(caller) } }; }
             pdfs: Boolean(provider) && provider.capabilities().pdf !== false
           },
           legal: { terms_version: config.legal.terms, privacy_version: config.legal.privacy },
+          // GitHub plugin: on, or a short code for the missing setting (never a value).
+          github: config.github ? { available: true } : { available: false, off: config.githubOff || 'not_set' },
           plans: Boolean(plans) && config.plans.enabled,
           library: Boolean(library) && config.library?.enabled === true,
           projects: Boolean(projects) && config.projects?.enabled === true,
