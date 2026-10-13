@@ -1,3 +1,10 @@
+## Proposed PR — NCC N1: contacts and pipeline (`feature/ncc-contacts-pipeline`)
+
+- **Owner decisions (2026-10-13):** team-enabled access only; kept until the business deletes it; automations later post to Facebook, Instagram, Messenger, Threads and WhatsApp.
+- **Change:** migration `040_ncc.sql` + DB test; `src/ncc.js` and `/v1/ncc/*` routes (contacts, deals, import, export, delete all), store methods, the caller's verified sign-in email for the access check; `public/ncc.js` page from the Space tile; account export and deletion include NCC; Privacy Notice 2026-10-13e (no re-acceptance); `docs/ncc.md`, `.env.example`, `CLAUDE.md`.
+- **Effect on the live site:** none until migration 040 is run and `NCC_ENABLED=true` with `NCC_ACCOUNTS` is set. Others keep seeing the contact-the-team message.
+- **Validation:** `npm test`; DB tests on Postgres 16; browser at 390 px (light) and 1280 px (dark): import a CSV, add a deal, move it.
+
 ## Proposed PR — NCC logo: B · Flow (`ui/ncc-logo-flow`)
 
 - **Owner choice (2026-10-13):** NCC logo option B, Flow (three triangles).

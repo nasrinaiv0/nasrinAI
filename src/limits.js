@@ -131,6 +131,11 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       await hit(`prj:${caller.tenantId}:${caller.actor.id}`, limits.userProjectsHour, 'You have changed your projects a lot this hour. Please try again later.');
     },
 
+    // NCC changes (contacts, deals, imports): per account.
+    async ncc(caller) {
+      await hit(`ncc:${caller.tenantId}:${caller.actor.id}`, limits.userNccHour, 'You have made a lot of NCC changes this hour. Please try again later.');
+    },
+
     // Adding to the Library: per person.
     async library(caller) {
       await hit(`lib:${caller.tenantId}:${caller.actor.id}`, limits.userLibraryHour, 'You have added a lot to your Library this hour. Please try again later.');

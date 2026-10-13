@@ -56,9 +56,9 @@ test('status tells the page whether the AI is on and whether messages leave the 
     statusOff.speech = { ...statusOff.speech, voices: [], default: null };
     statusOn.speech = { ...statusOn.speech, voices: [], default: null };
     assert.deepEqual(statusOff,
-      { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-13d' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
+      { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-13e' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
     assert.deepEqual(statusOn,
-      { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-13d' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
+      { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-13e' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
   } finally { await a.close(); await b.close(); }
 });
 
@@ -296,7 +296,9 @@ test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact 
   assert.match(html, /<span class="space-app-name">NCC<\/span>/);
   const ncc = js.slice(js.indexOf("if (spaceNcc) spaceNcc.addEventListener"), js.indexOf("// ---------- Terms acceptance"));
   assert.match(ncc, /mail\.href = 'mailto:support@nasrinai\.com\?subject='/);
-  assert.match(ncc, /separate from Connect\. It is not live yet\./);
+  assert.match(ncc, /separate from Connect\. ', mail, ' to turn it on for your business\./);
+  // Accounts the team turned on open NCC itself; the server decides.
+  assert.match(ncc, /if \(\(await api\('\/v1\/ncc\/status'\)\)\.enabled\) \{ showPage\('ncc'\); return; \}/);
   assert.doesNotMatch(ncc, /innerHTML/);
 });
 

@@ -11,6 +11,17 @@ const MESSAGE_COLUMNS = 'id,role,content,created_at';
 
 const PROJECT_COLUMNS = 'id,name,description,instructions,status,created_at,updated_at';
 const mapProject = (r) => ({ id: r.id, name: r.name, description: r.description, instructions: r.instructions, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at });
+const NCC_CONTACT_COLUMNS = 'id,name,email,phone,company,tags,notes,source,created_at,updated_at';
+const NCC_DEAL_COLUMNS = 'id,contact_id,title,stage,value,currency,created_at,updated_at';
+const mapNccContact = (r) => ({ id: r.id, name: r.name, email: r.email, phone: r.phone, company: r.company, tags: Array.isArray(r.tags) ? r.tags : [], notes: r.notes, source: r.source, createdAt: r.created_at, updatedAt: r.updated_at });
+const mapNccDeal = (r) => ({ id: r.id, contactId: r.contact_id, title: r.title, stage: r.stage, value: Number(r.value), currency: r.currency, createdAt: r.created_at, updatedAt: r.updated_at });
+const NCC_CONTACT_FIELDS = ['name', 'email', 'phone', 'company', 'tags', 'notes'];
+const NCC_DEAL_FIELDS = ['title', 'stage', 'value', 'currency'];
+// A second contact with the same email (unique index ncc_contacts_email_uq).
+const nccDuplicate = (err) => {
+  if (err instanceof UpstreamError && / 409 /.test(err.message)) { const e = new Error('duplicate contact'); e.code = 'duplicate'; throw e; }
+  throw err;
+};
 const mapLibraryFile = (r) => ({ id: r.id, title: r.title, kind: r.kind, format: r.format, chars: r.chars, createdAt: r.created_at });
 
 function assertOwner(ownerType, ownerId) {
@@ -422,8 +433,71 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });
+      await this.deleteNccData({ tenantId, userId }).catch((err) => { if (!/ 404 /.test(String(err?.message))) throw err; });
       await this.deleteGithubConnection({ tenantId, userId });
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
+    },
+
+    // NCC contacts and deals (migration 040). Every query filters by tenant AND user.
+    async listNccContacts({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return [];
+      const rows = await request('GET', `ncc_contacts?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=20000&select=${NCC_CONTACT_COLUMNS}`);
+      return (rows || []).map(mapNccContact);
+    },
+    async getNccContact({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const rows = await request('GET', `ncc_contacts?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=${NCC_CONTACT_COLUMNS}&limit=1`);
+      return rows && rows[0] ? mapNccContact(rows[0]) : null;
+    },
+    async createNccContact({ tenantId, userId, name, email = '', phone = '', company = '', tags = [], notes = '', source = 'manual' }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) throw new Error('invalid NCC owner');
+      const rows = await request('POST', `ncc_contacts?select=${NCC_CONTACT_COLUMNS}`, { prefer: 'return=representation', body: { tenant_id: tenantId, user_id: userId, name, email, phone, company, tags, notes, source } }).catch(nccDuplicate);
+      return mapNccContact(rows[0]);
+    },
+    // Many contacts in one request (an import batch): all are saved, or none.
+    async createNccContacts({ tenantId, userId, contacts }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) throw new Error('invalid NCC owner');
+      const body = contacts.map((c) => ({ tenant_id: tenantId, user_id: userId, name: c.name, email: c.email || '', phone: c.phone || '', company: c.company || '', tags: c.tags || [], notes: c.notes || '', source: c.source || 'import' }));
+      await request('POST', 'ncc_contacts', { prefer: 'return=minimal', body }).catch(nccDuplicate);
+    },
+    async updateNccContact({ tenantId, userId, id, patch }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const body = { updated_at: new Date().toISOString() };
+      for (const k of NCC_CONTACT_FIELDS) if (k in patch) body[k] = patch[k];
+      const rows = await request('PATCH', `ncc_contacts?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=${NCC_CONTACT_COLUMNS}`, { prefer: 'return=representation', body }).catch(nccDuplicate);
+      return rows && rows[0] ? mapNccContact(rows[0]) : null;
+    },
+    async deleteNccContact({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return false;
+      const rows = await request('DELETE', `ncc_contacts?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer: 'return=representation' });
+      return Boolean(rows && rows.length);
+    },
+    async listNccDeals({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return [];
+      const rows = await request('GET', `ncc_deals?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=20000&select=${NCC_DEAL_COLUMNS}`);
+      return (rows || []).map(mapNccDeal);
+    },
+    async createNccDeal({ tenantId, userId, contactId, title, stage = 'lead', value = 0, currency = 'PHP' }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(contactId))) throw new Error('invalid NCC deal');
+      const rows = await request('POST', `ncc_deals?select=${NCC_DEAL_COLUMNS}`, { prefer: 'return=representation', body: { tenant_id: tenantId, user_id: userId, contact_id: contactId, title, stage, value, currency } });
+      return mapNccDeal(rows[0]);
+    },
+    async updateNccDeal({ tenantId, userId, id, patch }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const body = { updated_at: new Date().toISOString() };
+      for (const k of NCC_DEAL_FIELDS) if (k in patch) body[k] = patch[k];
+      const rows = await request('PATCH', `ncc_deals?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=${NCC_DEAL_COLUMNS}`, { prefer: 'return=representation', body });
+      return rows && rows[0] ? mapNccDeal(rows[0]) : null;
+    },
+    async deleteNccDeal({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return false;
+      const rows = await request('DELETE', `ncc_deals?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer: 'return=representation' });
+      return Boolean(rows && rows.length);
+    },
+    // Deleting the contacts deletes their deals too (on delete cascade).
+    async deleteNccData({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return;
+      await request('DELETE', `ncc_contacts?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`, { prefer: 'return=minimal' });
     },
 
     // Research agent (migration 036). Scans are always read by tenant AND owner.

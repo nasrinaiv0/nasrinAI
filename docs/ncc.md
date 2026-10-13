@@ -1,10 +1,11 @@
-# NCC — Nasrin Client Connect (plan, awaiting owner approval)
+# NCC — Nasrin Client Connect
 
 Owner request (2026-10-13): add NCC to NasrinAI Space. NCC is a CRM with
 automation, in the spirit of GoHighLevel (contacts, pipelines,
 conversations, follow-ups) and n8n (visual workflows: trigger → steps).
 
-**Status:** only the Space tile exists. Nothing below is built.
+**Status:** N1 (contacts and pipeline) is built, off by default. N2–N5 are
+not built.
 
 **Owner decisions (2026-10-13):**
 
@@ -21,7 +22,49 @@ conversations, follow-ups) and n8n (visual workflows: trigger → steps).
   Global Brand Database) is still advised before registration. File:
   `public/space-logos/ncc-logo-flow.svg`; inline on the Space tile.
 
-## What NCC would be
+**Owner decisions (2026-10-13, for N1):**
+
+- **Access:** team-enabled only. NCC works for an account only when
+  `NCC_ENABLED=true` and the account's sign-in email is listed in
+  `NCC_ACCOUNTS` (comma-separated). Everyone else sees the
+  "contact the team" message on the tile.
+- **Keep-time:** contacts and deals are kept until the business deletes them,
+  or deletes its NasrinAI account.
+- **Social channels for automations (N4):** Facebook Pages, Instagram,
+  Messenger, Threads and WhatsApp (all through Meta's official APIs).
+
+## N1 — Contacts and pipeline (built)
+
+- **Data:** migration `040_ncc.sql`: `ncc_contacts` (name, email, phone,
+  company, up to 10 tags, notes, source `manual` or `import`) and `ncc_deals`
+  (contact, name, stage, value, currency). One contact per email in an
+  account. Deleting a contact deletes its deals. RLS on, browser roles denied
+  (`server_only_deny_browser`), server (service role) only. DB test
+  `db/tests/040_ncc.test.sql`.
+- **Server:** `src/ncc.js`. Every request: signed in, NCC on, email listed,
+  and every query filtered by tenant AND user id from the token. Fields are
+  cleaned and checked on the server; limits `NCC_CONTACTS_MAX`,
+  `NCC_DEALS_MAX`, `LIMIT_USER_NCC_HOUR`. The AI never sees NCC records and
+  nothing is sent anywhere.
+- **API:** `GET /v1/ncc/status`, `GET /v1/ncc`, `POST /v1/ncc/contacts`,
+  `POST /v1/ncc/contacts/import` (up to 500 rows; bad rows and repeated
+  emails skipped and counted), `PUT|DELETE /v1/ncc/contacts/:id`,
+  `POST /v1/ncc/deals`, `PUT|DELETE /v1/ncc/deals/:id`, `GET /v1/ncc/export`,
+  `POST /v1/ncc/delete-all` (`{ "confirm": "DELETE" }`).
+- **Page:** `public/ncc.js`, Settings → NasrinAI Space → NCC (wider sheet on
+  desktop). Tabs: Contacts (search, add, edit, delete), Pipeline (columns per
+  stage with totals, move a deal with its stage menu), Import & export (CSV or
+  Excel read on the device with `public/cleaner.js`; JSON export; delete
+  all). No HTML is built from data.
+- **Account export and deletion** include NCC records.
+- **Privacy Notice 2026-10-13e** describes NCC records (business as
+  controller, NasrinAI as processor, kept until deleted). The enterprise and
+  data processing agreement is `[REQUIRES INPUT]`.
+- **Owner steps:** run `040_ncc.sql` on the staging Supabase first, then
+  production; in Vercel set `NCC_ENABLED=true` and `NCC_ACCOUNTS` to the
+  business sign-in emails.
+
+## What NCC will be
 
 | Part | What the business owner gets |
 |---|---|
@@ -68,10 +111,10 @@ conversations, follow-ups) and n8n (visual workflows: trigger → steps).
    explicit per-workflow allowance, with audit and undo where possible.
 5. **N5 AI help & reports.**
 
-## Owner decisions needed before N1
+## Still needed from the owner
 
-- Enterprise terms: how businesses are set up after contacting the team
-  (accounts, contract, price) (`[REQUIRES INPUT]`).
-- Keep-time for contacts and messages, and the data processing terms
-  (`[REQUIRES INPUT]`).
+- Enterprise terms: contract and price after a business contacts the team,
+  and the data processing agreement (`[REQUIRES INPUT]`).
+- Meta app review for N4 (Pages, Instagram, Messenger, Threads, WhatsApp
+  permissions).
 - Run migrations on a staging Supabase first (required by CLAUDE.md).

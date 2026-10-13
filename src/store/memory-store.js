@@ -5,6 +5,8 @@ import { mapKey, mapTenant, mapConversation, mapMessage, mapConnector, mapChanne
 // The same interface as the Supabase store, kept in memory. Used by tests and
 // local development only; the server refuses it in production.
 const projectOut = ({ tasks, at, tenantId, userId, ...p }) => p;
+const nccContactOut = ({ at, tenantId, userId, tags, ...c }) => ({ ...c, tags: [...tags] });
+const nccDealOut = ({ at, tenantId, userId, ...d }) => ({ ...d });
 
 export function createMemoryStore({ now = () => Date.now() } = {}) {
   const tenants = new Map();
@@ -33,6 +35,8 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const memories = [];            // user memories
   const library = new Map();      // Library files (with their chunks)
   const projects = new Map();     // projects (with their tasks)
+  const nccContacts = new Map();  // NCC contacts (migration 040)
+  const nccDeals = new Map();     // NCC deals
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
   const researchScans = new Map();   // research agent: one person's scans (migration 036)
   const researchFacts = new Map();   // shared facts by fact_hash; no owner, no question
@@ -428,6 +432,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
       await this.deleteGithubConnection({ tenantId, userId });
       for (const [id, p] of projects) if (p.tenantId === tenantId && p.userId === userId) await this.deleteProject({ tenantId, userId, id });
+      await this.deleteNccData({ tenantId, userId });
       for (const m of Object.values(links)) for (const [k, l] of m) if (l.tenantId === tenantId && l.userId === userId) m.delete(k);
       for (const e of usage) if (e.tenantId === tenantId && e.actorType === 'user' && e.actorId === userId) e.actorId = 'deleted-user';
     },
@@ -681,6 +686,77 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
         });
       }
       return out.sort((a, b) => b.rank - a.rank).slice(0, limit);
+    },
+
+    // NCC contacts and deals (migration 040).
+    async listNccContacts({ tenantId, userId }) {
+      return [...nccContacts.values()].filter((c) => c.tenantId === tenantId && c.userId === userId)
+        .sort((a, b) => b.at - a.at).map(nccContactOut);
+    },
+    async getNccContact({ tenantId, userId, id }) {
+      const c = nccContacts.get(id);
+      return c && c.tenantId === tenantId && c.userId === userId ? nccContactOut(c) : null;
+    },
+    async createNccContact({ tenantId, userId, name, email = '', phone = '', company = '', tags = [], notes = '', source = 'manual' }) {
+      if (email && [...nccContacts.values()].some((c) => c.tenantId === tenantId && c.userId === userId && c.email.toLowerCase() === email.toLowerCase())) {
+        const e = new Error('duplicate contact'); e.code = 'duplicate'; throw e;
+      }
+      const c = { id: randomUUID(), tenantId, userId, name, email, phone, company, tags: [...tags], notes, source, createdAt: iso(), updatedAt: iso(), at: now() + nccContacts.size / 1000 };
+      nccContacts.set(c.id, c);
+      return nccContactOut(c);
+    },
+    async createNccContacts({ tenantId, userId, contacts }) {
+      const seen = new Set([...nccContacts.values()].filter((c) => c.tenantId === tenantId && c.userId === userId && c.email).map((c) => c.email.toLowerCase()));
+      for (const c of contacts) {
+        if (c.email && seen.has(c.email.toLowerCase())) { const e = new Error('duplicate contact'); e.code = 'duplicate'; throw e; }
+        if (c.email) seen.add(c.email.toLowerCase());
+      }
+      for (const c of contacts) await this.createNccContact({ tenantId, userId, ...c });
+    },
+    async updateNccContact({ tenantId, userId, id, patch }) {
+      const c = nccContacts.get(id);
+      if (!c || c.tenantId !== tenantId || c.userId !== userId) return null;
+      if (patch.email && [...nccContacts.values()].some((o) => o.id !== id && o.tenantId === tenantId && o.userId === userId && o.email.toLowerCase() === patch.email.toLowerCase())) {
+        const e = new Error('duplicate contact'); e.code = 'duplicate'; throw e;
+      }
+      for (const k of ['name', 'email', 'phone', 'company', 'tags', 'notes']) if (k in patch) c[k] = k === 'tags' ? [...patch.tags] : patch[k];
+      c.updatedAt = iso();
+      c.at = now() + nccContacts.size / 1000 + 1;
+      return nccContactOut(c);
+    },
+    async deleteNccContact({ tenantId, userId, id }) {
+      const c = nccContacts.get(id);
+      if (!c || c.tenantId !== tenantId || c.userId !== userId) return false;
+      for (const [k, d] of nccDeals) if (d.contactId === id) nccDeals.delete(k);
+      return nccContacts.delete(id);
+    },
+    async listNccDeals({ tenantId, userId }) {
+      return [...nccDeals.values()].filter((d) => d.tenantId === tenantId && d.userId === userId)
+        .sort((a, b) => b.at - a.at).map(nccDealOut);
+    },
+    async createNccDeal({ tenantId, userId, contactId, title, stage = 'lead', value = 0, currency = 'PHP' }) {
+      const c = nccContacts.get(contactId);
+      if (!c || c.tenantId !== tenantId || c.userId !== userId) throw new Error('no such contact');
+      const d = { id: randomUUID(), tenantId, userId, contactId, title, stage, value, currency, createdAt: iso(), updatedAt: iso(), at: now() + nccDeals.size / 1000 };
+      nccDeals.set(d.id, d);
+      return nccDealOut(d);
+    },
+    async updateNccDeal({ tenantId, userId, id, patch }) {
+      const d = nccDeals.get(id);
+      if (!d || d.tenantId !== tenantId || d.userId !== userId) return null;
+      for (const k of ['title', 'stage', 'value', 'currency']) if (k in patch) d[k] = patch[k];
+      d.updatedAt = iso();
+      d.at = now() + nccDeals.size / 1000 + 1;
+      return nccDealOut(d);
+    },
+    async deleteNccDeal({ tenantId, userId, id }) {
+      const d = nccDeals.get(id);
+      if (!d || d.tenantId !== tenantId || d.userId !== userId) return false;
+      return nccDeals.delete(id);
+    },
+    async deleteNccData({ tenantId, userId }) {
+      for (const [k, d] of nccDeals) if (d.tenantId === tenantId && d.userId === userId) nccDeals.delete(k);
+      for (const [k, c] of nccContacts) if (c.tenantId === tenantId && c.userId === userId) nccContacts.delete(k);
     },
 
     // Projects (migration 013).

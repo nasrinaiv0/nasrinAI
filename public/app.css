@@ -2717,3 +2717,36 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plugin-link.danger { color: #F2B8B5; } }
 .plugin-add { font-size: 1.1rem; }
 .plugin-accounts-hint { margin: -0.4rem 0.4rem 0.75rem; }
+
+/* NCC (Nasrin Client Connect, public/ncc.js): contacts and a deal pipeline. */
+#pageNcc .ncc-lede { margin: 0 .15rem .7rem; }
+.ncc-tabs { display: flex; gap: .3rem; padding: .25rem; margin: 0 0 .7rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.ncc-tab { flex: 1 1 0; min-height: 2.2rem; border: 0; border-radius: 999px; background: transparent; color: var(--ink-3); font: inherit; font-size: .84rem; cursor: pointer; }
+.ncc-tab.on { background: var(--ink); color: var(--paper); }
+.ncc-status:empty { display: none; }
+.ncc-body .lib-tools input[type="search"] { flex: 1 1 10rem; min-width: 0; margin: 0; }
+.ncc-row { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; width: 100%; padding: .65rem .8rem; border: 0; border-radius: 14px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ncc-row:hover, .ncc-row:focus-visible { background: var(--surface); }
+.ncc-row strong { font-weight: 600; font-size: .92rem; }
+.ncc-tags { font-size: .72rem; color: var(--ink-3); }
+.ncc-empty { padding: .8rem; }
+.ncc-form { display: flex; flex-direction: column; }
+.ncc-field { display: flex; flex-direction: column; margin: 0 0 .55rem; }
+.ncc-field .lib-select { flex: none; width: 100%; }
+.ncc-board { display: flex; align-items: flex-start; gap: .6rem; overflow-x: auto; padding: 0 0 .6rem; scroll-snap-type: x proximity; }
+.ncc-col { flex: 0 0 min(15rem, 78%); display: flex; flex-direction: column; gap: .45rem; padding: .6rem; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); scroll-snap-align: start; }
+.ncc-col-head { display: flex; flex-direction: column; gap: .1rem; padding: 0 .2rem .2rem; }
+.ncc-col-head strong { font-weight: 600; font-size: .86rem; }
+.ncc-card { display: flex; flex-direction: column; gap: .4rem; padding: .55rem; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.ncc-card-open { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ncc-card-open strong { font-weight: 600; font-size: .88rem; }
+.ncc-value { font-size: .8rem; color: var(--ink); }
+.ncc-move { flex: none; min-height: 2.1rem; font-size: .8rem; }
+.ncc-data { display: flex; flex-direction: column; gap: .4rem; }
+.ncc-data .btn { align-self: flex-start; }
+.ncc-data input[type="file"] { font-size: .82rem; color: var(--ink-3); }
+/* On larger screens the NCC page gets a wider sheet, so the pipeline fits. */
+@media (min-width: 40rem) {
+  .settings-sheet.ncc-wide { width: min(60rem, calc(100vw - 3rem)); height: min(44rem, calc(100dvh - 3rem)); }
+  .settings-sheet.ncc-wide .ncc-col { flex-basis: 13rem; }
+}

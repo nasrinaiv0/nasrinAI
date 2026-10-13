@@ -530,6 +530,17 @@ export function loadConfig(env = process.env) {
     max: toInt('PROJECTS_MAX', env.PROJECTS_MAX, 50, 1, 500),
     maxTasks: toInt('PROJECT_TASKS_MAX', env.PROJECT_TASKS_MAX, 100, 1, 1000)
   });
+  // NCC (Nasrin Client Connect, migration 040, docs/ncc.md): off by default.
+  // For enterprises only: the team turns it on per account by listing the
+  // account's sign-in email in NCC_ACCOUNTS (comma-separated).
+  const nccAccounts = String(env.NCC_ACCOUNTS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (nccAccounts.some((e) => !/^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,63}$/.test(e))) warnings.push('NCC_ACCOUNTS: use sign-in email addresses separated by commas. Addresses that are not valid are ignored.');
+  const ncc = Object.freeze({
+    enabled: softFlag('NCC_ENABLED', env.NCC_ENABLED, 'false'),
+    accounts: Object.freeze(nccAccounts.filter((e) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,63}$/.test(e))),
+    maxContacts: softInt('NCC_CONTACTS_MAX', env.NCC_CONTACTS_MAX, 2000, 10, 20000),
+    maxDeals: softInt('NCC_DEALS_MAX', env.NCC_DEALS_MAX, 2000, 10, 20000)
+  });
   // Library (migration 012): on by default; LIBRARY_ENABLED=false hides it.
   const library = Object.freeze({
     enabled: softFlag('LIBRARY_ENABLED', env.LIBRARY_ENABLED, 'true'),
@@ -618,7 +629,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13d').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13e').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -656,6 +667,7 @@ export function loadConfig(env = process.env) {
     library,
     storage,
     projects,
+    ncc,
     founderKnowledgeUrl: founderUrl || null,
     connectors: Object.freeze({ key: connectorKey }),
     facebook,
@@ -753,6 +765,7 @@ export function loadConfig(env = process.env) {
       userCiteHour: toInt('LIMIT_USER_CITE_HOUR', env.LIMIT_USER_CITE_HOUR, 120, 0, 5000),
       userLibraryHour: toInt('LIMIT_USER_LIBRARY_HOUR', env.LIMIT_USER_LIBRARY_HOUR, 60, 1, 5000),
       userProjectsHour: toInt('LIMIT_USER_PROJECTS_HOUR', env.LIMIT_USER_PROJECTS_HOUR, 300, 1, 10000),
+      userNccHour: toInt('LIMIT_USER_NCC_HOUR', env.LIMIT_USER_NCC_HOUR, 600, 1, 20000),
       // Sign-in: codes emailed per IP and per address, code tries per address, refreshes per IP.
       signInCodesIpHour: toInt('LIMIT_SIGNIN_CODES_IP_HOUR', env.LIMIT_SIGNIN_CODES_IP_HOUR, 10, 1, 1000),
       signInCodesEmailHour: toInt('LIMIT_SIGNIN_CODES_EMAIL_HOUR', env.LIMIT_SIGNIN_CODES_EMAIL_HOUR, 4, 1, 100),

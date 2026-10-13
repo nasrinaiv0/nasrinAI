@@ -33,6 +33,21 @@ export function createLegal({ store, config, logger, deleteAuthUser = null, now 
     } catch { return []; }
   }
 
+  // The person's NCC contacts and deals (null when they have none, or before
+  // migration 040 is run).
+  async function nccExport(caller) {
+    if (!store.listNccContacts) return null;
+    try {
+      const who = { tenantId: caller.tenantId, userId: caller.actor.id };
+      const [contacts, deals] = await Promise.all([store.listNccContacts(who), store.listNccDeals(who)]);
+      if (!contacts.length && !deals.length) return null;
+      return {
+        contacts: contacts.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, company: c.company, tags: c.tags, notes: c.notes, source: c.source, created_at: c.createdAt })),
+        deals: deals.map((d) => ({ contact_id: d.contactId, title: d.title, stage: d.stage, value: d.value, currency: d.currency, created_at: d.createdAt }))
+      };
+    } catch { return null; }
+  }
+
   // The person's Library, with each item's full text (an empty list before
   // migration 012 is run).
   async function libraryExport(caller) {
@@ -106,6 +121,7 @@ export function createLegal({ store, config, logger, deleteAuthUser = null, now 
         memories: (await (store.listMemories ? store.listMemories({ tenantId: caller.tenantId, userId: caller.actor.id }) : []).catch(() => [])).map((m) => ({ text: m.text, created_at: m.createdAt })),
         library: await libraryExport(caller),
         projects: await projectsExport(caller),
+        ncc: await nccExport(caller),
         research: (await (store.listResearchScans ? store.listResearchScans({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, limit: 100 }) : []).catch(() => []))
           .map((s) => ({ query: s.query, facts: s.facts, sources: s.sources, created_at: s.createdAt })),
         // GitHub: only which account is connected and since when; the sealed tokens are never exported.

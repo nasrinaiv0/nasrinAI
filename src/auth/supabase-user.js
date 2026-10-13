@@ -29,7 +29,7 @@ export function createSupabaseUserVerifier({ url, publishableKey, fetchImpl = fe
 
     const data = await resp.json().catch(() => null);
     if (!data || typeof data.id !== 'string') return null;
-    const user = { id: data.id, prefs: readPrefs(data.user_metadata) };
+    const user = { id: data.id, email: typeof data.email === 'string' ? data.email.trim().toLowerCase() : '', prefs: readPrefs(data.user_metadata) };
 
     if (cache.size >= maxEntries) cache.delete(cache.keys().next().value);
     cache.set(key, { user, until: Date.now() + cacheMs });
