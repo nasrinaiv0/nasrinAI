@@ -2504,7 +2504,9 @@ body.coding-mode #welcome { display: none; }
 /* GitHub in the coding chat (docs/github.md) */
 .github-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 0.6rem; }
 .github-sheet .code-picker-title .gh-mark { width: 1.5rem; height: 1.5rem; }
-.drawer-link-note { margin-left: auto; color: var(--ink-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.plugin-card { margin-top: 0.75rem; padding: 0.85rem 0.9rem; border: 1px solid var(--line); border-radius: 1rem; }
+.plugin-card .setting-hint { margin: 0.35rem 0 0; }
+.plugin-name { display: flex; align-items: center; gap: 0.5rem; margin: 0; color: var(--ink); font-weight: 500; }
 .gh-mark { flex: none; width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .pr-open { align-items: center; gap: 0.4rem; margin: 0.4rem 0 0.2rem; }
 .pr-sheet .lib-input { width: 100%; box-sizing: border-box; margin: 0; }

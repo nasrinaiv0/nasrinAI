@@ -6029,7 +6029,6 @@
     document.body.classList.toggle('github-on', github.available && Boolean(account));
     $('drawerGithub').hidden = !github.available;
     $('desktopGithubBtn').hidden = !github.available;
-    $('drawerGithubNote').textContent = github.connected ? '@' + github.login : '';
     $('codeGithubText').textContent = github.connected
       ? 'Connected as @' + github.login + '. Nasrin reads your repositories and opens pull requests only after you tap Confirm. Choose repositories picks where it may open them.'
       : 'Connect GitHub so Nasrin can read your repositories and open pull requests in the coding chat. Nothing changes on GitHub until you tap Confirm.';
@@ -6062,10 +6061,10 @@
     }
   }
 
-  // The GitHub sheet, from GitHub in the menu.
+  // The Plugins sheet (Plugins in the menu); GitHub is the first plugin.
   const githubSheet = $('githubSheet');
   function openGithub() {
-    if (!account) { openSignIn('Sign in to connect GitHub.'); return; }
+    if (!account) { openSignIn('Sign in to use plugins.'); return; }
     closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); closeCodePicker();
     lastFocus = document.activeElement;
     $('githubStatus').textContent = '';

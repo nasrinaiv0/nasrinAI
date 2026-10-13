@@ -1,7 +1,7 @@
-## Proposed PR — GitHub in the menu (`feature/github-menu`)
+## Proposed PR — Plugins in the menu (`feature/github-menu`)
 
-- **Owner request (2026-10-13):** put the GitHub plug-in in the menu instead of the project picker.
-- **Change:** a **GitHub** item in the menu (under Code) and in the desktop side bar opens a GitHub sheet (Connect / Disconnect, Choose repositories, the connected @name). Shown only when GitHub is set up; guests are asked to sign in. Removed from the project picker. `docs/github.md`.
+- **Owner request (2026-10-13):** put the GitHub plug-in in the menu instead of the project picker, named "Plugins".
+- **Change:** a **Plugins** item in the menu (under Code) and in the desktop side bar opens the Plugins sheet with GitHub as its first plugin (Connect / Disconnect, Choose repositories, the connected @name). Shown only when GitHub is set up; guests are asked to sign in. Removed from the project picker. `docs/github.md`.
 - **Validation:** `npm test`; headless Chromium (390 px light, 1280 px dark).
 
 ## Proposed PR — GitHub in the coding chat (`feature/github`)

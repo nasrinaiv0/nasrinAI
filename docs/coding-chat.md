@@ -72,4 +72,4 @@ No new data is stored: coding chats are ordinary project chats.
 
 ## GitHub
 
-Connect GitHub from GitHub in the menu; Nasrin reads repositories with read-only tools, and **Open pull request** under a reply with files opens a pull request on a new branch after Confirm. See `docs/github.md`.
+Connect GitHub from Plugins in the menu; Nasrin reads repositories with read-only tools, and **Open pull request** under a reply with files opens a pull request on a new branch after Confirm. See `docs/github.md`.
