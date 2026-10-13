@@ -6,8 +6,7 @@ import { extOf } from './library.js';
 // Coding: the person's own code files (Library items) given to Nasrin for one
 // answer. The file is read by the server, owner-checked, with anything that
 // looks like a secret hidden first, and added to that message as data (never
-// saved with the chat). Nasrin cannot run code or commands: nothing here
-// executes anything.
+// saved with the chat). This Library-file context path does not execute code; the connected GitHub coding chat has a separate isolated command runner.
 
 export const CODE_CHARS = 24_000;
 const WEB = new Set(['html', 'css', 'scss', 'jsx', 'tsx', 'vue', 'svelte']);
