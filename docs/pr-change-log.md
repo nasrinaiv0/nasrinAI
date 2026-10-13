@@ -1,3 +1,10 @@
+## Proposed PR — Up to 10 GitHub accounts (`feature/github-accounts`)
+
+- **Owner request (2026-10-13):** "Add account" in GitHub settings, up to 10 accounts.
+- **Change:** migration 039 (key `tenant_id, user_id, login`; `is_main`; one main per person; at most 10, enforced by a trigger) + DB test; store list/main/delete-one; routes `?add=1`, `POST /v1/github/main`, `DELETE /v1/github?login=`; Settings lists accounts with Main / Make main / Remove, Add account, Reconnect main account, Disconnect all. Privacy `2026-10-13b`.
+- **Owner step:** run `db/migrations/039_github_accounts.sql` in Supabase **before** merging.
+- **Validation:** `npm test`, DB tests (incl. upgrade of an existing connection), headless Chromium.
+
 ## Proposed PR — Connected plugins first (`ui/plugins-connected-first`, on top of #304)
 
 - **Owner request (2026-10-13):** all connected apps are listed at the top of Plugins.

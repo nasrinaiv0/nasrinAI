@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-13** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-13b** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -77,7 +77,7 @@ Businesses can connect NasrinAI to their website, their Facebook Page, their doc
 ### Tools Nasrin uses
 - Calculations, unit conversions and the current time are done by our own software.
 - Actions that would change something are proposed on a card and run only if you tap **Confirm** within 10 minutes. Nasrin cannot confirm for you.
-- **GitHub (coding chat, optional):** Nasrin can read public GitHub repositories you ask about; GitHub sees these requests come from NasrinAI. If you sign in with GitHub, we keep your GitHub user name and your GitHub sign-in tokens, stored only encrypted, so Nasrin can read the repositories you allow and open pull requests for you. Repository text Nasrin reads is sent to the AI provider answering your message, like anything else you share in chat. A pull request is opened only when you tap **Confirm** on the page, or, if you turn on **Open pull requests automatically** (Plugins → GitHub), right after Nasrin writes files in the coding chat, into the repository that project used last; it goes on a new branch and never changes your existing branches. Nasrin writes the pull request's description from its reply and adds a comment with what it checked. Your automatic pull request choice is kept with your account. *Basis: performing the service you asked for.*
+- **GitHub (coding chat, optional):** Nasrin can read public GitHub repositories you ask about; GitHub sees these requests come from NasrinAI. If you sign in with GitHub (up to 10 GitHub accounts), we keep each account's GitHub user name, which one is your main account, and its GitHub sign-in tokens, stored only encrypted, so Nasrin can read the repositories you allow and open pull requests for you. Repository text Nasrin reads is sent to the AI provider answering your message, like anything else you share in chat. A pull request is opened only when you tap **Confirm** on the page, or, if you turn on **Open pull requests automatically** (Plugins → GitHub), right after Nasrin writes files in the coding chat, into the repository that project used last; it goes on a new branch and never changes your existing branches. Nasrin writes the pull request's description from its reply and adds a comment with what it checked. Your automatic pull request choice is kept with your account. *Basis: performing the service you asked for.*
 
 ### When you buy a plan
 - **PayMongo** processes the payment. We receive the plan, selected billing period, amount, currency, payment reference, dates and whether it was paid. We do not receive or store card numbers or e-wallet details. We use these records to activate or extend plans and to provide your billing history and in-app receipts. *Basis: contract; keeping payment records is also a legal obligation.*
@@ -135,7 +135,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Memory notes: until you delete them or your account
 - Library items: until you delete them or your account, or the keep-time you choose, subject to applicable legal retention requirements.
 - Projects (instructions, tasks): until you delete them or your account
-- GitHub connection (user name and encrypted tokens): until you disconnect GitHub or delete your account; GitHub's own tokens also expire on their own if unused
+- GitHub connections (user names, main account, encrypted tokens): until you remove that account, disconnect GitHub or delete your account; GitHub's own tokens also expire on their own if unused
 - Proposed actions waiting for Confirm: **10 minutes**
 - Events sent by businesses' systems: **30 days**
 - Businesses' documents: until the business deletes them

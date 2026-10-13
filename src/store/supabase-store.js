@@ -391,22 +391,34 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     async addWebAnswer({ question, answer, sources }) {
       await request('POST', 'web_answers', { body: { question, answer, sources }, prefer: 'return=minimal' });
     },
-    // GitHub connections (migration 038): sealed tokens only.
-    async getGithubConnection({ tenantId, userId }) {
-      if (!UUID.test(String(tenantId))) return null;
-      const rows = await request('GET', `github_connections?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&select=login,access_token_enc,refresh_token_enc,expires_at,refresh_expires_at`);
-      const r = Array.isArray(rows) ? rows[0] : null;
-      return r ? { tenantId, userId, login: r.login, accessTokenEnc: r.access_token_enc, refreshTokenEnc: r.refresh_token_enc, expiresAt: r.expires_at, refreshExpiresAt: r.refresh_expires_at } : null;
+    // GitHub connections (migrations 038, 039): sealed tokens only; up to 10
+    // accounts per person, one of them the main account.
+    async listGithubConnections({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId))) return [];
+      const rows = await request('GET', `github_connections?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&select=login,is_main,access_token_enc,refresh_token_enc,expires_at,refresh_expires_at,created_at&order=is_main.desc,created_at.asc`);
+      return (Array.isArray(rows) ? rows : []).map((r) => ({ tenantId, userId, login: r.login, isMain: r.is_main === true, accessTokenEnc: r.access_token_enc, refreshTokenEnc: r.refresh_token_enc, expiresAt: r.expires_at, refreshExpiresAt: r.refresh_expires_at }));
     },
-    async saveGithubConnection({ tenantId, userId, login, accessTokenEnc, refreshTokenEnc = null, expiresAt = null, refreshExpiresAt = null }) {
-      await request('POST', 'github_connections?on_conflict=tenant_id,user_id', {
+    // One account: the given login, or the main one.
+    async getGithubConnection({ tenantId, userId, login = null }) {
+      const all = await this.listGithubConnections({ tenantId, userId });
+      return (login ? all.find((r) => r.login === login) : all.find((r) => r.isMain) || all[0]) || null;
+    },
+    async saveGithubConnection({ tenantId, userId, login, isMain = false, accessTokenEnc, refreshTokenEnc = null, expiresAt = null, refreshExpiresAt = null }) {
+      await request('POST', 'github_connections?on_conflict=tenant_id,user_id,login', {
         prefer: 'resolution=merge-duplicates,return=minimal',
-        body: { tenant_id: tenantId, user_id: userId, login, access_token_enc: accessTokenEnc, refresh_token_enc: refreshTokenEnc, expires_at: expiresAt, refresh_expires_at: refreshExpiresAt, updated_at: new Date().toISOString() }
+        body: { tenant_id: tenantId, user_id: userId, login, is_main: isMain, access_token_enc: accessTokenEnc, refresh_token_enc: refreshTokenEnc, expires_at: expiresAt, refresh_expires_at: refreshExpiresAt, updated_at: new Date().toISOString() }
       });
     },
-    async deleteGithubConnection({ tenantId, userId }) {
+    async setGithubMain({ tenantId, userId, login }) {
       if (!UUID.test(String(tenantId))) return;
-      await request('DELETE', `github_connections?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`, { prefer: 'return=minimal' });
+      const who = `tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`;
+      await request('PATCH', `github_connections?${who}&is_main=eq.true`, { body: { is_main: false }, prefer: 'return=minimal' });
+      await request('PATCH', `github_connections?${who}&login=eq.${encodeURIComponent(login)}`, { body: { is_main: true }, prefer: 'return=minimal' });
+    },
+    // One account (login), or all of them.
+    async deleteGithubConnection({ tenantId, userId, login = null }) {
+      if (!UUID.test(String(tenantId))) return;
+      await request('DELETE', `github_connections?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}${login ? `&login=eq.${encodeURIComponent(login)}` : ''}`, { prefer: 'return=minimal' });
     },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });

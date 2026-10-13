@@ -129,7 +129,7 @@ test('github: connecting needs sign-in, a signed state and this browser\'s one-t
     const guest = await fetch(t.url + '/v1/github/status');
     assert.equal(guest.status, 401);
     const st = await (await fetch(t.url + '/v1/github/status', { headers: bearer(USER_TOKEN) })).json();
-    assert.deepEqual(st, { available: true, connected: false, login: null, install_url: 'https://github.com/apps/nasrinai/installations/new' });
+    assert.deepEqual(st, { available: true, connected: false, login: null, accounts: [], max_accounts: 10, install_url: 'https://github.com/apps/nasrinai/installations/new' });
 
     const start = await fetch(t.url + '/v1/github/connect', { method: 'POST', headers: bearer(USER_TOKEN) });
     const { url } = await start.json();
@@ -395,4 +395,59 @@ test('plugins: connected plugins are listed first, under Connected', async () =>
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.ok(html.indexOf('id="pluginsConnected"') < html.indexOf('id="pluginsDev"') && html.indexOf('id="pluginsDev"') < html.indexOf('id="pluginsMore"'));
   assert.match(js, /\$\(on \? 'pluginsConnected' : 'pluginsDev'\)\.appendChild\(\$\('ghCard'\)\);/);
+});
+
+test('github: up to 10 accounts, one main; removing the main one promotes the next', async () => {
+  // Each code is a different GitHub account: code "acct-N" -> token "ghu_acct-N" -> login "acct-N".
+  const t = await ghApp({
+    'POST github.com/login/oauth/access_token': (init) => {
+      const code = new URLSearchParams(init.body).get('code');
+      return [200, { access_token: 'ghu_' + code, expires_in: 28800, refresh_token: 'ghr_' + code, refresh_token_expires_in: 15897600 }];
+    },
+    'GET /user': (init) => [200, { login: String(init.headers.Authorization).replace('Bearer ghu_', '') }]
+  });
+  const json = (r) => r.json();
+  const status = () => fetch(t.url + '/v1/github/status', { headers: bearer(USER_TOKEN) }).then(json);
+  const link = async (code, add) => {
+    const start = await fetch(t.url + '/v1/github/connect' + (add ? '?add=1' : ''), { method: 'POST', headers: bearer(USER_TOKEN) });
+    if (start.status !== 200) return { status: start.status, body: await start.json() };
+    const { url } = await start.json();
+    const cookie = start.headers.get('set-cookie').split(';')[0];
+    const back = await fetch(t.url + '/v1/github/callback?code=' + code + '&state=' + new URL(url).searchParams.get('state'), { redirect: 'manual', headers: { cookie } });
+    return { url, location: back.headers.get('location') };
+  };
+  try {
+    const first = await link('acct-1', false);
+    assert.equal(new URL(first.url).searchParams.get('prompt'), null);
+    const second = await link('acct-2', true);
+    assert.equal(new URL(second.url).searchParams.get('prompt'), 'select_account', 'adding asks GitHub to let the person pick an account');
+    assert.equal((await link('acct-1', false)).location, '/?github=connected', 'the same account again just refreshes it');
+    let st = await status();
+    assert.deepEqual(st.accounts, [{ login: 'acct-1', main: true }, { login: 'acct-2', main: false }]);
+    assert.equal(st.login, 'acct-1');
+    assert.equal(await t.github.tokenFor(ctx), 'ghu_acct-1', 'the main account is used');
+
+    const main = await fetch(t.url + '/v1/github/main', { method: 'POST', headers: { ...bearer(USER_TOKEN), 'Content-Type': 'application/json' }, body: JSON.stringify({ login: 'acct-2' }) });
+    assert.equal(main.status, 200);
+    assert.equal(await t.github.tokenFor(ctx), 'ghu_acct-2');
+    assert.equal((await fetch(t.url + '/v1/github/main', { method: 'POST', headers: { ...bearer(USER_TOKEN), 'Content-Type': 'application/json' }, body: JSON.stringify({ login: 'stranger' }) })).status, 404);
+
+    for (let i = 3; i <= 10; i++) await link('acct-' + i, true);
+    st = await status();
+    assert.equal(st.accounts.length, 10);
+    const eleventh = await link('acct-11', true);
+    assert.equal(eleventh.status, 409, 'no eleventh account');
+    assert.equal(eleventh.body.error.code, 'github_accounts_limit');
+
+    const del = await fetch(t.url + '/v1/github?login=acct-2', { method: 'DELETE', headers: bearer(USER_TOKEN) });
+    assert.equal(del.status, 200);
+    st = await status();
+    assert.equal(st.accounts.length, 9);
+    assert.equal(st.accounts.filter((a) => a.main).length, 1, 'exactly one main after removing the main one');
+    assert.equal(st.accounts.some((a) => a.login === 'acct-2'), false);
+    assert.equal((await fetch(t.url + '/v1/github?login=bad%20name', { method: 'DELETE', headers: bearer(USER_TOKEN) })).status, 400);
+
+    await fetch(t.url + '/v1/github', { method: 'DELETE', headers: bearer(USER_TOKEN) });
+    assert.deepEqual((await status()).accounts, [], 'Disconnect without a name removes every account');
+  } finally { await t.close(); }
 });

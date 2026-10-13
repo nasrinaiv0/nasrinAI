@@ -426,7 +426,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       for (const [id, f] of library) if (f.tenantId === tenantId && f.userId === userId) library.delete(id);
       for (const [id, f] of sentFiles) if (f.tenantId === tenantId && f.userId === userId) sentFiles.delete(id);
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
-      githubConnections.delete(`${tenantId}:${userId}`);
+      await this.deleteGithubConnection({ tenantId, userId });
       for (const [id, p] of projects) if (p.tenantId === tenantId && p.userId === userId) await this.deleteProject({ tenantId, userId, id });
       for (const m of Object.values(links)) for (const [k, l] of m) if (l.tenantId === tenantId && l.userId === userId) m.delete(k);
       for (const e of usage) if (e.tenantId === tenantId && e.actorType === 'user' && e.actorId === userId) e.actorId = 'deleted-user';
@@ -472,17 +472,28 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     },
     listWebAnswers() { return webAnswers.map((a) => ({ ...a })); },
 
-    // GitHub connections (migration 038): sealed tokens only.
-    async getGithubConnection({ tenantId, userId }) {
-      const r = githubConnections.get(`${tenantId}:${userId}`);
-      return r ? { ...r } : null;
+    // GitHub connections (migrations 038, 039): up to 10 accounts, one main.
+    async listGithubConnections({ tenantId, userId }) {
+      return [...githubConnections.values()].filter((r) => r.tenantId === tenantId && r.userId === userId)
+        .sort((x, y) => (y.isMain - x.isMain) || x.createdAt.localeCompare(y.createdAt)).map((r) => ({ ...r }));
+    },
+    async getGithubConnection({ tenantId, userId, login = null }) {
+      const all = await this.listGithubConnections({ tenantId, userId });
+      return (login ? all.find((r) => r.login === login) : all.find((r) => r.isMain) || all[0]) || null;
     },
     async saveGithubConnection(row) {
-      const key = `${row.tenantId}:${row.userId}`;
+      const key = `${row.tenantId}:${row.userId}:${row.login}`;
       const old = githubConnections.get(key);
-      githubConnections.set(key, { ...row, createdAt: old?.createdAt || iso(), updatedAt: iso() });
+      if (!old && (await this.listGithubConnections(row)).length >= 10) throw new Error('github_accounts_limit');
+      if (row.isMain && (await this.listGithubConnections(row)).some((r) => r.isMain && r.login !== row.login)) throw new Error('two main accounts');
+      githubConnections.set(key, { ...row, isMain: row.isMain === true, createdAt: old?.createdAt || iso(), updatedAt: iso() });
     },
-    async deleteGithubConnection({ tenantId, userId }) { githubConnections.delete(`${tenantId}:${userId}`); },
+    async setGithubMain({ tenantId, userId, login }) {
+      for (const r of githubConnections.values()) if (r.tenantId === tenantId && r.userId === userId) r.isMain = r.login === login;
+    },
+    async deleteGithubConnection({ tenantId, userId, login = null }) {
+      for (const [k, r] of githubConnections) if (r.tenantId === tenantId && r.userId === userId && (!login || r.login === login)) githubConnections.delete(k);
+    },
 
     async purgeImagesBefore(before) {
       for (const [id, r] of images) if (r.ownerType === 'service' && Date.parse(r.createdAt) < before.getTime()) images.delete(id);
