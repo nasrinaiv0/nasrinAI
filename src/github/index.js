@@ -355,10 +355,17 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
     },
     {
       name: 'github_pr_status',
-      description: 'A pull request now: open, merged or closed, whether it can merge, the files it changes, and the repository\'s own checks (CI) with their results. Use it to report test results; never claim checks passed without it.',
+      description: 'A pull request now: open, merged or closed (with when and by whom it was merged), whether it can merge, the whole diff size (+additions / -deletions, changed files, commits), the files it changes, and the repository\'s own checks (CI) with their results. Use it to answer "is it merged?" and "how big is it?", and to report test results; never claim checks passed or a merge happened without it.',
       risk: 'read', who: ['guest', 'user'], timeoutMs: 12000,
       parameters: { properties: { repo: repoParam, number: { type: 'integer', minimum: 1, maximum: 10_000_000 } }, required: ['repo', 'number'] },
       run: wrap((token, a) => api.prStatus(token, checkRepo(a.repo), a.number))
+    },
+    {
+      name: 'github_list_pull_requests',
+      description: 'The repository\'s recent pull requests, newest first: number, title, and whether each is open, merged or closed (with the merge time). Use it when the person asks about pull requests without giving a number, then github_pr_status for one pull request\'s details and diff size.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000,
+      parameters: { properties: { repo: repoParam, state: { type: 'string', enum: ['open', 'closed', 'all'] }, limit: { type: 'integer', minimum: 1, maximum: 20 } }, required: ['repo'] },
+      run: wrap((token, a) => api.listPulls(token, checkRepo(a.repo), { state: a.state || 'all', limit: a.limit || 10 }))
     },
     {
       name: 'github_recent_commits',
