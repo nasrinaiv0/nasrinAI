@@ -157,6 +157,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // The coding chat (page's Code window): coding rules, code files kept as they are.
     if (body.coding !== undefined && typeof body.coding !== 'boolean') throw new HttpError(400, 'invalid_coding', 'That chat mode is not available.');
     const codingChat = body.coding === true;
+    // The coding chat's project repository (owner/name), chosen once by the person.
+    const projectRepo = codingChat && typeof body.repo === 'string' && /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(body.repo) ? body.repo : null;
+    const codingRules = '\n\n' + CODING_CHAT_RULE + (projectRepo ? `\nThis project's GitHub repository is ${projectRepo}: use it whenever the person means their repository, unless they name another.` : '');
     // A new chat can start inside one of the person's projects.
     if (body.project_id !== undefined && (typeof body.project_id !== 'string' || body.conversation_id)) {
       throw new HttpError(400, 'invalid_project', 'A project can be chosen only for a new chat.');
@@ -554,7 +557,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       try {
         try {
@@ -674,7 +677,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? '\n\n' + CODING_CHAT_RULE : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)

@@ -51,8 +51,12 @@
     return m ? m[1] : s;
   };
 
+  // [[repo owner/name]]: the coding chat's repository for this project (kept by the page, never shown).
+  const REPO_MARK = /^[ \t]*\[\[repo ([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})\]\][ \t]*$/m;
+  const repoOf = (input) => { const m = REPO_MARK.exec(String(input || '')); return m ? m[1] : null; };
+
   function parse(input) {
-    let text = String(input || '');
+    let text = String(input || '').replace(new RegExp(REPO_MARK.source, 'gm'), '');
     const files = [];
     text = text.replace(FILE_BLOCK, (all, name, body) => {
       if (files.length < 3) {
@@ -105,6 +109,7 @@
     const raw = String(input || '');
     const writing = /\[\[file\b/i.test(raw);
     const visible = raw
+      .replace(/\[\[repo [^\]\n]*\]\]|\[\[repo\b[^\]\n]*$/g, '')
       .replace(/\[\[file\b[\s\S]*?(?:\[\[\/file\]\]|$)/gi, ' ')
       .replace(/\[\[ask\]\][\s\S]*?(?:\[\[\/ask\]\]|$)/gi, ' ')
       .replace(/^\[\[\/?checks\b[^\]\n]*\]\]$/gim, '')            // status rows show as text until the reply is done
@@ -497,5 +502,5 @@
 
   const sizeLabel = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
 
-  window.NasrinFiles = { parse, strip, make, sizeLabel, cleanFileName, sources };
+  window.NasrinFiles = { parse, strip, make, sizeLabel, cleanFileName, sources, repoOf };
 })();

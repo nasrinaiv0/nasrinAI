@@ -1,3 +1,9 @@
+## Proposed PR — Nasrin finds your repositories and asks which (`feature/repo-pick`, on top of #309)
+
+- **Owner request (2026-10-13):** "check my github repository" asked for owner/repo; NasrinAI should detect the allowed repositories and ask which one.
+- **Change:** `github_my_repos` tool (the connected account's repositories); coding rules: use a clear match or list them and ask; `[[repo owner/name]]` lets the page remember the project's repository (hidden), sent as `repo` with coding messages and added to the model's instructions. `docs/github.md`.
+- **Validation:** `npm test`.
+
 ## Proposed PR — People stay signed in across deploys (`fix/refresh-race`)
 
 - **Owner report (2026-10-13):** users are logged out after every merge.
