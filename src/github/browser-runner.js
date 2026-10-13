@@ -110,6 +110,10 @@ export function createBrowserTestRunner({
             result = await command(sandbox, 'tar', ['--no-same-owner', '--no-same-permissions', '-xzf', ARCHIVE_PATH, '--strip-components=1', '-C', WORKSPACE], ROOT);
             if (result.exitCode !== 0) throw Error('The repository snapshot could not be extracted.');
 
+            stage = 'network_setup';
+            if (typeof sandbox.updateNetworkPolicy !== 'function') throw Error('Browser sandbox cannot enforce the required network restriction.');
+            await sandbox.updateNetworkPolicy({ allow: ['registry.npmjs.org'] });
+
             stage = 'dependency_detect';
             const pkg = await command(sandbox, 'test', ['-f', 'package.json'], WORKSPACE);
             if (pkg.exitCode === 0) {
@@ -127,7 +131,6 @@ export function createBrowserTestRunner({
 
             // No external access is needed for the test, local server, or browser.
             stage = 'network_restrict';
-            if (typeof sandbox.updateNetworkPolicy !== 'function') throw Error('Browser sandbox cannot enforce the required network restriction.');
             await sandbox.updateNetworkPolicy({ allow: [] });
 
             stage = 'test_execute';
