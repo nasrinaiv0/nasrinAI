@@ -15,11 +15,11 @@ export function parseCodingCommand(raw){
 }
 export function validateCodingPatch(raw){
  if(raw===undefined||raw===null||raw==='')return '';
- if(typeof raw!=='string'||Buffer.byteLength(raw,'utf8')>MAX_PATCH_BYTES||raw.includes('\\0'))throw Error('The proposed patch must be text under 100 KB.');
+ if(typeof raw!=='string'||Buffer.byteLength(raw,'utf8')>MAX_PATCH_BYTES||raw.includes('\0'))throw Error('The proposed patch must be text under 100 KB.');
  if(/GIT binary patch|^Binary files /m.test(raw))throw Error('Binary patches are not supported; use text-file changes only.');
- const lines=raw.split(/\\r?\\n/);let found=false;
+ const lines=raw.split(/\r?\n/);let found=false;
  const safePath=p=>{
-  if(!p||p.startsWith('/')||p.includes('\\\\')||p.length>300||p.split('/').some(s=>!s||s==='.'||s==='..'))throw Error('The patch contains an unsafe file path.');
+  if(!p||p.startsWith('/')||p.includes('\\')||p.length>300||p.split('/').some(s=>!s||s==='.'||s==='..'))throw Error('The patch contains an unsafe file path.');
   const parts=p.split('/');
   if(parts.some(s=>s==='.git'||s==='node_modules'||s==='.vercel'||s==='.next'))throw Error('The patch cannot change repository metadata, dependencies, or generated framework state.');
   const base=parts.at(-1);
@@ -27,7 +27,7 @@ export function validateCodingPatch(raw){
  };
  for(const line of lines){
   if(line.startsWith('diff --git ')){
-   const m=line.match(/^diff --git a\\/([^ ]+) b\\/([^ ]+)$/);
+   const m=line.match(/^diff --git a\/([^ ]+) b\/([^ ]+)$/);
    if(!m)throw Error('The patch uses an unsupported file path format.');
    safePath(m[1]);safePath(m[2]);found=true;
   }else if(line.startsWith('--- ')){
@@ -36,7 +36,7 @@ export function validateCodingPatch(raw){
    const p=line.slice(4);if(p!=='/dev/null'){if(!p.startsWith('b/'))throw Error('The patch uses an unsupported file path format.');safePath(p.slice(2));found=true;}
   }
  }
- if(!found||!/^diff --git /m.test(raw)||!/^--- (?:a\\/.+|\\/dev\\/null)$/m.test(raw)||!/^\\+\\+\\+ (?:b\\/.+|\\/dev\\/null)$/m.test(raw))throw Error('Provide a standard unified diff patch with file headers.');
+ if(!found||!/^diff --git /m.test(raw)||!/^--- (?:a\/.+|\/dev\/null)$/m.test(raw)||! /^\+\+\+ (?:b\/.+|\/dev\/null)$/m.test(raw))throw Error('Provide a standard unified diff patch with file headers.');
  return raw;
 }
 const trim=v=>{const s=String(v||'');return s.length>MAX_OUTPUT_CHARS?s.slice(0,MAX_OUTPUT_CHARS)+'\n[output truncated]':s;};
