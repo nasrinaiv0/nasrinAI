@@ -88,3 +88,19 @@ A complete result should wire visible controls to real behavior, include validat
 Nasrin must inspect existing files before editing and reuse the repository's architecture. It must not invent routes, schema, provider APIs, environment variables, or dependency versions. A plan alone is not completion when implementation is possible. It must never claim tests/builds passed without observed tool output. If execution or a required external service is unavailable, clearly label that verification as outstanding; do not falsely call the work production-ready.
 
 This quality standard does not authorize destructive changes, secret exposure, security weakening, production writes, merges, or deployments without required authorization.
+
+## New chat, Summary and pull request chips (2026-10-13)
+
+- **New chat** inside the coding chat opens a fresh coding chat in the same
+  project; it does not go back to the normal chat. The header's leave button
+  is how to leave the coding chat.
+- **Summary**: every coding-chat reply ends with the `[[checks title="Summary"]]`
+  status list (`CODING_CHAT_RULE` in `src/coding.js`), also for short answers
+  and questions.
+- **Pull request chips**: when the reply used `github_pr_status`, the server
+  adds `[pr:owner/name#N state +A -D]` (state: open, draft, merged, closed);
+  for `github_list_pull_requests` it adds `[prs:owner/name count]`
+  (`src/github/chips.js`). The page shows them as "Diff +A −D", "#N · Merged"
+  and "Pull requests · count", linking to GitHub. They are made only from
+  GitHub's answer: lines the model writes in that shape are removed, so a
+  chip cannot claim a merge that never happened.

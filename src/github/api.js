@@ -174,7 +174,7 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     // Kept small: a tool result must stay under 8 KB, also for big pull requests.
     const all = Array.isArray(files) ? files : [];
     const out = {
-      number: n, title: String(pr.title || '').slice(0, 200), state: pr.merged ? 'merged' : pr.state,
+      repo: name, number: n, title: String(pr.title || '').slice(0, 200), state: pr.merged ? 'merged' : pr.state,
       merged: pr.merged === true, merged_at: pr.merged_at || null, merged_by: pr.merged_by?.login || null,
       closed_at: pr.closed_at || null, draft: pr.draft === true,
       // The whole diff, as GitHub counts it: +additions / -deletions over changed_files.

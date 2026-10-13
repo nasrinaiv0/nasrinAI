@@ -2648,6 +2648,34 @@ body.coding-mode.github-on .pr-open { display: inline-flex; }
 .pr-card-files { margin: 0 0 0.5rem; padding-left: 1.1rem; max-height: 9.5rem; overflow-y: auto; font: 0.78rem/1.45 var(--mono, ui-monospace, monospace); color: var(--ink-2); overflow-wrap: anywhere; }
 .pr-card-status { margin: 0.35rem 0; color: var(--ink-2); font-size: 0.84rem; }
 .pr-card-status a { color: inherit; text-decoration: underline; }
+
+/* Pull request chips (Diff +/-, merged or not), made from GitHub's answer. */
+.pr-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.2rem 0 0.6rem; }
+.pr-chip {
+  display: inline-flex; align-items: center; gap: 0.45rem; min-height: 2.25rem; padding: 0.35rem 0.85rem;
+  border: 1px solid var(--line); border-radius: 0.85rem; background: var(--surface);
+  color: var(--ink); font-family: var(--round); font-size: 0.9rem; font-weight: 500; text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.pr-chip:hover { border-color: var(--ink-3); }
+.pr-chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.pr-chip svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pr-add { color: #1a7f37; }
+.pr-del { color: #cf222e; }
+.pr-chip-dot, .pr-count, .pr-state { color: var(--ink-2); }
+.pr-chip.is-merged .pr-state, .pr-chip.is-merged svg { color: #8250df; stroke: #8250df; }
+.pr-chip.is-open .pr-state { color: #1a7f37; }
+.pr-chip.is-closed .pr-state { color: #cf222e; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pr-add, :root:not([data-theme="light"]) .pr-chip.is-open .pr-state { color: #3fb950; }
+  :root:not([data-theme="light"]) .pr-del, :root:not([data-theme="light"]) .pr-chip.is-closed .pr-state { color: #f85149; }
+  :root:not([data-theme="light"]) .pr-chip.is-merged .pr-state { color: #a371f7; }
+  :root:not([data-theme="light"]) .pr-chip.is-merged svg { stroke: #a371f7; }
+}
+:root[data-theme="dark"] .pr-add, :root[data-theme="dark"] .pr-chip.is-open .pr-state { color: #3fb950; }
+:root[data-theme="dark"] .pr-del, :root[data-theme="dark"] .pr-chip.is-closed .pr-state { color: #f85149; }
+:root[data-theme="dark"] .pr-chip.is-merged .pr-state { color: #a371f7; }
+:root[data-theme="dark"] .pr-chip.is-merged svg { stroke: #a371f7; }
 body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugin-option { margin-top: 0.75rem; }
 

@@ -16,6 +16,7 @@ import { PLATFORM_TENANT_ID } from './tenants.js';
 import { readSelection, resolve as resolveProfessionals, promptBlock } from './ai/professional.js';
 import { projectBlock } from './projects.js';
 import { CODING_RULE, CODING_CHAT_RULE } from './coding.js';
+import { prChipOf, PR_CHIP_LINES } from './github/chips.js';
 import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 
@@ -281,8 +282,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     let webSources = [];
     // What the person asked in this chat decides whether an .html file stays one.
     let askedText = typed;
+    const ownChips = new Set();   // pull request chip lines the server made from GitHub's answers
     const finish = async (reply) => {
       live?.flush();
+      // Any other line shaped like a chip (written by the model) is dropped.
+      if (typeof reply === 'string') reply = reply.replace(PR_CHIP_LINES, (line) => (ownChips.has(line.trim()) ? line : ''));
       if (!codeFile && !codingChat && typeof reply === 'string') reply = documentFiles(reply, askedText);
       // The coding chat never shows question cards: a stray [[ask]] block becomes plain questions.
       if (codingChat && typeof reply === 'string') reply = plainAsks(reply);
@@ -565,6 +569,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
+      const prChips = new Map();   // pull request chips from GitHub's answers, one per pull request
       try {
         try {
           run = await policy.run(plan, req, {
@@ -603,6 +608,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             try {
               const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id });
               if (reg.mediaOf) toolMedia.push(...reg.mediaOf(c.name, out));
+              const chip = prChipOf(c.name, out);
+              if (chip) { prChips.set(chip.key, chip.line); ownChips.add(chip.line); }
               content = JSON.stringify(out);
             } catch (err) {
               if (err instanceof ToolError && err.code === 'needs_confirmation' && confirmations && opts.confirm !== false && !pending) {
@@ -653,7 +660,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         (kind === 'config' || kind === 'unexpected' ? logger.error : logger.warn)('model call failed', { code: safeModelErrorCode(kind), model: err?.model });
         throw unavailable(kind === 'busy' ? 30 : undefined);
       }
-      const reply = clean(keepIdentity(run.result.text));
+      // Pull request chips (Diff +/-, merged or not) come only from GitHub's
+      // answer above; lines the model wrote that look like one are dropped.
+      const reply = clean(keepIdentity(run.result.text)).replace(PR_CHIP_LINES, '').trim();
       await usageLog.record(caller, {
         provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
         inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
@@ -662,9 +671,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
       });
       if (!reply) throw unavailable();
-      if (toolMedia.length) {
+      if (toolMedia.length || prChips.size) {
         const lines = [...toolMedia.filter((m) => m.type === 'image'), ...toolMedia.filter((m) => m.type === 'video')].map((m) => `[${m.type}:${m.id}]`);
-        return finish(lines.join('\n') + '\n' + reply);
+        return finish([...lines, ...prChips.values()].join('\n') + '\n' + reply);
       }
       // The draft says it lacks current facts: search instead of showing that.
       if (!usedTools && !webTried && webAllowed() && GAP.test(reply)) {
