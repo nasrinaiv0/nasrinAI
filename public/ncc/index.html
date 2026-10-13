@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NCC · Nasrin Client Connect</title>
+  <meta name="description" content="NCC, Nasrin Client Connect: contacts, pipeline, tasks and automations for your business.">
+  <meta name="theme-color" content="#F4F4F1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111113" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="NCC">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="/ncc/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/ncc/apple-touch-icon.png">
+  <link rel="manifest" href="/ncc/manifest.webmanifest">
+  <link rel="stylesheet" href="/ncc/ncc.css">
+  <script src="/cleaner.js" defer></script>
+  <script src="/ncc/ncc.js" defer></script>
+  <script src="/ncc/automations.js" defer></script>
+</head>
+<body>
+  <div class="boot" id="boot" role="status" aria-live="polite">
+    <img class="boot-mark" src="/ncc/icon.svg" alt="">
+    <span>Opening NCC…</span>
+  </div>
+
+  <!-- Sign in -->
+  <main class="auth" id="auth" hidden>
+    <div class="auth-card">
+      <img class="auth-mark" src="/ncc/icon.svg" alt="">
+      <h1>NCC</h1>
+      <p class="auth-sub">Nasrin Client Connect</p>
+      <form id="emailForm" class="auth-form">
+        <label for="authEmail">Work email</label>
+        <input id="authEmail" type="email" autocomplete="email" inputmode="email" required maxlength="254" placeholder="you@business.com">
+        <button class="btn primary wide" type="submit" id="emailBtn">Email me a code</button>
+      </form>
+      <form id="codeForm" class="auth-form" hidden>
+        <label for="authCode">Code from the email</label>
+        <input id="authCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" required placeholder="123456">
+        <button class="btn primary wide" type="submit" id="codeBtn">Sign in</button>
+        <button class="btn plain wide" type="button" id="codeBack">Use another email</button>
+      </form>
+      <div class="auth-or" id="authOr" hidden><span>or</span></div>
+      <button class="btn wide" type="button" id="googleBtn" hidden>Continue with Google</button>
+      <div id="turnstileWidget" class="turnstile" hidden></div>
+      <p class="auth-status" id="authStatus" role="status" aria-live="polite"></p>
+      <p class="auth-legal">By continuing you agree to the <a href="/legal.html?doc=terms">Terms of Service</a> and the <a href="/legal.html?doc=privacy">Privacy Notice</a>.</p>
+    </div>
+  </main>
+
+  <!-- Signed in, but NCC is not on for this account -->
+  <main class="auth" id="locked" hidden>
+    <div class="auth-card">
+      <img class="auth-mark" src="/ncc/icon.svg" alt="">
+      <h1>NCC is for businesses</h1>
+      <p class="auth-sub" id="lockedWho"></p>
+      <p class="locked-text">NCC isn't turned on for this account yet. Contact the NasrinAI team to set it up for your business.</p>
+      <a class="btn primary wide" id="lockedMail" href="mailto:support@nasrinai.com?subject=NCC%20(Nasrin%20Client%20Connect)%20enterprise%20enquiry">Contact the NasrinAI team</a>
+      <button class="btn plain wide" type="button" id="lockedSignOut">Use another account</button>
+    </div>
+  </main>
+
+  <!-- The app -->
+  <div class="app" id="app" hidden>
+    <aside class="side" aria-label="NCC">
+      <div class="brand"><img src="/ncc/icon.svg" alt=""><div><strong>NCC</strong><span>Nasrin Client Connect</span></div></div>
+      <nav class="side-nav" id="sideNav" aria-label="Sections"></nav>
+      <div class="side-foot">
+        <span class="side-email" id="sideEmail"></span>
+        <button class="side-link" type="button" id="sideSignOut">Sign out</button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="top">
+        <h1 id="viewTitle">Home</h1>
+        <div class="top-actions" id="topActions"></div>
+      </header>
+      <section class="view" id="view" tabindex="-1"></section>
+    </div>
+    <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <header class="sheet-head">
+      <button class="icon-btn" type="button" id="sheetClose" aria-label="Close"></button>
+      <h2 id="sheetTitle"></h2>
+      <div class="sheet-actions" id="sheetActions"></div>
+    </header>
+    <div class="sheet-body" id="sheetBody"></div>
+  </section>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

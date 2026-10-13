@@ -7,6 +7,7 @@ import { mapKey, mapTenant, mapConversation, mapMessage, mapConnector, mapChanne
 const projectOut = ({ tasks, at, tenantId, userId, ...p }) => p;
 const nccContactOut = ({ at, tenantId, userId, tags, ...c }) => ({ ...c, tags: [...tags] });
 const nccDealOut = ({ at, tenantId, userId, ...d }) => ({ ...d });
+const nccOut = ({ at, tenantId, userId, ...x }) => ({ ...x });
 
 export function createMemoryStore({ now = () => Date.now() } = {}) {
   const tenants = new Map();
@@ -37,6 +38,9 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const projects = new Map();     // projects (with their tasks)
   const nccContacts = new Map();  // NCC contacts (migration 040)
   const nccDeals = new Map();     // NCC deals
+  const nccTasks = new Map();     // NCC tasks
+  const nccActivities = [];       // NCC timelines
+  const nccAutomations = new Map(); // NCC automations
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
   const researchScans = new Map();   // research agent: one person's scans (migration 036)
   const researchFacts = new Map();   // shared facts by fact_hash; no owner, no question
@@ -727,7 +731,9 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     async deleteNccContact({ tenantId, userId, id }) {
       const c = nccContacts.get(id);
       if (!c || c.tenantId !== tenantId || c.userId !== userId) return false;
-      for (const [k, d] of nccDeals) if (d.contactId === id) nccDeals.delete(k);
+      for (const [k, d] of nccDeals) if (d.contactId === id) { nccDeals.delete(k); for (const [tk, t] of nccTasks) if (t.dealId === k) nccTasks.delete(tk); }
+      for (const [k, t] of nccTasks) if (t.contactId === id) nccTasks.delete(k);
+      for (let i = nccActivities.length - 1; i >= 0; i--) if (nccActivities[i].contactId === id) nccActivities.splice(i, 1);
       return nccContacts.delete(id);
     },
     async listNccDeals({ tenantId, userId }) {
@@ -752,11 +758,73 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     async deleteNccDeal({ tenantId, userId, id }) {
       const d = nccDeals.get(id);
       if (!d || d.tenantId !== tenantId || d.userId !== userId) return false;
+      for (const [k, t] of nccTasks) if (t.dealId === id) nccTasks.delete(k);
       return nccDeals.delete(id);
     },
+    async listNccTasks({ tenantId, userId }) {
+      return [...nccTasks.values()].filter((t) => t.tenantId === tenantId && t.userId === userId)
+        .sort((a, b) => (a.dueAt || '9999').localeCompare(b.dueAt || '9999') || a.at - b.at).map(nccOut);
+    },
+    async createNccTask({ tenantId, userId, title, dueAt = null, contactId = null, dealId = null, origin = 'person' }) {
+      const t = { id: randomUUID(), tenantId, userId, title, dueAt, done: false, contactId, dealId, origin, createdAt: iso(), updatedAt: iso(), at: now() + nccTasks.size / 1000 };
+      nccTasks.set(t.id, t);
+      return nccOut(t);
+    },
+    async updateNccTask({ tenantId, userId, id, patch }) {
+      const t = nccTasks.get(id);
+      if (!t || t.tenantId !== tenantId || t.userId !== userId) return null;
+      for (const k of ['title', 'dueAt', 'done']) if (k in patch) t[k] = patch[k];
+      t.updatedAt = iso();
+      return nccOut(t);
+    },
+    async deleteNccTask({ tenantId, userId, id }) {
+      const t = nccTasks.get(id);
+      if (!t || t.tenantId !== tenantId || t.userId !== userId) return false;
+      return nccTasks.delete(id);
+    },
+    async listNccActivities({ tenantId, userId, contactId, limit = 100 }) {
+      return nccActivities.filter((a) => a.tenantId === tenantId && a.userId === userId && a.contactId === contactId)
+        .slice().reverse().slice(0, limit).map(nccOut);
+    },
+    async addNccActivity({ tenantId, userId, contactId, kind, text }) {
+      const c = nccContacts.get(contactId);
+      if (!c || c.tenantId !== tenantId || c.userId !== userId) throw new Error('no such contact');
+      const a = { id: randomUUID(), tenantId, userId, contactId, kind, text, createdAt: iso() };
+      nccActivities.push(a);
+      return nccOut(a);
+    },
+    async listNccAutomations({ tenantId, userId }) {
+      return [...nccAutomations.values()].filter((a) => a.tenantId === tenantId && a.userId === userId)
+        .sort((a, b) => a.at - b.at).map((a) => structuredClone(nccOut(a)));
+    },
+    async createNccAutomation({ tenantId, userId, name, enabled = false, trigger, conditions = [], actions }) {
+      const a = { id: randomUUID(), tenantId, userId, name, enabled, trigger: structuredClone(trigger), conditions: structuredClone(conditions), actions: structuredClone(actions), runs: 0, lastRunAt: null, lastResult: '', createdAt: iso(), updatedAt: iso(), at: now() + nccAutomations.size / 1000 };
+      nccAutomations.set(a.id, a);
+      return structuredClone(nccOut(a));
+    },
+    async updateNccAutomation({ tenantId, userId, id, patch }) {
+      const a = nccAutomations.get(id);
+      if (!a || a.tenantId !== tenantId || a.userId !== userId) return null;
+      for (const k of ['name', 'enabled', 'trigger', 'conditions', 'actions']) if (k in patch) a[k] = structuredClone(patch[k]);
+      a.updatedAt = iso();
+      return structuredClone(nccOut(a));
+    },
+    async deleteNccAutomation({ tenantId, userId, id }) {
+      const a = nccAutomations.get(id);
+      if (!a || a.tenantId !== tenantId || a.userId !== userId) return false;
+      return nccAutomations.delete(id);
+    },
+    async recordNccAutomationRun({ tenantId, userId, id, result, at }) {
+      const a = nccAutomations.get(id);
+      if (!a || a.tenantId !== tenantId || a.userId !== userId) return;
+      a.runs += 1;
+      a.lastRunAt = at;
+      a.lastResult = result;
+    },
     async deleteNccData({ tenantId, userId }) {
-      for (const [k, d] of nccDeals) if (d.tenantId === tenantId && d.userId === userId) nccDeals.delete(k);
-      for (const [k, c] of nccContacts) if (c.tenantId === tenantId && c.userId === userId) nccContacts.delete(k);
+      for (const [k, c] of nccContacts) if (c.tenantId === tenantId && c.userId === userId) await this.deleteNccContact({ tenantId, userId, id: k });
+      for (const [k, t] of nccTasks) if (t.tenantId === tenantId && t.userId === userId) nccTasks.delete(k);
+      for (const [k, a] of nccAutomations) if (a.tenantId === tenantId && a.userId === userId) nccAutomations.delete(k);
     },
 
     // Projects (migration 013).

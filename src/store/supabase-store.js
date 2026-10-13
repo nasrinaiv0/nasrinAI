@@ -15,6 +15,12 @@ const NCC_CONTACT_COLUMNS = 'id,name,email,phone,company,tags,notes,source,creat
 const NCC_DEAL_COLUMNS = 'id,contact_id,title,stage,value,currency,created_at,updated_at';
 const mapNccContact = (r) => ({ id: r.id, name: r.name, email: r.email, phone: r.phone, company: r.company, tags: Array.isArray(r.tags) ? r.tags : [], notes: r.notes, source: r.source, createdAt: r.created_at, updatedAt: r.updated_at });
 const mapNccDeal = (r) => ({ id: r.id, contactId: r.contact_id, title: r.title, stage: r.stage, value: Number(r.value), currency: r.currency, createdAt: r.created_at, updatedAt: r.updated_at });
+const NCC_TASK_COLUMNS = 'id,title,due_at,done,contact_id,deal_id,origin,created_at,updated_at';
+const NCC_ACTIVITY_COLUMNS = 'id,kind,text,created_at';
+const NCC_AUTOMATION_COLUMNS = 'id,name,enabled,trigger,conditions,actions,runs,last_run_at,last_result,created_at,updated_at';
+const mapNccTask = (r) => ({ id: r.id, title: r.title, dueAt: r.due_at, done: r.done, contactId: r.contact_id, dealId: r.deal_id, origin: r.origin, createdAt: r.created_at, updatedAt: r.updated_at });
+const mapNccActivity = (r) => ({ id: r.id, kind: r.kind, text: r.text, createdAt: r.created_at });
+const mapNccAutomation = (r) => ({ id: r.id, name: r.name, enabled: r.enabled, trigger: r.trigger, conditions: Array.isArray(r.conditions) ? r.conditions : [], actions: Array.isArray(r.actions) ? r.actions : [], runs: r.runs, lastRunAt: r.last_run_at, lastResult: r.last_result, createdAt: r.created_at, updatedAt: r.updated_at });
 const NCC_CONTACT_FIELDS = ['name', 'email', 'phone', 'company', 'tags', 'notes'];
 const NCC_DEAL_FIELDS = ['title', 'stage', 'value', 'currency'];
 // A second contact with the same email (unique index ncc_contacts_email_uq).
@@ -494,10 +500,79 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const rows = await request('DELETE', `ncc_deals?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer: 'return=representation' });
       return Boolean(rows && rows.length);
     },
-    // Deleting the contacts deletes their deals too (on delete cascade).
+    async listNccTasks({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return [];
+      const rows = await request('GET', `ncc_tasks?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=due_at.asc.nullslast,created_at.asc&limit=20000&select=${NCC_TASK_COLUMNS}`);
+      return (rows || []).map(mapNccTask);
+    },
+    async createNccTask({ tenantId, userId, title, dueAt = null, contactId = null, dealId = null, origin = 'person' }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) throw new Error('invalid NCC owner');
+      if ((contactId && !UUID.test(String(contactId))) || (dealId && !UUID.test(String(dealId)))) throw new Error('invalid NCC task link');
+      const rows = await request('POST', `ncc_tasks?select=${NCC_TASK_COLUMNS}`, { prefer: 'return=representation', body: { tenant_id: tenantId, user_id: userId, title, due_at: dueAt, contact_id: contactId, deal_id: dealId, origin } });
+      return mapNccTask(rows[0]);
+    },
+    async updateNccTask({ tenantId, userId, id, patch }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const body = { updated_at: new Date().toISOString() };
+      if ('title' in patch) body.title = patch.title;
+      if ('dueAt' in patch) body.due_at = patch.dueAt;
+      if ('done' in patch) body.done = patch.done;
+      const rows = await request('PATCH', `ncc_tasks?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=${NCC_TASK_COLUMNS}`, { prefer: 'return=representation', body });
+      return rows && rows[0] ? mapNccTask(rows[0]) : null;
+    },
+    async deleteNccTask({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return false;
+      const rows = await request('DELETE', `ncc_tasks?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer: 'return=representation' });
+      return Boolean(rows && rows.length);
+    },
+    async listNccActivities({ tenantId, userId, contactId, limit = 100 }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(contactId))) return [];
+      const n = Math.min(Math.max(Number(limit) || 100, 1), 1000);
+      const rows = await request('GET', `ncc_activities?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&contact_id=eq.${contactId}&order=created_at.desc&limit=${n}&select=${NCC_ACTIVITY_COLUMNS}`);
+      return (rows || []).map(mapNccActivity);
+    },
+    async addNccActivity({ tenantId, userId, contactId, kind, text }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(contactId))) throw new Error('invalid NCC activity');
+      const rows = await request('POST', `ncc_activities?select=${NCC_ACTIVITY_COLUMNS}`, { prefer: 'return=representation', body: { tenant_id: tenantId, user_id: userId, contact_id: contactId, kind, text } });
+      return mapNccActivity(rows[0]);
+    },
+    async listNccAutomations({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return [];
+      const rows = await request('GET', `ncc_automations?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc&limit=200&select=${NCC_AUTOMATION_COLUMNS}`);
+      return (rows || []).map(mapNccAutomation);
+    },
+    async createNccAutomation({ tenantId, userId, name, enabled = false, trigger, conditions = [], actions }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) throw new Error('invalid NCC owner');
+      const rows = await request('POST', `ncc_automations?select=${NCC_AUTOMATION_COLUMNS}`, { prefer: 'return=representation', body: { tenant_id: tenantId, user_id: userId, name, enabled, trigger, conditions, actions } });
+      return mapNccAutomation(rows[0]);
+    },
+    async updateNccAutomation({ tenantId, userId, id, patch }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const body = { updated_at: new Date().toISOString() };
+      for (const k of ['name', 'enabled', 'trigger', 'conditions', 'actions']) if (k in patch) body[k] = patch[k];
+      const rows = await request('PATCH', `ncc_automations?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=${NCC_AUTOMATION_COLUMNS}`, { prefer: 'return=representation', body });
+      return rows && rows[0] ? mapNccAutomation(rows[0]) : null;
+    },
+    async deleteNccAutomation({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return false;
+      const rows = await request('DELETE', `ncc_automations?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer: 'return=representation' });
+      return Boolean(rows && rows.length);
+    },
+    // The run counter is informational: read, then write.
+    async recordNccAutomationRun({ tenantId, userId, id, result, at }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return;
+      const who = `tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}`;
+      const rows = await request('GET', `ncc_automations?${who}&select=runs&limit=1`);
+      if (!rows || !rows[0]) return;
+      await request('PATCH', `ncc_automations?${who}`, { prefer: 'return=minimal', body: { runs: rows[0].runs + 1, last_run_at: at, last_result: String(result).slice(0, 300) } });
+    },
+    // Contacts first (their deals, tasks and timelines go with them), then the rest.
     async deleteNccData({ tenantId, userId }) {
       if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return;
-      await request('DELETE', `ncc_contacts?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`, { prefer: 'return=minimal' });
+      const who = `tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`;
+      await request('DELETE', `ncc_contacts?${who}`, { prefer: 'return=minimal' });
+      await request('DELETE', `ncc_tasks?${who}`, { prefer: 'return=minimal' });
+      await request('DELETE', `ncc_automations?${who}`, { prefer: 'return=minimal' });
     },
 
     // Research agent (migration 036). Scans are always read by tenant AND owner.

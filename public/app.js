@@ -3114,9 +3114,8 @@
     security: ['pageSecurity', 'Security & Devices'], privacy: ['pagePrivacy', 'Data Privacy & Permissions'], retention: ['pageRetention', 'Data Retention'],
     usage: ['pageUsage', 'Usage'], billing: ['pageBilling', 'Billing'], notices: ['pageNotices', 'Notifications'],
     helpSupport: ['pageHelpSupport', 'Help & Support'],
-    ncc: ['pageNcc', 'NCC'],
     connect: ['pageConnect', 'NasrinAI Connect'], connectConfig: ['pageConnectConfig', 'Configure SmartChat'], connectPreview: ['pageConnectPreview', 'Preview SmartChat'] };
-  const BACK_TO = { account: 'main', space: 'main', ncc: 'space', connectConfig: 'connect', connectPreview: 'connectConfig' };
+  const BACK_TO = { account: 'main', space: 'main', connectConfig: 'connect', connectPreview: 'connectConfig' };
   function showPage(name) {
     for (const [key, [id]] of Object.entries(PAGES)) $(id).hidden = key !== name;
     $('settingsTitle').textContent = PAGES[name][1];
@@ -3129,8 +3128,6 @@
     if (name === 'usage') loadUsage();
     if (name === 'billing') loadBilling();
     if (name === 'notices') loadNoticeChoices();
-    if (name === 'ncc') openNcc();
-    $('settings').classList.toggle('ncc-wide', name === 'ncc');
     for (const id of ['dataStatus', 'securityStatus', 'privacyStatus', 'noticesStatus']) $(id).textContent = '';
     const activePage = $(PAGES[name][0]);
     if (activePage) activePage.scrollTop = 0;
@@ -3394,22 +3391,24 @@
   });
   // NCC (Nasrin Client Connect): the enterprise CRM with automations,
   // separate from Connect and not self-serve: businesses contact the team (docs/ncc.md).
-  // Accounts the team turned on open NCC itself; everyone else is told to
-  // contact the team. The server decides (GET /v1/ncc/status).
-  let nccView = null;
-  function openNcc() {
-    if (!window.NasrinNcc) return;
-    if (!nccView) nccView = window.NasrinNcc.mount({ root: $('nccRoot'), api, inflate: inflateRaw });
-    nccView.load(true);
-  }
+  // NCC is its own app (ncc.nasrinai.com). Accounts the team turned on get a
+  // link to open it; everyone else is told to contact the team. The server
+  // decides (GET /v1/ncc/status).
   if (spaceNcc) spaceNcc.addEventListener('click', async () => {
     const status = $('spaceStatus');
-    if (account) {
-      try {
-        if ((await api('/v1/ncc/status')).enabled) { showPage('ncc'); return; }
-      } catch { /* fall through to the enquiry message */ }
-    }
     if (!status) return;
+    let open = null;
+    if (account) {
+      try { open = await api('/v1/ncc/status'); } catch { /* fall through to the enquiry message */ }
+    }
+    if (open && open.enabled && typeof open.url === 'string' && /^https:\/\/[a-z0-9.-]+$/i.test(open.url)) {
+      const link = mk('a', '', 'Open NCC');
+      link.href = open.url + '/';
+      link.target = '_blank';
+      link.rel = 'noopener';
+      status.replaceChildren('NCC (Nasrin Client Connect) is on for your business. ', link, ' (opens in a new tab).');
+      return;
+    }
     const mail = mk('a', '', 'Contact the NasrinAI team');
     mail.href = 'mailto:support@nasrinai.com?subject=' + encodeURIComponent('NCC (Nasrin Client Connect) enterprise enquiry');
     status.replaceChildren('NCC (Nasrin Client Connect) is the CRM with automations for enterprises, separate from Connect. ', mail, ' to turn it on for your business.');

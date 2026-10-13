@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { buildTestApp, serve, bearer, USER_TOKEN } from './helpers.js';
-import { cleanEmail, cleanPhone, cleanTags, cleanValue, readContact, readDeal } from '../src/ncc.js';
+import { cleanEmail, cleanPhone, cleanTags, cleanValue, readContact, readDeal, readTask } from '../src/ncc.js';
+import { readAutomation, matches, fill } from '../src/ncc-automations.js';
 
 const OTHER = 'other.user.token';
 const PLAIN = 'plain.user.token';
@@ -127,16 +128,6 @@ test('deleting the account deletes its NCC records', async () => {
   } finally { await close(); }
 });
 
-test('the NCC page talks only to our own API and builds no HTML from data', async () => {
-  const js = await readFile(new URL('../public/ncc.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|outerHTML|document\.write|eval\(|new Function/);
-  for (const m of js.matchAll(/api\('([^']+)'/g)) assert.match(m[1], /^\/v1\/ncc/);
-  assert.doesNotMatch(js, /https?:\/\//, 'no outside addresses');
-  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /<script src="\/ncc\.js" defer><\/script>/);
-  assert.match(html, /id="pageNcc"/);
-});
-
 test('the Supabase store always filters NCC by tenant and user, and reports a repeated email', async () => {
   const { createSupabaseStore } = await import('../src/store/supabase-store.js');
   const seen = [];
@@ -155,4 +146,124 @@ test('the Supabase store always filters NCC by tenant and user, and reports a re
   assert.deepEqual(Object.keys(JSON.parse(seen[2].body)).sort(), ['stage', 'updated_at'], 'only known fields are written');
   await assert.rejects(store.createNccContact({ ...who, name: 'Dup', email: 'dup@x.example' }), (e) => e.code === 'duplicate');
   assert.deepEqual(await store.listNccContacts({ ...who, userId: 'bad user!' }), []);
+});
+
+test('tasks and timeline: own contacts only, notes, done', async () => {
+  assert.throws(() => readTask({ title: 'x', due_at: 'tomorrow' }, true), /due date/);
+  assert.equal(readTask({ title: 'x', due_at: '2026-10-14T12:00:00+08:00' }, true).dueAt, '2026-10-14T04:00:00.000Z');
+  const built = buildTestApp({ verifyUser: users, env: ON });
+  const { url, close } = await serve(built.app);
+  try {
+    const c = (await json(await call(url, '/v1/ncc/contacts', 'POST', USER_TOKEN, { name: 'Ana' }))).body;
+    const t = await json(await call(url, '/v1/ncc/tasks', 'POST', USER_TOKEN, { title: 'Call Ana', due_at: '2026-10-14', contact_id: c.id }));
+    assert.equal(t.status, 201);
+    assert.deepEqual([t.body.contact_id, t.body.origin, t.body.done], [c.id, 'person', false]);
+    assert.equal((await call(url, '/v1/ncc/tasks', 'POST', OTHER, { title: 'x', contact_id: c.id })).status, 404, 'a task only on your own contact');
+    assert.equal((await call(url, '/v1/ncc/tasks/' + t.body.id, 'PUT', OTHER, { done: true })).status, 404);
+    assert.equal((await json(await call(url, '/v1/ncc/tasks/' + t.body.id, 'PUT', USER_TOKEN, { done: true }))).body.done, true);
+    const note = await json(await call(url, '/v1/ncc/contacts/' + c.id + '/notes', 'POST', USER_TOKEN, { text: 'Prefers calls after 3pm.' }));
+    assert.equal(note.status, 201);
+    assert.equal((await call(url, '/v1/ncc/contacts/' + c.id + '/notes', 'POST', OTHER, { text: 'x' })).status, 404);
+    const tl = (await json(await call(url, '/v1/ncc/contacts/' + c.id + '/timeline', 'GET', USER_TOKEN))).body.activities.map((a) => a.kind);
+    assert.deepEqual(tl, ['note', 'task', 'task', 'created']);
+    assert.equal((await call(url, '/v1/ncc/contacts/' + c.id + '/timeline', 'GET', OTHER)).status, 404);
+    assert.equal((await call(url, '/v1/ncc/tasks/' + t.body.id, 'DELETE', USER_TOKEN)).status, 200);
+  } finally { await close(); }
+});
+
+test('automations are checked: only known triggers, fields and steps; social steps wait for Meta', () => {
+  const ok = readAutomation({ name: ' Welcome ', enabled: true, trigger: { type: 'contact_created', extra: 1 }, conditions: [{ field: 'contact.email', op: 'is_set', value: 'x' }], actions: [{ type: 'add_tag', tag: 'New' }, { type: 'create_task', title: 'Call {{contact.first_name}}', due_days: '2' }] }, true);
+  assert.deepEqual(ok, { name: 'Welcome', enabled: true, trigger: { type: 'contact_created' }, conditions: [{ field: 'contact.email', op: 'is_set' }], actions: [{ type: 'add_tag', tag: 'new' }, { type: 'create_task', title: 'Call {{contact.first_name}}', due_days: 2 }] });
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'webhook' }, actions: [{ type: 'add_tag', tag: 'a' }] }, true), /what starts/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'facebook_post', text: 'hi' }] }, true), /needs your Meta connection/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'http_request', url: 'https://x' }] }, true), /choose what to do/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [{ type: 'move_deal', stage: 'won' }] }, true), /only when a deal starts/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'tag_added', tag: 'vip' }, actions: [{ type: 'remove_tag', tag: 'vip' }] }, true), /cannot remove the tag that starts it/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, conditions: [{ field: 'contact.secret', op: 'equals', value: 'a' }], actions: [{ type: 'add_tag', tag: 'a' }] }, true), /choose a field/);
+  assert.throws(() => readAutomation({ name: 'x', trigger: { type: 'contact_created' }, actions: [] }, true), /1 to 10 steps/);
+  const auto = { enabled: true, trigger: { type: 'deal_stage', stage: 'won' }, conditions: [{ field: 'deal.value', op: 'gte', value: 1000 }, { field: 'contact.tags', op: 'not_has', value: 'customer' }] };
+  assert.equal(matches(auto, { type: 'deal_stage', contact: { tags: [] }, deal: { stage: 'won', value: 5000 } }), true);
+  assert.equal(matches(auto, { type: 'deal_stage', contact: { tags: ['customer'] }, deal: { stage: 'won', value: 5000 } }), false);
+  assert.equal(matches(auto, { type: 'deal_stage', contact: { tags: [] }, deal: { stage: 'lost', value: 5000 } }), false);
+  assert.equal(matches({ ...auto, enabled: false }, { type: 'deal_stage', contact: { tags: [] }, deal: { stage: 'won', value: 5000 } }), false);
+  assert.equal(fill('Hi {{contact.first_name}} re {{deal.title}} {{contact.secret}}', { contact: { name: 'Ana Cruz' }, deal: { title: 'Catering' } }), 'Hi Ana re Catering {{contact.secret}}');
+});
+
+test('automations run on events, change only NCC records, and cannot loop', async () => {
+  const built = buildTestApp({ verifyUser: users, env: ON });
+  const { url, close } = await serve(built.app);
+  try {
+    const mk = (body) => call(url, '/v1/ncc/automations', 'POST', USER_TOKEN, body).then(json);
+    const welcome = await mk({ name: 'Welcome', enabled: true, trigger: { type: 'contact_created' }, conditions: [{ field: 'contact.email', op: 'is_set' }], actions: [{ type: 'add_tag', tag: 'new' }, { type: 'create_task', title: 'Call {{contact.first_name}}', due_days: 1 }] });
+    assert.equal(welcome.status, 201);
+    await mk({ name: 'New gets a deal', enabled: true, trigger: { type: 'tag_added', tag: 'new' }, actions: [{ type: 'create_deal', title: 'Intro: {{contact.name}}', value: 500 }] });
+    await mk({ name: 'Deal moves on', enabled: true, trigger: { type: 'deal_created' }, actions: [{ type: 'move_deal', stage: 'qualified' }] });
+    await mk({ name: 'Qualified back to lead', enabled: true, trigger: { type: 'deal_stage', stage: 'qualified' }, actions: [{ type: 'move_deal', stage: 'lead' }] });
+    await mk({ name: 'Lead to qualified', enabled: true, trigger: { type: 'deal_stage', stage: 'lead' }, actions: [{ type: 'move_deal', stage: 'qualified' }] });
+    await mk({ name: 'Off', enabled: false, trigger: { type: 'contact_created' }, actions: [{ type: 'add_tag', tag: 'never' }] });
+
+    const ana = (await json(await call(url, '/v1/ncc/contacts', 'POST', USER_TOKEN, { name: 'Ana Cruz', email: 'ana@x.example' }))).body;
+    assert.deepEqual(ana.tags, ['new'], 'the welcome automation tagged her; the one that is off did nothing');
+    const all = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body;
+    assert.deepEqual(all.tasks.map((t) => [t.title, t.origin, t.contact_id]), [['Call Ana', 'automation', ana.id]]);
+    assert.equal(all.deals.length, 1, 'tag_added (depth 1) started one more automation');
+    assert.equal(all.deals[0].title, 'Intro: Ana Cruz');
+    assert.equal(all.deals[0].stage, 'lead', 'depth 2 stops further runs: no endless moving');
+    assert.equal(all.automations.find((a) => a.name === 'Welcome').runs, 1);
+    assert.match(all.automations.find((a) => a.name === 'Welcome').last_result, /added tag new; created task "Call Ana"/);
+
+    const ben = (await json(await call(url, '/v1/ncc/contacts', 'POST', USER_TOKEN, { name: 'Ben' }))).body;
+    assert.deepEqual(ben.tags, [], 'the condition (email filled in) did not match');
+
+    // A person moving a deal starts the deal_stage automations, still bounded.
+    const moved = await json(await call(url, '/v1/ncc/deals/' + all.deals[0].id, 'PUT', USER_TOKEN, { stage: 'qualified' }));
+    assert.equal(moved.status, 200);
+    const timeline = (await json(await call(url, '/v1/ncc/contacts/' + ana.id + '/timeline', 'GET', USER_TOKEN))).body.activities;
+    assert.ok(timeline.some((a) => a.kind === 'automation' && /Automation "Welcome": Done/.test(a.text)));
+
+    // Another account's automations never touch this account, and cannot be edited.
+    const theirs = (await json(await call(url, '/v1/ncc', 'GET', OTHER))).body;
+    assert.deepEqual([theirs.automations.length, theirs.tasks.length], [0, 0]);
+    assert.equal((await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', OTHER, { enabled: false })).status, 404);
+    assert.equal((await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { actions: [{ type: 'whatsapp_send', text: 'hi' }] })).status, 400);
+    assert.equal((await json(await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { enabled: false }))).body.enabled, false);
+    // Imports never start automations.
+    await call(url, '/v1/ncc/automations/' + welcome.body.id, 'PUT', USER_TOKEN, { enabled: true });
+    await call(url, '/v1/ncc/contacts/import', 'POST', USER_TOKEN, { contacts: [{ name: 'Imported', email: 'imp@x.example' }] });
+    const imported = (await json(await call(url, '/v1/ncc', 'GET', USER_TOKEN))).body.contacts.find((c) => c.name === 'Imported');
+    assert.deepEqual(imported.tags, []);
+    assert.equal((await call(url, '/v1/ncc/automations/' + welcome.body.id, 'DELETE', USER_TOKEN)).status, 200);
+  } finally { await close(); }
+});
+
+test('the NCC app is its own page, talks only to our own API, and builds no HTML from data', async () => {
+  for (const f of ['ncc.js', 'automations.js']) {
+    const js = await readFile(new URL('../public/ncc/' + f, import.meta.url), 'utf8');
+    assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|outerHTML|document\.write|eval\(|new Function/, f);
+    for (const m of js.matchAll(/api\('([^']+)'/g)) assert.match(m[1], /^\/v1\/ncc/, f);
+    for (const m of js.matchAll(/net\('([^']+)'/g)) assert.match(m[1], /^\/v1\/(auth|status)/, f);
+  }
+  const html = await readFile(new URL('../public/ncc/index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /<script>|style="|\son[a-z]+="/i, 'no inline scripts, styles or handlers (strict CSP)');
+  assert.match(html, /viewport-fit=cover/);
+  assert.match(html, /<link rel="apple-touch-icon" href="\/ncc\/apple-touch-icon\.png">/);
+  const css = await readFile(new URL('../public/ncc/ncc.css', import.meta.url), 'utf8');
+  assert.match(css, /input, select, textarea \{ font-size: 16px; \}/, 'iPhone does not zoom into fields');
+  assert.match(css, /env\(safe-area-inset-bottom/);
+  const vercel = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.deepEqual(vercel.redirects[0], { source: '/', has: [{ type: 'host', value: 'ncc.nasrinai.com' }], destination: '/ncc/', permanent: false });
+});
+
+test('the NCC address opens the NCC app; the main address does not', async () => {
+  const built = buildTestApp({ verifyUser: users, env: ON });
+  const { url, close } = await serve(built.app);
+  try {
+    const http = await import('node:http');
+    const get = (path, host) => new Promise((ok, no) => { http.get(url + path, { headers: { host } }, (r) => { r.resume(); ok(r); }).on('error', no); });
+    const r = await get('/?signin=ok', 'ncc.nasrinai.com');
+    assert.deepEqual([r.statusCode, r.headers.location], [302, '/ncc/?signin=ok']);
+    assert.notEqual((await get('/', 'nasrinai.com')).statusCode, 302);
+    const s = await json(await call(url, '/v1/ncc/status', 'GET', USER_TOKEN));
+    assert.deepEqual([s.body.enabled, s.body.url], [true, 'https://ncc.nasrinai.com']);
+  } finally { await close(); }
 });

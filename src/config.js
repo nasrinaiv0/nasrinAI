@@ -535,8 +535,12 @@ export function loadConfig(env = process.env) {
   // account's sign-in email in NCC_ACCOUNTS (comma-separated).
   const nccAccounts = String(env.NCC_ACCOUNTS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
   if (nccAccounts.some((e) => !/^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,63}$/.test(e))) warnings.push('NCC_ACCOUNTS: use sign-in email addresses separated by commas. Addresses that are not valid are ignored.');
+  // NCC's own address (its app): https://ncc.nasrinai.com unless set.
+  let nccUrl = 'https://ncc.nasrinai.com';
+  if (env.NCC_URL) { try { nccUrl = cleanOrigin('NCC_URL', env.NCC_URL); } catch { warnings.push('NCC_URL: not a valid address, for example https://ncc.nasrinai.com'); } }
   const ncc = Object.freeze({
     enabled: softFlag('NCC_ENABLED', env.NCC_ENABLED, 'false'),
+    url: nccUrl,
     accounts: Object.freeze(nccAccounts.filter((e) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,63}$/.test(e))),
     maxContacts: softInt('NCC_CONTACTS_MAX', env.NCC_CONTACTS_MAX, 2000, 10, 20000),
     maxDeals: softInt('NCC_DEALS_MAX', env.NCC_DEALS_MAX, 2000, 10, 20000)

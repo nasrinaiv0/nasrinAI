@@ -1,9 +1,9 @@
--- Checks for migration 040 (NCC contacts and pipeline). Run via db/tests/run.sh.
+-- Checks for migration 040 (NCC CRM). Run via db/tests/run.sh.
 \set ON_ERROR_STOP on
 set role service_role;
 do $$
 declare t constant uuid := '00000000-0000-0000-0000-000000000001';
-declare c uuid; d uuid;
+declare c uuid; d uuid; k uuid; a uuid;
 begin
   insert into public.ncc_contacts (tenant_id, user_id, name, email, tags) values (t, 'u-ncc', 'Ana Cruz', 'Ana@Example.com', '{vip}') returning id into c;
   insert into public.ncc_deals (tenant_id, user_id, contact_id, title, value) values (t, 'u-ncc', c, 'Catering for 50', 25000) returning id into d;
@@ -35,9 +35,33 @@ begin
     raise exception 'an empty name was accepted';
   exception when check_violation then null; end;
 
-  -- Deleting a contact deletes its deals.
+  insert into public.ncc_tasks (tenant_id, user_id, title, contact_id, deal_id, due_at) values (t, 'u-ncc', 'Call Ana', c, d, now() + interval '1 day') returning id into k;
+  insert into public.ncc_activities (tenant_id, user_id, contact_id, kind, text) values (t, 'u-ncc', c, 'note', 'Wants a tasting first.');
+  insert into public.ncc_automations (tenant_id, user_id, name, trigger, actions) values (t, 'u-ncc', 'Welcome', '{"type":"contact_created"}', '[{"type":"add_tag","tag":"new"}]') returning id into a;
+  begin
+    insert into public.ncc_activities (tenant_id, user_id, contact_id, kind, text) values (t, 'u-ncc', c, 'email_sent', 'x');
+    raise exception 'an unknown timeline kind was accepted';
+  exception when check_violation then null; end;
+  begin
+    insert into public.ncc_automations (tenant_id, user_id, name, trigger, actions) values (t, 'u-ncc', 'Bad', '[]', '[]');
+    raise exception 'a trigger that is not an object was accepted';
+  exception when check_violation then null; end;
+  begin
+    insert into public.ncc_automations (tenant_id, user_id, name, trigger, actions) values (t, 'u-ncc', 'Huge', '{"type":"contact_created"}', jsonb_build_array(repeat('x', 9000)));
+    raise exception 'oversized actions were accepted';
+  exception when check_violation then null; end;
+  begin
+    insert into public.ncc_tasks (tenant_id, user_id, title, origin) values (t, 'u-ncc', 'x', 'ai');
+    raise exception 'an unknown task origin was accepted';
+  exception when check_violation then null; end;
+
+  -- Deleting a contact deletes its deals, tasks and timeline; automations stay.
   delete from public.ncc_contacts where id = c;
   if exists (select 1 from public.ncc_deals where id = d) then raise exception 'a deal survived its contact'; end if;
+  if exists (select 1 from public.ncc_tasks where id = k) then raise exception 'a task survived its contact'; end if;
+  if exists (select 1 from public.ncc_activities where contact_id = c) then raise exception 'a timeline survived its contact'; end if;
+  if not exists (select 1 from public.ncc_automations where id = a) then raise exception 'deleting a contact deleted an automation'; end if;
+  delete from public.ncc_automations where id = a;
   delete from public.ncc_contacts where tenant_id = t and user_id in ('u-ncc', 'u-other');
 end $$;
 reset role;
@@ -49,6 +73,9 @@ reset role;
 set role authenticated;
 do $$ begin
   perform 1 from public.ncc_deals; raise exception 'a signed-in role could read NCC deals directly';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform 1 from public.ncc_automations; raise exception 'a signed-in role could read NCC automations directly';
 exception when insufficient_privilege then null; end $$;
 reset role;
 select 'ncc checks passed' as result;

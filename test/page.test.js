@@ -297,8 +297,9 @@ test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact 
   const ncc = js.slice(js.indexOf("if (spaceNcc) spaceNcc.addEventListener"), js.indexOf("// ---------- Terms acceptance"));
   assert.match(ncc, /mail\.href = 'mailto:support@nasrinai\.com\?subject='/);
   assert.match(ncc, /separate from Connect\. ', mail, ' to turn it on for your business\./);
-  // Accounts the team turned on open NCC itself; the server decides.
-  assert.match(ncc, /if \(\(await api\('\/v1\/ncc\/status'\)\)\.enabled\) \{ showPage\('ncc'\); return; \}/);
+  // Accounts the team turned on get a link to the NCC app; the server decides.
+  assert.match(ncc, /open = await api\('\/v1\/ncc\/status'\)/);
+  assert.match(ncc, /link\.rel = 'noopener';/);
   assert.doesNotMatch(ncc, /innerHTML/);
 });
 
