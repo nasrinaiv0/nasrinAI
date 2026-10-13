@@ -6,10 +6,12 @@ import { cleanField } from './projects.js';
 // part against the lists below and never runs anything else. The AI cannot
 // create, change or start an automation.
 //
-// The actions only change the business's own NCC records (tags, tasks,
-// notes, deals). Posting or sending to Facebook, Instagram, Messenger,
-// Threads or WhatsApp is listed as planned: it needs each business's Meta
-// connection and Meta's app review first, and is refused until then.
+// Most actions change only the business's own NCC records (tags, tasks,
+// notes, deals). Social steps post to the business's own connected Facebook
+// Page, Instagram or Threads, or send a WhatsApp message to the contact.
+// Each social step waits in the outbox for the business's approval, unless
+// the business set that exact step to send by itself ("auto"). The AI never
+// sets this. Messenger is listed as planned (it needs the Messenger inbox).
 
 export const STAGES = Object.freeze(['lead', 'qualified', 'proposal', 'won', 'lost']);
 
@@ -38,22 +40,59 @@ export const ACTIONS = Object.freeze({
   create_task: { label: 'Create a task', params: ['title', 'due_days'] },
   add_note: { label: 'Add a note to the timeline', params: ['text'] },
   create_deal: { label: 'Add a deal', params: ['title', 'value'] },
-  move_deal: { label: 'Move the deal to a stage', params: ['stage'], needsDeal: true }
+  move_deal: { label: 'Move the deal to a stage', params: ['stage'], needsDeal: true },
+  facebook_post: { label: 'Post on the Facebook Page', params: ['channel', 'text', 'send'], channel: 'facebook_page' },
+  instagram_post: { label: 'Post on Instagram', params: ['channel', 'text', 'image_url', 'send'], channel: 'instagram' },
+  threads_post: { label: 'Post on Threads', params: ['channel', 'text', 'send'], channel: 'threads' },
+  whatsapp_send: { label: 'Send a WhatsApp message to the contact', params: ['channel', 'mode', 'template', 'language', 'text', 'send'], channel: 'whatsapp', needsContact: true }
 });
+export const SOCIAL = Object.freeze(['facebook_post', 'instagram_post', 'threads_post', 'whatsapp_send']);
+export const TEXT_LIMITS = Object.freeze({ facebook_post: 5000, instagram_post: 2200, threads_post: 500, whatsapp_send: 4096 });
 
-// Outward actions the business asked for (owner, 2026-10-13). Shown as
-// planned; refused by the server until the Meta connection is built.
+// Asked for (owner, 2026-10-13) and not built yet: refused by the server.
 export const PLANNED_ACTIONS = Object.freeze({
-  facebook_post: 'Post on a Facebook Page',
-  instagram_post: 'Post on Instagram',
-  threads_post: 'Post on Threads',
-  messenger_send: 'Send a Messenger message',
-  whatsapp_send: 'Send a WhatsApp message'
+  messenger_send: 'Send a Messenger message'
 });
 
 export const LIMITS = Object.freeze({ automations: 50, conditions: 10, actions: 10, depth: 2, perRequest: 25 });
 
 const bad = (msg) => new HttpError(400, 'invalid_automation', msg);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PRIVATE_HOST = /^(localhost|.*\.local|.*\.internal|\d+\.\d+\.\d+\.\d+|\[.*\])$/i;
+
+// A picture link Meta will fetch: https, a public host name, not too long.
+export function cleanImageUrl(raw, label) {
+  const t = cleanField(raw, 1000, { required: true, label });
+  let u;
+  try { u = new URL(t); } catch { throw bad(`${label} must be a link starting with https://`); }
+  if (u.protocol !== 'https:' || u.username || u.password || PRIVATE_HOST.test(u.hostname) || !u.hostname.includes('.')) throw bad(`${label} must be a public https:// link.`);
+  return u.toString();
+}
+
+// The social part of a step: which channel, what to send, and whether it may
+// send by itself.
+export function readSocial(a, label) {
+  const out = { type: a.type };
+  if (!UUID_RE.test(String(a.channel || ''))) throw bad(`${label}: choose a connected channel.`);
+  out.channel = String(a.channel).toLowerCase();
+  out.send = a.send === 'auto' ? 'auto' : 'approve';
+  const max = TEXT_LIMITS[a.type];
+  if (a.type === 'whatsapp_send') {
+    out.mode = a.mode === 'text' ? 'text' : 'template';
+    if (out.mode === 'template') {
+      const name = String(a.template || '').trim();
+      if (!/^[a-z0-9_]{1,512}$/.test(name)) throw bad(`${label}: the template name from WhatsApp Manager (small letters, numbers, _).`);
+      const lang = String(a.language || 'en_US').trim();
+      if (!/^[a-z]{2,3}(_[A-Z]{2})?$/.test(lang)) throw bad(`${label}: a language code like en_US or fil.`);
+      out.template = name;
+      out.language = lang;
+    } else out.text = cleanField(a.text, max, { required: true, lines: true, label: `${label}: the message` });
+    return out;
+  }
+  out.text = cleanField(a.text, max, { required: a.type !== 'instagram_post', lines: true, label: `${label}: the text` });
+  if (a.type === 'instagram_post') out.image_url = cleanImageUrl(a.image_url, `${label}: the picture link`);
+  return out;
+}
 const obj = (b) => (b && typeof b === 'object' && !Array.isArray(b) ? b : null);
 const tagOf = (raw, label) => {
   const t = cleanField(raw, 30, { required: true, label }).toLowerCase();
@@ -94,7 +133,7 @@ function readCondition(raw, i) {
 
 function readAction(raw, i) {
   const a = obj(raw);
-  if (a && Object.hasOwn(PLANNED_ACTIONS, a.type)) throw bad(`Step ${i + 1}: "${PLANNED_ACTIONS[a.type]}" is not available yet. It needs your Meta connection first.`);
+  if (a && Object.hasOwn(PLANNED_ACTIONS, a.type)) throw bad(`Step ${i + 1}: "${PLANNED_ACTIONS[a.type]}" is not available yet.`);
   if (!a || !Object.hasOwn(ACTIONS, a.type)) throw bad(`Step ${i + 1}: choose what to do.`);
   const label = `Step ${i + 1}`;
   switch (a.type) {
@@ -115,6 +154,11 @@ function readAction(raw, i) {
     }
     case 'move_deal':
       return { type: a.type, stage: stageOf(a.stage) };
+    case 'facebook_post':
+    case 'instagram_post':
+    case 'threads_post':
+    case 'whatsapp_send':
+      return readSocial(a, label);
     default:
       throw bad(`${label}: choose what to do.`);
   }
@@ -193,7 +237,7 @@ export function catalog() {
   return {
     triggers: Object.entries(TRIGGERS).map(([type, t]) => ({ type, label: t.label, param: t.param || null })),
     fields: Object.entries(FIELDS).map(([field, ops]) => ({ field, ops })),
-    actions: Object.entries(ACTIONS).map(([type, a]) => ({ type, label: a.label, params: a.params, needs_deal: Boolean(a.needsDeal) })),
+    actions: Object.entries(ACTIONS).map(([type, a]) => ({ type, label: a.label, params: a.params, needs_deal: Boolean(a.needsDeal), channel: a.channel || null, max_text: TEXT_LIMITS[type] || null })),
     planned: Object.entries(PLANNED_ACTIONS).map(([type, label]) => ({ type, label })),
     limits: { automations: LIMITS.automations, conditions: LIMITS.conditions, actions: LIMITS.actions }
   };
