@@ -2490,7 +2490,7 @@ body.coding-mode .brand .mark, body.coding-mode .brand .pro-badge { display: non
 body.coding-mode #welcome { display: none; }
 /* Thinking line in the coding chat: the pixel robot, about 4x faster while
    Nasrin thinks, remembers, reads or searches; still when motion is reduced. */
-.thinking .mini.code-logo { height: 1.75rem; border-radius: 0.45rem; }
+.thinking .mini.code-logo { height: 1.75rem; }
 .code-logo.is-busy { background-image: url(/space-logos/code-bot-light-busy.svg); }
 :root[data-theme="dark"] .code-logo.is-busy { background-image: url(/space-logos/code-bot-dark-busy.svg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .code-logo.is-busy { background-image: url(/space-logos/code-bot-dark-busy.svg); } }
@@ -2525,3 +2525,21 @@ body.coding-mode.github-on .pr-open { display: inline-flex; }
 .pr-card-status a { color: inherit; text-decoration: underline; }
 body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugin-option { margin-top: 0.75rem; }
+
+/* Space app icons: one tile for every app, like Projects (light: soft grey;
+   dark: a lifted grey, never black). The art sits inside it. */
+#pageSpace .space-app-icon { display: grid; place-items: center; width: 3.65rem; height: 3.65rem; flex: 0 0 3.65rem; border-radius: .95rem; background: #ECEBE7; }
+:root[data-theme="dark"] #pageSpace .space-app-icon { background: #3A3A3C; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #pageSpace .space-app-icon { background: #3A3A3C; } }
+#pageSpace .space-app-icon .space-app-logo { width: 70%; height: 70%; flex: none; border-radius: 0; background-color: transparent; }
+#pageSpace .space-app-icon .space-cloud-logo { width: 78%; height: 78%; }
+#pageSpace .space-app-icon .code-logo { width: 76%; height: 76%; }
+#pageSpace .space-app-icon .space-app-glyph { width: 62%; height: 62%; padding: 0; }
+.space-movo-glyph { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 340px) { #pageSpace .space-app-icon { width: 3.1rem; height: 3.1rem; flex-basis: 3.1rem; } }
+
+/* Menu → Recent: Chats and Code tabs. */
+.drawer-tabs { display: flex; gap: 0.25rem; margin: 0 0.35rem 0.35rem; }
+.drawer-tab { min-height: 2rem; padding: 0 0.8rem; border: 0; border-radius: 999px; background: none; color: var(--ink-3); font: 500 0.8rem/1 var(--sans); cursor: pointer; }
+.drawer-tab.is-on { background: var(--paper); color: var(--ink); }
+#pageSpace .space-app-icon img.space-cloud-logo { background-color: transparent !important; }

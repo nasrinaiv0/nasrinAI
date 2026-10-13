@@ -57,7 +57,7 @@
   const KEYS = {
     session: 'nasrin.session', conversation: 'nasrin.conversation', speak: 'nasrin.speak',
     model: 'nasrin.model', theme: 'nasrin.theme', palette: 'nasrin.palette', tabbar: 'nasrin.tabbar', voice: 'nasrin.voice', account: 'nasrin.account',
-    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', coding: 'nasrin.coding', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
+    notice: 'nasrin.notice', motion: 'nasrin.motion', pro: 'nasrin.pro', coding: 'nasrin.coding', codeChats: 'nasrin.codeChats', proCatalog: 'nasrin.proCatalog', libraryOn: 'nasrin.libraryOn', memoryAsk: 'nasrin.memoryAsk',
     notices: 'nasrin.notices', deviceRealtime: 'nasrin.deviceRealtime', deviceNotified: 'nasrin.deviceNotified', speechRate: 'nasrin.speechRate', language: 'nasrin.language', left: 'nasrin.left'
   };
   const saved = {
@@ -102,6 +102,19 @@
   let activeAccountEmail = null;
   const identityKey = (key) => activeAccountEmail ? `${key}:${encodeURIComponent(activeAccountEmail.toLowerCase())}` : key;
   let conversationId = saved.get(identityKey(KEYS.conversation));
+  // Which chats are coding chats (and their project), on this device, so the
+  // menu can list them apart and reopen them in the coding chat.
+  const codeChats = () => { const m = saved.get(identityKey(KEYS.codeChats)); return m && typeof m === 'object' && !Array.isArray(m) ? m : {}; };
+  function rememberCodeChat(id, p) {
+    if (typeof id !== 'string' || !p || typeof p.id !== 'string') return;
+    const m = codeChats();
+    if (m[id] && m[id].id === p.id) return;
+    delete m[id];
+    m[id] = { id: p.id, name: String(p.name || 'Project').slice(0, 80) };
+    const ids = Object.keys(m);
+    for (const old of ids.slice(0, Math.max(0, ids.length - 200))) delete m[old];
+    saved.set(identityKey(KEYS.codeChats), m);
+  }
   // Each visible conversation has a generation number. A request from an older
   // view can finish and persist without writing into the newly opened chat.
   let chatViewEpoch = 0;
@@ -1879,11 +1892,13 @@
       ...(codingProject ? { coding: true } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
+    const turnCoding = codingProject ? { id: codingProject.id, name: codingProject.name } : null;
     const hooks = {
       signal: ctrl.signal,
       onStart: (ev) => {
         started = ev;
         turnConversationId = ev.conversation_id;
+        if (turnCoding) rememberCodeChat(ev.conversation_id, turnCoding);
         if (isCurrentView()) {
           conversationId = turnConversationId;
           saved.set(identityKey(KEYS.conversation), conversationId);
@@ -1913,6 +1928,7 @@
       thinking.remove();
       live.remove();
       turnConversationId = data.conversation_id;
+      if (turnCoding) rememberCodeChat(turnConversationId, turnCoding);
       if (isCurrentView()) {
         conversationId = turnConversationId;
         saved.set(identityKey(KEYS.conversation), conversationId);
@@ -5476,7 +5492,10 @@
     saved.set(identityKey(KEYS.conversation), id);
     clearScreen();
     await loadConversation();
-    if (!conversationId) notice.textContent = 'That chat is no longer available.';
+    if (!conversationId) { notice.textContent = 'That chat is no longer available.'; return; }
+    // A coding chat opens in the coding chat, in its project.
+    const p = codeChats()[id];
+    if (p && account && projectsOn) setCoding(p);
   }
   $('historyBtn').addEventListener('click', () => (historySheet.hidden ? openHistory() : closeHistory()));
   $('spaceSignIn').addEventListener('click', () => { closeHistory(); openSignIn(); });
@@ -5516,7 +5535,25 @@
     status.textContent = 'Loading…';
     try {
       const data = await api('/v1/conversations');
-      const chats = (data.conversations || []).filter((c) => c && typeof c.id === 'string').slice(0, 8);
+      drawerAll = (data.conversations || []).filter((c) => c && typeof c.id === 'string');
+      renderDrawerChats();
+    } catch (err) {
+      status.textContent = err.message || 'Your chats could not be loaded.';
+    }
+  }
+  // Recent: normal chats and coding chats, in two tabs.
+  let drawerAll = [];
+  let drawerTab = 'chats';
+  function renderDrawerChats() {
+    const list = $('drawerChats');
+    const status = $('drawerStatus');
+    const code = codeChats();
+    for (const [id, name] of [['drawerTabChats', 'chats'], ['drawerTabCode', 'code']]) {
+      $(id).classList.toggle('is-on', drawerTab === name);
+      $(id).setAttribute('aria-selected', String(drawerTab === name));
+    }
+    {
+      const chats = drawerAll.filter((c) => (drawerTab === 'code') === Boolean(code[c.id])).slice(0, 8);
       list.replaceChildren(...chats.map((c) => {
         const li = document.createElement('li');
         const b = document.createElement('button');
@@ -5527,12 +5564,12 @@
         li.appendChild(b);
         return li;
       }));
-      status.textContent = chats.length ? '' : 'No chats yet.';
-      $('drawerSeeAll').hidden = !chats.length;
-    } catch (err) {
-      status.textContent = err.message || 'Your chats could not be loaded.';
+      status.textContent = chats.length ? '' : drawerTab === 'code' ? 'No coding chats yet.' : 'No chats yet.';
+      $('drawerSeeAll').hidden = !chats.length || drawerTab === 'code';
     }
   }
+  $('drawerTabChats').addEventListener('click', () => { drawerTab = 'chats'; renderDrawerChats(); });
+  $('drawerTabCode').addEventListener('click', () => { drawerTab = 'code'; renderDrawerChats(); });
   menuBtn.addEventListener('click', () => (drawer.hidden ? openDrawer() : closeDrawer()));
   drawerScrim.addEventListener('click', () => closeDrawer());
   drawer.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeDrawer(); } });

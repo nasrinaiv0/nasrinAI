@@ -53,3 +53,14 @@ test('the coding chat never shows question cards', async () => {
     assert.match(normal.message.content, /\[\[ask\]\]/, 'normal chats keep their question cards');
   } finally { await srv.close(); }
 });
+
+test('menu: Recent has Chats and Code tabs, and coding chats reopen in the coding chat', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="drawerTabChats"[^>]*>Chats<\/button>/);
+  assert.match(html, /id="drawerTabCode"[^>]*>Code<\/button>/);
+  assert.match(js, /if \(turnCoding\) rememberCodeChat\(ev\.conversation_id, turnCoding\);/);
+  assert.match(js, /drawerAll\.filter\(\(c\) => \(drawerTab === 'code'\) === Boolean\(code\[c\.id\]\)\)/);
+  assert.match(js, /const p = codeChats\(\)\[id\];\n    if \(p && account && projectsOn\) setCoding\(p\);/);
+});

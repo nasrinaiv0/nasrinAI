@@ -4,6 +4,12 @@
 - **Change:** PR description from the reply (Summary, Files, What was done, Steps needed, Check before merging); a check comment on each PR; **Open pull requests automatically** in Plugins → GitHub (`prefs.autoPr`, server-checked); replies with more than 5 files show one card; coding rules ask for code comments and README/docs updates. Terms and Privacy `2026-10-13`.
 - **Validation:** `npm test`; headless Chromium.
 
+## Proposed PR — Code chats in the menu, pixel robot, Space tiles (`ui/space-code-polish`)
+
+- **Owner request (2026-10-13):** coding chats and normal chats in the menu; the robot breaks into pixels and comes back while Nasrin thinks, remembers or writes code; no background behind the robot (header and thinking line); every Space app on the same tile, not too dark in dark mode.
+- **Change:** menu → Recent has **Chats** and **Code** tabs; a coding chat opened from it reopens in the coding chat and its project (which chats are coding chats is kept on this device). `scripts/pixelbot-logo.py` regenerates the robot without its tile; the busy version scatters every pixel and reassembles (SMIL, CSP-safe, ~11 KB gzipped). Space icons share one tile (#ECEBE7 light, #3A3A3C dark); Connect and Projects lose their built-in black tiles; Movo gets a wallet glyph.
+- **Validation:** `npm test`; headless Chromium (light/dark, menu tabs, reopen in coding chat, animation frames).
+
 ## Proposed PR — Reliable repository coding (`feature/coding-engine`)
 
 - **Owner request (2026-10-13):** audit the repository read/write capability and turn it into a reliable coding workflow (real files, verified writes, tests, honest status).
