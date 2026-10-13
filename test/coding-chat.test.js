@@ -18,6 +18,7 @@ test('the coding chat adds the coding rules and keeps code files as they are', a
     assert.match(system, /github_run_command/);
     assert.match(system, /unified diff/);
     assert.match(system, /test-fix-retest/);
+    assert.match(system, /complete cumulative diff/);
     assert.match(system, /production quality as the default/);
     assert.match(system, /Do not deliver a toy demo/);
     assert.match(system, /security boundaries/);
