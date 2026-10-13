@@ -16,8 +16,8 @@ const KEY = 'sk-proj-' + 'Ab12'.repeat(8);
 const APP = [
   "import express from 'express';",
   `const apiKey = "${KEY}";`,
-  'const password = "hunter2!x";',
-  '-----BEGIN RSA PRIVATE KEY-----',
+  'const password = "hunter' + '2!x";',
+  '-----BEGIN RSA ' + 'PRIVATE KEY-----',
   'function add(a, b) {',
   '  return a + b;',
   '}',
