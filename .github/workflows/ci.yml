@@ -9,6 +9,18 @@ permissions:
   contents: read
 
 jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      # No committed lockfile exists yet; do not run package lifecycle scripts.
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: npm audit --audit-level=high
+
   test:
     runs-on: ubuntu-latest
     steps:
