@@ -102,7 +102,17 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   assert.match(html, /id="drawerLibrary"><svg class="lib-glyph"/);
   assert.match(css, /svg\.lib-glyph[^{]*\{ fill: currentColor; stroke: none; \}/);
   // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
-  assert.match(html, /id="spaceCoding">\s*<span class="space-app-logo code-logo"/);
+  assert.match(html, /id="spaceCoding">\s*<span class="space-app-icon" aria-hidden="true"><span class="space-app-logo code-logo"/);
+  // Every app sits on the same tile (owner, 2026-10-13): light grey, lifted grey in dark mode.
+  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 6);
+  assert.match(css, /#pageSpace \.space-app-icon \{[^}]*background: #ECEBE7;/);
+  assert.match(css, /:root\[data-theme="dark"\] #pageSpace \.space-app-icon \{ background: #3A3A3C; \}/);
+  // The robot has no tile of its own; while busy it breaks into pixels and comes back.
+  for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-busy.svg']) {
+    const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
+    assert.doesNotMatch(svg, /<rect width="1024" height="1024"/, f + ' has no background tile');
+  }
+  assert.match(await readFile(new URL('../public/space-logos/code-bot-light-busy.svg', import.meta.url), 'utf8'), /animateTransform attributeName="transform" type="translate"/);
   for (const f of ['code-bot-light.svg', 'code-bot-dark.svg', 'code-bot-light-still.svg', 'code-bot-dark-still.svg', 'code-bot-light-busy.svg', 'code-bot-dark-busy.svg']) {
     assert.match(css, new RegExp(f.replace('.', '\\.')), f);
     const svg = await readFile(new URL('../public/space-logos/' + f, import.meta.url), 'utf8');
