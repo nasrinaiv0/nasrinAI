@@ -495,16 +495,21 @@ export function loadConfig(env = process.env) {
   // GitHub (coding chat): one NasrinAI GitHub App. People install it on the
   // repositories they choose and authorize it (user access tokens). Tokens are
   // stored encrypted with CONNECTOR_SECRET_KEY. docs/github.md
+  // GitHub for the coding chat (docs/github.md). githubOff says why it is off
+  // (a short code, shown by /v1/status so the owner can check the settings).
   let github = null;
-  const ghId = String(env.GITHUB_APP_CLIENT_ID || '').trim();
-  const ghSecret = String(env.GITHUB_APP_CLIENT_SECRET || '').trim();
-  const ghSlug = String(env.GITHUB_APP_SLUG || '').trim();
+  let githubOff = 'not_set';
+  const unquote = (v) => String(v || '').trim().replace(/^(['"])(.*)\1$/, '$2').trim();
+  const ghId = unquote(env.GITHUB_APP_CLIENT_ID);
+  const ghSecret = unquote(env.GITHUB_APP_CLIENT_SECRET);
+  // The slug may be pasted as the whole public link (https://github.com/apps/<slug>) or with capitals.
+  const ghSlug = unquote(env.GITHUB_APP_SLUG).replace(/^https?:\/\/github\.com\/apps\//i, '').replace(/\/+$/, '').toLowerCase();
   if (ghId || ghSecret) {
-    if (!/^[A-Za-z0-9.]{8,40}$/.test(ghId)) warnings.push('GITHUB_APP_CLIENT_ID: the Client ID from the GitHub App settings (starts with Iv). GitHub is off.');
-    else if (ghSecret.length < 20 || ghSecret.length > 100 || /\s/.test(ghSecret)) warnings.push('GITHUB_APP_CLIENT_SECRET: a client secret generated in the GitHub App settings. GitHub is off.');
-    else if (ghSlug && !/^[a-z0-9][a-z0-9-]{0,99}$/.test(ghSlug)) warnings.push('GITHUB_APP_SLUG: the app name in its github.com/apps/<slug> address. GitHub is off.');
-    else if (!connectorKey) warnings.push('GitHub needs CONNECTOR_SECRET_KEY (tokens are stored encrypted). GitHub is off.');
-    else github = Object.freeze({ clientId: ghId, clientSecret: ghSecret, slug: ghSlug || null });
+    if (!/^[A-Za-z0-9.]{8,40}$/.test(ghId)) { githubOff = 'client_id'; warnings.push('GITHUB_APP_CLIENT_ID: the Client ID from the GitHub App settings (starts with Iv). GitHub is off.'); }
+    else if (ghSecret.length < 20 || ghSecret.length > 100 || /\s/.test(ghSecret)) { githubOff = 'client_secret'; warnings.push('GITHUB_APP_CLIENT_SECRET: a client secret generated in the GitHub App settings. GitHub is off.'); }
+    else if (ghSlug && !/^[a-z0-9][a-z0-9-]{0,99}$/.test(ghSlug)) { githubOff = 'slug'; warnings.push('GITHUB_APP_SLUG: the app name in its github.com/apps/<slug> address. GitHub is off.'); }
+    else if (!connectorKey) { githubOff = 'connector_key'; warnings.push('GitHub needs CONNECTOR_SECRET_KEY (tokens are stored encrypted). GitHub is off.'); }
+    else { github = Object.freeze({ clientId: ghId, clientSecret: ghSecret, slug: ghSlug || null }); githubOff = null; }
   }
 
   // The founder's public portfolio, read for questions about Nasrin Abubakar
@@ -655,6 +660,7 @@ export function loadConfig(env = process.env) {
     connectors: Object.freeze({ key: connectorKey }),
     facebook,
     github,
+    githubOff,
     // Settings that were wrong but only switched an optional feature off.
     warnings: Object.freeze(warnings),
     guestTtlSeconds: toInt('GUEST_SESSION_TTL_HOURS', env.GUEST_SESSION_TTL_HOURS, 24, 1, 168) * 3600,

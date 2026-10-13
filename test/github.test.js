@@ -95,6 +95,12 @@ test('settings: GitHub is on only with a client id, secret and connector key', (
   const on = testConfig(ENV).github;
   assert.equal(on.clientId, ENV.GITHUB_APP_CLIENT_ID);
   assert.equal(on.slug, 'nasrinai');
+  assert.equal(testConfig({ ...ENV, GITHUB_APP_SLUG: 'https://github.com/apps/NasrinAI-Code/' }).github.slug, 'nasrinai-code', 'whole link or capitals are fine');
+  assert.equal(testConfig({ ...ENV, GITHUB_APP_CLIENT_ID: '"Iv23liABCDEF123456"' }).github.clientId, 'Iv23liABCDEF123456', 'quotes are dropped');
+  assert.equal(testConfig({}).githubOff, 'not_set');
+  assert.equal(testConfig({ ...ENV, CONNECTOR_SECRET_KEY: '' }).githubOff, 'connector_key');
+  assert.equal(testConfig({ ...ENV, GITHUB_APP_CLIENT_SECRET: 'short' }).githubOff, 'client_secret');
+  assert.equal(testConfig(ENV).githubOff, null);
 });
 
 async function ghApp(table = {}) {

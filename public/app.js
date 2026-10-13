@@ -6027,9 +6027,10 @@
   }
   function renderGithub() {
     document.body.classList.toggle('github-on', github.available && Boolean(account));
-    $('drawerGithub').hidden = !github.available;
-    $('desktopGithubBtn').hidden = !github.available;
-    $('codeGithubText').textContent = github.connected
+    $('codeGithubBtn').hidden = !github.available;
+    $('codeGithubText').textContent = !github.available
+      ? 'GitHub is not switched on for this site yet.'
+      : github.connected
       ? 'Connected as @' + github.login + '. Nasrin reads your repositories and opens pull requests only after you tap Confirm. Choose repositories picks where it may open them.'
       : 'Connect GitHub so Nasrin can read your repositories and open pull requests in the coding chat. Nothing changes on GitHub until you tap Confirm.';
     $('codeGithubBtn').textContent = github.connected ? 'Disconnect' : 'Connect GitHub';

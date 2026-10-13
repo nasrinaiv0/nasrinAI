@@ -20,8 +20,10 @@ person). Repository text is marked to the model as data, not instructions.
 ## Where people find it
 
 **Plugins** in the menu (and the desktop side bar) opens the Plugins sheet;
-GitHub is its first plugin: Connect GitHub / Disconnect and Choose repositories. It shows only when GitHub
-is set up on the site; guests are asked to sign in.
+GitHub is its first plugin: Connect GitHub / Disconnect and Choose repositories. It is always in the menu; until GitHub
+is set up the card says so. Guests are asked to sign in. `/v1/status` → `github`
+shows `available`, or `off` with the missing setting (`not_set`, `client_id`,
+`client_secret`, `slug`, `connector_key`), never a value.
 
 ## How a pull request is made (`src/github/api.js`)
 
