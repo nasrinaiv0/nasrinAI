@@ -137,8 +137,8 @@ test('runner reports a sanitized sandbox creation failure with its stage', async
   assert.equal(out.stage,'sandbox_create');
   assert.equal(out.stage_detail.stage,'sandbox_create');
   assert.match(out.stage_detail.message,/\[url redacted\]/);
-  assert.doesNotMatch(JSON.stringify(out),'private.example');
-  assert.doesNotMatch(JSON.stringify(out),'secretvalue');
+  assert.equal(JSON.stringify(out).includes('private.example'),false);
+  assert.equal(JSON.stringify(out).includes('secretvalue'),false);
 });
 
 test('runner reports network restriction failures instead of masking them', async()=>{
