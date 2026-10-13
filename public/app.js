@@ -6116,6 +6116,53 @@
     }
   }
 
+  // More plugins, not connected yet (docs/plugins.md): shown as Coming soon,
+  // never as connected. Simple shared glyphs, not the companies' logos.
+  const PLUGIN_GLYPHS = {
+    mail: [['path', { d: 'M4 6.5h16v11H4z' }], ['path', { d: 'm4.5 7 7.5 6 7.5-6' }]],
+    cloud: [['path', { d: 'M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z' }]],
+    team: [['circle', { cx: '9', cy: '9', r: '3' }], ['circle', { cx: '17', cy: '10', r: '2.3' }], ['path', { d: 'M3.5 18.5a5.5 5.5 0 0 1 11 0M14.5 18.5a4 4 0 0 1 6-3.4' }]],
+    sheet: [['path', { d: 'M5 4.5h14v15H5z' }], ['path', { d: 'M5 9.5h14M5 14.5h14M10 4.5v15' }]],
+    slides: [['path', { d: 'M4 5h16v11H4z' }], ['path', { d: 'M12 16v3.5M8.5 19.5h7M8 9h5M8 12h8' }]],
+    design: [['circle', { cx: '12', cy: '12', r: '8' }], ['circle', { cx: '9', cy: '10', r: '1.2' }], ['circle', { cx: '14.5', cy: '9', r: '1.2' }], ['circle', { cx: '15.5', cy: '13.5', r: '1.2' }]],
+    video: [['path', { d: 'M4 7h11v10H4z' }], ['path', { d: 'm15 10.5 5-3v9l-5-3' }]],
+    calendar: [['path', { d: 'M4.5 6h15v13.5h-15z' }], ['path', { d: 'M4.5 10h15M8.5 4v4M15.5 4v4' }]],
+    social: [['circle', { cx: '12', cy: '12', r: '8' }], ['path', { d: 'M12 7.5v9M8.5 11h7' }]],
+    photo: [['rect', { x: '4.5', y: '4.5', width: '15', height: '15', rx: '4.5' }], ['circle', { cx: '12', cy: '12', r: '3.5' }], ['circle', { cx: '16.3', cy: '7.7', r: '.6' }]],
+    thread: [['path', { d: 'M16.5 11c0-3-1.8-5-4.5-5S7.5 8.3 7.5 12s2 6 4.8 6c2 0 3.8-1.2 3.8-3.2 0-2.3-2.4-3-4.6-2.6-1.5.3-2 1.3-1.6 2.2' }]],
+    post: [['path', { d: 'M5 5l14 14M19 5 5 19' }]],
+    chat: [['path', { d: 'M5 17.5V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v6a2.5 2.5 0 0 1-2.5 2.5H9z' }]],
+    phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
+  };
+  const MORE_PLUGINS = [
+    ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
+    ['Google', [['Gmail', 'mail'], ['Google Cloud', 'cloud'], ['Google Meet', 'video'], ['Google Calendar', 'calendar']]],
+    ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
+  ];
+  {
+    const box = $('pluginsMore');
+    const svgNs = 'http://www.w3.org/2000/svg';
+    for (const [group, items] of MORE_PLUGINS) {
+      box.appendChild(mk('p', 'plugins-group', group));
+      const ul = mk('ul', 'plugins-list');
+      for (const [name, glyph] of items) {
+        const li = mk('li', 'plugins-item');
+        const svg = document.createElementNS(svgNs, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('class', 'plugins-glyph');
+        for (const [tag, attrs] of PLUGIN_GLYPHS[glyph]) {
+          const el = document.createElementNS(svgNs, tag);
+          for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+          svg.appendChild(el);
+        }
+        li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        ul.appendChild(li);
+      }
+      box.appendChild(ul);
+    }
+  }
+
   // The Plugins sheet (Plugins in the menu); GitHub is the first plugin.
   const githubSheet = $('githubSheet');
   function openGithub() {
