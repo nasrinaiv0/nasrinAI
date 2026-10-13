@@ -750,8 +750,29 @@
 
   // ---------- the conversation on screen ----------
 
-  function scrollToEnd(el) {
-    el.scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
+  // The chat follows new text only while the person is at the bottom. If they
+  // scroll up to read, it stays where they are until they scroll back down
+  // (or send a message). Only the person's own scrolling (wheel, touch, keys)
+  // can unstick it; the page's own scrolling never does.
+  let following = true;
+  let touchedAt = 0;
+  let touchY = 0;
+  // Moving up stops following at once (before the scroll itself lands, so a
+  // word arriving in between cannot pull the chat back down).
+  const up = () => { touchedAt = Date.now(); following = false; };
+  log.addEventListener('wheel', (e) => { touchedAt = Date.now(); if (e.deltaY < 0) up(); }, { passive: true });
+  log.addEventListener('touchstart', (e) => { touchedAt = Date.now(); touchY = e.touches[0]?.clientY || 0; }, { passive: true });
+  log.addEventListener('touchmove', (e) => { touchedAt = Date.now(); if ((e.touches[0]?.clientY || 0) > touchY + 4) up(); }, { passive: true });
+  log.addEventListener('pointerdown', () => { touchedAt = Date.now(); }, { passive: true });
+  document.addEventListener('keydown', (e) => { if (['PageUp', 'ArrowUp', 'Home'].includes(e.key) && e.target === log) up(); });
+  log.addEventListener('scroll', () => {
+    if (Date.now() - touchedAt > 1000) return;
+    following = log.scrollHeight - log.scrollTop - log.clientHeight < 96;
+  }, { passive: true });
+  function scrollToEnd(el, { force = false, instant = false } = {}) {
+    if (force) following = true;
+    if (!following) return;
+    el.scrollIntoView({ block: 'end', behavior: instant || reduced() ? 'auto' : 'smooth' });
   }
 
   // Leaving the empty state: the big character glides up into the header.
@@ -992,8 +1013,9 @@
     }
     if (id) el.dataset.id = id;
     if (role === 'user') el.dataset.text = text;
+    if (role === 'assistant' && animate) el.classList.add('is-new');
     log.appendChild(el);
-    scrollToEnd(el);
+    scrollToEnd(el, { force: role === 'user' });
     return el;
   }
 
@@ -1698,7 +1720,7 @@
   // fully checked and formatted reply when it is done.
   function liveBubble() {
     const el = document.createElement('div');
-    el.className = 'msg assistant is-live';
+    el.className = 'msg assistant is-live is-new';
     const body = document.createElement('div');
     body.className = 'msg-body';
     const text = document.createTextNode('');
@@ -1711,7 +1733,7 @@
         if (!shown) { thinking.remove(); startChat(); log.appendChild(el); shown = true; }
         raw += piece;
         text.data = window.NasrinFiles.strip(raw);   // questions and files appear as cards when the reply is done
-        scrollToEnd(el);
+        scrollToEnd(el, { instant: true });
       },
       clear() { raw = ''; text.data = ''; },
       text() { return raw; },
