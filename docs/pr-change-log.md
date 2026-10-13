@@ -1,3 +1,10 @@
+## Proposed PR — Comparisons shown as a table (`feature/comparison-tables`)
+
+- **Owner request (2026-10-13):** show a table when the person wants a comparison.
+- **Change:** `src/ai/prompt.js` `isComparison` + `COMPARE_RULE`; `src/chat.js` adds the rule for a comparison message (and Regenerate of one): direct answer, then a Markdown table (facts only, "—" when unknown), then a short bottom line. Not in the coding chat or spoken replies. `docs/chat.md`.
+- **Cache:** comparison questions get their own cache entries (`|compare` on the cache variant), so an older answer without a table is never reused; every other cache key is unchanged, so existing cache entries keep working.
+- **Validation:** `npm test` (detection, prompt, chat request, Regenerate, no rule for other messages; separate cache scope, fails without the fix).
+
 ## Proposed PR — Smaller text in normal chats (`ui/chat-smaller-text`)
 
 - **Owner request (2026-10-13):** make the fonts a bit smaller in normal chats.

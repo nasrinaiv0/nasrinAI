@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { HttpError } from './http/errors.js';
 import { ProviderError } from './ai/provider.js';
-import { buildSystemPrompt, fitHistory } from './ai/prompt.js';
+import { buildSystemPrompt, fitHistory, isComparison } from './ai/prompt.js';
 import { cleanReply, cleanUserText, keepIdentity, cleanPiece } from './ai/output.js';
 import { publicMessage, isPastIntent, isConversationMeta } from './conversations.js';
 import { parseAttachments, attachmentNote } from './attachments.js';
@@ -313,6 +313,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Smart routing decides the level, and with it how much history and reply length.
     const plan = smart ? policy.plan({ tier: choice.tier, message: typed, history: fullHistory, attachments: files }) : null;
     const history = fitHistory(fullHistory, plan ? plan.historyChars : config.ai.historyChars);
+    // A comparison request (or Regenerate on one): the reply leads with a table.
+    const lastAsk = typed || String([...history].reverse().find((m) => m.role === 'user')?.content || '');
+    const compare = !codingChat && isComparison(lastAsk);
     askedText = history.filter((m) => m.role === 'user').slice(-6).map((m) => m.content || '').join('\n') || typed;
     if (codeFile && history.length) {
       const last = history.at(-1);
@@ -431,7 +434,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         let webProviderStarted = false;
         try {
           if (!budget) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now.');
-          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat });
+          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare });
           const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
           const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
           webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
@@ -506,9 +509,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || codingChat || regenerate || secretInside);
       // The page's block-rich response format is cacheable too, but must never
       // share an exact or semantic cache entry with plain API responses.
-      const variant = codingTask
+      // Comparison replies (tables) get their own entries, so an older answer
+      // without a table is never reused for them; every other key is unchanged.
+      const variant = (codingTask
         ? `code|${caller.actor.type}:${caller.actor.id}|${plan.tier}|${blocks ? 'blocks' : 'plain'}`
-        : (blocks ? 'blocks' : 'plain');
+        : (blocks ? 'blocks' : 'plain')) + (compare ? '|compare' : '');
       const key = cacheable ? policy.cacheKey(plan, { history: fullHistory, attachments: files, message: typed, tenantId: caller.tenantId, variant }) : null;
       const hit = policy.cached(key);
       if (hit) {
@@ -557,7 +562,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       try {
         try {
@@ -677,7 +682,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)

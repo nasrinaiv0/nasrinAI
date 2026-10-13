@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSystemPrompt, ASK_RULE, FILE_RULE, VOICE_RULE } from '../src/ai/prompt.js';
+import { buildSystemPrompt, ASK_RULE, FILE_RULE, VOICE_RULE, COMPARE_RULE, isComparison } from '../src/ai/prompt.js';
 import { plainForSpeech } from '../src/ai/speech-text.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { buildTestApp, serve, bearer, postJson } from './helpers.js';
@@ -77,4 +77,29 @@ test('prompt: creator attribution is conditional on an explicit user question', 
 test('status rows are read aloud as plain words', async () => {
   const said = plainForSpeech('Done.\n[[checks title="Summary"]]\nok | npm test | Passed\nfail | Build\n[[/checks]]');
   assert.equal(said, 'Done.\nSummary.\nnpm test, Passed.\nBuild.');
+});
+
+test('comparison questions get a table (owner, 2026-10-13)', async () => {
+  for (const q of ['Compare iPhone 17 and Pixel 10', 'Python vs JavaScript for beginners', 'What is the difference between a loan and a lease?', 'Which is better for me, Gcash or Maya?', 'pros and cons of renting', 'Rust versus Go']) assert.ok(isComparison(q), q);
+  for (const q of ['hello', 'Write a poem about the sea', 'How do I bake bread?', 'Show the versions of Node']) assert.ok(!isComparison(q), q);
+  assert.match(COMPARE_RULE, /Markdown table/);
+  assert.match(COMPARE_RULE, /never guess/);
+  assert.ok(buildSystemPrompt({ compare: true }).includes(COMPARE_RULE));
+  assert.ok(!buildSystemPrompt({}).includes(COMPARE_RULE));
+  assert.ok(!buildSystemPrompt({ compare: true, voice: true }).includes(COMPARE_RULE), 'a spoken reply has no table');
+  const provider = createFakeProvider({ reply: () => 'ok' });
+  await withApp(provider, async ({ url, g }) => {
+    await postJson(url + '/v1/chat', { message: 'Compare Gcash vs Maya fees', blocks: true }, bearer(g));
+    assert.ok(provider.calls.at(-1).system.includes(COMPARE_RULE));
+    const conv = (await postJson(url + '/v1/chat', { message: 'Tell me a joke', blocks: true }, bearer(g)));
+    assert.ok(!provider.calls.at(-1).system.includes(COMPARE_RULE));
+    // Regenerate on a comparison keeps the table.
+    const first = await (await postJson(url + '/v1/chat', { message: 'iPhone vs Android?', blocks: true }, bearer(g))).json();
+    await postJson(url + '/v1/chat', { message: 'Tell me a joke', blocks: true }, bearer(g));   // another chat in between
+    assert.ok(!provider.calls.at(-1).system.includes(COMPARE_RULE));
+    const regen = await postJson(url + '/v1/chat', { conversation_id: first.conversation_id, regenerate: true, blocks: true }, bearer(g));
+    assert.equal(regen.status, 200);
+    assert.ok(provider.calls.at(-1).system.includes(COMPARE_RULE));
+    assert.equal(conv.status, 200);
+  });
 });
