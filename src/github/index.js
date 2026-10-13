@@ -7,7 +7,8 @@ import { createCodingRunner } from './runner.js';
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
 // stored only sealed (AES-256-GCM, bound to the person). Nasrin reads public
-// repositories (and the person's, with their token) through read-only tools.
+// repositories (and the person's, with their token) through read tools; commands
+// execute only in isolated Vercel Sandbox microVMs, never on this server.
 // Changes go only to a new branch and a pull request, and only when the
 // person taps Confirm on the page; the model can never do it on its own.
 
