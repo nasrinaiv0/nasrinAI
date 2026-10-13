@@ -12,6 +12,7 @@ import { createGithubApi, checkRepo, GithubError } from './api.js';
 
 const NONCE = 'nasrin_gh';
 const STATE_TTL = 600;
+export const MAX_ACCOUNTS = 10;
 
 function cookies(req) {
   const out = {};
@@ -28,7 +29,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const gh = config.github || null;
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
-  const available = Boolean(gh && key && store.getGithubConnection);
+  const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
   const installUrl = gh?.slug ? `https://github.com/apps/${gh.slug}/installations/new` : null;
   const stateKey = key ? createHmac('sha256', key).update('github-oauth-state').digest() : null;
@@ -66,13 +67,14 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
     return data;
   }
 
-  async function saveTokens(caller, login, t) {
+  async function saveTokens(caller, login, t, isMain) {
     const at = now();
     const opts = { tenantId: caller.tenantId, name: sealName(caller.userId) };
     await store.saveGithubConnection({
       tenantId: caller.tenantId,
       userId: caller.userId,
       login,
+      isMain,
       accessTokenEnc: seal(key, t.access_token, opts),
       refreshTokenEnc: t.refresh_token ? seal(key, t.refresh_token, opts) : null,
       expiresAt: t.expires_in ? new Date(at + Number(t.expires_in) * 1000).toISOString() : null,
@@ -80,12 +82,22 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
     });
   }
 
-  // The person's GitHub token (refreshed when it is about to expire), or null.
+  // Removes one account; when it was the main one, the next becomes main.
+  async function dropAccount(who, login) {
+    const all = await store.listGithubConnections(who);
+    const gone = all.find((r) => r.login === login);
+    await store.deleteGithubConnection({ ...who, login });
+    const next = all.find((r) => r.login !== login);
+    if (gone?.isMain && next) await store.setGithubMain({ ...who, login: next.login });
+  }
+
+  // A GitHub token for the person: their main account (or the given one),
+  // refreshed when it is about to expire. null when there is none.
   const refreshing = new Map();
-  async function tokenFor(ctx) {
+  async function tokenFor(ctx, login = null) {
     if (!available || ctx?.actor?.type !== 'user') return null;
     const who = { tenantId: ctx.tenantId, userId: ctx.actor.id };
-    const row = await store.getGithubConnection(who);
+    const row = await store.getGithubConnection({ ...who, login });
     if (!row) return null;
     const opts = { tenantId: who.tenantId, name: sealName(who.userId) };
     const expires = row.expiresAt ? Date.parse(row.expiresAt) : Infinity;
@@ -93,25 +105,40 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       try { return open(key, row.accessTokenEnc, opts); } catch { return null; }
     }
     if (!row.refreshTokenEnc || (row.refreshExpiresAt && Date.parse(row.refreshExpiresAt) <= now())) {
-      await store.deleteGithubConnection(who);
+      await dropAccount(who, row.login);
       return null;
     }
-    const k = `${who.tenantId}:${who.userId}`;
+    const k = `${who.tenantId}:${who.userId}:${row.login}`;
     if (!refreshing.has(k)) {
       refreshing.set(k, (async () => {
         try {
           const t = await oauthToken({ grant_type: 'refresh_token', refresh_token: open(key, row.refreshTokenEnc, opts) });
-          await saveTokens(who, row.login, t);
+          await saveTokens(who, row.login, t, row.isMain === true);
           return t.access_token;
         } catch (err) {
           logger?.warn('github token refresh failed', { code: err.code || 'failed' });
-          if (err.code === 'unauthorized') await store.deleteGithubConnection(who);
+          if (err.code === 'unauthorized') await dropAccount(who, row.login);
           return null;
         } finally { refreshing.delete(k); }
       })());
     }
     return refreshing.get(k);
   }
+
+  // Asks GitHub to drop NasrinAI's grant for one account (best effort).
+  async function revoke(token) {
+    if (!token) return;
+    try {
+      await fetchImpl(`https://api.github.com/applications/${encodeURIComponent(gh.clientId)}/grant`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'NasrinAI', 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${gh.clientId}:${gh.clientSecret}`).toString('base64') },
+        body: JSON.stringify({ access_token: token }),
+        redirect: 'error',
+        signal: AbortSignal.timeout(8000)
+      });
+    } catch { logger?.warn('github revoke failed'); }
+  }
+  const LOGIN = /^[A-Za-z0-9-]{1,39}$/;
 
   const asHttp = (err) => {
     if (!(err instanceof GithubError)) throw err;
@@ -131,9 +158,10 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       path: '/v1/github/status',
       scope: 'chat',
       handler: async ({ caller }) => {
-        if (!available || caller.actor.type !== 'user') return { body: { available, connected: false, login: null, install_url: installUrl } };
-        const row = await store.getGithubConnection({ tenantId: caller.tenantId, userId: caller.actor.id });
-        return { body: { available, connected: Boolean(row), login: row?.login || null, install_url: installUrl } };
+        if (!available || caller.actor.type !== 'user') return { body: { available, connected: false, login: null, accounts: [], max_accounts: MAX_ACCOUNTS, install_url: installUrl } };
+        const all = await store.listGithubConnections({ tenantId: caller.tenantId, userId: caller.actor.id });
+        const main = all.find((r) => r.isMain) || all[0];
+        return { body: { available, connected: Boolean(main), login: main?.login || null, accounts: all.map((r) => ({ login: r.login, main: r.login === main.login })), max_accounts: MAX_ACCOUNTS, install_url: installUrl } };
       }
     },
     {
@@ -142,12 +170,15 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       method: 'POST',
       path: '/v1/github/connect',
       scope: 'chat',
-      handler: async ({ caller, res }) => {
+      handler: async ({ caller, res, req }) => {
         const who = needUser(caller);
+        // Adding another account (?add=1): GitHub is asked to let the person pick one.
+        const add = new URL(req.url, 'http://local').searchParams.get('add') === '1';
+        if (add && (await store.listGithubConnections(who)).length >= MAX_ACCOUNTS) throw new HttpError(409, 'github_accounts_limit', `You can connect up to ${MAX_ACCOUNTS} GitHub accounts.`);
         const nonce = randomBytes(18).toString('base64url');
         res.appendHeader('Set-Cookie', nonceCookie(nonce, STATE_TTL));
         const state = signState({ u: who.userId, t: who.tenantId, n: sha(nonce), e: Math.floor(now() / 1000) + STATE_TTL });
-        const q = new URLSearchParams({ client_id: gh.clientId, redirect_uri: redirectUri, state });
+        const q = new URLSearchParams({ client_id: gh.clientId, redirect_uri: redirectUri, state, ...(add ? { prompt: 'select_account' } : {}) });
         return { body: { url: `https://github.com/login/oauth/authorize?${q}` } };
       }
     },
@@ -172,9 +203,14 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
           const t = await oauthToken({ code, redirect_uri: redirectUri });
           const me = await api.call('GET', '/user', { token: t.access_token });
           const login = String(me?.login || '');
-          if (!/^[A-Za-z0-9-]{1,39}$/.test(login)) throw new GithubError('failed', 'unexpected login');
-          await saveTokens({ tenantId: state.t, userId: state.u }, login, t);
-          logger?.info('github connected');
+          if (!LOGIN.test(login)) throw new GithubError('failed', 'unexpected login');
+          const who = { tenantId: state.t, userId: state.u };
+          const all = await store.listGithubConnections(who);
+          const known = all.find((r) => r.login === login);
+          if (!known && all.length >= MAX_ACCOUNTS) { await revoke(t.access_token); return back(res, '/?github=limit'); }
+          // The first account is the main one; a known account keeps its place.
+          await saveTokens(who, login, t, known ? known.isMain : all.length === 0);
+          logger?.info('github connected', { accounts: known ? all.length : all.length + 1 });
           return back(res, '/?github=connected');
         } catch (err) {
           logger?.warn('github connect failed', { code: err.code || 'failed' });
@@ -183,26 +219,38 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       }
     },
     {
-      // Disconnects: GitHub is asked to drop the grant, and the stored tokens are deleted.
+      // Disconnects one account (?login=name) or all of them: GitHub is asked to
+      // drop each grant, and the stored tokens are deleted.
       method: 'DELETE',
       path: '/v1/github',
       scope: 'chat',
-      handler: async ({ caller }) => {
+      handler: async ({ caller, req }) => {
         const who = needUser(caller);
-        const token = await tokenFor(caller).catch(() => null);
-        if (token) {
-          try {
-            await fetchImpl(`https://api.github.com/applications/${encodeURIComponent(gh.clientId)}/grant`, {
-              method: 'DELETE',
-              headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'NasrinAI', 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${gh.clientId}:${gh.clientSecret}`).toString('base64') },
-              body: JSON.stringify({ access_token: token }),
-              redirect: 'error',
-              signal: AbortSignal.timeout(8000)
-            });
-          } catch { logger?.warn('github revoke failed'); }
+        const one = new URL(req.url, 'http://local').searchParams.get('login');
+        if (one !== null && !LOGIN.test(one)) throw new HttpError(400, 'invalid', 'Choose one of your GitHub accounts.');
+        const all = await store.listGithubConnections(who);
+        const targets = one ? all.filter((r) => r.login === one) : all;
+        if (one && !targets.length) throw new HttpError(404, 'not_found', 'That GitHub account is not connected.');
+        for (const r of targets) {
+          await revoke(await tokenFor(caller, r.login).catch(() => null));
+          await dropAccount(who, r.login);
         }
-        await store.deleteGithubConnection(who);
-        return { body: { connected: false } };
+        const left = await store.listGithubConnections(who);
+        return { body: { connected: left.length > 0, accounts: left.map((r) => ({ login: r.login, main: r.isMain })) } };
+      }
+    },
+    {
+      // Makes one connected account the main one (used for reading and pull requests).
+      method: 'POST',
+      path: '/v1/github/main',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        const who = needUser(caller);
+        const login = typeof body?.login === 'string' ? body.login : '';
+        if (!LOGIN.test(login) || !(await store.getGithubConnection({ ...who, login }))) throw new HttpError(404, 'not_found', 'That GitHub account is not connected.');
+        await store.setGithubMain({ ...who, login });
+        return { body: { main: login } };
       }
     },
     {

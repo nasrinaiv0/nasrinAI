@@ -119,7 +119,7 @@
   // view can finish and persist without writing into the newly opened chat.
   let chatViewEpoch = 0;
   // The coding chat (Code in the menu): a project-scoped chat with coding experts.
-  let github = { available: false, connected: false, login: null, install: null, autoPr: false };   // GitHub connection (docs/github.md)
+  let github = { available: false, connected: false, login: null, install: null, autoPr: false, accounts: [], max: 10 };   // GitHub connection (docs/github.md)
   let codingProject = null;   // { id, name } while the coding chat is open
   let busy = false;
   let aiAvailable = true;
@@ -6072,9 +6072,10 @@
   async function loadGithub() {
     try {
       const st = await api('/v1/github/status');
-      github = { available: st.available === true, connected: st.connected === true, login: st.login || null, install: st.install_url || null, autoPr: false };
+      github = { available: st.available === true, connected: st.connected === true, login: st.login || null, install: st.install_url || null, autoPr: false,
+        accounts: Array.isArray(st.accounts) ? st.accounts.filter((a) => a && typeof a.login === 'string') : [], max: Number(st.max_accounts) || 10 };
       if (github.connected) github.autoPr = (await api('/v1/settings').catch(() => null))?.prefs?.autoPr === true;
-    } catch { github = { available: false, connected: false, login: null, install: null, autoPr: false }; }
+    } catch { github = { available: false, connected: false, login: null, install: null, autoPr: false, accounts: [], max: 10 }; }
     renderGithub();
   }
   function renderGithub() {
@@ -6084,7 +6085,7 @@
     $(on ? 'pluginsConnected' : 'pluginsDev').appendChild($('ghCard'));
     $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
     $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
-    $('ghSub').textContent = !github.available ? 'Not switched on for this site yet' : on ? 'Connected · @' + github.login + (github.autoPr ? ' · automatic pull requests' : '') : 'Not connected';
+    $('ghSub').textContent = !github.available ? 'Not switched on for this site yet' : on ? 'Connected · @' + github.login + (github.accounts.length > 1 ? ' · ' + github.accounts.length + ' accounts' : '') + (github.autoPr ? ' · automatic pull requests' : '') : 'Not connected';
     $('codeGithubBtn').hidden = !github.available;
     $('codeGithubBtn').firstElementChild.textContent = on ? 'Disconnect' : 'Connect GitHub';
     $('codeGithubBtn').classList.toggle('danger', on);
@@ -6098,28 +6099,49 @@
     $('codeGithubText').textContent = !github.available
       ? 'GitHub is not switched on for this site yet.'
       : 'Read your repositories and open pull requests on a new branch from the coding chat, ' + (on && github.autoPr ? 'automatically after Nasrin writes files.' : 'after you confirm each one.');
-    $('ghAccount').textContent = on ? '@' + github.login : 'Not connected';
-    $('ghAvatar').textContent = on ? github.login.slice(0, 1).toUpperCase() : '?';
+    // Connected accounts: each with Main / Make main and Remove.
+    $('ghAccounts').replaceChildren(...github.accounts.map((acc) => {
+      const row = mk('div', 'menu-row plugin-account');
+      const avatar = mk('span', 'plugin-avatar', acc.login.slice(0, 1).toUpperCase());
+      avatar.setAttribute('aria-hidden', 'true');
+      row.append(avatar, mk('span', 'plugin-login', '@' + acc.login));
+      if (acc.main) row.appendChild(mk('em', 'plugin-main-tag', 'Main'));
+      else {
+        const b = mk('button', 'plugin-link', 'Make main');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Make @' + acc.login + ' the main account');
+        b.addEventListener('click', () => ghMakeMain(acc.login, b));
+        row.appendChild(b);
+      }
+      const rm = mk('button', 'plugin-link danger', 'Remove');
+      rm.type = 'button';
+      rm.setAttribute('aria-label', 'Remove @' + acc.login);
+      rm.addEventListener('click', () => ghDisconnect(rm, acc.login));
+      row.appendChild(rm);
+      return row;
+    }));
+    $('ghAddAccount').hidden = !on || github.accounts.length >= github.max;
+    $('ghAccountsHint').hidden = !on;
     $('ghDetailConnect').hidden = !github.available;
-    $('ghDetailConnect').firstElementChild.textContent = on ? 'Reconnect' : 'Connect GitHub';
+    $('ghDetailConnect').firstElementChild.textContent = on ? 'Reconnect main account' : 'Connect GitHub';
     $('ghDetailDisconnect').hidden = !on;
   }
-  async function ghConnect(btn) {
+  async function ghConnect(btn, add = false) {
     if (btn) btn.disabled = true;
     try {
-      const r = await api('/v1/github/connect', { method: 'POST' });
+      const r = await api('/v1/github/connect' + (add ? '?add=1' : ''), { method: 'POST' });
       if (r && typeof r.url === 'string' && r.url.startsWith('https://github.com/')) location.assign(r.url);
     } catch (err) {
       $('githubStatus').textContent = err.message || 'GitHub could not be reached.';
     } finally { if (btn) btn.disabled = false; }
   }
-  async function ghDisconnect(btn) {
-    if (!confirm('Disconnect GitHub? Nasrin will forget your GitHub sign-in.')) return;
+  async function ghDisconnect(btn, login = null) {
+    if (!confirm(login ? 'Remove @' + login + '? Nasrin will forget this GitHub sign-in.' : 'Disconnect GitHub? Nasrin will forget all your GitHub sign-ins.')) return;
     if (btn) btn.disabled = true;
     try {
-      await api('/v1/github', { method: 'DELETE' });
+      await api('/v1/github' + (login ? '?login=' + encodeURIComponent(login) : ''), { method: 'DELETE' });
       await loadGithub();
-      $('githubStatus').textContent = 'GitHub is disconnected.';
+      $('githubStatus').textContent = login ? '@' + login + ' is removed.' : 'GitHub is disconnected.';
     } catch (err) {
       $('githubStatus').textContent = err.message || 'GitHub could not be reached.';
     } finally { if (btn) btn.disabled = false; }
@@ -6128,6 +6150,18 @@
   $('ghReconnect').addEventListener('click', (e) => ghConnect(e.currentTarget));
   $('ghDetailConnect').addEventListener('click', (e) => ghConnect(e.currentTarget));
   $('ghDetailDisconnect').addEventListener('click', (e) => ghDisconnect(e.currentTarget));
+  $('ghAddAccount').addEventListener('click', (e) => ghConnect(e.currentTarget, true));
+  async function ghMakeMain(login, btn) {
+    btn.disabled = true;
+    try {
+      await api('/v1/github/main', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login }) });
+      await loadGithub();
+      $('githubStatus').textContent = '@' + login + ' is now your main GitHub account.';
+    } catch (err) {
+      $('githubStatus').textContent = err.message || 'This could not be saved.';
+      btn.disabled = false;
+    }
+  }
   // The GitHub row opens its actions; Settings opens the GitHub page.
   $('ghToggle').addEventListener('click', () => {
     const open = $('ghActions').hidden;
@@ -6147,7 +6181,7 @@
     const back = new URLSearchParams(location.search).get('github');
     if (back) {
       history.replaceState(null, '', location.pathname);
-      notice.textContent = { connected: 'GitHub is connected.', installed: 'GitHub repositories updated.', failed: 'GitHub was not connected. Please try again.' }[back] || '';
+      notice.textContent = { connected: 'GitHub is connected.', installed: 'GitHub repositories updated.', limit: 'You already have 10 GitHub accounts connected. Remove one to add another.', failed: 'GitHub was not connected. Please try again.' }[back] || '';
     }
   }
 
