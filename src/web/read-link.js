@@ -99,13 +99,13 @@ export function checkUrl(raw) {
   return u;
 }
 
-function get(u) {
+function get(u, accept = 'text/html,text/plain;q=0.9,*/*;q=0.1') {
   return new Promise((resolve, reject) => {
     const lib = u.protocol === 'https:' ? https : http;
     const req = lib.request(u, {
       method: 'GET',
       lookup: safeLookup,
-      headers: { 'User-Agent': 'NasrinAI-LinkReader/1.0 (+https://nasrinai.com)', Accept: 'text/html,text/plain;q=0.9,*/*;q=0.1' },
+      headers: { 'User-Agent': 'NasrinAI-LinkReader/1.0 (+https://nasrinai.com)', Accept: accept },
       timeout: TIMEOUT_MS
     }, (res) => resolve(res));
     req.on('timeout', () => req.destroy(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' })));
@@ -161,6 +161,37 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
     return { url: raw, error: 'too many redirects' };
   } catch (err) {
     return { url: raw, error: err?.code === 'EBLOCKED' ? 'not a public web address' : err?.code === 'ETIMEDOUT' ? 'the site did not answer in time' : 'the page could not be opened' };
+  }
+}
+
+// A small binary file (a site's icon) with the same safety rules as pages:
+// public addresses only, checked on every redirect (at most 3), a time and
+// size limit. Resolves { url, type, bytes } or { url, error }.
+export async function readBytes(raw, { maxBytes = 100_000, accept = 'image/*', getImpl = get } = {}) {
+  let u = checkUrl(raw);
+  if (!u) return { url: raw, error: 'not a public web address' };
+  try {
+    for (let hop = 0; hop <= 3; hop++) {
+      const res = await getImpl(u, accept);
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        const next = checkUrl(new URL(res.headers.location, u).href);
+        if (!next) return { url: raw, error: 'redirects to a blocked address' };
+        u = next;
+        continue;
+      }
+      if (res.statusCode !== 200) { res.resume(); return { url: raw, error: `the site answered ${res.statusCode}` }; }
+      const chunks = []; let size = 0;
+      for await (const c of res) {
+        size += c.length;
+        if (size > maxBytes) { res.destroy(); return { url: raw, error: 'too large' }; }
+        chunks.push(c);
+      }
+      return { url: u.href, type: String(res.headers['content-type'] || ''), bytes: Buffer.concat(chunks) };
+    }
+    return { url: raw, error: 'too many redirects' };
+  } catch (err) {
+    return { url: raw, error: err?.code === 'EBLOCKED' ? 'not a public web address' : 'could not be opened' };
   }
 }
 

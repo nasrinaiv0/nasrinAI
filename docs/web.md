@@ -54,3 +54,29 @@ it can search and never to claim it cannot browse.
 Cost: OpenAI charges per search call (`config/model-prices.json`,
 `tools.web_search`) plus tokens. Each search is counted in the budget and only
 runs if it fits (see [routing.md](routing.md)).
+
+## Site logos
+
+Each source in a reply's Sources list, and the badges on the Sources button,
+show the site's **real logo**, to credit the source. A line under the list
+says the logos and names belong to their sites.
+
+- **Where logos come from:** the browser loads `GET /v1/site-icon?host=…`
+  from our own server (`src/web/site-icon.js`), never from the site, so the
+  page's strict CSP (`img-src 'self'`) holds and the person's browser contacts
+  no one else (`referrerpolicy="no-referrer"`).
+- **How our server finds a logo:** it reads the site's home page for its
+  declared icon (apple-touch-icon, then the largest `icon`), else
+  `/favicon.ico`, with the SSRF-safe reader: public addresses only, checked
+  on every redirect, 8 s, 100 KB (`readBytes` in `src/web/read-link.js`).
+- **What is passed on:** only real raster images (PNG, ICO, JPEG, GIF, WebP,
+  checked by their first bytes). SVG is refused because it can carry scripts.
+  The answer is served with `nosniff`,
+  `Content-Security-Policy: default-src 'none'; sandbox` and
+  `Cross-Origin-Resource-Policy: same-origin`.
+- **Caching:** logos are kept in memory for a day (misses for an hour), and
+  browsers keep them for a day. Only requests that reach a website count
+  against the per-IP limit (300 an hour).
+- **No logo found:** the site's first letter shows instead.
+- **Privacy:** Privacy Notice 2026-10-13d says our server asks websites for
+  their icons. Nothing about the person is sent.

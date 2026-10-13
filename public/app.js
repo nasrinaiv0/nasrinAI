@@ -2850,6 +2850,23 @@
   }
 
   // Under each reply: Listen, Copy, Share.
+  // A site's real logo, through our own server (GET /v1/site-icon?host=…, so
+  // the page's CSP stays 'self'). The letter shows until it loads, and stays
+  // if the site has no usable logo.
+  function siteLogo(holder, host) {
+    const h = String(host || '').toLowerCase();
+    if (!/^[a-z0-9.-]{3,253}$/.test(h)) return;
+    const img = document.createElement('img');
+    img.alt = '';
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer';
+    img.addEventListener('load', () => holder.classList.add('has-logo'), { once: true });
+    img.addEventListener('error', () => img.remove(), { once: true });
+    img.src = '/v1/site-icon?host=' + encodeURIComponent(h);
+    holder.appendChild(img);
+  }
+
   // The Sources button (site badges + "Sources"): a folded list of the pages a web answer used, opened in a
   // new tab (never with the page's access to this one).
   let sourcesCount = 0;
@@ -2870,7 +2887,13 @@
       const h = document.createElement('span');
       h.className = 'reply-source-host';
       h.textContent = l.host;
-      a.append(t, h);
+      // The site's own logo, credited next to its name.
+      const logo = mk('span', 'reply-source-logo', (l.host.replace(/^(?:www|m|en)\./, '')[0] || '?').toUpperCase());
+      logo.setAttribute('aria-hidden', 'true');
+      siteLogo(logo, l.host);
+      const words = mk('span', 'reply-source-words');
+      words.append(t, h);
+      a.append(logo, words);
       const cite = mk('button', 'cite-btn', 'Cite');
       cite.type = 'button';
       cite.setAttribute('aria-label', 'Cite ' + l.title);
@@ -2878,6 +2901,9 @@
       li.append(a, cite);
       list.appendChild(li);
     }
+    // Credit: the logos and names belong to the sites.
+    const credit = mk('li', 'reply-sources-credit', 'Logos and names belong to their sites and are shown to credit each source.');
+    list.appendChild(credit);
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'act sources-toggle';
@@ -2893,6 +2919,7 @@
     hosts.forEach((h, i) => {
       const f = mk('span', 'src-face', (h.replace(/^(?:www|m|en)\./, '')[0] || '?').toUpperCase());
       f.dataset.n = String(i);
+      siteLogo(f, h);
       faces.appendChild(f);
     });
     b.append(faces, mk('span', 'src-word', 'Sources'));

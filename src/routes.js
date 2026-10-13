@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, cite = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1230,6 +1230,35 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, body, ip }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.scan(caller, body, ip) };
+      }
+    },
+    {
+      // A source's real site logo (GET /v1/site-icon?host=…), fetched by our server (docs/web.md, "Site
+      // logos"). Public, because <img> sends no sign-in; only raster images,
+      // served so they can never run as a page here.
+      method: 'GET',
+      path: '/v1/site-icon',
+      public: true,
+      handler: async ({ req, ip, res }) => {
+        if (!siteIcons) throw new HttpError(404, 'not_found', 'Not found.');
+        // ?host=example.com (a query, since path ids never hold dots).
+        const host = new URL(req.url, 'http://localhost').searchParams.get('host') || '';
+        if (!siteIcons.cached(host) && !(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many requests.');
+        const icon = await siteIcons.icon(host);
+        if (!icon) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+          res.end('No icon');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': icon.type,
+          'Content-Length': icon.bytes.length,
+          'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+          'Cross-Origin-Resource-Policy': 'same-origin'
+        });
+        res.end(icon.bytes);
       }
     },
     {

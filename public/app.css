@@ -617,12 +617,22 @@ body:not(.has-chat) #newChat { display: none; }
 .src-faces { display: inline-flex; align-items: center; }
 .src-face { position: relative; z-index: 3; width: 1.35rem; height: 1.35rem; border-radius: 50%; display: grid; place-items: center; font: 600 0.62rem/1 var(--round); color: var(--on-ink); background: var(--ink); box-shadow: 0 0 0 2px var(--paper); }
 .src-face + .src-face { margin-left: -0.38rem; }
+/* A real site logo covers the letter once it has loaded. */
+.src-face, .reply-source-logo { overflow: hidden; }
+.src-face img, .reply-source-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 180ms; }
+.src-face.has-logo, .reply-source-logo.has-logo { background: #fff; color: transparent; }
+.src-face.has-logo img, .reply-source-logo.has-logo img { opacity: 1; }
+.src-face.has-logo img { padding: 2px; box-sizing: border-box; }
+.reply-source-logo { position: relative; flex: none; width: 1.6rem; height: 1.6rem; border-radius: 0.45rem; display: grid; place-items: center; font: 600 0.7rem/1 var(--round); color: var(--on-ink); background: var(--ink); border: 1px solid var(--line); }
+.reply-source-logo.has-logo img { padding: 3px; box-sizing: border-box; }
+.reply-sources .reply-sources-credit { display: block; padding: 0.35rem 0.6rem 0.2rem; color: var(--ink-3); font-size: 0.72rem; }
+.reply-source-words { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .src-face[data-n="1"] { z-index: 2; background: color-mix(in srgb, var(--ink) 70%, var(--paper)); }
 .src-face[data-n="2"] { z-index: 1; background: color-mix(in srgb, var(--ink) 45%, var(--paper)); }
 .reply-sources { list-style: none; margin: 0.4rem 0 0; padding: 0.35rem; border: 1px solid var(--line); border-radius: 0.9rem; background: var(--paper); white-space: normal; animation: fade-in 220ms var(--glide) both; }
 .reply-sources[hidden] { display: none; }
 .reply-sources li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
-.reply-sources a { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; color: var(--ink); text-decoration: none; }
+.reply-sources a { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: row; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; color: var(--ink); text-decoration: none; }
 .cite-btn { flex: none; border: 1px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.78rem; min-height: 2rem; }
 .cite-btn:hover, .cite-btn[aria-expanded="true"] { color: var(--ink); background: var(--surface); }
 /* A source's citation: organized details, a style picker, the citation, Copy. */
