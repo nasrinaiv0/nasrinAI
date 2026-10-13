@@ -1,3 +1,9 @@
+## Proposed PR — GitHub in the menu (`feature/github-menu`)
+
+- **Owner request (2026-10-13):** put the GitHub plug-in in the menu instead of the project picker.
+- **Change:** a **GitHub** item in the menu (under Code) and in the desktop side bar opens a GitHub sheet (Connect / Disconnect, Choose repositories, the connected @name). Shown only when GitHub is set up; guests are asked to sign in. Removed from the project picker. `docs/github.md`.
+- **Validation:** `npm test`; headless Chromium (390 px light, 1280 px dark).
+
 ## Proposed PR — GitHub in the coding chat (`feature/github`)
 
 - **Owner request (2026-10-12):** full GitHub repository management for coding: read code, pull updates, push changes or pull requests. Owner choices: built-in `fetch` (not Octokit, ADR-002), a GitHub App with user sign-in (OAuth), read + pull requests only after Confirm.

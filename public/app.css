@@ -2502,10 +2502,9 @@ body.coding-mode #welcome { display: none; }
 }
 
 /* GitHub in the coding chat (docs/github.md) */
-.code-github { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
-.code-github-text { display: flex; align-items: center; gap: 0.45rem; margin: 0 0.25rem 0.5rem; color: var(--ink-2); font-size: 0.86rem; min-width: 0; }
-.code-github-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.code-github .code-picker-row { justify-content: flex-end; flex-wrap: wrap; }
+.github-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 0.6rem; }
+.github-sheet .code-picker-title .gh-mark { width: 1.5rem; height: 1.5rem; }
+.drawer-link-note { margin-left: auto; color: var(--ink-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .gh-mark { flex: none; width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .pr-open { align-items: center; gap: 0.4rem; margin: 0.4rem 0 0.2rem; }
 .pr-sheet .lib-input { width: 100%; box-sizing: border-box; margin: 0; }

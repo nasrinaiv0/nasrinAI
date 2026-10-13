@@ -17,6 +17,12 @@ request is opened only by the page, after the person taps **Confirm**
 (`POST /v1/github/pull-requests` requires `confirm: true` and a signed-in
 person). Repository text is marked to the model as data, not instructions.
 
+## Where people find it
+
+**GitHub** in the menu (and the desktop side bar) opens a small sheet:
+Connect GitHub / Disconnect and Choose repositories. It shows only when GitHub
+is set up on the site; guests are asked to sign in.
+
 ## How a pull request is made (`src/github/api.js`)
 
 1. Check the person can push to the repository.
@@ -72,6 +78,6 @@ for public repositories without a token.
 3. Vercel → Settings → Environment Variables (Preview first, then Production):
    `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_SLUG`.
 4. Supabase SQL editor (staging first): run `db/migrations/038_github_connections.sql`.
-5. Redeploy. In the coding chat → project picker → **Connect GitHub**, then
+5. Redeploy. Menu → **GitHub** → **Connect GitHub**, then
    **Choose repositories** to install the app on the repositories Nasrin may
    open pull requests in.
