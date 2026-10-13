@@ -2580,3 +2580,20 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugin-avatar { display: grid; place-items: center; flex: none !important; width: 2rem; height: 2rem; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 0.9rem; }
 .plugin-info { cursor: default; }
 .plugin-info em { font-style: normal; color: var(--ink-3); font-size: 0.92rem; }
+
+/* Coding chat thinking line: two more moods of the pixel robot (owner,
+   2026-10-13). Still robot when motion is reduced. */
+.code-logo.is-remembering { background-image: url(/space-logos/code-bot-light-remember.svg); }
+.code-logo.is-writing { background-image: url(/space-logos/code-bot-light-write.svg); }
+:root[data-theme="dark"] .code-logo.is-remembering { background-image: url(/space-logos/code-bot-dark-remember.svg); }
+:root[data-theme="dark"] .code-logo.is-writing { background-image: url(/space-logos/code-bot-dark-write.svg); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .code-logo.is-remembering { background-image: url(/space-logos/code-bot-dark-remember.svg); }
+  :root:not([data-theme="light"]) .code-logo.is-writing { background-image: url(/space-logos/code-bot-dark-write.svg); }
+}
+:root[data-motion="reduce"] .code-logo.is-remembering, :root[data-motion="reduce"] .code-logo.is-writing { background-image: url(/space-logos/code-bot-light-still.svg); }
+:root[data-motion="reduce"][data-theme="dark"] .code-logo.is-remembering, :root[data-motion="reduce"][data-theme="dark"] .code-logo.is-writing { background-image: url(/space-logos/code-bot-dark-still.svg); }
+@media (prefers-reduced-motion: reduce) {
+  .code-logo.is-remembering, .code-logo.is-writing { background-image: url(/space-logos/code-bot-light-still.svg); }
+  :root[data-theme="dark"] .code-logo.is-remembering, :root[data-theme="dark"] .code-logo.is-writing { background-image: url(/space-logos/code-bot-dark-still.svg); }
+}

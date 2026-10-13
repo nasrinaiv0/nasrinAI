@@ -3,12 +3,16 @@
 # no background tile (the robot alone), plus still versions for reduced
 # motion and a busy version: while Nasrin thinks, remembers or writes code,
 # the ball starts small, grows, bursts into its pixels (reaching out, like
-# connecting to its sources) while spinning horizontally, and comes back together.
+# connecting to its sources) while spinning horizontally, pauses, spins back
+# into its normal form and shrinks. Two more working moods: remember (a ripple
+# of light moving out through the pixels) and write (pixels fill in row by
+# row, like typing).
 # Usage: pixelbot-logo.py SRC_DIR OUT_DIR
 import math, re, sys
 src, out = sys.argv[1], sys.argv[2]
 f3 = lambda x: ('%.3f' % x).rstrip('0').rstrip('.')
-BUSY = 2.4   # seconds per busy cycle
+BUSY = 3.2   # seconds per busy cycle
+KT = '0;.25;.42;.6;.82;1'   # grow, burst + spin, pause, spin back + gather, shrink
 
 def scatter(i, x, y, w):
     # Each pixel flies out from the centre and back, by a fixed pseudo-random
@@ -40,9 +44,21 @@ def convert(path, mode, speed=1.0):
         if mode == 'busy':
             dx, dy = scatter(i, float(x), float(y), float(w))
             body.append(f'<rect {geo} fill="{col}"><animateTransform attributeName="transform" type="translate" '
-                        f'values="0 0;0 0;{f3(dx)} {f3(dy)};{f3(dx)} {f3(dy)};0 0;0 0" keyTimes="0;.35;.55;.65;.85;1" '
+                        f'values="0 0;0 0;{f3(dx)} {f3(dy)};{f3(dx)} {f3(dy)};0 0;0 0" keyTimes="{KT}" '
                         f'calcMode="spline" keySplines="0 0 1 1;.2 .8 .3 1;0 0 1 1;.6 0 .4 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/>'
-                        f'<animate attributeName="opacity" values="1;1;.5;.7;1;1" keyTimes="0;.35;.55;.65;.85;1" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
+                        f'<animate attributeName="opacity" values="1;1;.5;.6;1;1" keyTimes="{KT}" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
+            continue
+        if mode == 'remember':
+            # A ring of light runs out from the centre and back.
+            d = math.hypot(float(x) + float(w) / 2 - 512, float(y) + float(w) / 2 - 512) / 430
+            body.append(f'<rect {geo} fill="{col}"><animate attributeName="opacity" values="1;.3;1;1" keyTimes="0;.18;.4;1" '
+                        f'dur="1.8s" begin="{f3(d * 0.9 - 1.8)}s" repeatCount="indefinite"/></rect>')
+            continue
+        if mode == 'write':
+            # Rows fill in from the top, left to right in each row, like typing.
+            t = .04 + .74 * ((float(y) - 93.5) / 810 + (float(x) - 93.5) / 810 * .045)
+            body.append(f'<rect {geo} fill="{col}"><animate attributeName="opacity" values=".12;.12;1;1;.12" '
+                        f'keyTimes="0;{f3(t)};{f3(t + .03)};.92;1" dur="2.6s" repeatCount="indefinite"/></rect>')
             continue
         if 'e' in c:
             if 'e0' in c:
@@ -54,14 +70,19 @@ def convert(path, mode, speed=1.0):
             anim += f'<animate attributeName="opacity" values="1;1;.1;.85;.15;1;1" keyTimes="0;.88;.9;.93;.95;.97;1" dur="{f(v.get("u","5"))}s" begin="{f(v.get("v","0"))}s" repeatCount="indefinite"/>'
         body.append(f'<rect {geo} fill="{col}">{anim}</rect>')
     if mode == 'busy':
-        # It grows from small, holds while its pixels burst out and return, then
-        # shrinks back; only while burst it spins horizontally once (a flip of
-        # its width, 1 -> -1 -> 1, about the centre).
+        # Grows from small; bursts while spinning horizontally (its width goes
+        # 1 -> -1, about the centre); pauses; spins back (-1 -> 1) while the
+        # pixels gather into the ball; shrinks back.
         return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
                 '<g transform="translate(512 512)"><g>'
-                f'<animateTransform attributeName="transform" type="scale" values="1 1;1 1;-1 1;1 1;1 1" keyTimes="0;.35;.6;.85;1" calcMode="spline" keySplines="0 0 1 1;.45 0 .55 1;.45 0 .55 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/><g>'
-                f'<animateTransform attributeName="transform" type="scale" values=".55;.9;.9;.9;.9;.55" keyTimes="0;.35;.55;.65;.85;1" calcMode="spline" keySplines=".3 0 .2 1;0 0 1 1;0 0 1 1;0 0 1 1;.6 0 .4 1" dur="{BUSY}s" repeatCount="indefinite"/>'
+                f'<animateTransform attributeName="transform" type="scale" values="1 1;1 1;-1 1;-1 1;1 1;1 1" keyTimes="{KT}" calcMode="spline" keySplines="0 0 1 1;.45 0 .55 1;0 0 1 1;.45 0 .55 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/><g>'
+                f'<animateTransform attributeName="transform" type="scale" values=".55;.9;.9;.9;.9;.55" keyTimes="{KT}" calcMode="spline" keySplines=".3 0 .2 1;0 0 1 1;0 0 1 1;0 0 1 1;.6 0 .4 1" dur="{BUSY}s" repeatCount="indefinite"/>'
                 '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></g></svg>\n')
+    if mode == 'remember':
+        # The ball breathes a little while the light runs through it.
+        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
+                '<g transform="translate(512 512)"><g><animateTransform attributeName="transform" type="scale" values=".86;.96;.86" dur="1.8s" repeatCount="indefinite"/>'
+                '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></svg>\n')
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code"><g>'
             + ''.join(body) + '</g></svg>\n')
 
@@ -70,3 +91,5 @@ for name, file in [('light', 'pixel-bot-logo-dark.svg'), ('dark', 'pixel-bot-log
     open(f'{out}/code-bot-{name}.svg', 'w').write(convert(f'{src}/{file}', 'idle'))
     open(f'{out}/code-bot-{name}-still.svg', 'w').write(convert(f'{src}/{file}', 'still'))
     open(f'{out}/code-bot-{name}-busy.svg', 'w').write(convert(f'{src}/{file}', 'busy'))
+    open(f'{out}/code-bot-{name}-remember.svg', 'w').write(convert(f'{src}/{file}', 'remember'))
+    open(f'{out}/code-bot-{name}-write.svg', 'w').write(convert(f'{src}/{file}', 'write'))

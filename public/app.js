@@ -1020,14 +1020,25 @@
     label.textContent = text;
     row.append(mini, label);
     log.appendChild(row);
-    // In the coding chat the pixel robot works instead (faster while busy).
-    const ch = document.body.classList.contains('coding-mode')
-      ? (mini.classList.add('code-logo', 'is-busy'), { remove() {} })
-      : Nasrin.attach(mini);
+    // In the coding chat the pixel robot works instead, in the mood of what
+    // Nasrin is doing: remembering (a ripple), writing (rows fill in), else
+    // thinking (it bursts and spins).
+    const coding = document.body.classList.contains('coding-mode');
+    const mood = (words) => {
+      if (!coding) return;
+      const w = String(words || '');
+      const remember = /^(Remembering|Checking your Library|Reading)/.test(w);
+      const write = /^(Writing|Putting it together|Almost done)/.test(w);
+      mini.classList.toggle('is-remembering', remember);
+      mini.classList.toggle('is-writing', write && !remember);
+      mini.classList.toggle('is-busy', !remember && !write);
+    };
+    const ch = coding ? (mini.classList.add('code-logo'), mood(text), { remove() {} }) : Nasrin.attach(mini);
     scrollToEnd(row);
     const set = (words) => {
       if (!words || label.textContent === words) return;
       label.textContent = words;
+      mood(words);
       label.classList.remove('is-new');
       void label.offsetWidth;   // restart the fade
       label.classList.add('is-new');
