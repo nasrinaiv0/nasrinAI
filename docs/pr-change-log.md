@@ -1,3 +1,10 @@
+## Proposed PR — Coding replies no longer fail after a GitHub lookup (`fix/gemini-tool-rounds`)
+
+- **Owner report (2026-10-13):** in the coding chat, "create a prototype financial tracker in my repository" → "NasrinAI cannot answer right now".
+- **Found (live usage records, read-only):** each try: Gemini asks for `github_list_files` (ok) → the tool runs (ok) → the next Gemini call fails in under a second (`provider_error`), five times. Earlier, OpenAI did the same flow fine. Gemini 3 sends a thought signature with each tool call (`extra_content` on the OpenAI-compatible endpoint) and refuses the follow-up without it; NasrinAI dropped it.
+- **Change:** tool calls keep `extra_content` and send it back (`src/ai/tool-format.js`); if a model still refuses a tool round (400), the tool results go back as plain text marked as data and it answers without more tools (`flattenToolTurns` in `src/chat.js`).
+- **Validation:** `npm test` (signature kept and returned; refusal → answer from text).
+
 ## Proposed PR — Up to 10 GitHub accounts (`feature/github-accounts`)
 
 - **Owner request (2026-10-13):** "Add account" in GitHub settings, up to 10 accounts.
