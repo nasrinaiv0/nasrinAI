@@ -2597,3 +2597,12 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
   .code-logo.is-remembering, .code-logo.is-writing { background-image: url(/space-logos/code-bot-light-still.svg); }
   :root[data-theme="dark"] .code-logo.is-remembering, :root[data-theme="dark"] .code-logo.is-writing { background-image: url(/space-logos/code-bot-dark-still.svg); }
 }
+/* GitHub settings: connected accounts (up to 10). */
+.plugin-login { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-main-tag { flex: none; padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--paper); color: var(--ink-3); font-style: normal; font-size: 0.74rem; }
+.plugin-link { flex: none; min-height: 2.2rem; padding: 0 0.4rem; border: 0; background: none; color: var(--ink-2); font: 500 0.82rem/1 var(--sans); cursor: pointer; }
+.plugin-link.danger { color: #B3261E; }
+:root[data-theme="dark"] .plugin-link.danger { color: #F2B8B5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plugin-link.danger { color: #F2B8B5; } }
+.plugin-add { font-size: 1.1rem; }
+.plugin-accounts-hint { margin: -0.4rem 0.4rem 0.75rem; }

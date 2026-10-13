@@ -44,6 +44,20 @@ shows `available`, or `off` with the missing setting (`not_set`, `client_id`,
 | Push to existing branches, merge, deploy | Unavailable by design | Never offered |
 | Live GitHub | Unverified | Waits for the owner's GitHub App setup |
 
+## Several GitHub accounts (migration 039)
+
+A person can connect up to 10 GitHub accounts (Plugins → GitHub → Settings →
+**Add account**; GitHub is asked to let them pick an account,
+`prompt=select_account`). One is the **main** account: Nasrin reads with it and
+opens pull requests from it. The first account is main; **Make main** changes it;
+removing the main account makes the next one main. The database refuses an
+eleventh account and a second main one. `GET /v1/github/status` lists
+`accounts`; `POST /v1/github/main {login}`; `DELETE /v1/github?login=` removes
+one (without `login`: all).
+
+**Order:** run migration 039 in Supabase **before** this code goes live (the
+server reads `is_main` and saves by `tenant_id, user_id, login`).
+
 ## Pull request text, automatic pull requests, many files
 
 - **Description:** the page writes it from Nasrin's reply: Summary, Files,
