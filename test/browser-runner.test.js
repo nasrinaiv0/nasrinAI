@@ -35,6 +35,7 @@ function setup(overrides = {}) {
     }
   };
   const browserSandbox = {
+    async stop() { events.push(['stop-browser']); },
     async runCommand(cmd, args) {
       events.push(['browser-run', cmd, args]);
       return { exitCode: 0, stdout: async () => Buffer.from('fake-png').toString('base64'), stderr: async () => '' };
@@ -49,7 +50,11 @@ function setup(overrides = {}) {
       assert.deepEqual(options.networkPolicy, { allow: ['registry.npmjs.org'] });
       return appSandbox;
     },
-    withBrowserSandbox: async fn => fn(browserSandbox),
+    createBrowserSandbox: async options => {
+      assert.ok(options.createOptions.networkPolicy.allow.includes('preview-example.vercel.run'));
+      assert.ok(options.createOptions.networkPolicy.allow.includes('registry.npmjs.org'));
+      return browserSandbox;
+    },
     browserCommand: async (_sandbox, args) => {
       events.push(['browser', args]);
       if (args[0] === 'get') return { json: { data: { title: 'Demo app' } } };
@@ -87,6 +92,7 @@ test('browser runner executes tests, opens temporary preview, and captures bound
   assert.ok(events.some(event => event[0] === 'network' && event[1].length === 0));
   assert.ok(events.some(event => event[0] === 'browser' && event[1][0] === 'open'));
   assert.ok(events.some(event => event[0] === 'stop-app'));
+  assert.ok(events.some(event => event[0] === 'stop-browser'));
 });
 
 test('browser runner reports failing test exit code instead of calling it success', async () => {
