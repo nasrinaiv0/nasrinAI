@@ -100,3 +100,88 @@ test('runner fails closed on rate limit and source-fetch errors', async () => {
   const bad = createCodingRunner({ ...base, store: { rateHit: async () => ({ allowed: true }) } });
   assert.equal((await bad.run({ repo: 'o/r', ref: 'main', command: 'npm test' }, ctx)).error, 'source_unavailable');
 });
+
+
+function executionSandbox({runCommand, updateNetworkPolicy, stop}={}) {
+  return {
+    async writeFiles() {},
+    async updateNetworkPolicy(policy) {
+      if (updateNetworkPolicy) return updateNetworkPolicy(policy);
+    },
+    async runCommand({cmd,args=[]}) {
+      if (runCommand) return runCommand({cmd,args});
+      if (cmd==='mkdir'||cmd==='tar') return {exitCode:0,stdout:async()=>'',stderr:async()=>''};
+      if (cmd==='test') return {exitCode:1,stdout:async()=>'',stderr:async()=>''};
+      if (cmd==='node') return {exitCode:0,stdout:async()=> 'v22.0.0',stderr:async()=>''};
+      throw Error('unexpected command');
+    },
+    async stop() { if (stop) return stop(); }
+  };
+}
+function executionRunner({sandboxFactory, sandbox, store={rateHit:async()=>({allowed:true})}, logger=null}) {
+  return createCodingRunner({
+    downloadArchive:async()=>Buffer.from('archive'),
+    defaultBranch:async()=> 'main',
+    tokenFor:async()=> 'token',
+    store,
+    logger,
+    sandboxFactory:sandboxFactory|| (async()=>sandbox)
+  });
+}
+const signedIn={tenantId:'tenant',actor:{type:'user',id:'user'}};
+
+test('runner reports a sanitized sandbox creation failure with its stage', async()=>{
+  const runner=executionRunner({sandboxFactory:async()=>{throw new Error('failed for https://private.example/path?token=secretvalue');}});
+  const out=await runner.run({repo:'owner/repo',ref:'main',command:'node --version'},signedIn);
+  assert.equal(out.error,'sandbox_create_failed');
+  assert.equal(out.stage,'sandbox_create');
+  assert.equal(out.stage_detail.stage,'sandbox_create');
+  assert.match(out.stage_detail.message,/\[url redacted\]/);
+  assert.equal(JSON.stringify(out).includes('private.example'),false);
+  assert.equal(JSON.stringify(out).includes('secretvalue'),false);
+});
+
+test('runner reports network restriction failures instead of masking them', async()=>{
+  const sandbox=executionSandbox({updateNetworkPolicy:async policy=>{if(policy.allow.length===0)throw new Error('policy denied');}});
+  const out=await executionRunner({sandbox}).run({repo:'owner/repo',ref:'main',command:'node --version'},signedIn);
+  assert.equal(out.error,'sandbox_network_policy_failed');
+  assert.equal(out.stage,'network_restrict');
+});
+
+test('runner reports command execution failures and still stops the sandbox', async()=>{
+  let stopped=false;
+  const sandbox=executionSandbox({runCommand:async({cmd})=>{
+    if(cmd==='mkdir'||cmd==='tar')return {exitCode:0,stdout:async()=>'',stderr:async()=>''};
+    if(cmd==='test')return {exitCode:1,stdout:async()=>'',stderr:async()=>''};
+    if(cmd==='node')throw new Error('runtime process failed');
+    throw Error('unexpected command');
+  },stop:async()=>{stopped=true;}});
+  const out=await executionRunner({sandbox}).run({repo:'owner/repo',ref:'main',command:'node --version'},signedIn);
+  assert.equal(out.error,'sandbox_exec_failed');
+  assert.equal(out.stage,'command_execute');
+  assert.equal(stopped,true);
+});
+
+test('runner preserves dependency install failure when network restriction also fails', async()=>{
+  const sandbox=executionSandbox({
+    runCommand:async({cmd,args=[]})=>{
+      if(cmd==='mkdir'||cmd==='tar')return {exitCode:0,stdout:async()=>'',stderr:async()=>''};
+      if(cmd==='test')return {exitCode:args[1]==='package.json'?0:1,stdout:async()=>'',stderr:async()=>''};
+      if(cmd==='npm')return {exitCode:1,stdout:async()=>'',stderr:async()=> 'registry unavailable'};
+      throw Error('unexpected command');
+    },
+    updateNetworkPolicy:async policy=>{if(policy.allow.length===0)throw new Error('network policy unavailable');}
+  });
+  const out=await executionRunner({sandbox}).run({repo:'owner/repo',ref:'main',command:'node --version'},signedIn);
+  assert.equal(out.error,'dependency_install_failed');
+  assert.equal(out.stage,'dependency_install');
+  assert.equal(out.cleanup_error.stage,'network_restrict');
+});
+
+test('runner reports cleanup failure without masking a successful command', async()=>{
+  const sandbox=executionSandbox({stop:async()=>{throw new Error('stop failed');}});
+  const out=await executionRunner({sandbox}).run({repo:'owner/repo',ref:'main',command:'node --version'},signedIn);
+  assert.equal(out.ok,true);
+  assert.equal(out.stdout,'v22.0.0');
+  assert.equal(out.cleanup_error.stage,'sandbox_cleanup');
+});
