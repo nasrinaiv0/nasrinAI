@@ -17,7 +17,7 @@ test('personal details and secrets are found', () => {
   assert.deepEqual(sensitive('How do I cook adobo?'), []);
   assert.match(sensitive('email me at ana@example.com').join(), /personal details/);
   assert.match(sensitive('call 0917 123 4567').join(), /personal details/);
-  assert.match(sensitive('key sk-proj-abcdefghijklmnopqrstuvwxyz123').join(), /API key/);
+  assert.match(sensitive('key sk-proj-' + 'abcdefghijklmnopqrstuvwxyz123').join(), /API key/);
   assert.match(sensitive('-----BEGIN RSA PRIVATE KEY-----').join(), /private key/);
   assert.match(sensitive('password: hunter22').join(), /password/);
 });
