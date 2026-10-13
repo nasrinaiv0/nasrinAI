@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -563,6 +563,187 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/professionals',
       public: true,
       handler: async () => ({ body: config.professional?.enabled === false ? { enabled: false, groups: [], professions: [] } : { enabled: true, ...publicCatalog() } })
+    },
+    {
+      // NCC (src/ncc.js, docs/ncc.md): the enterprise CRM, only for accounts
+      // the NasrinAI team turned on.
+      method: 'GET',
+      path: '/v1/ncc/status',
+      scope: 'chat',
+      handler: async ({ caller }) => ({ body: ncc ? ncc.status(caller) : { enabled: false } })
+    },
+    {
+      method: 'GET',
+      path: '/v1/ncc',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.list(caller) };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/ncc/export',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.exportAll(caller) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/delete-all',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.removeAll(caller, body) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/contacts',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { status: 201, body: await ncc.createContact(caller, body) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/contacts/import',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.importContacts(caller, body) };
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/v1/ncc/contacts/:id',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.updateContact(caller, params.id, body) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/ncc/contacts/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.removeContact(caller, params.id) };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/ncc/contacts/:id/timeline',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.timeline(caller, params.id) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/contacts/:id/notes',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { status: 201, body: await ncc.addNote(caller, params.id, body) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/tasks',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { status: 201, body: await ncc.createTask(caller, body) };
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/v1/ncc/tasks/:id',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.updateTask(caller, params.id, body) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/ncc/tasks/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.removeTask(caller, params.id) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/automations',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { status: 201, body: await ncc.createAutomation(caller, body) };
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/v1/ncc/automations/:id',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.updateAutomation(caller, params.id, body) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/ncc/automations/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.removeAutomation(caller, params.id) };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/ncc/deals',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { status: 201, body: await ncc.createDeal(caller, body) };
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/v1/ncc/deals/:id',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.updateDeal(caller, params.id, body) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/ncc/deals/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
+        return { body: await ncc.removeDeal(caller, params.id) };
+      }
     },
     {
       // Projects (src/projects.js): the signed-in person's own workspaces.

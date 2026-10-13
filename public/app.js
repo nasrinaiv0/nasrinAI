@@ -3391,12 +3391,27 @@
   });
   // NCC (Nasrin Client Connect): the enterprise CRM with automations,
   // separate from Connect and not self-serve: businesses contact the team (docs/ncc.md).
-  if (spaceNcc) spaceNcc.addEventListener('click', () => {
+  // NCC is its own app (ncc.nasrinai.com). Accounts the team turned on get a
+  // link to open it; everyone else is told to contact the team. The server
+  // decides (GET /v1/ncc/status).
+  if (spaceNcc) spaceNcc.addEventListener('click', async () => {
     const status = $('spaceStatus');
     if (!status) return;
+    let open = null;
+    if (account) {
+      try { open = await api('/v1/ncc/status'); } catch { /* fall through to the enquiry message */ }
+    }
+    if (open && open.enabled && typeof open.url === 'string' && /^https:\/\/[a-z0-9.-]+$/i.test(open.url)) {
+      const link = mk('a', '', 'Open NCC');
+      link.href = open.url + '/';
+      link.target = '_blank';
+      link.rel = 'noopener';
+      status.replaceChildren('NCC (Nasrin Client Connect) is on for your business. ', link, ' (opens in a new tab).');
+      return;
+    }
     const mail = mk('a', '', 'Contact the NasrinAI team');
     mail.href = 'mailto:support@nasrinai.com?subject=' + encodeURIComponent('NCC (Nasrin Client Connect) enterprise enquiry');
-    status.replaceChildren('NCC (Nasrin Client Connect) is the CRM with automations for enterprises, separate from Connect. It is not live yet. ', mail, ' to talk about it.');
+    status.replaceChildren('NCC (Nasrin Client Connect) is the CRM with automations for enterprises, separate from Connect. ', mail, ' to turn it on for your business.');
   });
 
   // ---------- Terms acceptance (recorded on the server) ----------

@@ -9,7 +9,14 @@ import { setBaseHeaders, setApiHeaders, sendJson } from './headers.js';
 // identify (fail closed). Handlers never see an unidentified request.
 //
 // route: { method, path, public?: boolean, body?: boolean, raw?: boolean, maxBody?: bytes, scope?: string, handler }
+// The NCC address (ncc.nasrinai.com) sends its root to the NCC app at /ncc/;
+// the same rule is in vercel.json for the hosted site.
+const nccHost = (config) => { try { return config.ncc?.url ? new URL(config.ncc.url).host : ''; } catch { return ''; } };
+
 export function createApp({ config, logger, gateway, routes = [], serveStatic = null, clientIp = () => '' }) {
+  const ncc = nccHost(config);
+  const pageFor = (req, pathname) => (/^\/chat\/[A-Za-z0-9_-]{22}$/.test(pathname) ? '/chat.html' : pathname);
+  const isNccRoot = (req, pathname) => Boolean(ncc) && pathname === '/' && String(req.headers.host || '').toLowerCase() === ncc;
   const router = createRouter(routes);
 
   return async function handle(req, res) {
@@ -62,7 +69,12 @@ export function createApp({ config, logger, gateway, routes = [], serveStatic = 
         return;
       }
 
-      if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic && await serveStatic(req, res, /^\/chat\/[A-Za-z0-9_-]{22}$/.test(pathname) ? '/chat.html' : pathname)) return;
+      if ((req.method === 'GET' || req.method === 'HEAD') && isNccRoot(req, pathname)) {
+        res.writeHead(302, { Location: '/ncc/' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '') });
+        res.end();
+        return;
+      }
+      if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic && await serveStatic(req, res, pageFor(req, pathname))) return;
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method_not_allowed', 'Method not allowed.');
       res.statusCode = 404;
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');

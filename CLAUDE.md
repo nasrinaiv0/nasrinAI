@@ -92,6 +92,7 @@ push and PR. Vercel builds a preview for every PR.
 - `src/notices.js` + `config/notices.json` — in-app notices (`docs/notices.md`).
 - `src/library.js` — the Library: people's own text files, notes, saved replies (`docs/library.md`, migration 012).
 - `src/projects.js` — Projects: instructions, tasks, scoped chats and Library items (`docs/projects.md`, migration 013).
+- `src/ncc.js`, `src/ncc-automations.js` + `public/ncc/` — NCC (Nasrin Client Connect), its own app at ncc.nasrinai.com (`/ncc/`): contacts, pipeline, tasks, timelines, automations, for team-enabled accounts (`NCC_ENABLED`, `NCC_ACCOUNTS`, `NCC_URL`; migration 040; `docs/ncc.md`).
 - Coding chat — Code in the menu: project picker first, Code experts, `coding: true` → `CODING_CHAT_RULE` in `src/coding.js` (`docs/coding-chat.md`).
 - `src/github/` — GitHub for the coding chat: fetch client, GitHub App sign-in (sealed tokens, migration 038), read-only tools, pull requests only after Confirm (`docs/github.md`).
 - `src/uploads.js` — direct uploads: one-time Supabase Storage links, files read once then deleted (`docs/uploads.md`, migration 031, `UPLOADS_DIRECT`).
@@ -131,7 +132,7 @@ push and PR. Vercel builds a preview for every PR.
 | Upgrade phases A–G | Done: A Professional AI, B opt-in memory, C chat (streaming, Stop, Retry, Edit, Regenerate, read-aloud Pause), D in-app notices, E Library (012), F Projects (013), G Coding (since removed; the Library is now a storage view, migration 014). All upgrade phases done |
 | NasrinAI Connect | Gate A is on `main`: safe website discovery, authorization, configuration/approval state machine, provider registry, explicit approval, and fail-closed installation contract. No production provider is registered; Gate B installation remains blocked until a real provider adapter is implemented and verified. |
 
-Full plan: `docs/roadmap.md`. NCC (Nasrin Client Connect, CRM + automations): Space tile only, plan awaiting approval in `docs/ncc.md`.
+Full plan: `docs/roadmap.md`. NCC (Nasrin Client Connect, CRM + automations): own app at ncc.nasrinai.com, built and off by default; Meta social steps planned (`docs/ncc.md`).
 
 PR #17 (smart routing, web, pictures, privacy and terms) is merged into
 `main`. Migrations `003_routing.sql`, `004_images.sql`, `005_legal.sql` must

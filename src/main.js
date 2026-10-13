@@ -45,6 +45,7 @@ import { createStorage } from './storage.js';
 import { createUploads } from './uploads.js';
 import { createResearch } from './research.js';
 import { createProjects } from './projects.js';
+import { createNcc } from './ncc.js';
 import { createLibrary } from './library.js';
 import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
@@ -171,6 +172,7 @@ export function buildApp({ config, logger }) {
   const memory = createMemory({ store, logger });
   const library = createLibrary({ store, limiter, config: effective, logger });
   const projects = createProjects({ store, conversations, limiter, config: effective, logger });
+  const ncc = createNcc({ store, limiter, config: effective, logger });
   const storage = createStorage({ store, config: effective, conversations, library, logger });
   const connectProviders = createInstallRegistry({});
   const connect = createConnect({
@@ -219,7 +221,7 @@ export function buildApp({ config, logger }) {
     config: effective,
     logger,
     gateway,
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes], knowledge, memory, settings, library, projects, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), connect, budget: reasoningBudget, logger }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), connect, budget: reasoningBudget, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });

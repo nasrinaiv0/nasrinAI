@@ -1,10 +1,12 @@
-# NCC — Nasrin Client Connect (plan, awaiting owner approval)
+# NCC — Nasrin Client Connect
 
 Owner request (2026-10-13): add NCC to NasrinAI Space. NCC is a CRM with
 automation, in the spirit of GoHighLevel (contacts, pipelines,
 conversations, follow-ups) and n8n (visual workflows: trigger → steps).
 
-**Status:** only the Space tile exists. Nothing below is built.
+**Status:** built, off by default: NCC is its own app at
+**ncc.nasrinai.com** with contacts, pipeline, tasks, timelines and
+automations. Social steps (Meta) are not built yet.
 
 **Owner decisions (2026-10-13):**
 
@@ -21,7 +23,108 @@ conversations, follow-ups) and n8n (visual workflows: trigger → steps).
   Global Brand Database) is still advised before registration. File:
   `public/space-logos/ncc-logo-flow.svg`; inline on the Space tile.
 
-## What NCC would be
+**Owner decisions (2026-10-13, for N1):**
+
+- **Access:** team-enabled only. NCC works for an account only when
+  `NCC_ENABLED=true` and the account's sign-in email is listed in
+  `NCC_ACCOUNTS` (comma-separated). Everyone else sees the
+  "contact the team" message on the tile.
+- **Keep-time:** contacts and deals are kept until the business deletes them,
+  or deletes its NasrinAI account.
+- **Social channels for automations (N4):** Facebook Pages, Instagram,
+  Messenger, Threads and WhatsApp (all through Meta's official APIs).
+
+- **Separate app (owner, 2026-10-13):** NCC lives at `ncc.nasrinai.com`,
+  desktop-friendly and iPhone-friendly, a full CRM with automation.
+
+## What is built
+
+**The app** (`public/ncc/`: `index.html`, `ncc.css`, `ncc.js`,
+`automations.js`, icons, manifest):
+
+- Served at `/ncc/`. On `ncc.nasrinai.com` the root redirects to `/ncc/`
+  (`vercel.json` redirect with a host condition; the same rule in
+  `src/http/app.js` for local runs).
+- Same NasrinAI accounts: email code or Google (Turnstile when on). Google
+  sign-in started on the NCC address comes back there (`NCC_URL`).
+  Accounts that are not turned on see "NCC is for businesses" and a
+  contact link.
+- **Desktop:** sidebar, contacts table, drag-and-drop pipeline, side panel
+  for details and forms.
+- **iPhone:** tab bar above the home indicator (safe areas), large titles,
+  bottom sheets, 16 px fields (no zoom), 44 px touch targets, Add to Home
+  Screen (apple-touch-icon, manifest).
+- **Home:** contacts, open deals, won this month, tasks due; pipeline bars;
+  up next; recent contacts.
+- **Contacts:** search, tag filters, profile with Email/Call, deals, tasks
+  and a timeline (notes and what happened).
+- **Pipeline:** Lead, Qualified, Proposal, Won, Lost, with totals.
+- **Tasks:** due dates, overdue/today/upcoming, done.
+- **Automations:** When → If → Then editor with ready-made templates.
+- **Settings:** import CSV/Excel (read on the device), export CSV/JSON,
+  delete all, account.
+- No HTML is built from data; only our own `/v1` API is called.
+
+**Automations** (`src/ncc-automations.js`, runner in `src/ncc.js`):
+
+- **When:** a contact is added; a tag is added; a deal is added; a deal
+  moves to a stage; a task is completed.
+- **If (all must match):** tags has/doesn't have, company, email, phone,
+  how it was added, deal value at least/at most, deal stage.
+- **Then (1–10 steps):** add/remove tag, create a task (due in N days), add
+  a note, add a deal, move the deal. Texts may use `{{contact.first_name}}`,
+  `{{contact.name}}`, `{{contact.company}}`, `{{deal.title}}`,
+  `{{deal.value}}`.
+- **Safety:** the server checks every part against fixed lists. An
+  automation's own changes start others only to depth 2, at most 25 steps
+  per request, so nothing loops. A failing step stops that automation and
+  is recorded; it never fails the person's change. Imports never start
+  automations. The AI cannot create or run automations. Each run is shown
+  on the automation (runs, last result) and on the contact's timeline.
+- **Social steps** (Facebook Page, Instagram, Threads posts; Messenger,
+  WhatsApp messages) are listed as planned and refused by the server until
+  each business connects Meta through the official APIs (Meta app review
+  needed).
+
+**Data:** migration `040_ncc.sql`: `ncc_contacts`, `ncc_deals`,
+`ncc_tasks`, `ncc_activities`, `ncc_automations`. RLS on, browser roles
+denied, server only. Deleting a contact deletes its deals, tasks and
+timeline. DB test `db/tests/040_ncc.test.sql`.
+
+**Server:** `src/ncc.js`. Every request: signed in, `NCC_ENABLED=true`,
+the verified sign-in email in `NCC_ACCOUNTS`; every query filtered by
+tenant AND user id. Limits `NCC_CONTACTS_MAX`, `NCC_DEALS_MAX`,
+`LIMIT_USER_NCC_HOUR`, 5000 tasks, 50 automations.
+
+**API:** `GET /v1/ncc/status`, `GET /v1/ncc`; contacts `POST /v1/ncc/contacts`,
+`POST /v1/ncc/contacts/import`, `PUT|DELETE /v1/ncc/contacts/:id`,
+`GET /v1/ncc/contacts/:id/timeline`, `POST /v1/ncc/contacts/:id/notes`;
+deals `POST /v1/ncc/deals`, `PUT|DELETE /v1/ncc/deals/:id`; tasks
+`POST /v1/ncc/tasks`, `PUT|DELETE /v1/ncc/tasks/:id`; automations
+`POST /v1/ncc/automations`, `PUT|DELETE /v1/ncc/automations/:id`;
+`GET /v1/ncc/export`, `POST /v1/ncc/delete-all` (`{ "confirm": "DELETE" }`).
+
+**Main app:** the NCC tile in NasrinAI Space shows "Open NCC" for enabled
+accounts, otherwise the contact-the-team message. Account export and
+deletion include NCC.
+
+**Privacy Notice 2026-10-13e** describes NCC records (business as
+controller, NasrinAI as processor, kept until deleted). The enterprise and
+data processing agreement is `[REQUIRES INPUT]`.
+
+**Owner steps:**
+
+1. Supabase (staging first, then production): run `040_ncc.sql`.
+2. Vercel → Project → Settings → Domains: add `ncc.nasrinai.com`, then add
+   the DNS record Vercel shows at your domain provider.
+3. Vercel → Environment Variables: `NCC_ENABLED=true`,
+   `NCC_ACCOUNTS=business1@email.com,business2@email.com`.
+4. Supabase → Authentication → URL Configuration → Redirect URLs: add
+   `https://ncc.nasrinai.com/v1/auth/google/callback`.
+5. Cloudflare Turnstile (if used): add `ncc.nasrinai.com` to the widget's
+   hostnames.
+
+## What NCC will be
 
 | Part | What the business owner gets |
 |---|---|
@@ -68,10 +171,10 @@ conversations, follow-ups) and n8n (visual workflows: trigger → steps).
    explicit per-workflow allowance, with audit and undo where possible.
 5. **N5 AI help & reports.**
 
-## Owner decisions needed before N1
+## Still needed from the owner
 
-- Enterprise terms: how businesses are set up after contacting the team
-  (accounts, contract, price) (`[REQUIRES INPUT]`).
-- Keep-time for contacts and messages, and the data processing terms
-  (`[REQUIRES INPUT]`).
+- Enterprise terms: contract and price after a business contacts the team,
+  and the data processing agreement (`[REQUIRES INPUT]`).
+- Meta app review for N4 (Pages, Instagram, Messenger, Threads, WhatsApp
+  permissions).
 - Run migrations on a staging Supabase first (required by CLAUDE.md).
