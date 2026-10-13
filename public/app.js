@@ -10,7 +10,7 @@
   {
     const q = new URLSearchParams(location.search);
     const code = q.get('code');
-    if (code && !q.get('signin') && /^[A-Za-z0-9._~-]{8,512}$/.test(code)) {
+    if (code && !q.get('signin') && !q.get('installation_id') && !q.get('setup_action') && /^[A-Za-z0-9._~-]{8,512}$/.test(code)) {
       location.replace('/v1/auth/google/callback?code=' + encodeURIComponent(code));
       return;
     }
@@ -106,6 +106,7 @@
   // view can finish and persist without writing into the newly opened chat.
   let chatViewEpoch = 0;
   // The coding chat (Code in the menu): a project-scoped chat with coding experts.
+  let github = { available: false, connected: false, login: null, install: null };   // GitHub connection (docs/github.md)
   let codingProject = null;   // { id, name } while the coding chat is open
   let busy = false;
   let aiAvailable = true;
@@ -881,6 +882,7 @@
       el.appendChild(row);
     }
     let made = { files: [], asks: [] };
+    const raw = text;
     if (role === 'assistant') {
       // Files and questions are written into the reply as blocks; the page shows them as cards.
       made = window.NasrinFiles.parse(text);
@@ -934,6 +936,11 @@
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
       for (const f of made.files) el.appendChild(fileCard(f));
+      // Shown only in the coding chat with GitHub on (CSS: body.coding-mode.github-on).
+      if (made.files.length) {
+        const sources = window.NasrinFiles.sources(raw);
+        if (sources.length) el.appendChild(prButton(sources, made.text));
+      }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       if (asks && made.asks.length) el.appendChild(askCard(made.asks));
       el.appendChild(replyActions(text, id));
@@ -5900,6 +5907,7 @@
     switcher.setAttribute('aria-label', switcher.title);
     input.placeholder = codingProject ? 'Describe what to build, or paste code' : inputHint;
     if (codingProject) saved.set(KEYS.coding, codingProject); else saved.del(KEYS.coding);
+    if (codingProject && account) loadGithub();
     renderProButton();
   }
   function enterCoding(p) {
@@ -5918,6 +5926,7 @@
     scrim.hidden = false;
     codePicker.hidden = false;
     $('codePickerName').value = '';
+    loadGithub();
     const list = $('codePickerList');
     const status = $('codePickerStatus');
     list.replaceChildren();
@@ -5967,6 +5976,126 @@
   $('drawerCode').addEventListener('click', () => { closeDrawer(false); openCodePicker(); });
   $('desktopCodeBtn')?.addEventListener('click', openCodePicker);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !codePicker.hidden) closeCodePicker(); });
+
+  // ---------- GitHub (docs/github.md) ----------
+  // Connect your GitHub account in the project picker; under a coding reply
+  // with files, "Open pull request" adds them on a new branch after Confirm.
+  async function loadGithub() {
+    try {
+      const st = await api('/v1/github/status');
+      github = { available: st.available === true, connected: st.connected === true, login: st.login || null, install: st.install_url || null };
+    } catch { github = { available: false, connected: false, login: null, install: null }; }
+    renderGithub();
+  }
+  function renderGithub() {
+    document.body.classList.toggle('github-on', github.available && Boolean(account));
+    const box = $('codeGithub');
+    box.hidden = !github.available || !account;
+    $('codeGithubText').textContent = github.connected ? 'GitHub: @' + github.login : 'Connect GitHub to read your repositories and open pull requests.';
+    $('codeGithubBtn').textContent = github.connected ? 'Disconnect' : 'Connect GitHub';
+    const inst = $('codeGithubInstall');
+    inst.hidden = !(github.connected && github.install);
+    if (github.install) inst.href = github.install;
+  }
+  $('codeGithubBtn').addEventListener('click', async () => {
+    const btn = $('codeGithubBtn');
+    btn.disabled = true;
+    try {
+      if (github.connected) {
+        if (!confirm('Disconnect GitHub? Nasrin will forget your GitHub sign-in.')) return;
+        await api('/v1/github', { method: 'DELETE' });
+        await loadGithub();
+      } else {
+        const r = await api('/v1/github/connect', { method: 'POST' });
+        if (r && typeof r.url === 'string' && r.url.startsWith('https://github.com/')) location.assign(r.url);
+      }
+    } catch (err) {
+      $('codePickerStatus').textContent = err.message || 'GitHub could not be reached.';
+    } finally { btn.disabled = false; }
+  });
+  {
+    const back = new URLSearchParams(location.search).get('github');
+    if (back) {
+      history.replaceState(null, '', location.pathname);
+      notice.textContent = { connected: 'GitHub is connected.', installed: 'GitHub repositories updated.', failed: 'GitHub was not connected. Please try again.' }[back] || '';
+    }
+  }
+
+  const prSheet = $('prSheet');
+  let prFiles = [];
+  function prButton(sources, text) {
+    const b = mk('button', 'btn small outline pr-open', 'Open pull request');
+    b.type = 'button';
+    b.addEventListener('click', () => openPr(sources, text));
+    return b;
+  }
+  async function openPr(sources, text) {
+    if (!github.connected) { openCodePicker(); $('codePickerStatus').textContent = 'Connect GitHub first.'; return; }
+    closeCodePicker();
+    lastFocus = document.activeElement;
+    prFiles = sources;
+    const key = codingProject ? KEYS.coding + ':repo:' + codingProject.id : null;
+    $('prRepo').value = (key && saved.get(key)) || '';
+    $('prBase').value = '';
+    $('prTitle').value = String(text || '').split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').trim()).find(Boolean)?.slice(0, 120) || 'Changes from Nasrin';
+    $('prStatus').textContent = '';
+    $('prStatus').className = 'signin-status';
+    $('prConfirm').disabled = false;
+    $('prFiles').replaceChildren(...sources.map((f, i) => {
+      const li = mk('li');
+      const inp = mk('input', 'memory-edit lib-input');
+      inp.value = f.path;
+      inp.maxLength = 300;
+      inp.spellcheck = false;
+      inp.setAttribute('aria-label', 'File ' + (i + 1) + ' path');
+      inp.addEventListener('input', () => { prFiles[i] = { ...prFiles[i], path: inp.value.trim() }; });
+      li.appendChild(inp);
+      return li;
+    }));
+    scrim.hidden = false;
+    prSheet.hidden = false;
+    $('prRepo').focus();
+    try {
+      const r = await api('/v1/github/repos');
+      $('prRepoList').replaceChildren(...(r.repos || []).filter((x) => x.can_push).map((x) => { const o = mk('option'); o.value = x.repo; return o; }));
+    } catch { /* typing the name still works */ }
+  }
+  function closePr() {
+    if (prSheet.hidden) return;
+    prSheet.hidden = true;
+    scrim.hidden = true;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  $('prClose').addEventListener('click', closePr);
+  scrim.addEventListener('click', closePr);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !prSheet.hidden) closePr(); });
+  $('prForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const repo = $('prRepo').value.trim();
+    const status = $('prStatus');
+    const btn = $('prConfirm');
+    btn.disabled = true;
+    status.className = 'signin-status';
+    status.textContent = 'Opening the pull request…';
+    try {
+      const pr = await api('/v1/github/pull-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, repo, base: $('prBase').value.trim(), title: $('prTitle').value.trim(), files: prFiles })
+      });
+      if (codingProject) saved.set(KEYS.coding + ':repo:' + codingProject.id, repo);
+      status.className = 'signin-status pr-done';
+      status.textContent = 'Pull request #' + pr.number + ' is open on branch ' + pr.branch + '. ';
+      if (typeof pr.url === 'string' && pr.url.startsWith('https://github.com/')) {
+        const a = mk('a', '', 'View on GitHub');
+        a.href = pr.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        status.appendChild(a);
+      }
+    } catch (err) {
+      status.textContent = err.message || 'The pull request could not be opened.';
+      btn.disabled = false;
+    }
+  });
 
   function prjShow(view) {
     $('prjListView').hidden = view !== 'list';

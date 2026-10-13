@@ -69,3 +69,7 @@ searching) the thinking line shows `code-bot-*-busy.svg`: the same robot about
   chat. Copy and read-aloud turn rows into plain words.
 
 No new data is stored: coding chats are ordinary project chats.
+
+## GitHub
+
+Connect GitHub in the project picker; Nasrin reads repositories with read-only tools, and **Open pull request** under a reply with files opens a pull request on a new branch after Confirm. See `docs/github.md`.

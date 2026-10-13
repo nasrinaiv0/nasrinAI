@@ -36,7 +36,8 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const links = { chat: new Map(), file: new Map() };   // item id -> { projectId, tenantId, userId }
   const researchScans = new Map();   // research agent: one person's scans (migration 036)
   const researchFacts = new Map();   // shared facts by fact_hash; no owner, no question
-  const webAnswers = [];   // permanent web answers (migration 037): no owner
+  const webAnswers = [];
+  const githubConnections = new Map();   // permanent web answers (migration 037): no owner
   const iso = () => new Date(now()).toISOString();
 
   tenants.set(PLATFORM_TENANT_ID, { id: PLATFORM_TENANT_ID, kind: 'platform', status: 'active', daily_token_limit: 0 });
@@ -425,6 +426,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       for (const [id, f] of library) if (f.tenantId === tenantId && f.userId === userId) library.delete(id);
       for (const [id, f] of sentFiles) if (f.tenantId === tenantId && f.userId === userId) sentFiles.delete(id);
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
+      githubConnections.delete(`${tenantId}:${userId}`);
       for (const [id, p] of projects) if (p.tenantId === tenantId && p.userId === userId) await this.deleteProject({ tenantId, userId, id });
       for (const m of Object.values(links)) for (const [k, l] of m) if (l.tenantId === tenantId && l.userId === userId) m.delete(k);
       for (const e of usage) if (e.tenantId === tenantId && e.actorType === 'user' && e.actorId === userId) e.actorId = 'deleted-user';
@@ -469,6 +471,18 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       webAnswers.push({ id: randomUUID(), question, answer, sources, createdAt: iso() });
     },
     listWebAnswers() { return webAnswers.map((a) => ({ ...a })); },
+
+    // GitHub connections (migration 038): sealed tokens only.
+    async getGithubConnection({ tenantId, userId }) {
+      const r = githubConnections.get(`${tenantId}:${userId}`);
+      return r ? { ...r } : null;
+    },
+    async saveGithubConnection(row) {
+      const key = `${row.tenantId}:${row.userId}`;
+      const old = githubConnections.get(key);
+      githubConnections.set(key, { ...row, createdAt: old?.createdAt || iso(), updatedAt: iso() });
+    },
+    async deleteGithubConnection({ tenantId, userId }) { githubConnections.delete(`${tenantId}:${userId}`); },
 
     async purgeImagesBefore(before) {
       for (const [id, r] of images) if (r.ownerType === 'service' && Date.parse(r.createdAt) < before.getTime()) images.delete(id);

@@ -6,7 +6,8 @@ import { checkArgs } from './schema.js';
 //
 //   tool = { name, description, risk: 'read' | 'write' | 'money',
 //            who: ['guest', 'user', 'service'],   // actor types allowed
-//            parameters: schema (see schema.js), run(args, ctx) -> JSON }
+//            parameters: schema (see schema.js), run(args, ctx) -> JSON,
+//            timeoutMs?: own time limit for slow outside calls, at most 15 s }
 //
 // Every call: known tool -> caller allowed -> arguments parsed (size cap) and
 // checked against the schema -> risk rule (only 'read' runs without a
@@ -82,7 +83,7 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
       try {
         result = await Promise.race([
           Promise.resolve().then(() => tool.run(args, ctx)),
-          new Promise((_, reject) => { timer = setTimeout(() => reject(new ToolError('timeout', 'The tool took too long.')), timeoutMs); })
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new ToolError('timeout', 'The tool took too long.')), Math.min(tool.timeoutMs || timeoutMs, 15000)); })
         ]);
       } catch (err) {
         const timeout = err instanceof ToolError && err.code === 'timeout';

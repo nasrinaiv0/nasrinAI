@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-12g** · Effective: 22 September 2026 · Last updated: 12 October 2026
+**Version 2026-10-12h** · Effective: 22 September 2026 · Last updated: 12 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -77,6 +77,7 @@ Businesses can connect NasrinAI to their website, their Facebook Page, their doc
 ### Tools Nasrin uses
 - Calculations, unit conversions and the current time are done by our own software.
 - Actions that would change something are proposed on a card and run only if you tap **Confirm** within 10 minutes. Nasrin cannot confirm for you.
+- **GitHub (coding chat, optional):** Nasrin can read public GitHub repositories you ask about; GitHub sees these requests come from NasrinAI. If you sign in with GitHub, we keep your GitHub user name and your GitHub sign-in tokens, stored only encrypted, so Nasrin can read the repositories you allow and open pull requests for you. Repository text Nasrin reads is sent to the AI provider answering your message, like anything else you share in chat. A pull request is opened only when you tap **Confirm** on the page; it goes on a new branch and never changes your existing branches. *Basis: performing the service you asked for.*
 
 ### When you buy a plan
 - **PayMongo** processes the payment. We receive the plan, selected billing period, amount, currency, payment reference, dates and whether it was paid. We do not receive or store card numbers or e-wallet details. We use these records to activate or extend plans and to provide your billing history and in-app receipts. *Basis: contract; keeping payment records is also a legal obligation.*
@@ -114,6 +115,7 @@ NasrinAI uses third-party service providers for AI processing, hosting, authenti
 - **PayMongo** (payments) — Philippines
 - **Supabase** (sign-in code emails)
 - **Google** (only if you choose Google sign-in)
+- **GitHub** (only if you ask about a GitHub repository or connect your GitHub account): the repositories you ask about, and, when you confirm one, the pull request with its files
 - **Meta** (only when you message a business's Facebook Page)
 - **The business you are chatting with**, for requests to its own systems (see section 2)
 - **NasrinAI's own model server** — if NasrinAI's own model server is switched on in the future, messages may be sent to that server and this notice will be updated before the feature is used in production.
@@ -133,6 +135,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Memory notes: until you delete them or your account
 - Library items: until you delete them or your account, or the keep-time you choose, subject to applicable legal retention requirements.
 - Projects (instructions, tasks): until you delete them or your account
+- GitHub connection (user name and encrypted tokens): until you disconnect GitHub or delete your account; GitHub's own tokens also expire on their own if unused
 - Proposed actions waiting for Confirm: **10 minutes**
 - Events sent by businesses' systems: **30 days**
 - Businesses' documents: until the business deletes them
@@ -173,6 +176,7 @@ NasrinAI uses only what it needs to work:
 
 - **nasrin_rt** (cookie): keeps you signed in until you sign out, up to 1 year (renewed each time you open the app). HTTP-only, so page scripts cannot read it.
 - **nasrin_pkce** (cookie): used during Google sign-in, 10 minutes.
+- **nasrin_gh** (cookie): used while you connect GitHub, 10 minutes. HTTP-only.
 - **nasrin_acc** (cookie): only when you add more than one account on a device (up to 3). It keeps the other accounts signed in on that device (their email address and sign-in token), up to 1 year. HTTP-only, so page scripts cannot read it. Each account keeps its own chats, plan and data; switching does not share them. Logging out of an account removes it from the device.
 - **Browser storage**: your guest session, the open chat's ID, when you last left the app (to start a new chat after 5 minutes away), the email shown in Settings, whether you have seen the first-visit notice, your choices (appearance, theme, reduce motion, voice, read aloud, model, Professional AI, notifications) and which in-app notices you closed. Settings → Data controls → Clear cache removes the open chat's ID and the voice, read-aloud and model choices from the device; it does not sign you out or delete anything on your account.
 

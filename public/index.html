@@ -729,6 +729,40 @@
         <button type="submit" class="btn small" id="codePickerCreate">Create</button>
       </div>
     </form>
+    <div class="code-github" id="codeGithub" hidden>
+      <p class="code-github-text"><svg class="gh-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1.3-4-2-6-2.5M15 21v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.3 4.3 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.3 4.3 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg><span id="codeGithubText">GitHub</span></p>
+      <div class="code-picker-row">
+        <a class="btn small outline" id="codeGithubInstall" href="#" target="_blank" rel="noopener noreferrer" hidden>Choose repositories</a>
+        <button type="button" class="btn small" id="codeGithubBtn">Connect GitHub</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet pr-sheet" id="prSheet" role="dialog" aria-modal="true" aria-labelledby="prTitleHead" hidden>
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="prTitleHead">Open a pull request</h2>
+      <button type="button" class="icon-btn" id="prClose" title="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        <span class="sr-only">Close</span>
+      </button>
+    </div>
+    <p class="setting-hint">Nasrin adds these files on a new branch and opens a pull request. Your main branch is not changed; you review and merge on GitHub.</p>
+    <form id="prForm">
+      <label class="lib-label" for="prRepo">Repository (owner/name)</label>
+      <input class="memory-edit lib-input" id="prRepo" list="prRepoList" maxlength="201" autocomplete="off" spellcheck="false" required>
+      <datalist id="prRepoList"></datalist>
+      <label class="lib-label" for="prBase">Into branch <span class="setting-hint">empty = the main branch</span></label>
+      <input class="memory-edit lib-input" id="prBase" maxlength="200" autocomplete="off" spellcheck="false">
+      <label class="lib-label" for="prTitle">Title</label>
+      <input class="memory-edit lib-input" id="prTitle" maxlength="200" required>
+      <p class="lib-label">Files (path in the repository)</p>
+      <ul class="pr-files" id="prFiles"></ul>
+      <p class="signin-status" id="prStatus" role="status" aria-live="polite"></p>
+      <div class="code-picker-row pr-actions">
+        <button type="submit" class="btn small" id="prConfirm">Confirm and open</button>
+      </div>
+    </form>
   </section>
 
   <section class="sheet pro-sheet" id="proSheet" role="dialog" aria-modal="true" aria-labelledby="proTitle" hidden>

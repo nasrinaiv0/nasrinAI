@@ -108,6 +108,9 @@ export function createLegal({ store, config, logger, deleteAuthUser = null, now 
         projects: await projectsExport(caller),
         research: (await (store.listResearchScans ? store.listResearchScans({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, limit: 100 }) : []).catch(() => []))
           .map((s) => ({ query: s.query, facts: s.facts, sources: s.sources, created_at: s.createdAt })),
+        // GitHub: only which account is connected and since when; the sealed tokens are never exported.
+        github: await (store.getGithubConnection ? store.getGithubConnection({ tenantId: caller.tenantId, userId: caller.actor.id }) : null)
+          .then((g) => (g ? { login: g.login, connected_until: g.refreshExpiresAt || null } : null)).catch(() => null),
         plan_payments: await store.listPlanPeriods({ tenantId: caller.tenantId, userId: caller.actor.id }).catch(() => []),
         legal_acceptances: await store.listAcceptances({ tenantId: caller.tenantId, userId: caller.actor.id }).catch(() => [])
       };

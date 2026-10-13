@@ -21,6 +21,8 @@ import { looksSecret } from './knowledge/secrets.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
+// GitHub repositories (src/github): read with tools, not the web search.
+const GITHUB_ASK = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|\b(github|repo|repository|repositories)\b/i;
 const MAY_NEED_TOOLS = /\d|\b(time|date|today|tomorrow|yesterday|day|week|month|convert|unit|celsius|fahrenheit|kelvin|kg|kilos?|lbs?|pounds?|ounces?|km|miles?|feet|foot|inch(es)?|meters?|litres?|liters?|gallons?|cups?|calculate|compute|check|verify|find|search|look up|lookup|availability|status|order|booking|book|schedule|appointment|track|shipping|delivery|price|quote|inventory|weather|forecast|remember|recall|forget|tandaan|alalahanin|oras|petsa|ngayon|bukas|kahapon|araw|semana|presyo|reserba)\b/i;
 export const MAX_TOOL_ROUNDS = 4;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
@@ -463,7 +465,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       }
       return null;
     }
-    if (webAllowed() && needsWeb(typed)) {
+    if (webAllowed() && needsWeb(typed) && !(tools && GITHUB_ASK.test(typed))) {
       const found = await webAnswer();
       if (found) return finish(found);
     }
@@ -471,7 +473,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (smart) {
       // The tools this caller may use, when the message may need one.
       // `tools` is a registry, or a toolbox giving each business its own (connectors).
-      const reg = tools && !only && MAY_NEED_TOOLS.test(typed) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
+      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || codingChat) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
       const toolSpecs = reg ? reg.specsFor(caller) : [];
       // A first, public, simple question asked before may be answered from
       // cache (never when tools are offered: their answers change, like time).

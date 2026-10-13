@@ -492,6 +492,21 @@ export function loadConfig(env = process.env) {
     else facebook = Object.freeze({ appSecret: fbSecret, verifyToken: fbVerify, graphVersion: fbVersion || null });
   }
 
+  // GitHub (coding chat): one NasrinAI GitHub App. People install it on the
+  // repositories they choose and authorize it (user access tokens). Tokens are
+  // stored encrypted with CONNECTOR_SECRET_KEY. docs/github.md
+  let github = null;
+  const ghId = String(env.GITHUB_APP_CLIENT_ID || '').trim();
+  const ghSecret = String(env.GITHUB_APP_CLIENT_SECRET || '').trim();
+  const ghSlug = String(env.GITHUB_APP_SLUG || '').trim();
+  if (ghId || ghSecret) {
+    if (!/^[A-Za-z0-9.]{8,40}$/.test(ghId)) warnings.push('GITHUB_APP_CLIENT_ID: the Client ID from the GitHub App settings (starts with Iv). GitHub is off.');
+    else if (ghSecret.length < 20 || ghSecret.length > 100 || /\s/.test(ghSecret)) warnings.push('GITHUB_APP_CLIENT_SECRET: a client secret generated in the GitHub App settings. GitHub is off.');
+    else if (ghSlug && !/^[a-z0-9][a-z0-9-]{0,99}$/.test(ghSlug)) warnings.push('GITHUB_APP_SLUG: the app name in its github.com/apps/<slug> address. GitHub is off.');
+    else if (!connectorKey) warnings.push('GitHub needs CONNECTOR_SECRET_KEY (tokens are stored encrypted). GitHub is off.');
+    else github = Object.freeze({ clientId: ghId, clientSecret: ghSecret, slug: ghSlug || null });
+  }
+
   // The founder's public portfolio, read for questions about Nasrin Abubakar
   // (for example https://nasrinai.com/api/knowledge). Empty: off.
   let founderUrl = String(env.FOUNDER_KNOWLEDGE_URL || '').trim();
@@ -597,8 +612,8 @@ export function loadConfig(env = process.env) {
     // Legal documents: versions people accept, and whether signed-in people
     // must accept the current Terms before using the service.
     legal: Object.freeze({
-      terms: String(env.LEGAL_TERMS_VERSION || '2026-10-12').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12g').trim().slice(0, 40),
+      terms: String(env.LEGAL_TERMS_VERSION || '2026-10-12b').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-12h').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -639,6 +654,7 @@ export function loadConfig(env = process.env) {
     founderKnowledgeUrl: founderUrl || null,
     connectors: Object.freeze({ key: connectorKey }),
     facebook,
+    github,
     // Settings that were wrong but only switched an optional feature off.
     warnings: Object.freeze(warnings),
     guestTtlSeconds: toInt('GUEST_SESSION_TTL_HOURS', env.GUEST_SESSION_TTL_HOURS, 24, 1, 168) * 3600,
