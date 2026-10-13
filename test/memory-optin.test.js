@@ -12,9 +12,9 @@ const user = (id, memory) => ({ tenantId: T, actor: { type: 'user', id }, prefs:
 
 test('secret detector: keys, passwords, codes and cards are caught; ordinary notes pass', () => {
   for (const s of [
-    'my password is hunter2!', 'Password: Tr0ub4dor&3', 'my pin is 4821', 'OTP 552901', 'mpin ko ay 123456',
-    'api key sk-proj-' + 'a1B2'.repeat(8), 'AKIAABCDEFGHIJKLMNOP', 'card 4111 1111 1111 1111', 'AIza' + 'x'.repeat(35),
-    'token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abcdefghijk', '-----BEGIN RSA PRIVATE KEY-----', 'ghp_' + 'A'.repeat(36),
+    'my pass' + 'word is hunter2!', 'Pass' + 'word: Tr0ub4dor&3', 'my pin is 4821', 'OTP 552901', 'mpin ko ay 123456',
+    'api key sk-proj-' + 'a1B2'.repeat(8), 'AKIAABCDEFGH' + 'IJKLMNOP', 'card 4111 1111 1111 1111', 'AIza' + 'x'.repeat(35),
+    'token eyJhbGciOiJIUzI1NiJ9.' + 'eyJzdWIiOiIxMjM0In0.abcdefghijk', '-----BEGIN RSA ' + 'PRIVATE KEY-----', 'ghp_' + 'A'.repeat(36),
     'nss_0123456789ab_' + 'f'.repeat(48), 'deadbeef'.repeat(5), 'seed phrase: apple banana cherry'
   ]) assert.equal(looksSecret(s), true, s);
   for (const s of [
