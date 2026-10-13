@@ -28,6 +28,14 @@ warning. If the model does not support the tool, the log says
 `web search failed` and Nasrin answers without the web. Set
 `WEB_SEARCH_MODEL=` (empty) to turn search off.
 
+The sources stay in the saved reply as a "**Sources**" list of links (so
+history, copy, share and Library keep them). The page takes that list out of
+the reply text and shows a **Sources · n** button beside the reply actions
+(next to Regenerate); tapping it unfolds the links, each with its site name,
+opening in a new tab (`noopener noreferrer`). Only `http(s)` links are folded;
+anything else is left in the text as written (`NasrinFormat.sources` in
+`public/format.js`). Read-aloud skips the list.
+
 If a question did not look current but the model's draft says it lacks
 current facts ("check the web", "knowledge may be outdated", "can't check live
 news"; `GAP` in `src/web/search.js`), Nasrin runs the web search instead and

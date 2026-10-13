@@ -37,7 +37,7 @@ test('every assistant reply shows a small muted AI disclaimer below reply action
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(app, /className = 'reply-disclaimer'/);
   assert.match(app, /disclaimer\.textContent = 'NasrinAI is AI and can make mistakes\.'/);
-  assert.match(app, /el\.appendChild\(replyActions\(text, id\)\);[\s\S]*?el\.appendChild\(disclaimer\);/);
+  assert.match(app, /const actions = replyActions\(text, id, full\);\s*el\.appendChild\(actions\);[\s\S]*?el\.appendChild\(disclaimer\);/);
   assert.match(css, /\.reply-disclaimer\s*\{[^}]*color:\s*var\(--ink-3\);[^}]*font-size:\s*0\.75rem;/);
   assert.doesNotMatch(css, /\.ai-accuracy-note/);
 });

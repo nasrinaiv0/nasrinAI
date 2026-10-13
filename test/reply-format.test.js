@@ -113,3 +113,21 @@ test('a status emoji at the start of a heading, item or paragraph becomes an ico
   assert.equal(p.children[0].attrs.class, 'st-ico st-fail');
   assert.match(h.className, /st-line/);
 });
+
+test('web sources are taken out of the reply text and listed separately (only http links)', async () => {
+  const F = await format();
+  const reply = 'It is sunny in Cebu.\n\n**Sources**\n- [Cebu weather](<https://weather.example.com/cebu>)\n- [PAGASA](<https://www.pagasa.dost.gov.ph/x?y=1>)';
+  const { text, links } = F.sources(reply);
+  assert.equal(text, 'It is sunny in Cebu.');
+  assert.deepEqual(JSON.parse(JSON.stringify(links.map((l) => [l.title, l.url, l.host]))), [
+    ['Cebu weather', 'https://weather.example.com/cebu', 'weather.example.com'],
+    ['PAGASA', 'https://www.pagasa.dost.gov.ph/x?y=1', 'pagasa.dost.gov.ph']
+  ]);
+  // A reply without the block, or with a non-web link, is left exactly as written.
+  assert.deepEqual(JSON.parse(JSON.stringify(F.sources('No sources here.'))), { text: 'No sources here.', links: [] });
+  const bad = 'Hi.\n\n**Sources**\n- [x](<javascript:alert(1)>)';
+  assert.deepEqual(JSON.parse(JSON.stringify(F.sources(bad))), { text: bad, links: [] });
+  // "**Sources**" in the middle of a reply is not a sources block.
+  const mid = '**Sources**\n- [a](<https://a.example>)\n\nMore text after.';
+  assert.equal(F.sources(mid).links.length, 0);
+});

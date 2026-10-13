@@ -1,3 +1,9 @@
+## Proposed PR — Web sources folded beside the reply actions (`feature/web-sources-collapsed`)
+
+- **Owner request (2026-10-12 backlog #5):** web search with sources as links, collapsed beside the Retry button.
+- **Change:** `public/format.js` `sources()` takes the "**Sources**" link list out of a web answer (http(s) only); `public/app.js` shows **Sources · n** in the reply actions, unfolding the links (site name, new tab, `noopener noreferrer`). The saved reply is unchanged, so history, copy, share and Library keep the sources; read-aloud skips them. No server or database change. `docs/web.md`.
+- **Validation:** `npm test` (new tests: extraction, non-web links left alone, wiring); browser at 390 px: text without the list, button closed, tap opens two links in new tabs.
+
 ## Proposed PR — Loader while a picture, video or file is made (`ui/generation-loader`)
 
 - **Owner request (2026-10-12 backlog #8):** a tech-style loading animation while an image, video or file is being made.
