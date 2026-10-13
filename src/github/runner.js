@@ -23,10 +23,10 @@ export function inspectCodingArchive(archive){
   const full=prefix?prefix+'/'+name:name;
   const size=octal(h.subarray(124,136));
   const type=h[156]===0?'0':String.fromCharCode(h[156]);
-  if(!full||full.startsWith('/')||full.includes('\\\\')||full.split('/').some(p=>p==='..'))throw Error('Repository archive contains an unsafe path.');
+  if(!full||full.startsWith('/')||full.includes('\\')||full.split('/').some(p=>p==='..'))throw Error('Repository archive contains an unsafe path.');
   if(!['0','5','x','g'].includes(type))throw Error('Repository archive contains a link or unsupported special file.');
   if(size>MAX_ARCHIVE_FILE_BYTES)throw Error('A repository file exceeds the 16 MB expanded limit.');
-  if(type==='0'&&size>0)hasFile=true;
+  if(type==='0')hasFile=true;
   totalFiles+=size;if(totalFiles>MAX_EXPANDED_ARCHIVE_BYTES)throw Error('Repository archive exceeds the 64 MB expanded limit.');
   const blocks=Math.ceil(size/512);offset+=512+blocks*512;
   if(offset>tar.length)throw Error('Repository archive is truncated or malformed.');
