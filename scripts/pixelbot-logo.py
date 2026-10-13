@@ -2,11 +2,13 @@
 # colours as attributes, motion as SMIL <animate> (no <style>, no style=""),
 # no background tile (the robot alone), plus still versions for reduced
 # motion and a busy version: while Nasrin thinks, remembers or writes code,
-# the ball breaks into its pixels and comes back together.
+# the ball turns, starts small, grows, bursts into its pixels (reaching out,
+# like connecting to its sources) and comes back together.
 # Usage: pixelbot-logo.py SRC_DIR OUT_DIR
 import math, re, sys
 src, out = sys.argv[1], sys.argv[2]
 f3 = lambda x: ('%.3f' % x).rstrip('0').rstrip('.')
+BUSY = 2.4   # seconds per busy cycle
 
 def scatter(i, x, y, w):
     # Each pixel flies out from the centre and back, by a fixed pseudo-random
@@ -15,8 +17,8 @@ def scatter(i, x, y, w):
     d = math.hypot(cx, cy) or 1
     r = ((i * 2654435761) % 1000) / 1000
     q = ((i * 40503) % 997) / 997
-    out_ = 26 + 64 * r
-    return cx / d * out_ + (q - .5) * 36, cy / d * out_ + (r - .5) * 36
+    out_ = 40 + 70 * r
+    return cx / d * out_ + (q - .5) * 40, cy / d * out_ + (r - .5) * 40
 
 def convert(path, mode, speed=1.0):
     f = lambda x: f3(float(x) / speed)
@@ -38,9 +40,9 @@ def convert(path, mode, speed=1.0):
         if mode == 'busy':
             dx, dy = scatter(i, float(x), float(y), float(w))
             body.append(f'<rect {geo} fill="{col}"><animateTransform attributeName="transform" type="translate" '
-                        f'values="0 0;0 0;{f3(dx)} {f3(dy)};{f3(dx)} {f3(dy)};0 0;0 0" keyTimes="0;.18;.42;.56;.82;1" '
-                        'calcMode="spline" keySplines=".4 0 .2 1;.2 .8 .3 1;0 0 1 1;.6 0 .4 1;0 0 1 1" dur="1.8s" repeatCount="indefinite"/>'
-                        '<animate attributeName="opacity" values="1;1;.55;.7;1;1" keyTimes="0;.18;.42;.56;.82;1" dur="1.8s" repeatCount="indefinite"/></rect>')
+                        f'values="0 0;0 0;{f3(dx)} {f3(dy)};{f3(dx)} {f3(dy)};0 0;0 0" keyTimes="0;.35;.55;.65;.85;1" '
+                        f'calcMode="spline" keySplines="0 0 1 1;.2 .8 .3 1;0 0 1 1;.6 0 .4 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/>'
+                        f'<animate attributeName="opacity" values="1;1;.5;.7;1;1" keyTimes="0;.35;.55;.65;.85;1" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
             continue
         if 'e' in c:
             if 'e0' in c:
@@ -51,6 +53,14 @@ def convert(path, mode, speed=1.0):
         if 'k' in c:
             anim += f'<animate attributeName="opacity" values="1;1;.1;.85;.15;1;1" keyTimes="0;.88;.9;.93;.95;.97;1" dur="{f(v.get("u","5"))}s" begin="{f(v.get("v","0"))}s" repeatCount="indefinite"/>'
         body.append(f'<rect {geo} fill="{col}">{anim}</rect>')
+    if mode == 'busy':
+        # The whole ball turns all the time; it grows from small, holds while
+        # its pixels burst out and return, then shrinks back (about the centre).
+        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
+                '<g transform="translate(512 512)"><g>'
+                f'<animateTransform attributeName="transform" type="rotate" values="0;360" dur="{BUSY}s" repeatCount="indefinite"/><g>'
+                f'<animateTransform attributeName="transform" type="scale" values=".55;.9;.9;.9;.9;.55" keyTimes="0;.35;.55;.65;.85;1" calcMode="spline" keySplines=".3 0 .2 1;0 0 1 1;0 0 1 1;0 0 1 1;.6 0 .4 1" dur="{BUSY}s" repeatCount="indefinite"/>'
+                '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></g></svg>\n')
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code"><g>'
             + ''.join(body) + '</g></svg>\n')
 
