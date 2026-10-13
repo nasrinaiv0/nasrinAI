@@ -1213,9 +1213,47 @@
     e.preventDefault();
     addFiles([...e.dataTransfer.files]);
   });
+  // If pasted text would make the composer taller than its visible limit,
+  // attach the complete pasted text as a .txt file instead of trapping it in
+  // a scrollable message field. Existing draft text remains untouched.
+  function pastedTextOverflows(text) {
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? start;
+    const candidate = input.value.slice(0, start) + text + input.value.slice(end);
+    const style = getComputedStyle(input);
+    const maxHeight = Number.parseFloat(style.maxHeight);
+    if (!Number.isFinite(maxHeight) || maxHeight <= 0) return false;
+
+    const measure = document.createElement('textarea');
+    measure.value = candidate;
+    measure.setAttribute('aria-hidden', 'true');
+    measure.tabIndex = -1;
+    Object.assign(measure.style, {
+      position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden',
+      width: input.getBoundingClientRect().width + 'px', height: 'auto',
+      minHeight: '0', maxHeight: 'none', overflow: 'hidden', resize: 'none',
+      boxSizing: style.boxSizing, padding: style.padding, border: style.border,
+      font: style.font, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing,
+      whiteSpace: style.whiteSpace, overflowWrap: style.overflowWrap
+    });
+    document.body.appendChild(measure);
+    const contentHeight = measure.scrollHeight;
+    measure.remove();
+    return contentHeight > maxHeight + 1;
+  }
+
   input.addEventListener('paste', (e) => {
-    const files = e.clipboardData ? [...e.clipboardData.files] : [];
-    if (files.length) { e.preventDefault(); addFiles(files); }
+    const clipboard = e.clipboardData;
+    const files = clipboard ? [...clipboard.files] : [];
+    if (files.length) { e.preventDefault(); addFiles(files); return; }
+
+    const text = clipboard ? clipboard.getData('text/plain') : '';
+    if (!text || !pastedTextOverflows(text)) return;
+    e.preventDefault();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = new File([text], 'pasted-message-' + stamp + '.txt', { type: 'text/plain' });
+    addFiles([file]);
+    notice.textContent = 'Long pasted message attached as a .txt file. You can send it with your prompt.';
   });
 
   // ---------- the + menu: files, or creating a picture ----------
