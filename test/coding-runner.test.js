@@ -8,17 +8,17 @@ import { createGithubApi } from '../src/github/api.js';
 function tinyArchive() {
   const header = Buffer.alloc(512);
   header.write('repo-main/file.txt', 0, 100, 'utf8');
-  header.write('0000644\\0', 100, 8, 'ascii');
-  header.write('0000000\\0', 108, 8, 'ascii');
-  header.write('0000000\\0', 116, 8, 'ascii');
-  header.write('00000000001\\0', 124, 12, 'ascii');
-  header.write('00000000000\\0', 136, 12, 'ascii');
+  header.write('0000644\0', 100, 8, 'ascii');
+  header.write('0000000\0', 108, 8, 'ascii');
+  header.write('0000000\0', 116, 8, 'ascii');
+  header.write('00000000001\0', 124, 12, 'ascii');
+  header.write('00000000000\0', 136, 12, 'ascii');
   header.fill(0x20, 148, 156);
   header[156] = 48;
-  header.write('ustar\\0', 257, 6, 'ascii');
+  header.write('ustar\0', 257, 6, 'ascii');
   header.write('00', 263, 2, 'ascii');
   const checksum = header.reduce((sum, byte) => sum + byte, 0);
-  header.write(checksum.toString(8).padStart(6, '0') + '\\0 ', 148, 8, 'ascii');
+  header.write(checksum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'ascii');
   return gzipSync(Buffer.concat([header, Buffer.from('x'), Buffer.alloc(1535)]));
 }
 
