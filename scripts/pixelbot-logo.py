@@ -2,9 +2,9 @@
 # colours as attributes, motion as SMIL <animate> (no <style>, no style=""),
 # no background tile (the robot alone), plus still versions for reduced
 # motion and a busy version: while Nasrin thinks, remembers or writes code,
-# the ball starts small, grows, bursts into its pixels (reaching out, like
-# connecting to its sources) while the sphere turns horizontally like a globe,
-# pauses, turns back into its normal form and shrinks. Two more working moods: remember (a ripple
+# the ball pops up, explodes into its pixels (reaching out, like connecting
+# to its sources) while the sphere turns once horizontally like a globe,
+# pauses only at 360 degrees, snaps back into its normal form and shrinks. Two more working moods: remember (a ripple
 # of light moving out through the pixels) and write (pixels fill in row by
 # row, like typing).
 # Usage: pixelbot-logo.py SRC_DIR OUT_DIR
@@ -19,20 +19,18 @@ BUSY = 3.6   # seconds per busy cycle
 # sliding its face across the fixed grid: the eyes and the speckle move along
 # each row, squeeze towards the edge and come back round from the other side,
 # while the light (darker edges) stays where it is.
-T_POP, T_GROW, T_BURST, T_OUT, T_PAUSE, T_GATHER, T_IN, T_SHRINK = .09, .14, .31, .40, .54, .74, .80, .92
-SPREAD, OVER, UNDER = .4, .5, -.07   # grid spread at rest / at the bounce out / in
+T_POP, T_GROW, T_BURST, T_SETTLE, T_OUT, T_PAUSE, T_GATHER, T_IN, T_SHRINK = .08, .13, .22, .32, .56, .70, .80, .85, .94
+SPREAD, OVER, UNDER = .6, .7, -.07   # how far the burst throws the edge (x its distance) / at the bounce out / in
 FPS = 60    # face frames per second while turning (no faster than a screen)
 
 def ease(u):
     return u * u * (3 - 2 * u)
 
 def turn(t):
-    # How far the face has turned (0..2*pi) at time t: half a turn while it
-    # bursts, still while it waits, the other half while it gathers.
+    # How far the face has turned (0..2*pi) at time t: one whole turn while
+    # it is burst; it pauses only once it is facing front again (360 degrees).
     if t <= T_GROW: return 0
-    if t <= T_OUT: return math.pi * ease((t - T_GROW) / (T_OUT - T_GROW))
-    if t <= T_PAUSE: return math.pi
-    if t <= T_IN: return math.pi + math.pi * ease((t - T_PAUSE) / (T_IN - T_PAUSE))
+    if t <= T_OUT: return 2 * math.pi * ease((t - T_GROW) / (T_OUT - T_GROW))
     return 2 * math.pi
 
 def globe(rects, colors, eye):
@@ -106,16 +104,18 @@ def convert(path, mode, speed=1.0):
             body.append(f'<rect {geo} fill="{col}"/>'); continue
         if mode == 'busy':
             if i not in faces: continue   # an eye: the pixel under it shows it
-            # Slides out from the centre with its grid cell, bounces, waits,
-            # bounces back in; its colour follows the turning face.
+            # Thrown out from the centre (outer pixels further, so gaps grow
+            # outwards and pixels never overlap), bounces, turns, waits, is
+            # pulled back in with a bounce; its colour follows the turning face.
             cx, cy = float(x) + float(w) / 2 - 512, float(y) + float(w) / 2 - 512
-            mv = lambda k: f'{f3(k * cx)} {f3(k * cy)}'
+            far = .5 + .5 * min(1, math.hypot(cx, cy) / 420)
+            mv = lambda k: f'{round(k * far * cx)} {round(k * far * cy)}'
             vals, times = faces[i]
             fill = (f'<animate attributeName="fill" calcMode="discrete" values="{";".join(vals)}" keyTimes="{";".join(f3(t) for t in times)}" dur="{BUSY}s" repeatCount="indefinite"/>' if len(vals) > 1 else '')
             body.append(f'<rect {geo} fill="{vals[0]}">{fill}<animateTransform attributeName="transform" type="translate" '
                         f'values="0 0;0 0;{mv(OVER)};{mv(SPREAD)};{mv(SPREAD)};{mv(UNDER)};0 0;0 0" '
-                        f'keyTimes="0;{T_GROW};{T_BURST};{T_OUT};{T_PAUSE};{T_GATHER};{T_IN};1" calcMode="spline" '
-                        f'keySplines="0 0 1 1;.2 .9 .3 1;.5 0 .5 1;0 0 1 1;.6 0 .4 1;.3 0 .4 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
+                        f'keyTimes="0;{T_GROW};{T_BURST};{T_SETTLE};{T_PAUSE};{T_GATHER};{T_IN};1" calcMode="spline" '
+                        f'keySplines="0 0 1 1;.1 .9 .2 1;.5 0 .5 1;0 0 1 1;.6 0 .9 .5;.3 0 .4 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
             continue
         if mode == 'remember':
             # A ring of light runs out from the centre and back.
@@ -144,7 +144,7 @@ def convert(path, mode, speed=1.0):
         # gather into the ball; shrinks back.
         return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
                 '<g transform="translate(512 512)"><g>'
-                f'<animateTransform attributeName="transform" type="scale" values=".55;.8;.72;.72;.5;.55" keyTimes="0;{T_POP};{T_GROW};{T_IN};{T_SHRINK};1" calcMode="spline" keySplines=".2 .9 .3 1;.5 0 .5 1;0 0 1 1;.5 0 .7 1;.3 0 .3 1" dur="{BUSY}s" repeatCount="indefinite"/>'
+                f'<animateTransform attributeName="transform" type="scale" values=".55;.74;.66;.66;.5;.55" keyTimes="0;{T_POP};{T_GROW};{T_IN};{T_SHRINK};1" calcMode="spline" keySplines=".2 .9 .3 1;.5 0 .5 1;0 0 1 1;.5 0 .7 1;.3 0 .3 1" dur="{BUSY}s" repeatCount="indefinite"/>'
                 '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></svg>\n')
     if mode == 'remember':
         # The ball breathes a little while the light runs through it.

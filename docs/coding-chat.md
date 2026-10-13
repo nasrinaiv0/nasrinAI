@@ -44,8 +44,8 @@ them. CSS (`.code-logo`) picks the tile for the theme and motion setting:
 light UI → dark robot on a light tile, dark UI → the reverse.
 While Nasrin works in the coding chat (thinking, remembering, reading,
 searching) the thinking line shows `code-bot-*-busy.svg`: the robot pops up,
-its pixel grid spreads out and back with a bounce while its face turns like a
-globe, sliding across the fixed grid (pixel-perfect; still when motion is
+its pixels explode outwards while its face turns once like a globe (sliding
+across the fixed grid), pauses at 360°, then snaps back with a bounce (pixel-perfect; still when motion is
 reduced).
 
 ## Replies
