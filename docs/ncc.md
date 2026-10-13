@@ -4,8 +4,18 @@ Owner request (2026-10-13): add NCC to NasrinAI Space. NCC is a CRM with
 automation, in the spirit of GoHighLevel (contacts, pipelines,
 conversations, follow-ups) and n8n (visual workflows: trigger → steps).
 
-**Status:** only the Space tile exists. It is marked *Coming soon* and says
-"not live yet". Nothing below is built.
+**Status:** only the Space tile exists. Nothing below is built.
+
+**Owner decisions (2026-10-13):**
+
+- NCC is **separate from Connect**.
+- It is **for enterprises**, not self-serve: businesses **contact the team**.
+  The tile says so, says it is not live yet, and links to
+  `support@nasrinai.com` with the subject "NCC (Nasrin Client Connect)
+  enterprise enquiry". `[REQUIRES INPUT]`: a dedicated sales address, if
+  there is one.
+- **Logo:** three triangles. Three original options were drawn (Rise, Flow,
+  Nest); the owner picks one.
 
 ## What NCC would be
 
@@ -56,9 +66,8 @@ conversations, follow-ups) and n8n (visual workflows: trigger → steps).
 
 ## Owner decisions needed before N1
 
-- Who can use NCC: signed-in businesses on which plan (Max / Ultra / its
-  own price)?
-- Is a business in NCC the same as a Connect site, or separate?
+- Enterprise terms: how businesses are set up after contacting the team
+  (accounts, contract, price) (`[REQUIRES INPUT]`).
 - Keep-time for contacts and messages, and the data processing terms
   (`[REQUIRES INPUT]`).
 - Run migrations on a staging Supabase first (required by CLAUDE.md).

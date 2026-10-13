@@ -3389,10 +3389,14 @@
     const status = $('spaceStatus');
     if (status) status.textContent = 'Movo is planned as a separate financial tracking app.';
   });
-  // NCC (Nasrin Client Connect): the client CRM with automations, planned (docs/ncc.md).
+  // NCC (Nasrin Client Connect): the enterprise CRM with automations,
+  // separate from Connect and not self-serve: businesses contact the team (docs/ncc.md).
   if (spaceNcc) spaceNcc.addEventListener('click', () => {
     const status = $('spaceStatus');
-    if (status) status.textContent = 'NCC (Nasrin Client Connect) is being built: your clients, pipeline and follow-ups in one place, with automations you approve. It is not live yet.';
+    if (!status) return;
+    const mail = mk('a', '', 'Contact the NasrinAI team');
+    mail.href = 'mailto:support@nasrinai.com?subject=' + encodeURIComponent('NCC (Nasrin Client Connect) enterprise enquiry');
+    status.replaceChildren('NCC (Nasrin Client Connect) is the CRM with automations for enterprises, separate from Connect. It is not live yet. ', mail, ' to talk about it.');
   });
 
   // ---------- Terms acceptance (recorded on the server) ----------

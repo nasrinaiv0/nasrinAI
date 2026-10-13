@@ -289,10 +289,13 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   assert.match(css, /\.src-face \+ \.src-face \{ margin-left: -0\.38rem; \}/);
 });
 
-test('NCC (Nasrin Client Connect) is in NasrinAI Space, honestly marked as coming soon (owner, 2026-10-13)', async () => {
+test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact the team (owner, 2026-10-13)', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(html, /<button type="button" class="space-app-tile" id="spaceNcc" aria-label="NCC, Nasrin Client Connect: client CRM with automations, coming soon" title="Coming soon">/);
+  assert.match(html, /id="spaceNcc" aria-label="NCC, Nasrin Client Connect: CRM with automations for enterprises, contact the team"/);
   assert.match(html, /<span class="space-app-name">NCC<\/span>/);
-  assert.match(js, /spaceNcc\.addEventListener\('click'[\s\S]{0,400}It is not live yet\./);
+  const ncc = js.slice(js.indexOf("if (spaceNcc) spaceNcc.addEventListener"), js.indexOf("// ---------- Terms acceptance"));
+  assert.match(ncc, /mail\.href = 'mailto:support@nasrinai\.com\?subject='/);
+  assert.match(ncc, /separate from Connect\. It is not live yet\./);
+  assert.doesNotMatch(ncc, /innerHTML/);
 });
