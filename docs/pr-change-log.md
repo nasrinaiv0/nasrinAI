@@ -1,3 +1,21 @@
+## Proposed PR — Messy file cleaner (`feature/messy-file-cleaner`)
+
+- **Owner request (2026-10-12 backlog #2):** upload a messy Excel/CSV; get clean, organized tables and a dashboard with no data lost.
+- **Change:** `public/cleaner.js` (new, browser only, no packages): reads .xlsx (shared strings, date styles, several sheets) and CSV/TSV (separator found automatically), tidies spacing, removes empty rows/columns and repeated headers, finds the header (title rows kept as notes), writes numbers/dates/percents one way (IDs with leading zeros and long digit strings left alone; ambiguous dates left as written), lists odd values and same-looking rows (never deleted), and proves every original value is accounted for. `public/app.js`: "clean/tidy/organize this" with a spreadsheet attached shows a card with the check, a dashboard, the first rows and **Download cleaned workbook** (data tabs + Summary + Changes). The file is never sent anywhere and nothing is stored. `docs/file-cleaner.md`, `docs/chat.md`.
+- **Validation:** `npm test` (new `test/cleaner.test.js`: messy CSV with value check, dates, numbers, hand-made .xlsx, workbook round trip, formula text, limits; page wiring test); browser at 390 px, light and dark: no chat request made, "All 217 values accounted for", download opened again with openpyxl (real dates and numbers, IDs as text, frozen header, filters).
+
+## Proposed PR — Web sources folded beside the reply actions (`feature/web-sources-collapsed`)
+
+- **Owner request (2026-10-12 backlog #5):** web search with sources as links, collapsed beside the Retry button.
+- **Change:** `public/format.js` `sources()` takes the "**Sources**" link list out of a web answer (http(s) only); `public/app.js` shows **Sources · n** in the reply actions, unfolding the links (site name, new tab, `noopener noreferrer`). The saved reply is unchanged, so history, copy, share and Library keep the sources; read-aloud skips them. No server or database change. `docs/web.md`.
+- **Validation:** `npm test` (new tests: extraction, non-web links left alone, wiring); browser at 390 px: text without the list, button closed, tap opens two links in new tabs.
+
+## Proposed PR — Loader while a picture, video or file is made (`ui/generation-loader`)
+
+- **Owner request (2026-10-12 backlog #8):** a tech-style loading animation while an image, video or file is being made.
+- **Change:** `genLoader` in `public/app.js`: a pixel screen lighting up in diagonal waves under a scan line, with the step and elapsed seconds. Shown while the picture itself is made (sized like the picture), while a video renders (with its %), and, slim, while a reply writes a file (replaces the "Writing your file…" text note in `public/files.js`). Element-only (CSP), `role="status"`, still with reduced motion. `docs/chat.md`.
+- **Validation:** `npm test`; browser at 390 px, light and dark: the file loader appears under the text while the file is written and is gone when the reply is done.
+
 ## Proposed PR — Replies fade in; the chat stays where you read (`ui/reply-fade-no-autoscroll`)
 
 - **Owner request (2026-10-12 backlog #9):** replies fade in; the screen stays where the user is reading instead of scrolling down.

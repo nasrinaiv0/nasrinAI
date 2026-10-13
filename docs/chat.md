@@ -30,6 +30,23 @@ the bottom, or sending a message, makes it follow again. Only the person's own
 scrolling stops following; the page's own scrolling never does
 (`scrollToEnd` in `public/app.js`). Reduced motion turns the fade off.
 
+### While something is being made
+
+Making a picture, a video or a file shows a loader instead of the plain
+thinking line: a small pixel screen that lights up in diagonal waves under a
+moving scan line, with what is happening and the seconds so far
+(`genLoader` in `public/app.js`). The picture loader is the size of the
+picture to come; a file being written gets a slim one under the reply text;
+a video shows its progress (%). Built from elements only (strict CSP), announced
+as a status, and still when motion is reduced.
+
+### Cleaning a messy spreadsheet
+
+Attach a `.xlsx` or `.csv` and ask to clean, tidy or organize it: the file is
+cleaned on the device by fixed rules (no AI, nothing sent) and shown as clean
+tables, a dashboard and a cleaned workbook to download, with a check that no
+value was lost. See `docs/file-cleaner.md`.
+
 ## Stop
 
 Closing the request (the Stop button) aborts the model call. The part

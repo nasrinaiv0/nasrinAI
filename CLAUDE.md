@@ -97,6 +97,7 @@ push and PR. Vercel builds a preview for every PR.
 - `src/uploads.js` — direct uploads: one-time Supabase Storage links, files read once then deleted (`docs/uploads.md`, migration 031, `UPLOADS_DIRECT`).
 - `src/research.js` — research agent: public pages (robots.txt honoured) → facts; scans private per person, shared `research_facts` hold fact + source only, pending owner review (`docs/research.md`, migration 036, `RESEARCH_ENABLED`).
 - `src/web-answers.js` — replies that used the internet kept permanently with sources, never who asked (`web_answers`, migration 037; `docs/web-answers.md`).
+- `public/cleaner.js` — messy-file cleaner: .xlsx/CSV cleaned in the browser by fixed rules, value check, dashboard, cleaned workbook (`docs/file-cleaner.md`).
 - `src/storage.js` — Library as storage: lists/deletes a person's chats, files, sent photos/files and pictures, keeps sent files, and applies their keep-time (`prefs.retention`; migration 014; `docs/library.md`).
 - `src/tools/` — tool engine (Phase 5): registry, argument checks, first tools (`docs/tools.md`).
 - `src/connectors/` — business REST/GraphQL connectors (Phase 6): definition checks, encrypted keys, SSRF-safe calls (`docs/connectors.md`).

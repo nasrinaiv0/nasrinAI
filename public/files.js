@@ -104,17 +104,17 @@
     return out;
   }
 
-  // While a reply is still arriving: blocks hidden, and a note where a file is being written.
+  // While a reply is still arriving: blocks hidden (the page shows a loader
+  // while a file is being written).
   function strip(input) {
     const raw = String(input || '');
-    const writing = /\[\[file\b/i.test(raw);
     const visible = raw
       .replace(/\[\[repo [^\]\n]*\]\]|\[\[repo\b[^\]\n]*$/g, '')
       .replace(/\[\[file\b[\s\S]*?(?:\[\[\/file\]\]|$)/gi, ' ')
       .replace(/\[\[ask\]\][\s\S]*?(?:\[\[\/ask\]\]|$)/gi, ' ')
       .replace(/^\[\[\/?checks\b[^\]\n]*\]\]$/gim, '')            // status rows show as text until the reply is done
       .replace(/\[\[?[a-z/]{0,5}$/i, '');                       // a block's first letters, still arriving
-    return visible.replace(/\n{3,}/g, '\n\n').trim() + (writing ? '\n\nWriting your file…' : '');
+    return visible.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   // ---------- bytes ----------

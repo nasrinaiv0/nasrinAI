@@ -281,5 +281,24 @@
       .trim();
   }
 
-  window.NasrinFormat = { render, plain };
+  // A web answer ends with a "**Sources**" list of links (src/chat.js). The
+  // page shows them folded under a Sources button instead of in the text.
+  // Only http(s) links are kept; anything else stays in the text as written.
+  const SOURCES_BLOCK = /\n*\*\*Sources\*\*\n((?:- \[[^\]\n]*\]\(<[^>\s]+>\)[ \t]*(?:\n|$))+)\s*$/;
+  function sources(text) {
+    const raw = String(text || '');
+    const m = SOURCES_BLOCK.exec(raw);
+    if (!m) return { text: raw, links: [] };
+    const links = [];
+    for (const [, title, url] of m[1].matchAll(/- \[([^\]\n]*)\]\(<([^>\s]+)>\)/g)) {
+      let u;
+      try { u = new URL(url); } catch { return { text: raw, links: [] }; }
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return { text: raw, links: [] };
+      const host = u.hostname.replace(/^www\./, '');
+      links.push({ title: title.trim() || host, url: u.href, host });
+    }
+    return { text: raw.slice(0, m.index).trim(), links: links.slice(0, 20) };
+  }
+
+  window.NasrinFormat = { render, plain, sources };
 })();

@@ -193,6 +193,25 @@ test('oversized pasted composer text becomes a plain-text attachment', async () 
     'short text continues to paste normally');
 });
 
+test('a tech-style loader shows while a picture, video or file is being made (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const files = await readFile(new URL('../public/files.js', import.meta.url), 'utf8');
+  // Built from elements, announced as a status, with the time so far.
+  assert.match(js, /function genLoader\(text, \{ compact = false, timer = true \} = \{\}\) \{/);
+  assert.match(js, /box\.setAttribute\('role', 'status'\);/);
+  const loader = js.slice(js.indexOf('function genLoader('), js.indexOf('function clearScreen('));
+  assert.doesNotMatch(loader, /innerHTML|insertAdjacentHTML/);
+  // Used for the picture itself, the video and a file being written.
+  assert.match(js, /if \(path === '\/v1\/images'\) \{[\s\S]{0,120}thinking = genLoader\(label\);/);
+  assert.match(js, /const loader = genLoader\('Creating your video'\);/);
+  assert.match(js, /fileLoader = genLoader\('Writing your file', \{ compact: true \}\)/);
+  assert.doesNotMatch(files, /Writing your file…/);   // the loader replaces the old text note
+  // Still when motion is reduced (system setting and the in-app setting).
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.gen-cell, \.gen-scan, \.gen-label > span:first-child \{ animation: none; \}/);
+  assert.match(css, /:root\[data-motion="reduce"\] \.gen-scan \{ display: none; \}/);
+});
+
 test('replies fade in and the chat stays where the person is reading (owner, 2026-10-13)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
@@ -203,8 +222,41 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(js, /if \(Date\.now\(\) - touchedAt > 1000\) return;\s*following = log\.scrollHeight - log\.scrollTop - log\.clientHeight < 96;/);
   assert.match(js, /scrollToEnd\(el, \{ force: role === 'user' \}\);/);
   // Streaming text follows instantly (a smooth scroll per word would lag).
-  assert.match(js, /strip\(raw\);[^\n]*\n\s*scrollToEnd\(el, \{ instant: true \}\);/);
+  assert.match(js, /strip\(raw\);[\s\S]{0,500}?scrollToEnd\(el, \{ instant: true \}\);\s*\},/);
   // Fade: the live reply, and a reply shown at once.
   assert.match(js, /el\.className = 'msg assistant is-live is-new';/);
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
+});
+
+test('web sources fold under a Sources button beside the reply actions (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
+  assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
+  const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.match(toggle, /list\.hidden = true;/);
+  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'false'\);/);
+  assert.match(toggle, /a\.rel = 'noopener noreferrer';/);
+  assert.doesNotMatch(toggle, /innerHTML/);
+  // Copy, share and Save to Library keep the sources; read-aloud skips them.
+  assert.match(js, /const plainText = window\.NasrinFormat\.plain\(full\);/);
+  assert.match(css, /\.reply-sources\[hidden\] \{ display: none; \}/);
+});
+
+test('"clean this" with a spreadsheet runs the cleaner on the device, never the chat (owner, 2026-10-13)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<script src="\/cleaner\.js" defer><\/script>/);
+  // Asked to clean, with a .xlsx/.csv attached: cleaned here, no chat request.
+  assert.match(js, /if \(!editing && !shortcut && CLEAN_ASK\.test\(text\) && pending\.some\(isSheetFile\)\) \{[\s\S]{0,120}return cleanFiles\(text, files\);/);
+  assert.match(js, /const isSheetFile = \(f\) => f\.local && \/\\\.\(csv\|tsv\|xlsx\|xlsm\)\$\/i\.test/);
+  const flow = js.slice(js.indexOf('async function cleanFiles('), js.indexOf('function cleanerCard('));
+  assert.doesNotMatch(flow, /api\(|fetch\(|runTurn\(/);
+  // The local File is kept on the item but never put in a request body.
+  assert.match(js, /attachments: files\.map\(\(f\) => \(f\.upload \? \{ name: f\.name, type: f\.type, upload: f\.upload \} : \{ name: f\.name, type: f\.type, data: f\.data \}\)\)/);
+  // The card: the check, a dashboard, the first rows, the full workbook to download.
+  const card = js.slice(js.indexOf('function cleanerCard('), js.indexOf('// A file Nasrin wrote for the person'));
+  assert.match(card, /values accounted for · nothing lost/);
+  assert.match(card, /window\.NasrinCleaner\.workbook\(result, fileName\)/);
+  assert.doesNotMatch(card, /innerHTML/);
 });
