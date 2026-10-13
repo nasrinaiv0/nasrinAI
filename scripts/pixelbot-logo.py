@@ -2,57 +2,86 @@
 # colours as attributes, motion as SMIL <animate> (no <style>, no style=""),
 # no background tile (the robot alone), plus still versions for reduced
 # motion and a busy version: while Nasrin thinks, remembers or writes code,
-# the ball starts small, grows, bursts into its pixels (reaching out, like
-# connecting to its sources) while the sphere turns horizontally like a globe,
-# pauses, turns back into its normal form and shrinks. Two more working moods: remember (a ripple
+# the ball pops up, explodes into its pixels (reaching out, like connecting
+# to its sources) while the sphere turns once horizontally like a globe,
+# pauses only at 360 degrees, snaps back into its normal form and shrinks. Two more working moods: remember (a ripple
 # of light moving out through the pixels) and write (pixels fill in row by
 # row, like typing).
 # Usage: pixelbot-logo.py SRC_DIR OUT_DIR
 import math, re, sys
 src, out = sys.argv[1], sys.argv[2]
 f3 = lambda x: ('%.3f' % x).rstrip('0').rstrip('.')
-BUSY = 3.2   # seconds per busy cycle
+BUSY = 3.6   # seconds per busy cycle
 
-def scatter(i, x, y, w):
-    # Each pixel flies out from the centre and back, by a fixed pseudo-random
-    # amount (same file every run), and the whole ball reassembles together.
-    cx, cy = x + w / 2 - 512, y + w / 2 - 512
-    d = math.hypot(cx, cy) or 1
-    r = ((i * 2654435761) % 1000) / 1000
-    q = ((i * 40503) % 997) / 997
-    out_ = 40 + 70 * r
-    return cx / d * out_ + (q - .5) * 40, cy / d * out_ + (r - .5) * 40
-
-# The busy cycle, as times (0..1): grow, burst while the sphere turns half
-# way, pause, turn the rest of the way while gathering, shrink.
-T_GROW, T_OUT, T_PAUSE, T_IN = .2, .38, .56, .78
-STEPS = 6   # samples per turning stretch (straight lines between them)
-R = 420     # the ball's radius in the 1024 box
+# The busy cycle, as times (0..1). Every pixel keeps its square shape and
+# never overlaps another ("perfect pixel"): the ball bursts by spreading its
+# grid evenly (gaps between pixels, no scatter), and turns like a globe by
+# sliding its face across the fixed grid: the eyes and the speckle move along
+# each row, squeeze towards the edge and come back round from the other side,
+# while the light (darker edges) stays where it is.
+T_POP, T_GROW, T_BURST, T_SETTLE, T_OUT, T_PAUSE, T_GATHER, T_IN, T_SHRINK = .08, .13, .22, .32, .56, .70, .80, .85, .94
+SPREAD, OVER, UNDER = .75, .82, -.07   # how far the burst throws the edge (x its distance) / at the bounce out / in
+SCATTER = .4   # random nudge per pixel, as a share of the gap to its neighbour (under .5: never touch)
+FPS = 60    # face frames per second while turning (no faster than a screen)
 
 def ease(u):
     return u * u * (3 - 2 * u)
 
-def sphere_frames(cx, cy, dx, dy, back):
-    # A pixel on the ball's front (or its copy on the back) seen from the front
-    # while the sphere turns about its vertical axis: it moves along its row
-    # (x = r*sin(angle)), hidden while behind, darker towards the edges.
-    r = math.sqrt(max(R * R - cy * cy, 1))
-    a0 = math.asin(max(-1, min(1, cx / r))) + (math.pi if back else 0)
-    times, phis, bursts = [0, T_GROW], [0, 0], [0, 0]
-    for k in range(1, STEPS + 1):
-        u = k / STEPS
-        times.append(T_GROW + (T_OUT - T_GROW) * u); phis.append(math.pi * ease(u)); bursts.append(ease(u))
-    times.append(T_PAUSE); phis.append(math.pi); bursts.append(1)
-    for k in range(1, STEPS + 1):
-        u = k / STEPS
-        times.append(T_PAUSE + (T_IN - T_PAUSE) * u); phis.append(math.pi + math.pi * ease(u)); bursts.append(1 - ease(u))
-    times.append(1); phis.append(2 * math.pi); bursts.append(0)
-    moves, ops = [], []
-    for phi, b in zip(phis, bursts):
-        z = math.cos(a0 + phi)
-        moves.append(f'{round(r * math.sin(a0 + phi) - cx + b * dx)} {round(b * dy)}')
-        ops.append(('%.1f' % (.3 + .7 * z)).lstrip('0') if z > 0 else '0')
-    return ';'.join(f3(t) for t in times), ';'.join(moves), ';'.join(ops)
+def turn(t):
+    # How far the face has turned (0..2*pi) at time t: one whole turn while
+    # it is burst; it pauses only once it is facing front again (360 degrees).
+    if t <= T_GROW: return 0
+    if t <= T_OUT: return 2 * math.pi * ease((t - T_GROW) / (T_OUT - T_GROW))
+    return 2 * math.pi
+
+def globe(rects, colors, eye):
+    # Per pixel: its fill over time (discrete frames, repeated values merged).
+    # The eyes are drawn on top of body pixels; here the body pixel under an
+    # eye shows the eye itself, so the eye can travel with the face.
+    eyes = {(x, y) for cls, x, y, *_ in rects if 'e' in cls.split()}
+    cells, index = [], {}
+    for n, (cls, x, y, w, *_) in enumerate(rects):
+        b = [k for k in cls.split() if k.startswith('b')]
+        if not b: continue
+        index[n] = len(cells)
+        cells.append((float(x) + float(w) / 2 - 512, float(y) + float(w) / 2 - 512, (x, y) in eyes, int(b[0][1])))
+    # The light: the average shade at each distance from the centre.
+    bins = {}
+    for cx, cy, e, sh in cells:
+        bins.setdefault(int(math.hypot(cx, cy) // 45), []).append(sh)
+    def light(cx, cy):
+        b = bins[min(bins, key=lambda k: abs(k - math.hypot(cx, cy) // 45))]
+        return sum(b) / len(b)
+    rows = {}
+    for i, (cx, cy, e, sh) in enumerate(cells): rows.setdefault(cy, []).append(i)
+    half = {cy: max(abs(cells[i][0]) for i in ids) + 15 for cy, ids in rows.items()}
+    # What the face holds at each pixel: an eye, or how much lighter/darker
+    # than the light it is (the speckle). The back of the ball has no eyes.
+    face = [('e' if e else (sh - light(cx, cy))) for cx, cy, e, sh in cells]
+    def look(i, phi):
+        cx, cy, e, sh = cells[i]
+        r = half[cy]
+        lon = math.asin(max(-1, min(1, cx / r))) - phi
+        back = math.cos(lon) < 0
+        if back: lon += math.pi
+        sx = r * math.sin(lon)
+        j = min(rows[cy], key=lambda k: abs(cells[k][0] - sx))
+        f = face[j]
+        if f == 'e':
+            if not back: return eye
+            f = 0
+        shade = light(cx, cy) + f
+        return colors[min(colors, key=lambda k: abs(int(k[1]) - shade))]
+    n = round(BUSY * FPS)
+    frames = [k / n for k in range(n)]
+    out = []
+    for i in range(len(cells)):
+        vals, times = [], []
+        for t in frames:
+            v = look(i, turn(t))
+            if not vals or vals[-1] != v: vals.append(v); times.append(t)
+        out.append((vals, times))
+    return {n: out[k] for n, k in index.items()}
 
 def convert(path, mode, speed=1.0):
     f = lambda x: f3(float(x) / speed)
@@ -66,6 +95,7 @@ def convert(path, mode, speed=1.0):
     vars_ = lambda st: dict(re.findall(r'--([a-z]):(-?[\d.]+)', st))
     # The most used body colour: the back of the sphere, where the eyes are not.
     skin = max(colors.values(), key=lambda v: sum(1 for cl, *_ in rects if 'e' not in cl.split() and colors.get(next((k for k in cl.split() if k.startswith('b')), ''), None) == v))
+    faces = globe(rects, colors, eye) if mode == 'busy' else None
     body = []
     for i, (cls, x, y, w, h, rx, st) in enumerate(rects):
         c = cls.split(); v = vars_(st)
@@ -74,15 +104,26 @@ def convert(path, mode, speed=1.0):
         if mode == 'still':
             body.append(f'<rect {geo} fill="{col}"/>'); continue
         if mode == 'busy':
-            # Every pixel twice: on the front, and its copy on the back of the
-            # sphere (the back has no eyes), so the ball stays whole as it turns.
-            dx, dy = scatter(i, float(x), float(y), float(w))
+            if i not in faces: continue   # an eye: the pixel under it shows it
+            # Thrown out from the centre (outer pixels further, so gaps grow
+            # outwards and pixels never overlap), bounces, turns, waits, is
+            # pulled back in with a bounce; its colour follows the turning face.
             cx, cy = float(x) + float(w) / 2 - 512, float(y) + float(w) / 2 - 512
-            for back in (False, True):
-                kt, moves, ops = sphere_frames(cx, cy, dx, dy, back)
-                fill = (skin if 'e' in c else col) if back else col
-                body.append(f'<rect {geo} fill="{fill}"><animateTransform attributeName="transform" type="translate" values="{moves}" keyTimes="{kt}" dur="{BUSY}s" repeatCount="indefinite"/>'
-                            f'<animate attributeName="opacity" values="{ops}" keyTimes="{kt}" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
+            rho = min(1, math.hypot(cx, cy) / 420)
+            far = .5 + .5 * rho
+            # A small fixed random nudge (same file every run), less than half
+            # the gap to the next pixel, so the burst looks scattered but no
+            # two pixels ever touch.
+            gap = 30 * (1 + SPREAD * far) - 27
+            jx = (((i * 2654435761) % 1000) / 500 - 1) * SCATTER * gap
+            jy = (((i * 40503 + 17) % 997) / 498.5 - 1) * SCATTER * gap
+            mv = lambda k: f'{round(k * far * cx + k / SPREAD * jx)} {round(k * far * cy + k / SPREAD * jy)}'
+            vals, times = faces[i]
+            fill = (f'<animate attributeName="fill" calcMode="discrete" values="{";".join(vals)}" keyTimes="{";".join(f3(t) for t in times)}" dur="{BUSY}s" repeatCount="indefinite"/>' if len(vals) > 1 else '')
+            body.append(f'<rect {geo} fill="{vals[0]}">{fill}<animateTransform attributeName="transform" type="translate" '
+                        f'values="0 0;0 0;{mv(OVER)};{mv(SPREAD)};{mv(SPREAD)};{mv(UNDER)};0 0;0 0" '
+                        f'keyTimes="0;{T_GROW};{T_BURST};{T_SETTLE};{T_PAUSE};{T_GATHER};{T_IN};1" calcMode="spline" '
+                        f'keySplines="0 0 1 1;.1 .9 .2 1;.5 0 .5 1;0 0 1 1;.6 0 .9 .5;.3 0 .4 1;0 0 1 1" dur="{BUSY}s" repeatCount="indefinite"/></rect>')
             continue
         if mode == 'remember':
             # A ring of light runs out from the centre and back.
@@ -106,12 +147,12 @@ def convert(path, mode, speed=1.0):
             anim += f'<animate attributeName="opacity" values="1;1;.1;.85;.15;1;1" keyTimes="0;.88;.9;.93;.95;.97;1" dur="{f(v.get("u","5"))}s" begin="{f(v.get("v","0"))}s" repeatCount="indefinite"/>'
         body.append(f'<rect {geo} fill="{col}">{anim}</rect>')
     if mode == 'busy':
-        # Grows from small; bursts while the sphere turns half way about its
-        # vertical axis; pauses; turns the rest of the way while the pixels
-        # gather into the ball; shrinks back.
-        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="NasrinAI Code">'
+        # Pops up; explodes while the sphere turns once about its vertical
+        # axis; pauses at 360 degrees; snaps back together; shrinks. A wider
+        # view (same centre) leaves room for the burst.
+        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="-192 -192 1408 1408" role="img" aria-label="NasrinAI Code">'
                 '<g transform="translate(512 512)"><g>'
-                f'<animateTransform attributeName="transform" type="scale" values=".55;.9;.9;.55" keyTimes="0;{T_GROW};{T_IN};1" calcMode="spline" keySplines=".3 0 .2 1;0 0 1 1;.6 0 .4 1" dur="{BUSY}s" repeatCount="indefinite"/>'
+                f'<animateTransform attributeName="transform" type="scale" values=".76;1.02;.9;.9;.69;.76" keyTimes="0;{T_POP};{T_GROW};{T_IN};{T_SHRINK};1" calcMode="spline" keySplines=".2 .9 .3 1;.5 0 .5 1;0 0 1 1;.5 0 .7 1;.3 0 .3 1" dur="{BUSY}s" repeatCount="indefinite"/>'
                 '<g transform="translate(-512 -512)">' + ''.join(body) + '</g></g></g></svg>\n')
     if mode == 'remember':
         # The ball breathes a little while the light runs through it.
