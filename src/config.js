@@ -541,6 +541,8 @@ export function loadConfig(env = process.env) {
   const ncc = Object.freeze({
     enabled: softFlag('NCC_ENABLED', env.NCC_ENABLED, 'false'),
     url: nccUrl,
+    // Meta Graph API version for NCC channels (FACEBOOK_GRAPH_VERSION, like v23.0); none: Meta's default.
+    graphVersion: /^v\d{1,3}\.\d$/.test(String(env.FACEBOOK_GRAPH_VERSION || '').trim()) ? String(env.FACEBOOK_GRAPH_VERSION).trim() : null,
     accounts: Object.freeze(nccAccounts.filter((e) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,63}$/.test(e))),
     maxContacts: softInt('NCC_CONTACTS_MAX', env.NCC_CONTACTS_MAX, 2000, 10, 20000),
     maxDeals: softInt('NCC_DEALS_MAX', env.NCC_DEALS_MAX, 2000, 10, 20000)
@@ -633,7 +635,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13e').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-13f').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
