@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError } from '../http/errors.js';
 import { seal, open } from '../connectors/secret.js';
 import { createGithubApi, checkRepo, GithubError } from './api.js';
+import { createCodingRunner } from './runner.js';
 
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
@@ -29,6 +30,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const gh = config.github || null;
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
+  const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, tokenFor, store, logger });
   const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
   const installUrl = gh?.slug ? `https://github.com/apps/${gh.slug}/installations/new` : null;
@@ -362,6 +364,18 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       parameters: { properties: { repo: repoParam, ref: refParam, path: pathParam }, required: ['repo'] },
       run: wrap((token, a) => api.recentCommits(token, checkRepo(a.repo), { ref: a.ref, path: a.path }))
     }
+
+    {
+      name: 'github_run_command',
+      description: 'Run one command on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. Use after inspecting repository files when tests/builds/linting/debugging need real execution. It never writes to GitHub, receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Supports Node.js and Python. Use one command without shell operators or chaining.',
+      risk: 'read', who: ['user'], timeoutMs: 80_000, longRunning: true,
+      parameters: { properties: {
+        repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' },
+        ref: { type: 'string', maxLength: 200, pattern: '^(?!.*\\.\\.)(?!/)[A-Za-z0-9._/-]{1,200}$' },
+        command: { type: 'string', maxLength: 300 }
+      }, required: ['repo', 'command'] },
+      run: (args, ctx) => codingRunner.run(args, ctx)
+    },
   ];
 
   return { available, routes, tools, tokenFor };

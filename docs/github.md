@@ -1,8 +1,7 @@
 # GitHub in the coding chat
 
 Nasrin reads GitHub repositories and opens pull requests for the person,
-from the coding chat (Code in the menu). Built on Node's own `fetch`
-(ADR-002: no Octokit, no packages).
+from the coding chat (Code in the menu). GitHub REST reads use Node's own `fetch` (no Octokit); code execution uses Vercel Sandbox microVMs.
 
 ## What it can do
 
@@ -40,9 +39,9 @@ shows `available`, or `off` with the missing setting (`not_set`, `client_id`,
 | Partial failure | Verified (tests) | Branch saved but PR failed: the answer names the branch |
 | PR state, changed files, CI results | Verified (tests) | `github_pr_status`; CI results need the app's Checks / Commit statuses read permission |
 | Delete files, rename | Unavailable | Not offered |
-| Run code, tests, builds | Unavailable in NasrinAI | The repository's own CI runs on the PR branch; Nasrin reports it with `github_pr_status` |
+| Run commands, tests, builds, linting | Implemented behind the isolated runner | `github_run_command` fetches a bounded source snapshot, runs one command in Vercel Sandbox, captures real exit code/stdout/stderr, restricts network access after dependency setup, and never writes to GitHub |
 | Push to existing branches, merge, deploy | Unavailable by design | Never offered |
-| Live GitHub | Unverified | Waits for the owner's GitHub App setup |
+| Sandbox execution | Implemented; live Vercel execution must be verified after deployment | Requires the SDK dependency and Vercel Sandbox OIDC support; private repo access uses the connected user's token only for archive download |
 
 ## Several GitHub accounts (migration 039)
 
@@ -145,3 +144,8 @@ for public repositories without a token.
 5. Redeploy. Menu → **Plugins** → GitHub → **Connect GitHub**, then
    **Choose repositories** to install the app on the repositories Nasrin may
    open pull requests in.
+
+
+## Isolated coding runner
+
+The runner is for signed-in users with GitHub connected. It fetches a source archive (15 MB max), sends no GitHub token or production secret into the ephemeral Vercel Sandbox microVM, limits each run to 70 seconds and 10 runs per user per hour, and truncates output. Node dependencies install with lifecycle scripts disabled; Python requirements install as binary wheels only. Egress is disabled before the requested command runs. Commands are passed as executable plus arguments rather than through a shell; shell operators and Git remote writes are rejected. The runner never modifies the repository; changes still use the existing confirmed pull-request flow. A sandbox result is not a substitute for repository CI or production verification.

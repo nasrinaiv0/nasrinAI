@@ -317,5 +317,27 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
   ].join('\n');
   const report = (finals) => finals.map((f) => ({ path: f.path, status: f.unchanged ? 'unchanged' : f.created ? 'added' : 'changed' }));
 
-  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, createPullRequest, checkFiles, applyEdits, blobSha };
+
+  async function downloadArchive(token, repo, ref) {
+    const name=checkRepo(repo), branch=checkRef(ref);
+    if(!branch)throw new GithubError('invalid','Choose a branch or commit to run.');
+    let first;
+    try{first=await fetchImpl(API+'/repos/'+name+'/tarball/'+enc(branch),{method:'GET',headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'NasrinAI',Authorization:'Bearer '+token},redirect:'manual',signal:AbortSignal.timeout(timeoutMs)});}
+    catch{throw new GithubError('failed','GitHub could not provide a repository snapshot.');}
+    if(first.status===404)throw new GithubError('not_found','The repository or branch was not found (or is private).');
+    let response=first;
+    if(first.status>=300&&first.status<400){
+      let target;try{target=new URL(first.headers.get('location')||'');}catch{throw new GithubError('failed','GitHub returned an invalid archive redirect.');}
+      if(target.protocol!=='https:'||target.hostname!=='codeload.github.com'||target.username||target.password)throw new GithubError('failed','GitHub returned an untrusted archive redirect.');
+      try{response=await fetchImpl(target.href,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15_000),headers:{'User-Agent':'NasrinAI'}});}catch{throw new GithubError('failed','The repository snapshot could not be downloaded.');}
+    }
+    if(!response.ok||!response.body)throw new GithubError('failed','The repository snapshot could not be downloaded.');
+    const chunks=[];let size=0,reader=response.body.getReader();
+    try{while(true){const{done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>15*1024*1024){await reader.cancel();throw new GithubError('invalid','The repository snapshot exceeds 15 MB.');}chunks.push(Buffer.from(value));}}
+    catch(e){if(e instanceof GithubError)throw e;throw new GithubError('failed','The repository snapshot download was interrupted.');}
+    finally{reader.releaseLock();}
+    return Buffer.concat(chunks,size);
+  }
+
+  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
 }

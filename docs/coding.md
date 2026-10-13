@@ -20,9 +20,7 @@ Library items (`.js`, `.py`, `.html`, … kept as plain text; never `.env`,
   one message as data. The code is not saved with the chat.
 - The Software Developer professional (Web Developer for HTML/CSS/JSX-like
   files) answers unless the person chose other professionals.
-- The system prompt gets a coding rule: Nasrin cannot run code or commands,
-  never claims it did, and warns before anything that deletes data or
-  changes a live system. **Nothing executes anything** (no terminal).
+- The system prompt requires production-grade work and evidence-based reporting. For connected GitHub repositories, `github_run_command` runs one command in an isolated Vercel Sandbox microVM; the server never executes repository code directly. See `docs/github.md` for limits and security boundaries.
 - A file in a project gets that project's instructions too.
 
 Files: `src/coding.js`, `src/library.js` (code extensions, `replace`),
