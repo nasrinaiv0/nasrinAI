@@ -313,7 +313,7 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
   const checkComment = (files) => [
     '**NasrinAI check after opening this pull request**', '',
     ...files.map((f) => `- \`${f.path}\` — ${f.status === 'unchanged' ? 'already matched, left as it is' : f.saved ? `${f.status === 'added' ? 'new file, ' : ''}saved exactly as written` : 'could not be confirmed; please look at it'}`),
-    '', 'NasrinAI cannot run this code. Review the changes and this repository\'s checks before merging.'
+    '', 'This comment confirms only that files were saved; it does not prove the code runs. Review the changes and this repository\'s checks before merging.'
   ].join('\n');
   const report = (finals) => finals.map((f) => ({ path: f.path, status: f.unchanged ? 'unchanged' : f.created ? 'added' : 'changed' }));
 
