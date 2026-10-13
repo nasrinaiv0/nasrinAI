@@ -58,8 +58,9 @@ Details are never written by an AI model.
 
 ## Limits and privacy
 
-- Lookups count against the hourly web limit (`LIMIT_GUEST_WEB_HOUR` /
-  `LIMIT_USER_WEB_HOUR`).
+- Lookups have their own hourly allowance (`LIMIT_GUEST_CITE_HOUR`,
+  default 20; `LIMIT_USER_CITE_HOUR`, default 120), separate from web reads
+  and searches, so citing many sources never blocks web search.
 - Only the page address or DOI leaves our server: to the site and/or Crossref,
   with the user agent `NasrinAI/1.0 (https://nasrinai.com)`.
 - Nothing is stored. Privacy Notice version 2026-10-13c covers it.

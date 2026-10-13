@@ -509,9 +509,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || codingChat || regenerate || secretInside);
       // The page's block-rich response format is cacheable too, but must never
       // share an exact or semantic cache entry with plain API responses.
-      const variant = codingTask
+      // Comparison replies (tables) get their own entries, so an older answer
+      // without a table is never reused for them; every other key is unchanged.
+      const variant = (codingTask
         ? `code|${caller.actor.type}:${caller.actor.id}|${plan.tier}|${blocks ? 'blocks' : 'plain'}`
-        : (blocks ? 'blocks' : 'plain');
+        : (blocks ? 'blocks' : 'plain')) + (compare ? '|compare' : '');
       const key = cacheable ? policy.cacheKey(plan, { history: fullHistory, attachments: files, message: typed, tenantId: caller.tenantId, variant }) : null;
       const hit = policy.cached(key);
       if (hit) {

@@ -140,3 +140,22 @@ test('the page: Cite on each source, "cite <link or DOI>" in chat, styles rememb
   assert.match(card, /a\.rel = 'noopener noreferrer';/);
   assert.doesNotMatch(card, /innerHTML/);
 });
+
+test('citation lookups have their own hourly allowance and never use up web search', async () => {
+  const citeReadLink = async (url) => ({ url, title: 't', text: 'x', html: '<title>A page</title>' });
+  const built = buildTestApp({ citeReadLink, citeFetch: async () => new Response('{}', { status: 404 }), env: { LIMIT_GUEST_CITE_HOUR: '2', LIMIT_GUEST_WEB_HOUR: '1' } });
+  const srv = await serve(built.app);
+  try {
+    const g = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
+    const cite = () => postJson(srv.url + '/v1/cite', { url: 'https://site.example/a' }, bearer(g));
+    assert.equal((await cite()).status, 200);
+    assert.equal((await cite()).status, 200);
+    assert.equal((await cite()).status, 429);   // the citation allowance is used up …
+    // Separate buckets: citing never uses up web reads and searches, and the reverse.
+    const caller = { tenantId: built.config.platformTenantId || 'platform', actor: { type: 'guest', id: 'web-check' } };
+    assert.equal(await built.limiter.cite(caller), true);
+    assert.equal(await built.limiter.web(caller), true);
+    assert.equal(await built.limiter.web(caller), false);   // the web limit (1) is its own
+    assert.equal(await built.limiter.cite(caller), true);   // and does not touch citations
+  } finally { await srv.close(); }
+});

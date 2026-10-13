@@ -96,6 +96,14 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       return r.allowed;
     },
 
+    // Citation lookups: per caller, people only, separate from web reads and searches.
+    async cite(caller) {
+      const { type, id } = caller.actor;
+      const limit = type === 'guest' ? limits.guestCiteHour : type === 'user' ? limits.userCiteHour : limits.serviceMessagesHour;
+      const r = await store.rateHit(`cite:${type}:${caller.tenantId}:${id}`, HOUR, limit);
+      return r.allowed;
+    },
+
     // One-time upload links (direct uploads): per caller, plus per IP for people.
     async upload(caller, ip, perHour) {
       const { type, id } = caller.actor;
