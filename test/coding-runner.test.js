@@ -141,7 +141,7 @@ function executionSandbox({runCommand, updateNetworkPolicy, stop}={}) {
 }
 function executionRunner({sandboxFactory, sandbox, store={rateHit:async()=>({allowed:true})}, logger=null}) {
   return createCodingRunner({
-    downloadArchive:async()=>Buffer.from('archive'),
+    downloadArchive:async()=>tinyArchive(),
     defaultBranch:async()=> 'main',
     tokenFor:async()=> 'token',
     store,
