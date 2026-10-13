@@ -2,11 +2,13 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError } from '../http/errors.js';
 import { seal, open } from '../connectors/secret.js';
 import { createGithubApi, checkRepo, GithubError } from './api.js';
+import { createCodingRunner } from './runner.js';
 
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
 // stored only sealed (AES-256-GCM, bound to the person). Nasrin reads public
-// repositories (and the person's, with their token) through read-only tools.
+// repositories (and the person's, with their token) through read tools; commands
+// execute only in isolated Vercel Sandbox microVMs, never on this server.
 // Changes go only to a new branch and a pull request, and only when the
 // person taps Confirm on the page; the model can never do it on its own.
 
@@ -29,6 +31,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const gh = config.github || null;
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
+  const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
   const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
   const installUrl = gh?.slug ? `https://github.com/apps/${gh.slug}/installations/new` : null;
@@ -361,7 +364,19 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       risk: 'read', who: ['guest', 'user'], timeoutMs: 9000,
       parameters: { properties: { repo: repoParam, ref: refParam, path: pathParam }, required: ['repo'] },
       run: wrap((token, a) => api.recentCommits(token, checkRepo(a.repo), { ref: a.ref, path: a.path }))
-    }
+    },
+    {
+      name: 'github_run_command',
+      description: 'Run one command on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. After inspecting repository files, optionally provide a standard unified diff in `patch` to apply proposed edits inside the temporary workspace before running tests/build/lint. This enables test-fix-retest without writing to GitHub. Every invocation starts from a fresh repository snapshot, so send the complete cumulative diff against the same ref on every rerun. It receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Supports Node.js and Python. Use one command without shell operators or chaining. Patches are text-only, limited to 100 KB, and cannot touch secret files, .git, dependencies, or generated framework state.',
+      risk: 'read', who: ['user'], timeoutMs: 80_000, longRunning: true, maxArgs: 240_000,
+      parameters: { properties: {
+        repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' },
+        ref: { type: 'string', maxLength: 200, pattern: '^(?!.*\\.\\.)(?!/)[A-Za-z0-9._/-]{1,200}$' },
+        command: { type: 'string', maxLength: 300 },
+        patch: { type: 'string', maxLength: 100_000 }
+      }, required: ['repo', 'command'] },
+      run: (args, ctx) => codingRunner.run(args, ctx)
+    },
   ];
 
   return { available, routes, tools, tokenFor };

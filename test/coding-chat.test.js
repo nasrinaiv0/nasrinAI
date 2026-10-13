@@ -15,7 +15,14 @@ test('the coding chat adds the coding rules and keeps code files as they are', a
     assert.match(r.message.content, /index\.html/, 'the .html file stays .html');
     const system = provider.calls.at(-1).system;
     assert.match(system, /coding chat for the person's project/);
-    assert.match(system, /cannot run code/);
+    assert.match(system, /github_run_command/);
+    assert.match(system, /unified diff/);
+    assert.match(system, /test-fix-retest/);
+    assert.match(system, /complete cumulative diff/);
+    assert.match(system, /production quality as the default/);
+    assert.match(system, /Do not deliver a toy demo/);
+    assert.match(system, /security boundaries/);
+    assert.match(system, /Completion means acceptance criteria are implemented/);
     assert.match(system, /\[\[checks title="Summary"\]\]/, 'asks for the simple status summary');
     assert.ok(r.professionals.length >= 1, 'a coding expert answered');
   } finally { await srv.close(); }

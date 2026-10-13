@@ -1,8 +1,7 @@
 # GitHub in the coding chat
 
 Nasrin reads GitHub repositories and opens pull requests for the person,
-from the coding chat (Code in the menu). Built on Node's own `fetch`
-(ADR-002: no Octokit, no packages).
+from the coding chat (Code in the menu). GitHub REST reads use Node's own `fetch` (no Octokit); code execution uses Vercel Sandbox microVMs.
 
 ## What it can do
 
@@ -12,8 +11,8 @@ from the coding chat (Code in the menu). Built on Node's own `fetch`
 | Signed in + GitHub connected | The same with their own GitHub token (higher limit, plus private repositories the app is installed on), and **Open pull request** under coding replies that contain files. |
 
 Never: merge, push to an existing branch, force-push, delete branches or files,
-or act on the model's own say-so. The model only has the read tools; a pull
-request is opened only by the page, after the person taps **Confirm**
+or act on the model's own say-so. The model can read repositories and run commands in an isolated sandbox; repository changes are made only through a pull
+request opened by the page after the person taps **Confirm**
 (`POST /v1/github/pull-requests` requires `confirm: true` and a signed-in
 person). Repository text is marked to the model as data, not instructions.
 
@@ -40,9 +39,9 @@ shows `available`, or `off` with the missing setting (`not_set`, `client_id`,
 | Partial failure | Verified (tests) | Branch saved but PR failed: the answer names the branch |
 | PR state, changed files, CI results | Verified (tests) | `github_pr_status`; CI results need the app's Checks / Commit statuses read permission |
 | Delete files, rename | Unavailable | Not offered |
-| Run code, tests, builds | Unavailable in NasrinAI | The repository's own CI runs on the PR branch; Nasrin reports it with `github_pr_status` |
+| Run commands, tests, builds, linting | Implemented behind the isolated runner | `github_run_command` fetches a bounded source snapshot, runs one command in Vercel Sandbox, captures real exit code/stdout/stderr, restricts network access after dependency setup, and never writes to GitHub |
 | Push to existing branches, merge, deploy | Unavailable by design | Never offered |
-| Live GitHub | Unverified | Waits for the owner's GitHub App setup |
+| Sandbox execution | Implemented; live Vercel execution must be verified after deployment | Requires the SDK dependency and Vercel Sandbox OIDC support; private repo access uses the connected user's token only for archive download |
 
 ## Several GitHub accounts (migration 039)
 
@@ -145,3 +144,8 @@ for public repositories without a token.
 5. Redeploy. Menu → **Plugins** → GitHub → **Connect GitHub**, then
    **Choose repositories** to install the app on the repositories Nasrin may
    open pull requests in.
+
+
+## Isolated coding runner
+
+The runner is for signed-in users with GitHub connected. It fetches a source archive (15 MB max), sends no GitHub token or production secret into the ephemeral Vercel Sandbox microVM, limits each run to 70 seconds and 10 runs per user per hour, and truncates output. Node dependencies install with lifecycle scripts disabled; Python requirements install as binary wheels only. Egress is disabled before the requested command runs. Commands are passed as executable plus arguments rather than through a shell; shell operators and Git remote writes are rejected. The runner never writes to GitHub. It can apply a bounded, text-only unified diff inside the temporary workspace before executing a command, enabling a real test-fix-retest loop without saving changes to a branch. Each invocation starts from a clean snapshot, so every rerun must include the complete cumulative diff against the same ref. Proposed patches cannot modify secrets, Git metadata, dependency directories, or generated framework state. Final repository changes still use the existing confirmed pull-request flow. A sandbox result is not a substitute for repository CI or production verification.
