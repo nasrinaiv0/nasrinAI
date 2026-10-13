@@ -388,3 +388,11 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
   }
   assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
 });
+
+test('plugins: connected plugins are listed first, under Connected', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.ok(html.indexOf('id="pluginsConnected"') < html.indexOf('id="pluginsDev"') && html.indexOf('id="pluginsDev"') < html.indexOf('id="pluginsMore"'));
+  assert.match(js, /\$\(on \? 'pluginsConnected' : 'pluginsDev'\)\.appendChild\(\$\('ghCard'\)\);/);
+});

@@ -6080,6 +6080,10 @@
   function renderGithub() {
     document.body.classList.toggle('github-on', github.available && Boolean(account));
     const on = github.connected;
+    // Connected plugins are listed first, under Connected.
+    $(on ? 'pluginsConnected' : 'pluginsDev').appendChild($('ghCard'));
+    $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
+    $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
     $('ghSub').textContent = !github.available ? 'Not switched on for this site yet' : on ? 'Connected · @' + github.login + (github.autoPr ? ' · automatic pull requests' : '') : 'Not connected';
     $('codeGithubBtn').hidden = !github.available;
     $('codeGithubBtn').firstElementChild.textContent = on ? 'Disconnect' : 'Connect GitHub';
