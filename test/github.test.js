@@ -360,6 +360,7 @@ test('github: pull request status reports files and the repository checks, or wh
   assert.deepEqual(st.files, [{ path: 'a.js', status: 'modified', additions: 2, deletions: 1 }]);
   assert.deepEqual(st.checks, { unavailable: 'not_installed' });
   assert.deepEqual(st.statuses, { state: 'success', count: 1 });
+  assert.deepEqual([st.merged, st.additions, st.deletions, st.changed_files], [false, 2, 1, 1], 'totals from the files when GitHub leaves them out');
   await assert.rejects(createGithubApi({ fetchImpl }).searchCode(null, 'o/r', 'foo'), (e) => e.code === 'unauthorized');
   let asked = '';
   const search = createGithubApi({ fetchImpl: async (url) => { asked = new URL(url).searchParams.get('q'); return Response.json({ total_count: 1, items: [{ path: 'src/a.js' }] }); } });
@@ -525,4 +526,27 @@ test('page: [[repo owner/name]] is read and hidden, also while the reply streams
   assert.equal(F.parse(reply).text, 'I will use primusco20/movo.');
   assert.equal(F.strip('Using it.\n[[repo prim'), 'Using it.');
   assert.equal(F.repoOf('[[repo ../../etc]]'), null);
+});
+
+test('github: merged or not, the whole diff size, and the recent pull requests list stay small', async () => {
+  const many = Array.from({ length: 60 }, (_, i) => ({ filename: 'src/very/long/path/name/for/file-number-' + i + '.js', status: 'modified', additions: 3, deletions: 1 }));
+  const { fetchImpl } = fakeGithub({
+    'GET /repos/o/r/pulls/7': () => [200, { title: 'Big', state: 'closed', merged: true, merged_at: '2026-10-13T14:57:26Z', merged_by: { login: 'primusco20' }, additions: 1234, deletions: 56, changed_files: 60, commits: 9, head: { ref: 'f', sha: 'h7' }, base: { ref: 'main' }, html_url: 'https://github.com/o/r/pull/7' }],
+    'GET /repos/o/r/pulls/7/files': () => [200, many],
+    'GET /repos/o/r/commits/h7/check-runs': () => [200, { check_runs: Array.from({ length: 30 }, (_, i) => ({ name: 'check-' + i, status: 'completed', conclusion: 'success' })) }],
+    'GET /repos/o/r/commits/h7/status': () => [200, { state: 'success', total_count: 0 }],
+    'GET /repos/o/r/pulls': () => [200, [
+      { number: 7, title: 'Big', state: 'closed', merged_at: '2026-10-13T14:57:26Z', head: { ref: 'f' }, base: { ref: 'main' }, updated_at: 'x' },
+      { number: 6, title: 'Dropped', state: 'closed', merged_at: null, head: { ref: 'g' }, base: { ref: 'main' } },
+      { number: 8, title: 'New', state: 'open', merged_at: null, head: { ref: 'h' }, base: { ref: 'main' } }
+    ]]
+  });
+  const api = createGithubApi({ fetchImpl });
+  const st = await api.prStatus('tok', 'o/r', 7);
+  assert.deepEqual([st.state, st.merged, st.merged_by, st.additions, st.deletions, st.changed_files, st.commits], ['merged', true, 'primusco20', 1234, 56, 60, 9]);
+  assert.equal(st.files.length, 20);
+  assert.equal(st.more_files, 40);
+  assert.ok(JSON.stringify(st).length < 8192, 'fits the tool result limit even for a big pull request');
+  const list = await api.listPulls('tok', 'o/r', { state: 'all', limit: 5 });
+  assert.deepEqual(list.pull_requests.map((p) => [p.number, p.state]), [[7, 'merged'], [6, 'closed'], [8, 'open']]);
 });

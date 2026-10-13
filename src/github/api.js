@@ -171,13 +171,37 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
       const st = await call('GET', `/repos/${name}/commits/${sha}/status`, { token });
       statuses = { state: st?.state || null, count: st?.total_count ?? 0 };
     } catch (err) { if (!(err instanceof GithubError)) throw err; statuses = { unavailable: err.code }; }
-    return {
+    // Kept small: a tool result must stay under 8 KB, also for big pull requests.
+    const all = Array.isArray(files) ? files : [];
+    const out = {
       number: n, title: String(pr.title || '').slice(0, 200), state: pr.merged ? 'merged' : pr.state,
+      merged: pr.merged === true, merged_at: pr.merged_at || null, merged_by: pr.merged_by?.login || null,
+      closed_at: pr.closed_at || null, draft: pr.draft === true,
+      // The whole diff, as GitHub counts it: +additions / -deletions over changed_files.
+      additions: Number.isInteger(pr.additions) ? pr.additions : all.reduce((t, f) => t + (f.additions ?? 0), 0),
+      deletions: Number.isInteger(pr.deletions) ? pr.deletions : all.reduce((t, f) => t + (f.deletions ?? 0), 0),
+      changed_files: Number.isInteger(pr.changed_files) ? pr.changed_files : all.length,
+      commits: Number.isInteger(pr.commits) ? pr.commits : null,
       mergeable: pr.mergeable ?? null, mergeable_state: pr.mergeable_state || null,
       head: pr.head?.ref || null, base: pr.base?.ref || null, url: pr.html_url,
-      files: (Array.isArray(files) ? files : []).slice(0, 50).map((f) => ({ path: String(f.filename), status: f.status, additions: f.additions ?? 0, deletions: f.deletions ?? 0 })),
-      checks, statuses
+      files: all.slice(0, 20).map((f) => ({ path: String(f.filename).slice(-120), status: f.status, additions: f.additions ?? 0, deletions: f.deletions ?? 0 })),
+      checks: Array.isArray(checks) ? checks.slice(0, 20) : checks, statuses
     };
+    if (all.length > 20) out.more_files = all.length - 20;
+    return out;
+  }
+
+  // Recent pull requests (newest first): number, title, open/merged/closed.
+  async function listPulls(token, repo, { state = 'all', limit = 10 } = {}) {
+    const name = checkRepo(repo);
+    const st = ['open', 'closed', 'all'].includes(state) ? state : 'all';
+    const n = Math.min(Math.max(Number(limit) || 10, 1), 20);
+    const list = await call('GET', `/repos/${name}/pulls?state=${st}&sort=updated&direction=desc&per_page=${n}`, { token });
+    return { repo: name, pull_requests: (Array.isArray(list) ? list : []).slice(0, n).map((p) => ({
+      number: p.number, title: String(p.title || '').slice(0, 120),
+      state: p.merged_at ? 'merged' : p.state, merged_at: p.merged_at || null,
+      head: p.head?.ref || null, base: p.base?.ref || null, updated_at: p.updated_at || null
+    })) };
   }
 
   // Checks a pull request's files: text only, safe paths, size limits.
@@ -339,5 +363,5 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     return Buffer.concat(chunks,size);
   }
 
-  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
+  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, listPulls, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
 }

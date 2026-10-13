@@ -37,7 +37,8 @@ shows `available`, or `off` with the missing setting (`not_set`, `client_id`,
 | Read back saved files | Verified (tests) | After the PR opens, each file on the new branch is compared with what was meant (Git blob id) |
 | Duplicate protection | Verified (tests) | The same request again (same title, same files, same base) returns the open PR |
 | Partial failure | Verified (tests) | Branch saved but PR failed: the answer names the branch |
-| PR state, changed files, CI results | Verified (tests) | `github_pr_status`; CI results need the app's Checks / Commit statuses read permission |
+| PR state (merged or not, by whom, when), diff size +/− and changed files, CI results | Verified (tests) | `github_pr_status`; CI results need the app's Checks / Commit statuses read permission |
+| Recent pull requests (open, merged, closed) | Verified (tests) | `github_list_pull_requests` |
 | Delete files, rename | Unavailable | Not offered |
 | Run commands, tests, builds, linting | Implemented behind the isolated runner | `github_run_command` fetches a bounded source snapshot, runs one command in Vercel Sandbox, captures real exit code/stdout/stderr, restricts network access after dependency setup, and never writes to GitHub |
 | Push to existing branches, merge, deploy | Unavailable by design | Never offered |
