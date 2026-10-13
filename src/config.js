@@ -547,6 +547,8 @@ export function loadConfig(env = process.env) {
   const ncc = Object.freeze({
     enabled: softFlag('NCC_ENABLED', env.NCC_ENABLED, 'false'),
     url: nccUrl,
+    // Meta Graph API version for NCC channels (FACEBOOK_GRAPH_VERSION, like v23.0); none: Meta's default.
+    graphVersion: /^v\d{1,3}\.\d$/.test(String(env.FACEBOOK_GRAPH_VERSION || '').trim()) ? String(env.FACEBOOK_GRAPH_VERSION).trim() : null,
     accounts: Object.freeze(nccAccounts.filter((e) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[a-z]{2,63}$/.test(e))),
     maxContacts: softInt('NCC_CONTACTS_MAX', env.NCC_CONTACTS_MAX, 2000, 10, 20000),
     maxDeals: softInt('NCC_DEALS_MAX', env.NCC_DEALS_MAX, 2000, 10, 20000)

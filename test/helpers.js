@@ -70,7 +70,7 @@ export function seededStore() {
 }
 
 // The real app wiring, with in-memory storage and a fake sign-in check.
-export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = [], logger = memoryLogger(), env = {}, provider = null, speechEngine = null, realtime = null, auth = null, payments = null, webSearch = null, readLinkImpl, imageProvider = null, imageBackup = null, videos = null, connectorCall = null, facebookFetch = null, settings = null, notices = null, storageFetch = null, semanticCache = null, researchReadLink = null, citeReadLink = null, citeFetch = null, iconReadLink = null, iconReadBytes = null } = {}) {
+export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = [], logger = memoryLogger(), env = {}, provider = null, speechEngine = null, realtime = null, auth = null, payments = null, webSearch = null, readLinkImpl, imageProvider = null, imageBackup = null, videos = null, connectorCall = null, facebookFetch = null, settings = null, notices = null, storageFetch = null, semanticCache = null, researchReadLink = null, citeReadLink = null, citeFetch = null, iconReadLink = null, iconReadBytes = null, nccMeta = null } = {}) {
   const config = testConfig(env);
   const deletedUsers = [];
   const users = verifyUser ?? (async (t) => (t === USER_TOKEN ? { id: 'user-1' } : null));
@@ -94,7 +94,7 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   const memory = createMemory({ store, logger });
   const library = createLibrary({ store, limiter, config, logger });
   const projects = createProjects({ store, conversations, limiter, config, logger });
-  const ncc = createNcc({ store, limiter, config, logger });
+  const ncc = createNcc({ store, limiter, config, logger, ...(nccMeta ? { meta: nccMeta } : {}) });
   const storage = createStorage({ store, config, conversations, library, logger });
   const coding = createCoding({ store, config });
   const uploads = config.uploads.enabled ? createUploads({ config, limiter, logger, ...(storageFetch ? { fetchImpl: storageFetch } : {}) }) : null;

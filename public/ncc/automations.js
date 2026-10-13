@@ -11,7 +11,7 @@
     'contact.source': 'How it was added', 'deal.value': 'Deal value', 'deal.stage': 'Deal stage'
   };
   const OP_LABELS = { has: 'has the tag', not_has: "doesn't have the tag", equals: 'is', contains: 'contains', is_set: 'is filled in', not_set: 'is empty', gte: 'is at least', lte: 'is at most' };
-  const PARAM_LABELS = { tag: 'Tag', title: 'Name', due_days: 'Due in (days)', text: 'Note', value: 'Value', stage: 'Stage' };
+  const PARAM_LABELS = { tag: 'Tag', title: 'Name', due_days: 'Due in (days)', text: 'Text', value: 'Value', stage: 'Stage', channel: 'Channel', mode: 'Message', template: 'Template name', language: 'Language', image_url: 'Picture link' };
 
   const TEMPLATES = [
     { name: 'Welcome new contacts', about: 'Tag them "new" and plan a call for tomorrow.', trigger: { type: 'contact_created' }, conditions: [],
@@ -32,6 +32,7 @@
   }
   function actionText(a, cat) {
     const base = (cat.actions.find((x) => x.type === a.type) || {}).label || a.type;
+    if (a.channel) { const ch = (N().data.channels || []).find((c) => c.id === a.channel); return `${base}${ch ? ' (' + (ch.name || ch.kind) + ')' : ''}${a.send === 'auto' ? ' · auto' : ' · approve'}`; }
     if (a.tag) return `${base}: ${a.tag}`;
     if (a.stage) return `${base}: ${N().STAGE_NAMES[a.stage]}`;
     if (a.title) return `${base}: ${a.title}`;
@@ -182,32 +183,62 @@
         if (state.actions.length > 1) nh.append(iconButton('trash', `Remove step ${i + 1}`, () => { state.actions.splice(i, 1); draw(); }));
         if (i > 0) nh.childNodes[2].firstChild.style.transform = 'rotate(-90deg)';
         node.append(nh);
-        const opts = cat.actions.map((x) => [x.type, x.label + (x.needs_deal && !dealTrigger ? ' (needs a deal trigger)' : ''), x.needs_deal && !dealTrigger]);
-        for (const p of cat.planned) opts.push([p.type, p.label + ' (needs Meta connection)', true]);
+        const channelsOf = (kind) => data.channels.filter((c) => c.kind === kind);
+        const opts = cat.actions.map((x) => {
+          const noDeal = x.needs_deal && !dealTrigger;
+          const noChannel = x.channel && !channelsOf(x.channel).length;
+          return [x.type, x.label + (noDeal ? ' (needs a deal trigger)' : noChannel ? ' (connect it in Social first)' : ''), (noDeal || noChannel) && x.type !== a.type];
+        });
+        for (const p of cat.planned) opts.push([p.type, p.label + ' (coming later)', true]);
         const kind = select(opts, a.type);
         kind.setAttribute('aria-label', `Step ${i + 1}: action`);
         kind.addEventListener('change', () => {
           const t = kind.value;
-          state.actions[i] = t === 'add_tag' || t === 'remove_tag' ? { type: t, tag: '' } : t === 'create_task' ? { type: t, title: '', due_days: 1 } : t === 'add_note' ? { type: t, text: '' } : t === 'create_deal' ? { type: t, title: '', value: 0 } : { type: t, stage: 'won' };
+          const spec = cat.actions.find((x) => x.type === t) || {};
+          if (spec.channel) {
+            const first = channelsOf(spec.channel)[0];
+            state.actions[i] = t === 'whatsapp_send' ? { type: t, channel: first?.id || '', mode: 'template', template: '', language: 'en_US', send: 'approve' } : { type: t, channel: first?.id || '', text: '', ...(t === 'instagram_post' ? { image_url: '' } : {}), send: 'approve' };
+          } else state.actions[i] = t === 'add_tag' || t === 'remove_tag' ? { type: t, tag: '' } : t === 'create_task' ? { type: t, title: '', due_days: 1 } : t === 'add_note' ? { type: t, text: '' } : t === 'create_deal' ? { type: t, title: '', value: 0 } : { type: t, stage: 'won' };
           draw();
         });
         node.append(field('Action', kind));
         const spec = cat.actions.find((x) => x.type === a.type) || { params: [] };
         const row = el('div', 'row');
+        let sendSwitch = null;
         for (const p of spec.params) {
           let ctl;
           if (p === 'stage') { ctl = select(stages, a.stage || 'won'); a.stage = ctl.value; ctl.addEventListener('change', () => { a.stage = ctl.value; }); }
-          else if (p === 'text') { ctl = textarea(a.text, 1000, 2); ctl.addEventListener('input', () => { a.text = ctl.value; }); }
+          else if (p === 'channel') {
+            const list = channelsOf(spec.channel);
+            ctl = select(list.map((c) => [c.id, c.name || c.external_id]), a.channel);
+            if (list.length && !list.some((c) => c.id === a.channel)) a.channel = list[0].id;
+            ctl.addEventListener('change', () => { a.channel = ctl.value; });
+          } else if (p === 'mode') {
+            ctl = select([['template', 'Template'], ['text', 'Plain text (24-hour window)']], a.mode || 'template');
+            ctl.addEventListener('change', () => { a.mode = ctl.value; draw(); });
+          } else if (p === 'send') {
+            sendSwitch = el('label', 'row send-row');
+            const sw = el('input', 'switch');
+            sw.type = 'checkbox';
+            sw.checked = a.send === 'auto';
+            sw.addEventListener('change', () => { a.send = sw.checked ? 'auto' : 'approve'; });
+            sendSwitch.append(sw, el('span', 'hint', 'Send by itself. Off: it waits in Social for your approval.'));
+            continue;
+          } else if ((p === 'template' || p === 'language') && a.mode === 'text') continue;
+          else if (p === 'text' && a.type === 'whatsapp_send' && a.mode !== 'text') continue;
+          else if (p === 'text') { ctl = textarea(a.text, spec.max_text || 1000, 3); ctl.addEventListener('input', () => { a.text = ctl.value; }); }
           else {
-            const max = p === 'tag' ? 30 : p === 'title' ? (a.type === 'create_task' ? 200 : 120) : 16;
-            ctl = input(a[p] ?? '', { max, required: p === 'tag' || p === 'title' });
+            const max = p === 'tag' ? 30 : p === 'title' ? (a.type === 'create_task' ? 200 : 120) : p === 'image_url' ? 1000 : p === 'template' ? 512 : p === 'language' ? 6 : 16;
+            ctl = input(a[p] ?? '', { max, required: p !== 'value' && p !== 'due_days', type: p === 'image_url' ? 'url' : 'text', placeholder: p === 'image_url' ? 'https://… (a public JPEG)' : p === 'template' ? 'welcome_message' : p === 'language' ? 'en_US' : '' });
             if (p === 'due_days' || p === 'value') { ctl.inputMode = 'numeric'; ctl.type = 'number'; ctl.min = '0'; ctl.max = p === 'due_days' ? '365' : ''; }
-            ctl.addEventListener('input', () => { a[p] = p === 'due_days' || p === 'value' ? ctl.value : ctl.value; });
+            ctl.addEventListener('input', () => { a[p] = ctl.value; });
           }
           row.append(field(PARAM_LABELS[p] || p, ctl));
         }
         node.append(row);
+        if (spec.channel && !channelsOf(spec.channel).length) node.append(el('p', 'hint', 'Connect this channel in Social first.'));
         if (spec.params.some((p) => p === 'title' || p === 'text')) node.append(el('p', 'placeholders', 'You can use {{contact.first_name}}, {{contact.name}}, {{contact.company}}' + (dealTrigger ? ', {{deal.title}}, {{deal.value}}' : '') + '.'));
+        if (sendSwitch) node.append(sendSwitch);
         root.append(node);
         if (i < state.actions.length - 1) root.append(el('div', 'link'));
       });
@@ -215,13 +246,11 @@
       if (state.actions.length < cat.limits.actions) addS.append(button('Add step', 'btn small', () => { state.actions.push({ type: 'add_tag', tag: '' }); draw(); }, 'plus'));
       root.append(addS);
 
-      // Social channels: planned, not active yet.
-      const planned = el('div', 'planned');
-      planned.append(el('strong', '', 'Social channels'), el('p', 'hint', 'Posting to Facebook, Instagram and Threads, and messaging on Messenger and WhatsApp, will appear as steps once your business connects its Meta accounts.'));
-      const chips = el('div', 'chips');
-      for (const p of cat.planned) chips.append(el('span', 'chip', p.label));
-      planned.append(chips);
-      root.append(planned);
+      if (!data.channels.length) {
+        const planned = el('div', 'planned');
+        planned.append(el('strong', '', 'Social steps'), el('p', 'hint', 'Connect your Facebook Page, Instagram, Threads or WhatsApp in Social to post and send messages from automations.'));
+        root.append(planned);
+      }
 
       // Save / delete
       const actions = el('div', 'row');

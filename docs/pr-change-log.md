@@ -1,3 +1,10 @@
+## Proposed PR — NCC Meta channels and outbox (`feature/ncc-meta-channels`)
+
+- **Owner request (2026-10-13):** automations post and send through Facebook, Instagram, Threads and WhatsApp (Messenger later); nothing may lose users' data or cache.
+- **Change:** `src/ncc-meta.js` (official Graph, Threads and WhatsApp Cloud APIs), sealed tokens, migration `041_ncc_channels.sql` (`ncc_channels`, `ncc_outbox`; new tables only) + DB test, social steps with approval or per-step auto-send, Social screen (channels, post composer, approvals), WhatsApp from a contact; Privacy Notice 2026-10-13f (no re-acceptance).
+- **Data safety:** no existing table, cache or chat code is changed. Before 041 is run the CRM keeps working (Social says not ready); account deletion skips NCC tables that are not there yet and still fails loudly on any other database error.
+- **Validation:** `npm test` (fake Meta for every endpoint and the outbox), DB tests on Postgres 16, browser at 1440 px and 390 px.
+
 ## Proposed PR — NCC: its own CRM app with automations (`feature/ncc-contacts-pipeline`)
 
 - **Owner decisions (2026-10-13):** NCC on its own subdomain (ncc.nasrinai.com), desktop and iPhone friendly, a full CRM with automation; team-enabled access; kept until the business deletes it; social channels later (Facebook, Instagram, Messenger, Threads, WhatsApp).

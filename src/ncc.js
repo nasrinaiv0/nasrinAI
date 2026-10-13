@@ -1,7 +1,9 @@
 import { HttpError } from './http/errors.js';
 import { UUID } from './tenants.js';
 import { cleanField } from './projects.js';
-import { STAGES, LIMITS as AUTO_LIMITS, readAutomation, matches, fill, catalog } from './ncc-automations.js';
+import { STAGES, LIMITS as AUTO_LIMITS, SOCIAL, TEXT_LIMITS, readAutomation, readSocial, matches, fill, catalog } from './ncc-automations.js';
+import { createMeta, MetaError } from './ncc-meta.js';
+import { seal, open } from './connectors/secret.js';
 
 // NCC (Nasrin Client Connect): the enterprise CRM (docs/ncc.md), its own app
 // at ncc.nasrinai.com. Contacts, a deal pipeline, tasks, each contact's
@@ -133,10 +135,25 @@ const publicTask = (t) => ({ id: t.id, title: t.title, due_at: t.dueAt, done: t.
 const publicActivity = (a) => ({ id: a.id, kind: a.kind, text: a.text, created_at: a.createdAt });
 const publicAutomation = (a) => ({ id: a.id, name: a.name, enabled: a.enabled, trigger: a.trigger, conditions: a.conditions, actions: a.actions, runs: a.runs, last_run_at: a.lastRunAt, last_result: a.lastResult, created_at: a.createdAt, updated_at: a.updatedAt });
 const STAGE_NAME = { lead: 'Lead', qualified: 'Qualified', proposal: 'Proposal', won: 'Won', lost: 'Lost' };
+const CHANNEL_NAME = { facebook_page: 'Facebook Page', instagram: 'Instagram', threads: 'Threads', whatsapp: 'WhatsApp' };
+const ACTION_CHANNEL = { facebook_post: 'facebook_page', instagram_post: 'instagram', threads_post: 'threads', whatsapp_send: 'whatsapp' };
+const ACTION_NAME = { facebook_post: 'Facebook post', instagram_post: 'Instagram post', threads_post: 'Threads post', whatsapp_send: 'WhatsApp message' };
+const MAX_CHANNELS = 20;
+const TOKEN = /^[A-Za-z0-9_|.-]{20,1000}$/;
+const publicChannel = (c) => ({ id: c.id, kind: c.kind, external_id: c.externalId, name: c.name, created_at: c.createdAt });
+const publicOutbox = (o) => ({ id: o.id, channel_id: o.channelId, automation_id: o.automationId, contact_id: o.contactId, action: o.action, payload: o.payload, status: o.status, result: o.result, external_ref: o.externalRef, created_at: o.createdAt, updated_at: o.updatedAt });
+
+// A contact's phone for WhatsApp: international format only (+ and 8-15 digits).
+export function whatsappNumber(phone) {
+  const t = String(phone || '').replace(/[\s().-]/g, '');
+  if (!/^\+[1-9][0-9]{7,14}$/.test(t)) throw new HttpError(400, 'invalid_ncc', 'WhatsApp needs the contact\'s number in international format, like +63 917 000 0000.');
+  return t.slice(1);
+}
 const DAY = 86_400_000;
 
-export function createNcc({ store, limiter, config, logger, now = () => Date.now() }) {
+export function createNcc({ store, limiter, config, logger, now = () => Date.now(), meta = null, fetchImpl = null }) {
   const settings = () => config.ncc || { enabled: false, accounts: [] };
+  const metaApi = meta || createMeta({ graphVersion: config.ncc?.graphVersion || null, ...(fetchImpl ? { fetchImpl } : {}) });
   // Turned on for this caller? Signed in, NCC on, and their verified sign-in email listed.
   const allowed = (caller) => {
     const s = settings();
@@ -181,12 +198,75 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
     try { await store.addNccActivity({ ...who(caller), contactId, kind, text: String(text).slice(0, LIMITS.note) }); } catch (err) { logger.warn('ncc timeline write failed', { error: err?.message }); }
   }
 
+  // ---------- Meta channels and the outbox ----------
+  const key = () => config.connectors?.key || null;
+  const needKey = () => {
+    if (!key()) throw new HttpError(503, 'ncc_channels_off', 'Channels are not available yet: the NasrinAI team needs to finish their setup.');
+  };
+  const sealName = (caller, kind, externalId) => `ncc:${caller.actor.id}:${kind}:${externalId}`;
+  async function ownChannel(caller, id, kind) {
+    const gone = () => new HttpError(404, 'not_found', 'That channel is not connected.');
+    if (!UUID.test(String(id))) throw gone();
+    const ch = await guard(() => store.getNccChannel({ ...who(caller), id }));
+    if (!ch) throw gone();
+    if (kind && ch.kind !== kind) throw bad(`Choose a ${CHANNEL_NAME[kind]} channel for that step.`);
+    return ch;
+  }
+  const tokenOf = (caller, ch) => open(key(), ch.tokenEnc, { tenantId: caller.tenantId, name: sealName(caller, ch.kind, ch.externalId) });
+
+  // What one post or message says, with {{...}} filled in for the contact.
+  function payloadFor(step, event) {
+    const max = TEXT_LIMITS[step.type];
+    if (step.type === 'whatsapp_send') {
+      if (!event.contact) throw bad('A WhatsApp message needs a contact.');
+      const to = whatsappNumber(event.contact.phone);
+      return step.mode === 'text'
+        ? { to, mode: 'text', text: fill(step.text, event).slice(0, max) }
+        : { to, mode: 'template', template: step.template, language: step.language };
+    }
+    const text = fill(step.text || '', event).slice(0, max);
+    if (!text && step.type !== 'instagram_post') throw bad('The text is empty.');
+    return step.type === 'instagram_post' ? { text, image_url: step.image_url } : { text };
+  }
+
+  async function deliver(caller, item) {
+    const ch = await ownChannel(caller, item.channelId, ACTION_CHANNEL[item.action]);
+    const token = tokenOf(caller, ch);
+    const p = item.payload;
+    if (item.action === 'facebook_post') return metaApi.postFacebook(ch.externalId, token, p);
+    if (item.action === 'instagram_post') return metaApi.postInstagram(ch.externalId, token, p);
+    if (item.action === 'threads_post') return metaApi.postThreads(ch.externalId, token, p);
+    if (item.action === 'whatsapp_send') return metaApi.sendWhatsapp(ch.externalId, token, p);
+    throw bad('That cannot be sent.');
+  }
+
+  // Sends one outbox item: claimed pending -> sending once, so a double tap or
+  // two runs can never send it twice. Returns the item as it ends.
+  async function sendItem(caller, id) {
+    needKey();
+    const claimed = await guard(() => store.claimNccOutbox({ ...who(caller), id }));
+    if (!claimed) return null;
+    let status = 'sent';
+    let result = 'Sent.';
+    let ref = '';
+    try {
+      ref = String((await deliver(caller, claimed)).id || '').slice(0, 200);
+    } catch (err) {
+      status = 'failed';
+      result = err instanceof MetaError || err instanceof HttpError ? (err.publicMessage || err.message) : 'It could not be sent.';
+      logger.warn('ncc send failed', { action: claimed.action, category: err?.category || err?.code || 'error' });
+    }
+    const done = await guard(() => store.finishNccOutbox({ ...who(caller), id, status, result: String(result).slice(0, 300), externalRef: ref }));
+    if (claimed.contactId) await log(caller, claimed.contactId, 'automation', `${ACTION_NAME[claimed.action]}: ${status === 'sent' ? 'sent' : 'not sent. ' + result}`);
+    return done;
+  }
+
   // ---------- automations: the runner ----------
   // Runs the account's matching automations for one event. An automation's
   // own changes start other automations only up to depth 2, and one request
   // runs at most 25 steps, so nothing can loop. A failing step stops that
   // automation and is recorded; it never fails the person's own change.
-  async function fire(caller, event, budget = { steps: AUTO_LIMITS.perRequest }) {
+  async function fire(caller, event, budget = { steps: AUTO_LIMITS.perRequest, sends: 5 }) {
     const depth = event.depth || 0;
     if (depth >= AUTO_LIMITS.depth || budget.steps <= 0) return;
     let autos;
@@ -198,7 +278,7 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
         if (budget.steps <= 0) { result = 'Stopped: too many steps at once.'; break; }
         budget.steps--;
         try {
-          done.push(await runStep(caller, step, event, depth, budget));
+          done.push(await runStep(caller, step, event, depth, budget, auto));
         } catch (err) {
           result = 'Stopped: ' + (err instanceof HttpError ? err.publicMessage : 'a step could not finish.');
           logger.warn('ncc automation step failed', { step: step.type, error: err?.message });
@@ -212,7 +292,7 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
     }
   }
 
-  async function runStep(caller, step, event, depth, budget) {
+  async function runStep(caller, step, event, depth, budget, auto) {
     const contact = event.contact ? await ownContact(caller, event.contact.id) : null;
     const next = (e) => fire(caller, { ...e, depth: depth + 1 }, budget);
     switch (step.type) {
@@ -256,9 +336,28 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
         await next({ type: 'deal_stage', contact, deal });
         return `moved the deal to ${STAGE_NAME[step.stage]}`;
       }
+      case 'facebook_post':
+      case 'instagram_post':
+      case 'threads_post':
+      case 'whatsapp_send': {
+        const ch = await ownChannel(caller, step.channel, ACTION_CHANNEL[step.type]);
+        const payload = payloadFor(step, { ...event, contact });
+        const item = await guard(() => store.createNccOutbox({ ...who(caller), channelId: ch.id, automationId: auto?.id || null, contactId: contact?.id || null, action: step.type, payload }));
+        // Sends by itself only when the business set this exact step to "auto",
+        // and at most 5 sends per request; everything else waits for approval.
+        if (step.send !== 'auto' || budget.sends <= 0 || !key()) return `${ACTION_NAME[step.type]} waiting for approval`;
+        budget.sends--;
+        const sent = await sendItem(caller, item.id);
+        return sent && sent.status === 'sent' ? `${ACTION_NAME[step.type]} sent` : `${ACTION_NAME[step.type]} not sent (${sent ? sent.result : 'already handled'})`;
+      }
       default:
         throw bad('That step is not available.');
     }
+  }
+
+  // An automation's social steps must use this account's own channels, of the right kind.
+  async function checkChannels(caller, actions) {
+    for (const a of actions || []) if (SOCIAL.includes(a.type)) await ownChannel(caller, a.channel, ACTION_CHANNEL[a.type]).catch((err) => { throw err.status === 404 ? bad('A step uses a channel that is not connected.') : err; });
   }
 
   // Person's change -> its events, run after the change is saved.
@@ -272,11 +371,19 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
 
     async list(caller) {
       need(caller);
-      const [contacts, deals, tasks, automations] = await guard(() => Promise.all([
-        store.listNccContacts(who(caller)), store.listNccDeals(who(caller)), store.listNccTasks(who(caller)), store.listNccAutomations(who(caller))
+      // Channels need migration 041: before it is run, the CRM still works and
+      // Social says channels are not ready.
+      let channelsOk = true;
+      const soft = (p) => p.catch((err) => { channelsOk = false; logger.warn('ncc channels unavailable', { error: err?.message }); return []; });
+      const [contacts, deals, tasks, automations, channels, outbox] = await guard(() => Promise.all([
+        store.listNccContacts(who(caller)), store.listNccDeals(who(caller)), store.listNccTasks(who(caller)), store.listNccAutomations(who(caller)),
+        soft(store.listNccChannels(who(caller))), soft(store.listNccOutbox({ ...who(caller), limit: 100 }))
       ]));
       return {
         account: { email: caller.actor.email },
+        channels: channels.map(publicChannel),
+        channels_ready: Boolean(key()) && channelsOk,
+        outbox: outbox.map(publicOutbox),
         contacts: contacts.map(publicContact),
         deals: deals.map(publicDeal),
         tasks: tasks.map(publicTask),
@@ -458,6 +565,7 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
       need(caller);
       const a = readAutomation(body, true);
       await limiter.ncc(caller);
+      await checkChannels(caller, a.actions);
       const all = await guard(() => store.listNccAutomations(who(caller)));
       if (all.length >= AUTO_LIMITS.automations) throw new HttpError(409, 'ncc_full', `You have ${AUTO_LIMITS.automations} automations. Delete one first.`);
       return publicAutomation(await guard(() => store.createNccAutomation({ ...who(caller), ...a })));
@@ -472,6 +580,7 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
       if (!current) throw automationMissing();
       // The whole automation must still make sense after the change.
       readAutomation({ name: current.name, trigger: current.trigger, conditions: current.conditions, actions: current.actions, ...Object.fromEntries(Object.entries(patch)) }, true);
+      if (patch.actions) await checkChannels(caller, patch.actions);
       const a = await guard(() => store.updateNccAutomation({ ...who(caller), id, patch }));
       if (!a) throw automationMissing();
       return publicAutomation(a);
@@ -485,18 +594,115 @@ export function createNcc({ store, limiter, config, logger, now = () => Date.now
       return { deleted: true };
     },
 
+    // ---------- Meta channels ----------
+    // Connects the business's own channel with a token from Meta. The token
+    // is checked with Meta, sealed, and never sent back.
+    async connectChannel(caller, body) {
+      need(caller);
+      needKey();
+      const b = obj(body);
+      const token = typeof b.token === 'string' ? b.token.trim() : '';
+      if (!TOKEN.test(token)) throw bad('Paste the access token from Meta.');
+      await limiter.ncc(caller);
+      const existing = await guard(() => store.listNccChannels(who(caller)));
+      let found = [];
+      try {
+        if (b.kind === 'facebook_page') {
+          const page = await metaApi.checkPage(token);
+          found.push({ kind: 'facebook_page', externalId: page.id, name: page.name });
+          if (page.instagram) found.push({ kind: 'instagram', externalId: page.instagram.id, name: page.instagram.name });
+        } else if (b.kind === 'threads') {
+          const t = await metaApi.checkThreads(token);
+          found.push({ kind: 'threads', externalId: t.id, name: t.name });
+        } else if (b.kind === 'whatsapp') {
+          const w = await metaApi.checkWhatsapp(String(b.phone_number_id || '').trim(), token);
+          found.push({ kind: 'whatsapp', externalId: w.id, name: w.name });
+        } else throw bad('Choose Facebook Page, Threads or WhatsApp.');
+      } catch (err) {
+        if (err instanceof MetaError) throw new HttpError(400, 'meta_refused', err.message);
+        throw err;
+      }
+      const fresh = found.filter((f) => !existing.some((e) => e.kind === f.kind && e.externalId === f.externalId));
+      if (existing.length + fresh.length > MAX_CHANNELS) throw new HttpError(409, 'ncc_full', `You can connect up to ${MAX_CHANNELS} channels.`);
+      const saved = [];
+      for (const f of found) saved.push(await guard(() => store.upsertNccChannel({ ...who(caller), ...f, tokenEnc: seal(key(), token, { tenantId: caller.tenantId, name: sealName(caller, f.kind, f.externalId) }) })));
+      logger.info('ncc channel connected', { kinds: found.map((f) => f.kind).join(',') });
+      return { channels: saved.map(publicChannel) };
+    },
+
+    async removeChannel(caller, id) {
+      need(caller);
+      await ownChannel(caller, id);
+      const ok = await guard(() => store.deleteNccChannel({ ...who(caller), id }));
+      if (!ok) throw new HttpError(404, 'not_found', 'That channel is not connected.');
+      return { deleted: true };
+    },
+
+    // ---------- posting and the outbox ----------
+    // The person posts now on chosen channels: their tap is the approval.
+    async post(caller, body) {
+      need(caller);
+      needKey();
+      const b = obj(body);
+      const ids = Array.isArray(b.channel_ids) ? [...new Set(b.channel_ids.map(String))] : [];
+      if (!ids.length || ids.length > 10) throw bad('Choose where to post.');
+      await limiter.ncc(caller);
+      const items = [];
+      for (const id of ids) {
+        const ch = await ownChannel(caller, id);
+        const type = { facebook_page: 'facebook_post', instagram: 'instagram_post', threads: 'threads_post' }[ch.kind];
+        if (!type) throw bad('WhatsApp messages go to a contact: send them from the contact.');
+        const step = readSocial({ type, channel: ch.id, text: b.text, image_url: b.image_url }, CHANNEL_NAME[ch.kind]);
+        items.push(await guard(() => store.createNccOutbox({ ...who(caller), channelId: ch.id, automationId: null, contactId: null, action: type, payload: payloadFor(step, {}) })));
+      }
+      const out = [];
+      for (const it of items) out.push(publicOutbox(await sendItem(caller, it.id)));
+      return { outbox: out };
+    },
+
+    // A WhatsApp message to one contact, sent now.
+    async message(caller, contactId, body) {
+      need(caller);
+      needKey();
+      const b = obj(body);
+      const contact = await ownContact(caller, contactId);
+      const ch = await ownChannel(caller, b.channel_id, 'whatsapp');
+      const step = readSocial({ type: 'whatsapp_send', channel: ch.id, mode: b.mode, template: b.template, language: b.language, text: b.text }, 'WhatsApp');
+      await limiter.ncc(caller);
+      const item = await guard(() => store.createNccOutbox({ ...who(caller), channelId: ch.id, automationId: null, contactId: contact.id, action: 'whatsapp_send', payload: payloadFor(step, { contact }) }));
+      return publicOutbox(await sendItem(caller, item.id));
+    },
+
+    async approve(caller, id) {
+      need(caller);
+      if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'That item was not found.');
+      await limiter.ncc(caller);
+      const done = await sendItem(caller, id);
+      if (!done) throw new HttpError(409, 'already_handled', 'That was already sent or discarded.');
+      return publicOutbox(done);
+    },
+
+    async discard(caller, id) {
+      need(caller);
+      if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'That item was not found.');
+      const done = await guard(() => store.discardNccOutbox({ ...who(caller), id }));
+      if (!done) throw new HttpError(409, 'already_handled', 'That was already sent or discarded.');
+      return publicOutbox(done);
+    },
+
     // ---------- everything ----------
     async exportAll(caller) {
       need(caller);
-      const [contacts, deals, tasks, automations] = await guard(() => Promise.all([
-        store.listNccContacts(who(caller)), store.listNccDeals(who(caller)), store.listNccTasks(who(caller)), store.listNccAutomations(who(caller))
+      const [contacts, deals, tasks, automations, channels, outbox] = await guard(() => Promise.all([
+        store.listNccContacts(who(caller)), store.listNccDeals(who(caller)), store.listNccTasks(who(caller)), store.listNccAutomations(who(caller)),
+        store.listNccChannels(who(caller)).catch(() => []), store.listNccOutbox({ ...who(caller), limit: 1000 }).catch(() => [])
       ]));
       const timelines = {};
       for (const c of contacts) timelines[c.id] = (await guard(() => store.listNccActivities({ ...who(caller), contactId: c.id, limit: 1000 }))).map(publicActivity);
-      return { exported_at: new Date(now()).toISOString(), contacts: contacts.map((c) => ({ ...publicContact(c), timeline: timelines[c.id] })), deals: deals.map(publicDeal), tasks: tasks.map(publicTask), automations: automations.map(publicAutomation) };
+      return { exported_at: new Date(now()).toISOString(), contacts: contacts.map((c) => ({ ...publicContact(c), timeline: timelines[c.id] })), deals: deals.map(publicDeal), tasks: tasks.map(publicTask), automations: automations.map(publicAutomation), channels: channels.map(publicChannel), outbox: outbox.map(publicOutbox) };
     },
 
-    // Deletes every contact, deal, task, note and automation in this account's NCC.
+    // Deletes every contact, deal, task, note, automation, channel and outbox item in this account's NCC.
     async removeAll(caller, body) {
       need(caller);
       if (obj(body).confirm !== 'DELETE') throw new HttpError(400, 'confirm_required', 'Type DELETE to confirm.');

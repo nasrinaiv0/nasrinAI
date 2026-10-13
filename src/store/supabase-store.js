@@ -21,6 +21,13 @@ const NCC_AUTOMATION_COLUMNS = 'id,name,enabled,trigger,conditions,actions,runs,
 const mapNccTask = (r) => ({ id: r.id, title: r.title, dueAt: r.due_at, done: r.done, contactId: r.contact_id, dealId: r.deal_id, origin: r.origin, createdAt: r.created_at, updatedAt: r.updated_at });
 const mapNccActivity = (r) => ({ id: r.id, kind: r.kind, text: r.text, createdAt: r.created_at });
 const mapNccAutomation = (r) => ({ id: r.id, name: r.name, enabled: r.enabled, trigger: r.trigger, conditions: Array.isArray(r.conditions) ? r.conditions : [], actions: Array.isArray(r.actions) ? r.actions : [], runs: r.runs, lastRunAt: r.last_run_at, lastResult: r.last_result, createdAt: r.created_at, updatedAt: r.updated_at });
+// A table that is not there yet (its migration not run): PostgREST answers 404
+// (PGRST205) or names the missing relation (42P01).
+const missingTable = (err) => err instanceof UpstreamError && / 404 |PGRST205|42P01|does not exist|schema cache/.test(String(err.message));
+const NCC_CHANNEL_COLUMNS = 'id,kind,external_id,name,created_at';
+const NCC_OUTBOX_COLUMNS = 'id,channel_id,automation_id,contact_id,action,payload,status,result,external_ref,created_at,updated_at';
+const mapNccChannel = (r) => ({ id: r.id, kind: r.kind, externalId: r.external_id, name: r.name, createdAt: r.created_at, ...(r.token_enc ? { tokenEnc: r.token_enc } : {}) });
+const mapNccOutbox = (r) => ({ id: r.id, channelId: r.channel_id, automationId: r.automation_id, contactId: r.contact_id, action: r.action, payload: r.payload && typeof r.payload === 'object' ? r.payload : {}, status: r.status, result: r.result, externalRef: r.external_ref, createdAt: r.created_at, updatedAt: r.updated_at });
 const NCC_CONTACT_FIELDS = ['name', 'email', 'phone', 'company', 'tags', 'notes'];
 const NCC_DEAL_FIELDS = ['title', 'stage', 'value', 'currency'];
 // A second contact with the same email (unique index ncc_contacts_email_uq).
@@ -439,7 +446,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });
-      await this.deleteNccData({ tenantId, userId }).catch((err) => { if (!/ 404 /.test(String(err?.message))) throw err; });
+      await this.deleteNccData({ tenantId, userId });
       await this.deleteGithubConnection({ tenantId, userId });
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
     },
@@ -566,13 +573,64 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!rows || !rows[0]) return;
       await request('PATCH', `ncc_automations?${who}`, { prefer: 'return=minimal', body: { runs: rows[0].runs + 1, last_run_at: at, last_result: String(result).slice(0, 300) } });
     },
+    // The business's Meta channels. Tokens are read only by getNccChannel (to send).
+    async listNccChannels({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return [];
+      const rows = await request('GET', `ncc_channels?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc&limit=50&select=${NCC_CHANNEL_COLUMNS}`);
+      return (rows || []).map(mapNccChannel);
+    },
+    async getNccChannel({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const rows = await request('GET', `ncc_channels?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=${NCC_CHANNEL_COLUMNS},token_enc&limit=1`);
+      return rows && rows[0] ? mapNccChannel(rows[0]) : null;
+    },
+    async upsertNccChannel({ tenantId, userId, kind, externalId, name, tokenEnc }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !/^[0-9]{1,30}$/.test(String(externalId))) throw new Error('invalid NCC channel');
+      const rows = await request('POST', `ncc_channels?on_conflict=tenant_id,user_id,kind,external_id&select=${NCC_CHANNEL_COLUMNS}`, { prefer: 'return=representation,resolution=merge-duplicates', body: { tenant_id: tenantId, user_id: userId, kind, external_id: externalId, name, token_enc: tokenEnc } });
+      return mapNccChannel(rows[0]);
+    },
+    async deleteNccChannel({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return false;
+      const rows = await request('DELETE', `ncc_channels?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer: 'return=representation' });
+      return Boolean(rows && rows.length);
+    },
+    async listNccOutbox({ tenantId, userId, limit = 100 }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return [];
+      const n = Math.min(Math.max(Number(limit) || 100, 1), 1000);
+      const rows = await request('GET', `ncc_outbox?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${n}&select=${NCC_OUTBOX_COLUMNS}`);
+      return (rows || []).map(mapNccOutbox);
+    },
+    async createNccOutbox({ tenantId, userId, channelId, automationId = null, contactId = null, action, payload }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(channelId))) throw new Error('invalid NCC outbox item');
+      if ((automationId && !UUID.test(String(automationId))) || (contactId && !UUID.test(String(contactId)))) throw new Error('invalid NCC outbox link');
+      const rows = await request('POST', `ncc_outbox?select=${NCC_OUTBOX_COLUMNS}`, { prefer: 'return=representation', body: { tenant_id: tenantId, user_id: userId, channel_id: channelId, automation_id: automationId, contact_id: contactId, action, payload } });
+      return mapNccOutbox(rows[0]);
+    },
+    // pending -> sending in one conditional update: only one caller wins.
+    async claimNccOutbox({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const rows = await request('PATCH', `ncc_outbox?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&status=eq.pending&select=${NCC_OUTBOX_COLUMNS}`, { prefer: 'return=representation', body: { status: 'sending', updated_at: new Date().toISOString() } });
+      return rows && rows[0] ? mapNccOutbox(rows[0]) : null;
+    },
+    async finishNccOutbox({ tenantId, userId, id, status, result, externalRef }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const rows = await request('PATCH', `ncc_outbox?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&status=eq.sending&select=${NCC_OUTBOX_COLUMNS}`, { prefer: 'return=representation', body: { status, result, external_ref: externalRef, updated_at: new Date().toISOString() } });
+      return rows && rows[0] ? mapNccOutbox(rows[0]) : null;
+    },
+    async discardNccOutbox({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId)) || !UUID.test(String(id))) return null;
+      const rows = await request('PATCH', `ncc_outbox?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&status=eq.pending&select=${NCC_OUTBOX_COLUMNS}`, { prefer: 'return=representation', body: { status: 'discarded', updated_at: new Date().toISOString() } });
+      return rows && rows[0] ? mapNccOutbox(rows[0]) : null;
+    },
     // Contacts first (their deals, tasks and timelines go with them), then the rest.
     async deleteNccData({ tenantId, userId }) {
       if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(userId))) return;
       const who = `tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`;
-      await request('DELETE', `ncc_contacts?${who}`, { prefer: 'return=minimal' });
-      await request('DELETE', `ncc_tasks?${who}`, { prefer: 'return=minimal' });
-      await request('DELETE', `ncc_automations?${who}`, { prefer: 'return=minimal' });
+      // Each table on its own: one whose migration (040, 041) is not run yet
+      // is skipped, so deleting an account never fails because of NCC.
+      for (const table of ['ncc_channels', 'ncc_contacts', 'ncc_tasks', 'ncc_automations']) {
+        await request('DELETE', `${table}?${who}`, { prefer: 'return=minimal' }).catch((err) => { if (!missingTable(err)) throw err; });
+      }
     },
 
     // Research agent (migration 036). Scans are always read by tenant AND owner.

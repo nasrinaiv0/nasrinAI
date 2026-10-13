@@ -39,12 +39,16 @@
     mail: ['M4 6h16v12H4z', 'm4 7 8 6 8-6'],
     phone: ['M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z'],
     trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
-    edit: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4']
+    edit: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4'],
+    social: ['M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M8.6 13.5l6.8 4', 'M15.4 6.5l-6.8 4'],
+    more: ['M4 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z', 'M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z', 'M17 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z'],
+    whatsapp: ['M4 20l1.4-4A8 8 0 1 1 8.5 19z', 'M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1a3.5 3.5 0 0 1-2-2l1-1-1-2z']
   };
   function icon(name) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'ic');
     for (const d of ICONS[name] || []) {
       const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       p.setAttribute('d', d);
@@ -342,15 +346,19 @@
   // ---------- navigation ----------
   const VIEWS = [
     ['home', 'Home', 'home'], ['contacts', 'Contacts', 'contacts'], ['pipeline', 'Pipeline', 'pipeline'],
-    ['tasks', 'Tasks', 'tasks'], ['automations', 'Automations', 'bolt'], ['settings', 'Settings', 'gear']
+    ['tasks', 'Tasks', 'tasks'], ['automations', 'Automations', 'bolt'], ['social', 'Social', 'social'], ['settings', 'Settings', 'gear']
   ];
+  // Phones: five tabs (iOS); the rest sit under More.
+  const TABS = ['home', 'contacts', 'pipeline', 'tasks', 'more'];
+  const MORE = ['automations', 'social', 'settings'];
   let view = 'home';
   function counts() {
     return {
       contacts: data.contacts.length,
       pipeline: data.deals.filter((d) => OPEN_STAGES.includes(d.stage)).length,
       tasks: data.tasks.filter((t) => !t.done).length,
-      automations: data.automations.filter((a) => a.enabled).length
+      automations: data.automations.filter((a) => a.enabled).length,
+      social: data.outbox.filter((o) => o.status === 'pending').length
     };
   }
   function renderNav() {
@@ -365,16 +373,20 @@
       if (n[key]) b.append(el('span', 'count', n[key]));
       if (key === view) b.setAttribute('aria-current', 'page');
       side.append(b);
-      if (key === 'settings') continue;
+    }
+    for (const key of TABS) {
+      const [, label, ic] = key === 'more' ? ['more', 'More', 'more'] : VIEWS.find(([k]) => k === key);
       const t = button('', 'tab', () => go(key), ic);
       t.append(el('span', '', label));
-      if (key === view) t.setAttribute('aria-current', 'page');
+      const here = key === view || (key === 'more' && MORE.includes(view));
+      if (here) t.setAttribute('aria-current', 'page');
+      if (key === 'more' && n.social) t.append(el('span', 'tab-badge', n.social));
       tabs.append(t);
     }
     $('sideEmail').textContent = data.account?.email || '';
   }
   function go(key) {
-    if (!VIEWS.some(([k]) => k === key)) key = 'home';
+    if (!VIEWS.some(([k]) => k === key) && key !== 'more') key = 'home';
     view = key;
     if (location.hash.slice(1) !== key) history.replaceState(null, '', '#' + key);
     closeSheet();
@@ -390,19 +402,13 @@
     $('viewTitle').textContent = title;
     const box = $('topActions');
     box.replaceChildren(...actions);
-    // On phones Settings sits in the header (the tab bar has five places).
-    if (view !== 'settings') {
-      const g = iconButton('gear', 'Settings', () => go('settings'));
-      g.classList.add('only-phone');
-      box.append(g);
-    }
   }
   function render() {
     if (!data) return;
     const v = $('view');
     v.className = 'view view-' + view;
     v.replaceChildren();
-    ({ home: viewHome, contacts: viewContacts, pipeline: viewPipeline, tasks: viewTasks, automations: viewAutomations, settings: viewSettings }[view] || viewHome)(v);
+    ({ home: viewHome, contacts: viewContacts, pipeline: viewPipeline, tasks: viewTasks, automations: viewAutomations, social: viewSocial, settings: viewSettings, more: viewMore }[view] || viewHome)(v);
   }
 
   // ---------- sheet (side panel / bottom sheet) ----------
@@ -448,7 +454,7 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       ok.disabled = true;
-      try { await save(); } catch (err) { fail(err); ok.disabled = false; }
+      try { await save(); } catch (err) { if (!err.quiet) fail(err); ok.disabled = false; }
     });
     openSheet(title, form, { back, wide });
   }
@@ -475,6 +481,13 @@
       kpi('Tasks', open.length, late.length ? `${late.length} overdue · ${today.length} today` : `${today.length} due today`, 'tasks')
     );
     v.append(kpis);
+    const waiting = data.outbox.filter((o) => o.status === 'pending').length;
+    if (waiting) {
+      const w = button('', 'card notice', () => go('social'), 'social');
+      w.append(el('span', '', `${waiting} post${waiting > 1 ? 's or messages' : ' or message'} waiting for your approval`), icon('chev'));
+      w.lastChild.setAttribute('class', 'chev');
+      v.append(w);
+    }
     if (!data.contacts.length) {
       const e = el('div', 'card empty');
       e.append(el('strong', '', 'Welcome to NCC'), el('p', 'hint', 'Add your first contact, or import a CSV or Excel file in Settings.'));
@@ -649,6 +662,8 @@
     const quick = el('div', 'quick');
     if (c.email) { const a = el('a', 'btn small'); a.href = 'mailto:' + c.email; a.append(icon('mail'), document.createTextNode('Email')); quick.append(a); }
     if (c.phone) { const a = el('a', 'btn small'); a.href = 'tel:' + c.phone.replace(/[^0-9+]/g, ''); a.append(icon('phone'), document.createTextNode('Call')); quick.append(a); }
+    const wa = data.channels.filter((x) => x.kind === 'whatsapp');
+    if (c.phone && wa.length) quick.append(button('WhatsApp', 'btn small', () => whatsappForm(c, wa), 'whatsapp'));
     quick.append(button('Edit', 'btn small', () => contactForm(c, () => contactSheet(id)), 'edit'));
     body.append(quick);
     if (c.tags.length) { const ch = el('div', 'chips'); for (const t of c.tags) ch.append(el('span', 'chip', t)); body.append(ch); }
@@ -900,6 +915,192 @@
     auto.renderList(v);
   }
 
+  // ---------- More (phones) ----------
+  function viewMore(v) {
+    setTop('More');
+    const n = counts();
+    const ul = el('ul', 'list');
+    for (const key of MORE) {
+      const [, label, ic] = VIEWS.find(([k]) => k === key);
+      const li = el('li');
+      const b = button('', 'item', () => go(key), ic);
+      const main = el('span', 'item-main');
+      main.append(el('strong', '', label), el('span', '', { automations: 'When this happens, do that', social: 'Channels, posts and approvals', settings: 'Import, export, account' }[key]));
+      b.append(main);
+      if (key === 'social' && n.social) b.append(el('span', 'chip on', n.social));
+      b.append(icon('chev'));
+      b.lastChild.setAttribute('class', 'chev');
+      li.append(b);
+      ul.append(li);
+    }
+    v.append(ul);
+  }
+
+  // ---------- Social: channels, posting, approvals ----------
+  const KIND_NAMES = { facebook_page: 'Facebook Page', instagram: 'Instagram', threads: 'Threads', whatsapp: 'WhatsApp' };
+  const ACTION_NAMES = { facebook_post: 'Facebook post', instagram_post: 'Instagram post', threads_post: 'Threads post', whatsapp_send: 'WhatsApp message' };
+  const STATUS_NAMES = { pending: 'Waiting for approval', sending: 'Sending…', sent: 'Sent', failed: 'Not sent', discarded: 'Discarded' };
+  const channelById = (id) => data.channels.find((c) => c.id === id) || null;
+
+  function outboxCard(o) {
+    const card = el('article', 'card outbox');
+    const ch = channelById(o.channel_id);
+    const head = el('div', 'auto-head');
+    head.append(el('strong', '', ACTION_NAMES[o.action] + (ch ? ' · ' + (ch.name || KIND_NAMES[ch.kind]) : '')), el('span', 'chip' + (o.status === 'sent' ? ' good' : o.status === 'failed' ? ' bad' : ''), STATUS_NAMES[o.status] || o.status));
+    card.append(head);
+    const p = o.payload || {};
+    const who = o.contact_id ? contactName(o.contact_id) : '';
+    if (o.action === 'whatsapp_send') card.append(el('p', 'hint', `To ${who || '+' + p.to}` + (p.mode === 'template' ? ` · template ${p.template} (${p.language})` : '')));
+    if (p.text) card.append(el('p', 'outbox-text', p.text));
+    if (p.image_url) card.append(el('p', 'hint', 'Picture: ' + p.image_url));
+    const meta = [when(o.created_at)];
+    if (o.automation_id) meta.push('from an automation');
+    if (o.result && o.status !== 'pending') meta.push(o.result);
+    card.append(el('p', 'auto-meta', meta.join(' · ')));
+    if (o.status === 'pending') {
+      const r = el('div', 'auto-foot');
+      r.append(
+        button('Send', 'btn small primary', async (e) => {
+          e.currentTarget.disabled = true;
+          try { const x = await api('/v1/ncc/outbox/' + encodeURIComponent(o.id) + '/send', { method: 'POST' }); await reload(); toast(x.status === 'sent' ? 'Sent.' : 'Not sent: ' + x.result); } catch (err) { fail(err); await reload(); }
+        }),
+        button('Discard', 'btn small plain', async () => {
+          try { await api('/v1/ncc/outbox/' + encodeURIComponent(o.id) + '/discard', { method: 'POST' }); await reload(); toast('Discarded.'); } catch (err) { fail(err); }
+        })
+      );
+      card.append(r);
+    }
+    return card;
+  }
+
+  function viewSocial(v) {
+    const posting = data.channels.filter((c) => c.kind !== 'whatsapp');
+    setTop('Social', [button('New post', 'btn small primary', () => postForm(), 'plus')]);
+    if (!data.channels_ready) {
+      const n = el('div', 'card empty');
+      n.append(el('strong', '', 'Channels are not ready yet'), el('span', '', 'The NasrinAI team needs to finish the server setup before channels can be connected.'));
+      v.append(n);
+    }
+    const pending = data.outbox.filter((o) => o.status === 'pending' || o.status === 'sending');
+    v.append(el('p', 'group-label', `Waiting for approval · ${pending.length}`));
+    if (pending.length) { const g = el('div', 'autos'); for (const o of pending) g.append(outboxCard(o)); v.append(g); }
+    else v.append(el('p', 'hint', 'Nothing is waiting. Posts and messages from automations show up here for you to send, unless a step is set to send by itself.'));
+
+    v.append(el('p', 'group-label', `Channels · ${data.channels.length}`));
+    if (data.channels.length) {
+      const ul = el('ul', 'list');
+      for (const c of data.channels) {
+        const li = el('li');
+        const row = el('div', 'item');
+        const main = el('span', 'item-main');
+        main.append(el('strong', '', c.name || c.external_id), el('span', '', KIND_NAMES[c.kind]));
+        row.append(avatar(KIND_NAMES[c.kind]), main, button('Disconnect', 'btn small plain', async () => {
+          if (!window.confirm(`Disconnect ${c.name || KIND_NAMES[c.kind]}? Its waiting posts and messages are removed.`)) return;
+          try { await api('/v1/ncc/channels/' + encodeURIComponent(c.id), { method: 'DELETE' }); await reload(); toast('Disconnected.'); } catch (err) { fail(err); }
+        }));
+        li.append(row);
+        ul.append(li);
+      }
+      v.append(ul);
+    }
+    const add = el('div', 'row connect-row');
+    add.append(button('Connect Facebook Page', 'btn small', () => connectForm('facebook_page')), button('Connect Threads', 'btn small', () => connectForm('threads')), button('Connect WhatsApp', 'btn small', () => connectForm('whatsapp')));
+    v.append(add, el('p', 'hint', 'Instagram connects with its Facebook Page. Messenger comes later.'));
+    if (!posting.length && data.channels.length) v.append(el('p', 'hint', 'Connect a Facebook Page or Threads to post.'));
+
+    const history = data.outbox.filter((o) => !['pending', 'sending'].includes(o.status)).slice(0, 30);
+    if (history.length) {
+      v.append(el('p', 'group-label', 'Recent'));
+      const g = el('div', 'autos');
+      for (const o of history) g.append(outboxCard(o));
+      v.append(g);
+    }
+  }
+
+  function connectForm(kind) {
+    const token = input('', { type: 'password', max: 1000, required: true, placeholder: 'Paste the access token' });
+    token.autocomplete = 'off';
+    const fields = [];
+    const help = {
+      facebook_page: 'In Meta Business Suite or the Graph API Explorer, create a Page access token for your Page with the pages_manage_posts permission (and instagram_content_publish for Instagram). Your Instagram professional account linked to the Page is connected too.',
+      threads: 'Create a Threads access token for your profile with the threads_basic and threads_content_publish permissions.',
+      whatsapp: 'In WhatsApp Manager, copy the phone number ID, and create a permanent token for a system user with the whatsapp_business_messaging permission.'
+    }[kind];
+    let phone = null;
+    if (kind === 'whatsapp') { phone = input('', { max: 30, required: true, placeholder: '1234567890' }); phone.inputMode = 'numeric'; fields.push(field('Phone number ID', phone)); }
+    fields.push(field('Access token', token, 'It is checked with Meta, stored encrypted, and never shown again.'));
+    const note = el('p', 'hint', help);
+    formSheet('Connect ' + KIND_NAMES[kind], [note, ...fields], {
+      saveText: 'Connect',
+      back: () => { closeSheet(); },
+      save: async () => {
+        const r = await api('/v1/ncc/channels', { method: 'POST', body: { kind, token: token.value.trim(), ...(phone ? { phone_number_id: phone.value.trim() } : {}) } });
+        token.value = '';
+        await reload();
+        closeSheet();
+        toast('Connected: ' + r.channels.map((c) => c.name || KIND_NAMES[c.kind]).join(', ') + '.');
+      }
+    });
+  }
+
+  function postForm() {
+    const posting = data.channels.filter((c) => c.kind !== 'whatsapp');
+    if (!posting.length) { toast('Connect a Facebook Page or Threads first.'); return; }
+    const text = textarea('', 5000, 5);
+    text.placeholder = 'What do you want to share?';
+    const counter = el('p', 'hint');
+    const pic = input('', { type: 'url', max: 1000, placeholder: 'https://… (needed for Instagram)' });
+    const boxes = el('div', 'chips pick');
+    const picked = new Set();
+    for (const c of posting) {
+      const b = button(`${KIND_NAMES[c.kind]} · ${c.name || c.external_id}`, 'chip', () => { if (picked.has(c.id)) picked.delete(c.id); else picked.add(c.id); b.classList.toggle('on', picked.has(c.id)); b.setAttribute('aria-pressed', String(picked.has(c.id))); limits(); });
+      b.setAttribute('aria-pressed', 'false');
+      boxes.append(b);
+    }
+    function limits() {
+      const kinds = posting.filter((c) => picked.has(c.id)).map((c) => c.kind);
+      const max = Math.min(5000, ...(kinds.includes('threads') ? [500] : []), ...(kinds.includes('instagram') ? [2200] : []));
+      counter.textContent = `${text.value.length} / ${max}` + (kinds.includes('instagram') ? ' · Instagram needs a picture link' : '');
+    }
+    text.addEventListener('input', limits);
+    limits();
+    formSheet('New post', [field('Post on', boxes), field('Text', text), counter, field('Picture link', pic, 'A public https link to a JPEG picture. Instagram posts need one.')], {
+      saveText: 'Post now',
+      save: async () => {
+        if (!picked.size) { toast('Choose where to post.'); throw Object.assign(new Error('Choose where to post.'), { quiet: true }); }
+        const r = await api('/v1/ncc/posts', { method: 'POST', body: { channel_ids: [...picked], text: text.value, image_url: pic.value.trim() || undefined } });
+        await reload();
+        closeSheet();
+        const bad = r.outbox.filter((o) => o.status !== 'sent');
+        toast(bad.length ? `Not sent on ${bad.length}: ${bad[0].result}` : 'Posted.');
+      }
+    });
+  }
+
+  function whatsappForm(c, channels) {
+    const ch = select(channels.map((x) => [x.id, x.name || x.external_id]), channels[0].id);
+    const mode = select([['template', 'Template'], ['text', 'Plain text (24-hour window)']], 'template');
+    const template = input('', { max: 512, placeholder: 'welcome_message' });
+    const lang = input('en_US', { max: 6 });
+    const text = textarea('', 4096, 4);
+    const tf = field('Template name', template);
+    const lf = field('Language', lang);
+    const xf = field('Message', text);
+    const sync = () => { const t = mode.value === 'template'; tf.hidden = !t; lf.hidden = !t; xf.hidden = t; };
+    mode.addEventListener('change', sync);
+    sync();
+    formSheet('WhatsApp ' + c.name, [field('From', ch), field('Message type', mode), tf, lf, xf, el('p', 'hint', 'Sent to ' + c.phone + '. WhatsApp allows plain text only within 24 hours of the customer\'s last message; otherwise use a template approved in WhatsApp Manager.')], {
+      saveText: 'Send',
+      back: () => contactSheet(c.id),
+      save: async () => {
+        const r = await api('/v1/ncc/contacts/' + encodeURIComponent(c.id) + '/whatsapp', { method: 'POST', body: { channel_id: ch.value, mode: mode.value, template: template.value.trim(), language: lang.value.trim(), text: text.value } });
+        await reload();
+        toast(r.status === 'sent' ? 'Sent on WhatsApp.' : 'Not sent: ' + r.result);
+        contactSheet(c.id);
+      }
+    });
+  }
+
   // ---------- Settings: import, export, delete, account ----------
   const HEADERS = {
     name: ['name', 'fullname', 'contact', 'contactname', 'customer', 'customername', 'client'],
@@ -1025,7 +1226,7 @@
     app.append(el('h2', '', 'NCC on your phone'), el('p', 'hint', 'On iPhone: open this page in Safari, tap Share, then Add to Home Screen. NCC opens like an app.'));
 
     const del = el('section', 'card');
-    del.append(el('h2', '', 'Delete all NCC data'), el('p', 'hint', 'Deletes every contact, deal, task, note and automation in your NCC. This cannot be undone.'));
+    del.append(el('h2', '', 'Delete all NCC data'), el('p', 'hint', 'Deletes every contact, deal, task, note, automation, channel and post in your NCC. This cannot be undone.'));
     const confirm = input('', { max: 6, placeholder: 'Type DELETE' });
     confirm.setAttribute('aria-label', 'Type DELETE to confirm');
     const dr = el('div', 'row');
@@ -1067,7 +1268,7 @@
     }
     showOnly('app');
     $('lockedWho').textContent = '';
-    view = VIEWS.some(([k]) => k === location.hash.slice(1)) ? location.hash.slice(1) : 'home';
+    view = VIEWS.some(([k]) => k === location.hash.slice(1)) || location.hash === '#more' ? location.hash.slice(1) : 'home';
     renderNav();
     render();
   }
