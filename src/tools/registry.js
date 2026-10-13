@@ -68,9 +68,9 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
 
       let args = rawArgs ?? {};
       if (typeof args === 'string') {
-        if (args.length > MAX_ARGS) return fail('invalid_arguments', 'The tool input is too long.');
+        if (args.length > (tool.maxArgs ?? MAX_ARGS)) return fail('invalid_arguments', 'The tool input is too long.');
         try { args = args.trim() ? JSON.parse(args) : {}; } catch { return fail('invalid_arguments', 'The tool input is not valid JSON.'); }
-      } else if (JSON.stringify(args).length > MAX_ARGS) {
+      } else if (JSON.stringify(args).length > (tool.maxArgs ?? MAX_ARGS)) {
         return fail('invalid_arguments', 'The tool input is too long.');
       }
       const problem = checkArgs(tool.parameters, args);
