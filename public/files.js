@@ -76,13 +76,26 @@
     return { text: text.replace(/\n{3,}/g, '\n\n').trim(), asks, files };
   }
 
+  // A file block may hold changes to an existing file instead of the whole
+  // file: <<<<<<< SEARCH / ======= / >>>>>>> REPLACE parts (the server applies
+  // them only where the text still matches exactly). null when there are none.
+  const EDIT = /^<{7} SEARCH[ \t]*\n([\s\S]*?)\n?^={7}[ \t]*\n([\s\S]*?)\n?^>{7} REPLACE[ \t]*$/gm;
+  function editsOf(body) {
+    if (!/^<{7} SEARCH/m.test(body)) return null;
+    const edits = [...body.matchAll(EDIT)].map((m) => ({ search: m[1], replace: m[2] })).filter((e) => e.search);
+    return edits.length ? edits.slice(0, 50) : null;
+  }
+
   // The files of a reply with their names as written (folder paths kept), for
   // a pull request. Up to 20; the server checks every path again.
   function sources(input) {
     const out = [];
     for (const m of String(input || '').matchAll(FILE_BLOCK)) {
       const path = m[1].trim().replace(/^\.?\/+/, '');
-      if (out.length < 20 && path && !out.some((f) => f.path === path)) out.push({ path, content: unfence(m[2]).replace(/\s+$/, '') + '\n' });
+      if (out.length >= 20 || !path || out.some((f) => f.path === path)) continue;
+      const body = unfence(m[2]);
+      const edits = editsOf(body);
+      out.push(edits ? { path, edits } : { path, content: body.replace(/\s+$/, '') + '\n' });
     }
     return out;
   }

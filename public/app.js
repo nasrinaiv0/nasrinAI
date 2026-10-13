@@ -6111,7 +6111,8 @@
       inp.value = f.path;
       inp.maxLength = 300;
       inp.spellcheck = false;
-      inp.setAttribute('aria-label', 'File ' + (i + 1) + ' path');
+      inp.setAttribute('aria-label', 'File ' + (i + 1) + ' path' + (f.edits ? ' (changes to the existing file)' : ''));
+      if (f.edits) inp.title = f.edits.length + ' change' + (f.edits.length === 1 ? '' : 's') + ' to the existing file';
       inp.addEventListener('input', () => { prFiles[i] = { ...prFiles[i], path: inp.value.trim() }; });
       li.appendChild(inp);
       return li;
@@ -6149,7 +6150,15 @@
       });
       if (codingProject) saved.set(KEYS.coding + ':repo:' + codingProject.id, repo);
       status.className = 'signin-status pr-done';
-      status.textContent = 'Pull request #' + pr.number + ' is open on branch ' + pr.branch + '. ';
+      // Only what GitHub reported back: which files were saved exactly as written.
+      const files = Array.isArray(pr.files) ? pr.files : [];
+      const savedOk = files.filter((f) => f.saved === true).length;
+      const written = files.filter((f) => f.status !== 'unchanged').length;
+      const same = files.filter((f) => f.status === 'unchanged').length;
+      status.textContent = (pr.existing ? 'This pull request was already open: #' + pr.number + ' on ' : 'Pull request #' + pr.number + ' is open on branch ')
+        + pr.branch + '. '
+        + (pr.existing ? '' : pr.verified ? 'Checked on GitHub: ' + savedOk + ' of ' + written + ' files saved exactly as written. ' : 'Check the files on GitHub: ' + savedOk + ' of ' + written + ' could be confirmed. ')
+        + (same ? same + ' already matched and were left as they are. ' : '');
       if (typeof pr.url === 'string' && pr.url.startsWith('https://github.com/')) {
         const a = mk('a', '', 'View on GitHub');
         a.href = pr.url; a.target = '_blank'; a.rel = 'noopener noreferrer';

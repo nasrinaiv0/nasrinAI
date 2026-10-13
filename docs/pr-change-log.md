@@ -1,3 +1,11 @@
+## Proposed PR — Reliable repository coding (`feature/coding-engine`)
+
+- **Owner request (2026-10-13):** audit the repository read/write capability and turn it into a reliable coding workflow (real files, verified writes, tests, honest status).
+- **Audit:** capability table in `docs/github.md` (verified by tests / unavailable / unverified live).
+- **Change:** exact SEARCH/REPLACE changes to existing files (applied only where the text still matches once, so stale files are never overwritten); unchanged files skipped; saved files read back from the new branch and compared (`verified`); a repeated request returns the open PR; a saved branch without a PR is reported by name; `github_search_code` and `github_pr_status` (PR state, files, CI checks) tools; coding rules: read real code first, send changes not rewrites, report checks only from `github_pr_status`.
+- **Owner step (optional):** GitHub App permissions → Checks: Read-only, Commit statuses: Read-only (for CI results).
+- **Validation:** `npm test`; headless Chromium.
+
 ## Proposed PR — Plugins always visible, GitHub settings check (`fix/github-status`)
 
 - **Owner report (2026-10-13):** Plugins is not showing.
