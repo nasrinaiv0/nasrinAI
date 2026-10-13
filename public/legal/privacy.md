@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-13c** · Effective: 22 September 2026 · Last updated: 13 October 2026
+**Version 2026-10-13d** · Effective: 22 September 2026 · Last updated: 13 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -62,6 +62,7 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 - **Links:** our server opens the page and uses its text for that one answer. The page text is not stored; Nasrin's answer from it is (see Answers from the internet). The website sees a request from our server, not from you.
 - **Web search:** questions that need current facts may be searched on the web through OpenAI's search tool. The answer lists its sources.
 - **Citations:** when you ask to cite a source, our server opens that page (as for links) to read its publication details and, when it has a DOI, asks **Crossref** (a public registry of scholarly publications) for that DOI's record. Only the page address or DOI is sent; nothing about you. The details are shown to you and not stored.
+- **Source logos:** to show each source's real logo, our server (not your browser) asks that website for its icon and keeps it for a day. Nothing about you is sent.
 - **Read aloud:** to read a reply in a natural voice, the text of Nasrin's reply is sent to OpenAI to make the audio. Your own messages are not.
 - **Voice typing** uses your browser's or phone's speech service (for example Google or Apple), not ours. Their privacy terms apply.
 

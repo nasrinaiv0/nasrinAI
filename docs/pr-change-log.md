@@ -1,3 +1,9 @@
+## Proposed PR — Real site logos for sources (`feature/site-logos`)
+
+- **Owner request (2026-10-13):** show each source's real site logo, to credit it (credits and copyright).
+- **Change:** `GET /v1/site-icon?host=…` (`src/web/site-icon.js`, `readBytes` in `src/web/read-link.js`): our server finds the site's declared icon or /favicon.ico with the SSRF-safe reader, passes on only real raster images (no SVG), safe headers, cached a day, per-IP limit on lookups. `public/app.js`: logos on the Sources badges and next to each source (letter until it loads, and if none), plus a credit line "Logos and names belong to their sites…". Privacy Notice 2026-10-13d (does not ask anyone to accept again). `docs/web.md`.
+- **Validation:** `npm test` (new `test/site-icon.test.js`: hosts, image kinds, icon order, caching, route headers, SVG refused); real lookup of github.com's icon from the sandbox; browser at 390 px with that icon and a letter fallback.
+
 ## Proposed PR — NCC tile in NasrinAI Space, plan for approval (`feature/ncc-space`)
 
 - **Owner request (2026-10-13):** add NCC (Nasrin Client Connect), a CRM with automation like n8n and GoHighLevel, to NasrinAI Space.

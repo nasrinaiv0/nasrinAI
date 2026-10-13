@@ -96,6 +96,12 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       return r.allowed;
     },
 
+    // Site logos (public, by IP): only lookups that reach a website count.
+    async siteIcon(ip) {
+      const r = await store.rateHit(`icon:ip:${ip || 'unknown'}`, HOUR, 300);
+      return r.allowed;
+    },
+
     // Citation lookups: per caller, people only, separate from web reads and searches.
     async cite(caller) {
       const { type, id } = caller.actor;
