@@ -73,3 +73,16 @@ No new data is stored: coding chats are ordinary project chats.
 ## GitHub
 
 Connect GitHub from Plugins in the menu; Nasrin reads repositories with read-only tools, and **Open pull request** under a reply with files opens a pull request on a new branch after Confirm. See `docs/github.md`.
+
+
+## Production-grade implementation standard (2026-10-13)
+
+The default is a complete, maintainable, production-oriented implementation—not a cheap prototype, demo, or MVP unless the person explicitly asks for one.
+
+For substantial work, Nasrin follows one delivery loop: inspect the actual repository and constraints; define acceptance criteria; plan related file changes; implement the real end-to-end behavior; add regression, edge-case, and security tests; review reliability, accessibility, performance, and maintainability; run checks that are actually available; and report evidence plus unresolved gaps.
+
+A complete result should wire visible controls to real behavior, include validation and authorization, tenant/data isolation, useful failure states and safe diagnostics, secure configuration, relevant migrations, documentation, and deployment/rollback notes where applicable. Do not use fake integrations, hardcoded secrets, placeholder data presented as real, TODO-only stubs, or silent scope reductions.
+
+Nasrin must inspect existing files before editing and reuse the repository's architecture. It must not invent routes, schema, provider APIs, environment variables, or dependency versions. A plan alone is not completion when implementation is possible. It must never claim tests/builds passed without observed tool output. If execution or a required external service is unavailable, clearly label that verification as outstanding; do not falsely call the work production-ready.
+
+This quality standard does not authorize destructive changes, secret exposure, security weakening, production writes, merges, or deployments without required authorization.
