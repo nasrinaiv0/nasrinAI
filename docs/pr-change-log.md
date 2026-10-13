@@ -4,6 +4,13 @@
 - **Change:** `scripts/pixelbot-logo.py` busy version: the ball grows from small, its pixels burst further out and return while it spins horizontally once (only during the burst; owner follow-up), pauses, turns back into its normal form and shrinks (3.2 s cycle). The turn is a 3D sphere like a globe (owner follow-up): each pixel moves along its row of the ball, a copy on the back comes into view, edges are shaded; ~67 KB gzipped. Two more robot moods for the thinking line: **Remembering** (a ripple of light through the pixels; Remembering, Checking your Library, Reading) and **Writing** (rows fill in like typing; Writing code, Writing, Putting it together); other stages use the burst. SMIL, CSP-safe; still version for reduced motion.
 - **Validation:** `npm test`; rendered frames (small → big → burst → back).
 
+## Proposed PR — Coding replies no longer fail after a GitHub lookup (`fix/gemini-tool-rounds`)
+
+- **Owner report (2026-10-13):** in the coding chat, "create a prototype financial tracker in my repository" → "NasrinAI cannot answer right now".
+- **Found (live usage records, read-only):** each try: Gemini asks for `github_list_files` (ok) → the tool runs (ok) → the next Gemini call fails in under a second (`provider_error`), five times. Earlier, OpenAI did the same flow fine. Gemini 3 sends a thought signature with each tool call (`extra_content` on the OpenAI-compatible endpoint) and refuses the follow-up without it; NasrinAI dropped it.
+- **Change:** tool calls keep `extra_content` and send it back (`src/ai/tool-format.js`); if a model still refuses a tool round (400), the tool results go back as plain text marked as data and it answers without more tools (`flattenToolTurns` in `src/chat.js`).
+- **Validation:** `npm test` (signature kept and returned; refusal → answer from text).
+
 ## Proposed PR — Up to 10 GitHub accounts (`feature/github-accounts`)
 
 - **Owner request (2026-10-13):** "Add account" in GitHub settings, up to 10 accounts.

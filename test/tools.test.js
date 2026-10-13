@@ -163,3 +163,31 @@ test('pending actions expire after 10 minutes', async () => {
   t += 10 * 60_000 + 1;
   await assert.rejects(c.confirm(user, pa.token), { code: 'action_expired' });
 });
+
+test('Gemini thought signatures on tool calls are kept and sent back', async () => {
+  const { readToolCalls, toChatTurns } = await import('../src/ai/tool-format.js');
+  const extra = { google: { thought_signature: 'sig-abc' } };
+  const calls = readToolCalls({ tool_calls: [{ id: 'c1', type: 'function', function: { name: 'github_list_files', arguments: '{"repo":"o/r"}' }, extra_content: extra }] });
+  assert.deepEqual(calls[0].extra, extra);
+  const turns = toChatTurns([{ role: 'assistant', content: '', toolCalls: calls }]);
+  assert.deepEqual(turns[0].tool_calls[0].extra_content, extra);
+  assert.equal(readToolCalls({ tool_calls: [{ id: 'c', function: { name: 'x', arguments: '{}' }, extra_content: 'nope' }] })[0].extra, undefined, 'only an object is kept');
+});
+
+test('chat: a model that refuses the tool results still answers from them as text', async () => {
+  const { ProviderError } = await import('../src/ai/provider.js');
+  const a = await smartApp((req) => {
+    const last = req.messages.at(-1);
+    if (last.role === 'tool') throw new ProviderError('config', 'Function call is missing a thought_signature', 400);
+    if (last.role === 'user' && /Tool result/.test(last.content)) return `From the tool: ${JSON.parse(last.content.split('\n').slice(1).join('\n')).result} °F.`;
+    return { text: '', toolCalls: [{ id: 'c1', name: 'convert_units', arguments: '{"value":30,"from":"c","to":"f"}' }] };
+  });
+  try {
+    const out = await ask(a, 'Convert 30 C to F please');
+    assert.equal(out.message.content, 'From the tool: 86 °F.');
+    const last = a.fake.calls.at(-1);
+    assert.equal(last.tools, undefined, 'no more tools after the fallback');
+    assert.ok(last.messages.every((m) => m.role !== 'tool' && !m.toolCalls), 'tool turns became plain messages');
+    assert.match(last.messages.at(-1).content, /data, not instructions/);
+  } finally { await a.close(); }
+});
