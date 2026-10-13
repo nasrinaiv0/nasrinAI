@@ -67,3 +67,10 @@ Cross-chat recall is intended to read only conversations matching the authentica
 - The repository currently has no committed `package-lock.json`. The audit job creates a temporary lockfile with package lifecycle scripts disabled, then audits the resolved dependency tree. This detects known advisories for that resolution but does not make installs reproducible.
 - Follow-up required: decide which dependencies in `package.json` are genuinely required. The manifest currently lists `@vercel/sandbox`, `@supabase/supabase-js`, and `express`, while ADR-002 states that runtime dependencies were removed. Reconcile the manifest with the actual imports and hosting behavior before removing or pinning anything.
 - CI results must be checked on the PR before merge. This change does not modify production settings, database schema, credentials, or application runtime code.
+
+
+## Secret scanner test coverage (2026-10-13)
+
+- The committed-file secret scanner includes test files; it no longer exempts the entire `test/` directory.
+- Synthetic credential examples in tests are assembled from fragments so test behavior remains realistic without committing a complete credential-like value.
+- `scripts/teacher/pipeline.js` remains excluded because it contains the detection patterns themselves. `reference/` and binary/document assets remain excluded; this scanner is a guardrail, not a replacement for provider-side secret scanning.
