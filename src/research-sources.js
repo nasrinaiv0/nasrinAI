@@ -1,12 +1,13 @@
 // Extensible provider-agnostic discovery adapters. Results are candidates, not verified facts.
+import { checkUrl } from './web/read-link.js';
 const TIMEOUT_MS = 4000;
 const RETRIES = 2;
 const CROSSREF = 'https://api.crossref.org/works';
 const clean = (s, n = 300) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 function normalize(raw, adapter) {
-  let url; try { url = new URL(String(raw?.url || raw?.URL || '')); } catch { return null; }
-  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || (url.port && !['80', '443'].includes(url.port))) return null;
-  if (url.protocol === 'http:') url.protocol = 'https:';
+  const checked = checkUrl(String(raw?.url || raw?.URL || ''));
+  if (!checked) return null;
+  const url = checked;
   return { url: url.href, title: clean(Array.isArray(raw?.title) ? raw.title[0] : (raw?.title || raw?.name)), adapter, source_type: clean(raw?.source_type || 'web', 40), metadata: raw?.metadata && typeof raw.metadata === 'object' ? raw.metadata : {} };
 }
 async function attempt(fn, timeoutMs, signal) {
