@@ -19,9 +19,9 @@ test('the sphere turns around its upright axis (like a globe), not flat like a w
   assert.match(fn, /const still = reduced\(\);\n    if \(!still\)/, 'still with reduced motion');
 });
 
-test('in the coding chat, "Putting it together" gathers the dots and "Almost done" makes them beep', async () => {
+test('in every chat, "Putting it together" gathers the dots and "Almost done" makes them beep', async () => {
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(app, /ch\.stage\(!coding \? null : \/\^Almost done\/\.test\(words\) \? 'beep' : \/\^Putting it together\/\.test\(words\) \? 'gather' : null\);/);
+  assert.match(app, /ch\.stage\(\/\^Almost done\/\.test\(words\) \? 'beep' : \/\^Putting it together\/\.test\(words\) \? 'gather' : null\);/, 'in every chat, not only Code');
   const fn = app.slice(app.indexOf('function dotSphere('), app.indexOf('function showThinking('));
   assert.match(fn, /x \+= \(fx \+ \(sx - fx\) \* p - x\) \* gather/, 'dots fly from far away to their place');
   assert.match(fn, /const flash = Math\.exp\(-\(\(\(Math\.hypot\(sx, sy\) - wave \* 1\.2\) \* 5\) \*\* 2\)\);/, 'flashes ripple out from the middle');
