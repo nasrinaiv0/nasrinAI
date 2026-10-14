@@ -5219,7 +5219,7 @@
           output: (t) => { let x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(!x){x=voiceSay('assistant is-live','');x.classList.add('is-realtime');} x.textContent+=t; voiceState('speaking','Talking…'); Nasrin.talk(1); },
           interrupted: () => { voiceState('listening','Listening…'); Nasrin.talk(0); },
           complete: () => { const x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(x)x.classList.remove('is-realtime','is-live'); voiceState('listening','Listening…'); Nasrin.talk(0); },
-          error: () => closeVoice('Gemini realtime voice stopped. Please try again.'),
+          error: (message) => closeVoice(message || 'Gemini realtime voice stopped. Please try again.'),
           close: () => { if(vc.on&&vc.realtimeProvider==='gemini') closeVoice('Realtime voice connection ended. Please try again.'); }
         });
         vc.realtimeMaxSeconds = Number(session.max_seconds) || 300;
