@@ -5,6 +5,7 @@ import { parseRobots } from './connect/site-knowledge.js';
 import { cleanUserText } from './ai/output.js';
 import { redactForProvider } from './ai/redact.js';
 import { planResearch, buildEvidenceLedger } from './research-orchestrator.js';
+import { createResearchSourceRegistry } from './research-sources.js';
 
 // Research agent (docs/research.md). For one question it finds public pages
 // (web search, or links the person gives), reads them with the SSRF-safe link
@@ -70,33 +71,16 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
     return parseRobots(robots.text).allows(u.pathname + u.search);
   }
 
-  async function findSources(caller, query, body) {
+  const sourceRegistry = createResearchSourceRegistry({ webSearch, logger });
+
+  async function findSources(query, body, plan) {
     if (body.urls !== undefined) {
       if (!Array.isArray(body.urls) || body.urls.length > MAX_URLS || body.urls.some((u) => typeof u !== 'string')) {
         throw new HttpError(400, 'invalid_urls', `Give up to ${MAX_URLS} web addresses.`);
       }
-      return [...new Set(body.urls.map((u) => checkUrl(u.trim())?.href).filter(Boolean))];
+      return { candidates: [...new Set(body.urls.map((u) => checkUrl(u.trim())?.href).filter(Boolean))].map((url) => ({ url, title: '', adapter: 'user-url', source_type: 'user-supplied', metadata: {} })), adapters: [{ id: 'user-url', status: 'ok', candidates: body.urls.length }] };
     }
-    if (!webSearch) throw new HttpError(422, 'no_sources', 'Web search is not available. Add the web addresses to read.');
-    const plan = planResearch(query);
-    const found = await Promise.all(plan.searchQueries.map((searchQuery) => webSearch.search({
-      system: 'Find reliable public sources. Prefer peer-reviewed and primary research for academic topics; official documentation and standards for technical topics; credible industry reports and primary company sources for market topics. Return citations only. Never access restricted pages.',
-      messages: [{ role: 'user', content: searchQuery }],
-      maxTokens: 500
-    })));
-    // Round-robin citations across subquestions so the first search cannot
-    // consume the entire page budget before evidence/limitations searches contribute.
-    const lists = found.map((result) => (result?.citations || [])
-      .map((citation) => checkUrl(String(citation.url || ''))?.href).filter(Boolean));
-    const urls = [];
-    const seen = new Set();
-    for (let index = 0; lists.some((list) => index < list.length); index++) {
-      for (const list of lists) {
-        const url = list[index];
-        if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
-      }
-    }
-    return urls;
+    return sourceRegistry.discover({ query, plan });
   }
 
   async function extract(caller, query, page) {
@@ -125,23 +109,26 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       await limiter.research(caller, ip, perHour);
       await limiter.budget(caller);
 
-      const urls = (await findSources(caller, query, body || {})).slice(0, maxPages);
-      if (!urls.length) throw new HttpError(422, 'no_sources', 'No public pages were found for this question.');
-
       const plan = planResearch(query);
+      const discovery = await findSources(query, body || {}, plan);
+      const candidates = discovery.candidates.slice(0, maxPages);
+      if (!candidates.length) throw new HttpError(422, 'no_sources', 'No public pages were found for this question.');
+
       const sources = [];
       // All URLs pass public-address and robots checks before page extraction.
-      const outcomes = await Promise.all(urls.map(async (url) => {
-        if (!(await allowedByRobots(url))) return { source: { url, status: 'skipped', reason: 'the site asks not to be read by robots' }, facts: [] };
+      const outcomes = await Promise.all(candidates.map(async (candidate) => {
+        const url = candidate.url;
+        const provenance = { adapter: candidate.adapter, source_type: candidate.source_type, ...(candidate.metadata && Object.keys(candidate.metadata).length ? { metadata: candidate.metadata } : {}) };
+        if (!(await allowedByRobots(url))) return { source: { url, title: candidate.title, ...provenance, status: 'skipped', reason: 'the site asks not to be read by robots' }, facts: [] };
         const page = await readLinkImpl(url);
-        if (page.error) return { source: { url, status: 'skipped', reason: page.error }, facts: [] };
+        if (page.error) return { source: { url, title: candidate.title, ...provenance, status: 'skipped', reason: page.error }, facts: [] };
         const title = String(page.title || '').slice(0, 200);
         try {
           const found = await extract(caller, query, page);
-          return { source: { url: page.url, title, status: 'read', facts: found.length }, facts: found.map((fact) => ({ fact, url: page.url, title })) };
+          return { source: { url: page.url, title: title || candidate.title, ...provenance, status: 'read', facts: found.length }, facts: found.map((fact) => ({ fact, url: page.url, title: title || candidate.title })) };
         } catch (err) {
           logger?.warn?.('research extraction failed', { error: err?.message });
-          return { source: { url: page.url, title, status: 'skipped', reason: 'the page could not be read by the model' }, facts: [] };
+          return { source: { url: page.url, title: title || candidate.title, ...provenance, status: 'skipped', reason: 'the page could not be read by the model' }, facts: [] };
         }
       }));
       sources.push(...outcomes.map((outcome) => outcome.source));
@@ -166,7 +153,7 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
           sources: [...new Map(facts.map((f) => [f.url, { url: f.url, title: f.title }])).values()]
         });
       }
-      return { id: saved.id, query, facts, sources, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, new_shared_facts: shared, expires_at: saved.expiresAt };
+      return { id: saved.id, query, facts, sources, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, source_adapters: discovery.adapters, new_shared_facts: shared, expires_at: saved.expiresAt };
     },
 
     async get(caller, id) {
