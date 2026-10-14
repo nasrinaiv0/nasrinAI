@@ -536,3 +536,297 @@ Before building dashboard modules, Phase 0 must deliver:
 7. A phased PR plan with production impact, rollback, required owner decisions, and exact checks to run.
 
 Implementation order: (1) security boundary and HTTP 404 tests; (2) read-only live-data MVP; (3) infrastructure, security/audit, and verified finance; (4) NCC monitoring; (5) alerts and AI investigation; (6) owner-approved controls and exports. Stop for owner approval before each new phase. Do not merge, change production environment variables, apply production migrations, or deploy without explicit owner approval.
+
+
+## L. Complete date, sorting, and filtering specification
+
+This section makes date navigation, filtering, sorting, and comparison mandatory across every applicable dashboard module. These controls are part of the product requirements, not optional visual polish.
+
+### L.1 Shared date-range selector
+
+Provide a consistent, accessible date selector at the top of the dashboard and retain the selected range while navigating between modules. Include these one-tap presets:
+
+- **Today**
+- **Yesterday**
+- **Last 7 days**
+- **This week**
+- **Last week**
+- **Last 30 days**
+- **This month**
+- **Last month**
+- **Last 90 days**
+- **This year**
+- **Last year**
+- **All time**, only for datasets where an unbounded range is safe and meaningful
+- **Custom range**, with explicit start and end dates
+
+The UI must explicitly expose **Day / Week / Month / Year** grouping for time-series charts. A date preset and a chart grouping are separate concepts: for example, a 90-day range may be grouped by day, week, or month. Do not silently change the selected range when grouping changes.
+
+Use the product's documented business timezone consistently for calendar boundaries. The default business timezone for dashboard date interpretation is **Asia/Manila**, unless repository conventions establish a different explicit product-wide timezone; Phase 0 must verify and document this. Store event timestamps in UTC where the existing data model supports it, and convert only for display and calendar-boundary aggregation. Avoid mixing UTC dates and Manila calendar days in one chart.
+
+Custom ranges must validate start <= end, reject malformed dates, enforce documented maximum range and query-cost limits, and explain when a range is too large. Handle daylight-saving boundaries for any supported timezone. Show the effective timezone and selected dates so the owner can interpret the numbers correctly.
+
+### L.2 Comparison behavior
+
+For supported metrics, offer comparison with the immediately preceding equivalent period, such as:
+- today versus yesterday;
+- this week versus the previous week;
+- this month versus the previous month;
+- this year versus the previous year;
+- a custom range versus a preceding range of the same duration.
+
+Display the absolute difference and percentage change only when both periods have valid comparable data. Define behavior for a zero baseline, partial current periods, missing coverage, and refunds/late-arriving events. Never display an infinite or misleading percentage. Label partial periods and estimates. A comparison must use the same metric definition, timezone, filters, and source semantics on both sides.
+
+### L.3 Filter model and application
+
+Provide module-specific filters with consistent placement, clear active-filter chips, **Clear all**, reset-to-default behavior, and visible result counts where feasible. Apply all selected filters consistently to KPI cards, charts, tables, pagination totals, and exports. Server-side validation is authoritative; client-side filtering alone is not sufficient for protected or large datasets.
+
+Common filters, only where supported by verified source data:
+- date range, time grouping, and comparison period;
+- status/outcome/severity;
+- provider, model, AI tier/plan, feature/task, and route;
+- account/user identifier, account status, plan, and registration/activity range;
+- deployment/environment/commit/check status;
+- automation/workflow, trigger, run status, and integration/channel;
+- incident/alert severity, state, source, and acknowledgement;
+- finance category, provider, payment status, currency, and transaction period;
+- data source, freshness, and telemetry availability.
+
+Do not offer a filter that is not backed by a real field. Show unavailable integrations as unavailable, not as an empty successful result. Protect PII in filter controls and autocomplete. Do not expose private message content as a searchable field.
+
+### L.4 Sorting behavior
+
+Tables must provide accessible sort controls for columns where ordering is meaningful. Support ascending and descending order for timestamps, numeric values, and text; use status/severity priority ordering where defined. Examples include:
+- newest/oldest event, account, incident, deployment, and automation run;
+- highest/lowest requests, tokens, latency, error rate, and estimated cost;
+- highest/lowest revenue, refund amount, or spend when authoritative values exist;
+- alphabetical name/provider/model/workflow sorting;
+- critical-to-low severity and unresolved-to-resolved incident ordering.
+
+Define a stable deterministic secondary key for equal values. Show the active sort column and direction, and keep sort state while paging. The server must whitelist sortable fields; never concatenate arbitrary client input into SQL. Reject unknown sort keys and directions safely. Sorting and filtering must not bypass owner authorization, row-level/tenant boundaries, or export restrictions.
+
+### L.5 Pagination, search, and exports
+
+- Use bounded server-side pagination for large datasets; define a safe maximum page size and stable cursor/ordering strategy where appropriate.
+- Preserve filters and sort order while paging, refreshing, and returning from a detail view.
+- Search only indexed, explicitly approved metadata. Debounce UI requests where appropriate, rate-limit server requests, and do not run unrestricted full-table scans.
+- Display total count only when the source can calculate it accurately within an acceptable cost; otherwise identify it as approximate or omit it.
+- CSV exports must use the exact active date range, timezone, filters, and sort order, with an export summary stating those settings and the generation timestamp.
+- Re-validate range, filters, sort fields, authorization, and row limits server-side at export time. CSV-escape formula-leading values and redact unnecessary personal information.
+- Scheduled reports must declare their timezone, recurrence, filters, destination, retention, and last delivery outcome; only offer schedules supported by a verified delivery mechanism.
+
+### L.6 Module filter matrix
+
+| Module | Required filters | Useful sort orders |
+| --- | --- | --- |
+| Overview | date range, day/week/month/year grouping, comparison | KPI trends by change; latest incidents |
+| AI Operations | date, provider, model, tier, feature, outcome, request ID | newest, highest cost/tokens/latency, failures |
+| Users & Growth | registration/activity dates, plan, account status, feature adoption | newest/oldest, activity, usage |
+| Infrastructure & Releases | date, environment, deployment, commit, check status, source | newest release, slowest endpoint, failed checks |
+| Security & Audit | date, severity, event type, outcome, actor identifier where permitted | newest, severity, failed/denied events |
+| Automation & Jobs | date, workflow, trigger, status, integration/channel | newest, longest-running, failed, retry count |
+| Finance & Costs | date, category, provider, payment state, currency | highest/lowest spend, newest transaction, reconciliation exceptions |
+| Incidents & Alerts | date, severity, state, source, acknowledgement | severity, newest, longest open |
+| Reports & Exports | range, report type, status, owner-approved destination | newest, status |
+| Settings | setting category/status; never filter or display secret values | category, status |
+
+This matrix is a requirement, not proof that each underlying data source exists. Phase 0 must map each filter to a verified source field or explicitly mark it as blocked pending instrumentation.
+
+### L.7 Date/filter/sort acceptance tests
+
+Test every preset and custom range; start/end validation; timezone boundaries; day/week/month/year grouping; previous-period comparisons; empty and partial periods; stale or unavailable sources; filters combined across charts/tables/exports; clear/reset behavior; stable sorting and pagination; invalid/unknown sort keys; oversized date ranges; export consistency; and attempts to request another account's data. Include leap days and year/week boundaries. The UI must remain usable on iPhone Safari without tiny targets or a horizontally overflowing filter toolbar.
+
+## M. Architecture guide and implementation blueprint
+
+The architecture below is the target design guide. It must be reconciled against the actual repository during Phase 0 before naming routes, creating modules, or applying migrations. It is not a claim that these components already exist.
+
+### M.1 Architectural principles
+
+1. **Server-authoritative security:** all owner authorization, allowlist checks, filtering, aggregation, exports, and control validation occur server-side.
+2. **Read-only first:** initial release observes verified sources; write/control features are separate, later, explicitly approved phases.
+3. **Reuse before create:** use current route, auth, telemetry, pricing, billing, deployment, and automation patterns where they are real and suitable.
+4. **No fake data:** every value has a source, definition, timestamp, and state; mock data is permitted only in clearly isolated tests/previews.
+5. **Failure isolation:** dashboard or telemetry failure must not interrupt ordinary chat, sign-in, billing, AI routing, Connect, or NCC.
+6. **Least privilege:** no browser access to privileged analytics tables or service-role credentials; no broad RLS changes to make dashboards work.
+7. **Bounded work:** bounded date ranges, pagination, request sizes, query costs, refresh rates, retries, and export sizes.
+8. **No new runtime dependencies:** follow ADR-002 and the repository's Node 22 built-in-only rule.
+9. **Observable but privacy-minimized:** record operational metadata, not private conversation content.
+10. **Reviewable delivery:** one approved phase per PR, with exact checks and rollback instructions.
+
+### M.2 Logical architecture and request flow
+
+```text
+Owner on mobile/desktop
+        |
+        v
+Existing app shell + owner navigation
+(button shown only after server-confirmed eligibility)
+        |
+        v
+Owner page route /owner
+        |
+        v
+Shared server-side owner guard
+  - trusted session and verified identity
+  - OWNER_ALLOWED_EMAILS match
+  - trusted-proxy-derived IP and OWNER_ALLOWED_IPS match
+  - fail closed; generic HTTP 404 if unauthorized
+        |
+        v
+Owner API handlers (each re-runs the guard)
+  - schema/enum/date validation
+  - bounded pagination, sort allowlist, rate limits
+  - same-origin/CSRF controls for mutations
+        |
+        v
+Domain query/service layer
+  - metric definitions and aggregation
+  - source freshness and coverage
+  - safe redaction and response schema
+        |
+        +------> Verified existing application telemetry
+        +------> Usage, routing, token and spend records
+        +------> Verified account/plan/billing records
+        +------> Verified deployment/CI/health integrations
+        +------> Verified NCC workflow/outbox/run events
+        |
+        v
+Typed/validated response with generated_at,
+data_as_of, source status, coverage, and limitations
+        |
+        v
+Charts, KPI cards, tables, incident timeline, exports
+```
+
+This diagram is conceptual. The exact modules, APIs, schemas, and integrations must be discovered in the current repository; do not create a second authentication system or duplicate an existing data pipeline without justification.
+
+### M.3 Recommended server-side boundaries
+
+During Phase 0, map these responsibilities to existing modules and conventions. Proposed names below are conceptual only:
+- **Owner guard:** one shared server-side function for verified session, allowlisted email, trusted IP, fail-closed configuration, and uniform 404 behavior.
+- **Request validation:** parse and validate date range, timezone, grouping, filters, sort key/direction, page/cursor, and requested export.
+- **Metric/query services:** module-specific bounded queries and aggregations; no route should embed ad hoc unrestricted SQL.
+- **Source adapters:** isolated adapters for each verified data source with timeout, redaction, source status, and freshness.
+- **Response contract:** stable, versionable response fields such as `generated_at`, `data_as_of`, `timezone`, `range`, `source_status`, `coverage`, `items`, `pagination`, and safe error codes where appropriate.
+- **Audit writer:** append-only audit events for access denials and privileged actions, with no secrets or content payloads.
+- **Alert evaluator/delivery:** deterministic threshold evaluation and deduplication, independent of LLM judgment.
+- **Export service:** same filters and aggregation rules as the UI, with independent server authorization and safe CSV handling.
+- **UI state:** one shared date/filter/sort state model where consistent, with module-specific filters and accessible loading/error/stale/empty states.
+
+Do not add these as duplicate modules if equivalent repository components already exist. Document the actual mapping before implementation.
+
+### M.4 API contract requirements
+
+Discover route conventions first. Any proposed owner endpoint must:
+- be same-origin and server-authorized independently on every request;
+- return a genuine generic HTTP 404 for unauthorized requests, without protected content;
+- validate all query parameters and allowlist filter/sort values;
+- enforce date and page limits, request timeouts, rate limits, and safe error responses;
+- scope every query to the authorized owner/admin context and any relevant tenant/account boundary;
+- return the selected range/timezone, generation timestamp, data freshness, source availability, and explicit estimate/coverage metadata;
+- avoid stack traces, secrets, raw provider errors, SQL errors, private messages, and raw request headers;
+- use private/no-store cache behavior for sensitive responses where appropriate;
+- be tested directly at the HTTP boundary, not just through component tests.
+
+Use GET for read-only queries where the repository's patterns support it. Use POST with CSRF/origin checks for state-changing actions or export creation where required. Never put credentials, allowlist values, or sensitive filters in URLs. Do not expose a generic SQL/query endpoint.
+
+### M.5 Telemetry and aggregation lifecycle
+
+1. A real application/provider/job event occurs.
+2. Existing instrumentation emits a minimal, validated event or records the result in the existing durable source.
+3. The event is stored with UTC timestamp, opaque correlation ID, outcome, safe dimensions, and schema/version where needed.
+4. Aggregation/query services apply the documented time boundaries and filters.
+5. The API returns data plus source freshness/coverage and whether numbers are actual, estimated, unavailable, or stale.
+6. UI renders that state without converting unknown to zero.
+7. Alert evaluation consumes validated metrics and applies thresholds, sample minimums, cooldown, and deduplication.
+8. Exports reuse the same definitions and authorization rules.
+9. Retention/deletion jobs follow documented policy and do not delete required financial/security audit records without an approved retention basis.
+
+Instrumentation failures must be observable but non-fatal to the primary user request. Avoid double counting retries/fallbacks and distinguish logical requests from individual provider attempts. Use idempotency keys or deduplication for event delivery when necessary.
+
+### M.6 Data contracts and metric dictionary
+
+Phase 0 must create a metric dictionary before implementing cards. Each entry must record:
+- display name and purpose;
+- exact numerator/denominator or aggregation;
+- authoritative table/API and actual fields;
+- event inclusion/exclusion rules, including retries, refunds, cancellations and late events;
+- timezone and period boundary;
+- units and currency;
+- freshness target and last successful source timestamp;
+- actual versus estimated classification and uncertainty;
+- data coverage/sample size and empty-state behavior;
+- authorization/RLS boundary;
+- retention, redaction, query/index considerations;
+- unit, integration, database and acceptance tests.
+
+At minimum define registered accounts, daily/weekly/monthly active users, request success rate, p50/p95 latency, timeout rate, provider attempts, input/output tokens, estimated/actual provider cost, reserved spend, settled spend, gross settled revenue, refunds/chargebacks where supported, incident counts, automation outcomes, and source freshness. Definitions must be consistent across Overview, module views, alerts, reports, and exports.
+
+### M.7 UI component structure and visual system
+
+Map to the existing frontend stack; do not add a framework solely for this dashboard. Suggested component responsibilities:
+- responsive shell and owner navigation;
+- global date range/comparison selector;
+- module-specific filter bar and active-filter chips;
+- KPI card with metric definition, delta, timestamp, and source state;
+- time-series chart with day/week/month/year grouping;
+- sortable/paginated data table or mobile stacked rows;
+- source-health/freshness indicator;
+- incident detail/timeline;
+- export dialog and export status;
+- accessible confirmation dialog for later privileged actions.
+
+Visual direction: premium and lively without being overly colorful. Use a neutral white/soft-gray foundation, navy/charcoal text, and restrained semantic accents: blue for primary actions/activity, emerald for healthy state/revenue, violet for AI operations, amber for spend/warnings, coral/red for critical failures. Avoid rainbow dashboards, heavy gradients, saturated surfaces, and color-only status. Support system/light/dark appearance where consistent with the app. On iPhone Safari, ensure readable labels, safe-area spacing, touch-friendly controls, compact navigation, chart alternatives, and stacked/scrollable tables.
+
+### M.8 Reliability, performance, and self-monitoring
+
+- Each source adapter needs bounded timeouts and graceful degradation; use retries only for safe transient operations, with backoff and no retry storms.
+- Show partial results and per-source failure when possible instead of failing the whole dashboard.
+- Monitor dashboard API error rate, latency, query duration, rate limiting, telemetry lag, stale-source duration, aggregation failures, alert delivery, and export failures using an independent existing monitoring path where available.
+- Never rely exclusively on the Owner Command Center to report that the Owner Command Center is broken.
+- Establish baseline performance and expected volume during Phase 0; add indexes only after schema/query-plan review and migration tests.
+- Use conservative visibility-aware refresh, manual refresh, backoff on failure, and no unbounded polling.
+- Verify keyboard access, focus management, contrast, reduced motion, screen-reader labels, narrow-screen layout, and network interruption recovery.
+- Set explicit service objectives and alert thresholds only after the actual source and baseline are understood; do not invent SLO values from mock data.
+
+### M.9 Architecture and delivery artifacts
+
+Phase 0 must produce and maintain:
+1. Existing-code-to-target-architecture map.
+2. Owner access-boundary diagram, including page/API/export/control paths.
+3. Verified source-of-truth and metric dictionary.
+4. Route/API contract list mapped to existing route conventions.
+5. Data-flow and privacy/retention map.
+6. Schema/migration/RLS/grant/tenant-isolation review.
+7. Threat model covering route discovery, forged proxy headers, session abuse, cache leakage, CSRF, data exfiltration, export injection, denial of service, and compromised integrations.
+8. Date/filter/sort matrix and metric comparison definitions.
+9. Test matrix and evidence from actual runs.
+10. Phased implementation plan, dependencies, owner decisions, rollout/rollback and recovery plan.
+
+## N. Final completeness checklist and release gate
+
+Before marking the specification or implementation complete, explicitly check every item below. Mark each as **Implemented and tested**, **Documented only**, **Blocked by source/integration**, or **Not started**; do not use a vague “done” status.
+
+- [ ] Premium restrained multi-accent responsive UI; iPhone Safari and desktop.
+- [ ] Owner navigation button appears only after server-confirmed eligibility.
+- [ ] Both server-only email and trusted-IP allowlists required; fail closed when absent/invalid.
+- [ ] Genuine uniform HTTP 404 for unauthorized page, APIs, exports and controls; no cache/content leakage.
+- [ ] Session expiration/revocation, CSRF/origin protections, rate limits and sensitive-action controls tested.
+- [ ] Overview and every module use verified real sources and display freshness/coverage/estimates.
+- [ ] Shared day/week/month/year grouping; all required date presets; custom range and timezone rules.
+- [ ] Previous-period comparisons with correct zero/partial/missing-data behavior.
+- [ ] Module-specific filters and sortable tables; server-side allowlists and stable pagination.
+- [ ] Identical filter/date/sort semantics for charts, tables, KPIs and CSV exports.
+- [ ] Metric dictionary distinguishes logical requests, provider attempts, retries, estimates, actual cost and settled revenue.
+- [ ] AI operations, users/growth, infrastructure/releases, security/audit, automation/jobs, finance, incidents/alerts, reports and settings.
+- [ ] Alert threshold/sample/cooldown/deduplication and delivery failure/retry/resolution tested end-to-end.
+- [ ] AI investigator uses cited evidence and cannot independently take privileged actions.
+- [ ] Release guard shows real check source/commit/timestamp and never labels missing checks as passed.
+- [ ] Emergency controls remain read-only/disabled until separately approved, implemented, reviewed and tested.
+- [ ] Dashboard self-monitoring, graceful degradation, bounded queries, backup/restore and rollback plan.
+- [ ] Privacy minimization, retention/deletion, legal document and version-default updates where data handling changes.
+- [ ] Database RLS/grants and tenant boundaries verified; no direct browser access to privileged tables.
+- [ ] Required repository checks recorded with exact outcomes; screenshots alone do not satisfy acceptance.
+- [ ] PR is reviewable; no unapproved merge, production env change, production migration, or deployment.
+
+The first implementation PR must start with Phase 0 evidence, then the owner-only security boundary and actual HTTP 404 tests. Continue only after the owner reviews and approves the Phase 0 deliverable. This specification remains documentation until code, tests, and verified data sources are delivered in reviewed implementation PRs.
