@@ -133,7 +133,8 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
         }
       }));
       sources.push(...outcomes.map((outcome) => outcome.source));
-      const facts = buildEvidenceLedger(outcomes.flatMap((outcome) => outcome.facts)).facts;
+      const evidence = buildEvidenceLedger(outcomes.flatMap((outcome) => outcome.facts));
+      const facts = evidence.facts;
 
       const ttl = caller.actor.type === 'user' ? 30 * DAY : DAY;
       const saved = await store.addResearchScan({ ...who(caller), query, sources, facts, expiresAt: new Date(now() + ttl) });
@@ -153,7 +154,6 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
           sources: [...new Map(facts.map((f) => [f.url, { url: f.url, title: f.title }])).values()]
         });
       }
-      const evidence = buildEvidenceLedger(facts);
       return { id: saved.id, query, facts, sources, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, new_shared_facts: shared, expires_at: saved.expiresAt };
     },
 
