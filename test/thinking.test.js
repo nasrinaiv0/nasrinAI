@@ -35,3 +35,9 @@ test('Thinking expands evenly in every direction and stays a sphere', async () =
   assert.match(fn, /const k = R \* \(1 \+ burst \* 0\.75\)/, 'one scale for every dot');
   assert.doesNotMatch(fn, /d\.push/, 'no dot flies out further than the others');
 });
+
+test('the sphere keeps turning at a steady speed, also while it shrinks back', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const fn = app.slice(app.indexOf('function dotSphere('), app.indexOf('function showThinking('));
+  assert.match(fn, /const turn = t \* TAU;/, 'no pause at the start or end of a turn');
+});

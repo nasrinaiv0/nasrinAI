@@ -1372,8 +1372,8 @@
     }
     const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const draw = (t) => {
-      // Sphere: a full turn (eased) and a burst that peaks near the middle.
-      const turn = ease(Math.min(Math.max((t - 0.08) / 0.8, 0), 1)) * TAU;
+      // Sphere: a full turn at a steady speed, and a burst that peaks near the middle.
+      const turn = t * TAU;   // steady: it keeps turning while it grows and shrinks
       const burst = (1 - beep) * (1 - gather) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
       const ca = Math.cos(turn), sa = Math.sin(turn);
       // Beep: a ring of light runs out from the middle, twice a cycle.
