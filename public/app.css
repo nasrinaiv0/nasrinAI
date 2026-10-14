@@ -2798,3 +2798,26 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .research-muted,.research-empty{font-size:.82rem;opacity:.65}
 .research-open{overflow:hidden}
 @media(max-width:38rem){.research-overlay{padding:0;align-items:stretch}.research-panel{max-height:100dvh;width:100%;border-radius:0;border-left:0;border-right:0;padding:1rem .85rem calc(1rem + env(safe-area-inset-bottom))}.research-summary{grid-template-columns:1fr}.research-form-actions{align-items:stretch;flex-direction:column}.research-form-actions .btn{width:100%}.research-result-head{align-items:flex-start;flex-direction:column}.research-actions{justify-content:flex-start}.research-history-row{align-items:flex-start;flex-direction:column;gap:.25rem}}
+
+
+/* Library document cards: readable content preview with direct file actions. */
+.lib-list-preview {
+  margin: 0 0 10px;
+  padding: 0 14px 2px;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lib-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+.lib-list-actions .btn { min-height: 36px; }
