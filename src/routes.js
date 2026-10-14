@@ -1537,6 +1537,39 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Download a caller-owned report. Formats are markdown, html, and json.
+      method: 'GET',
+      path: '/v1/research/:id/export',
+      scope: 'chat',
+      handler: async ({ caller, params, req, res }) => {
+        if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
+        const format = new URL(req.url, 'http://local').searchParams.get('format') || 'markdown';
+        const file = await research.export(caller, params.id, format);
+        const bytes = Buffer.from(file.content, 'utf8');
+        res.writeHead(200, {
+          'Content-Type': file.contentType,
+          'Content-Length': bytes.length,
+          'Content-Disposition': `attachment; filename="${file.filename}"`,
+          'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+          'Referrer-Policy': 'no-referrer'
+        });
+        res.end(bytes);
+      }
+    },
+    {
+      // Explicit user confirmation is required; scanning never saves to Library automatically.
+      method: 'POST',
+      path: '/v1/research/:id/save-to-library',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, params, body }) => {
+        if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
+        return { status: 201, body: await research.saveToLibrary(caller, params.id, body) };
+      }
+    },
+    {
       // One of the caller's own scans.
       method: 'GET',
       path: '/v1/research/:id',
