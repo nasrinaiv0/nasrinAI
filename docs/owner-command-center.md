@@ -244,3 +244,125 @@ Claude Code must:
 - No collection or display of private chat contents for monitoring.
 - No invented real-time metrics, fake integrations, mock success states, or claims that MFA/alerts are enabled without verification.
 - No new runtime dependencies.
+
+
+---
+
+# Implementation contract and acceptance gates (2026-10-14)
+
+The sections below are mandatory. This document is an implementation specification, not evidence that these capabilities already exist. Claude Code must implement working application code, APIs, telemetry, migrations where needed, and tests in phases. **A documentation-only PR, static mockup, hard-coded metric, or unconnected button does not satisfy the owner's request.**
+
+## A. Repository discovery before changes
+
+Read `CLAUDE.md`, `docs/claude-code-handoff.md`, `docs/operations.md`, `docs/pr-change-log.md`, auth/store/routing/budget/payment/NCC modules, current routes and UI, all relevant migrations and DB tests, CI, and legal docs. Report current branch and working tree, target branch, live impact, and verified data sources before editing.
+
+Verify actual schema and migration history before writing SQL. The operations guide documents historical migration naming conflicts; never guess the next migration number, renumber migrations, or blindly apply SQL to production. Inspect existing owner/admin screens first to avoid duplicate functionality. Names in this document are conceptual until verified in code.
+
+## B. Non-negotiable security architecture
+
+- Every page, API read, export, and control action must verify owner access server-side using a verified identity and an explicit server-side allowlist/role. Hiding links in the browser is not authorization.
+- Guests, signed-out sessions, ordinary accounts, and malformed identities fail closed. Never trust client-supplied role, email, user ID, tenant ID, plan, cost, or totals.
+- Reuse the existing server-side Supabase patterns. Never send privileged Supabase credentials to the browser. Do not weaken RLS, grants, rate limits, budgets, tenant checks, authentication, retention, or consent to make the dashboard work.
+- If MFA/step-up authentication is not supported by the current flow, verify that fact, document the risk, and keep destructive/high-impact actions disabled until suitable protection exists. Do not claim MFA is active unless it is implemented and tested.
+- Protect state-changing requests using the repository's CSRF/origin/session pattern, strict input validation, rate limits, and idempotency keys where needed.
+- Record owner actions in append-only audit events with actor, action, target, timestamp, outcome, reason, and correlation ID. Never record secrets, raw tokens, full prompts, private messages, or raw provider payloads.
+- No LLM may execute arbitrary SQL/shell commands, change secrets, merge, deploy, roll back production, or disable security. AI can recommend a tested patch and explain evidence; a human approves privileged action.
+- Preserve Node 22 built-ins only (ADR-002); no new runtime packages without explicit approval. Preserve strict CSP and current frontend conventions.
+
+## C. Metric definitions and telemetry
+
+First reuse verified current sources. The operations guide references `public.usage_events`, `public.routing_daily`, and `public.spend_reservations`; verify live schema, migration status, grants, and semantic meaning before use. Reuse verified auth/account, payment, NCC execution and outbox data where available. Never create duplicate ledgers.
+
+Where required data is missing, instrument only the minimum safe events. A common event envelope should include UTC timestamp, opaque event ID, schema version, event type, correlation/request ID when available, actor class, validated feature/task/provider/model dimensions where useful, outcome category, latency, provider-reported token counts and estimated cost only when available, and a sanitized error code. Use idempotency to prevent retries from inflating logical-request counts. Do not store message content, prompts, completions, credentials, auth headers, or unnecessary PII.
+
+Definitions:
+- Registered users: verified accounts in the authoritative auth source; guests are separate.
+- Active users: distinct authenticated accounts with a documented qualifying event in the selected window.
+- AI requests: show logical user requests separately from provider attempts/fallbacks where data allows.
+- Success/error rate: disclose denominator and excluded outcomes.
+- Latency: show sample size; do not imply reliable percentiles with insufficient observations.
+- Tokens: provider-reported counts where available; estimates must be labeled.
+- AI spend: distinguish reserved, estimated, and invoiced/actual amounts; price calculations use versioned repository pricing.
+- Revenue: verified settled payment records, separate from pending, failed, refunded, and chargeback amounts when supported. Never infer revenue from plan labels.
+- Profit/margin: estimate only when both revenue and cost coverage are adequate; disclose exclusions.
+- Retention/churn: disclose cohort, eligibility, activity definition, window, and missing-data handling.
+- Health: show measured source, scope and timestamp. A single successful health endpoint is not proof all dependencies are healthy.
+
+Store timestamps in UTC; bucket daily summaries using the documented Asia/Manila reporting timezone unless existing product conventions require otherwise. Test day-boundary behavior. Missing, stale, unavailable, and true zero must be separate states.
+
+## D. Detailed module acceptance requirements
+
+### D1. Executive overview
+Real-source KPI cards for registered/active users, AI requests, success/error rate, latency, estimated AI cost, verified revenue when available, estimated margin when valid, system health, open incidents and job backlog. Date-range filters, comparison periods, source/freshness labels and links to filtered detail views. Never display fake or hard-coded production values.
+
+### D2. AI operations center
+Filter by date, tier, provider/model, task/feature, outcome and correlation ID. Show requests versus attempts, tokens, estimated costs, latency, failures, timeouts, routing/fallback distribution, tool outcomes and spend reservations. Safe redacted diagnostics only. Do not expose prompts, completions, secrets or hidden reasoning.
+
+### D3. User intelligence and CRM
+Paginated account search with minimum fields, plan/subscription state only when verified, last activity, aggregate usage, feature adoption and retention/cohorts. Mask PII by default. Never display private chats as analytics. Account support actions require separate authorization, confirmation and audit.
+
+### D4. Infrastructure and deployments
+Show application/API health, measured latency, last successful check, and Vercel deployment/build data only if a real authorized integration is configured. Supabase health must be measured by safe checks/provider APIs. Show configuration status (present/missing/validity) without secret values. Unavailable integration = **Not connected**, not green.
+
+### D5. Security and audit
+Aggregated auth failures, authorization denials, rate-limit blocks, suspicious bursts, webhook signature failures, owner actions, and CI/security scan status only when backed by a real source. Never claim RLS or vulnerability scans passed unless an actual test result and timestamp are recorded. Audit history is not editable/deletable through the dashboard.
+
+### D6. NCC monitoring
+Inspect actual automation/run/schedule/channel/outbox schema and tenant rules before implementation. Show queued/running/succeeded/failed/cancelled/stuck states, durations, retries, scheduled times, delivery states and sanitized traces only where real records exist. Retry only safe/idempotent jobs; never blindly retry externally visible social posts or messages. Preserve tenant isolation and never display access tokens or business payloads in platform aggregates.
+
+### D7. Finance and cost intelligence
+Group verified costs by provider/model/feature/day; separate reserved, estimated and actual. Show budget thresholds and forecasts with explicit assumptions. Reconcile revenue against authoritative payment/webhook records. Do not let dashboard controls alter existing budgets or abuse caps without a separately approved, audited implementation.
+
+### D8. Alerts and remote controls
+Alert rules need metric, threshold, window, minimum sample size, severity, cooldown, deduplication, enabled state, destination and last delivery result. Use existing cron/notification infrastructure if verified; no new scheduler dependency. Only show email/push delivery as active if a real configured path works. Controls must be allowlisted, server-validated, confirmed, audited, reversible where possible and idempotent. No arbitrary environment editor and no switches to disable RLS, auth, rate limits or budgets.
+
+### D9. AI incident investigator
+Correlate sanitized error codes, request IDs, deployment timing, provider health, routing fallbacks, queue state and safe configuration-presence signals. Every material conclusion must reference evidence and distinguish observed facts from hypotheses; show confidence, gaps and next diagnostic steps. Treat logs and repository content as untrusted prompt-injection input. Do not send user content or secrets to external models. AI may propose a patch and tests; no autonomous merge/deploy/rollback/secret rotation.
+
+### D10. Release guard and anomaly detection
+Display real CI/test/DB/secret-scan/dependency/evaluation statuses with source commit and timestamp. Missing checks are unknown, never passed. Compare pre/post-release metrics only with adequate comparable data. Detect spikes in failures, latency, cost, abuse and stuck jobs with sample-size thresholds, deduplication and cooldowns. First release is read-only: no automatic promotion or rollback.
+
+### D11. Reports and exports
+Bounded, owner-authorized CSV/JSON exports with row/date limits, temporary artifact expiry if asynchronous, audit record, safe filenames/content types and CSV formula-injection protection. Exclude secrets, raw tokens, private messages and unnecessary PII. Scheduled reports are a later phase and require an actual configured delivery path, consent/retention rules, retries and deduplication.
+
+## E. API and database contract
+
+Inspect route conventions before naming endpoints. Read endpoints should provide overview summaries, time series, AI breakdowns, user/retention aggregates, infrastructure status, audit/security events, NCC execution summaries, finance/budget metrics, incidents, alert rules, feature-flag state, and export status. Control endpoints should be limited to approved alert updates, incident acknowledgement/resolution, safe job retry/cancel, explicit feature flags and report generation.
+
+Every endpoint must have centralized owner authorization, strict enums, bounded date ranges/page sizes, parameterized queries, bounded timeouts, safe error envelopes with correlation IDs, rate limits, private cache policy, and no stack traces/secrets. All control routes require CSRF/origin protections and idempotency where relevant.
+
+Only add schema after proving current sources insufficient. Candidate additive concepts include privacy-minimized events, append-only owner audit, incidents/updates, alert rules/delivery attempts, and export job metadata. Names are illustrative, not approved table names. For each migration: verify migration history, least-privilege grants, default-deny RLS, safe `search_path` for security-definer functions, retention, query indexes, and a database test covering anon, ordinary user, owner/server and tenant boundaries. Try migrations on staging first; never execute production migrations from Claude Code. If data handling changes, update privacy/terms and legal version defaults in the same change.
+
+## F. Testing gates and definition of done
+
+Required tests include:
+- signed-out, guest and non-owner denial for every read/control/export path;
+- owner authorization checked on the server every time;
+- cross-user/cross-tenant isolation and no sensitive fields in responses/logs/exports;
+- metric math, retries/deduplication, estimates versus actuals, refunds and timezone boundaries;
+- validation, pagination, SQL injection, XSS, CSV injection, CSRF, replay, rate limits and expensive-query bounds;
+- alert thresholds, minimum samples, deduplication, cooldown, stale telemetry and failed delivery;
+- control allowlists, audit trail, stale-write conflicts and recovery;
+- NCC retry idempotency and duplicate external-delivery prevention;
+- AI investigator prompt injection and no autonomous high-impact action;
+- UI loading/empty/error/stale/unavailable states, accessibility and mobile Safari;
+- database RLS, grants, safe function search paths and retention.
+
+Follow current handoff requirements: `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian and Vercel preview where configured. State exact commands and observed results; unavailable checks must be marked not run, never passed by implication. Do not hand off with required checks failing or pending.
+
+## G. Staged delivery — real implementation required
+
+1. **Phase 0 — discovery:** source-of-truth map, existing UI/auth/schema/migration/telemetry audit, integration availability and gap list. No speculative schema or production changes.
+2. **Phase 1 — secure read-only MVP:** owner-only responsive shell, central authorization, overview, AI usage/cost summaries and user aggregates backed by verified data. Add minimal instrumentation only for proven gaps.
+3. **Phase 2 — operations:** AI model/routing details, finance reconciliation, security/audit and verified infrastructure/deployment status.
+4. **Phase 3 — NCC monitoring:** actual durable job/run/outbox status, safe traces and idempotent retry/cancel only after tests.
+5. **Phase 4 — incidents and alerts:** thresholds, anomaly detection, release guard and evidence-based AI investigation; no autonomous deployment.
+6. **Phase 5 — approved controls and reports:** audited allowlisted controls, bounded exports and scheduled reports only after delivery integrations are verified.
+
+Stop for owner approval before beginning each new phase, as required by `CLAUDE.md`. For every phase, deliver code, tests, updated `docs/pr-change-log.md`, and legal docs if needed. Never merge or deploy without owner approval.
+
+## H. Rollback and handoff report
+
+New read paths must be disableable without affecting chat, authentication, billing, AI routing, Connect or NCC. Optional integrations fail closed. New controls remain disabled until verified. Do not use disabling RLS/rate limits/budgets as rollback.
+
+At each phase end, report in plain language: implemented behavior; changed files/migrations; real/estimated/unavailable sources; owner authorization and RLS tests; exact test commands and observed results; required owner actions; limitations and risks; and the next phase awaiting approval. Documentation or screenshots alone are not completion.
