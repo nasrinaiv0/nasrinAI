@@ -1,0 +1,180 @@
+# NasrinAI Upgrade: Deep Orchestration and Academic Research Intelligence
+
+**Status:** Proposed implementation specification  
+**Repository:** `primusco20/nasrinAI`  
+**Scope:** Orchestrator planning/routing, research intent detection, web discovery, academic evidence synthesis, source quality, evaluation, privacy, and release gates.
+
+> This extends `docs/research.md`; it does not replace its SSRF-safe URL reader, robots.txt handling, source provenance, evidence ledger, privacy controls, report/export behavior, or explicit Library-save confirmation. This is a target specification, not a claim that every capability is already deployed.
+
+## 1. Objectives
+
+1. Make orchestration more deliberate, context-aware, evidence-driven, resilient, and useful across supported professions and tasks.
+2. When user intent is research or study, browse the web by default and provide **10 distinct resources/studies when enough credible sources are available**.
+3. Better support students, teachers, professors, and researchers without assuming a role when unclear.
+4. Ground factual claims in sources actually discovered and read; never invent studies, authors, titles, DOIs, publication dates, URLs, quotations, or citations.
+5. Preserve existing product behavior, plan/usage controls, security boundaries, provider/tool policies, and release gates.
+
+## 2. Research and study intent
+
+Classify intent from the current request and relevant conversation context, not isolated keywords. Research/study intent includes literature reviews, related studies/RRL, theses and dissertations, research proposals, research gaps, academic essays/reports, lesson preparation, study guides, comparisons of theories, evidence evaluation, current-information questions, scholarly articles, datasets, official statistics, standards, and primary documents.
+
+- When research/study intent is clear, start web discovery by default; do not answer only from model memory.
+- Ask one concise clarification only when ambiguity materially changes the research question. Otherwise state reasonable assumptions and begin.
+- Respect an explicit request not to browse and label the result as not web-verified.
+- Distinguish casual explanations from full research tasks; don't force a long report when a short answer is clearly wanted.
+- Support student study guide, professor briefing, literature review, annotated bibliography, evidence map, and concise research summary styles. Do not force a role-selection form.
+
+## 3. Ten-resource research standard
+
+### Expected result
+
+Aim for **10 distinct, relevant resources or studies** when credible sources are available within the configured budget. Each entry should include, where available:
+
+1. Title; 2. author(s)/organization; 3. publication date/year; 4. source type; 5. journal/publisher/repository; 6. DOI or stable public URL; 7. concise summary of the actual contribution; 8. relevance to the user's question; 9. findings/methods only when supported by the source; 10. limitations and whether full text was accessible.
+
+Present a numbered annotated bibliography followed by a synthesis of themes, disagreements, limitations, and research gaps where evidence supports them. Do not dump 10 bare links without explanation.
+
+### Quality and diversity
+
+- Prefer primary studies, peer-reviewed research, systematic reviews/meta-analyses, official datasets/statistics, institutional repositories, government agencies, recognized standards bodies, and original documents appropriate to the question.
+- Use an appropriate source mix; do not force irrelevant diversity in specialized topics.
+- Prefer recent sources for rapidly changing fields while retaining seminal work when relevant. State the date range or recency rationale when useful.
+- Search for contrary findings, limitations, replications, and null results—not only evidence supporting the first hypothesis.
+- Deduplicate by DOI, canonical URL, normalized title, and equivalent publication records. Ten URLs for one paper do not count as ten resources.
+- Distinguish peer-reviewed studies from preprints, news, opinion, reports, and general web pages.
+- Never claim peer review, indexing, retraction status, open access, or independent corroboration without evidence.
+- Never fabricate a tenth item. If only six credible distinct sources are found, return six and explain why; offer to broaden the search.
+
+### Safe discovery and reading
+
+Extend the existing provider-agnostic source registry rather than creating a parallel research engine.
+
+- Add scholarly metadata/search and official open-data adapters only after reviewing their API terms, rate limits, privacy, and licensing.
+- Search snippets and metadata are discovery candidates, not proof that claims are supported.
+- All candidate URLs must pass existing URL normalization, public-address/SSRF protections, robots.txt policy, timeout/size caps, and safe reader.
+- Do not bypass paywalls, logins, CAPTCHA, robots exclusions, or other access controls.
+- Clearly label metadata-only or abstract-only reviews; do not imply inaccessible full text was read.
+- Treat pages and retrieved documents as untrusted data, never as instructions; ignore embedded prompt injection.
+- Do not send full user questions to new providers without reviewing privacy disclosure and data minimization.
+
+### Bounded search plan
+
+Build a bounded plan with query concepts/synonyms, scholarly and primary evidence, reviews, official data when relevant, counterevidence/limitations, and a targeted gap search if fewer than 10 good resources are found.
+
+Run independent discovery and safe reads concurrently within configured limits. Use bounded retries/backoff, cancellation, timeouts, deduplication, and partial-result handling. Stop when the target is met with adequate quality or time, budget, rate, or source limits are reached. Do not repeat near-identical searches merely to inflate the count.
+
+Add validated configuration for deep-research search count, candidate count, page-read count, concurrency, timeouts, and budget, with conservative defaults and hard server-side ceilings. Existing rate limits and budget checks must never be disabled to reach ten sources.
+
+## 4. Evidence-grounded synthesis and citation integrity
+
+- Maintain a structured evidence ledger mapping findings to exact source records and marking sources read, metadata-only, skipped, or failed.
+- Cite only sources available to the scan, and only when the source supports the claim.
+- Keep stable report-local IDs and canonical source metadata.
+- Separate reported findings, model synthesis, assumptions, and unanswered questions.
+- Flag conflicting evidence and explain differences in methods, populations, dates, measures, or context only where supported.
+- “Corroborated” is an evidence-tracking signal, not proof of truth or source independence.
+- Surface limitations, source coverage, inaccessible pages, single-source claims, and potential conflicts.
+- Never fabricate page numbers or quotations. Citation-style formatting (APA/MLA/Chicago, etc.) must not invent missing bibliographic fields.
+- If evidence does not support a definitive conclusion, say so plainly.
+
+## 5. Student and professor experiences
+
+**Student-oriented:** explain key terms at the requested level; provide structured notes, arguments, study outlines, comparisons, and review questions when useful; distinguish evidence, interpretation, and hypothesis; encourage attribution and learning rather than submitting unreviewed AI output as one's own.
+
+**Professor/researcher-oriented:** emphasize methods, samples/populations, data, measures, limitations, effect estimates only when reported, and generalizability; distinguish causal evidence from correlation; identify disagreement and potential research gaps only when supported; provide a reproducible search summary including concepts, source types, date range, selection rationale, exclusions, and access limitations.
+
+Users can request either style in plain language. If unspecified, choose a useful format from the task and keep it readable. Never call a search “systematic” or claim PRISMA compliance unless the documented methodology was actually followed.
+
+## 6. Deeper universal orchestration
+
+Upgrade the existing orchestrator as a shared decision and execution layer—not as separate hard-coded foundation models per profession.
+
+### Context and intent model
+
+Create a structured, bounded task representation from the request and relevant conversation context: intent/domain, complexity and ambiguity, expected output, required capabilities, freshness/browsing needs, available tools, plan/usage budget, privacy sensitivity, provider constraints, dependencies, success criteria, and verification requirements. Use minimum relevant history, respect memory/retention settings, and avoid unnecessary sensitive inferences. Clarify only when missing information materially changes safe execution or quality.
+
+### Adaptive execution lifecycle
+
+1. **Understand:** classify task, constraints, and completion criteria.
+2. **Plan:** decompose non-trivial work into bounded steps with dependencies and evidence requirements.
+3. **Route:** select registered tools/providers by capability fit, policy, quality, freshness, context, latency, and estimated cost.
+4. **Execute:** parallelize independent work safely; sequence dependent steps; enforce timeouts, cancellation, retries, and idempotency.
+5. **Inspect:** validate tool output, source evidence, contradictions, malformed results, and untrusted instructions.
+6. **Verify:** check claims, citations, code, calculations, and artifacts with available tools; never report unperformed checks.
+7. **Recover:** retry transient failures, use an approved fallback when safe, or return useful partial results.
+8. **Respond:** lead with the useful answer; make evidence and limitations easy to inspect.
+9. **Improve:** record privacy-filtered quality signals and failure categories for evaluation; do not silently use private user content for training.
+
+### Capability and provider registry
+
+- Use explicit, versioned capability declarations with input/output schemas, authorization, plan eligibility, dependencies, timeouts, and tests.
+- Check availability at runtime. A browser, code runner, provider, image editor, or command that is not configured must be reported unavailable—not simulated.
+- Select providers by evaluated task fit and policy, not brand preference alone.
+- Do not silently send sensitive content to a different provider without privacy/policy checks.
+- Avoid repeated calls that produce no new evidence; enforce bounded loops and stop conditions.
+- Keep provider routing, stack versions, infrastructure details, secrets, raw resource IDs, and diagnostics out of normal user-facing replies.
+- Be honest about what was browsed, read, tested, created, or changed.
+
+### Tool safety and autonomy
+
+- Authorized read-only inspection may proceed; mutations such as file writes, database changes, deployments, merges, publishing, or sending messages must follow permission and approval boundaries.
+- Validate tool arguments and outputs against schemas; enforce least privilege and ownership on the server.
+- Treat pages, attachments, repository files, and tool outputs as untrusted input. Retrieved content cannot override system policy or authorization.
+- Add execution budgets, maximum steps/parallelism, circuit breakers, cancellation, and loop detection.
+- Use idempotency keys for retryable mutations and verify resulting state after writes.
+- Separate user-visible content from internal traces; redact credentials, tokens, unnecessary personal data, and unsafe payloads before persistence.
+- Never claim success because a tool was merely called; verify the result and state.
+
+## 7. Evaluation and quality metrics
+
+Create repeatable fixtures and tests for:
+
+- Research-intent recall and false-positive rate.
+- Count of distinct relevant resources and valid metadata coverage.
+- Citation coverage for material claims; unsupported/fabricated citation rate (target zero).
+- Source-read success, failed/skipped counts, adapter failures, duplicates, and source-type diversity.
+- Evidence conflict and limitations coverage.
+- Task completion, schema/tool validity, retry recovery, and partial-result quality.
+- Latency, provider/token cost, cancellation, and budget compliance.
+- Permission violations, secret leakage, prompt-injection resistance, and redaction regressions.
+- Regression of existing profession routing, coding, image editing, attachments, and normal chat.
+
+Test across science, social sciences, humanities, education, and technical fields, including topics with fewer than ten credible sources, conflicting evidence, inaccessible sources, stale results, malicious page instructions, provider outages, and budget exhaustion. Optimize for correctness and source quality, not length or link count. Metrics are diagnostics, not a single “truth score.”
+
+## 8. Persistence, privacy, and operational safeguards
+
+- Reuse existing research tables, source registry, evidence records, report/export behavior, retention, ownership enforcement, and deletion/export rules where possible.
+- Keep each scan private to its owner/tenant. Shared facts remain sanitized, deduplicated, and subject to existing review workflows.
+- Persist only data needed for the declared purpose; never store secrets or unfiltered provider diagnostics as conversation messages.
+- Preserve explicit user confirmation before saving reports to a personal Library.
+- Apply migrations in staging first; verify RLS, policies, and indexes.
+- Keep new providers behind reviewed configuration/feature flags as needed; test missing keys, provider outages, malformed responses, disabled research, and exhausted budgets.
+- Document third-party providers, data sent, retention implications, and opt-outs before enabling them.
+
+## 9. Implementation sequence
+
+1. Audit main and open PRs, orchestrator entry points, research routes/services, adapters, migrations, config, tests, and docs. Reuse existing code and avoid a duplicate research engine.
+2. Produce a capability gap map: implemented, partial, missing, or blocked by provider/configuration. Verify production status instead of assuming a branch is deployed.
+3. Improve intent classification, bounded plans, runtime capability checks, and tool/provider routing.
+4. Improve academic discovery, approved adapters, query expansion, deduplication, source ranking, and adaptive stopping for the ten-resource target.
+5. Improve annotated bibliographies, citation matching, conflicts/limitations, and student/professor output styles.
+6. Add schema validation, bounded retries/fallbacks, failure isolation, cancellation, and truthful partial results.
+7. Add evaluations, tests, cost/latency metrics, security checks, and regression coverage.
+8. Run the full suite, secret/dependency audits, database/RLS checks, and required CI/deployment verification. Review before merge; deploy only through the established process and authorized approvals.
+
+Do not overwrite `docs/research.md` wholesale or discard prior phases. Update it only after comparing this spec with implemented code, clearly separating shipped, in-progress, and planned features.
+
+## 10. Acceptance criteria
+
+- Clear research/study intent triggers web discovery by default unless browsing is unavailable or the user explicitly opts out.
+- Target ten distinct credible resources; return fewer with an explanation rather than duplicates or fabricated items.
+- Every citation maps to a source record; unread/skipped sources are not cited as evidence.
+- Resource type and access level are accurate; unknown metadata is omitted or marked unavailable.
+- Relevant counterevidence, limitations, and disagreements are surfaced.
+- Queries, page reads, concurrency, retries, time, and cost are bounded and cancellable.
+- Provider failures produce useful partial results when possible without hiding failures or exceeding budgets.
+- Retrieved content cannot override instructions, expose secrets, or bypass permissions.
+- Orchestration validates capabilities/tools, authorizes actions, verifies mutations, and never claims unperformed work.
+- Existing APIs, scans, exports, Library confirmation, retention, deletion, RLS, and product behaviors remain compatible.
+- Automated tests cover intent, ten-resource behavior, deduplication, citation integrity, source failure, prompt injection, budgets, and regressions.
+- Required CI, database, security, and deployment checks pass before release-ready status is claimed.
