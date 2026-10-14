@@ -984,3 +984,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** `github_render_test_screenshot` (`src/github/browser-runner.js`): app sandbox (npm registry only during install, then no network) runs the test and preview; a browser sandbox booted from a prepared snapshot (`AGENT_BROWSER_SNAPSHOT_ID`, `scripts/create-browser-snapshot.mjs`) reaches only the preview, records a short WebM and takes a JPEG; both saved for the person in that chat and shown above the reply (`[image:id]`, `[video:id]`, `GET /v1/recordings/:id`). Registry: tools marked `media: true` may attach media; the chat id comes from the server. Tool time 90 s (registry limit). Privacy Notice 2026-10-13g (no re-acceptance).
 - **Fixed from the first version:** the base64 screenshot could never pass the 8 KB tool-result limit; the 240 s time could not run (90 s registry cap, 120 s function); the browser sandbox reinstalled Chrome on every run and had wide network access.
 - **Validation:** `npm test`; live sandbox runs need the owner's Vercel account.
+
+
+## Proposed PR — Dependencies: remove unused, pin, commit lockfile (`security/deps-lockfile`)
+
+- **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
+- **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.

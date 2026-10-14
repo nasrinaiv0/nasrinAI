@@ -56,3 +56,21 @@ None. Builds are faster because there is nothing to install.
 
 Route handlers are plain functions taking `{ caller, body, params }`. Moving to
 Express later means wrapping them, not rewriting them.
+
+## Amendment (2026-10-14): two packages for the coding sandbox
+
+The owner merged the isolated command runner (PR #334 and before), which needs
+Vercel Sandbox, and the browser render-and-test, which needs agent-browser.
+These run code in a separate cloud machine and cannot be written with Node
+built-ins alone. So:
+
+- **Allowed:** `@vercel/sandbox` and `@agent-browser/sandbox`, pinned to exact
+  versions in `package.json`, with `package-lock.json` committed. They are
+  loaded only with `import()` inside `src/github/runner.js` and
+  `src/github/browser-runner.js`, so the rest of the app never loads them and
+  works without them.
+- **Removed:** `express` and `@supabase/supabase-js`, which nothing imports.
+- **Still the rule:** everything else uses Node 22 built-ins only. Any other
+  package needs the owner's OK and an amendment here.
+- **Checks:** CI fails on high or critical npm advisories, and when
+  `package-lock.json` does not match `package.json`.

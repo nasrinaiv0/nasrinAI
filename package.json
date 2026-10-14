@@ -8,10 +8,8 @@
     "check:secrets": "node scripts/check-secrets.js"
   },
   "dependencies": {
-    "@vercel/sandbox": "^3.0.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "express": "^4.21.0",
-    "@agent-browser/sandbox": "^0.39.0"
+    "@vercel/sandbox": "3.8.0",
+    "@agent-browser/sandbox": "0.39.1"
   },
   "engines": {
     "node": ">=20"

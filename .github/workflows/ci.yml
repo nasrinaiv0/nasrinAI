@@ -17,8 +17,9 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
-      # No committed lockfile exists yet; do not run package lifecycle scripts.
+      # The committed lockfile must match package.json (no lifecycle scripts run).
       - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: git diff --exit-code package-lock.json
       - run: npm audit --audit-level=high
 
   test:
