@@ -111,3 +111,52 @@ test('bad input, no sources, and account deletion removes signed-in scans', asyn
     assert.equal((await fetch(`${srv.url}/v1/research/${u.id}`, { headers: bearer(USER_TOKEN) })).status, 404);
   } finally { await srv.close(); }
 });
+
+
+test('research report exports are downloadable and Library saving requires explicit signed-in confirmation', async () => {
+  const built = app();
+  const srv = await serve(built.app);
+  try {
+    const guest = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
+    const scanResponse = await postJson(srv.url + '/v1/research', {
+      query: 'black tea report',
+      urls: ['https://other.example.org/page']
+    }, bearer(USER_TOKEN));
+    assert.equal(scanResponse.status, 200);
+    const scan = await scanResponse.json();
+
+    const markdownResponse = await fetch(`${srv.url}/v1/research/${scan.id}/export?format=markdown`, { headers: bearer(USER_TOKEN) });
+    assert.equal(markdownResponse.status, 200);
+    assert.match(markdownResponse.headers.get('content-type'), /text\/markdown/);
+    assert.match(markdownResponse.headers.get('content-disposition'), /attachment; filename=".*-research\.md"/);
+    assert.match(await markdownResponse.text(), /Research report/);
+
+    const htmlResponse = await fetch(`${srv.url}/v1/research/${scan.id}/export?format=html`, { headers: bearer(USER_TOKEN) });
+    assert.equal(htmlResponse.status, 200);
+    assert.match(htmlResponse.headers.get('content-type'), /text\/html/);
+    assert.match(await htmlResponse.text(), /Evidence-grounded research/);
+
+    const jsonResponse = await fetch(`${srv.url}/v1/research/${scan.id}/export?format=json`, { headers: bearer(USER_TOKEN) });
+    assert.equal(jsonResponse.status, 200);
+    assert.equal((await jsonResponse.json()).id, scan.id);
+
+    assert.equal((await fetch(`${srv.url}/v1/research/${scan.id}/export?format=pdf`, { headers: bearer(USER_TOKEN) })).status, 400);
+    assert.equal((await postJson(`${srv.url}/v1/research/${scan.id}/save-to-library`, {}, bearer(USER_TOKEN))).status, 400,
+      'the API must refuse a save without explicit confirmation');
+    assert.equal((await postJson(`${srv.url}/v1/research/${scan.id}/save-to-library`, { confirmed: true }, bearer(guest))).status, 403,
+      'guest scans cannot be saved into a signed-in personal Library');
+
+    const savedResponse = await postJson(`${srv.url}/v1/research/${scan.id}/save-to-library`, { confirmed: true }, bearer(USER_TOKEN));
+    assert.equal(savedResponse.status, 201);
+    const saved = await savedResponse.json();
+    assert.equal(saved.saved, true);
+    assert.match(saved.title, /-research\.md$/);
+    const stored = await built.store.getLibraryFile({
+      tenantId: '00000000-0000-0000-0000-000000000001',
+      userId: 'user-1',
+      id: saved.id
+    });
+    assert.ok(stored, 'report should appear in the signed-in user\'s Library');
+    assert.match(stored.chunks.join(''), /Research report/);
+  } finally { await srv.close(); }
+});
