@@ -14,9 +14,9 @@ test('Crossref contributes scholarly metadata alongside healthy web results', as
   let called = 0;
   const registry = createResearchSourceRegistry({ webSearch: { async search() { return { citations: [{ url: 'https://docs.example.com/api' }] }; } }, fetchImpl: async (url, options) => {
     called++; assert.equal(new URL(url).origin, 'https://api.crossref.org'); assert.match(options.headers['User-Agent'], /NasrinAI/);
-    return { ok: true, async json() { return { message: { items: [{ DOI: '10.1234/example', URL: 'https://doi.org/10.1234/example', title: ['A paper title'], publisher: 'Example Press', published: { 'date-parts': [[2024]] } }] } }; } };
+    return { ok: true, async json() { return { message: { DOI: '10.1234/example', URL: 'https://doi.org/10.1234/example', title: ['A paper title'], publisher: 'Example Press', published: { 'date-parts': [[2024]] } } }; } };
   } });
-  const result = await registry.discover({ query: 'academic literature review about AI tutoring', plan: { searchQueries: ['AI tutoring papers'] } });
+  const result = await registry.discover({ query: 'Please retrieve DOI 10.1234/example', plan: { searchQueries: ['AI tutoring papers'] } });
   assert.equal(called, 1); assert.ok(result.candidates.some((c) => c.adapter === 'crossref' && c.metadata.doi === '10.1234/example')); assert.ok(result.candidates.some((c) => c.adapter === 'web-search'));
 });
 
@@ -27,9 +27,9 @@ test('one adapter failure is isolated from healthy adapters', async () => {
   assert.ok(result.candidates.some((c) => c.adapter === 'healthy')); assert.equal(result.adapters.find((a) => a.id === 'web-search').status, 'unavailable');
 });
 
-test('Crossref is skipped for nonacademic questions', async () => {
+test('Crossref is skipped unless a DOI is explicitly supplied', async () => {
   let called = false; const registry = createResearchSourceRegistry({ fetchImpl: async () => { called = true; throw new Error('should not call'); } });
-  const result = await registry.discover({ query: 'How to use this API?' });
+  const result = await registry.discover({ query: 'academic literature review about AI tutoring' });
   assert.equal(called, false); assert.equal(result.adapters.find((a) => a.id === 'crossref').status, 'no_results');
 });
 test('adapter timeouts are enforced even when an adapter ignores its abort signal', async () => {
