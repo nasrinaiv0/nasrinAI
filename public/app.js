@@ -2715,7 +2715,9 @@
   function unlockAudio() {
     if (!AudioCtx) return;
     // iPhone: let read-aloud play like media, even with the ring/silent switch on.
-    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch { /* not supported */ }
+    // Not during a voice conversation: it needs the microphone, and 'playback'
+    // would cut the call's sound.
+    try { if (!vc.on && navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch { /* not supported */ }
     try {
       audioCtx = audioCtx || new AudioCtx();
       // A reply the person paused stays paused, whatever else they tap.
@@ -5212,6 +5214,7 @@
         session.gemini_voice = map[selected.slice(3)] || 'Kore';
         vc.geminiState = await window.NasrinGeminiRealtime.start(session, {
           audioContext: vc.audioCtx,
+          audioElement: vc.audioEl,
           state: (s) => { vc.geminiState = s; vc.realtimeStream = s.stream; window.NasrinVoiceWave?.attach(s.stream); },
           active: () => vc.realtime, muted: () => vc.muted,
           open: () => { vc.realtimeProvider='gemini'; vc.realtime=true; voiceState('listening','Listening…'); Nasrin.mood('idle'); },
@@ -5301,6 +5304,9 @@
     vc.quick = 0;
     // Phones (iOS above all) only let sound start from the tap itself: make
     // the realtime voice's audio output now, before anything is awaited.
+    // iPhone: undo the 'playback' set by this tap (unlockAudio); with the
+    // microphone on, Safari then picks its own talk-and-listen mode.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch { /* not supported */ }
     try { if (AudioCtx) { vc.audioCtx = new AudioCtx(); vc.audioCtx.resume().catch(() => {}); } } catch { vc.audioCtx = null; }
     try { vc.audioEl = document.createElement('audio'); vc.audioEl.style.display = 'none'; document.body.appendChild(vc.audioEl); vc.audioEl.play().catch(() => {}); } catch { vc.audioEl = null; }
     voiceMute.setAttribute('aria-pressed', 'false');

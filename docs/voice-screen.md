@@ -49,3 +49,16 @@ once, calm and without rings, and the screen does not animate in.
 px, light and dark: no sideways scroll, controls 44 px or larger, tier and Plus
 menus open and close (also by tapping outside), mute toggles its label, Exit
 returns to the chat, and Settings > Voice lists every voice.
+
+## iPhone: realtime voice sound (2026-10-14)
+
+Gemini realtime replies showed "Talking…" with no sound on iPhone. Two causes:
+- The reply was played straight through Web Audio, which iOS sends to the quiet
+  earpiece (or mutes) while the microphone is on. It now plays through the
+  `<audio>` element created during the Start tap (`hooks.audioElement` →
+  `createMediaStreamDestination`), the same way the OpenAI voice plays.
+- Every tap set `navigator.audioSession.type = 'playback'` (for read-aloud),
+  also during a call. Taps during a call no longer change it, and starting a
+  call sets it back to `'auto'`.
+The audio context is also resumed from iOS's `interrupted` state, not only
+`suspended`. Needs a real iPhone call to confirm.

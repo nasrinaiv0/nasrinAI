@@ -18,11 +18,16 @@
     const buf=state.ctx.createBuffer(1,n,24000);
     if(typeof buf.copyToChannel==='function')buf.copyToChannel(f,0);
     else buf.getChannelData(0).set(f);
-    const src=state.ctx.createBufferSource();src.buffer=buf;src.connect(state.ctx.destination);
+    // Out through the page's <audio> element when there is one (state.out):
+    // iPhones send Web Audio to the quiet earpiece, or mute it, while the
+    // microphone is on; a media element plays on the speaker.
+    const src=state.ctx.createBufferSource();src.buffer=buf;src.connect(state.out||state.ctx.destination);
     const now=state.ctx.currentTime;state.next=Math.max(state.next||now,now+0.02);src.start(state.next);state.next+=buf.duration;state.sources.push(src);
     src.onended=()=>{const i=state.sources.indexOf(src);if(i>=0)state.sources.splice(i,1);};
     // iOS Safari can suspend Web Audio after permission prompts or app switches.
-    if(state.ctx.state==='suspended')state.ctx.resume().catch(()=>{});
+    // ('interrupted' is iOS's state after a call, Siri or a permission prompt.)
+    if(state.ctx.state!=='running')state.ctx.resume().catch(()=>{});
+    if(state.el&&state.el.paused)state.el.play().catch(()=>{});
   };
   const decoder = new TextDecoder();
   // Interrupt only the current playback; keep the live session and mic running.
@@ -41,6 +46,12 @@
       const ctx=hooks.audioContext||new AudioContext();
       try{await ctx.resume();}catch{}
       const processor=ctx.createScriptProcessor(4096,1,1),source=ctx.createMediaStreamSource(stream);
+      // The reply's sound goes to the <audio> element made during the tap.
+      const el=hooks.audioElement;
+      if(el&&typeof ctx.createMediaStreamDestination==='function'){
+        try{const out=ctx.createMediaStreamDestination();el.srcObject=out.stream;el.play().catch(()=>{});Object.assign(state,{out,el});}
+        catch{/* falls back to the context's own output */}
+      }
       Object.assign(state,{ws,ctx,processor,stream});hooks.state(state);
       const flush=()=>{
         if(!state.ready||ws.readyState!==WebSocket.OPEN||!state.buffer.length)return;

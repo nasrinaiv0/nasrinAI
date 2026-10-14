@@ -8,6 +8,7 @@ import vm from 'node:vm';
 async function load() {
   const code = await readFile(new URL('../public/gemini-realtime.js', import.meta.url), 'utf8');
   const started = [];
+  const sources = [];
   let socket = null;
   class FakeWS {
     static OPEN = 1;
@@ -22,7 +23,8 @@ async function load() {
     createScriptProcessor() { return node(); }
     createMediaStreamSource() { return node(); }
     createBuffer(ch, n, rate) { return { duration: n / rate, copyToChannel() {} }; }
-    createBufferSource() { return { ...node(), start(t) { started.push(t); }, stop() {} }; }
+    createBufferSource() { const n = { ...node(), start(t) { started.push(t); }, stop() {}, connect(to) { n.to = to; } }; sources.push(n); return n; }
+    createMediaStreamDestination() { return { stream: { kind: 'reply-stream' } }; }
   }
   const window = {
     WebSocket: FakeWS, AudioContext: FakeCtx,
@@ -33,7 +35,7 @@ async function load() {
     navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } }
   });
   vm.runInContext(code, ctx);
-  return { api: window.NasrinGeminiRealtime, started, socket: () => socket, FakeCtx };
+  return { api: window.NasrinGeminiRealtime, started, sources, socket: () => socket, FakeCtx };
 }
 
 test('binary Gemini frames are read: audio plays and words show', async () => {
@@ -63,4 +65,24 @@ test('binary Gemini frames are read: audio plays and words show', async () => {
   assert.equal(started.length, 1, 'the reply audio was scheduled');
   assert.deepEqual(said, [['out', 'Hello'], ['done']]);
   assert.deepEqual(errors, [], 'no errors during a normal turn');
+});
+
+test('iPhone: the reply plays through the <audio> element made during the tap, not the earpiece', async () => {
+  const { api, sources, socket, FakeCtx } = await load();
+  const el = { paused: true, srcObject: null, plays: 0, play() { this.plays++; this.paused = false; return Promise.resolve(); } };
+  const state = await api.start({ value: 'tok', model: 'gemini-3.8-live' }, {
+    audioContext: new FakeCtx(), audioElement: el, state() {}, active: () => true, muted: () => false, open() {},
+    input() {}, output() {}, interrupted() {}, complete() {}, error() {}, close() {}
+  });
+  assert.equal(el.srcObject.kind, 'reply-stream', 'the element plays the reply stream');
+  const ws = socket();
+  ws.onopen();
+  ws.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  ws.onmessage({ data: JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { data: Buffer.alloc(480).toString('base64') } }] } } }) });
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].to, state.out, 'audio goes to the element, not straight to the speakers');
+  assert.ok(el.plays >= 1);
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /audioElement: vc\.audioEl,/);
+  assert.match(app, /if \(!vc\.on && navigator\.audioSession/, 'a tap during a call does not switch the iPhone to playback only');
 });
