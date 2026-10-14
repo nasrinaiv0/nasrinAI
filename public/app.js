@@ -1346,7 +1346,7 @@
   // a sphere) and shrinking back on the way.
   // Dots nearer the front are larger and brighter. Drawn frame by frame; with
   // reduced motion it stays still (app.css .dots pulses softly instead).
-  // The coding chat gives two later steps their own sign (stage()):
+  // Two later steps have their own sign (stage()), in every chat:
   // 'gather' ("Putting it together"): scattered dots fly in from all around and
   //   assemble into the sphere, again and again;
   // 'beep' ("Almost done"): the sphere holds still-ish while its dots beep,
@@ -1442,9 +1442,8 @@
     const set = (words) => {
       if (!words || label.textContent === words) return;
       label.textContent = words;
-      // The coding chat: "Putting it together" gathers the dots, "Almost done" makes them beep.
-      const coding = document.body.classList.contains('coding-mode');
-      ch.stage(!coding ? null : /^Almost done/.test(words) ? 'beep' : /^Putting it together/.test(words) ? 'gather' : null);
+      // Every chat: "Putting it together" gathers the dots, "Almost done" makes them beep.
+      ch.stage(/^Almost done/.test(words) ? 'beep' : /^Putting it together/.test(words) ? 'gather' : null);
       label.classList.remove('is-new');
       void label.offsetWidth;   // restart the fade
       label.classList.add('is-new');
