@@ -451,3 +451,88 @@ If either required variable is missing, blank, malformed, or fails validation, f
 Test that the button is absent and all owner endpoints deny access when configuration is missing/invalid; both allowlist matches are required; either mismatch denies access; forged identity/IP headers do not grant access; trusted-proxy handling is correct; IPv4/IPv6 entries are validated; changing networks takes effect; and ordinary users cannot learn allowlist contents. Test server authorization separately from UI visibility.
 
 No production environment variables are to be created or changed by this documentation update. Actual configuration and implementation require their own reviewed, explicitly approved steps.
+
+
+## K. Owner-only 404 boundary, defensive controls, and operational readiness (2026-10-14)
+
+This section consolidates the additional owner requirements identified during the security review. It supplements Sections 14, 16, 17, J, and `docs/owner-command-center-404-policy.md`. If older wording conflicts with this section, this section governs the Owner Command Center.
+
+### K.1 Uniform 404 for unauthorized visitors
+
+- The proposed owner route is `/owner`; confirm the final route against existing routing conventions during Phase 0.
+- Every unauthorized direct page request must receive an actual HTTP `404 Not Found`, not merely a client-side redirect or a page that visually resembles a 404.
+- Use the same generic 404 behavior for signed-out visitors, guests, unapproved identities, unapproved IPs, missing/invalid allowlist configuration, and requests where a trusted client IP cannot be established.
+- Apply the same generic 404 to all owner-only API, metrics, export, alert, audit, incident, automation, and control endpoints. Do not leak data in status bodies, headers, server-rendered markup, error details, or alternate routes.
+- Authorized access requires a valid trusted session, a verified authenticated identity matching `OWNER_ALLOWED_EMAILS`, and a trusted client IP matching `OWNER_ALLOWED_IPS`. Both lists must be present and valid. The UI button is only a convenience; it never grants permission.
+- Validate all route variants and encodings, including trailing slashes and case/normalization behavior. Use private/no-store caching for owner responses where appropriate; ensure shared caches and static asset delivery cannot expose protected data.
+- Do not reveal which check failed. Log only minimized safe metadata when useful; never log secrets, session tokens, full request headers, or unnecessary personal data.
+- This 404 policy supersedes earlier generic language in Section 14 and Section 16 that suggests returning 403 or another response to an unauthorized Owner Command Center visitor. The rest of the authentication and authorization requirements remain mandatory.
+
+### K.2 Owner identity, trusted IP, and recovery
+
+- Derive the owner identity from the existing server-validated authentication flow, never from request parameters, client state, browser profile fields, or an unverified role flag.
+- Use only the hosting platform's documented trusted mechanism to resolve the client IP. Never blindly trust caller-supplied `X-Forwarded-For`, `X-Real-IP`, or equivalent headers.
+- Validate IPv4 and IPv6 allowlist entries. Support CIDR only if intentionally implemented, documented, and covered by tests; otherwise accept exact addresses only.
+- If a mobile carrier, VPN, Wi-Fi change, or dynamic public IP blocks the owner, use a secure out-of-band hosting configuration update and redeploy/restart as required by the platform. Never add an automatic open-access fallback, query-string bypass, browser-side override, or hard-coded backup identity.
+- Keep `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS` server-only. Actual production configuration changes require explicit owner approval and must not be included in documentation-only work.
+
+### K.3 Session and sensitive-action protections
+
+- Reuse current secure session and cookie patterns; test expiration, sign-out, revoked sessions, stale sessions, and authorization after account changes.
+- Apply CSRF protections and same-origin/origin validation to state-changing routes where applicable; use strict input validation, bounded request sizes/timeouts, and rate limits.
+- Require explicit confirmation, a reason where appropriate, idempotency protection, and append-only audit events for sensitive actions.
+- Require recent authentication and MFA/step-up verification for high-impact actions if supported by the existing auth provider. Do not claim MFA is enabled until it is actually implemented and verified.
+- Never expose service-role/privileged Supabase keys, provider credentials, allowlist values, or other secrets to browser code, URLs, responses, or logs.
+
+### K.4 Data correctness and source-of-truth verification
+
+- Phase 0 must produce a source-of-truth matrix for each proposed metric/integration: authoritative source, actual table/API/field, aggregation definition, timezone, freshness, limitations, permissions, and test approach.
+- Verify current schema, migration history, auth/session behavior, usage and spend events, pricing configuration, payment/webhook records, deployment integration, health checks, and NCC run/outbox data before writing queries or proposing migrations.
+- Distinguish logical user requests from provider attempts/retries/fallbacks; provider-reported tokens from estimates; reserved, estimated, and invoiced/actual cost; and settled revenue from pending, failed, refunded, or disputed payments where supported.
+- Do not infer revenue, deployment health, security status, automation success, or scan success from UI state or configuration presence alone. Every status needs a real source and timestamp.
+- Treat missing, stale, unavailable, not-connected, and true-zero states separately. Label estimates and show sample sizes/coverage when needed. Telemetry failure must not break ordinary chat, authentication, billing, or AI routing.
+- Do not collect prompts, completions, uploaded content, private chat transcripts, credentials, or raw authorization headers for dashboard analytics. Keep retention and legal updates in scope if data handling changes.
+
+### K.5 Alerts and operational response
+
+- Each alert rule must define metric/source, threshold, evaluation window, minimum sample size, severity, cooldown, deduplication key, enabled state, destination, and last delivery outcome.
+- Test the full alert lifecycle, including threshold crossing, duplicate suppression, cooldown, stale/unavailable telemetry, destination failure, retries, and resolution. Show an alert channel as active only after its real delivery path is verified.
+- Incident workflow: detect → record evidence → notify through a verified channel → investigate → propose remediation → obtain required owner approval → execute a predefined server-authorized action → verify outcome → audit.
+- The AI investigator must cite event IDs/time ranges, separate observed facts from hypotheses, state confidence and missing evidence, and recommend a bounded next check. Treat logs and repository content as untrusted input; do not send private user content or secrets to external models.
+- AI may not grant itself permissions, run arbitrary SQL, change secrets, weaken security, delete data, or autonomously merge/deploy/rollback. Automated anomaly detection must use explicit thresholds/sample requirements and deduplication, not LLM judgment alone.
+
+### K.6 Emergency controls and recovery
+
+- Initial dashboard delivery is read-only. Controls remain disabled until an independently reviewed phase implements and tests them.
+- Potential later controls may pause a provider route or integration, disable a specific workflow, enable maintenance mode, retry a proven-safe job, or acknowledge/resolve an incident. Only show controls that invoke a real, allowlisted backend action.
+- Every control must have server-side authorization, validation, confirmation, rate limiting, idempotency where applicable, audit history, post-action verification, and a documented recovery path.
+- Never provide controls to disable authentication, RLS, tenant isolation, secret scanning, rate limits, quotas, or budget protections.
+- Before production rollout, document rollback for application changes, optional integrations, and migrations. Confirm existing backup/restore procedures and recovery owners rather than assuming backups are usable. Do not run destructive production SQL or apply production migrations from the implementation workflow.
+- Dashboard failures must be isolated so they do not take down normal NasrinAI chat, sign-in, billing, routing, Connect, or NCC.
+
+### K.7 Release guard and validation evidence
+
+- Display the exact source commit, environment, check name, status, timestamp, and source workflow for CI, unit tests, database tests, secret scanning, dependency scanning, and available evaluation/security checks.
+- Missing, skipped, stale, or unavailable checks must be shown as unknown/not run, never passed.
+- Verify that release comparisons use adequate comparable pre/post-release data. The first release must not automatically promote, deploy, or roll back.
+- Required validation follows `docs/claude-code-handoff.md`: `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and Vercel Preview where configured. Report exact observed outcomes; do not imply that checks ran if they did not.
+- Test the actual HTTP status and response body for unauthorized routes; screenshots alone are insufficient.
+
+### K.8 Mobile, accessibility, and network changes
+
+- Test on iPhone Safari and desktop, including signed-out and expired sessions, narrow viewport, charts/tables, keyboard/focus, touch target size, loading/error/empty/stale states, and reduced-motion behavior.
+- Keep the existing premium restrained multi-accent design direction. Color is semantic and must be paired with text/icons/patterns; do not make status depend on color alone.
+- Test approved-IP behavior across Wi-Fi, mobile data, and VPN changes. The owner must understand that an IP allowlist can temporarily lock them out when the public IP changes; the recovery path must not weaken authorization.
+
+### K.9 Phase 0 deliverable and implementation order
+
+Before building dashboard modules, Phase 0 must deliver:
+1. A current branch/worktree and architecture summary.
+2. An owner security boundary map covering page, API, export, and control routes.
+3. A source-of-truth matrix and gap list for all metrics/integrations.
+4. A schema/migration/RLS/tenant-isolation review.
+5. A trusted-proxy/IP resolution plan and secure owner recovery procedure.
+6. A test matrix covering uniform 404, identity/IP mismatch, forged headers, configuration failure, data leakage, and session expiration.
+7. A phased PR plan with production impact, rollback, required owner decisions, and exact checks to run.
+
+Implementation order: (1) security boundary and HTTP 404 tests; (2) read-only live-data MVP; (3) infrastructure, security/audit, and verified finance; (4) NCC monitoring; (5) alerts and AI investigation; (6) owner-approved controls and exports. Stop for owner approval before each new phase. Do not merge, change production environment variables, apply production migrations, or deploy without explicit owner approval.
