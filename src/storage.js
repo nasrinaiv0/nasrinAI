@@ -87,7 +87,7 @@ export function createStorage({ store, config, conversations, library, logger, n
       const titles = new Map(chats.map((c) => [c.id, c.title]));
       const items = [
         ...chats.map((c) => ({ id: c.id, kind: 'chat', title: c.title || 'New chat', created_at: c.createdAt, updated_at: c.updatedAt, size: null, expires_at: expiry(c.updatedAt, days) })),
-        ...files.map((f) => ({ id: f.id, kind: f.kind, title: f.title, created_at: f.createdAt, size: f.chars, size_unit: 'characters', expires_at: expiry(f.createdAt, days) })),
+        ...files.map((f) => ({ id: f.id, kind: f.kind, title: f.title, created_at: f.createdAt, size: f.chars, size_unit: 'characters', preview: f.chunks.join('').slice(0, 240), expires_at: expiry(f.createdAt, days) })),
         ...sent.map((f) => ({ id: f.id, kind: f.kind === 'photo' ? 'photo_sent' : 'file_sent', title: f.name, mime: f.mime, created_at: f.createdAt, size: f.size, chat_id: f.conversationId || null, expires_at: expiry(f.createdAt, days) })),
         ...pictures.map((p) => ({ id: p.id, kind: 'photo_generated', title: titles.get(p.conversationId) || 'Picture from Nasrin', mime: p.mime, created_at: p.createdAt, size: p.size || null, chat_id: p.conversationId || null,
           expires_at: expiry(p.createdAt, days === null ? (config.images?.retentionDays || 0) : days) }))
