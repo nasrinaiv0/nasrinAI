@@ -1341,37 +1341,78 @@
     if (/\b(calculate|compute|how much|how many|convert)\b/.test(t)) return 'Working it out';
     return 'Thinking';
   }
-  // The thinking sign: a sphere of dots that bursts apart, turns a full
-  // circle and gathers again (app.css .dots). Dots nearer the front are
-  // larger and brighter. Offsets go through the CSSOM (allowed by the CSP).
+  // The thinking sign: a sphere of dots that turns a full circle around its
+  // upright axis, like a globe, bursting apart and gathering again on the way.
+  // Dots nearer the front are larger and brighter. Drawn frame by frame; with
+  // reduced motion it stays still (app.css .dots pulses softly instead).
+  // finishing(true) (the coding chat's "Almost done") is a different sign: the
+  // dots swirl into a three-armed spiral, like a small galaxy, that turns and
+  // gently breathes in and out.
   function dotSphere(box) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const spin = document.createElementNS(NS, 'g');
-    spin.classList.add('spin');
-    const n = 64, tilt = 0.45;
+    const n = 64, tilt = 0.35, R = 13, diskTilt = 0.9, TAU = Math.PI * 2;
+    const ct = Math.cos(tilt), st = Math.sin(tilt), cdt = Math.cos(diskTilt), sdt = Math.sin(diskTilt);
+    let cycle = 2400, swirl = 0, goal = 0;   // swirl: 0 sphere … 1 spiral, eased toward goal
+    const dots = [];
     for (let i = 0; i < n; i++) {
       const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
-      const x = Math.cos(a) * r, z0 = Math.sin(a) * r;
-      const yy = y * Math.cos(tilt) - z0 * Math.sin(tilt), z = y * Math.sin(tilt) + z0 * Math.cos(tilt);
-      const depth = (z + 1) / 2, push = 7 + 6 * ((i * 37) % 11) / 10;
       const c = document.createElementNS(NS, 'circle');
-      c.setAttribute('cx', (20 + x * 13).toFixed(2));
-      c.setAttribute('cy', (20 + yy * 13).toFixed(2));
-      c.setAttribute('r', (0.55 + 0.75 * depth).toFixed(2));
-      c.setAttribute('fill-opacity', (0.3 + 0.7 * depth).toFixed(2));
-      c.style.setProperty('--dx', (x * push).toFixed(1) + 'px');
-      c.style.setProperty('--dy', (yy * push).toFixed(1) + 'px');
-      c.style.setProperty('--d', Math.round((1 - depth) * 120) + 'ms');
-      spin.appendChild(c);
+      svg.appendChild(c);
+      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10, arm: (i % 3) * TAU / 3, u: (Math.floor(i / 3) + 0.5) / Math.ceil(n / 3) });
     }
-    svg.appendChild(spin);
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const draw = (t) => {
+      // Sphere: a full turn (eased) and a burst that peaks near the middle.
+      const turn = ease(Math.min(Math.max((t - 0.08) / 0.8, 0), 1)) * TAU;
+      const burst = (1 - swirl) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      const ca = Math.cos(turn), sa = Math.sin(turn);
+      // Spiral: three arms turning together, breathing once a cycle.
+      const pull = 0.88 + 0.12 * Math.cos(t * TAU);
+      for (const d of dots) {
+        const sx = d.x * ca + d.z * sa, z1 = -d.x * sa + d.z * ca;
+        const sy = d.y * ct - z1 * st, sz = d.y * st + z1 * ct;
+        const th = d.arm + d.u * 3.4 + t * TAU, rr = (0.12 + 0.88 * d.u) * pull;
+        const rx = Math.cos(th) * rr, rz0 = Math.sin(th) * rr;
+        const ry = -rz0 * sdt, rz = rz0 * cdt;
+        const x = sx + (rx - sx) * swirl, y = sy + (ry - sy) * swirl, z = sz + (rz - sz) * swirl;
+        const k = R * (1 + burst * d.push), depth = (z + 1) / 2;
+        const core = 0.35 + 0.65 * (1 - d.u);   // brighter toward the middle
+        const glow = 1 + (core - 1) * swirl;
+        d.c.setAttribute('cx', (20 + x * k).toFixed(2));
+        d.c.setAttribute('cy', (20 + y * k).toFixed(2));
+        d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst) * (1 + 0.3 * swirl * (1 - d.u) - 0.25 * swirl * d.u)).toFixed(2));
+        d.c.setAttribute('fill-opacity', ((0.3 + 0.7 * depth) * (1 - 0.3 * burst) * glow).toFixed(2));
+      }
+    };
+    draw(0);
+    let frame = 0, phase = 0, before = 0;
+    const still = reduced();
+    if (!still) {
+      const tick = (now) => {
+        const dt = before ? now - before : 0;
+        phase = (phase + dt / cycle) % 1;   // smooth when the speed changes
+        swirl += (goal - swirl) * Math.min(1, dt / 250);
+        before = now;
+        draw(phase);
+        frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+    }
     box.classList.add('dot-sphere');
     box.appendChild(svg);
-    return { remove() { svg.remove(); } };
+    return {
+      finishing(on) {
+        goal = on ? 1 : 0;
+        cycle = on ? 1800 : 2400;
+        box.classList.toggle('is-finishing', Boolean(on));
+        if (still) { swirl = goal; draw(0); }
+      },
+      remove() { cancelAnimationFrame(frame); svg.remove(); }
+    };
   }
 
   function showThinking(text = 'Thinking', { timed = true } = {}) {
@@ -1385,25 +1426,14 @@
     label.textContent = text;
     row.append(mini, label);
     log.appendChild(row);
-    // In the coding chat the pixel robot works instead, in the mood of what
-    // Nasrin is doing: remembering (a ripple), writing (rows fill in), else
-    // thinking (it bursts and spins).
-    const coding = document.body.classList.contains('coding-mode');
-    const mood = (words) => {
-      if (!coding) return;
-      const w = String(words || '');
-      const remember = /^(Remembering|Checking your Library|Reading)/.test(w);
-      const write = /^(Writing|Putting it together|Almost done)/.test(w);
-      mini.classList.toggle('is-remembering', remember);
-      mini.classList.toggle('is-writing', write && !remember);
-      mini.classList.toggle('is-busy', !remember && !write);
-    };
-    const ch = coding ? (mini.classList.add('code-logo'), mood(text), { remove() {} }) : dotSphere(mini);
+    // The dotted sphere, in the normal chat and the coding chat alike.
+    const ch = dotSphere(mini);
     scrollToEnd(row);
     const set = (words) => {
       if (!words || label.textContent === words) return;
       label.textContent = words;
-      mood(words);
+      // The coding chat: "Almost done" gets the livelier finishing sphere.
+      ch.finishing(document.body.classList.contains('coding-mode') && /^Almost done/.test(words));
       label.classList.remove('is-new');
       void label.offsetWidth;   // restart the fade
       label.classList.add('is-new');
