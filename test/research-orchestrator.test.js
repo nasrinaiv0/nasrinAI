@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planResearch, buildEvidenceLedger } from '../src/research-orchestrator.js';
+import { planResearch, buildEvidenceLedger, buildResearchReport } from '../src/research-orchestrator.js';
 
 test('focused questions use one search; complex questions plan domain-aware parallel searches', () => {
   assert.deepEqual(planResearch('What is photosynthesis?').searchQueries, ['What is photosynthesis?']);
@@ -29,4 +29,29 @@ test('evidence ledger deduplicates facts, preserves provenance, and flags possib
   assert.equal(ledger.source_count, 4);
   assert.ok(ledger.contradictions.length >= 1);
   assert.equal(ledger.contradictions[0].status, 'needs_review');
+});
+
+
+test('Phase 4 report binds every citation to a successfully read source and exposes review limits', () => {
+  const evidence = buildEvidenceLedger([
+    { fact: 'The service reduced request latency in the reported test.', url: 'https://a.example/report', title: 'Report A' },
+    { fact: 'The service reduced request latency in the reported test.', url: 'https://b.example/study', title: 'Study B' },
+    { fact: 'The service does not reduce request latency in the reported test.', url: 'https://c.example/study', title: 'Study C' }
+  ]);
+  const report = buildResearchReport(evidence, [
+    { url: 'https://a.example/report', status: 'read', title: 'Report A' },
+    { url: 'https://b.example/study', status: 'read', title: 'Study B' },
+    { url: 'https://c.example/study', status: 'skipped', title: 'Study C' },
+    { url: 'https://d.example/page', status: 'skipped', title: 'Skipped page' }
+  ]);
+  assert.equal(report.findings.length, 2);
+  assert.equal(report.findings[0].confidence, 'corroborated');
+  assert.deepEqual(report.findings[0].citations.map((source) => source.url), [
+    'https://a.example/report', 'https://b.example/study'
+  ]);
+  assert.equal(report.findings[1].confidence, 'single_source');
+  assert.deepEqual(report.findings[1].citations, []);
+  assert.equal(report.citation_integrity.all_findings_have_read_source, false);
+  assert.equal(report.limitations.findings_without_read_source, 1);
+  assert.ok(report.conflicts.every((item) => item.status === 'needs_review'));
 });
