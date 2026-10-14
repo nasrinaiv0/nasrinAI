@@ -103,7 +103,7 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store })], usageLog, config, logger, ...(connectorCall ? { call: connectorCall } : {}) });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: config.guestSecret, store, tools, conversations, logger }) : null;
-  const research = config.research.enabled ? createResearch({ store, limiter, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, config, logger, ...(researchReadLink ? { readLinkImpl: researchReadLink } : {}) }) : null;
+  const research = config.research.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, config, logger, ...(researchReadLink ? { readLinkImpl: researchReadLink } : {}) }) : null;
   const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, semanticCache, ...(readLinkImpl ? { readLinkImpl } : {}), config, logger });
   const images = createImages({ store, conversations, limiter, usageLog, imageProvider, backup: imageBackup, plans, budget: createBudget({ store, config, logger, kind: 'image' }), provider, policy, price: 0.0336, legal, config, logger });
   const facebook = config.facebook ? createFacebook({ config, store, chat, conversations, logger, ...(facebookFetch ? { fetchImpl: facebookFetch } : {}) }) : null;
