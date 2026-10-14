@@ -99,3 +99,29 @@ export function buildResearchReport(evidence, sources = []) {
     citation_integrity: { all_findings_have_read_source: uncited === 0 }
   };
 }
+
+
+/**
+ * Deterministic evaluation metrics for fixture-based QA and operational review.
+ * These metrics describe this scan only; they are not a measure of factual truth.
+ */
+export function measureResearchQuality({ report, sources = [], adapters = [] } = {}) {
+  const safeSources = Array.isArray(sources) ? sources : [];
+  const safeAdapters = Array.isArray(adapters) ? adapters : [];
+  const findings = Array.isArray(report?.findings) ? report.findings : [];
+  const readCount = safeSources.filter((source) => source?.status === 'read').length;
+  const failedCount = safeSources.filter((source) => source?.status === 'skipped' || source?.status === 'error').length;
+  const citedCount = findings.filter((finding) => Array.isArray(finding?.citations) && finding.citations.length > 0).length;
+  const adapterFailures = safeAdapters.filter((adapter) => ['error', 'timeout', 'unavailable'].includes(adapter?.status)).length;
+  const ratio = (numerator, denominator) => denominator ? Number((numerator / denominator).toFixed(4)) : null;
+  return {
+    sources: { discovered: safeSources.length, read: readCount, failed_or_skipped: failedCount, read_rate: ratio(readCount, safeSources.length) },
+    citations: { findings: findings.length, cited_findings: citedCount, uncited_findings: Math.max(0, findings.length - citedCount), coverage: ratio(citedCount, findings.length) },
+    evidence: {
+      single_source_findings: Number(report?.limitations?.single_source_findings || 0),
+      conflicts_needing_review: Array.isArray(report?.conflicts) ? report.conflicts.length : 0
+    },
+    adapters: { checked: safeAdapters.length, failures: adapterFailures },
+    note: 'Operational quality indicators only; they do not establish that findings are true, unbiased, or independently corroborated.'
+  };
+}
