@@ -60,3 +60,15 @@ made. The Code editor was removed.
   The hourly retention job is the backstop for inactive accounts, guest-session
   expiry, service-owned images and operational records. Run migrations 014–017
   in order.
+
+
+## Document previews and quick actions (2026-10-14)
+
+The Library list returns a short, 240-character preview for each saved text
+document, note, or reply. The list renders the excerpt and offers Download and
+Delete actions without requiring the person to open the item first. Download
+fetches the caller-owned document and downloads its text with a safe filename.
+Delete asks for confirmation and uses the existing owner-scoped storage delete
+route. Opening a document continues to show the full safe Markdown or plain-text
+preview in the item view. The list endpoint must never return the full document
+body.
