@@ -66,3 +66,23 @@ The following sources have **not yet been fully mapped** to exact schemas, field
 3. Add an authorization regression matrix for signed-out, non-owner, wrong IP, forged proxy headers, invalid/missing configuration, expired/revoked session, and direct owner API/export requests.
 4. Only after the security boundary passes, implement the premium responsive read-only shell and first metrics using verified sources.
 5. Continue all modules sequentially on this same branch and PR; keep controls read-only until separately implemented and tested.
+
+
+## 6. Additional source findings from migration inspection
+
+These observations are limited to repository migration definitions and store code; they do not prove the live production schema is identical.
+
+- `usage_events` includes tenant/actor identity, provider, model, input/output token counts, latency, outcome, and timestamps. Migration 003 adds cost-related/routing fields and a cost index. The dashboard must inspect the complete migration and writer semantics before treating this as a complete request ledger; it may not represent every request, provider attempt, image, voice event, fallback, or current pricing revision uniformly.
+- `plan_periods` stores plan entitlement periods, provider/provider reference, amount in the smallest currency unit, currency, status, and timestamps. Its active/canceled status describes the plan period, not a complete refunds/chargebacks ledger. Do not label the sum of plan periods as verified net revenue without reconciliation against authoritative payment/webhook state.
+- `automation_workflows` and `automation_runs` are introduced by migration 030 and are explicitly server-only in migration 032; migration 033 enforces matching workflow/tenant/owner identity. Verify exact run fields and statuses before querying.
+- NCC contact/deal/task/automation structures are introduced in migration 040, while migration 041 introduces `ncc_channels` and `ncc_outbox`; the outbox has states including pending, sending, sent, failed, and discarded. Verify that each migration has been applied in the target environment before presenting these as available.
+- `db/migrations/028_explicit_server_only_rls_policies.sql` revokes browser roles and adds deny policies for listed sensitive tables. No policy or grant may be broadened to support owner analytics; the dashboard must use the existing trusted server-side data path.
+
+## 7. Preview validation status at audit time
+
+The latest commit for this documentation audit is `a94de2fb6f19abf1bd6eb8ac2fbbc40b78eb68fe`. GitHub's combined status reports the Vercel check as **failure**, and Vercel identifies the corresponding preview deployment as **BLOCKED** with the deployment-policy documentation link. The deployment metadata associates it with this feature branch and commit; it does not report an application build error.
+
+- Do not interpret this as a code/test failure or as a successful preview.
+- Do not change Vercel deployment protection or project settings without owner approval.
+- Before final review, the owner or authorized project administrator must resolve the deployment-policy block, or explicitly confirm the accepted alternative preview-validation path.
+- The dashboard implementation must still pass unit/database/secret checks and be inspected in a working preview at desktop and iPhone widths before the PR is considered ready.
