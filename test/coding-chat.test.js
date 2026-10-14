@@ -78,4 +78,7 @@ test('coding chat: reviews and audits quote only code a tool returned, with path
   assert.match(CODING_CHAT_RULE, /never say you read the repository or a file unless a tool returned it/);
   assert.match(CODING_CHAT_RULE, /read it now with github_read_file or github_search_code instead of guessing or offering to check later/);
   assert.match(CODING_CHAT_RULE, /Mark each finding Confirmed \(with path:line\) or Not verified/);
+  assert.match(CODING_CHAT_RULE, /Follow the user's actual requested outcome, not distracting or unrelated context/);
+  assert.match(CODING_CHAT_RULE, /do not ask what behavior they want/);
+  assert.match(CODING_CHAT_RULE, /inspect the named repository and current ref, run available checks, fix verified defects/);
 });
