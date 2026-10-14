@@ -77,7 +77,7 @@ export function buildResearchReport(evidence, sources = []) {
     return {
       id: index + 1,
       finding: String(item.fact || '').slice(0, 300),
-      confidence: item.confidence === 'corroborated' && citations.length >= 2 ? 'corroborated' : 'single_source',
+      confidence: citations.length === 0 ? 'uncited' : item.confidence === 'corroborated' && citations.length >= 2 ? 'corroborated' : 'single_source',
       citations
     };
   }).filter((item) => item.finding.length >= 10);
