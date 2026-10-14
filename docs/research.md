@@ -62,7 +62,7 @@ Research source discovery uses a provider-agnostic registry (`src/research-sourc
 
 Adapters in this phase:
 - `web-search`: existing web search, including focused/deep subquestions; can discover public technical documentation and industry reports.
-- `crossref`: public Crossref bibliographic discovery for academic-style queries, returning DOI/publication metadata alongside candidate links.
+- `crossref`: public Crossref metadata lookup only when the question explicitly includes a DOI; only that DOI is sent to Crossref, consistent with the privacy notice. General scholarly discovery uses the existing web-search adapter.
 - User-supplied public URLs remain a separate explicit input path and are still checked by `checkUrl`, the SSRF-safe reader and robots.txt policy before reading.
 
-Future scholarly indexes, official documentation catalogs, industry data feeds, and user-provided document sources can register adapters without changing the research loop. A candidate or Crossref record is discovery metadata, not proof that a claim is supported. Do not bypass logins, paywalls, CAPTCHA or robots exclusions.
+Future scholarly indexes, official documentation catalogs, industry data feeds, and user-provided document sources can register adapters without changing the research loop. Do not send the full research question to Crossref or another new provider without a reviewed privacy disclosure. A candidate or Crossref record is discovery metadata, not proof that a claim is supported. Do not bypass logins, paywalls, CAPTCHA or robots exclusions.
