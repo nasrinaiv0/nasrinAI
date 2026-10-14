@@ -30,3 +30,28 @@ the usual budget check. Usage is recorded as task `research`.
 3. Review shared facts in Supabase → Table editor → `research_facts`:
    set `status` to `approved` or `rejected`. Approved facts are not yet used
    in chat answers (a later step).
+
+
+## Research orchestration v2
+
+The agent builds a bounded plan before web discovery. Focused questions use one
+search; complex questions use up to three parallel searches: the original
+question, domain-appropriate primary evidence, and counterarguments/limitations.
+Academic questions prioritize peer-reviewed and primary research; technical
+questions prioritize official documentation, standards and benchmarks; industry
+questions prioritize credible reports and primary company sources.
+
+Discovered URLs still pass the existing public-address/SSRF-safe reader and
+robots.txt policy before page content is read. Page reads and fact extraction run
+in parallel, bounded by the existing maximum page count. A failure on one source
+does not fail the whole scan.
+
+The evidence ledger normalizes duplicate facts, keeps source provenance, marks
+facts as single-source or corroborated, and flags possible polarity conflicts for
+review. These are review signals, not claims of independent verification. Each
+fact remains attached to its source page. Responses add plan/evidence metadata
+while retaining the existing facts and sources fields.
+
+This increment does not bypass paywalls, authenticate to sites, scrape Scholar,
+or claim citations were verified when the source does not provide them. Existing
+privacy, retention, budget, rate-limit and SSRF controls remain in force.
