@@ -54,6 +54,9 @@ test('library routes: own items only; signed in only; limits', async () => {
 
     const list = await (await send(url, '/v1/library', 'GET', USER_TOKEN)).json();
     assert.deepEqual(list.files.map((f) => f.title), ['budget.txt']);
+    const storageList = await (await send(url, '/v1/storage', 'GET', USER_TOKEN)).json();
+    assert.equal(storageList.items.find((f) => f.id === id).preview, 'Rent is 12000 pesos.\nFood 6000.');
+    assert.equal(storageList.items.find((f) => f.id === id).text, undefined, 'list previews never expose the complete document');
     assert.deepEqual(list.used, { files: 1, chars: 31 });
     assert.deepEqual(list.limits, { files: 3, chars: 10000 });
     assert.equal((await (await send(url, '/v1/library/' + id, 'GET', USER_TOKEN)).json()).text, 'Rent is 12000 pesos.\nFood 6000.');
