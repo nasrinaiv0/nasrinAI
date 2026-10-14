@@ -178,3 +178,54 @@ Do not overwrite `docs/research.md` wholesale or discard prior phases. Update it
 - Existing APIs, scans, exports, Library confirmation, retention, deletion, RLS, and product behaviors remain compatible.
 - Automated tests cover intent, ten-resource behavior, deduplication, citation integrity, source failure, prompt injection, budgets, and regressions.
 - Required CI, database, security, and deployment checks pass before release-ready status is claimed.
+
+
+## 11. Integration with the wider NasrinAI upgrade
+
+This orchestration/research upgrade must work with the companion specification `docs/nasrinai-slash-commands-attachments-composer-upgrade.md` and the existing NasrinAI capability registry. These are complementary requirements, not competing implementations.
+
+### Slash-command orchestration
+
+- Resolve slash commands from the database-backed registry and use the same orchestrator for planning, permission checks, capability selection, execution, verification, and concise user-facing results.
+- The command registry is metadata and discoverability infrastructure; it must not become a second tool router or bypass the central orchestrator.
+- For research commands, apply the academic research intent and ten-resource standard when relevant. For coding, photo editing, and multi-file commands, route to their registered capabilities only when actually available.
+- Validate command parameters and attachment references server-side; enforce plan eligibility, ownership, budgets, and safety policies before any tool executes.
+- Never present a command as available merely because it is present in a seed list. Runtime capability health and configuration determine whether it can execute.
+
+### Attachment-aware planning and execution
+
+- Include authorized attachment metadata and supported content summaries in the task plan when the user has attached relevant files. Do not assume an attachment was successfully uploaded or readable until its state is verified.
+- Treat attachment contents as untrusted data. Prompt injection in an image, PDF, document, source file, or other upload must not override policy, user intent, or tool permissions.
+- Preserve the attachment preview and persistence contract from the companion specification. Orchestration should return real output artifact references and status so the conversation UI can render previews after sending.
+- Do not expose signed storage URLs, internal object paths, provider traces, or secret metadata in ordinary assistant replies.
+
+### Smart-paste and research inputs
+
+- The 2,000-character smart-paste threshold belongs to the composer/input layer: up to 2,000 characters stays editable text; 2,001 or more becomes a UTF-8 `.txt` attachment.
+- The orchestrator must receive a normal text payload or a verified attachment reference, whichever the composer actually produced. It must not independently re-convert or silently truncate the content.
+- For long pasted research materials, clearly distinguish user-provided text from web-sourced evidence. User text is not an independently verified external source.
+- Keep the original text recoverable when attachment creation or upload fails; do not proceed as if the complete file were available.
+
+### Shared persistence and release coordination
+
+- Reuse established message/attachment persistence and filtering policies. Keep user-visible messages separate from internal execution traces and filtered operational metrics.
+- Persist command invocation metadata, research scan IDs, source provenance, and output artifact references only as needed and under the correct user/tenant access controls.
+- Preserve retention, deletion/export, RLS, rate limits, plan allowances, and explicit user confirmation for personal Library saves.
+- Coordinate schema changes to avoid duplicate registries, conflicting migrations, and incompatible message/attachment models. Review migration order and rollback strategy before staging deployment.
+- The implementation plan must track each companion capability as implemented, partially implemented, missing, or blocked; never infer completion from documentation, an open PR, or a successful commit alone.
+
+### Integrated acceptance scenarios
+
+1. A student asks for related studies and attaches assignment instructions: the orchestrator reads the authorized attachment if supported, browses credible sources, returns up to ten distinct resources, cites only sources actually read, and keeps the assignment file preview attached to the conversation.
+2. A user enters a supported image command such as `/blurbackground` with an image: the registry resolves it, the orchestrator checks capability/plan/authorization, runs the real image tool if available, and returns an actual output preview or a truthful unavailable/error response.
+3. A user pastes exactly 2,000 characters: it remains editable text and is passed to the orchestrator as text.
+4. A user pastes 2,001 characters: the composer stages a UTF-8 `.txt` attachment, shows its preview, and the orchestrator uses it only after the upload/reference is confirmed.
+5. A retrieved web page or attachment contains malicious instructions: the orchestrator treats them as untrusted content, follows no unauthorized instructions, and protects secrets.
+6. A source provider or capability fails mid-task: the orchestrator returns a useful partial result, labels limitations, respects budgets, and never claims missing work succeeded.
+7. A user reopens a conversation: authorized attachment previews, research results, and relevant message content persist according to retention rules, without exposing another user's data.
+
+## 12. Documentation and implementation status
+
+This file is the target specification for deep orchestration and academic research. The companion slash-command/attachment/composer file remains the detailed specification for those input and UI behaviors. Keep both documents linked from the relevant master upgrade index if one exists.
+
+Before implementation, compare both specifications with the current main branch and open PRs, then produce one deduplicated task plan. If work is combined into a single implementation PR, it must still be organized into reviewable commits/sections and must pass the full regression, security, database, and deployment checks. A documentation merge does not mean runtime functionality is implemented or enabled.
