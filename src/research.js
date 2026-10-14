@@ -4,7 +4,7 @@ import { readLink, checkUrl } from './web/read-link.js';
 import { parseRobots } from './connect/site-knowledge.js';
 import { cleanUserText } from './ai/output.js';
 import { redactForProvider } from './ai/redact.js';
-import { planResearch, buildEvidenceLedger } from './research-orchestrator.js';
+import { planResearch, buildEvidenceLedger, buildResearchReport } from './research-orchestrator.js';
 import { createResearchSourceRegistry } from './research-sources.js';
 
 // Research agent (docs/research.md). For one question it finds public pages
@@ -134,6 +134,7 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       sources.push(...outcomes.map((outcome) => outcome.source));
       const evidence = buildEvidenceLedger(outcomes.flatMap((outcome) => outcome.facts));
       const facts = evidence.facts;
+      const report = buildResearchReport(evidence, sources);
 
       const ttl = caller.actor.type === 'user' ? 30 * DAY : DAY;
       const saved = await store.addResearchScan({ ...who(caller), query, sources, facts, expiresAt: new Date(now() + ttl) });
@@ -153,14 +154,15 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
           sources: [...new Map(facts.map((f) => [f.url, { url: f.url, title: f.title }])).values()]
         });
       }
-      return { id: saved.id, query, facts, sources, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, source_adapters: discovery.adapters, new_shared_facts: shared, expires_at: saved.expiresAt };
+      return { id: saved.id, query, facts, sources, report, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, source_adapters: discovery.adapters, new_shared_facts: shared, expires_at: saved.expiresAt };
     },
 
     async get(caller, id) {
       if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
       const scan = await store.getResearchScan({ ...who(caller), id: String(id) });
       if (!scan) throw new HttpError(404, 'not_found', 'Not found.');
-      return { id: scan.id, query: scan.query, facts: scan.facts, sources: scan.sources, created_at: scan.createdAt, expires_at: scan.expiresAt };
+      const evidence = { facts: scan.facts, contradictions: [] };
+      return { id: scan.id, query: scan.query, facts: scan.facts, sources: scan.sources, report: buildResearchReport(evidence, scan.sources), created_at: scan.createdAt, expires_at: scan.expiresAt };
     },
 
     async list(caller) {
