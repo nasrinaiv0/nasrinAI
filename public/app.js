@@ -1341,37 +1341,51 @@
     if (/\b(calculate|compute|how much|how many|convert)\b/.test(t)) return 'Working it out';
     return 'Thinking';
   }
-  // The thinking sign: a sphere of dots that bursts apart, turns a full
-  // circle and gathers again (app.css .dots). Dots nearer the front are
-  // larger and brighter. Offsets go through the CSSOM (allowed by the CSP).
+  // The thinking sign: a sphere of dots that turns a full circle around its
+  // upright axis, like a globe, bursting apart and gathering again on the way.
+  // Dots nearer the front are larger and brighter. Drawn frame by frame; with
+  // reduced motion it stays still (app.css .dots pulses softly instead).
   function dotSphere(box) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const spin = document.createElementNS(NS, 'g');
-    spin.classList.add('spin');
-    const n = 64, tilt = 0.45;
+    const n = 64, tilt = 0.35, R = 13, cycle = 2400;
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+    const dots = [];
     for (let i = 0; i < n; i++) {
       const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
-      const x = Math.cos(a) * r, z0 = Math.sin(a) * r;
-      const yy = y * Math.cos(tilt) - z0 * Math.sin(tilt), z = y * Math.sin(tilt) + z0 * Math.cos(tilt);
-      const depth = (z + 1) / 2, push = 7 + 6 * ((i * 37) % 11) / 10;
       const c = document.createElementNS(NS, 'circle');
-      c.setAttribute('cx', (20 + x * 13).toFixed(2));
-      c.setAttribute('cy', (20 + yy * 13).toFixed(2));
-      c.setAttribute('r', (0.55 + 0.75 * depth).toFixed(2));
-      c.setAttribute('fill-opacity', (0.3 + 0.7 * depth).toFixed(2));
-      c.style.setProperty('--dx', (x * push).toFixed(1) + 'px');
-      c.style.setProperty('--dy', (yy * push).toFixed(1) + 'px');
-      c.style.setProperty('--d', Math.round((1 - depth) * 120) + 'ms');
-      spin.appendChild(c);
+      svg.appendChild(c);
+      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10 });
     }
-    svg.appendChild(spin);
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const draw = (t) => {
+      // One cycle: a full turn (eased), and a burst that peaks near the middle.
+      const turn = ease(Math.min(Math.max((t - 0.08) / 0.8, 0), 1)) * Math.PI * 2;
+      const burst = Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      const ca = Math.cos(turn), sa = Math.sin(turn);
+      for (const d of dots) {
+        const x = d.x * ca + d.z * sa, z1 = -d.x * sa + d.z * ca;
+        const y = d.y * ct - z1 * st, z = d.y * st + z1 * ct;
+        const k = R * (1 + burst * d.push), depth = (z + 1) / 2;
+        d.c.setAttribute('cx', (20 + x * k).toFixed(2));
+        d.c.setAttribute('cy', (20 + y * k).toFixed(2));
+        d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst)).toFixed(2));
+        d.c.setAttribute('fill-opacity', ((0.3 + 0.7 * depth) * (1 - 0.3 * burst)).toFixed(2));
+      }
+    };
+    draw(0);
+    let frame = 0;
+    if (!reduced()) {
+      const start = performance.now();
+      const tick = (now) => { draw(((now - start) % cycle) / cycle); frame = requestAnimationFrame(tick); };
+      frame = requestAnimationFrame(tick);
+    }
     box.classList.add('dot-sphere');
     box.appendChild(svg);
-    return { remove() { svg.remove(); } };
+    return { remove() { cancelAnimationFrame(frame); svg.remove(); } };
   }
 
   function showThinking(text = 'Thinking', { timed = true } = {}) {
