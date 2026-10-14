@@ -46,7 +46,7 @@ export function createResearchSourceRegistry({ webSearch = null, fetchImpl = glo
   } });
   register({ id: 'crossref', kinds: ['academic', 'doi-metadata'], timeoutMs: 3500, maxCandidates: 5, enabled: ({ query }) => Boolean(fetchImpl) && DOI.test(query), async discover({ query, signal }) {
     const match = DOI.exec(String(query || ''));
-    const doi = match ? match[1].replace(/[.,;)\\]]+$/, '') : '';
+    const doi = match ? match[1].replace(/[.,;)]+$/, '') : '';
     if (!fetchImpl || !doi) return [];
     const data = await resilient(async (innerSignal) => {
       const url = new URL(CROSSREF + '/' + encodeURIComponent(doi));
