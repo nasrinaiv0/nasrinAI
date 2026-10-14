@@ -1348,24 +1348,24 @@
   // The coding chat gives two later steps their own sign (stage()):
   // 'gather' ("Putting it together"): scattered dots fly in from all around and
   //   assemble into the sphere, again and again;
-  // 'swirl' ("Almost done"): the dots swirl into a three-armed spiral, like a
-  //   small galaxy, that turns and gently breathes in and out.
+  // 'beep' ("Almost done"): the sphere holds still-ish while its dots beep,
+  //   flashes rippling out from the middle twice a cycle, like a heartbeat.
   function dotSphere(box) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const n = 64, tilt = 0.35, R = 13, diskTilt = 0.9, TAU = Math.PI * 2;
-    const ct = Math.cos(tilt), st = Math.sin(tilt), cdt = Math.cos(diskTilt), sdt = Math.sin(diskTilt);
-    // swirl / gather: 0 … 1, eased toward their goals so changes blend smoothly.
-    let cycle = 2400, swirl = 0, goal = 0, gather = 0, goalG = 0;
+    const n = 64, tilt = 0.35, R = 13, TAU = Math.PI * 2;
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+    // beep / gather: 0 … 1, eased toward their goals so changes blend smoothly.
+    let cycle = 2400, beep = 0, goal = 0, gather = 0, goalG = 0;
     const dots = [];
     for (let i = 0; i < n; i++) {
       const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
       const c = document.createElementNS(NS, 'circle');
       svg.appendChild(c);
-      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10, arm: (i % 3) * TAU / 3, u: (Math.floor(i / 3) + 0.5) / Math.ceil(n / 3),
+      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10,
         // gather: where the dot starts, and how late it sets off
         from: i * 4.08 + 1, far: 1.9 + 0.8 * ((i * 29) % 13) / 13, late: ((i * 53) % 17) / 17 * 0.35 });
     }
@@ -1373,17 +1373,14 @@
     const draw = (t) => {
       // Sphere: a full turn (eased) and a burst that peaks near the middle.
       const turn = ease(Math.min(Math.max((t - 0.08) / 0.8, 0), 1)) * TAU;
-      const burst = (1 - swirl) * (1 - gather) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      const burst = (1 - beep) * (1 - gather) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
       const ca = Math.cos(turn), sa = Math.sin(turn);
-      // Spiral: three arms turning together, breathing once a cycle.
-      const pull = 0.88 + 0.12 * Math.cos(t * TAU);
+      // Beep: a ring of light runs out from the middle, twice a cycle.
+      const wave = (t * 2) % 1;
       for (const d of dots) {
         const sx = d.x * ca + d.z * sa, z1 = -d.x * sa + d.z * ca;
         const sy = d.y * ct - z1 * st, sz = d.y * st + z1 * ct;
-        const th = d.arm + d.u * 3.4 + t * TAU, rr = (0.12 + 0.88 * d.u) * pull;
-        const rx = Math.cos(th) * rr, rz0 = Math.sin(th) * rr;
-        const ry = -rz0 * sdt, rz = rz0 * cdt;
-        let x = sx + (rx - sx) * swirl, y = sy + (ry - sy) * swirl, z = sz + (rz - sz) * swirl;
+        let x = sx, y = sy, z = sz;
         // Gather: fly in from far away to the dot's place on the sphere, hold,
         // then fade and start again.
         const p = ease(Math.min(Math.max((t - d.late) / 0.45, 0), 1));
@@ -1391,11 +1388,11 @@
         const shown = Math.min(Math.max((t - d.late) / 0.08, 0), 1) * (t > 0.9 ? 1 - (t - 0.9) / 0.1 : 1);
         x += (fx + (sx - fx) * p - x) * gather; y += (fy + (sy - fy) * p - y) * gather; z += (sz * p - z) * gather;
         const k = R * (1 + burst * d.push), depth = (z + 1) / 2;
-        const core = 0.35 + 0.65 * (1 - d.u);   // brighter toward the middle
-        const glow = (1 + (core - 1) * swirl) * (1 + (shown - 1) * gather);
+        const flash = Math.exp(-(((Math.hypot(sx, sy) - wave * 1.2) * 5) ** 2));
+        const glow = (1 + (0.3 + 0.9 * flash - 1) * beep) * (1 + (shown - 1) * gather);
         d.c.setAttribute('cx', (20 + x * k).toFixed(2));
         d.c.setAttribute('cy', (20 + y * k).toFixed(2));
-        d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst) * (1 + 0.3 * swirl * (1 - d.u) - 0.25 * swirl * d.u)).toFixed(2));
+        d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst) * (1 + 0.8 * flash * beep)).toFixed(2));
         d.c.setAttribute('fill-opacity', ((0.3 + 0.7 * depth) * (1 - 0.3 * burst) * glow).toFixed(2));
       }
     };
@@ -1406,7 +1403,7 @@
       const tick = (now) => {
         const dt = before ? now - before : 0;
         phase = (phase + dt / cycle) % 1;   // smooth when the speed changes
-        swirl += (goal - swirl) * Math.min(1, dt / 250);
+        beep += (goal - beep) * Math.min(1, dt / 250);
         gather += (goalG - gather) * Math.min(1, dt / 250);
         before = now;
         draw(phase);
@@ -1418,10 +1415,10 @@
     box.appendChild(svg);
     return {
       stage(name) {
-        goal = name === 'swirl' ? 1 : 0;
+        goal = name === 'beep' ? 1 : 0;
         goalG = name === 'gather' ? 1 : 0;
-        cycle = name === 'swirl' ? 1800 : name === 'gather' ? 2200 : 2400;
-        if (still) { swirl = goal; gather = 0; draw(0); }   // still: the sphere or the spiral, no flying dots
+        cycle = name === 'beep' ? 1600 : name === 'gather' ? 2200 : 2400;
+        if (still) { beep = 0; gather = 0; draw(0); }   // still: just the sphere
       },
       remove() { cancelAnimationFrame(frame); svg.remove(); }
     };
@@ -1444,9 +1441,9 @@
     const set = (words) => {
       if (!words || label.textContent === words) return;
       label.textContent = words;
-      // The coding chat: "Putting it together" gathers the dots, "Almost done" swirls them.
+      // The coding chat: "Putting it together" gathers the dots, "Almost done" makes them beep.
       const coding = document.body.classList.contains('coding-mode');
-      ch.stage(!coding ? null : /^Almost done/.test(words) ? 'swirl' : /^Putting it together/.test(words) ? 'gather' : null);
+      ch.stage(!coding ? null : /^Almost done/.test(words) ? 'beep' : /^Putting it together/.test(words) ? 'gather' : null);
       label.classList.remove('is-new');
       void label.offsetWidth;   // restart the fade
       label.classList.add('is-new');
