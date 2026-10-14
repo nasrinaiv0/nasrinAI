@@ -162,8 +162,12 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
       const scan = await store.getResearchScan({ ...who(caller), id: String(id) });
       if (!scan) throw new HttpError(404, 'not_found', 'Not found.');
-      const evidence = { facts: scan.facts, contradictions: [] };
-      return { id: scan.id, query: scan.query, facts: scan.facts, sources: scan.sources, report: buildResearchReport(evidence, scan.sources), created_at: scan.createdAt, expires_at: scan.expiresAt };
+      const reconstructed = buildEvidenceLedger((scan.facts || []).flatMap((item) =>
+        (Array.isArray(item.sources) ? item.sources : [{ url: item.url, title: item.title }])
+          .map((source) => ({ fact: item.fact, url: source.url, title: source.title }))));
+      const evidence = { facts: scan.facts, contradictions: reconstructed.contradictions };
+      const report = buildResearchReport(evidence, scan.sources);
+      return { id: scan.id, query: scan.query, facts: scan.facts, sources: scan.sources, report, quality: measureResearchQuality({ report, sources: scan.sources }), created_at: scan.createdAt, expires_at: scan.expiresAt };
     },
 
     async list(caller) {
