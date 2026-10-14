@@ -104,3 +104,14 @@ This quality standard does not authorize destructive changes, secret exposure, s
   and "Pull requests · count", linking to GitHub. They are made only from
   GitHub's answer: lines the model writes in that shape are removed, so a
   chip cannot claim a merge that never happened.
+
+## Grounded reviews and audits (2026-10-14)
+
+An audit in the coding chat once quoted settings and code lines that do not
+exist in the repository (`CORS_ALLOWED_ORIGINS`, `allowCredentials: true`, a
+`PORT` default of 3000). `CODING_CHAT_RULE` now requires: quote only code a
+`github_` tool returned in the chat, word for word, with `path:line`; never
+claim to have read a file no tool returned; read a file instead of guessing or
+offering to check later; mark each finding **Confirmed** (path:line) or **Not
+verified** (what is missing). This is an instruction to the model, so it lowers
+the risk of invented findings but cannot rule it out.
