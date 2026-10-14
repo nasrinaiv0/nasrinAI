@@ -674,8 +674,12 @@ body:not(.has-chat) #newChat { display: none; }
 .thinking .mini.dot-sphere { color: var(--ink); }
 .dots { display: block; width: 100%; height: auto; overflow: visible; }
 .dots circle { fill: currentColor; }
+.thinking .mini.is-finishing .dots { animation: dot-finish 1.2s ease-in-out infinite; }
+@keyframes dot-finish { 50% { transform: scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .dots { animation: soft-pulse 1.6s ease-in-out infinite; } }
 :root[data-motion="reduce"] .dots { animation: soft-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .thinking .mini.is-finishing .dots { animation: soft-pulse 1.6s ease-in-out infinite; } }
+:root[data-motion="reduce"] .thinking .mini.is-finishing .dots { animation: soft-pulse 1.6s ease-in-out infinite; }
 .thinking .label {
   font-size: 0.92rem; font-weight: 500;
   background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%, var(--ink-3) 100%);

@@ -18,3 +18,11 @@ test('the sphere turns around its upright axis (like a globe), not flat like a w
   assert.match(fn, /cancelAnimationFrame\(frame\)/, 'stops drawing when the line goes away');
   assert.match(fn, /if \(!reduced\(\)\)/, 'still with reduced motion');
 });
+
+test('in the coding chat, "Almost done" makes the sphere livelier (faster, wider, twinkling)', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /ch\.finishing\(document\.body\.classList\.contains\('coding-mode'\) && \/\^Almost done\/\.test\(words\)\);/);
+  assert.match(app, /cycle = on \? 1200 : 2400; spread = on \? 1\.6 : 1; twinkle = on \? 1 : 0;/);
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /:root\[data-motion="reduce"\] \.thinking \.mini\.is-finishing \.dots \{ animation: soft-pulse/);
+});

@@ -1351,7 +1351,10 @@
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const n = 64, tilt = 0.35, R = 13, cycle = 2400;
+    const n = 64, tilt = 0.35, R = 13;
+    // finishing (the coding chat's "Almost done"): turns twice as fast, bursts
+    // wider, and the dots twinkle.
+    let cycle = 2400, spread = 1, twinkle = 0;
     const ct = Math.cos(tilt), st = Math.sin(tilt);
     const dots = [];
     for (let i = 0; i < n; i++) {
@@ -1369,23 +1372,34 @@
       for (const d of dots) {
         const x = d.x * ca + d.z * sa, z1 = -d.x * sa + d.z * ca;
         const y = d.y * ct - z1 * st, z = d.y * st + z1 * ct;
-        const k = R * (1 + burst * d.push), depth = (z + 1) / 2;
+        const k = R * (1 + burst * d.push * spread), depth = (z + 1) / 2;
+        const glow = twinkle ? 0.55 + 0.45 * Math.sin(t * Math.PI * 8 + d.push * 20) : 1;
         d.c.setAttribute('cx', (20 + x * k).toFixed(2));
         d.c.setAttribute('cy', (20 + y * k).toFixed(2));
         d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst)).toFixed(2));
-        d.c.setAttribute('fill-opacity', ((0.3 + 0.7 * depth) * (1 - 0.3 * burst)).toFixed(2));
+        d.c.setAttribute('fill-opacity', ((0.3 + 0.7 * depth) * (1 - 0.3 * burst) * glow).toFixed(2));
       }
     };
     draw(0);
-    let frame = 0;
+    let frame = 0, phase = 0, before = 0;
     if (!reduced()) {
-      const start = performance.now();
-      const tick = (now) => { draw(((now - start) % cycle) / cycle); frame = requestAnimationFrame(tick); };
+      const tick = (now) => {
+        phase = (phase + (before ? now - before : 0) / cycle) % 1;   // smooth when the speed changes
+        before = now;
+        draw(phase);
+        frame = requestAnimationFrame(tick);
+      };
       frame = requestAnimationFrame(tick);
     }
     box.classList.add('dot-sphere');
     box.appendChild(svg);
-    return { remove() { cancelAnimationFrame(frame); svg.remove(); } };
+    return {
+      finishing(on) {
+        cycle = on ? 1200 : 2400; spread = on ? 1.6 : 1; twinkle = on ? 1 : 0;
+        box.classList.toggle('is-finishing', Boolean(on));
+      },
+      remove() { cancelAnimationFrame(frame); svg.remove(); }
+    };
   }
 
   function showThinking(text = 'Thinking', { timed = true } = {}) {
@@ -1405,6 +1419,8 @@
     const set = (words) => {
       if (!words || label.textContent === words) return;
       label.textContent = words;
+      // The coding chat: "Almost done" gets the livelier finishing sphere.
+      ch.finishing(document.body.classList.contains('coding-mode') && /^Almost done/.test(words));
       label.classList.remove('is-new');
       void label.offsetWidth;   // restart the fade
       label.classList.add('is-new');
