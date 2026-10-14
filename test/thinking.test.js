@@ -19,12 +19,12 @@ test('the sphere turns around its upright axis (like a globe), not flat like a w
   assert.match(fn, /const still = reduced\(\);\n    if \(!still\)/, 'still with reduced motion');
 });
 
-test('in the coding chat, "Almost done" is a different sign: the dots swirl into a spiral', async () => {
+test('in the coding chat, "Putting it together" gathers the dots and "Almost done" swirls them', async () => {
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(app, /ch\.finishing\(document\.body\.classList\.contains\('coding-mode'\) && \/\^Almost done\/\.test\(words\)\);/);
+  assert.match(app, /ch\.stage\(!coding \? null : \/\^Almost done\/\.test\(words\) \? 'swirl' : \/\^Putting it together\/\.test\(words\) \? 'gather' : null\);/);
   const fn = app.slice(app.indexOf('function dotSphere('), app.indexOf('function showThinking('));
-  assert.match(fn, /const x = sx \+ \(rx - sx\) \* swirl/, 'sphere and spiral blend');
+  assert.match(fn, /x \+= \(fx \+ \(sx - fx\) \* p - x\) \* gather/, 'dots fly from far away to their place');
+  assert.match(fn, /let x = sx \+ \(rx - sx\) \* swirl/, 'sphere and spiral blend');
   assert.match(fn, /const th = d\.arm \+ d\.u \* 3\.4 \+ t \* TAU/, 'three arms turning together');
-  assert.doesNotMatch(fn, /ring/, 'no ring');
-  assert.match(fn, /if \(still\) \{ swirl = goal; draw\(0\); \}/, 'reduced motion: shown still');
+  assert.match(fn, /if \(still\) \{ swirl = goal; gather = 0; draw\(0\); \}/, 'reduced motion: shown still');
 });
