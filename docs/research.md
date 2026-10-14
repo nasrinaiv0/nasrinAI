@@ -149,3 +149,11 @@ This phase adds API rendering/export and the explicit save contract; it does not
 by itself establish that a frontend confirmation dialog has shipped. Full CI,
 database, dependency/secret audit, and deployment verification remain required
 before merge or production release.
+
+## Research workspace UI
+
+The main app exposes **Research** from both the desktop rail and the mobile/tablet drawer. It supports a research question, optional public URLs (one per line), a structured findings view, recent caller-owned scans, source status, and quality/limitation signals. Findings and source titles are inserted as text, and external citations are restricted to HTTP(S) links with opener/referrer protections.
+
+Reports can be exported as Markdown, HTML, or JSON. Export is a download only; it does not create a Library item. **Save to Library** is a separate action, asks for explicit confirmation, and is available only for a signed-in user. The server independently enforces both the confirmation flag and user ownership. A research scan never saves a report to Library automatically.
+
+Before relying on a report, review each source, single-source labels, conflict flags, and the quality/limitations section. Corroboration is a matching-extraction signal, not proof that sources are independent or claims are true.
