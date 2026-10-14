@@ -2,7 +2,7 @@
 const TIMEOUT_MS = 4000;
 const RETRIES = 2;
 const CROSSREF = 'https://api.crossref.org/works';
-const clean = (s, n = 300) => String(s || '').replace(/\\s+/g, ' ').trim().slice(0, n);
+const clean = (s, n = 300) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 function normalize(raw, adapter) {
   let url; try { url = new URL(String(raw?.url || raw?.URL || '')); } catch { return null; }
   if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || (url.port && !['80', '443'].includes(url.port))) return null;
@@ -27,7 +27,7 @@ async function resilient(fn, { timeoutMs = TIMEOUT_MS, attempts = RETRIES, signa
     try { return await attempt(fn, timeoutMs, signal); } catch (e) { error = e; if (signal?.aborted) break; }
   } throw error || new Error('adapter failed');
 }
-const ACADEMIC = /\\b(academic|literature|peer.review|papers?|studies|scholar|citation|thesis|university|systematic review|doi)\\b/i;
+const ACADEMIC = /\b(academic|literature|peer.review|papers?|studies|scholar|citation|thesis|university|systematic review|doi)\b/i;
 export function createResearchSourceRegistry({ webSearch = null, fetchImpl = globalThis.fetch, logger = null } = {}) {
   const adapters = new Map();
   function register(adapter) {
