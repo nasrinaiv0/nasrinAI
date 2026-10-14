@@ -6371,6 +6371,7 @@
     document.body.classList.remove('research-open');
   }
   $('drawerResearch').addEventListener('click', openResearch);
+  $('desktopResearchBtn')?.addEventListener('click', openResearch);
   $('researchClose').addEventListener('click', closeResearch);
   researchOverlay.addEventListener('click', (event) => { if (event.target === researchOverlay) closeResearch(); });
   researchOverlay.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); closeResearch(); } });
@@ -6378,7 +6379,7 @@
   $('researchForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const query = $('researchQuery').value.trim();
-    const urls = $('researchUrls').value.split(/\\r?\\n/).map((value) => value.trim()).filter(Boolean).slice(0, 10);
+    const urls = $('researchUrls').value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).slice(0, 10);
     const button = $('researchRun');
     button.disabled = true;
     $('researchStatus').textContent = 'Planning research, reading sources, and checking evidence…';
