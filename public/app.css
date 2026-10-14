@@ -685,6 +685,8 @@ body:not(.has-chat) #newChat { display: none; }
   .dots circle, .dots .spin { animation: none; }
   .dots { animation: soft-pulse 1.6s ease-in-out infinite; }
 }
+:root[data-motion="reduce"] .dots circle, :root[data-motion="reduce"] .dots .spin { animation: none; }
+:root[data-motion="reduce"] .dots { animation: soft-pulse 1.6s ease-in-out infinite; }
 .thinking .label {
   font-size: 0.92rem; font-weight: 500;
   background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%, var(--ink-3) 100%);
