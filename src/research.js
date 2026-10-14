@@ -84,7 +84,19 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       messages: [{ role: 'user', content: searchQuery }],
       maxTokens: 500
     })));
-    return [...new Set(found.flatMap((result) => result?.citations || []).map((citation) => checkUrl(String(citation.url || ''))?.href).filter(Boolean))];
+    // Round-robin citations across subquestions so the first search cannot
+    // consume the entire page budget before evidence/limitations searches contribute.
+    const lists = found.map((result) => (result?.citations || [])
+      .map((citation) => checkUrl(String(citation.url || ''))?.href).filter(Boolean));
+    const urls = [];
+    const seen = new Set();
+    for (let index = 0; lists.some((list) => index < list.length); index++) {
+      for (const list of lists) {
+        const url = list[index];
+        if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+      }
+    }
+    return urls;
   }
 
   async function extract(caller, query, page) {
