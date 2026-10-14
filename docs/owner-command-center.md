@@ -419,3 +419,35 @@ The design is accepted only when:
 6. Any preview/mockup uses clearly labeled illustrative data; production metrics must come from verified sources.
 
 This section supersedes any interpretation of the earlier design notes that would result in a strictly monochrome/two-color interface or an excessively colorful interface. It does not change the security, telemetry, phased-delivery, testing, or owner-approval requirements above.
+
+## J. Owner navigation visibility: server-configured email and IP allowlists
+
+The Owner Command Center navigation button must be rendered only when the server-side owner-eligibility check succeeds. The button is a convenience, not an access-control boundary. Every owner page request and every dashboard API request must independently enforce the same authorization policy.
+
+### J.1 Required environment configuration
+
+Use server-only environment variables, with names confirmed against existing repository conventions before implementation:
+
+- `OWNER_ALLOWED_EMAILS`: comma-separated exact email addresses for approved owner identities.
+- `OWNER_ALLOWED_IPS`: comma-separated exact IP addresses and, only if deliberately implemented and tested, supported CIDR ranges.
+
+These are proposed names until Phase 0 verifies the existing configuration conventions. Never expose their values in browser code, HTML, API responses, client-visible configuration, logs, or error messages. Never commit real values to the repository. Configure them only through the hosting provider's protected environment settings after the owner explicitly approves the change.
+
+If either required variable is missing, blank, malformed, or fails validation, fail closed: do not render the owner button and deny access to the owner page and APIs. Do not fall back to a hard-coded owner email/IP, a client-provided value, or a permissive default. Show no sensitive configuration details to ordinary users.
+
+### J.2 Eligibility and request validation
+
+- Require both an exact verified signed-in email match and an approved client IP match before showing the button or granting access.
+- Normalize email addresses safely and compare against the authenticated identity returned by the trusted server-side auth flow, not a request parameter or browser profile field.
+- Resolve client IP only using the platform's documented trusted-proxy mechanism. Do not blindly trust arbitrary `X-Forwarded-For`, `X-Real-IP`, or similar client-controlled headers. If the platform's trusted IP cannot be established, deny owner access.
+- Support IPv4/IPv6 correctly; reject malformed allowlist entries. Do not infer the user's IP from a location service.
+- Re-evaluate email, IP, and authenticated session on every owner page/API request. A hidden button must never be the only protection.
+- Return a safe denial (for example, 403 for an authenticated but ineligible user); do not reveal which allowlist check failed.
+- Keep secrets and allowlist values server-only. Audit denied owner-route access using safe metadata without storing session tokens or unnecessary personal data.
+- Document operational caveats: IP allowlists can block the owner when a mobile carrier, VPN, Wi-Fi network, or public IP changes. Provide a secure server-side update procedure; never add a browser-side bypass or automatic open access fallback.
+
+### J.3 Required tests
+
+Test that the button is absent and all owner endpoints deny access when configuration is missing/invalid; both allowlist matches are required; either mismatch denies access; forged identity/IP headers do not grant access; trusted-proxy handling is correct; IPv4/IPv6 entries are validated; changing networks takes effect; and ordinary users cannot learn allowlist contents. Test server authorization separately from UI visibility.
+
+No production environment variables are to be created or changed by this documentation update. Actual configuration and implementation require their own reviewed, explicitly approved steps.
