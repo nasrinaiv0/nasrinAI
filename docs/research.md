@@ -101,3 +101,19 @@ scan reconstructs the report from its stored facts and sources.
 Phases 1–4 are implemented on the research-orchestration feature branch. They
 are not considered release-complete until tests and required CI/deployment
 checks pass and the pull request is reviewed.
+
+
+### Phase 5 — Evaluation and operational hardening (in progress)
+
+The API now returns deterministic per-scan quality indicators alongside the
+report: source read rate, failed/skipped source count, citation coverage,
+uncited findings, single-source findings, conflict-review count, and adapter
+failures. Empty denominators are reported as `null`, not misleading zeroes.
+These are operational diagnostics, not a truth score or proof of independent
+corroboration.
+
+The fixture-based test suite includes assertions for these metrics. Phase 5
+remains open until the full repository test suite, secret/dependency audits,
+database checks, and the Vercel deployment status are reviewed and passing.
+The workflow must be treated as failed if any required job fails; do not merge
+or deploy on the basis of source changes alone.
