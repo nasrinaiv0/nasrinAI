@@ -830,3 +830,98 @@ Before marking the specification or implementation complete, explicitly check ev
 - [ ] PR is reviewable; no unapproved merge, production env change, production migration, or deployment.
 
 The first implementation PR must start with Phase 0 evidence, then the owner-only security boundary and actual HTTP 404 tests. Continue only after the owner reviews and approves the Phase 0 deliverable. This specification remains documentation until code, tests, and verified data sources are delivered in reviewed implementation PRs.
+
+
+## O. Appearance, interaction, and responsive design specification
+
+This section turns the approved visual direction into concrete UI requirements. The target is a premium, calm, modern product interface: polished and lively through spacing, typography, depth, data visualization, and restrained semantic accents—not through a rainbow palette or excessive decoration.
+
+### O.1 Overall visual language
+
+- Use a light-first neutral foundation: white and soft-gray page surfaces, subtle section separation, navy/charcoal primary text, and muted secondary text.
+- Use a restrained semantic accent palette: blue for primary actions and user activity; emerald for healthy states and verified revenue; violet for AI/model activity; amber for spend, caution, and pending states; coral/red only for critical failures or urgent risk.
+- Color is purposeful and consistent. Do not assign a different bright color to every card, add gradients as decoration, or fill large areas with saturated colors. Red must not be used as a general accent.
+- Use whitespace, alignment, typography, fine borders, and carefully limited shadows to create hierarchy. Prefer subtle elevation and clean surfaces over heavy shadows, glass effects, glowing edges, or ornamental gradients.
+- Keep the visual system coherent with the existing NasrinAI app rather than introducing a visually unrelated admin template. Inspect existing design tokens, fonts, icons, buttons, border radii, and light/dark conventions before creating or changing them.
+- Avoid emoji as the primary status or navigation icon. Use the existing icon approach where available and ensure icons have accessible names when needed.
+
+### O.2 Page composition and hierarchy
+
+- The overview should answer, in order: **Is the platform healthy? What changed? What needs attention? What is driving usage and cost?**
+- Use a compact top bar with page title, owner context, global date range, comparison toggle, last-updated timestamp, and manual refresh.
+- Use a compact, responsive navigation pattern: a clear desktop sidebar or existing app navigation convention, and a space-efficient mobile menu. Do not let the owner-only navigation appear before server-side eligibility is confirmed.
+- Arrange the overview as a responsive grid: a small set of high-value KPI cards first, then trend charts and operational breakdowns, followed by incidents, source health, and recent activity. Avoid a wall of equally prominent cards.
+- Group related controls and content under clear headings. Use progressive disclosure for advanced filters, detailed traces, and low-frequency controls so the default screen remains understandable.
+- Establish a clear primary action only when one is appropriate. Monitoring pages should not make destructive controls visually prominent.
+- Use consistent card padding, alignment, label placement, chart legends, status treatment, and empty-state layout throughout all modules.
+
+### O.3 Typography and information density
+
+- Use the app's existing font stack unless the repository audit establishes a reason to change it. Do not add font dependencies or remote font requests just for the dashboard.
+- Make metric values easy to scan; keep labels, units, comparison deltas, and freshness visible without forcing users to open a detail view.
+- Use a clear type hierarchy for page titles, section titles, card labels, values, body text, metadata, and timestamps. Avoid tiny low-contrast labels.
+- Format large numbers, token counts, durations, percentages, and currency consistently. Include units and currency; use locale-aware formatting where appropriate.
+- Use tabular numerals for aligned numeric comparisons if supported by the current styling approach.
+- Prefer concise labels and meaningful tooltips/help text. Important definitions must remain available on mobile and must not be conveyed by color alone.
+
+### O.4 Charts and visual data
+
+- Choose chart types that fit the question: line/area for trends, bars for comparisons, stacked bars only when components need to be compared, and compact distribution charts only when they improve interpretation.
+- Keep chart backgrounds neutral and gridlines subtle. Use consistent series colors by metric category across the application, not a new palette per chart.
+- Include readable axes, units, date labels, legends, selected-period context, and accessible text summaries. Avoid 3D charts, excessive animation, decorative gauges, and misleading truncated axes.
+- On narrow screens, simplify ticks and legends, allow a deliberate horizontal chart scroll only when needed, and provide a concise tabular or textual alternative for important values.
+- Clearly distinguish actual, estimated, reserved, stale, and unavailable values. Use labels, icons, patterns, or text alongside color.
+- Do not animate live data in a way that distracts from reading or causes motion discomfort. Respect reduced-motion preferences.
+
+### O.5 Status, alerts, and interaction states
+
+- Use a small, consistent set of status patterns: healthy, informational, pending, warning, critical, unavailable, stale, and unknown. Each must have a text label and, where useful, a recognizable icon.
+- Critical alerts should stand out through severity label, placement, and a restrained critical color—not through flashing, constant pulsing, or oversized warning banners.
+- Provide clear hover, focus, pressed, disabled, loading, success, and error states. Keyboard focus must be visible; disabled controls must explain their state where appropriate.
+- Use skeletons only when they help preserve layout; otherwise use a simple loading indicator. Never display skeletons indefinitely after a source failure.
+- Empty states must explain whether there is no data yet, no matching results, or an unavailable source. Offer a relevant next step only when one exists.
+- Confirm filters with visible active chips or summary text; include clear/reset actions. Do not hide the current date range, sorting direction, or applied filters.
+- Destructive/high-impact confirmation dialogs belong to a later, separately approved phase and must clearly state the action and recovery consequences.
+
+### O.6 Appearance preferences
+
+- Support **System**, **Light**, and **Dark** appearance, consistent with the existing NasrinAI appearance settings and implementation conventions.
+- System mode follows the device preference. Light and Dark remain user-selected until changed. If the existing app persists preferences, use that existing mechanism; do not introduce a new storage dependency or expose sensitive information in local storage.
+- Ensure all surfaces, borders, charts, form controls, popovers, tables, dialogs, focus indicators, and status colors have reviewed contrast in both themes.
+- Dark mode should use layered charcoal/navy surfaces and legible muted text, not pure-black backgrounds everywhere or neon accents. Maintain the same semantic meaning for accent colors across themes, adjusting shades for contrast.
+- Avoid flashing between themes during initial render where the existing app architecture can prevent it safely. Do not add inline scripts or weaken the current Content Security Policy to implement theme switching.
+- Theme changes must not reset date filters, table sorting, current navigation, or other active dashboard state.
+
+### O.7 Responsive and mobile-first behavior
+
+- Treat iPhone Safari as a first-class supported environment, not a final polish task. Test real narrow viewports, safe areas, browser zoom, orientation changes, and on-screen keyboard behavior.
+- At small widths, collapse secondary navigation, stack KPI cards, wrap or collapse filters into an accessible panel, and convert dense tables to stacked records or a deliberate scroll region.
+- Never allow global date controls, active filter chips, tables, charts, or dialogs to create accidental page-wide horizontal overflow.
+- Make interactive targets comfortable for touch and provide sufficient spacing between adjacent controls. Do not rely on hover to reveal essential information or actions.
+- Ensure date pickers, sort menus, tooltips, confirmation dialogs, and dropdowns remain visible and usable near screen edges and when the keyboard is open.
+- Keep refresh, current range, source freshness, and critical alert status easy to find without forcing excessive scrolling.
+- Test desktop, tablet, and mobile breakpoints against actual layout behavior rather than relying on device names alone.
+
+### O.8 Accessibility and localization
+
+- Target WCAG 2.2 AA contrast and interaction requirements to the extent applicable to the existing product and test setup.
+- Support keyboard navigation, semantic headings, meaningful accessible names, focus management, screen-reader announcements for important updates, and reduced motion.
+- Do not rely on color, position, hover, or chart shape alone to communicate status.
+- Format dates and numbers consistently with the selected range and documented Asia/Manila business-time interpretation; label the timezone when ambiguity is possible.
+- Ensure long identifiers, provider/model names, errors, and translated labels wrap or truncate safely without hiding the full value from assistive technology.
+- Avoid auto-refresh behavior that repeatedly steals focus or announces every metric change to screen readers.
+
+### O.9 Visual acceptance checklist
+
+- [ ] Looks premium and lively without looking overly colorful or monochrome.
+- [ ] Neutral light foundation, restrained semantic accent palette, consistent typography and spacing.
+- [ ] Clear overview hierarchy; high-value KPIs first; details progressively disclosed.
+- [ ] Charts are legible, accurately scaled, labeled, and consistent across modules.
+- [ ] Light, dark, and system modes work across all components and preserve current UI state.
+- [ ] Loading, error, empty, stale, unavailable, disabled, focus, and success states are designed.
+- [ ] Mobile navigation, filters, date selection, charts, tables, and dialogs work on iPhone Safari.
+- [ ] Keyboard, screen-reader, contrast, touch-target, and reduced-motion behavior is tested.
+- [ ] No fake live-data appearance, excessive animation, unnecessary gradients, or status communicated by color alone.
+- [ ] No new runtime dependency or CSP weakening was introduced for appearance features.
+
+Appearance acceptance is part of functional acceptance: do not mark the dashboard complete based on a desktop screenshot alone. Test real data states, interaction states, both themes, responsive behavior, and accessibility. The visual specification does not authorize implementation, merge, or deployment by itself.
