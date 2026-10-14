@@ -2821,3 +2821,25 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
   padding: 0 14px 12px;
 }
 .lib-list-actions .btn { min-height: 36px; }
+
+
+/* Document rows contain a full-width opener followed by preview and actions.
+   Keep them vertical instead of inheriting the horizontal history-row layout. */
+.lib-document-item {
+  display: block;
+  min-width: 0;
+}
+.lib-document-item > .lib-open {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+.lib-document-item > .lib-list-preview,
+.lib-document-item > .lib-list-actions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+.lib-document-item > .lib-list-preview {
+  display: -webkit-box;
+}
