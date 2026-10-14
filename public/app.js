@@ -1342,7 +1342,8 @@
     return 'Thinking';
   }
   // The thinking sign: a sphere of dots that turns a full circle around its
-  // upright axis, like a globe, bursting apart and gathering again on the way.
+  // upright axis, like a globe, expanding evenly in every direction (it stays
+  // a sphere) and shrinking back on the way.
   // Dots nearer the front are larger and brighter. Drawn frame by frame; with
   // reduced motion it stays still (app.css .dots pulses softly instead).
   // The coding chat gives two later steps their own sign (stage()):
@@ -1365,7 +1366,7 @@
       const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
       const c = document.createElementNS(NS, 'circle');
       svg.appendChild(c);
-      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10,
+      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r,
         // gather: where the dot starts, and how late it sets off
         from: i * 4.08 + 1, far: 1.9 + 0.8 * ((i * 29) % 13) / 13, late: ((i * 53) % 17) / 17 * 0.35 });
     }
@@ -1387,7 +1388,7 @@
         const fx = Math.cos(d.from) * d.far, fy = Math.sin(d.from) * d.far;
         const shown = Math.min(Math.max((t - d.late) / 0.08, 0), 1) * (t > 0.9 ? 1 - (t - 0.9) / 0.1 : 1);
         x += (fx + (sx - fx) * p - x) * gather; y += (fy + (sy - fy) * p - y) * gather; z += (sz * p - z) * gather;
-        const k = R * (1 + burst * d.push), depth = (z + 1) / 2;
+        const k = R * (1 + burst * 0.75), depth = (z + 1) / 2;   // every dot moves out alike
         const flash = Math.exp(-(((Math.hypot(sx, sy) - wave * 1.2) * 5) ** 2));
         const glow = (1 + (0.3 + 0.9 * flash - 1) * beep) * (1 + (shown - 1) * gather);
         d.c.setAttribute('cx', (20 + x * k).toFixed(2));
