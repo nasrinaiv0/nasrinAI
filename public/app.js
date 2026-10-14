@@ -1346,44 +1346,45 @@
   // Dots nearer the front are larger and brighter. Drawn frame by frame; with
   // reduced motion it stays still (app.css .dots pulses softly instead).
   // finishing(true) (the coding chat's "Almost done") is a different sign: the
-  // dots fold into a fast-turning ring with a bright streak running around it.
+  // dots swirl into a three-armed spiral, like a small galaxy, that turns and
+  // gently breathes in and out.
   function dotSphere(box) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const n = 64, tilt = 0.35, R = 13, ringTilt = 0.75, TAU = Math.PI * 2;
-    const ct = Math.cos(tilt), st = Math.sin(tilt), crt = Math.cos(ringTilt), srt = Math.sin(ringTilt);
-    let cycle = 2400, ring = 0, goal = 0;   // ring: 0 sphere … 1 ring, eased toward goal
+    const n = 64, tilt = 0.35, R = 13, diskTilt = 0.9, TAU = Math.PI * 2;
+    const ct = Math.cos(tilt), st = Math.sin(tilt), cdt = Math.cos(diskTilt), sdt = Math.sin(diskTilt);
+    let cycle = 2400, swirl = 0, goal = 0;   // swirl: 0 sphere … 1 spiral, eased toward goal
     const dots = [];
     for (let i = 0; i < n; i++) {
       const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
       const c = document.createElementNS(NS, 'circle');
       svg.appendChild(c);
-      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10, angle: (i / n) * TAU });
+      dots.push({ c, x: Math.cos(a) * r, y, z: Math.sin(a) * r, push: 0.5 + 0.5 * ((i * 37) % 11) / 10, arm: (i % 3) * TAU / 3, u: (Math.floor(i / 3) + 0.5) / Math.ceil(n / 3) });
     }
     const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const draw = (t) => {
       // Sphere: a full turn (eased) and a burst that peaks near the middle.
       const turn = ease(Math.min(Math.max((t - 0.08) / 0.8, 0), 1)) * TAU;
-      const burst = (1 - ring) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      const burst = (1 - swirl) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
       const ca = Math.cos(turn), sa = Math.sin(turn);
-      // Ring: turns steadily; the streak's head runs ahead twice as fast.
-      const spin = t * TAU, head = (t * 2 % 1) * TAU;
+      // Spiral: three arms turning together, breathing once a cycle.
+      const pull = 0.88 + 0.12 * Math.cos(t * TAU);
       for (const d of dots) {
         const sx = d.x * ca + d.z * sa, z1 = -d.x * sa + d.z * ca;
         const sy = d.y * ct - z1 * st, sz = d.y * st + z1 * ct;
-        const th = d.angle + spin, rx = Math.cos(th), rz0 = Math.sin(th);
-        const ry = -rz0 * srt, rz = rz0 * crt;
-        const x = sx + (rx - sx) * ring, y = sy + (ry - sy) * ring, z = sz + (rz - sz) * ring;
+        const th = d.arm + d.u * 3.4 + t * TAU, rr = (0.12 + 0.88 * d.u) * pull;
+        const rx = Math.cos(th) * rr, rz0 = Math.sin(th) * rr;
+        const ry = -rz0 * sdt, rz = rz0 * cdt;
+        const x = sx + (rx - sx) * swirl, y = sy + (ry - sy) * swirl, z = sz + (rz - sz) * swirl;
         const k = R * (1 + burst * d.push), depth = (z + 1) / 2;
-        const behind = ((head - th) % TAU + TAU) % TAU;
-        const streak = 0.15 + 0.85 * Math.exp(-behind * 1.4);
-        const glow = 1 + (streak - 1) * ring;
+        const core = 0.35 + 0.65 * (1 - d.u);   // brighter toward the middle
+        const glow = 1 + (core - 1) * swirl;
         d.c.setAttribute('cx', (20 + x * k).toFixed(2));
         d.c.setAttribute('cy', (20 + y * k).toFixed(2));
-        d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst) * (1 + 0.25 * ring)).toFixed(2));
+        d.c.setAttribute('r', ((0.55 + 0.75 * depth) * (1 - 0.35 * burst) * (1 + 0.3 * swirl * (1 - d.u) - 0.25 * swirl * d.u)).toFixed(2));
         d.c.setAttribute('fill-opacity', ((0.3 + 0.7 * depth) * (1 - 0.3 * burst) * glow).toFixed(2));
       }
     };
@@ -1394,7 +1395,7 @@
       const tick = (now) => {
         const dt = before ? now - before : 0;
         phase = (phase + dt / cycle) % 1;   // smooth when the speed changes
-        ring += (goal - ring) * Math.min(1, dt / 250);
+        swirl += (goal - swirl) * Math.min(1, dt / 250);
         before = now;
         draw(phase);
         frame = requestAnimationFrame(tick);
@@ -1406,9 +1407,9 @@
     return {
       finishing(on) {
         goal = on ? 1 : 0;
-        cycle = on ? 1400 : 2400;
+        cycle = on ? 1800 : 2400;
         box.classList.toggle('is-finishing', Boolean(on));
-        if (still) { ring = goal; draw(0); }
+        if (still) { swirl = goal; draw(0); }
       },
       remove() { cancelAnimationFrame(frame); svg.remove(); }
     };
