@@ -7,14 +7,19 @@ function normalize(raw, adapter) {
   let url; try { url = new URL(String(raw?.url || raw?.URL || '')); } catch { return null; }
   if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || (url.port && !['80', '443'].includes(url.port))) return null;
   if (url.protocol === 'http:') url.protocol = 'https:';
-  return { url: url.href, title: clean(raw?.title || raw?.name || (Array.isArray(raw?.title) ? raw.title[0] : '')), adapter, source_type: clean(raw?.source_type || 'web', 40), metadata: raw?.metadata && typeof raw.metadata === 'object' ? raw.metadata : {} };
+  return { url: url.href, title: clean(Array.isArray(raw?.title) ? raw.title[0] : (raw?.title || raw?.name)), adapter, source_type: clean(raw?.source_type || 'web', 40), metadata: raw?.metadata && typeof raw.metadata === 'object' ? raw.metadata : {} };
 }
 async function attempt(fn, timeoutMs, signal) {
   const controller = new AbortController();
   const abort = () => controller.abort(signal?.reason);
   if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
-  const timer = setTimeout(() => controller.abort(new Error('adapter timeout')), timeoutMs);
-  try { return await fn(controller.signal); } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(() => fn(controller.signal)),
+      new Promise((_, reject) => { timer = setTimeout(() => { const error = new Error('adapter timeout'); controller.abort(error); reject(error); }, timeoutMs); })
+    ]);
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
 }
 async function resilient(fn, { timeoutMs = TIMEOUT_MS, attempts = RETRIES, signal } = {}) {
   let error; for (let i = 0; i < attempts; i++) {
