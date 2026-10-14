@@ -366,3 +366,56 @@ Stop for owner approval before beginning each new phase, as required by `CLAUDE.
 New read paths must be disableable without affecting chat, authentication, billing, AI routing, Connect or NCC. Optional integrations fail closed. New controls remain disabled until verified. Do not use disabling RLS/rate limits/budgets as rollback.
 
 At each phase end, report in plain language: implemented behavior; changed files/migrations; real/estimated/unavailable sources; owner authorization and RLS tests; exact test commands and observed results; required owner actions; limitations and risks; and the next phase awaiting approval. Documentation or screenshots alone are not completion.
+
+## I. Owner-approved visual direction — premium, lively, restrained
+
+The owner prefers a premium interface with more life than a strict monochrome or two-color design, but without a rainbow-like, overly colorful appearance. This visual direction is the implementation target for the Owner Command Center.
+
+### I.1 Palette and color roles
+
+Use a light, neutral foundation with a controlled multi-accent palette:
+
+- **Foundation:** white surfaces, soft cool-gray page backgrounds, subtle gray borders, and restrained shadows.
+- **Typography:** navy and charcoal for headings/body text; muted slate for secondary labels and metadata.
+- **Blue:** primary navigation state, links, primary actions, and user-growth data.
+- **Emerald green:** healthy systems, successful operations, verified positive trends, and revenue series when semantically appropriate.
+- **Violet:** AI/model activity and AI-tier visualization.
+- **Amber:** spend/cost indicators, budget warnings, and attention-needed states.
+- **Coral/red:** critical failures, security incidents, and destructive-action warnings only.
+- **Neutral slate/gray:** supporting series, inactive states, separators, and secondary data.
+
+These are semantic roles, not a requirement to use every accent in every view. Keep the majority of each screen neutral. Use accent colors to distinguish meaningful categories, not as decoration. Avoid neon colors, rainbow gradients, glowing cards, saturated full-card backgrounds, and arbitrary colors with no consistent meaning. Maintain readable contrast and do not rely on color alone to communicate status.
+
+### I.2 Components and hierarchy
+
+- Use spacious, consistently aligned cards with restrained borders, subtle depth, and clear typographic hierarchy.
+- KPI cards may use a small colored icon, a thin trend line, or a small accent detail; keep the card surface neutral.
+- Charts may use multiple coordinated colors when comparing distinct series. Keep gridlines and axes quiet, labels legible, legends explicit, and tooltips accessible.
+- Use soft tinted badges for plan tiers, statuses, and categories, with restrained saturation and accessible text contrast.
+- Reserve strong red emphasis for genuine critical events. Warnings use amber; healthy states use green; neutral/unknown states remain gray.
+- Keep navigation icons consistent in style and size. Selected navigation may use a very light blue tint, not a large saturated block.
+- Avoid unnecessary gradients, animated decoration, excessive shadows, or dense data walls. Motion, if any, must be subtle and respect reduced-motion preferences.
+
+### I.3 Layout and responsive behavior
+
+- Default to a polished light theme for the initial implementation, while respecting existing theme support and avoiding regressions in dark/system modes.
+- Design mobile-first for Safari on iPhone: readable KPI cards, touch targets of comfortable size, compact/collapsible navigation, charts that remain legible, and tables converted to stacked rows or intentionally scrollable regions.
+- Establish clear priority: executive KPIs first, trends second, recent activity and alerts third, module shortcuts after the primary information.
+- Provide accessible focus indicators, keyboard operation, semantic labels, and contrast compliant with the project's accessibility standards.
+- Use skeleton/loading states sparingly and include clear empty, unavailable, stale, and error states. Never style missing telemetry to look healthy.
+
+### I.4 Data visualization rules
+
+Color must reinforce meaning consistently across modules. Do not assign the same color different meanings within the same chart or view. Distinguish revenue from cost, successful from failed operations, and AI tiers from one another. Pair color with labels, icons, line patterns, or status text for accessibility. Avoid misleading axes and exaggerated trends.
+
+### I.5 Design acceptance criteria
+
+The design is accepted only when:
+1. The result feels premium and lively without looking childish, cluttered, or overly colorful.
+2. Neutral surfaces and typography dominate; blue, emerald, violet, amber, and coral are used sparingly and consistently by semantic role.
+3. KPI cards, charts, badges, alerts, and navigation share a coherent visual system.
+4. The layout is usable on narrow iPhone screens and desktop widths, including loading/error/empty states.
+5. Contrast, focus, labels, reduced motion, and non-color status cues are covered.
+6. Any preview/mockup uses clearly labeled illustrative data; production metrics must come from verified sources.
+
+This section supersedes any interpretation of the earlier design notes that would result in a strictly monochrome/two-color interface or an excessively colorful interface. It does not change the security, telemetry, phased-delivery, testing, or owner-approval requirements above.
