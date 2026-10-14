@@ -999,3 +999,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Security:** preserve existing RLS, server-only privileged access, rate limits, budgets, tenant isolation, privacy/retention, strict CSP, and zero-runtime-dependency rule. Do not invent metrics or imply unconfigured integrations work.
 - **Validation:** fetched and inspected current `CLAUDE.md`, `docs/claude-code-handoff.md`, `docs/operations.md`, and the existing owner command center spec before extending it. Documentation-only change; runtime tests were not run. No production schema, runtime code, environment variables, or live behavior changed.
 - **Next:** after owner approval, implement the phases as real code with tests; no merge/deploy without owner approval.
+
+
+## Proposed PR — Owner Command Center implementation (PR #353, `feature/owner-command-center`)
+
+- **Owner request (2026-10-14):** build the complete owner-only operations dashboard in one PR, with a premium restrained appearance, System/Light/Dark modes, iPhone support, shared day/week/month/year and custom date filtering, sorting, comparisons, security, verified operational data, alerts, and reporting.
+- **Phase 0 audit:** added `docs/owner-command-center-audit.md` and recorded verified current architecture in `docs/owner-command-center.md` Section P.
+- **Critical auth finding:** the existing refresh cookie is scoped to `/v1/auth`, while the access token is held in browser memory. A direct `/owner` request therefore needs a dedicated, short-lived owner-session bootstrap after server-side Supabase identity, email allowlist, and trusted-IP checks. Owner page and every API/export/control must independently enforce the same generic real HTTP 404 boundary for unauthorized callers.
+- **Current change:** documentation and read-only source audit only. No runtime code, schema, environment variables, DNS, or production behavior changed. No tests were executed by this audit.
+- **Next:** implement and regression-test the owner-session boundary first, then build all modules sequentially on this same branch. Verify real data sources before displaying metrics. No merge or deployment without explicit owner approval.
