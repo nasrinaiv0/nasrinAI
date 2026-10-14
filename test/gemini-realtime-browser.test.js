@@ -29,6 +29,7 @@ async function load() {
   };
   const ctx = vm.createContext({
     window, WebSocket: FakeWS, AudioContext: FakeCtx, TextDecoder, atob, btoa, Uint8Array, Int16Array, Float32Array, DataView, JSON, Math, String,
+    setTimeout, clearTimeout,   // the setup handshake has a timeout
     navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } }
   });
   vm.runInContext(code, ctx);
@@ -61,4 +62,5 @@ test('binary Gemini frames are read: audio plays and words show', async () => {
   ws.onmessage({ data: JSON.stringify({ serverContent: { turnComplete: true } }) });
   assert.equal(started.length, 1, 'the reply audio was scheduled');
   assert.deepEqual(said, [['out', 'Hello'], ['done']]);
+  assert.deepEqual(errors, [], 'no errors during a normal turn');
 });
