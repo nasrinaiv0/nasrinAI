@@ -4,7 +4,7 @@ import { readLink, checkUrl } from './web/read-link.js';
 import { parseRobots } from './connect/site-knowledge.js';
 import { cleanUserText } from './ai/output.js';
 import { redactForProvider } from './ai/redact.js';
-import { planResearch, buildEvidenceLedger, buildResearchReport } from './research-orchestrator.js';
+import { planResearch, buildEvidenceLedger, buildResearchReport, measureResearchQuality } from './research-orchestrator.js';
 import { createResearchSourceRegistry } from './research-sources.js';
 
 // Research agent (docs/research.md). For one question it finds public pages
@@ -135,6 +135,7 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       const evidence = buildEvidenceLedger(outcomes.flatMap((outcome) => outcome.facts));
       const facts = evidence.facts;
       const report = buildResearchReport(evidence, sources);
+      const quality = measureResearchQuality({ report, sources, adapters: discovery.adapters });
 
       const ttl = caller.actor.type === 'user' ? 30 * DAY : DAY;
       const saved = await store.addResearchScan({ ...who(caller), query, sources, facts, expiresAt: new Date(now() + ttl) });
@@ -154,7 +155,7 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
           sources: [...new Map(facts.map((f) => [f.url, { url: f.url, title: f.title }])).values()]
         });
       }
-      return { id: saved.id, query, facts, sources, report, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, source_adapters: discovery.adapters, new_shared_facts: shared, expires_at: saved.expiresAt };
+      return { id: saved.id, query, facts, sources, report, quality, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, source_adapters: discovery.adapters, new_shared_facts: shared, expires_at: saved.expiresAt };
     },
 
     async get(caller, id) {
