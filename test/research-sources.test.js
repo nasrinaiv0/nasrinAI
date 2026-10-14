@@ -32,3 +32,11 @@ test('Crossref is skipped for nonacademic questions', async () => {
   const result = await registry.discover({ query: 'How to use this API?' });
   assert.equal(called, false); assert.equal(result.adapters.find((a) => a.id === 'crossref').status, 'no_results');
 });
+test('adapter timeouts are enforced even when an adapter ignores its abort signal', async () => {
+  const registry = createResearchSourceRegistry({ fetchImpl: null });
+  registry.register({ id: 'hung', timeoutMs: 15, attempts: 1, async discover() { return new Promise(() => {}); } });
+  const started = Date.now();
+  const result = await registry.discover({ query: 'test' });
+  assert.ok(Date.now() - started < 500, 'a stuck adapter must not hang the scan');
+  assert.equal(result.adapters.find((a) => a.id === 'hung').status, 'unavailable');
+});
