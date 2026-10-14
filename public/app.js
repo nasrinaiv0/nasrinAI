@@ -1214,6 +1214,24 @@
       const chosenRepo = codingProject && fresh ? window.NasrinFiles.repoOf(text) : null;
       if (chosenRepo) saved.set(KEYS.coding + ':repo:' + codingProject.id, chosenRepo);
       made = window.NasrinFiles.parse(text);
+      // Persist NasrinAI-generated text/code files to the signed-in person's Library
+      // when a fresh assistant reply creates them. Library is text-backed, so only
+      // formats it can faithfully preview/download are stored here.
+      if (fresh && made.files.length && window.Nasrin && typeof window.Nasrin.api === 'function') {
+        for (const generated of made.files) {
+          if (!/\.(txt|text|log|md|markdown|csv|tsv|json|js|mjs|cjs|jsx|ts|tsx|py|rb|go|rs|java|kt|swift|c|h|cpp|hpp|cs|php|html|css|scss|sql|sh|yaml|yml|toml|xml|vue|svelte|dart|lua|r)$/i.test(generated.name)) continue;
+          try {
+            await window.Nasrin.api('/v1/library', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ kind: 'file', title: generated.name, text: generated.content })
+            });
+          } catch (err) {
+            // Guest sessions and unavailable Library service must not break the reply.
+            console.debug('Generated file was not saved to Library.', err?.message || err);
+          }
+        }
+      }
       text = made.text || (made.files.length ? 'Here is your file.' : '');
       // Render one or more retained pictures returned by a history-recall request.
       // Each image is fetched through the existing owner-checked image endpoint.
