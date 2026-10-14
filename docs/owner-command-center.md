@@ -925,3 +925,37 @@ This section turns the approved visual direction into concrete UI requirements. 
 - [ ] No new runtime dependency or CSP weakening was introduced for appearance features.
 
 Appearance acceptance is part of functional acceptance: do not mark the dashboard complete based on a desktop screenshot alone. Test real data states, interaction states, both themes, responsive behavior, and accessibility. The visual specification does not authorize implementation, merge, or deployment by itself.
+
+
+## P. Phase 0 findings and implementation sequencing (2026-10-14)
+
+The initial repository inspection is recorded in `docs/owner-command-center-audit.md`. This section is authoritative for the first implementation milestone and supplements Sections 14, 15, 16, 17, and M.
+
+### P.1 Verified current-state findings
+
+- The current HTTP application handles `/healthz`, routes `/v1/*` through its API router/gateway, serves public static files, and returns a real 404 for unmatched routes.
+- The static file server serves files from `public/`; the owner dashboard must not be a public static page protected only by hiding a link.
+- The existing Supabase refresh cookie is HttpOnly and scoped to `Path=/v1/auth`. The browser's access token is held in memory and sent as a bearer token for API requests. Therefore, a direct browser navigation to `/owner` cannot be authorized using the existing refresh cookie alone.
+- The app already has a trusted-proxy-aware client IP helper configured through `TRUST_PROXY_HOPS`; owner authorization must use the same trusted resolver, not parse arbitrary forwarding headers itself.
+- Existing code and migrations establish server-side identity verification and server-only Supabase table boundaries. Those must be reused and preserved.
+- The dashboard itself, owner route, owner API, allowlist configuration, and owner-session flow are not considered implemented until code and regression tests demonstrate them.
+
+### P.2 Mandatory owner-session bootstrap design
+
+A secure direct-page route requires an explicit bridge from the existing bearer-token sign-in flow to a narrowly scoped owner session. Before serving any dashboard HTML:
+
+1. The signed-in application submits a same-origin owner-session bootstrap request authenticated with its current bearer access token.
+2. The server validates the token through the existing Supabase Auth verifier, obtains the verified identity, validates the server-only `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS` configuration, and checks both the verified email and trusted client IP.
+3. Only after both checks pass may the server set a dedicated Secure, HttpOnly, SameSite=Strict, short-lived owner-session cookie. Never put credentials in a URL, browser-readable storage, HTML, or logs; do not reuse the refresh token cookie as the owner session.
+4. Scope the cookie to the owner route/API path if the selected route layout permits it. The exact token representation, cookie scope, expiration, secret/key requirements, and revocation semantics must be implemented and tested—not guessed to avoid configuration work.
+5. The owner page and every owner API, export, and future control endpoint independently validate the owner session, re-check current allowlist configuration and trusted IP, and fail closed.
+6. Every unauthorized owner page/API/export/control request receives the same generic real HTTP 404. No owner content may be sent before authorization. Missing/invalid configuration, unverified identity, or unknown trusted IP must deny access.
+7. The session must have a short documented lifetime and safe sign-out/expiration behavior. Tests must cover expired and revoked Supabase sessions, account changes, IP changes, forged headers, and session replay boundaries.
+
+If this bridge cannot be implemented without weakening the existing authentication design, stop and report the blocker. Do not substitute a frontend-only guard, trust the browser's email, rely on a hidden URL, or change the required 404 behavior.
+
+### P.3 Implementation gate
+
+Phase 0 audit findings and the source-of-truth matrix live in `docs/owner-command-center-audit.md`. Implementation remains on `feature/owner-command-center` in PR #353 so the owner can review all phases in one PR. Before the first dashboard metrics are added, implement and test the owner-session bootstrap and uniform 404 boundary. Then proceed to the read-only dashboard using verified data sources. Update the audit matrix as sources are confirmed and keep unavailable integrations visibly unavailable.
+
+This update records verified source observations and a required design; it does not claim that owner authentication, routes, metrics, or tests have been implemented or run.
