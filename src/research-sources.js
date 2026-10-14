@@ -27,7 +27,7 @@ async function resilient(fn, { timeoutMs = TIMEOUT_MS, attempts = RETRIES, signa
     try { return await attempt(fn, timeoutMs, signal); } catch (e) { error = e; if (signal?.aborted) break; }
   } throw error || new Error('adapter failed');
 }
-const ACADEMIC = /\b(academic|literature|peer.review|papers?|studies|scholar|citation|thesis|university|systematic review|doi)\b/i;
+const DOI = /\b(10\.\d{4,9}\/[^\s"<>]+)/i;
 export function createResearchSourceRegistry({ webSearch = null, fetchImpl = globalThis.fetch, logger = null } = {}) {
   const adapters = new Map();
   function register(adapter) {
@@ -44,15 +44,16 @@ export function createResearchSourceRegistry({ webSearch = null, fetchImpl = glo
     }), { signal })));
     return results.flatMap((r) => r?.citations || []).map((c) => ({ url: c.url, title: c.title || '', source_type: 'web', metadata: { citation_source: 'web-search' } }));
   } });
-  register({ id: 'crossref', kinds: ['academic', 'doi-metadata'], timeoutMs: 3500, maxCandidates: 5, enabled: ({ query }) => Boolean(fetchImpl) && ACADEMIC.test(query), async discover({ query, signal }) {
-    if (!fetchImpl || !ACADEMIC.test(query)) return [];
+  register({ id: 'crossref', kinds: ['academic', 'doi-metadata'], timeoutMs: 3500, maxCandidates: 5, enabled: ({ query }) => Boolean(fetchImpl) && DOI.test(query), async discover({ query, signal }) {
+    const match = DOI.exec(String(query || ''));
+    const doi = match ? match[1].replace(/[.,;)\\]]+$/, '') : '';
+    if (!fetchImpl || !doi) return [];
     const data = await resilient(async (innerSignal) => {
-      const url = new URL(CROSSREF); url.searchParams.set('query.bibliographic', query); url.searchParams.set('rows', '5');
-      url.searchParams.set('select', 'DOI,title,URL,published,container-title,author,publisher,type');
+      const url = new URL(CROSSREF + '/' + encodeURIComponent(doi));
       const response = await fetchImpl(url, { method: 'GET', signal: innerSignal, headers: { Accept: 'application/json', 'User-Agent': 'NasrinAI/1.0 (https://nasrinai.com)' } });
       if (!response.ok) throw new Error('Crossref HTTP ' + response.status); return response.json();
     }, { timeoutMs: 3500, signal });
-    return (Array.isArray(data?.message?.items) ? data.message.items : []).map((item) => ({
+    return (data?.message && typeof data.message === 'object' ? [data.message] : []).map((item) => ({
       url: item.URL || (item.DOI ? 'https://doi.org/' + item.DOI : ''),
       title: Array.isArray(item.title) ? item.title[0] : '', source_type: 'scholarly-publication',
       metadata: { doi: item.DOI || null, publisher: item.publisher || null, publication: Array.isArray(item['container-title']) ? item['container-title'][0] : null, year: item.published?.['date-parts']?.[0]?.[0] || null, authors: Array.isArray(item.author) ? item.author.slice(0, 12).map((a) => [a.given, a.family].filter(Boolean).join(' ')) : [] }
