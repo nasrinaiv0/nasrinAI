@@ -49,7 +49,7 @@ test('Phase 4 report binds every citation to a successfully read source and expo
   assert.deepEqual(report.findings[0].citations.map((source) => source.url), [
     'https://a.example/report', 'https://b.example/study'
   ]);
-  assert.equal(report.findings[1].confidence, 'single_source');
+  assert.equal(report.findings[1].confidence, 'uncited');
   assert.deepEqual(report.findings[1].citations, []);
   assert.equal(report.citation_integrity.all_findings_have_read_source, false);
   assert.equal(report.limitations.findings_without_read_source, 1);
