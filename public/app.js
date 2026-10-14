@@ -4306,7 +4306,7 @@
       const { memories } = await api('/v1/memories');
       for (const m of memories || []) {
         const li = document.createElement('li');
-        li.className = 'history-item';
+        li.className = 'history-item' + (['file', 'note', 'reply'].includes(f.kind) ? ' lib-document-item' : '');
         const t = document.createElement('span');
         t.className = 'history-open memory-text';
         t.textContent = m.text;
