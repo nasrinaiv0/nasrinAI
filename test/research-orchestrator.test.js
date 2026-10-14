@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planResearch, buildEvidenceLedger, buildResearchReport } from '../src/research-orchestrator.js';
+import { planResearch, buildEvidenceLedger, buildResearchReport, measureResearchQuality } from '../src/research-orchestrator.js';
 
 test('focused questions use one search; complex questions plan domain-aware parallel searches', () => {
   assert.deepEqual(planResearch('What is photosynthesis?').searchQueries, ['What is photosynthesis?']);
@@ -54,4 +54,30 @@ test('Phase 4 report binds every citation to a successfully read source and expo
   assert.equal(report.citation_integrity.all_findings_have_read_source, false);
   assert.equal(report.limitations.findings_without_read_source, 1);
   assert.ok(report.conflicts.every((item) => item.status === 'needs_review'));
+});
+
+
+test('Phase 5 quality metrics report source, citation, evidence, and adapter coverage deterministically', () => {
+  const evidence = buildEvidenceLedger([
+    { fact: 'The service reduced request latency in the reported test.', url: 'https://a.example/report', title: 'Report A' },
+    { fact: 'The service reduced request latency in the reported test.', url: 'https://b.example/study', title: 'Study B' },
+    { fact: 'The service does not reduce request latency in the reported test.', url: 'https://c.example/study', title: 'Study C' }
+  ]);
+  const sources = [
+    { url: 'https://a.example/report', status: 'read', title: 'Report A' },
+    { url: 'https://b.example/study', status: 'read', title: 'Study B' },
+    { url: 'https://c.example/study', status: 'skipped', title: 'Study C' }
+  ];
+  const report = buildResearchReport(evidence, sources);
+  const quality = measureResearchQuality({
+    report, sources,
+    adapters: [{ id: 'web-search', status: 'ok' }, { id: 'crossref', status: 'unavailable' }]
+  });
+  assert.deepEqual(quality.sources, { discovered: 3, read: 2, failed_or_skipped: 1, read_rate: 0.6667 });
+  assert.deepEqual(quality.citations, { findings: 2, cited_findings: 1, uncited_findings: 1, coverage: 0.5 });
+  assert.equal(quality.evidence.conflicts_needing_review, report.conflicts.length);
+  assert.equal(quality.adapters.checked, 2);
+  assert.equal(quality.adapters.failures, 1);
+  assert.match(quality.note, /do not establish that findings are true/);
+  assert.equal(measureResearchQuality({}).sources.read_rate, null, 'zero denominators remain undefined');
 });
