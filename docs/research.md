@@ -66,3 +66,38 @@ Adapters in this phase:
 - User-supplied public URLs remain a separate explicit input path and are still checked by `checkUrl`, the SSRF-safe reader and robots.txt policy before reading.
 
 Future scholarly indexes, official documentation catalogs, industry data feeds, and user-provided document sources can register adapters without changing the research loop. Do not send the full research question to Crossref or another new provider without a reviewed privacy disclosure. A candidate or Crossref record is discovery metadata, not proof that a claim is supported. Do not bypass logins, paywalls, CAPTCHA or robots exclusions.
+
+## Phase 4 — Evidence-grounded synthesis and citation integrity
+
+Each scan now includes a structured `report` built from extracted evidence, not
+free-form generated prose. Findings keep stable report-local IDs, bounded text,
+source links, and a conservative confidence label. Citations are included only
+when their URLs match a source that was successfully read during the scan.
+Skipped or unread sources cannot be presented as supporting citations.
+
+The report surfaces findings with no readable-source citation, single-source
+findings, and possible conflicts needing review. “Corroborated” means the same
+normalized statement was extracted from multiple source URLs; it does not mean
+the sources are independent or that the claim is proven. The existing `facts`,
+`sources`, `plan`, and `evidence` response fields remain available. A saved
+scan reconstructs the report from its stored facts and sources.
+
+## Roadmap
+
+- **Phase 1 — Bounded research planning:** focused/deep plans and domain-aware
+  subquestions.
+- **Phase 2 — Evidence ledger:** deduplication, provenance, cautious
+  corroboration labels, and conflict review signals.
+- **Phase 3 — Extensible source integrations:** provider-agnostic adapters,
+  bounded retries/timeouts, source isolation, and privacy-preserving DOI lookup.
+- **Phase 4 — Evidence-grounded synthesis:** structured findings, source-bound
+  citations, and explicit limitations/conflict signals.
+- **Phase 5 — Evaluation and operational hardening:** repeatable fixture-based
+  end-to-end tests, quality metrics for citation coverage and source failures,
+  and verified CI/deployment checks before release.
+- **Phase 6 — Research experience:** user-facing report rendering, export, and
+  optional Library saving only after the user explicitly confirms.
+
+Phases 1–4 are implemented on the research-orchestration feature branch. They
+are not considered release-complete until tests and required CI/deployment
+checks pass and the pull request is reviewed.
