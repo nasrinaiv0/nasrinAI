@@ -45,7 +45,7 @@ read-only reference). Not an ordering/delivery chat anymore.
    customer data. Never claim "unhackable", "100% secure" or "compliant".
 6. **Legal/business facts are the owner's**: use `[REQUIRES INPUT]`-style
    placeholders, never make up business name, address, prices or policies.
-7. **Zero runtime dependencies** (ADR-002): Node 22 built-ins only.
+7. **Zero runtime dependencies** (ADR-002): Node 22 built-ins only. Sole exception: the coding sandbox's two pinned packages (`@vercel/sandbox`, `@agent-browser/sandbox`), loaded on demand; `package-lock.json` is committed.
 8. **Minimal replies** (owner's request, to save tokens): a few lines only —
    what changed, exact owner steps if any, what is needed. No summaries,
    tables or explanations unless asked. Put the effort into correct, tested

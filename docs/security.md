@@ -33,7 +33,7 @@ the aim is to prevent, limit, detect and recover.
 - **Own model (Phase 3):** in production a model server on another machine needs `https://` and a credential (bearer key or Cloudflare Access service token), or the server will not start. Credentials in the URL are refused. The browser never learns the model server's address. Its health is checked at most every 30 seconds. See [ADR-004](decisions/004-local-model-runtime.md).
 - **Errors:** callers see a plain message and a request id; details stay in the server log. Logs redact anything that looks like a credential.
 - **Headers:** CSP, HSTS (production), X-Frame-Options DENY, nosniff, no referrer, Permissions-Policy.
-- **Supply chain:** no third-party runtime packages ([ADR-002](decisions/002-no-runtime-dependencies.md)).
+- **Supply chain:** no third-party packages in the main app; two pinned, on-demand packages for the coding sandbox only ([ADR-002](decisions/002-no-runtime-dependencies.md), amended 2026-10-14). `package-lock.json` is committed.
 - **Configuration:** the server will not start with missing production settings, a short guest secret, or Supabase keys in the wrong slots.
 
 ## Tenant-isolation regression coverage
@@ -64,8 +64,7 @@ Cross-chat recall is intended to read only conversations matching the authentica
 ## Dependency-audit CI coverage (2026-10-13)
 
 - CI now runs an npm advisory audit with a high-severity failure threshold, in addition to the existing test, secret-scan, and database jobs.
-- The repository currently has no committed `package-lock.json`. The audit job creates a temporary lockfile with package lifecycle scripts disabled, then audits the resolved dependency tree. This detects known advisories for that resolution but does not make installs reproducible.
-- Follow-up required: decide which dependencies in `package.json` are genuinely required. The manifest currently lists `@vercel/sandbox`, `@supabase/supabase-js`, and `express`, while ADR-002 states that runtime dependencies were removed. Reconcile the manifest with the actual imports and hosting behavior before removing or pinning anything.
+- Resolved 2026-10-14: `express` and `@supabase/supabase-js` were removed (nothing imports them). `@vercel/sandbox` and `@agent-browser/sandbox` stay, pinned to exact versions, because the coding runner loads them on demand (ADR-002 amendment). `package-lock.json` is now committed, so installs are reproducible; CI audits it and fails if it is out of date with `package.json`.
 - CI results must be checked on the PR before merge. This change does not modify production settings, database schema, credentials, or application runtime code.
 
 
