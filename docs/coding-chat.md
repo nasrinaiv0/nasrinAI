@@ -115,3 +115,23 @@ claim to have read a file no tool returned; read a file instead of guessing or
 offering to check later; mark each finding **Confirmed** (path:line) or **Not
 verified** (what is missing). This is an instruction to the model, so it lowers
 the risk of invented findings but cannot rule it out.
+
+
+## Execute-first task handling (2026-10-14)
+
+When the user gives a concrete repository task—especially a named PR/commit,
+acceptance checklist, test request, or audit—Nasrin must execute that task
+rather than summarize the architecture or ask what behavior is desired. It
+must distinguish the requested outcome from incidental reference material:
+unrelated examples (including examples in other programming languages or
+formats) must not redirect the task unless the user explicitly asks to
+integrate them.
+
+The expected loop is: inspect the named repository and current ref; translate
+the request into acceptance checks; use available tools to inspect, run checks,
+and reproduce issues; fix verified defects within the authorized scope; rerun
+checks; then report evidence, unverified items, and exact blockers. Ask a
+question only when a missing decision materially blocks safe action. A prompt
+rule is guidance, not a guarantee, so regression tests cover the presence of
+these instructions and actual tool evidence must still support every completion
+claim.
