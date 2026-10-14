@@ -59,3 +59,43 @@ export function buildEvidenceLedger(input) {
   }
   return { facts, contradictions, source_count: new Set(facts.flatMap((fact) => fact.sources.map((source) => source.url))).size };
 }
+
+
+/**
+ * Build a source-grounded report without inventing a narrative or citations.
+ * Citation links are copied only from the evidence ledger's recorded sources.
+ */
+export function buildResearchReport(evidence, sources = []) {
+  const facts = Array.isArray(evidence?.facts) ? evidence.facts : [];
+  const knownUrls = new Set((Array.isArray(sources) ? sources : [])
+    .filter((source) => source?.status === 'read' && typeof source.url === 'string')
+    .map((source) => source.url));
+  const findings = facts.map((item, index) => {
+    const citations = (Array.isArray(item.sources) ? item.sources : [{ url: item.url, title: item.title }])
+      .filter((source) => source?.url && knownUrls.has(source.url))
+      .map((source) => ({ url: source.url, title: String(source.title || '').slice(0, 200) }));
+    return {
+      id: index + 1,
+      finding: String(item.fact || '').slice(0, 300),
+      confidence: item.confidence === 'corroborated' && citations.length >= 2 ? 'corroborated' : 'single_source',
+      citations
+    };
+  }).filter((item) => item.finding.length >= 10);
+  const conflicts = (Array.isArray(evidence?.contradictions) ? evidence.contradictions : [])
+    .filter((item) => Array.isArray(item.fact_indexes) && item.fact_indexes.length === 2 &&
+      item.fact_indexes.every((index) => Number.isInteger(index) && index >= 0 && index < findings.length))
+    .map((item) => ({ finding_ids: item.fact_indexes.map((index) => index + 1), status: 'needs_review' }));
+  const uncited = findings.filter((item) => item.citations.length === 0).length;
+  const singleSource = findings.filter((item) => item.confidence === 'single_source').length;
+  return {
+    findings,
+    conflicts,
+    limitations: {
+      findings_without_read_source: uncited,
+      single_source_findings: singleSource,
+      conflicting_findings_need_review: conflicts.length,
+      note: 'Corroboration means matching extracted statements appeared on multiple source URLs; it is not independent verification.'
+    },
+    citation_integrity: { all_findings_have_read_source: uncited === 0 }
+  };
+}
