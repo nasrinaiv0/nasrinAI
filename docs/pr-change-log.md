@@ -1,3 +1,10 @@
+## Proposed PR — Remove legacy food-ordering reference
+
+- **Owner request (2026-10-14):** remove the obsolete food-ordering project from the current NasrinAI repository after it appeared in a domain reputation report.
+- **Change:** delete `reference/crazybite-chat/`; remove its active references from the README, maintainer instructions, and roadmap; preserve the historical security findings and decision rationale without retaining the old business identity; remove the obsolete project name from the founder-knowledge test fixture.
+- **Runtime impact:** no application/runtime code, routes, database, secrets, environment variables, or deployment settings changed. This does not erase old Git history and does not by itself change Gridinsoft's verdict.
+- **Validation:** pending CI and review of the resulting diff.
+
 ## Proposed PR — NCC Meta channels and outbox (`feature/ncc-meta-channels`)
 
 - **Owner request (2026-10-13):** automations post and send through Facebook, Instagram, Threads and WhatsApp (Messenger later); nothing may lose users' data or cache.

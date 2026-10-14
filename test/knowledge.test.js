@@ -91,7 +91,7 @@ test('memory: saved only after the person confirms; used later; listed, exported
 });
 
 test('founder portfolio: answers about Nasrin Abubakar on NasrinAI only, read once, never forced', async () => {
-  const PORTFOLIO = 'Nasrin Abubakar is the founder and creator of NasrinAI.\n\nServices: web development, AI chat assistants for small businesses, and UI design.\n\nProjects: NasrinAI, Crazy Bite smart chat, a personal portfolio.\n\nStory: started building websites in Cebu.';
+  const PORTFOLIO = 'Nasrin Abubakar is the founder and creator of NasrinAI.\n\nServices: web development, AI chat assistants for small businesses, and UI design.\n\nProjects: NasrinAI, a personal portfolio.\n\nStory: started building websites in Cebu.';
   let reads = 0;
   const provider = createFakeProvider({ models: ['gpt-6-luna'], reply: (req) => 'SEEN ' + req.messages.at(-1).content });
   const built = buildTestApp({ provider, env: { FOUNDER_KNOWLEDGE_URL: 'https://nasrinai.com/api/knowledge' },

@@ -72,7 +72,6 @@ NasrinAI can help inspect code and supported attachments, explain errors, and su
 | `db/` | Database migration and its tests |
 | `test/` | Server tests (`node:test`) |
 | `docs/` | [Roadmap](docs/roadmap.md), [security](docs/security.md), [database](docs/database.md), [deployment](docs/deploy-vercel.md), [decisions](docs/decisions/), [planned features](docs/features/), [universal slash commands](docs/features/universal-slash-commands.md), [PR change log](docs/pr-change-log.md) |
-| `reference/crazybite-chat/` | The original Nasrin code, unchanged, for reference only |
 
 ## Decisions
 

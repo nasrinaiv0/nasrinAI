@@ -15,8 +15,7 @@ internet; only the NasrinAI server can call it.
 
 ## Context
 
-The Nasrin code NasrinAI starts from (`reference/crazybite-chat/`) was built for one
-restaurant. The Phase 0 audit found four problems in it that NasrinAI must not repeat:
+The Phase 0 audit reviewed a legacy restaurant-chat prototype. It found four problems NasrinAI must not repeat:
 
 | Finding | Problem in the reference code |
 | --- | --- |
@@ -41,7 +40,7 @@ Serverless functions (such as Vercel's) cannot host one.
 
 | Option | Summary | Verdict |
 | --- | --- | --- |
-| A. Open endpoint plus per-IP limits | What the reference code does | Rejected: H2 and M2 |
+| A. Open endpoint plus per-IP limits | What the legacy prototype did | Rejected: H2 and M2 |
 | B. One shared API key for everything | Simple | Rejected: a key in a web page is public, and it cannot tell businesses or users apart |
 | C. A credential per caller type, resolved at a gateway | Described below | **Chosen** |
 
@@ -84,7 +83,7 @@ Extra guardrails for guests, because guest access is the easiest path to abuse:
 ### Hosting (Host B, chosen)
 
 - **API and gateway:** Node.js with Express, the stack the reference code already uses, as a **Render web service**. Chosen for ease of use: it deploys from GitHub on push, keeps environment variables in a web dashboard that works from a phone, runs a long-lived Node process, and is a host the owner already uses.
-- **Database and auth:** a **new, separate** Supabase project for NasrinAI, created by the owner, so no NasrinAI key can ever reach Crazy Bite's data.
+- **Database and auth:** a **new, separate** Supabase project for NasrinAI, created by the owner, so NasrinAI credentials cannot reach data belonging to another application.
 - **Shared counters:** Postgres in that Supabase project at first. Add Redis only if measured load needs it.
 - **Model runtime (Phase 3), combined setup:** a small model that is always available, plus a larger local model on the owner's computer or a rented GPU when one is online. The AI router picks between them. Every model machine is on a private connection and accepts calls only from the API server with a secret; none is exposed to clients.
 

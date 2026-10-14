@@ -20,9 +20,7 @@ Each step ships as a small pull request and waits for approval.
 
 ## Phase 0 — Discovery
 
-Audit of the original Crazybite Nasrin chat: findings H1–H2 and M1–M6 in
-[security.md](security.md). The original code is kept unchanged in
-`reference/crazybite-chat/`.
+Phase 0 audited the legacy restaurant-chat prototype. Findings H1–H2 and M1–M6 are recorded in [security.md](security.md). The prototype source has been removed from the current repository tree; the audit findings remain documented.
 
 ## Phase 1 — Security foundation
 
