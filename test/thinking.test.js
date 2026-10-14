@@ -28,3 +28,10 @@ test('in the coding chat, "Putting it together" gathers the dots and "Almost don
   assert.doesNotMatch(fn, /swirl/, 'no spiral');
   assert.match(fn, /if \(still\) \{ beep = 0; gather = 0; draw\(0\); \}/, 'reduced motion: shown still');
 });
+
+test('Thinking expands evenly in every direction and stays a sphere', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const fn = app.slice(app.indexOf('function dotSphere('), app.indexOf('function showThinking('));
+  assert.match(fn, /const k = R \* \(1 \+ burst \* 0\.75\)/, 'one scale for every dot');
+  assert.doesNotMatch(fn, /d\.push/, 'no dot flies out further than the others');
+});
