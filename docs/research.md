@@ -117,3 +117,35 @@ remains open until the full repository test suite, secret/dependency audits,
 database checks, and the Vercel deployment status are reviewed and passing.
 The workflow must be treated as failed if any required job fails; do not merge
 or deploy on the basis of source changes alone.
+
+
+## Phase 6 — Report presentation, export, and explicit Library save
+
+A research scan includes a structured `report`; clients can present its findings,
+confidence labels, source links, limitations, and potential conflicts. The API
+also exposes download endpoints for a caller-owned scan:
+
+- `GET /v1/research/:id/export?format=markdown` — Markdown report.
+- `GET /v1/research/:id/export?format=html` — standalone responsive HTML report.
+- `GET /v1/research/:id/export?format=json` — JSON scan/report data.
+
+Exports are private, non-cacheable downloads. HTML escapes untrusted finding and
+source text and uses a restrictive content security policy. Only these formats
+are supported; unsupported formats return `400 invalid_export_format`.
+
+Saving to the Library is a separate action, never an automatic side effect of
+research or export:
+
+- `POST /v1/research/:id/save-to-library` with `{ "confirmed": true }`.
+- The client must first ask the person and call this endpoint only after an
+  affirmative confirmation. Missing confirmation is rejected.
+- The person must be signed in; guest sessions cannot save into a personal
+  Library. The report is saved as a Markdown file under the caller's own
+  tenant/user scope, with the Library's existing quotas and validation.
+- The endpoint returns the saved Library item metadata. A scan is still kept
+  under the existing research retention policy independently of Library saving.
+
+This phase adds API rendering/export and the explicit save contract; it does not
+by itself establish that a frontend confirmation dialog has shipped. Full CI,
+database, dependency/secret audit, and deployment verification remain required
+before merge or production release.
