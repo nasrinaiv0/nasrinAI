@@ -71,3 +71,11 @@ test('menu: Recent has Chats and Code tabs, and coding chats reopen in the codin
   assert.match(js, /drawerAll\.filter\(\(c\) => \(drawerTab === 'code'\) === Boolean\(code\[c\.id\]\)\)/);
   assert.match(js, /const p = codeChats\(\)\[id\];\n    if \(p && account && projectsOn\) setCoding\(p\);/);
 });
+
+test('coding chat: reviews and audits quote only code a tool returned, with path:line, and read files instead of guessing', async () => {
+  const { CODING_CHAT_RULE } = await import('../src/coding.js');
+  assert.match(CODING_CHAT_RULE, /Quote only code that a github_ tool returned in this chat, word for word, with its file path and line number/);
+  assert.match(CODING_CHAT_RULE, /never say you read the repository or a file unless a tool returned it/);
+  assert.match(CODING_CHAT_RULE, /read it now with github_read_file or github_search_code instead of guessing or offering to check later/);
+  assert.match(CODING_CHAT_RULE, /Mark each finding Confirmed \(with path:line\) or Not verified/);
+});
