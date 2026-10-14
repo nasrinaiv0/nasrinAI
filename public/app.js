@@ -6614,6 +6614,41 @@
         else openStoredItem(f);
       });
       li.appendChild(open);
+      if (['file', 'note', 'reply'].includes(f.kind)) {
+        const preview = mk('p', 'lib-list-preview', String(f.preview || 'Tap to preview this document.').slice(0, 240));
+        preview.setAttribute('aria-label', 'Document preview');
+        li.appendChild(preview);
+        const actions = mk('div', 'lib-list-actions');
+        const download = mk('button', 'btn small outline', 'Download');
+        download.type = 'button';
+        download.addEventListener('click', async () => {
+          download.disabled = true;
+          try {
+            const doc = await api('/v1/library/' + encodeURIComponent(f.id));
+            const blob = new Blob([String(doc.text || '')], { type: doc.format === 'markdown' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = String(doc.title || f.title).replace(/[\\\\/\\u0000-\\u001f]/g, '_');
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          } catch (err) { $('libStatus').textContent = err.message || 'That document could not be downloaded.'; }
+          finally { download.disabled = false; }
+        });
+        const remove = mk('button', 'btn small outline danger', 'Delete');
+        remove.type = 'button';
+        remove.addEventListener('click', async () => {
+          if (!window.confirm(`Delete “${f.title}” from your Library? This cannot be undone.`)) return;
+          remove.disabled = true;
+          try {
+            await api('/v1/storage/' + encodeURIComponent(f.kind) + '/' + encodeURIComponent(f.id), { method: 'DELETE' });
+            await loadLibrary();
+            $('libStatus').textContent = 'Deleted.';
+          } catch (err) { $('libStatus').textContent = err.message || 'That document could not be deleted.'; }
+          finally { remove.disabled = false; }
+        });
+        actions.append(download, remove);
+        li.appendChild(actions);
+      }
       return li;
     }));
     $('libStatus').textContent = list.length ? '' : q ? 'Nothing found.' : kind !== 'all' ? 'Nothing here yet.'
