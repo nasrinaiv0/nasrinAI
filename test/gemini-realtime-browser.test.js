@@ -39,14 +39,22 @@ test('binary Gemini frames are read: audio plays and words show', async () => {
   const { api, started, socket, FakeCtx } = await load();
   const said = [];
   const tapCtx = new FakeCtx();
+  let opened = false;
+  const errors = [];
   const state = await api.start({ value: 'tok', model: 'gemini-3.8-live' }, {
-    audioContext: tapCtx, state() {}, active: () => true, muted: () => false, open() {},
+    audioContext: tapCtx, state() {}, active: () => true, muted: () => false, open() { opened = true; },
     input: (t) => said.push(['in', t]), output: (t) => said.push(['out', t]),
-    interrupted() {}, complete: () => said.push(['done']), error() {}, close() {}
+    interrupted() {}, complete: () => said.push(['done']), error: (e) => errors.push(e), close() {}
   });
   assert.equal(state.ctx, tapCtx, 'the context made during the tap is used');
   const ws = socket();
   assert.equal(ws.binaryType, 'arraybuffer');
+  ws.onopen();
+  assert.equal(opened, false, 'voice is not marked ready before Gemini confirms setup');
+  assert.match(ws.sent[0], /\"setup\"/);
+  ws.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  assert.equal(opened, true, 'voice becomes ready after setupComplete');
+  assert.equal(errors.length, 0);
   const pcm = Buffer.alloc(4800).toString('base64');   // 0.1 s of 24 kHz PCM16
   const frame = new TextEncoder().encode(JSON.stringify({ serverContent: { outputTranscription: { text: 'Hello' }, modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: pcm } }] } } }));
   ws.onmessage({ data: frame.buffer });
