@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, development, 'feature/**', 'security/**']
+    branches: [main, development, 'feature/**', 'security/**', 'feat/**']
   pull_request:
 
 permissions:
@@ -30,6 +30,7 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm test
       - run: npm run check:secrets
 
@@ -49,4 +50,8 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v6
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
       - run: db/tests/run.sh

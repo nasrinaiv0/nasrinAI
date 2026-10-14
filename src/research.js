@@ -4,6 +4,9 @@ import { readLink, checkUrl } from './web/read-link.js';
 import { parseRobots } from './connect/site-knowledge.js';
 import { cleanUserText } from './ai/output.js';
 import { redactForProvider } from './ai/redact.js';
+import { planResearch, buildEvidenceLedger, buildResearchReport, measureResearchQuality } from './research-orchestrator.js';
+import { createResearchSourceRegistry } from './research-sources.js';
+import { researchExport } from './research-report.js';
 
 // Research agent (docs/research.md). For one question it finds public pages
 // (web search, or links the person gives), reads them with the SSRF-safe link
@@ -57,7 +60,7 @@ export function parseFacts(text) {
 
 export const factHash = (fact, url) => createHash('sha256').update(fact.toLowerCase() + '\n' + url).digest('hex');
 
-export function createResearch({ store, limiter, webAnswers = null, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
+export function createResearch({ store, limiter, library = null, webAnswers = null, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
   const { enabled, maxPages, perHour } = config.research;
   const who = (caller) => ({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id });
 
@@ -69,20 +72,16 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
     return parseRobots(robots.text).allows(u.pathname + u.search);
   }
 
-  async function findSources(caller, query, body) {
+  const sourceRegistry = createResearchSourceRegistry({ webSearch, logger });
+
+  async function findSources(query, body, plan) {
     if (body.urls !== undefined) {
       if (!Array.isArray(body.urls) || body.urls.length > MAX_URLS || body.urls.some((u) => typeof u !== 'string')) {
         throw new HttpError(400, 'invalid_urls', `Give up to ${MAX_URLS} web addresses.`);
       }
-      return [...new Set(body.urls.map((u) => checkUrl(u.trim())?.href).filter(Boolean))];
+      return { candidates: [...new Set(body.urls.map((u) => checkUrl(u.trim())?.href).filter(Boolean))].map((url) => ({ url, title: '', adapter: 'user-url', source_type: 'user-supplied', metadata: {} })), adapters: [{ id: 'user-url', status: 'ok', candidates: body.urls.length }] };
     }
-    if (!webSearch) throw new HttpError(422, 'no_sources', 'Web search is not available. Add the web addresses to read.');
-    const found = await webSearch.search({
-      system: 'Find reliable public web pages that answer the question. Cite your sources.',
-      messages: [{ role: 'user', content: query }],
-      maxTokens: 500
-    });
-    return [...new Set((found?.citations || []).map((c) => checkUrl(String(c.url || ''))?.href).filter(Boolean))];
+    return sourceRegistry.discover({ query, plan });
   }
 
   async function extract(caller, query, page) {
@@ -111,25 +110,33 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       await limiter.research(caller, ip, perHour);
       await limiter.budget(caller);
 
-      const urls = (await findSources(caller, query, body || {})).slice(0, maxPages);
-      if (!urls.length) throw new HttpError(422, 'no_sources', 'No public pages were found for this question.');
+      const plan = planResearch(query);
+      const discovery = await findSources(query, body || {}, plan);
+      const candidates = discovery.candidates.slice(0, maxPages);
+      if (!candidates.length) throw new HttpError(422, 'no_sources', 'No public pages were found for this question.');
 
       const sources = [];
-      const facts = [];
-      for (const url of urls) {
-        if (!(await allowedByRobots(url))) { sources.push({ url, status: 'skipped', reason: 'the site asks not to be read by robots' }); continue; }
+      // All URLs pass public-address and robots checks before page extraction.
+      const outcomes = await Promise.all(candidates.map(async (candidate) => {
+        const url = candidate.url;
+        const provenance = { adapter: candidate.adapter, source_type: candidate.source_type, ...(candidate.metadata && Object.keys(candidate.metadata).length ? { metadata: candidate.metadata } : {}) };
+        if (!(await allowedByRobots(url))) return { source: { url, title: candidate.title, ...provenance, status: 'skipped', reason: 'the site asks not to be read by robots' }, facts: [] };
         const page = await readLinkImpl(url);
-        if (page.error) { sources.push({ url, status: 'skipped', reason: page.error }); continue; }
+        if (page.error) return { source: { url, title: candidate.title, ...provenance, status: 'skipped', reason: page.error }, facts: [] };
         const title = String(page.title || '').slice(0, 200);
-        let found = [];
-        try { found = await extract(caller, query, page); } catch (err) {
+        try {
+          const found = await extract(caller, query, page);
+          return { source: { url: page.url, title: title || candidate.title, ...provenance, status: 'read', facts: found.length }, facts: found.map((fact) => ({ fact, url: page.url, title: title || candidate.title })) };
+        } catch (err) {
           logger?.warn?.('research extraction failed', { error: err?.message });
-          sources.push({ url: page.url, title, status: 'skipped', reason: 'the page could not be read by the model' });
-          continue;
+          return { source: { url: page.url, title: title || candidate.title, ...provenance, status: 'skipped', reason: 'the page could not be read by the model' }, facts: [] };
         }
-        sources.push({ url: page.url, title, status: 'read', facts: found.length });
-        for (const fact of found) facts.push({ fact, url: page.url, title });
-      }
+      }));
+      sources.push(...outcomes.map((outcome) => outcome.source));
+      const evidence = buildEvidenceLedger(outcomes.flatMap((outcome) => outcome.facts));
+      const facts = evidence.facts;
+      const report = buildResearchReport(evidence, sources);
+      const quality = measureResearchQuality({ report, sources, adapters: discovery.adapters });
 
       const ttl = caller.actor.type === 'user' ? 30 * DAY : DAY;
       const saved = await store.addResearchScan({ ...who(caller), query, sources, facts, expiresAt: new Date(now() + ttl) });
@@ -149,20 +156,52 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
           sources: [...new Map(facts.map((f) => [f.url, { url: f.url, title: f.title }])).values()]
         });
       }
-      return { id: saved.id, query, facts, sources, new_shared_facts: shared, expires_at: saved.expiresAt };
+      return { id: saved.id, query, facts, sources, report, quality, plan: { depth: plan.depth, subquestions: plan.subquestions }, evidence, source_adapters: discovery.adapters, new_shared_facts: shared, expires_at: saved.expiresAt };
     },
 
     async get(caller, id) {
       if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
       const scan = await store.getResearchScan({ ...who(caller), id: String(id) });
       if (!scan) throw new HttpError(404, 'not_found', 'Not found.');
-      return { id: scan.id, query: scan.query, facts: scan.facts, sources: scan.sources, created_at: scan.createdAt, expires_at: scan.expiresAt };
+      const reconstructed = buildEvidenceLedger((scan.facts || []).flatMap((item) =>
+        (Array.isArray(item.sources) ? item.sources : [{ url: item.url, title: item.title }])
+          .map((source) => ({ fact: item.fact, url: source.url, title: source.title }))));
+      const evidence = { facts: scan.facts, contradictions: reconstructed.contradictions };
+      const report = buildResearchReport(evidence, scan.sources);
+      return { id: scan.id, query: scan.query, facts: scan.facts, sources: scan.sources, report, quality: measureResearchQuality({ report, sources: scan.sources }), created_at: scan.createdAt, expires_at: scan.expiresAt };
     },
 
     async list(caller) {
       if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
       const scans = await store.listResearchScans({ ...who(caller), limit: 50 });
       return { scans: scans.map((s) => ({ id: s.id, query: s.query, facts: s.facts.length, created_at: s.createdAt, expires_at: s.expiresAt })) };
+    },
+
+    async export(caller, id, format = 'markdown') {
+      if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
+      const scan = await this.get(caller, id);
+      const result = researchExport(scan, String(format || 'markdown').toLowerCase());
+      if (!result) throw new HttpError(400, 'invalid_export_format', 'Choose markdown, html, or json.');
+      return result;
+    },
+
+    // Saving is a separate, explicit action. The client must send confirmed:true
+    // after asking the person; this endpoint never saves during scan or export.
+    async saveToLibrary(caller, id, body = {}) {
+      if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
+      if (body?.confirmed !== true) throw new HttpError(400, 'confirmation_required', 'Confirm that you want to save this research report to your Library.');
+      if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to save a research report to your Library.');
+      if (!library) throw new HttpError(503, 'library_unavailable', 'Your Library is not available right now.');
+      const scan = await this.get(caller, id);
+      const exported = researchExport(scan, 'markdown');
+      const title = exported.filename.slice(0, 120);
+      const saved = await library.add(caller, {
+        title,
+        text: exported.content,
+        kind: 'file',
+        format: 'markdown'
+      });
+      return { saved: true, ...saved };
     }
   };
 }

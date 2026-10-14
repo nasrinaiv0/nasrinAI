@@ -6263,6 +6263,166 @@
   $('drawerSeeAll').addEventListener('click', () => { closeDrawer(false); openHistory('chats'); });
   $('drawerNewChat').addEventListener('click', () => { closeDrawer(false); $('newChat').click(); });
   $('drawerSettings').addEventListener('click', () => { closeDrawer(false); openSettings(); });
+
+  // ---------- Evidence-led research workspace ----------
+  const researchOverlay = $('researchOverlay');
+  let activeResearchId = null;
+  let activeResearch = null;
+  function researchNode(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = String(text);
+    return node;
+  }
+  function renderResearchReport(data) {
+    activeResearch = data;
+    activeResearchId = data.id;
+    $('researchResult').hidden = false;
+    $('researchReportTitle').textContent = data.query || 'Research report';
+    const report = data.report || {};
+    const summary = $('researchSummary');
+    summary.replaceChildren();
+    const quality = data.quality || {};
+    const metrics = [
+      ['Findings', Array.isArray(report.findings) ? report.findings.length : 0],
+      ['Sources read', Array.isArray(data.sources) ? data.sources.filter((s) => s.status === 'read').length : 0],
+      ['Citation integrity', report.citation_integrity?.all_findings_have_read_source === true ? 'All findings cited' : 'Review citations']
+    ];
+    for (const [label, value] of metrics) {
+      const card = researchNode('div', 'research-metric');
+      card.append(researchNode('span', 'research-metric-label', label), researchNode('strong', '', value));
+      summary.append(card);
+    }
+    const findings = $('researchFindings');
+    findings.replaceChildren();
+    for (const item of (Array.isArray(report.findings) ? report.findings : [])) {
+      const card = researchNode('article', 'research-finding');
+      const head = researchNode('div', 'research-finding-head');
+      head.append(researchNode('span', 'research-finding-number', 'Finding ' + item.id));
+      head.append(researchNode('span', 'research-confidence', ({corroborated:'Corroborated',single_source:'Single source',uncited:'Uncited'})[item.confidence] || 'Review'));
+      card.append(head, researchNode('p', 'research-finding-text', item.finding));
+      if (Array.isArray(item.citations) && item.citations.length) {
+        const citations = researchNode('div', 'research-citations');
+        for (const citation of item.citations) {
+          let url;
+          try { url = new URL(citation.url); } catch { continue; }
+          if (!['http:', 'https:'].includes(url.protocol)) continue;
+          const a = researchNode('a', '', citation.title || url.hostname);
+          a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.referrerPolicy = 'no-referrer';
+          citations.append(a);
+        }
+        card.append(citations);
+      }
+      findings.append(card);
+    }
+    if (!findings.childElementCount) findings.append(researchNode('p', 'research-empty', 'No evidence-backed findings were returned. Check the sources and try a narrower question.'));
+    const sourcesBox = $('researchSources');
+    sourcesBox.replaceChildren();
+    for (const source of (Array.isArray(data.sources) ? data.sources : [])) {
+      const row = researchNode('div', 'research-source');
+      let url;
+      try { url = new URL(source.url); } catch { url = null; }
+      if (url && ['http:', 'https:'].includes(url.protocol)) {
+        const a = researchNode('a', '', source.title || url.hostname);
+        a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.referrerPolicy = 'no-referrer';
+        row.append(a);
+      } else row.append(researchNode('span', '', source.title || 'Untitled source'));
+      row.append(researchNode('span', 'research-source-status', source.status || 'unknown'));
+      if (source.reason) row.append(researchNode('p', 'research-source-reason', source.reason));
+      sourcesBox.append(row);
+    }
+    $('researchQuality').textContent = JSON.stringify(quality, null, 2);
+    $('researchSave').disabled = !activeResearchId || !account;
+    $('researchSave').title = account ? 'Save after confirmation' : 'Sign in to save reports to your Library';
+  }
+  async function refreshResearchHistory() {
+    const box = $('researchHistory');
+    box.replaceChildren(researchNode('p', 'research-muted', 'Loading recent research…'));
+    try {
+      const data = await api('/v1/research');
+      const scans = Array.isArray(data.scans) ? data.scans : [];
+      box.replaceChildren();
+      if (!scans.length) { box.append(researchNode('p', 'research-muted', 'Your completed research will appear here.')); return; }
+      for (const scan of scans) {
+        const row = researchNode('div', 'research-history-row');
+        const button = researchNode('button', 'research-history-open', scan.query || 'Research report');
+        button.type = 'button';
+        button.addEventListener('click', async () => {
+          $('researchStatus').textContent = 'Opening report…';
+          try { renderResearchReport(await api('/v1/research/' + encodeURIComponent(scan.id))); $('researchStatus').textContent = ''; }
+          catch (err) { $('researchStatus').textContent = err.message || 'Could not open that report.'; }
+        });
+        row.append(button, researchNode('span', 'research-muted', (scan.facts || 0) + ' findings'));
+        box.append(row);
+      }
+    } catch (err) {
+      box.replaceChildren(researchNode('p', 'research-muted', err.message || 'Recent research could not be loaded.'));
+    }
+  }
+  async function openResearch() {
+    closeSettings(); closeHistory(); closeSignIn(); closePlans(); closeDrawer(false);
+    researchOverlay.hidden = false;
+    document.body.classList.add('research-open');
+    $('researchQuery').focus();
+    await refreshResearchHistory();
+  }
+  function closeResearch() {
+    researchOverlay.hidden = true;
+    document.body.classList.remove('research-open');
+  }
+  $('drawerResearch').addEventListener('click', openResearch);
+  $('desktopResearchBtn')?.addEventListener('click', openResearch);
+  $('researchClose').addEventListener('click', closeResearch);
+  researchOverlay.addEventListener('click', (event) => { if (event.target === researchOverlay) closeResearch(); });
+  researchOverlay.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); closeResearch(); } });
+  $('researchRefresh').addEventListener('click', refreshResearchHistory);
+  $('researchForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const query = $('researchQuery').value.trim();
+    const urls = $('researchUrls').value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).slice(0, 10);
+    const button = $('researchRun');
+    button.disabled = true;
+    $('researchStatus').textContent = 'Planning research, reading sources, and checking evidence…';
+    $('researchResult').hidden = true;
+    try {
+      const data = await api('/v1/research', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, urls }) });
+      renderResearchReport(data);
+      $('researchStatus').textContent = 'Research complete. Review the citations and limitations before relying on the findings.';
+      await refreshResearchHistory();
+    } catch (err) {
+      $('researchStatus').textContent = err.message || 'Research could not be completed. Please try again.';
+    } finally { button.disabled = false; }
+  });
+  document.querySelectorAll('[data-research-export]').forEach((button) => button.addEventListener('click', async () => {
+    if (!activeResearchId) return;
+    button.disabled = true;
+    try {
+      const token = await credential(false);
+      const format = button.dataset.researchExport;
+      const response = await net('/v1/research/' + encodeURIComponent(activeResearchId) + '/export?format=' + encodeURIComponent(format), { headers: { Authorization: 'Bearer ' + token } });
+      if (!response.ok) throw await errorFrom(response);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = 'nasrinai-research.' + ({markdown:'md',html:'html',json:'json'}[format] || 'txt');
+      document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch (err) { $('researchStatus').textContent = err.message || 'The report could not be exported.'; }
+    finally { button.disabled = false; }
+  }));
+  $('researchSave').addEventListener('click', async () => {
+    if (!activeResearchId) return;
+    if (!account) { $('researchStatus').textContent = 'Sign in before saving research to your Library.'; return; }
+    const confirmed = window.confirm('Save this research report to your Library? Nothing will be saved unless you confirm.');
+    if (!confirmed) return;
+    const button = $('researchSave');
+    button.disabled = true;
+    try {
+      await api('/v1/research/' + encodeURIComponent(activeResearchId) + '/save-to-library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmed: true }) });
+      $('researchStatus').textContent = 'Saved to your Library.';
+    } catch (err) { $('researchStatus').textContent = err.message || 'The report could not be saved to your Library.'; }
+    finally { button.disabled = !account; }
+  });
+
   // The drawer is for small screens; on a wide screen the side rail does this.
   window.matchMedia('(min-width: 70rem)').addEventListener?.('change', (e) => { if (e.matches) closeDrawer(false); });
 
