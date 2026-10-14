@@ -25,15 +25,11 @@
     if(state.ctx.state==='suspended')state.ctx.resume().catch(()=>{});
   };
   const decoder = new TextDecoder();
+  // Interrupt only the current playback; keep the live session and mic running.
   const stop = (state) => {
     if(!state)return;
-    state.stopping=true;
-    clearTimeout(state.setupTimer);
     for(const s of state.sources.splice(0)){try{s.stop();}catch{}try{s.disconnect();}catch{}}
     if(state.ctx)state.next=state.ctx.currentTime;
-    try{state.processor?.disconnect();}catch{}
-    try{state.stream?.getTracks().forEach(t=>t.stop());}catch{}
-    try{state.ws?.close();}catch{}
   };
   window.NasrinGeminiRealtime = {
     async start(session, hooks) {
