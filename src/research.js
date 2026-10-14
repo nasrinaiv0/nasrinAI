@@ -6,6 +6,7 @@ import { cleanUserText } from './ai/output.js';
 import { redactForProvider } from './ai/redact.js';
 import { planResearch, buildEvidenceLedger, buildResearchReport, measureResearchQuality } from './research-orchestrator.js';
 import { createResearchSourceRegistry } from './research-sources.js';
+import { researchExport } from './research-report.js';
 
 // Research agent (docs/research.md). For one question it finds public pages
 // (web search, or links the person gives), reads them with the SSRF-safe link
@@ -59,7 +60,7 @@ export function parseFacts(text) {
 
 export const factHash = (fact, url) => createHash('sha256').update(fact.toLowerCase() + '\n' + url).digest('hex');
 
-export function createResearch({ store, limiter, webAnswers = null, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
+export function createResearch({ store, limiter, library = null, webAnswers = null, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
   const { enabled, maxPages, perHour } = config.research;
   const who = (caller) => ({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id });
 
@@ -174,6 +175,33 @@ export function createResearch({ store, limiter, webAnswers = null, usageLog = n
       if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
       const scans = await store.listResearchScans({ ...who(caller), limit: 50 });
       return { scans: scans.map((s) => ({ id: s.id, query: s.query, facts: s.facts.length, created_at: s.createdAt, expires_at: s.expiresAt })) };
+    },
+
+    async export(caller, id, format = 'markdown') {
+      if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
+      const scan = await this.get(caller, id);
+      const result = researchExport(scan, String(format || 'markdown').toLowerCase());
+      if (!result) throw new HttpError(400, 'invalid_export_format', 'Choose markdown, html, or json.');
+      return result;
+    },
+
+    // Saving is a separate, explicit action. The client must send confirmed:true
+    // after asking the person; this endpoint never saves during scan or export.
+    async saveToLibrary(caller, id, body = {}) {
+      if (!enabled) throw new HttpError(404, 'not_found', 'Research is not available.');
+      if (body?.confirmed !== true) throw new HttpError(400, 'confirmation_required', 'Confirm that you want to save this research report to your Library.');
+      if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to save a research report to your Library.');
+      if (!library) throw new HttpError(503, 'library_unavailable', 'Your Library is not available right now.');
+      const scan = await this.get(caller, id);
+      const exported = researchExport(scan, 'markdown');
+      const title = exported.filename.slice(0, 120);
+      const saved = await library.add(caller, {
+        title,
+        text: exported.content,
+        kind: 'file',
+        format: 'markdown'
+      });
+      return { saved: true, ...saved };
     }
   };
 }
