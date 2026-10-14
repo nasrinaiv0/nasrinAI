@@ -55,3 +55,14 @@ while retaining the existing facts and sources fields.
 This increment does not bypass paywalls, authenticate to sites, scrape Scholar,
 or claim citations were verified when the source does not provide them. Existing
 privacy, retention, budget, rate-limit and SSRF controls remain in force.
+
+## Phase 3 — Extensible source integrations
+
+Research source discovery uses a provider-agnostic registry (`src/research-sources.js`). Adapters expose `id`, optional `kinds`/`enabled`, and `discover({ query, searchQueries, plan, signal })`; they return candidate URLs and metadata, never trusted facts. The registry normalizes candidates, rejects unsafe URL forms, deduplicates URLs, bounds result counts, applies timeouts/retries, and isolates adapter failures.
+
+Adapters in this phase:
+- `web-search`: existing web search, including focused/deep subquestions; can discover public technical documentation and industry reports.
+- `crossref`: public Crossref bibliographic discovery for academic-style queries, returning DOI/publication metadata alongside candidate links.
+- User-supplied public URLs remain a separate explicit input path and are still checked by `checkUrl`, the SSRF-safe reader and robots.txt policy before reading.
+
+Future scholarly indexes, official documentation catalogs, industry data feeds, and user-provided document sources can register adapters without changing the research loop. A candidate or Crossref record is discovery metadata, not proof that a claim is supported. Do not bypass logins, paywalls, CAPTCHA or robots exclusions.
