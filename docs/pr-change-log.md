@@ -1,3 +1,10 @@
+## Proposed PR — Remove legacy food-ordering reference
+
+- **Owner request (2026-10-14):** remove the obsolete food-ordering project from the current NasrinAI repository after it appeared in a domain reputation report.
+- **Change:** delete `reference/crazybite-chat/`; remove its active references from the README, maintainer instructions, and roadmap; preserve the historical security findings and decision rationale without retaining the old business identity; remove the obsolete project name from the founder-knowledge test fixture.
+- **Runtime impact:** no application/runtime code, routes, database, secrets, environment variables, or deployment settings changed. This does not erase old Git history and does not by itself change Gridinsoft's verdict.
+- **Validation:** pending CI and review of the resulting diff.
+
 ## Proposed PR — NCC Meta channels and outbox (`feature/ncc-meta-channels`)
 
 - **Owner request (2026-10-13):** automations post and send through Facebook, Instagram, Threads and WhatsApp (Messenger later); nothing may lose users' data or cache.
@@ -990,16 +997,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
 - **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.
-
-
-## Proposed PR #353 — Owner Command Center implementation specification (`feature/owner-command-center`)
-
-- **Owner request (2026-10-14):** prepare a full owner-only NasrinAI operations dashboard covering executive overview, AI operations, user intelligence, infrastructure/releases, security/audit, NCC automation monitoring, finance/costs, alerts/controls, AI incident investigation, release guard/anomaly detection, and reports/exports.
-- **Change:** expanded `docs/owner-command-center.md` with mandatory implementation contract, server-side owner authorization, verified telemetry and metric definitions, safe API/database requirements, mobile UX, integration states, test/acceptance gates, staged implementation plan, rollback rules, and explicit instruction that documentation/mockups alone are not implementation.
-- **Security:** preserve existing RLS, server-only privileged access, rate limits, budgets, tenant isolation, privacy/retention, strict CSP, and zero-runtime-dependency rule. Do not invent metrics or imply unconfigured integrations work.
-- **Validation:** fetched and inspected current `CLAUDE.md`, `docs/claude-code-handoff.md`, `docs/operations.md`, and the existing owner command center spec before extending it. Documentation-only change; runtime tests were not run. No production schema, runtime code, environment variables, or live behavior changed.
-- **Next:** after owner approval, implement the phases as real code with tests; no merge/deploy without owner approval.
-
 
 ## Proposed PR — Owner Command Center implementation (PR #353, `feature/owner-command-center`)
 
