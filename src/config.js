@@ -134,11 +134,11 @@ export function loadConfig(env = process.env) {
   if (geminiKey && aiProvider !== 'fake' && aiProvider !== 'none') providerKeys.push('gemini');
   // Optional APIs from awesome-freellm-apis. Model IDs are pinned explicitly;
   // free-model allowlists are separate because a provider may also expose paid models.
-  const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => p.adapter === 'openai-compatible').map((p) => {
+  const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => ['openai-compatible', 'cloudflare-workers-ai', 'cohere-v2'].includes(p.adapter)).map((p) => {
     const apiKey = String(env[p.env + '_API_KEY'] || '').trim();
     const model = String(env[p.env + '_MODEL'] || '').trim();
     const freeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
-    return { id: p.id, env: p.env, apiKey, model, baseUrl: p.baseUrl, freeModels, trainsOnData: true, vision: false, tools: false };
+    return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, trainsOnData: true, vision: false, tools: false };
   }).filter((p) => p.apiKey && p.model);
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', local: 'local', auto: 'openai', fake: 'fake', none: 'openai' }[aiProvider];
