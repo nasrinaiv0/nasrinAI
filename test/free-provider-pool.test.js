@@ -16,13 +16,14 @@ test('free provider pool enables only keyed providers with pinned models', () =>
     AI_PROVIDER: 'none',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
-    GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'
+    GROQ_FREE_MODELS: 'llama-3.3-70b-versatile,llama-3.1-8b-instant'
   });
   assert.equal(config.ai.freeProviders.length, 1);
   assert.equal(config.ai.freeProviders[0].id, 'groq');
-  assert.deepEqual(config.ai.routing.levels[1][0], {
-    provider: 'groq', model: 'llama-3.3-70b-versatile', effort: null
-  });
+  assert.deepEqual(config.ai.routing.levels[1].slice(0, 2), [
+    { provider: 'groq', model: 'llama-3.3-70b-versatile', effort: null },
+    { provider: 'groq', model: 'llama-3.1-8b-instant', effort: null }
+  ]);
   assert.ok(config.ai.fallback.providers.includes('groq'));
   assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('groq'));
 });
