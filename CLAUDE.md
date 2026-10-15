@@ -7,11 +7,10 @@ state that used to live in a claude.ai Project. Details live in `docs/`.
 
 NasrinAI: a general, local-first AI assistant ("answers anything"), later
 connectable to businesses' own apps (POS, customer service, websites).
-Started from the Crazy Bite smart-chat code (`reference/crazybite-chat`,
-read-only reference). Not an ordering/delivery chat anymore.
+NasrinAI is a standalone general-purpose AI assistant, not a food-ordering or delivery app.
 
 - Repo: `primusco20/nasrinAI`. Live: https://nasrinai.com (Vercel).
-- Database: its own Supabase project (not shared with Crazy Bite).
+- Database: its own dedicated Supabase project.
 - The owner works mostly from a phone: keep changes small and reviewable,
   explain in plain words, give exact copy-paste steps for anything they must
   do in Vercel or Supabase.
