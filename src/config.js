@@ -3,6 +3,7 @@
 
 import { parseKey as parseConnectorKey } from './connectors/secret.js';
 import { loadPrices, priceOf } from './ai/pricing.js';
+import { FREE_LLM_CATALOG } from './ai/free-provider-catalog.js';
 
 export class ConfigError extends Error {}
 
@@ -131,6 +132,15 @@ export function loadConfig(env = process.env) {
   // Gemini (OpenAI-compatible endpoint) joins any mode when its key is set.
   const geminiKey = String(env.GEMINI_API_KEY || '').trim();
   if (geminiKey && aiProvider !== 'fake' && aiProvider !== 'none') providerKeys.push('gemini');
+  // Optional APIs from awesome-freellm-apis. Model IDs are pinned explicitly;
+  // free-model allowlists are separate because a provider may also expose paid models.
+  const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => p.adapter === 'openai-compatible').map((p) => {
+    const apiKey = String(env[p.env + '_API_KEY'] || '').trim();
+    const model = String(env[p.env + '_MODEL'] || '').trim();
+    const freeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+    return { id: p.id, env: p.env, apiKey, model, baseUrl: p.baseUrl, freeModels, trainsOnData: true, vision: false, tools: false };
+  }).filter((p) => p.apiKey && p.model);
+  for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', local: 'local', auto: 'openai', fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
   if (env.OPENAI_TEMPERATURE !== undefined && env.OPENAI_TEMPERATURE !== '') {
@@ -193,13 +203,13 @@ export function loadConfig(env = process.env) {
   // cheapest configured external provider first, then paid providers. A
   // provider failure never changes the user's selected tier; the router picks
   // the best available model for the same route level.
-  const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai'].includes(p));
+  const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.includes(p.model));
   const fallbackMode = String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
   if (!['auto', 'openai', 'gemini', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, openai, gemini, anthropic or none');
   }
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['gemini', 'openai'].filter((p) => providerKeys.includes(p))
+    ? ['gemini', 'openai', ...freeProviderSettings.filter((p) => p.freeModels.includes(p.model)).map((p) => p.id)].filter((p) => providerKeys.includes(p))
     : fallbackMode === 'none' ? [] : [fallbackMode];
   for (const provider of fallbackProviders) {
     if (!providerKeys.includes(provider)) {
@@ -287,6 +297,7 @@ export function loadConfig(env = process.env) {
   const routing = Object.freeze({
     mode: routingMode,
     levels: Object.freeze(levels),
+    freeModels: Object.freeze(Object.fromEntries(freeProviderSettings.map((p) => [p.id, p.freeModels]))),
     coding,
     safeFallbacks,
     tierRange: Object.freeze({
@@ -700,6 +711,7 @@ export function loadConfig(env = process.env) {
       fallback,
       geminiApiKey: geminiKey,
       anthropicApiKey: anthropicKey,
+      freeProviders: Object.freeze(freeProviderSettings.map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
       maxReplyTokens: toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 800, 50, 8000),
