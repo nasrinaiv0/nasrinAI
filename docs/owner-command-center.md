@@ -959,3 +959,135 @@ If this bridge cannot be implemented without weakening the existing authenticati
 Phase 0 audit findings and the source-of-truth matrix live in `docs/owner-command-center-audit.md`. Implementation remains on `feature/owner-command-center` in PR #353 so the owner can review all phases in one PR. Before the first dashboard metrics are added, implement and test the owner-session bootstrap and uniform 404 boundary. Then proceed to the read-only dashboard using verified data sources. Update the audit matrix as sources are confirmed and keep unavailable integrations visibly unavailable.
 
 This update records verified source observations and a required design; it does not claim that owner authentication, routes, metrics, or tests have been implemented or run.
+---
+
+## Q. LLM provider consumption, token accounting, and remaining credits (owner request: 2026-10-15)
+
+**Status:** required design addition; documentation only until runtime code, data sources, tests, and an authorized preview prove it works. This section supplements the existing Finance/Costs and AI Operations modules. It does not claim the dashboard or provider balance integrations are live.
+
+### Q.1 Owner outcome
+
+The owner must be able to answer, for every configured LLM provider and exact model: **how much has been used, how many input/output tokens were consumed, what did it cost, what balance or credits remain, where did each number come from, and when was it last verified?**
+
+The UI must present separate, independently filterable sections for:
+
+1. **OpenAI** — each exact OpenAI model, token usage, requests/attempts, cost, credit/balance information, and freshness.
+2. **Google Gemini** — each exact Gemini model, token usage, requests/attempts, cost, available credit/balance/quota information, and freshness.
+3. **Anthropic Claude** — each exact Claude model, token usage, requests/attempts, cost, available credit/balance information, and freshness.
+4. **Other/free-pool providers** — a separate record per provider and model, with the same fields where the provider exposes reliable data.
+5. **All providers** — aggregate overview with filters and drill-down. The all-provider total must not obscure the separate provider views.
+
+Provider brands must not be conflated. OpenAI, Google/Gemini, and Anthropic/Claude are separate accounts, billing sources, credentials, balances, price schedules, and reconciliation domains. Do not merge their balances or show one combined “AI credit” number unless it is clearly labelled as a calculated sum with currency conversion and complete provenance.
+
+### Q.2 Required metrics and dimensions
+
+Each provider/model record should include the following fields where available:
+
+| Field | Required meaning |
+|---|---|
+| Provider and model | Canonical provider ID and exact model ID, not a display alias alone |
+| Time range | Day, week, month, year, and custom range; define timezone and interval boundaries |
+| Requests | Logical user requests, successful answers, failed attempts, retries, and fallback attempts as distinct counts |
+| Input tokens | Provider-reported input tokens; estimated values must be separately labelled |
+| Output tokens | Provider-reported output tokens; estimated values must be separately labelled |
+| Other token classes | Cached input, reasoning, audio/image or other usage classes only where the source returns a reliable count |
+| Total tokens | Sum only compatible, non-overlapping token categories; document the calculation |
+| Cost | Actual provider-reported charge when available, otherwise a clearly labelled estimate from a versioned price source |
+| Currency | Currency and any conversion source/date if converted |
+| Free quota | Verified quota used/remaining and reset time only when the provider exposes it or its documented rules permit a valid calculation |
+| Remaining credits/balance | Provider-reported or owner-verified balance snapshot, never guessed from token consumption |
+| Source | Official API, provider billing export, owner-entered console snapshot, internal estimate, or unavailable |
+| Freshness | Last successful retrieval/verification time, stale threshold, and source coverage |
+| Status | Healthy, low balance, stale, unavailable, quota exhausted, billing warning, or telemetry incomplete |
+| Provenance | Pricing version, API/source version, calculation time, and any reconciliation/correction reference |
+
+Use Asia/Manila as the dashboard's default display timezone, consistent with the product, while retaining source timestamps in UTC and displaying the timezone in custom ranges and exports. Do not silently convert provider billing periods or reset boundaries to Manila time when the provider defines them differently.
+
+### Q.3 Token and cost accounting rules
+
+- Inspect the current `usage_events`, spend-reservation, provider adapter, and billing implementations before proposing or creating a competing ledger. Reuse a source only after verifying its schema and writer semantics.
+- Record one logical request separately from every provider attempt. A request that tries Provider A, receives a quota error, then succeeds through Provider B is one user request and at least two provider attempts. Report both correctly.
+- Failed attempts may incur provider charges; count their reported usage/cost when supplied. Do not assume a failed request was free.
+- Preserve provider-reported token counts as authoritative for that response when available. If usage is absent, mark it missing or estimate it explicitly; do not silently substitute a guessed number.
+- Use a versioned pricing table and record which price revision produced each estimate. When actual provider-reported cost later becomes available, keep both values and show reconciliation rather than adding the estimate and actual together.
+- An exact model may be labelled zero-cost only when its free status is explicitly verified for the configured provider/account/quota. Otherwise cost is **unknown**, not $0. A zero-dollar estimate must not conceal paid fallback attempts or charges incurred by a provider.
+- Show provider cost and internal estimated cost as different concepts. Do not equate tokens multiplied by a public list price with the exact charge on an account that has discounts, prepaid credits, taxes, negotiated rates, cached-token rates, or free quotas.
+- Use integer minor units or safe decimal arithmetic for money; never use imprecise floating-point aggregation as the source of truth for financial totals.
+- Preserve source records and audit adjustments/reconciliation. Never rewrite historic usage silently when a provider changes a price or an estimate is corrected.
+- If the current schema does not support these semantics, propose a reviewed additive migration with server-only access and tests. Never loosen RLS, grants, or tenant isolation to make dashboard queries easier.
+
+### Q.4 Provider credit/balance accounting
+
+For **OpenAI, Gemini/Google, and Anthropic/Claude**, the UI must independently show the remaining credit/balance or an explicit unavailable state. Implementation must first establish what each official provider source actually exposes for the configured account. Do not assume that every provider offers a public API for prepaid credits or remaining balance.
+
+For each balance record:
+
+- Value and currency, if verified.
+- Balance type: prepaid credit, available account balance, billing credit, invoice amount due, spending limit, or another provider-defined metric. These concepts must not be conflated.
+- Source and retrieval method; whether it is official API data, a provider-console figure manually verified by the owner, or unavailable.
+- Timestamp last fetched/verified, source billing period if applicable, and freshness status.
+- Optional owner-maintained snapshot: amount, currency, date/time, source reference/note, and who entered/verified it. Preserve history and audit changes.
+- Error or unavailable reason suitable for the owner, with secret details removed.
+- Threshold configuration and alert history for low credit, stale data, or failed balance retrieval.
+
+**Never** invent a balance, hardcode a production balance, scrape authenticated provider consoles without an approved supported integration, store provider-console passwords/session cookies, infer a live credit balance by subtracting internal estimates from an initial number, or display stale data as real-time. If no trustworthy source is connected, display **Unavailable — provider balance source not connected** (or the exact honest reason). The dashboard must still show available usage/cost data independently.
+
+### Q.5 UI, filtering, and reporting
+
+- Add a dedicated **AI Finance / Provider Usage** subview under the owner dashboard's AI Operations or Finance area, aligned with existing navigation rather than creating a competing dashboard.
+- Show separate OpenAI, Gemini, and Claude provider cards with total tokens, cost, remaining balance/credits, data freshness, and status. Clicking a card filters the model table to that provider.
+- Provide a model-level table with provider, exact model ID, input/output/total tokens, requests, failed attempts, fallback count, actual cost, estimated cost, balance/credit status, last update, and source status.
+- Include date filters for day, week, month, year, and custom ranges; sorting by provider, model, tokens, cost, requests, status, and balance freshness; filtering by tier, feature, provider, model, outcome, and estimate/actual status.
+- Add charts for token consumption and cost trends, with compatible units, explicit axes, and no misleading stacked totals across incompatible token categories or currencies.
+- Provide a request/attempt drill-down with timestamps, model/provider, usage, cost provenance, status, fallback chain, and safe provider request ID. Do not show raw prompts, attachments, API keys, auth headers, or private user content.
+- Export CSV/report data with the same filters, units, currency, timezone, provider/model separation, source timestamps, and estimated/actual labels as the UI.
+- Support loading, empty, stale, partially unavailable, provider error, and no-permission states. Do not render zero as a placeholder for missing data.
+- Refresh on demand and/or on a bounded cadence. Display the last successful refresh and never let background refresh overwrite the selected time range, filters, sort, or navigation state.
+- Follow the existing premium restrained design, accessible chart/table behavior, and mobile Safari requirements. Dense model tables must remain usable on iPhone without global horizontal overflow.
+
+### Q.6 Alerts and cost guardrails
+
+- Configurable alerts for provider/model quota approaching exhaustion, quota exhaustion, low or stale credit balance, unexpected cost/token spikes, missing usage events, repeated fallback, provider billing/price changes, and source retrieval failures.
+- Each alert includes threshold/unit, scope, severity, trigger time, source evidence, current state, last notification, and resolution time. Use deduplication, cooldown, and explicit recovery/resolution transitions.
+- Do not hardcode business thresholds or default provider credit balances into application code. Configuration and defaults must be documented and safely validated.
+- Keep provider quota alerts separate from NasrinAI plan token limits and hourly abuse controls. A third-party provider quota reset must not reset a user's NasrinAI allowance or weaken anti-abuse limits.
+- Preserve existing tier ceilings, capability/privacy checks, and budget reservations. An alert does not authorize paid fallback, provider credit purchase, or account-setting changes.
+
+### Q.7 Security and source-of-truth requirements
+
+- All provider telemetry and credit data must be fetched and aggregated server-side using authorized credentials. Secrets stay in Vercel/server-side secret storage and never enter browser-facing config.
+- The Owner Command Center page, API, filters, exports, and any future controls must enforce the specification's owner-session, email/IP allowlists, and uniform unauthorized HTTP 404 boundary. Client-side hiding is not authorization.
+- Preserve Supabase RLS, server-only grants, tenant boundaries, and least privilege. Do not expose one user's prompts or attachments through usage drill-downs.
+- Use official documented provider APIs, exports, or explicitly verified owner-entered snapshots. Record data coverage, freshness, currency, source, and confidence. Unconnected sources must be shown as unavailable.
+- Provider APIs can have separate permissions, pagination, rate limits, and billing semantics. Handle partial results, pagination, timeouts, rate limits, stale responses, and provider outages; do not mark partial results complete.
+- Any new telemetry collection or retention must follow existing retention/privacy policy and trigger legal-document updates where needed.
+
+### Q.8 Implementation sequence and acceptance
+
+1. **Source/schema audit:** inspect migrations and writers for usage, spend reservations, provider attempts, pricing, and billing. Publish a field/source mapping and identify gaps before changing schema.
+2. **Server-side ledger:** add missing per-request/per-attempt token and cost fields with source provenance, deduplication, safe decimal handling, and tenant/server-only protections.
+3. **Provider telemetry:** implement official usage/billing source integrations only where supported and authorized. Document each provider's actual fields and limitations.
+4. **Credit source integration:** independently assess OpenAI, Gemini/Google, and Anthropic/Claude balance/credit sources. Implement supported official retrieval or owner-verified snapshots; show unavailable otherwise.
+5. **Quota-aware free-provider routing:** when one provider reaches its free quota, temporarily cool down that provider/model and continue to other eligible candidates without exceeding limits; recover after verified reset. Keep tier/privacy/safety/budget rules unchanged.
+6. **Owner APIs and authorization:** expose only server-aggregated fields through owner-protected APIs; enforce the same authorization on exports and drill-downs.
+7. **Premium responsive UI:** separate provider cards, model table, charts, filters, refresh/freshness, alerts, empty/error states, and mobile-safe drill-downs.
+8. **Tests:** test provider/model separation; token totals; logical request versus attempt totals; fallback and quota reset; paid versus free classification; unknown cost; estimate/actual reconciliation; balance freshness/manual snapshots; missing source behavior; export parity; owner 404 and tenant isolation; and no secret leakage.
+9. **Verification:** run focused tests, full `npm test`, `npm run check:secrets`, database tests and other required CI; inspect the full diff and a working Vercel preview on desktop and iPhone. Do not claim live account connectivity based only on mocks/unit tests.
+
+**Acceptance gates:**
+- The dashboard displays source-backed token and cost totals per provider and exact model, with estimates distinguished from actual charges.
+- OpenAI, Gemini, and Claude remain separate, each with its own credit/balance state and timestamp.
+- Unavailable or stale balances are labelled honestly; no placeholder zero or invented live balance appears.
+- Free-provider quota exhaustion triggers safe fallback and reset-aware recovery without bypassing quotas or stopping the whole eligible pool.
+- Every aggregate can be traced to its source and calculation; attempts are not double-counted as logical requests.
+- Owner-only access, server-side authorization, tenant isolation, privacy, and secret safety pass regression tests.
+
+### Q.9 Progress record (2026-10-15)
+
+- Owner Command Center blueprint remains in PR [#353](https://github.com/primusco20/nasrinAI/pull/353), branch `feature/owner-command-center`; it is documentation-only and open/unmerged at the time of this update.
+- Free LLM provider pool work is in PR [#361](https://github.com/primusco20/nasrinAI/pull/361), branch `feat/free-llm-provider-pool`; it is open/unmerged at the time of this update.
+- PR #361 previously reported 655 passing tests and passing secret scan, dependency audit, and database tests. Those checks must run again against new commits; no result is claimed for this new plan.
+- Provider adapter/catalogue foundations are present in PR #361. Full quota-aware failover/reset handling, live usage/billing integrations, real provider credit balances, model-by-model dashboard aggregation, and live end-to-end verification remain **not implemented or not verified** until evidence is recorded.
+- No provider keys, credits, production environment variables, schema changes, merge, or deployment were performed by this documentation update.
+- The implementation must keep the same owner-command-center branch/PR for the Owner Command Center work unless the owner explicitly changes that workflow. Update this section, `docs/owner-command-center-audit.md`, and `docs/pr-change-log.md` as each source, implementation phase, and test result changes status.
+
