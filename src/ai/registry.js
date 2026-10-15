@@ -16,7 +16,7 @@ import { assertProvider } from './provider.js';
 //   AI_PROVIDER=none    chat answers "unavailable" (the default)
 export function providerFromConfig(config, { logger = { info() {}, warn() {} } } = {}) {
   const mode = config.ai.provider;
-  if (mode === 'none' && !(config.ai.freeProviders || []).length) return null;
+  if (mode === 'none' && !(config.ai.freeProviders || []).length && !config.ai.geminiApiKey) return null;
   const providers = {};
   if (mode === 'openai' || mode === 'auto') {
     providers.openai = assertProvider(createOpenAIProvider({
