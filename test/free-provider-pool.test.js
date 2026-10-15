@@ -65,3 +65,10 @@ test('free provider credentials never become available from browser-facing confi
   });
   assert.equal(JSON.stringify(config.ai.routing).includes('test-groq-key'), false);
 });
+
+test('Gemini can run as a free-only provider without an OpenAI key', () => {
+  const config = loadConfig({ AI_PROVIDER: 'none', GEMINI_API_KEY: 'test-gemini-key' });
+  assert.equal(config.ai.routing.mode, 'smart');
+  assert.ok(config.ai.routing.levels[1].some((s) => s.provider === 'gemini'));
+  assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('gemini'));
+});
