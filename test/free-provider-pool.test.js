@@ -8,6 +8,8 @@ import { createBudget } from '../src/ai/budget.js';
 import { loadPrices } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
+import { createCloudflareWorkersAIProvider } from '../src/ai/cloudflare-workers-ai.js';
+import { createCohereProvider } from '../src/ai/cohere.js';
 
 const quiet = { info() {}, warn() {}, error() {} };
 
@@ -72,4 +74,48 @@ test('Gemini can run as a free-only provider without an OpenAI key', () => {
   assert.equal(config.ai.routing.mode, 'smart');
   assert.ok(config.ai.routing.levels[1].some((s) => s.provider === 'gemini'));
   assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('gemini'));
+});
+
+test('Cloudflare Workers AI adapter maps its account-scoped response', async () => {
+  let calledUrl = '';
+  let sentBody = null;
+  const provider = createCloudflareWorkersAIProvider({
+    apiKey: 'test-cloudflare-key',
+    accountId: 'account-123',
+    model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    fetchImpl: async (url, options) => {
+      calledUrl = String(url);
+      sentBody = JSON.parse(options.body);
+      return new Response(JSON.stringify({ result: { response: 'Cloudflare reply', usage: { prompt_tokens: 2, completion_tokens: 3 } } }), { status: 200 });
+    }
+  });
+  const out = await provider.generate({ system: 'system', messages: [{ role: 'user', content: 'hello' }], maxTokens: 100 });
+  assert.ok(calledUrl.includes('/accounts/account-123/ai/run/'));
+  assert.ok(calledUrl.includes('llama-3.3-70b-instruct-fp8-fast'));
+  assert.equal(sentBody.max_tokens, 100);
+  assert.equal(out.text, 'Cloudflare reply');
+  assert.equal(out.inputTokens, 2);
+  assert.equal(out.outputTokens, 3);
+});
+
+test('Cohere v2 adapter maps text and usage without leaking its key', async () => {
+  let sentHeaders = null;
+  const provider = createCohereProvider({
+    apiKey: 'test-cohere-key',
+    model: 'command-r7b-12-2024',
+    fetchImpl: async (_url, options) => {
+      sentHeaders = options.headers;
+      return new Response(JSON.stringify({
+        message: { content: [{ type: 'text', text: 'Cohere reply' }] },
+        usage: { billed_units: { input_tokens: 4, output_tokens: 5 } },
+        finish_reason: 'COMPLETE'
+      }), { status: 200 });
+    }
+  });
+  const out = await provider.generate({ system: 'system', messages: [{ role: 'user', content: 'hello' }] });
+  assert.equal(sentHeaders.Authorization, 'Bearer test-cohere-key');
+  assert.equal(out.text, 'Cohere reply');
+  assert.equal(out.inputTokens, 4);
+  assert.equal(out.outputTokens, 5);
+  assert.equal(out.finishReason, 'COMPLETE');
 });
