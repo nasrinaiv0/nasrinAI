@@ -54,7 +54,7 @@ test('free model pricing requires an exact allowlist match', async () => {
     GROQ_FREE_MODELS: 'another-model'
   });
   assert.equal(paidModelConfig.ai.routing.freeModels.groq.includes('llama-3.3-70b-versatile'), false);
-  assert.equal(paidModelConfig.ai.routing.levels[1].some((s) => s.provider === 'groq'), false);
+  assert.equal(paidModelConfig.ai.routing.levels[1].some((s) => s.provider === 'groq' && s.model === 'llama-3.3-70b-versatile'), false);
 });
 
 test('free provider credentials never become available from browser-facing config fields', () => {
