@@ -166,7 +166,7 @@ export function loadConfig(env = process.env) {
     if (!raw) return null;
     let key = defaultKey;
     const prefixed = /^([a-z][a-z0-9-]*):(.+)$/.exec(raw);
-    if (prefixed && aiProvider !== 'fake') {
+    if (prefixed && providerKeys.includes(prefixed[1]) && aiProvider !== 'fake') {
       key = prefixed[1];
       raw = prefixed[2];
       if (!providerKeys.includes(key)) throw new ConfigError(`${name}: "${key}:" is not available (${key === 'gemini' ? 'set GEMINI_API_KEY' : `needs AI_PROVIDER=${key} or auto`})`);
