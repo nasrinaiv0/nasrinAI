@@ -1012,3 +1012,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Additional audit:** verified repository migration definitions for `usage_events`, `plan_periods`, automation runs, NCC outbox, and server-only RLS. Plan entitlement records alone are not a complete refunds/net-revenue ledger.
 - **Preview status:** the Vercel check for the audit commit is `BLOCKED` by deployment policy, not reported as an application build error. No Vercel protection/settings were changed. Owner or project-admin action is needed to enable an authorized preview validation path before the PR is ready.
+## Owner Command Center — LLM provider accounting and free-pool continuity (2026-10-15)
+
+- **Owner request:** integrate the legitimate free LLM provider pool; keep NasrinAI available when one free provider reaches its quota by cooling down that provider and failing over to another eligible provider until reset; show model-level token consumption, costs, and remaining credits in the owner dashboard.
+- **Specification:** added Section Q to `docs/owner-command-center.md` covering separate OpenAI, Gemini, and Anthropic/Claude accounting; other free-pool providers; input/output/other token categories; logical requests vs provider attempts; actual vs estimated cost; verified source/freshness; separate credit/balance semantics; filters, sorting, trends, exports, alerts, security, acceptance gates, and progress status.
+- **Dependency:** provider catalog/adapters and exact free-model allowlists are being tracked in [PR #361](https://github.com/primusco20/nasrinAI/pull/361). Provider quota reset/failover, live billing/usage sources, credit balances, and dashboard runtime remain unimplemented/unverified until code and tests prove them.
+- **Validation:** documentation-only. No runtime tests, provider API calls, account credits, secrets, schema changes, production environment changes, merge, or deployment performed by this entry. CI must rerun on new commits.
+- **Next:** inspect actual usage writers, spend reservations, provider pricing/billing APIs, and migration definitions; implement server-side accounting and owner-secured endpoints with regression tests. Never fabricate balances or stop the whole eligible pool because one provider quota is exhausted.
+
