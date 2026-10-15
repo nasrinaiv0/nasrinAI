@@ -73,7 +73,7 @@ test('config: production needs every secret, and keys cannot be swapped', () => 
   const good = {
     NODE_ENV: 'production', SUPABASE_URL: 'https://abc.supabase.co',
     SUPABASE_PUBLISHABLE_KEY: jwt('anon'), SUPABASE_SECRET_KEY: jwt('service_role'), GUEST_SESSION_SECRET: 'z'.repeat(32), CRON_SECRET: 'c'.repeat(32),
-    PRO_WEEKLY_TOKENS: '1000000', MAX_WEEKLY_TOKENS: '5000000', ULTRA_WEEKLY_TOKENS: '10000000'
+    PRO_WEEKLY_TOKEN_LIMIT: '1000000', MAX_WEEKLY_TOKEN_LIMIT: '5000000', ULTRA_WEEKLY_TOKEN_LIMIT: '10000000'
   };
   assert.equal(loadConfig(good).supabaseUrl, 'https://abc.supabase.co');
   assert.throws(() => loadConfig({ ...good, TURNSTILE_SITE_KEY: 'site-only' }), /TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together/);
