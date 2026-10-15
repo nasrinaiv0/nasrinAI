@@ -131,7 +131,7 @@ export function loadConfig(env = process.env) {
   if (anthropicKey && aiProvider !== 'fake' && aiProvider !== 'none') providerKeys.push('anthropic');
   // Gemini (OpenAI-compatible endpoint) joins any mode when its key is set.
   const geminiKey = String(env.GEMINI_API_KEY || '').trim();
-  if (geminiKey && aiProvider !== 'fake' && aiProvider !== 'none') providerKeys.push('gemini');
+  if (geminiKey && aiProvider !== 'fake') providerKeys.push('gemini');
   // Optional APIs from awesome-freellm-apis. Model IDs are pinned explicitly;
   // free-model allowlists are separate because a provider may also expose paid models.
   const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => ['openai-compatible', 'cloudflare-workers-ai', 'cohere-v2'].includes(p.adapter)).map((p) => {
