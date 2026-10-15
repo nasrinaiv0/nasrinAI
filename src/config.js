@@ -139,7 +139,7 @@ export function loadConfig(env = process.env) {
     const model = String(env[p.env + '_MODEL'] || '').trim();
     const freeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, trainsOnData: true, vision: false, tools: false };
-  }).filter((p) => p.apiKey && p.model);
+  }).filter((p) => p.apiKey && p.model && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', local: 'local', auto: 'openai', fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
