@@ -227,7 +227,7 @@ export function loadConfig(env = process.env) {
   // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
   // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
-  const routingMode = String(env.ROUTING ?? (['openai', 'local', 'auto'].includes(aiProvider) || freeProviderSettings.some((p) => p.freeModels.includes(p.model)) ? 'smart' : 'fixed')).trim().toLowerCase();
+  const routingMode = String(env.ROUTING ?? (['openai', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || freeProviderSettings.some((p) => p.freeModels.includes(p.model)) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
   const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY));
   // Last-resort, explicitly priced model choices for when an operator's custom
