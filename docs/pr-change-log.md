@@ -997,3 +997,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
 - **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.
+## Proposed PR #361 — Free LLM pool continuity, accounting, and owner visibility (2026-10-15)
+
+- **Owner request:** document the full free-provider pool plan; ensure a provider reaching its quota does not pause all NasrinAI use; record token consumption and costs per model; show separate remaining credits and costs for OpenAI, Gemini, and Claude in the Owner Command Center.
+- **Change:** expanded `docs/nasrinai-autonomous-coding-engine-upgrade.md` Section 15 with provider catalogue/security requirements, quota exhaustion classification and cooldown, bounded fallback/reset recovery, logical request vs provider-attempt accounting, token/cost provenance, provider credit source rules, privacy, detailed acceptance criteria, and current implementation status. Updated `docs/free-llm-provider-pool.md` is the provider catalogue/setup reference.
+- **Owner dashboard spec:** corresponding detailed UI, metric/source semantics, balance rules, alerts, authorization, acceptance tests, and progress are recorded in Section Q of `docs/owner-command-center.md` on PR #353.
+- **Status:** documentation/planning only for the new requirements. Existing provider pool foundations are on this branch; quota-aware reset/failover, live usage/billing APIs, real credit balances, and the live dashboard are not claimed as implemented.
+- **Validation:** previously reported CI was 655 tests passed with secret scan, dependency audit, and database tests passing; those results predate this documentation update. New commits require fresh CI. No keys, credits, Vercel settings, production schema, merge, or deployment changed.
+- **Next:** implement in reviewed phases, update progress with actual source mappings and test outcomes, and wait for explicit owner approval before merge/deployment.
+
