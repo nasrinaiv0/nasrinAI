@@ -203,13 +203,13 @@ export function loadConfig(env = process.env) {
   // cheapest configured external provider first, then paid providers. A
   // provider failure never changes the user's selected tier; the router picks
   // the best available model for the same route level.
-  const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.includes(p.model));
+  const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.length > 0);
   const fallbackMode = String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
   if (!['auto', 'openai', 'gemini', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, openai, gemini, anthropic or none');
   }
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['gemini', 'openai', ...freeProviderSettings.filter((p) => p.freeModels.includes(p.model)).map((p) => p.id)].filter((p) => providerKeys.includes(p))
+    ? ['gemini', 'openai', ...freeProviderSettings.filter((p) => p.freeModels.length > 0).map((p) => p.id)].filter((p) => providerKeys.includes(p))
     : fallbackMode === 'none' ? [] : [fallbackMode];
   for (const provider of fallbackProviders) {
     if (!providerKeys.includes(provider)) {
@@ -241,7 +241,7 @@ export function loadConfig(env = process.env) {
   const defaultsByLevel = {
     // Claude is intentionally absent from general routing. It is a coding-only
     // specialist for the paid Max/Ultra tiers (configured below).
-    1: [...freeProviderSettings.filter((p) => p.freeModels.includes(p.model)).map((p) => p.id + ':' + p.model), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : ''],
+    1: [...freeProviderSettings.flatMap((p) => p.freeModels.map((model) => p.id + ':' + model)), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : ''],
     2: [has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
     3: [has('openai') ? 'openai:gpt-5.4:medium' : ''],
     4: [has('openai') ? 'openai:gpt-5.4:high' : ''],
