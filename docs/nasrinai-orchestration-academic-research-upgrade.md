@@ -229,3 +229,33 @@ This orchestration/research upgrade must work with the companion specification `
 This file is the target specification for deep orchestration and academic research. The companion slash-command/attachment/composer file remains the detailed specification for those input and UI behaviors. Keep both documents linked from the relevant master upgrade index if one exists.
 
 Before implementation, compare both specifications with the current main branch and open PRs, then produce one deduplicated task plan. If work is combined into a single implementation PR, it must still be organized into reviewable commits/sections and must pass the full regression, security, database, and deployment checks. A documentation merge does not mean runtime functionality is implemented or enabled.
+
+## 13. Internet-sourced answers and clickable citations
+
+This requirement applies to **all normal NasrinAI chat replies that use information retrieved from the internet**, not only dedicated research reports.
+
+### Internet-sourced replies
+- When the assistant uses web search, browsing, retrieved web pages, or other internet sources to answer, include a clearly labeled **Sources** or **Resources** section in the same reply.
+- Provide clickable links to the actual pages used. Each link should open the source so the user can inspect it and use it when preparing citations.
+- Attach source links to the claims they support when practical, and include publication/organization details when available. Do not provide decorative links that were not used to support the answer.
+- Cite only pages actually discovered and consulted, and ensure each source supports the associated claim. Never invent a URL, title, author, date, quote, DOI, or citation.
+- If browsing fails, no reliable sources are available, or a page could not be accessed, state that limitation clearly instead of pretending the answer is sourced.
+- For answers based only on model knowledge with no internet retrieval, do not imply that web research was performed. Respect explicit user requests not to browse.
+
+### Research and study intent: ten clickable resources
+- When the user's intent is study, academic work, or research, default to web discovery and aim to provide **10 distinct, credible, relevant resources**.
+- Present the resources as a numbered, annotated list with clickable source titles/URLs. For each source, include available author or organization, publication date/year, source type or publisher, a concise description of what it contributes, and relevance to the user's question.
+- Make each link directly clickable so users can open the original website and inspect the source for their own citation/reference work. Include DOI or stable canonical URL when available.
+- Where useful, provide citation-ready bibliographic details and format them in the citation style requested by the user (APA, MLA, Chicago, etc.). Do not fabricate missing fields or imply that a formatted reference was independently verified when it was not.
+- The ten resources must be distinct works, not ten links to the same work, duplicate records, or low-quality pages added merely to hit a number. Prefer peer-reviewed studies, systematic reviews, primary sources, official datasets, institutional repositories, government sources, and reputable scholarly publishers as appropriate to the topic.
+- Include a concise synthesis of key findings and disagreements where supported by the sources; do not return only a list of links.
+- If fewer than ten credible, distinct resources can be found within safe operational limits, provide the best available number and explain the limitation. Never invent or pad sources to reach ten.
+- Distinguish sources that were fully read from metadata/abstract-only records. Do not claim the full text was reviewed when it was inaccessible.
+- Keep existing SSRF protections, robots.txt handling, privacy controls, provider policies, rate limits, timeouts, and cost budgets. The ten-resource target never overrides these safeguards.
+
+### UI and acceptance tests
+- Render source titles as accessible, tappable links on desktop and mobile; do not require users to copy/paste raw URLs to reach a source.
+- Ensure links resolve to the cited source, use canonical URLs when possible, and avoid exposing internal identifiers, signed storage URLs, provider traces, or private data.
+- Add tests proving that (1) internet-sourced answers include a Sources/Resources section, (2) research/study intent aims for ten distinct clickable resources, (3) citations point to sources actually retrieved and support their claims, (4) duplicates and fabricated references are rejected, (5) fewer-than-ten results are explained honestly, and (6) the behavior remains usable on mobile.
+- This is a target specification, not proof of shipped functionality. Implementation must be verified against code, tests, and production behavior before being described as complete.
+
