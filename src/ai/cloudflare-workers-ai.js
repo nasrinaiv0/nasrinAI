@@ -12,11 +12,11 @@ export function createCloudflareWorkersAIProvider({ apiKey, accountId, model, fe
     async generate({ system, messages, model: chosen, maxTokens = 800, signal }) {
       let resp;
       try {
-        resp = await fetchImpl(base + encodeURIComponent(chosen || model), {
+        resp = await fetchImpl(base + String(chosen || model).split('/').map(encodeURIComponent).join('/'), {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: [{ role: 'system', content: system }, ...messages], max_tokens: maxTokens }),
-          signal: signal || AbortSignal.timeout(timeoutMs)
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs)
         });
       } catch (err) {
         if (signal?.aborted) throw new ProviderError('stopped', 'stopped by the person');
