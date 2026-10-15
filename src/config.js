@@ -99,7 +99,7 @@ function localSettings(env, isProduction, auto = false) {
 }
 
 export function loadConfig(env = process.env) {
-  const nodeEnv = env.NODE_ENV || 'development';
+  const nodeEnv = env.NODE_ENV || process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
   // Unit tests use isolated env objects, so give test runs explicit fixture
   // quotas. These values are never used in development or production and do
