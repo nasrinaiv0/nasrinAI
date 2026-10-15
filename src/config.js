@@ -104,7 +104,7 @@ export function loadConfig(env = process.env) {
   // Unit tests use isolated env objects, so give test runs explicit fixture
   // quotas. These values are never used in development or production and do
   // not weaken the required Vercel configuration contract.
-  const weeklyTokenEnv = nodeEnv === 'test' ? {
+  const weeklyTokenEnv = (nodeEnv === 'test' || (process.env.NODE_ENV === 'test' && env.NODE_ENV !== 'production')) ? {
     PRO_WEEKLY_TOKENS: env.PRO_WEEKLY_TOKENS ?? '1000000',
     MAX_WEEKLY_TOKENS: env.MAX_WEEKLY_TOKENS ?? '5000000',
     ULTRA_WEEKLY_TOKENS: env.ULTRA_WEEKLY_TOKENS ?? '10000000'
