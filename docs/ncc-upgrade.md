@@ -3,7 +3,7 @@
 **Repository:** `primusco20/nasrinAI`  
 **Product:** NCC (Nasrin Client Connect), at `ncc.nasrinai.com`  
 **Document status:** Architecture and implementation plan; not a claim that every capability described here is already implemented.  
-**Last updated:** 2026-10-14
+**Last updated:** 2026-10-17
 
 ## 1. Purpose and product boundary
 
@@ -629,3 +629,141 @@ Deliver this as small, reviewable PRs and stop for owner approval between phases
 - [ ] The feature remains disabled for unapproved accounts and channels until staging verification and owner authorization.
 
 **Definition of done:** Claude Code must inspect the repository, implement the approved phase in real code and migrations, add regression/security tests, update the relevant docs/legal files, run required checks, and report exact files changed plus any owner action required. Do not stop after rewriting documentation, claim unimplemented integrations work, or merge/deploy without the repository's required approval path.
+
+
+## 20. Vercel-only environment configuration — mandatory project-wide rule
+
+This is a required configuration rule for NasrinAI and NCC implementation work. **All environment-specific configuration and secrets must be managed through the appropriate Vercel Project Environment Variables for the relevant project and deployment environment.** This includes production, preview and development values where the project uses Vercel for those environments.
+
+Requirements:
+
+- Do not hardcode API keys, tokens, passwords, database credentials, signing secrets, provider IDs, private URLs, allowlists, quota/usage limits, feature flags, model/provider choices, origin allowlists, owner-account configuration, or other deployment-specific values in source code, client bundles, SQL migrations, tests, workflow definitions or documentation examples that could be mistaken for real configuration.
+- Do not add silent fallback values or embedded production defaults for environment-driven settings. If a required variable is absent or invalid, validate it server-side and fail closed with a clear, non-sensitive configuration error. Do not silently switch to a weaker security policy, another account, another provider, a permissive origin, or a hardcoded quota.
+- Keep secret variables server-only. Never prefix secrets with a public/client-exposed variable convention, return them in API responses, render them in the browser, place them in model context, or write them to logs.
+- Values that genuinely must be public browser configuration may be exposed only when intentionally designed as public, non-secret values, with access restricted by server-side authorization where needed. A value being stored in Vercel does not make a secret safe to expose to the client.
+- Use a central server-side configuration validation layer with explicit schemas, required/optional status, environment scope, safe validation messages and tests. Avoid scattering raw `process.env` reads throughout unrelated modules.
+- For every new environment variable, document its exact name, purpose, allowed format, which Vercel project/environment it belongs to, whether it is secret, and required/optional behavior. Add it to a configuration inventory/checklist, not as a literal value. Never invent credentials or pretend a variable has been configured.
+- Production-critical configuration must be explicitly set in Vercel for the intended project and environment. A local `.env.example` may list variable names and placeholder descriptions only; never include live values. Local development may use a developer-owned local environment file only when needed, but it must never become a production source of truth or be committed.
+- Do not use a checked-in `.env`, config JSON, database seed, migration, or source constant as an alternative store for deployment secrets or changeable deployment policy. Vercel environment variables are the source of truth for deployment configuration. Runtime business data (such as saved workflow definitions, CRM records, consent records and call history) belongs in the authorized database, not in environment variables.
+- Vercel environment-variable changes require the correct project/environment and a new deployment when required by Vercel. Verify the active deployment and runtime behavior after changes; do not claim configuration is live based only on a code change.
+- Tests must cover missing, malformed and valid required configuration. Test fixtures may use clearly fake values in test-only contexts; never copy real credentials into fixtures. Security scans must catch accidental secrets.
+- Before creating or modifying an environment variable, inspect the existing configuration contract and Vercel project/environment. Avoid duplicate or competing names. If an owner action is needed to set a value in the Vercel dashboard, report the exact variable name and scope without requesting that the owner paste its secret into chat.
+
+This rule does not mean every runtime record should be stored in Vercel: Vercel stores deployment configuration; Supabase or another approved persistent data store stores application data. Never put high-volume runtime records, customer records, workflow executions, call history or media blobs into environment variables.
+
+### Configuration acceptance criteria
+
+- [ ] No secret or deployment-specific policy is hardcoded into application code.
+- [ ] No silent fallback exists for required provider, auth, quota, origin, owner-access or voice/telephony configuration.
+- [ ] Required values are documented by name and configured in the correct Vercel project/environment.
+- [ ] Missing or invalid configuration fails closed with safe diagnostics.
+- [ ] Public/client bundles contain no server secrets.
+- [ ] Tests cover missing/invalid configuration and security scans pass.
+- [ ] Deployment/runtime verification confirms the intended Vercel environment is active.
+
+
+## 21. NCC AI Agents Front Desk — inbound calls and outbound/scheduled callbacks
+
+### 21.1 Product placement and status
+
+Add **AI Agents Front Desk** as a first-class module inside **NCC — Nasrin Client Connect**, integrated with the NCC CRM, Automation Studio, contact timeline, workflow triggers, scheduler, approval policy, analytics and execution history. It is not a feature of NasrinAI Connect (the separate website/widget integration product).
+
+This is a planned capability until a real telephony adapter, supported voice/media runtime, Vercel configuration, provider webhooks and end-to-end staging tests have been verified. Do not present mock calls or a design screen as a functioning phone system.
+
+### 21.2 Inbound customer calls
+
+The AI front-desk agent should be able to:
+
+- Answer calls on an owner-configured and verified business phone number.
+- Clearly disclose at the beginning of the call that it is an AI agent acting for the business.
+- Use a configured greeting, supported language and business-approved knowledge base to answer FAQs and service/product questions without inventing pricing, policies, stock, availability or promises.
+- Understand caller intent, handle interruptions and unclear audio, ask clarifying questions, and gracefully recover from silence or provider/network problems.
+- Identify or match a caller to a CRM contact using permitted data; verify identity before revealing account-specific or sensitive information.
+- Capture a new lead, record the inquiry and ask approved, non-sensitive qualification questions.
+- Check availability, book/reschedule/cancel appointments or update CRM records only through a connected, authorized API; repeat critical details and report success only after the external system confirms success.
+- Transfer the call to a human, take a message, create a callback task or route to voicemail when requested, when confidence is low, when the issue is sensitive/high-impact, when a complaint escalates, or when the agent cannot safely resolve the request.
+- Respect business hours, holidays, configured routing, fallback numbers, queue state and after-hours handling.
+- Record call disposition, a concise permitted summary, follow-up tasks and CRM activity with tenant isolation and configured retention.
+
+The agent must not impersonate a human, claim a booking/payment/refund/action succeeded without verified confirmation, or provide unapproved legal, medical or financial advice.
+
+### 21.3 Outbound and scheduled callbacks
+
+Support outbound calls for eligible, authorized purposes, including:
+
+- A callback explicitly requested by a customer.
+- Replies to a customer inquiry when calling is permitted.
+- Appointment confirmations, reminders, rescheduling and service notifications.
+- Follow-up on an existing support case.
+- Lead follow-up only when the business has the required consent/legal basis and the contact is eligible under applicable rules.
+- Owner-approved, narrowly scoped campaigns only after the basic callback flow is tested.
+
+NCC must support a callback queue with scheduled date/time and timezone, reason, contact, assigned workflow, attempt count, retry window, status, outcome, next action, and audit trail. Users should be able to reschedule or cancel a pending callback. Scheduled callbacks must execute from a durable scheduler/queue/worker, not from a browser tab or a long-lived Vercel request.
+
+Outbound calling must be disabled by default until the owner has configured and verified the telephony provider and phone number, relevant Vercel variables, business calling policy and exact workflow permissions. Before each call, enforce contact preferences, consent/legal basis, do-not-call and suppression lists, opt-outs, applicable local calling hours, jurisdiction/provider rules, per-contact attempt limits, concurrency limits and spending budgets. An opt-out must be recorded immediately and suppress future prohibited calls across relevant workflows.
+
+Do not spoof caller ID, hide the agent's identity, harass recipients, make unlawful robocalls or launch broad campaigns without explicit authorization. Campaigns require audience preview, purpose/script preview, schedule and timezone, attempt/concurrency limits, explicit launch confirmation, monitoring and an emergency stop. A general “AI enabled” switch is not authorization for outbound calls.
+
+### 21.4 Voice architecture and integrations
+
+Create a provider-neutral adapter boundary for phone numbers, inbound/outbound call control, transfer, call status webhooks, audio streaming, speech recognition, speech synthesis and optional real-time voice models. Select a provider only after verifying supported countries/regions (including Philippine number availability if required), number provisioning, outbound caller ID, transfer, webhooks, recording controls, concurrency, pricing, rate limits, privacy/data location and operational reliability.
+
+- Authenticate and verify provider webhooks; prevent replay and forged call events.
+- Keep credentials in server-only Vercel environment variables or an approved encrypted secret/connection service explicitly designed for runtime rotation. Never embed credentials in code, prompts, workflow JSON, browser state or logs.
+- Keep all deployment-specific voice settings—provider selection, account/number IDs, webhook secrets, allowed origins, feature flags, concurrency and cost limits, call-duration limits and rollout switches—in the relevant Vercel project's environment configuration. Do not use hardcoded defaults or silent fallback values for required configuration.
+- Use a compatible runtime for persistent real-time audio/media sessions. Do not assume ordinary Vercel functions can host long-lived media streams; Vercel may serve the dashboard and short-lived control-plane APIs while a separately approved compatible service handles the media session and durable workers.
+- Isolate every call/session by tenant and provider call ID. Enforce maximum duration, concurrency, per-tenant budgets, rate limits, timeouts, safe disconnect handling and a global emergency stop.
+- If a required provider or runtime is missing, fail closed and show a safe setup status; do not simulate a successful call.
+
+### 21.5 Recording, transcription, privacy and consent
+
+Recording and transcription must be separately configurable from answering calls. Do not enable recording/transcription by default until the owner has configured lawful notice/consent, purpose, retention and access rules for applicable jurisdictions. Provide clear caller notice and obtain consent when required; provide an appropriate alternative if the caller declines.
+
+Store only data needed for the configured purpose. Prefer concise summaries and structured outcomes over indefinite retention of full recordings/transcripts. If enabled, recordings and transcripts require tenant-scoped protected storage, encryption, strict access controls, retention/deletion/export behavior and audit logs. Redact payment data, credentials and unnecessary sensitive information from model context and logs. Do not use customer calls for model training by default. Update the privacy/terms documents and deletion/export workflows before enabling new call-data collection.
+
+### 21.6 NCC user interface and analytics
+
+Add these screens or views:
+
+- **Front Desk Setup:** provider/number status, business profile, hours, supported languages, greeting, human fallback and configuration health.
+- **Agent Behavior:** approved knowledge, supported intents, response boundaries, transfer conditions, disclosure and test-call harness.
+- **Call Inbox:** incoming, missed, active/finished, voicemail where supported, requested callbacks, unresolved issues and human handoff.
+- **Callback Scheduler:** date/time/timezone, reason, contact, attempt history, status, reschedule/cancel, retries and outcome.
+- **Outbound Controls:** eligible audience, authorization, call purpose, script, schedule, attempt budget, rate/cost limit, launch confirmation and kill switch.
+- **Call Details:** provider call ID, direction, duration, status, disposition, verified action results, permitted summary, handoff and recording/transcript only if authorized.
+- **CRM Timeline:** associate calls and outcomes with the correct tenant-scoped contact/lead/deal and create follow-up tasks without duplicates.
+- **Analytics:** inbound/outbound call volume, answer/missed-call rate, transfer/handoff rate, callback completion, appointment outcomes, lead qualification, failure rate, opt-outs, provider costs and budget consumption.
+
+Use deterministic calculations for counts and rates. Label AI-generated summaries/classifications as AI-generated, and make them traceable to authorized events.
+
+### 21.7 Persistence, reliability and data model
+
+Audit existing NCC contacts, activities, tasks, automations, channels, outbox, connection and execution schemas before migrations. Reuse current structures when possible. Add call sessions/events, callback jobs or configuration records only when a verified schema gap exists. Persist callback schedules and job state in a durable store and queue; do not attempt to store customer records, call history or workflow executions in Vercel environment variables.
+
+Use provider event IDs and idempotency keys to prevent duplicate callbacks, duplicate CRM writes and webhook loops. Retry only safe transient failures with bounded backoff. Reconcile ambiguous call outcomes before retrying; never promise exactly-once provider behavior without evidence. Store provider receipts and sanitized errors for support.
+
+### 21.8 Implementation phases and acceptance criteria
+
+Deliver in small, reviewable PRs:
+
+1. **Audit and design:** inspect existing NCC CRM, automation engine, hosting limits, configuration validation, current Vercel project/environment and legal/privacy docs; select a provider/runtime only after a capability and cost review.
+2. **Provider abstraction and mock harness:** implement typed adapter contracts, webhook verification tests, config validation and simulated call-state tests. Do not call this production telephony.
+3. **Inbound pilot:** connect a verified test number, disclose AI identity, answer approved FAQs, capture leads, create verified CRM activity and transfer/fallback to a human.
+4. **Requested/scheduled callbacks:** add durable callback scheduling, cancellation/rescheduling, local-time policy, suppression/consent checks, bounded retries, spending controls and verified delivery outcomes.
+5. **Outbound expansion:** enable narrowly scoped reminders/follow-ups, then optional campaigns only after owner authorization, jurisdiction/legal review and end-to-end staging evidence.
+6. **Production hardening:** test tenant isolation, forged/replayed webhooks, duplicate events, provider outage, low confidence, human transfer, opt-out, missing Vercel variables, recording consent, deletion/export, cost caps and emergency stop.
+
+Acceptance criteria:
+
+- [ ] Inbound test calls are answered on a verified number and clearly disclose AI identity.
+- [ ] Approved knowledge is used; unknown answers safely escalate rather than hallucinate business policy.
+- [ ] Caller verification protects account-specific information.
+- [ ] CRM and scheduling actions are confirmed by real connected systems before being reported successful.
+- [ ] A customer-requested callback can be scheduled, cancelled/rescheduled, executed and reconciled without an open browser.
+- [ ] Outbound calling stays disabled until provider, configuration, policy and exact workflow authorization are verified.
+- [ ] Consent, suppression, opt-out, calling hours, attempt limits, concurrency and spend budgets are enforced server-side.
+- [ ] Duplicate/replayed webhooks cannot create duplicate calls or CRM actions.
+- [ ] Human transfer/fallback, provider outage and emergency stop are tested.
+- [ ] Missing/malformed Vercel configuration fails closed with safe diagnostics.
+- [ ] Recording/transcription, retention, access, export and deletion are tested before those features are enabled.
+- [ ] Real provider integration and end-to-end staging tests pass before production status is claimed.
