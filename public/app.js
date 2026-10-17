@@ -7165,6 +7165,7 @@
   }
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
+  makeGooglePlugin('drive', 'Google Drive', 'folder');
   let googleStatus = { available: false, connected: false, scopes: [], email: null };
   async function loadGoogle() {
     try {
