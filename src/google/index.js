@@ -177,7 +177,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       const token=await tokenFor(w, 'calendar');
       const data=await googleApi('calendar/v3/calendars/primary/events?'+params,token);
       return {body:{events:Array.isArray(data.items)?data.items:[],nextPageToken:data.nextPageToken||null}};
-    }}
+    }},
     { method:'GET', path:'/v1/google/meet/status', scope:'chat', handler:async ({caller}) => {
       if (!available || caller?.actor?.type !== 'user') return { body:{available,connected:false,scopes:[],service:'meet'} };
       const w=who(caller); const rows=await db('GET','google_connections?select=scopes,email,connected_at&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.meet&limit=1');
