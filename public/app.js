@@ -7155,7 +7155,6 @@
     design: [['circle', { cx: '12', cy: '12', r: '8' }], ['circle', { cx: '9', cy: '10', r: '1.2' }], ['circle', { cx: '14.5', cy: '9', r: '1.2' }], ['circle', { cx: '15.5', cy: '13.5', r: '1.2' }]],
     video: [['path', { d: 'M4 7h11v10H4z' }], ['path', { d: 'm15 10.5 5-3v9l-5-3' }]],
     note: [['path', { d: 'M6 3.5h9l3 3V20H6z' }], ['path', { d: 'M15 3.5V7h3M9 11h6M9 14.5h6M9 18h4' }]],
-    search: [['circle', { cx: '10.5', cy: '10.5', r: '6' }], ['path', { d: 'm15 15 5 5' }]],
     map: [['path', { d: 'm3.5 6 5-2.5 7 2.5 5-2.5v14l-5 2.5-7-2.5-5 2.5z' }], ['path', { d: 'M8.5 3.5v14M15.5 6v14' }]],
 
     calendar: [['path', { d: 'M4.5 6h15v13.5h-15z' }], ['path', { d: 'M4.5 10h15M8.5 4v4M15.5 4v4' }]],
@@ -7167,7 +7166,7 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Maps', 'map']]],
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
     ['Design', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
@@ -7191,7 +7190,6 @@
     'Google Drive': { service: 'drive', readService: 'drive', supported: true, readScope: 'https://www.googleapis.com/auth/drive.readonly', account: 'Google' },
     'Google Meet': { service: 'meet', readService: 'meet', supported: true, readScope: 'https://www.googleapis.com/auth/meetings.space.created', account: 'Google' },
     'Google Keep': { service: 'keep', readService: 'keep', supported: true, readScope: 'https://www.googleapis.com/auth/keep.readonly', account: 'Google' },
-    'Google Search': { service: 'search', supported: true, siteConfigured: true, account: 'Google' },
     'Google Maps': { service: 'maps', supported: true, siteConfigured: true, account: 'Google' },
     Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
     Teams: { supported: false }, Excel: { supported: false }, PowerPoint: { supported: false },
@@ -7446,10 +7444,10 @@
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
   makeGooglePlugin('drive', 'Google Drive', 'team');
-  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null }, meet: { available:false, connected:false, scopes:[], email:null }, keep: { available:false, connected:false, scopes:[], email:null }, search: { available:false, connected:false, scopes:[], email:null }, maps: { available:false, connected:false, scopes:[], email:null } };
-  Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive','meet','keep','search','maps'].some((service) => googleStatus[service].available); } });
+  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null }, meet: { available:false, connected:false, scopes:[], email:null }, keep: { available:false, connected:false, scopes:[], email:null }, maps: { available:false, connected:false, scopes:[], email:null } };
+  Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive','meet','keep','maps'].some((service) => googleStatus[service].available); } });
   async function loadGoogle() {
-    await Promise.all(['gmail','calendar','drive','meet','keep','search','maps'].map(async (service) => {
+    await Promise.all(['gmail','calendar','drive','meet','keep','maps'].map(async (service) => {
       try {
         const status = await api('/v1/google/status?service=' + service);
         googleStatus[service] = { available:status?.available===true, connected:status?.connected===true, scopes:Array.isArray(status?.scopes)?status.scopes:[], email:typeof status?.email==='string'?status.email:null };
