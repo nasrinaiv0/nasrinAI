@@ -7434,10 +7434,10 @@
   }
   function renderGoogle() {
     for (const [service, item] of Object.entries(googlePlugins)) {
-      const scope = service === 'gmail'
-        ? 'https://www.googleapis.com/auth/gmail.readonly'
-        : 'https://www.googleapis.com/auth/calendar.events';
-      const connected = googleStatus.connected && googleStatus.scopes.includes(scope);
+      const scopes = service === 'gmail'
+        ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify']
+        : ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events'];
+      const connected = googleStatus.connected && scopes.some((scope) => googleStatus.scopes.includes(scope));
       item.sub.textContent = googleStatus.error
         ? 'Connection status unavailable'
         : !googleStatus.available
