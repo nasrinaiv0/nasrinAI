@@ -63,3 +63,20 @@ test('Every new Google catalog item has a defined glyph', () => {
   const glyphs = app.slice(app.indexOf('const PLUGIN_GLYPHS'), app.indexOf('const MORE_PLUGINS'));
   for (const glyph of ['video:', 'note:', 'search:', 'map:']) assert.ok(glyphs.includes(glyph), 'missing plugin glyph: ' + glyph);
 });
+
+
+test('Gmail, Calendar, and Drive have independent OAuth status and disconnect services', () => {
+  assert.match(google, /\['gmail','calendar','drive'\]\.includes\(service\)/);
+  assert.match(google, /DRIVE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.readonly'/);
+  assert.match(google, /state\.s === 'drive' \? 'drive'/);
+  assert.match(google, /tokenFor\(w, 'drive'\)/);
+  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive'\]/);
+  assert.match(app, /'Google Drive': \{ service: 'drive', readService: 'drive', supported: true/);
+  assert.match(app, /disconnectGoogle\(service\)/);
+});
+
+test('Google Meet, Keep, Search, and Maps are not falsely shown as connected', () => {
+  for (const name of ['Google Meet', 'Google Keep', 'Google Search', 'Google Maps']) {
+    assert.match(app, new RegExp("'" + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "': \\{ supported: false \\}"));
+  }
+});
