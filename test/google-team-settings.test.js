@@ -101,9 +101,9 @@ test('Google Meet and Keep use independent OAuth scopes and service records', ()
   assert.match(google, /name: 'google_keep_list_notes'/);
 });
 
-test('Google Search and Maps use server-side environment credentials and expose search tools', () => {
+test('Google Maps uses server-side environment credentials without exposing keys in the frontend', () => {
   assert.match(google, /GOOGLE_MAPS_API_KEY/);
   assert.match(google, /name: 'google_maps_places_search'/);
   assert.match(google, /service === 'maps'.*mapsAvailable/s);
-  assert.doesNotMatch(app, /GOOGLE_SEARCH_API_KEY|GOOGLE_MAPS_API_KEY/);
+  assert.doesNotMatch(app, /GOOGLE_SEARCH_API_KEY|GOOGLE_SEARCH_ENGINE_ID|GOOGLE_MAPS_API_KEY/);
 });
