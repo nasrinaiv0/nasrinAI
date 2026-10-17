@@ -7133,6 +7133,10 @@
     slides: [['path', { d: 'M4 5h16v11H4z' }], ['path', { d: 'M12 16v3.5M8.5 19.5h7M8 9h5M8 12h8' }]],
     design: [['circle', { cx: '12', cy: '12', r: '8' }], ['circle', { cx: '9', cy: '10', r: '1.2' }], ['circle', { cx: '14.5', cy: '9', r: '1.2' }], ['circle', { cx: '15.5', cy: '13.5', r: '1.2' }]],
     video: [['path', { d: 'M4 7h11v10H4z' }], ['path', { d: 'm15 10.5 5-3v9l-5-3' }]],
+    note: [['path', { d: 'M6 3.5h9l3 3V20H6z' }], ['path', { d: 'M15 3.5V7h3M9 11h6M9 14.5h6M9 18h4' }]],
+    search: [['circle', { cx: '10.5', cy: '10.5', r: '6' }], ['path', { d: 'm15 15 5 5' }]],
+    map: [['path', { d: 'm3.5 6 5-2.5 7 2.5 5-2.5v14l-5 2.5-7-2.5-5 2.5z' }], ['path', { d: 'M8.5 3.5v14M15.5 6v14' }]],
+
     calendar: [['path', { d: 'M4.5 6h15v13.5h-15z' }], ['path', { d: 'M4.5 10h15M8.5 4v4M15.5 4v4' }]],
     social: [['circle', { cx: '12', cy: '12', r: '8' }], ['path', { d: 'M12 7.5v9M8.5 11h7' }]],
     photo: [['rect', { x: '4.5', y: '4.5', width: '15', height: '15', rx: '4.5' }], ['circle', { cx: '12', cy: '12', r: '3.5' }], ['circle', { cx: '16.3', cy: '7.7', r: '.6' }]],
@@ -7143,7 +7147,7 @@
   };
   const MORE_PLUGINS = [
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
-    ['Google', [['Google Cloud', 'cloud'], ['Google Meet', 'video']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
     ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
   {
@@ -7163,7 +7167,24 @@
           for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
           svg.appendChild(el);
         }
-        li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        const logo = document.createElement('img');
+        const productLogoUrls = {
+          'Google Meet': 'https://cdn.simpleicons.org/googlemeet',
+          'Google Keep': 'https://cdn.simpleicons.org/googlekeep',
+          'Google Search': 'https://cdn.simpleicons.org/googlesearch',
+          'Google Maps': 'https://cdn.simpleicons.org/googlemaps'
+        };
+        if (productLogoUrls[name]) {
+          logo.src = productLogoUrls[name];
+          logo.alt = '';
+          logo.setAttribute('aria-hidden', 'true');
+          logo.className = 'plugins-glyph plugins-product-logo';
+          logo.loading = 'lazy';
+          logo.decoding = 'async';
+          li.append(logo, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        } else {
+          li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        }
         ul.appendChild(li);
       }
       box.appendChild(ul);

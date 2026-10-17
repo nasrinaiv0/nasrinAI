@@ -415,7 +415,7 @@ test('coding chat page: PR description from the reply, many-file card, automatic
 test('plugins: more apps are listed as Coming soon, never as connected', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Google Cloud', 'Google Meet', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
+  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Google Meet', 'Google Keep', 'Google Search', 'Google Maps', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
   assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
