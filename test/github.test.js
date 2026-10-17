@@ -503,6 +503,17 @@ test('plugins: app settings include account, permission, and information section
   assert.match(js, /\$\('pluginCatalogWebsite'\)\.href = catalogWebsite\[name\]/);
 });
 
+test('plugins: responsive settings rows prevent mobile text overlap', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /#pluginCatalogInformation \.plugin-info\s*\{[\s\S]*?display: grid/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+  assert.match(css, /overflow-wrap: anywhere/);
+  assert.match(css, /@media \(max-width: 420px\)/);
+  assert.match(css, /#pluginCatalogInformation \.plugin-info > em[\s\S]*?text-align: left/);
+  assert.match(css, /#pluginCatalogConfigure\s*\{[\s\S]*?white-space: normal/);
+});
+
 test('plugins: reopening the sheet resets catalog settings and detail panels', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
