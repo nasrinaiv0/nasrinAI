@@ -7188,7 +7188,7 @@
   const pluginAccessProfiles = {
     Gmail: { service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope: 'https://www.googleapis.com/auth/gmail.readonly', writeScope: 'https://www.googleapis.com/auth/gmail.modify', account: 'Google' },
     'Google Calendar': { service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope: 'https://www.googleapis.com/auth/calendar.readonly', writeScope: 'https://www.googleapis.com/auth/calendar.events', account: 'Google' },
-    'Google Drive': { service: 'drive', supported: false, readScope: 'https://www.googleapis.com/auth/drive.readonly', writeScope: 'https://www.googleapis.com/auth/drive.file', account: 'Google' },
+    'Google Drive': { service: 'drive', readService: 'drive', supported: true, readScope: 'https://www.googleapis.com/auth/drive.readonly', account: 'Google' },
     'Google Meet': { supported: false }, 'Google Keep': { supported: false },
     'Google Search': { supported: false }, 'Google Maps': { supported: false },
     Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
@@ -7235,7 +7235,7 @@
     $('pluginCatalogDeveloper').textContent = catalogDeveloper;
     $('pluginCatalogWebsite').href = catalogWebsite[name] || 'https://nasrinai.com';
     const profile = pluginAccessProfiles[name] || { supported: false };
-    const serviceStatus = googleStatus[profile.service === 'calendar' ? 'calendar' : 'gmail'];
+    const serviceStatus = googleStatus[profile.service] || { available: false, connected: false, scopes: [], email: null };
     const connectedGoogle = profile.account === 'Google' && serviceStatus.connected && Boolean(profile.service);
     const hasWrite = Boolean(profile.writeScope && serviceStatus.scopes.includes(profile.writeScope));
     const hasRead = Boolean((profile.readScope && serviceStatus.scopes.includes(profile.readScope)) || hasWrite);
@@ -7440,9 +7440,10 @@
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
   makeGooglePlugin('drive', 'Google Drive', 'team');
-  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null } };
+  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null } };
+  Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive'].some((service) => googleStatus[service].available); } });
   async function loadGoogle() {
-    await Promise.all(['gmail','calendar'].map(async (service) => {
+    await Promise.all(['gmail','calendar','drive'].map(async (service) => {
       try {
         const status = await api('/v1/google/status?service=' + service);
         googleStatus[service] = { available:status?.available===true, connected:status?.connected===true, scopes:Array.isArray(status?.scopes)?status.scopes:[], email:typeof status?.email==='string'?status.email:null };
@@ -7453,8 +7454,10 @@
   function renderGoogle() {
     for (const [service, item] of Object.entries(googlePlugins)) {
       const scopes = service === 'gmail'
-        ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify']
-        : ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events'];
+        ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send']
+        : service === 'calendar'
+          ? ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events']
+          : ['https://www.googleapis.com/auth/drive.readonly'];
       const status = googleStatus[service] || { available:false, connected:false, scopes:[], email:null, error:false };
       const connected = status.connected && scopes.some((scope) => status.scopes.includes(scope));
       item.sub.textContent = status.error
@@ -7514,7 +7517,7 @@
     if (back) {
       history.replaceState(null, '', location.pathname);
       notice.textContent = back === 'connected'
-        ? 'Google account connected. Open Plugins to confirm Gmail and Calendar access.'
+        ? 'Google account connected. Open Plugins to confirm the selected Google app access.'
         : 'Google was not connected. Check the OAuth setup and try again.';
     }
   }
