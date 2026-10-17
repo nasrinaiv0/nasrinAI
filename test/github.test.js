@@ -479,6 +479,18 @@ test('plugins: catalog settings expose account connection and read/write access 
   assert.match(css, /\.plugin-catalog-settings #pluginCatalogConfigure/);
 });
 
+test('plugins: app settings include account, permission, and information sections', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  for (const id of ['pluginCatalogCategory', 'pluginCatalogDeveloper', 'pluginCatalogWebsite', 'pluginCatalogInformation']) {
+    assert.ok(html.includes('id="' + id + '"'), 'missing information field: ' + id);
+  }
+  assert.match(html, /Privacy Policy/);
+  assert.match(html, /Report an issue/);
+  assert.match(js, /\$\('pluginCatalogWebsite'\)\.href = catalogWebsite\[name\]/);
+});
+
 test('plugins: reopening the sheet resets catalog settings and detail panels', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
