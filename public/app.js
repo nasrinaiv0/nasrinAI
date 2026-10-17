@@ -7165,6 +7165,7 @@
   }
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
+  makeGooglePlugin('drive', 'Google Drive', 'folder');
   let googleStatus = { available: false, connected: false, scopes: [], email: null };
   async function loadGoogle() {
     try {
@@ -7185,7 +7186,9 @@
     for (const [service, item] of Object.entries(googlePlugins)) {
       const scope = service === 'gmail'
         ? 'https://www.googleapis.com/auth/gmail.readonly'
-        : 'https://www.googleapis.com/auth/calendar.readonly';
+        : service === 'calendar'
+          ? 'https://www.googleapis.com/auth/calendar.readonly'
+          : 'https://www.googleapis.com/auth/drive.readonly';
       const connected = googleStatus.connected && googleStatus.scopes.includes(scope);
       item.sub.textContent = googleStatus.error
         ? 'Connection status unavailable'
