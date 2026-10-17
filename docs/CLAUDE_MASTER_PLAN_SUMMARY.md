@@ -123,3 +123,5 @@ Changes in this follow-up:
 - Gmail and Calendar cards now request separate status and disconnect only their own service. Catalog settings derive granted scopes from the selected app's status.
 - Added `db/migrations/042_google_service_connections.sql` to split existing rows based on scopes and change the primary key to `(tenant_id,user_id,service)`. Apply it in Supabase before deploying code. The migration preserves existing encrypted tokens and only creates a Gmail row if Gmail scopes were granted.
 - CI and Vercel validation pending; do not treat the feature as production-ready until migration and checks are verified.
+
+- Final test correction commit: `8e1d11b397d0ab27c864e344020746f1b0224492`; the Google catalog regression now asserts Google Maps remains and Google Team is absent. Latest observed Vercel status is pending; no PR-triggered workflow runs were returned by the status wrapper. Full CI has not been confirmed.
