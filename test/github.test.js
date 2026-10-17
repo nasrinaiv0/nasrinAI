@@ -479,6 +479,17 @@ test('plugins: catalog settings expose account connection and read/write access 
   assert.match(css, /\.plugin-catalog-settings #pluginCatalogConfigure/);
 });
 
+test('Google OAuth requests only the selected read or read/write scopes', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../src/google/index.js', import.meta.url), 'utf8');
+  assert.match(js, /'gmail-readwrite'/);
+  assert.match(js, /GMAIL_WRITE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.modify'/);
+  assert.match(js, /GMAIL_SEND_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.send'/);
+  assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
+  assert.match(js, /service==='calendar-write'\|\|service==='both'/);
+  assert.match(js, /include_granted_scopes:'true'/);
+});
+
 test('plugins: app settings include account, permission, and information sections', async () => {
   const { readFile } = await import('node:fs/promises');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
