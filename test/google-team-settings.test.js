@@ -21,6 +21,6 @@ test('Google Team contacts are account-scoped, editable and not capped by a fixe
   assert.match(app, /identityKey\('nasrin\.google-team\.v1'\)/);
   assert.match(app, /googleTeamContacts\.push\(/);
   assert.match(app, /googleTeamContacts\.filter\(/);
-  assert.match(app, /Remove all team members/);
+  assert.match(html, /Remove all team members/);
   assert.doesNotMatch(app, /googleTeamContacts\.length\s*[><=]+\s*\d+/);
 });
