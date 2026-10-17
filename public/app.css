@@ -2843,3 +2843,19 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .lib-document-item > .lib-list-preview {
   display: -webkit-box;
 }
+
+
+/* Isolated Google Team settings layout */
+#googleTeamForm { display:grid; gap:.65rem; padding:1rem; }
+#googleTeamForm label { font-size:.9rem; font-weight:550; }
+#googleTeamForm input, #googleTeamForm select, .google-team-controls select { width:100%; min-width:0; min-height:2.7rem; padding:.55rem .75rem; border:1px solid var(--line); border-radius:.8rem; background:var(--surface,transparent); color:var(--ink); font:inherit; }
+#googleTeamForm .setting-hint { margin:.15rem 0 0; }
+#googleTeamList { padding:0 .9rem; }
+.google-team-member { align-items:center; padding:.85rem 0; border-bottom:1px solid var(--line); }
+.google-team-member:last-child { border-bottom:0; }
+.google-team-details { display:flex; min-width:0; flex:1; flex-direction:column; gap:.2rem; overflow-wrap:anywhere; }
+.google-team-name { font-size:.94rem; font-weight:550; }
+.google-team-controls { display:flex; align-items:center; gap:.45rem; }
+.google-team-controls select { width:auto; min-width:4.6rem; padding:.45rem; }
+.google-team-controls .btn { min-height:2.25rem; padding:0 .75rem; }
+@media (max-width:420px) { .google-team-member { align-items:flex-start; flex-direction:column; gap:.6rem; } .google-team-controls { width:100%; } .google-team-controls select { flex:1; } }
