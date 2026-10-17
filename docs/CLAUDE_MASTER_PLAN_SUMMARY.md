@@ -96,3 +96,12 @@ Changes in this follow-up:
 - Corrected the test assertion to match the actual valid JavaScript key. No runtime application code was changed for this test-only fix.
 - Commit: `d6a941a9f2b0e83026faf892250e3dbd813b387a`.
 - Re-run CI and confirm all checks pass before merging; results for this new commit are pending.
+
+
+## Update — plugin accordion, account actions, and catalog cleanup (2026-10-18)
+- Removed the legacy Google Team pseudo-plugin from the Google catalog; Team remains a workspace Settings feature.
+- Google plugin cards now enforce a single-open accordion: opening one collapses the others.
+- Consolidated connect/disconnect into one state-aware action for supported Google integrations. Connected apps show a disconnect action; disconnected apps show connect.
+- Improved small-screen plugin action wrapping and catalog row wrapping.
+- Add-account limitation remains: the Google connection table/API is keyed to one row per tenant/user and the OAuth callback upserts on that key. The UI now explicitly avoids launching OAuth from Add account while multi-account storage is unsupported, preventing accidental replacement. True Add account requires a schema/API migration to provider/account-keyed rows and per-account token selection/disconnect before safely enabling it.
+- PR #384 was already merged; these changes are being committed directly to main rather than creating another PR, per request. Tests and deployment status must be checked after these commits.
