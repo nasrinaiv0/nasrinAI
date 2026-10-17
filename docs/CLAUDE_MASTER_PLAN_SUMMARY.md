@@ -88,3 +88,11 @@ Changes in this follow-up:
 - Safety limitation: current Google connection handling stores one connected account for the integration. When that account is already connected, Add account explains that multi-account linking is not implemented and does not launch OAuth or replace the current account. True multi-account support requires backend token storage keyed by provider/account, account selection, isolated authorization state, disconnect-one-account behavior, and security tests.
 - Added regression tests for provider-family classification, Add account markup, and the one-account guard.
 - These changes are not yet merged. Run full CI and inspect the diff before merge. Do not claim multi-account support until the backend is implemented and verified.
+
+
+### CI failure fix — PR #384 (2026-10-18)
+- CI run #2730 failed in the Node test job; database tests and dependency audit passed, and Vercel status was successful.
+- The single failing test was `plugins: catalog apps are grouped by provider family and add-account is guarded`. The implementation correctly uses the quoted object key `'Google Calendar': 'Google'`, but the test expected the invalid unquoted form `Google Calendar: 'Google'`.
+- Corrected the test assertion to match the actual valid JavaScript key. No runtime application code was changed for this test-only fix.
+- Commit: `d6a941a9f2b0e83026faf892250e3dbd813b387a`.
+- Re-run CI and confirm all checks pass before merging; results for this new commit are pending.
