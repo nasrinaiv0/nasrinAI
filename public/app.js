@@ -2076,13 +2076,21 @@
   // Nasrin's questions: quick answers to tap, and a box under each to type your own.
   function showQuestions(job, questions) {
     const card = document.createElement('div');
-    card.className = 'msg assistant image-card';
+    card.className = 'msg assistant image-card ask-card';
     const lede = document.createElement('p');
     lede.className = 'card-lede';
     lede.textContent = questions.length === 1 ? 'One question before I start:' : `A few questions before I start (${questions.length}):`;
     card.appendChild(lede);
     const picked = questions.map(() => '');
-    questions.forEach((q, i) => card.appendChild(questionBox(q, (value) => { picked[i] = value; })));
+    const questionList = document.createElement('ol');
+    questionList.className = 'ask-questions';
+    questionList.setAttribute('aria-label', 'Follow-up questions');
+    questions.forEach((q, i) => {
+      const item = document.createElement('li');
+      item.appendChild(questionBox(q, (value) => { picked[i] = value; }));
+      questionList.appendChild(item);
+    });
+    card.appendChild(questionList);
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     const go = document.createElement('button');
