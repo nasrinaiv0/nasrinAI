@@ -3369,7 +3369,7 @@
     $('googleTeamForm')?.addEventListener('submit', (event) => {
       event.preventDefault();
       const name = $('googleTeamName').value.trim(), email = $('googleTeamEmail').value.trim().toLowerCase(), role = $('googleTeamRole').value, status = $('googleTeamStatus');
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) { status.textContent = 'Enter a valid email address.'; $('googleTeamEmail').focus(); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { status.textContent = 'Enter a valid email address.'; $('googleTeamEmail').focus(); return; }
       const existing = googleTeamContacts.find((x) => x.email.toLowerCase() === email);
       if (existing) { existing.name = name || existing.name || ''; existing.role = role; status.textContent = 'Updated ' + email + '.'; }
       else { googleTeamContacts.push({ id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2)), name, email, role }); status.textContent = 'Added ' + email + '.'; }
@@ -3380,7 +3380,8 @@
       googleTeamContacts = []; if (saveGoogleTeam()) { renderGoogleTeam(); $('googleTeamStatus').textContent = 'All team members removed.'; }
     });
   }
-  initGoogleTeamSettings();
+  // Defer rendering until the full IIFE has initialized helpers such as mk().
+  queueMicrotask(initGoogleTeamSettings);
 
   for (const b of document.querySelectorAll('#settings [data-page]')) b.addEventListener('click', () => showPage(b.dataset.page));
   $('settingsBack').addEventListener('click', () => {
@@ -7222,7 +7223,7 @@
   }
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
-  makeGooglePlugin('drive', 'Google Drive', 'folder');
+  makeGooglePlugin('drive', 'Google Drive', 'team');
   let googleStatus = { available: false, connected: false, scopes: [], email: null };
   async function loadGoogle() {
     try {
