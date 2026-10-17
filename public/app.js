@@ -7416,7 +7416,6 @@
       'Manage the catalog display preference. Connection controls remain available below this card.'));
     const connect = mk('button', 'menu-row', 'Connect ' + title);
     connect.type = 'button';
-    connect.addEventListener('click', () => connectGoogle(service));
     const disconnect = mk('button', 'menu-row danger', 'Disconnect Google account');
     disconnect.type = 'button';
     disconnect.hidden = true;
