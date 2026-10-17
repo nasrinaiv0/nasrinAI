@@ -7,8 +7,7 @@ Plugins connect Nasrin to a person's other apps. They live in the menu →
 |---|---|
 | GitHub | Built (`docs/github.md`) |
 | Outlook, OneDrive, Teams, Excel, PowerPoint, Canva | Coming soon (listed only) |
-| Gmail, Google Calendar | Initial read-only integration in `docs/google.md`; requires OAuth configuration and migration 041 |
-| Google Cloud, Google Meet | Coming soon (listed only) |
+| Gmail, Google Cloud, Google Meet, Google Calendar | Coming soon (listed only) |
 | Facebook, Instagram, Threads, X, Messenger, WhatsApp | Coming soon (listed only) |
 
 Connected plugins are listed first, under **Connected**; the rest follow in
@@ -38,4 +37,4 @@ Exact permissions and review steps are set when each plugin is built; they are
 not verified here.
 
 
-Gmail and Calendar start with read-only access. The UI must not label either service connected unless `GET /v1/google/status` confirms it. Sending mail and modifying events are deliberately out of scope for the initial phase.
+Gmail and Calendar are being introduced as a read-only integration. The UI must not label either service connected unless `GET /v1/google/status` confirms it. Sending mail and modifying events remain out of scope for the initial phase.
