@@ -1411,6 +1411,34 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Owner-only quota diagnostic. The token is a separate, high-entropy
+      // secret stored in Vercel; never return it or any other secret.
+      method: 'GET',
+      path: '/v1/owner/quota-config',
+      scope: 'chat',
+      handler: async ({ caller, req }) => {
+        const expected = String(config.ownerDiagnosticsToken || '');
+        const supplied = String(req.headers['x-owner-diagnostics-token'] || '');
+        if (!expected || caller.actor.type !== 'user' || supplied.length !== expected.length ||
+            supplied.length > 512 || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
+          throw new HttpError(404, 'not_found', 'Not found.');
+        }
+        return { body: {
+          deployment_environment: config.deploymentEnvironment,
+          plans_enabled: config.plans.enabled,
+          effective_limits: {
+            pro_weekly_tokens: config.limits.proWeeklyTokens,
+            max_weekly_tokens: config.limits.maxWeeklyTokens,
+            ultra_weekly_tokens: config.limits.ultraWeeklyTokens,
+            max_daily_tokens_legacy: config.limits.maxDailyTokens,
+            ultra_daily_tokens_legacy: config.limits.ultraDailyTokens
+          },
+          source: 'server-startup environment configuration',
+          note: 'Paid-plan fallback uses weekly token limits. The daily fields are legacy configuration and do not set the Ultra weekly allowance.'
+        } };
+      }
+    },
+    {
       // The plans (Free, Max, Ultra), their prices, and the caller's plan.
       method: 'GET',
       path: '/v1/plans',
