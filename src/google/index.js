@@ -5,6 +5,7 @@ import { HttpError } from '../http/errors.js';
 const TTL = 600;
 const COOKIE = 'nasrin_google_oauth';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -105,7 +106,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       const nonce=randomBytes(24).toString('base64url');
       const state=signedState({u:w.user_id,t:w.tenant_id,n:sha(nonce),e:Math.floor(now()/1000)+TTL,s:service});
       res.appendHeader('Set-Cookie', COOKIE+'='+encodeURIComponent(nonce)+'; Path=/v1/google; Max-Age='+TTL+'; HttpOnly; Secure; SameSite=Lax');
-      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE]:[]),...(service==='calendar'||service==='both'?[CALENDAR_SCOPE]:[])];
+      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE,GMAIL_SEND_SCOPE]:[]),...(service==='calendar'||service==='both'?[CALENDAR_SCOPE]:[])];
       const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
       return {body:{url:'https://accounts.google.com/o/oauth2/v2/auth?'+q.toString()}};
     }},
@@ -197,6 +198,56 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
           result_size_estimate: Number(list.resultSizeEstimate || 0),
           messages: messages.filter(Boolean)
         };
+      }
+    },
+    {
+      name: 'google_gmail_send',
+      description: 'Send an email from the signed-in user’s connected Gmail account. Use only when the user explicitly asks to send an email and supplies or clearly states the recipient, subject, and body. This is an external action and requires the user to confirm the exact recipient, subject, and body before sending. Never substitute placeholders such as [email], invent an address, or claim sent before Google confirms success.',
+      risk: 'write',
+      who: ['user'],
+      parameters: {
+        properties: {
+          to: { type: 'string', maxLength: 254, description: 'Exact recipient email address.' },
+          subject: { type: 'string', maxLength: 250, description: 'Email subject.' },
+          body: { type: 'string', maxLength: 10000, description: 'Plain-text email body.' }
+        },
+        required: ['to', 'subject', 'body']
+      },
+      async run(args, ctx) {
+        const w = who(ctx);
+        if (!available) throw new HttpError(503, 'google_not_configured', 'Google integration is not configured.');
+        const to = String(args.to || '').trim();
+        const subject = String(args.subject || '').trim();
+        const body = String(args.body || '').trim();
+        if (!EMAIL.test(to) || to.length > 254 || /[\\r\\n]/.test(to)) throw new HttpError(400, 'invalid_recipient', 'Enter one valid recipient email address.');
+        if (!subject || subject.length > 250 || /[\\r\\n]/.test(subject)) throw new HttpError(400, 'invalid_subject', 'Enter a valid email subject.');
+        if (!body || body.length > 10000) throw new HttpError(400, 'invalid_body', 'Enter an email body of 1 to 10000 characters.');
+        if (ctx?.confirmed !== true) throw new HttpError(409, 'confirmation_required', 'Confirm the exact recipient, subject, and body before sending.');
+        const token = await tokenFor(w);
+        const mime = [
+          'To: ' + to,
+          'Subject: =?UTF-8?B?' + Buffer.from(subject, 'utf8').toString('base64') + '?=',
+          'MIME-Version: 1.0',
+          'Content-Type: text/plain; charset="UTF-8"',
+          'Content-Transfer-Encoding: base64',
+          '',
+          Buffer.from(body, 'utf8').toString('base64').replace(/.{1,76}/g, '    {
+      name: 'google_calendar_events',\\r\\n').trim()
+        ].join('\\r\\n');
+        const raw = Buffer.from(mime, 'utf8').toString('base64url');
+        const res = await fetchImpl('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raw }),
+          redirect: 'error',
+          signal: AbortSignal.timeout(10000)
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || typeof data?.id !== 'string') {
+          const status = res.status === 401 || res.status === 403 ? 403 : res.status === 429 ? 429 : 502;
+          throw new HttpError(status, 'gmail_send_failed', status === 403 ? 'Google denied email sending. Reconnect Gmail and approve the send permission.' : status === 429 ? 'Google rate limit reached. Try again shortly.' : 'Google could not confirm that the email was sent.');
+        }
+        return { ok: true, sent: true, message_id: data.id, thread_id: data.threadId || null, to, subject, message: 'Google confirmed the email was sent.' };
       }
     },
     {
