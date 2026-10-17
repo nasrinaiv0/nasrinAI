@@ -7186,9 +7186,7 @@
     for (const [service, item] of Object.entries(googlePlugins)) {
       const scope = service === 'gmail'
         ? 'https://www.googleapis.com/auth/gmail.readonly'
-        : service === 'calendar'
-          ? 'https://www.googleapis.com/auth/calendar.readonly'
-          : 'https://www.googleapis.com/auth/drive.readonly';
+        : 'https://www.googleapis.com/auth/calendar.events';
       const connected = googleStatus.connected && googleStatus.scopes.includes(scope);
       item.sub.textContent = googleStatus.error
         ? 'Connection status unavailable'

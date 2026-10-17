@@ -6,7 +6,7 @@ const TTL = 600;
 const COOKIE = 'nasrin_google_oauth';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+const CALENDAR_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cookies(req) {
@@ -82,8 +82,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     await db('PATCH', 'google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id), update);
     return data.access_token;
   }
-  async function googleApi(path, token) {
-    const res = await fetchImpl('https://www.googleapis.com/' + path, { headers:{Authorization:'Bearer '+token, Accept:'application/json'}, redirect:'error', signal:AbortSignal.timeout(10000) });
+  async function googleApi(path, token, options = {}) {
+    const res = await fetchImpl('https://www.googleapis.com/' + path, { ...options, headers:{Authorization:'Bearer '+token, Accept:'application/json', ...(options.headers || {})}, redirect:'error', signal:AbortSignal.timeout(10000) });
     const data = await res.json().catch(()=>null);
     if (!res.ok) {
       const status = res.status === 401 || res.status === 403 ? 403 : res.status === 429 ? 429 : 502;
@@ -101,12 +101,12 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     { method:'POST', path:'/v1/google/connect', scope:'chat', body:true, handler:async ({caller,body,res,req}) => {
       const w=who(caller);
       if (!available) throw new HttpError(503,'google_not_configured','Google integration is not configured on this deployment yet.');
-      const service = ['gmail','calendar','drive','both'].includes(body?.service) ? body.service : '';
-      if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, Drive, or both.');
+      const service = ['gmail','calendar','calendar-write','both'].includes(body?.service) ? body.service : '';
+      if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, Calendar write access, or both.');
       const nonce=randomBytes(24).toString('base64url');
       const state=signedState({u:w.user_id,t:w.tenant_id,n:sha(nonce),e:Math.floor(now()/1000)+TTL,s:service});
       res.appendHeader('Set-Cookie', COOKIE+'='+encodeURIComponent(nonce)+'; Path=/v1/google; Max-Age='+TTL+'; HttpOnly; Secure; SameSite=Lax');
-      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE]:[]),...(service==='calendar'||service==='both'?[CALENDAR_SCOPE]:[]),...(service==='drive'?[DRIVE_SCOPE]:[])];
+      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE]:[]),...(service==='calendar'||service==='both'||service==='calendar-write'?[CALENDAR_SCOPE,CALENDAR_EVENTS_SCOPE]:[])];
       const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
       return {body:{url:'https://accounts.google.com/o/oauth2/v2/auth?'+q.toString()}};
     }},
@@ -198,6 +198,55 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
           result_size_estimate: Number(list.resultSizeEstimate || 0),
           messages: messages.filter(Boolean)
         };
+      }
+    },
+    {
+      name: 'google_calendar_create_event',
+      description: 'Create an event in the signed-in user’s connected primary Google Calendar. Only call after the user has explicitly confirmed the exact event title, start, end, timezone, and invitee when one was requested. If the user asks to invite/send the event to someone, pass their actual email in recipient_email, reusing the exact address already supplied in conversation. Never use placeholders such as [email], [recipient], or example addresses as real recipients; if no actual address is available, ask for it instead of calling this tool. Never claim success unless Google returns a created event ID. This modifies the calendar, so it is a write action.',
+      risk: 'write',
+      who: ['user'],
+      parameters: {
+        properties: {
+          summary: { type: 'string', minLength: 1, maxLength: 200 },
+          start: { type: 'string', minLength: 10, maxLength: 64, description: 'ISO 8601 date-time including timezone offset, or YYYY-MM-DD for an all-day event.' },
+          end: { type: 'string', minLength: 10, maxLength: 64, description: 'ISO 8601 date-time including timezone offset, or YYYY-MM-DD for an all-day event.' },
+          time_zone: { type: 'string', maxLength: 80, description: 'IANA timezone such as Asia/Manila; required for timed events.' },
+          location: { type: 'string', maxLength: 300 },
+          description: { type: 'string', maxLength: 2000 },
+          recipient_email: { type: 'string', maxLength: 254, description: 'Optional invitee email. If the user asks to send/invite this event, use the exact real address already given in the conversation. Never use [email], [recipient], or example placeholders.' }
+        },
+        required: ['summary', 'start', 'end']
+      },
+      async run(args, ctx) {
+        const w = who(ctx);
+        if (!available) throw new HttpError(503, 'google_not_configured', 'Google integration is not configured.');
+        const summary = String(args.summary || '').trim();
+        const startValue = String(args.start || '').trim();
+        const endValue = String(args.end || '').trim();
+        if (!summary || !startValue || !endValue) throw new HttpError(400, 'invalid_event', 'Event title, start, and end are required.');
+        const allDay = /^\d{4}-\d{2}-\d{2}$/.test(startValue) && /^\d{4}-\d{2}-\d{2}$/.test(endValue);
+        const dateTime = /^\d{4}-\d{2}-\d{2}T/.test(startValue) && /^\d{4}-\d{2}-\d{2}T/.test(endValue);
+        if (!allDay && !dateTime) throw new HttpError(400, 'invalid_event_time', 'Use ISO 8601 start/end date-times, or dates for an all-day event.');
+        const startMs = Date.parse(startValue);
+        const endMs = Date.parse(endValue);
+        if (!allDay && (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs)) throw new HttpError(400, 'invalid_event_time', 'The event end must be after its start, with valid date-times.');
+        if (allDay && endValue <= startValue) throw new HttpError(400, 'invalid_event_time', 'The all-day event end date must be after its start date.');
+        const token = await tokenFor(w);
+        const event = allDay
+          ? { summary, start: { date: startValue }, end: { date: endValue } }
+          : { summary, start: { dateTime: startValue, ...(args.time_zone ? { timeZone: String(args.time_zone).slice(0, 80) } : {}) }, end: { dateTime: endValue, ...(args.time_zone ? { timeZone: String(args.time_zone).slice(0, 80) } : {}) } };
+        if (args.location) event.location = String(args.location).slice(0, 300);
+        if (args.description) event.description = String(args.description).slice(0, 2000);
+        if (args.recipient_email !== undefined && args.recipient_email !== null && String(args.recipient_email).trim() !== '') {
+          const recipient = String(args.recipient_email).trim();
+          if (recipient.length > 254 || !EMAIL.test(recipient) || /\[(?:email|recipient|address)\]/i.test(recipient) || /^(?:name|user|recipient)@example\.(?:com|org|net)$/i.test(recipient)) {
+            throw new HttpError(400, 'invalid_event_recipient', 'Use the actual recipient email address, not a placeholder.');
+          }
+          event.attendees = [{ email: recipient }];
+        }
+        const created = await googleApi('calendar/v3/calendars/primary/events', token, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(event) });
+        if (!created || typeof created.id !== 'string') throw new HttpError(502, 'calendar_create_unconfirmed', 'Google did not confirm that the event was created.');
+        return { source: 'Connected Google Calendar', created: true, event: { id: created.id, summary: String(created.summary || summary), start: created.start?.dateTime || created.start?.date || startValue, end: created.end?.dateTime || created.end?.date || endValue, htmlLink: created.htmlLink || null, status: created.status || 'confirmed' } };
       }
     },
     {
