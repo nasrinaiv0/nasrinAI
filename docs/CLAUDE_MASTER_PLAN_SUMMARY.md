@@ -115,3 +115,11 @@ Changes in this follow-up:
 - Added migration `042_google_service_connections.sql` to split the legacy connection row into Gmail and Calendar rows according to existing granted scopes, and change the primary key to `(tenant_id,user_id,service)`. Apply this migration to Supabase before deploying the backend code; until it is applied, the new endpoints cannot work.
 - Gmail and Calendar UI now load status independently and disconnect only the selected app. The legacy `both` OAuth choice maps to Calendar; new UI flows use the per-app service values.
 - Validation pending: required tests, CI and Vercel must pass before considering this complete.
+
+
+## Update — independent Google app connections and stale test (2026-10-18)
+- Fixed the stale assertion in `test/google-team-settings.test.js`: Google Team was removed from the Google catalog and must not be expected there.
+- Google backend connections now use a per-service key; status, OAuth callback upsert, token refresh and disconnect are scoped to Gmail or Calendar.
+- Gmail and Calendar cards now request separate status and disconnect only their own service. Catalog settings derive granted scopes from the selected app's status.
+- Added `db/migrations/042_google_service_connections.sql` to split existing rows based on scopes and change the primary key to `(tenant_id,user_id,service)`. Apply it in Supabase before deploying code. The migration preserves existing encrypted tokens and only creates a Gmail row if Gmail scopes were granted.
+- CI and Vercel validation pending; do not treat the feature as production-ready until migration and checks are verified.
