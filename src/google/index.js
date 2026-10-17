@@ -5,6 +5,8 @@ import { HttpError } from '../http/errors.js';
 const TTL = 600;
 const COOKIE = 'nasrin_google_oauth';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_WRITE_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const CALENDAR_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -101,12 +103,18 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     { method:'POST', path:'/v1/google/connect', scope:'chat', body:true, handler:async ({caller,body,res,req}) => {
       const w=who(caller);
       if (!available) throw new HttpError(503,'google_not_configured','Google integration is not configured on this deployment yet.');
-      const service = ['gmail','calendar','calendar-write','both'].includes(body?.service) ? body.service : '';
-      if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, Calendar write access, or both.');
+      const service = ['gmail','gmail-readwrite','calendar','calendar-write','both'].includes(body?.service) ? body.service : '';
+      if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail read-only or read/write, Calendar read-only or read/write, or both.');
       const nonce=randomBytes(24).toString('base64url');
       const state=signedState({u:w.user_id,t:w.tenant_id,n:sha(nonce),e:Math.floor(now()/1000)+TTL,s:service});
       res.appendHeader('Set-Cookie', COOKIE+'='+encodeURIComponent(nonce)+'; Path=/v1/google; Max-Age='+TTL+'; HttpOnly; Secure; SameSite=Lax');
-      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE]:[]),...(service==='calendar'||service==='both'||service==='calendar-write'?[CALENDAR_SCOPE,CALENDAR_EVENTS_SCOPE]:[])];
+      const scopes=['openid','email','profile',
+        ...(service==='gmail'?[GMAIL_SCOPE]:[]),
+        ...(service==='gmail-readwrite'?[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE]:[]),
+        ...(service==='calendar'?[CALENDAR_SCOPE]:[]),
+        ...(service==='calendar-write'||service==='both'?[CALENDAR_SCOPE,CALENDAR_EVENTS_SCOPE]:[]),
+        ...(service==='both'?[GMAIL_SCOPE]:[])
+      ];
       const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
       return {body:{url:'https://accounts.google.com/o/oauth2/v2/auth?'+q.toString()}};
     }},
