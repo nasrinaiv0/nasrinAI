@@ -3335,7 +3335,7 @@
       const parsed = JSON.parse(localStorage.getItem(googleTeamStorageKey()) || '[]');
       googleTeamContacts = Array.isArray(parsed) ? parsed.filter((x) =>
         x && typeof x.id === 'string' && typeof x.email === 'string' &&
-        /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x.email) &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email) &&
         ['to','cc','bcc'].includes(x.role)
       ) : [];
     } catch { googleTeamContacts = []; }
@@ -3394,7 +3394,7 @@
       const email = $('googleTeamEmail').value.trim().toLowerCase();
       const role = $('googleTeamRole').value;
       const status = $('googleTeamStatus');
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         status.textContent = 'Enter a valid email address.';
         $('googleTeamEmail').focus();
         return;
