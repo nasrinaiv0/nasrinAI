@@ -230,8 +230,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
           'Content-Type: text/plain; charset="UTF-8"',
           'Content-Transfer-Encoding: base64',
           '',
-          Buffer.from(body, 'utf8').toString('base64').replace(/.{1,76}/g, '    {
-      name: 'google_calendar_events',\\r\\n').trim()
+          Buffer.from(body, 'utf8').toString('base64').replace(/.{1,76}/g, '$&\r\n').trim()
         ].join('\\r\\n');
         const raw = Buffer.from(mime, 'utf8').toString('base64url');
         const res = await fetchImpl('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
