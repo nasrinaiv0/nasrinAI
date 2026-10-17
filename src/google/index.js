@@ -35,7 +35,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
   async function db(method, path, body) {
     const response = await fetchImpl(dbUrl + '/rest/v1/' + path, {
       method,
-      headers: { apikey: dbKey, Authorization: 'Bearer ' + dbKey, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      headers: { apikey: dbKey, Authorization: 'Bearer ' + dbKey, 'Content-Type': 'application/json', Prefer: method === 'POST' ? 'resolution=merge-duplicates,return=representation' : 'return=representation' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(8000),
       redirect: 'error'
