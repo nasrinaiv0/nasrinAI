@@ -45,6 +45,8 @@ test('chat: a shared link is read and given to the model as data', async () => {
     assert.equal(r.status, 200);
     const sent = provider.calls.at(-1).messages.at(-1).content;
     assert.match(sent, /Text of the web page https:\/\/resto\.example\.com\/menu \("Menu"\)[\s\S]*Adobo 150 pesos/);
+    const answer = await r.clone().json();
+    assert.match(answer.message.content, /Adobo is listed on the menu\.[\s\S]*\*\*Sources\*\*[\s\S]*\[Menu\]\(<https:\/\/resto\.example\.com\/menu>\)/, 'the answer retains the page that informed it');
     const saved = built.store;
     const history = await (await fetch(srv.url + `/v1/conversations/${(await r.json()).conversation_id}/messages`, { headers: bearer(USER_TOKEN) })).json();
     assert.doesNotMatch(JSON.stringify(history), /Adobo 150/, 'page text is not stored');

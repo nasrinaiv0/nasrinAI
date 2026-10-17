@@ -1163,7 +1163,15 @@
     lede.textContent = asks.length === 1 ? 'Your answer:' : 'Your answers:';
     card.appendChild(lede);
     const picked = asks.map(() => '');
-    asks.forEach((q, i) => card.appendChild(questionBox(q, (value) => { picked[i] = value; refresh(); })));
+    const questionList = document.createElement('ul');
+    questionList.className = 'ask-questions';
+    questionList.setAttribute('aria-label', 'Follow-up questions');
+    asks.forEach((q, i) => {
+      const item = document.createElement('li');
+      item.appendChild(questionBox(q, (value) => { picked[i] = value; refresh(); }));
+      questionList.appendChild(item);
+    });
+    card.appendChild(questionList);
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     const go = document.createElement('button');
@@ -2068,13 +2076,21 @@
   // Nasrin's questions: quick answers to tap, and a box under each to type your own.
   function showQuestions(job, questions) {
     const card = document.createElement('div');
-    card.className = 'msg assistant image-card';
+    card.className = 'msg assistant image-card ask-card';
     const lede = document.createElement('p');
     lede.className = 'card-lede';
     lede.textContent = questions.length === 1 ? 'One question before I start:' : `A few questions before I start (${questions.length}):`;
     card.appendChild(lede);
     const picked = questions.map(() => '');
-    questions.forEach((q, i) => card.appendChild(questionBox(q, (value) => { picked[i] = value; })));
+    const questionList = document.createElement('ol');
+    questionList.className = 'ask-questions';
+    questionList.setAttribute('aria-label', 'Follow-up questions');
+    questions.forEach((q, i) => {
+      const item = document.createElement('li');
+      item.appendChild(questionBox(q, (value) => { picked[i] = value; }));
+      questionList.appendChild(item);
+    });
+    card.appendChild(questionList);
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     const go = document.createElement('button');
@@ -3046,7 +3062,10 @@
     const list = document.createElement('ul');
     list.className = 'reply-sources';
     list.id = 'reply-sources-' + (++sourcesCount);
-    list.hidden = true;
+    list.hidden = false;
+    const heading = mk('p', 'reply-sources-heading', 'Sources & Resources');
+    heading.id = list.id + '-heading';
+    list.setAttribute('aria-labelledby', heading.id);
     for (const l of links) {
       const li = document.createElement('li');
       const a = document.createElement('a');
@@ -3080,9 +3099,9 @@
     b.type = 'button';
     b.className = 'act sources-toggle';
     b.dataset.kind = 'sources';
-    b.setAttribute('aria-expanded', 'false');
+    b.setAttribute('aria-expanded', 'true');
     b.setAttribute('aria-controls', list.id);
-    b.setAttribute('aria-label', `Sources (${links.length})`);
+    b.setAttribute('aria-label', `Hide sources (${links.length})`);
     // Overlapping round badges, one per site (its first letter; no outside
     // images, so the strict CSP holds), then the word Sources.
     const faces = mk('span', 'src-faces');
@@ -3098,10 +3117,12 @@
     b.addEventListener('click', () => {
       const open = list.hidden;
       list.hidden = !open;
+      heading.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
+      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources (${links.length})`);
     });
     row.appendChild(b);
-    row.after(list);
+    row.after(heading, list);
   }
 
   function replyActions(text, id, full = text) {
@@ -7147,17 +7168,68 @@
   };
   const MORE_PLUGINS = [
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map'], ['Google Team', 'team']]],
     ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
+  // Each catalog entry has a Settings action. Pins are a local, account-scoped
+  // display preference only; they never imply a connection or grant permissions.
+  const pluginCatalogPinKey = () => identityKey('nasrin.plugin-catalog-pins.v1');
+  function readPluginCatalogPins() {
+    try {
+      const value = JSON.parse(localStorage.getItem(pluginCatalogPinKey()) || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+  }
+  function writePluginCatalogPins(pins) {
+    try { localStorage.setItem(pluginCatalogPinKey(), JSON.stringify(pins)); return true; }
+    catch { $('pluginCatalogStatus').textContent = 'Could not save this preference in this browser.'; return false; }
+  }
+  function openPluginCatalogSettings(name, li, status = 'Coming soon', description = 'Manage this app’s catalog preference and review its availability.') {
+    $('pluginsList').hidden = true;
+    $('pluginCatalogSettings').hidden = false;
+    $('pluginCatalogTitle').textContent = name + ' settings';
+    $('pluginCatalogDescription').textContent = description;
+    $('pluginCatalogStatus').textContent = status;
+    $('pluginCatalogUnavailable').hidden = status !== 'Coming soon';
+    $('pluginCatalogActions').replaceChildren();
+    const pins = readPluginCatalogPins();
+    $('pluginCatalogPinned').checked = pins[name] === true;
+    $('pluginCatalogPinned').onchange = () => {
+      const next = readPluginCatalogPins();
+      if ($('pluginCatalogPinned').checked) next[name] = true;
+      else delete next[name];
+      if (!writePluginCatalogPins(next)) {
+        $('pluginCatalogPinned').checked = !next[name];
+        return;
+      }
+      if (li) {
+        li.dataset.pinned = next[name] ? '1' : '0';
+        const list = li.parentElement;
+        [...list.children].sort((a, b) => Number(b.dataset.pinned === '1') - Number(a.dataset.pinned === '1'))
+          .forEach((item) => list.appendChild(item));
+      }
+      $('pluginCatalogStatus').textContent = next[name] ? 'Pinned in the catalog.' : 'Pin removed.';
+    };
+    $('githubTitle').lastChild.textContent = name;
+    $('pluginCatalogBack').focus();
+  }
+  $('pluginCatalogBack').addEventListener('click', () => {
+    $('pluginCatalogSettings').hidden = true;
+    $('pluginsList').hidden = false;
+    $('githubTitle').lastChild.textContent = 'Plugins';
+    $('githubClose').focus();
+  });
   {
     const box = $('pluginsMore');
     const svgNs = 'http://www.w3.org/2000/svg';
+    const pins = readPluginCatalogPins();
     for (const [group, items] of MORE_PLUGINS) {
       box.appendChild(mk('p', 'plugins-group', group));
       const ul = mk('ul', 'plugins-list');
       for (const [name, glyph] of items) {
         const li = mk('li', 'plugins-item');
+        li.dataset.pluginName = name;
+        li.dataset.pinned = pins[name] === true ? '1' : '0';
         const svg = document.createElementNS(svgNs, 'svg');
         svg.setAttribute('viewBox', '0 0 24 24');
         svg.setAttribute('aria-hidden', 'true');
@@ -7181,12 +7253,33 @@
           logo.className = 'plugins-glyph plugins-product-logo';
           logo.loading = 'lazy';
           logo.decoding = 'async';
-          li.append(logo, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
-        } else {
-          li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
-        }
+          li.append(logo);
+        } else li.appendChild(svg);
+        li.appendChild(mk('span', 'plugins-name', name));
+        li.appendChild(mk('span', 'plugins-soon', name === 'Google Team' ? 'Settings' : 'Coming soon'));
+        const settings = mk('button', 'plugins-settings-btn', 'Settings');
+        settings.type = 'button';
+        settings.setAttribute('aria-label', name + ' settings');
+        settings.addEventListener('click', () => {
+          if (name === 'Google Team') {
+            closeGithub();
+            openSettings();
+            showPage('team');
+            return;
+          }
+          const descriptions = {
+            'Google Meet': 'Create and manage meeting links when this integration becomes available.',
+            'Google Keep': 'Access notes and lists when this integration becomes available.',
+            'Google Search': 'Configure search access when this integration becomes available.',
+            'Google Maps': 'Configure maps and place lookup when this integration becomes available.'
+          };
+          openPluginCatalogSettings(name, li, 'Coming soon', descriptions[name] || 'This integration is not connected yet.');
+        });
+        li.appendChild(settings);
         ul.appendChild(li);
       }
+      [...ul.children].sort((a, b) => Number(b.dataset.pinned === '1') - Number(a.dataset.pinned === '1'))
+        .forEach((item) => ul.appendChild(item));
       box.appendChild(ul);
     }
   }
@@ -7225,6 +7318,11 @@
     head.append(icon, main, chev);
     const actions = mk('div', 'menu plugin-actions');
     actions.hidden = true;
+    const settings = mk('button', 'menu-row', 'Settings');
+    settings.type = 'button';
+    settings.addEventListener('click', () => openPluginCatalogSettings(title, null,
+      sub.textContent || 'Checking connection…',
+      'Manage the catalog display preference. Connection controls remain available below this card.'));
     const connect = mk('button', 'menu-row', 'Connect ' + title);
     connect.type = 'button';
     connect.addEventListener('click', () => connectGoogle(service));
@@ -7232,7 +7330,7 @@
     disconnect.type = 'button';
     disconnect.hidden = true;
     disconnect.addEventListener('click', disconnectGoogle);
-    actions.append(connect, disconnect);
+    actions.append(settings, connect, disconnect);
     head.addEventListener('click', () => {
       const open = actions.hidden;
       actions.hidden = !open;

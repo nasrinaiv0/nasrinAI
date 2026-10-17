@@ -54,7 +54,7 @@ test('Google Drive plugin uses an existing glyph key', () => {
 
 test('Google integrations catalog replaces Google Cloud with Meet, Keep, Search and Maps', () => {
   const catalog = app.slice(app.indexOf('const MORE_PLUGINS'), app.indexOf('const MORE_PLUGINS') + 700);
-  assert.match(catalog, /\['Google', \[\['Google Meet', 'video'\], \['Google Keep', 'note'\], \['Google Search', 'search'\], \['Google Maps', 'map'\]\]\]/);
+  assert.match(catalog, /\['Google', \[\['Google Meet', 'video'\], \['Google Keep', 'note'\], \['Google Search', 'search'\], \['Google Maps', 'map'\], \['Google Team', 'team'\]\]\]/);
   assert.doesNotMatch(catalog, /Google Cloud/);
 });
 

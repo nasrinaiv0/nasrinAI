@@ -228,14 +228,16 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
 });
 
-test('web sources fold under a Sources button beside the reply actions (owner, 2026-10-13)', async () => {
+test('web sources are visible by default with an accessible toggle beside reply actions (owner, 2026-10-18)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
   assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /list\.hidden = true;/);
-  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'false'\);/);
+  assert.match(toggle, /list\.hidden = false;/);
+  assert.match(toggle, /const heading = mk\('p', 'reply-sources-heading', 'Sources & Resources'\);/);
+  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'true'\);/);
+  assert.match(toggle, /heading\.hidden = !open;/);
   assert.match(toggle, /a\.rel = 'noopener noreferrer';/);
   assert.doesNotMatch(toggle, /innerHTML/);
   // Copy, share and Save to Library keep the sources; read-aloud skips them.
@@ -261,6 +263,18 @@ test('"clean this" with a spreadsheet runs the cleaner on the device, never the 
   assert.doesNotMatch(card, /innerHTML/);
 });
 
+test('chat follow-up questions are presented as a list with editable answers (owner, 2026-10-18)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const card = js.slice(js.indexOf('function askCard('), js.indexOf('function show(role, text'));
+  assert.match(card, /const questionList = document\.createElement\('ul'\);/);
+  assert.match(card, /questionList\.className = 'ask-questions';/);
+  assert.match(card, /item\.appendChild\(questionBox\(q,/);
+  assert.match(js, /field\.placeholder = 'Type your answer';/);
+  assert.match(js, /field\.addEventListener\('input', \(\) =>/);
+  assert.match(css, /\.ask-card \.ask-questions/);
+});
+
 test('normal chats use a slightly smaller text size (owner, 2026-10-13)', async () => {
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.msg\.assistant \{ align-self: flex-start; font-size: 0\.95rem; line-height: 1\.62; \}/);
@@ -282,7 +296,7 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /b\.setAttribute\('aria-label', `Sources \(\$\{links\.length\}\)`\);/);
+  assert.match(toggle, /b\.setAttribute\('aria-label', `Hide sources \(\$\{links\.length\}\)`\);/);
   assert.match(toggle, /const hosts = \[\.\.\.new Set\(links\.map\(\(l\) => l\.host\)\)\]\.slice\(0, 3\);/);
   assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
   assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
