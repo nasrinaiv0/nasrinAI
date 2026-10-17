@@ -193,7 +193,7 @@ export function buildApp({ config, logger }) {
   const github = createGithub({ config: effective, store, logger });
   const google = createGoogleIntegration({ config: effective, logger });
   if (google.available) logger.info('Google Gmail/Calendar integration ready');
-  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools], usageLog, config: effective, logger });
+  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
