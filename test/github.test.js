@@ -419,10 +419,11 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
   assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
-  assert.doesNotMatch(js, /Google Team/);
+  const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
+  assert.doesNotMatch(catalog, /Google Team/);
   assert.match(js, /makeGooglePlugin\('gmail', 'Gmail', 'mail'\)/);
   assert.match(js, /makeGooglePlugin\('calendar', 'Google Calendar', 'calendar'\)/);
-  assert.match(js, /api\('\/v1\/google\/status'\)/);
+  assert.match(js, /api\('\/v1\/google\/status\?service=' \+ service\)/);
   assert.match(js, /api\('\/v1\/google\/connect'/);
 });
 
@@ -436,7 +437,8 @@ test('plugins: every catalog app has settings and account-scoped pin preferences
   assert.match(js, /mk\('button', 'plugins-settings-btn', 'Settings'\)/);
   assert.match(js, /settings\.addEventListener\('click'/);
   assert.match(js, /openPluginCatalogSettings\(name, li, 'Coming soon'/);
-  assert.doesNotMatch(js, /Google Team/);
+  const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
+  assert.doesNotMatch(catalog, /Google Team/);
   assert.match(js, /actions\.append\(settings, connect\)/);
 });
 

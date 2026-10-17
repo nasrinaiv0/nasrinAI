@@ -7455,7 +7455,7 @@
       const scopes = service === 'gmail'
         ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify']
         : ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events'];
-      const status = googleStatus[service];
+      const status = googleStatus[service] || { available:false, connected:false, scopes:[], email:null, error:false };
       const connected = status.connected && scopes.some((scope) => status.scopes.includes(scope));
       item.sub.textContent = status.error
         ? 'Connection status unavailable'
