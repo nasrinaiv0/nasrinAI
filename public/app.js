@@ -7167,7 +7167,7 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map'], ['Google Team', 'team']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
     ['Design', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
@@ -7208,7 +7208,7 @@
     const pluginFamilyByName = {
       Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
       'Google Meet': 'Google', 'Google Keep': 'Google', 'Google Search': 'Google',
-      'Google Maps': 'Google', 'Google Team': 'Google',
+      'Google Maps': 'Google',
       Outlook: 'Microsoft', 'Microsoft Outlook': 'Microsoft', OneDrive: 'Microsoft',
       Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
       Canva: 'Design', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
@@ -7356,17 +7356,11 @@
           li.append(logo);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
-        li.appendChild(mk('span', 'plugins-soon', name === 'Google Team' ? 'Settings' : 'Coming soon'));
+        li.appendChild(mk('span', 'plugins-soon', 'Coming soon'));
         const settings = mk('button', 'plugins-settings-btn', 'Settings');
         settings.type = 'button';
         settings.setAttribute('aria-label', name + ' settings');
         settings.addEventListener('click', () => {
-          if (name === 'Google Team') {
-            closeGithub();
-            openSettings();
-            showPage('team');
-            return;
-          }
           const descriptions = {
             'Google Meet': 'Create and manage meeting links when this integration becomes available.',
             'Google Keep': 'Access notes and lists when this integration becomes available.',
