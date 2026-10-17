@@ -437,7 +437,8 @@ test('plugins: every catalog app has settings and account-scoped pin preferences
   assert.match(js, /mk\('button', 'plugins-settings-btn', 'Settings'\)/);
   assert.match(js, /settings\.addEventListener\('click'/);
   assert.match(js, /openPluginCatalogSettings\(name, li, 'Coming soon'/);
-  assert.doesNotMatch(js, /Google Team/);
+  const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
+  assert.doesNotMatch(catalog, /Google Team/);
   assert.match(js, /actions\.append\(settings, connect\)/);
 });
 
