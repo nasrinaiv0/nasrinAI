@@ -37,3 +37,17 @@ test('Team page wiring is additive and core Settings navigation remains wired', 
   assert.match(html, /id="settingsBack"/);
   assert.match(html, /id="settings"/);
 });
+
+test('Google Team email validation uses a normal JavaScript email regex', () => {
+  assert.match(app, /if \(!\/\^\[\^\\s@\]\+@\[\^\\s@\]\+\\\.\[\^\\s@\]\+\$\/\.test\(email\)\)/);
+  assert.doesNotMatch(app, /\[\^\\\\\\\\s@\]/);
+});
+
+test('Google Team initialization is deferred until shared DOM helpers exist', () => {
+  assert.match(app, /queueMicrotask\(initGoogleTeamSettings\)/);
+  assert.doesNotMatch(app, /\n  initGoogleTeamSettings\(\);/);
+});
+
+test('Google Drive plugin uses an existing glyph key', () => {
+  assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'team'\)/);
+});
