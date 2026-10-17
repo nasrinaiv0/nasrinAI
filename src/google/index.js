@@ -7,6 +7,7 @@ const COOKIE = 'nasrin_google_oauth';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cookies(req) {
@@ -101,12 +102,12 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     { method:'POST', path:'/v1/google/connect', scope:'chat', body:true, handler:async ({caller,body,res,req}) => {
       const w=who(caller);
       if (!available) throw new HttpError(503,'google_not_configured','Google integration is not configured on this deployment yet.');
-      const service = ['gmail','calendar','both'].includes(body?.service) ? body.service : '';
-      if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, or both.');
+      const service = ['gmail','calendar','drive','both','all'].includes(body?.service) ? body.service : '';
+      if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, Drive, or all Google services.');
       const nonce=randomBytes(24).toString('base64url');
       const state=signedState({u:w.user_id,t:w.tenant_id,n:sha(nonce),e:Math.floor(now()/1000)+TTL,s:service});
       res.appendHeader('Set-Cookie', COOKIE+'='+encodeURIComponent(nonce)+'; Path=/v1/google; Max-Age='+TTL+'; HttpOnly; Secure; SameSite=Lax');
-      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE,GMAIL_SEND_SCOPE]:[]),...(service==='calendar'||service==='both'?[CALENDAR_SCOPE]:[])];
+      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'||service==='all'?[GMAIL_SCOPE,GMAIL_SEND_SCOPE]:[]),...(service==='calendar'||service==='both'||service==='all'?[CALENDAR_SCOPE]:[]),...(service==='drive'||service==='all'?[DRIVE_SCOPE]:[])];
       const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
       return {body:{url:'https://accounts.google.com/o/oauth2/v2/auth?'+q.toString()}};
     }},
