@@ -7265,8 +7265,8 @@
     };
     $('pluginCatalogReadOnly').checked = hasRead;
     $('pluginCatalogReadWrite').checked = hasWrite;
-    $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !googleStatus.available;
-    $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !googleStatus.available;
+    $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !serviceStatus.available;
+    $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !serviceStatus.available;
     $('pluginCatalogConfigure').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogConfigure').textContent = isConnected ? 'Reconnect to update access' : 'Configure access';
     $('pluginCatalogConfigure').onclick = () => {
@@ -7440,7 +7440,7 @@
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
   makeGooglePlugin('drive', 'Google Drive', 'team');
-  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null } };
+  const googleStatus = { available:false, gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null } };
   async function loadGoogle() {
     await Promise.all(['gmail','calendar'].map(async (service) => {
       try {
@@ -7448,6 +7448,7 @@
         googleStatus[service] = { available:status?.available===true, connected:status?.connected===true, scopes:Array.isArray(status?.scopes)?status.scopes:[], email:typeof status?.email==='string'?status.email:null };
       } catch { googleStatus[service] = { available:false, connected:false, scopes:[], email:null, error:true }; }
     }));
+    googleStatus.available = googleStatus.gmail.available || googleStatus.calendar.available;
     renderGoogle();
   }
   function renderGoogle() {
