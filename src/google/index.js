@@ -58,7 +58,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
     try {
       const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-      return p && typeof p.u === 'string' && typeof p.t === 'string' && typeof p.n === 'string' && p.e > Math.floor(now() / 1000) && ['gmail','calendar','both'].includes(p.s) ? p : null;
+      return p && typeof p.u === 'string' && typeof p.t === 'string' && typeof p.n === 'string' && p.e > Math.floor(now() / 1000) && ['gmail','calendar','drive','both','all'].includes(p.s) ? p : null;
     } catch { return null; }
   }
   const who = (caller) => {
@@ -257,6 +257,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       parameters: {
         properties: {
           summary: { type: 'string', maxLength: 200 },
+          attendee_email: { type: 'string', maxLength: 254, description: 'Optional invitee email address. Must be a real email address; never pass placeholders such as [email].' },
           start: { type: 'string', maxLength: 80, description: 'ISO 8601 date-time with timezone offset, e.g. 2026-10-20T14:00:00+08:00.' },
           end: { type: 'string', maxLength: 80, description: 'ISO 8601 date-time with timezone offset, later than start.' },
           description: { type: 'string', maxLength: 4000 },
@@ -271,6 +272,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const summary = String(args.summary || '').trim();
         const start = String(args.start || '').trim();
         const end = String(args.end || '').trim();
+        const attendeeEmail = String(args.attendee_email || '').trim();
+        if (attendeeEmail && (!/^[^\\s@<>\\[\\]]+@[^\\s@<>\\[\\]]+\\.[^\\s@<>\\[\\]]+$/.test(attendeeEmail) || /\\b(email|recipient|example)\\b/i.test(attendeeEmail))) throw new HttpError(400, 'invalid_attendee_email', 'Provide a real attendee email address, not a placeholder.');
         if (!summary || summary.length > 200) throw new HttpError(400, 'invalid_event', 'A valid event title is required.');
         const startDate = new Date(start), endDate = new Date(end);
         if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate <= startDate || !/(Z|[+-]\\d{2}:?\\d{2})$/.test(start) || !/(Z|[+-]\\d{2}:?\\d{2})$/.test(end)) {
@@ -282,7 +285,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
           start: { dateTime: startDate.toISOString(), ...(args.timezone ? { timeZone: String(args.timezone).slice(0, 80) } : {}) },
           end: { dateTime: endDate.toISOString(), ...(args.timezone ? { timeZone: String(args.timezone).slice(0, 80) } : {}) },
           ...(args.description ? { description: String(args.description).slice(0, 4000) } : {}),
-          ...(args.location ? { location: String(args.location).slice(0, 500) } : {})
+          ...(args.location ? { location: String(args.location).slice(0, 500) } : {}),
+          ...(attendeeEmail ? { attendees: [{ email: attendeeEmail }] } : {})
         };
         const res = await fetchImpl('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
           method: 'POST',
@@ -296,7 +300,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
           const status = res.status === 401 || res.status === 403 ? 403 : res.status === 429 ? 429 : 502;
           throw new HttpError(status, 'calendar_create_failed', status === 403 ? 'Google denied event creation. Reconnect Calendar and approve event-write permission.' : status === 429 ? 'Google rate limit reached. Try again shortly.' : 'Google could not confirm event creation.');
         }
-        return { ok: true, created: true, event: { id: data.id, summary: data.summary, start: data.start?.dateTime, end: data.end?.dateTime, htmlLink: data.htmlLink || null }, message: 'Google confirmed the calendar event was created.' };
+        return { ok: true, created: true, event: { id: data.id, summary: data.summary, start: data.start?.dateTime, end: data.end?.dateTime, attendees: (Array.isArray(data.attendees) ? data.attendees : []).map((a) => a.email).filter(Boolean), htmlLink: data.htmlLink || null }, message: 'Google confirmed the calendar event was created.' };
       }
     },
     {
