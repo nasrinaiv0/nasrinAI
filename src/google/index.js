@@ -222,7 +222,6 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         if (!EMAIL.test(to) || to.length > 254 || /[\\r\\n]/.test(to)) throw new HttpError(400, 'invalid_recipient', 'Enter one valid recipient email address.');
         if (!subject || subject.length > 250 || /[\\r\\n]/.test(subject)) throw new HttpError(400, 'invalid_subject', 'Enter a valid email subject.');
         if (!body || body.length > 10000) throw new HttpError(400, 'invalid_body', 'Enter an email body of 1 to 10000 characters.');
-        if (ctx?.confirmed !== true) throw new HttpError(409, 'confirmation_required', 'Confirm the exact recipient, subject, and body before sending.');
         const token = await tokenFor(w);
         const mime = [
           'To: ' + to,
