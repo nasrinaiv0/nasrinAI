@@ -7432,7 +7432,10 @@
     closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); closeCodePicker();
     lastFocus = document.activeElement;
     $('githubStatus').textContent = '';
+    // Always reset the sheet to its catalog view when opening/reopening.
+    // A previous visit may have left the catalog-settings panel visible.
     $('pluginsList').hidden = false;
+    $('pluginCatalogSettings').hidden = true;
     $('pluginDetail').hidden = true;
     $('githubTitle').lastChild.textContent = 'Plugins';
     scrim.hidden = false;
