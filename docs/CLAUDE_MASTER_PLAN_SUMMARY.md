@@ -75,3 +75,16 @@ These statuses are historical snapshots and may have changed.
 4. Merge only if checks pass and diff is safe; otherwise fix the failing check without unrelated changes.
 5. After merge, verify the actual deployment and mobile rendering. Do not claim visual verification unless it happened.
 6. Update this file with final PR/merge/deployment/test status and the next concrete task.
+
+
+## Update — plugin account entry and provider-family categorization (2026-10-18)
+### Follow-up to PR #382
+PR #382 is already merged into `main`; merged PRs cannot be edited. Follow-up changes are being prepared on branch `feat/plugin-family-categories-add-account` for a new PR.
+
+Changes in this follow-up:
+- Corrected plugin family classification explicitly: Google apps (including Gmail, Google Calendar, Drive, Meet, Keep, Search, Maps, and Google Team) map to Google; Outlook, OneDrive, Teams, Excel, and PowerPoint map to Microsoft; Canva is classified under Design; Facebook, Instagram, Threads, X, Messenger, and WhatsApp are Social & messaging; GitHub is Developer tools.
+- Moved Canva out of the Microsoft catalog section and gave it a Design section.
+- Added an Add account action to the plugin settings account area for supported integrations.
+- Safety limitation: current Google connection handling stores one connected account for the integration. When that account is already connected, Add account explains that multi-account linking is not implemented and does not launch OAuth or replace the current account. True multi-account support requires backend token storage keyed by provider/account, account selection, isolated authorization state, disconnect-one-account behavior, and security tests.
+- Added regression tests for provider-family classification, Add account markup, and the one-account guard.
+- These changes are not yet merged. Run full CI and inspect the diff before merge. Do not claim multi-account support until the backend is implemented and verified.
