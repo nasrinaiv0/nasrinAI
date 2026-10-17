@@ -7439,39 +7439,34 @@
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
   makeGooglePlugin('drive', 'Google Drive', 'team');
-  let googleStatus = { available: false, connected: false, scopes: [], email: null };
+  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null } };
   async function loadGoogle() {
-    try {
-      const status = await api('/v1/google/status');
-      googleStatus = {
-        available: status?.available === true,
-        connected: status?.connected === true,
-        scopes: Array.isArray(status?.scopes) ? status.scopes : [],
-        email: typeof status?.email === 'string' ? status.email : null
-      };
-      renderGoogle();
-    } catch {
-      googleStatus = { available: false, connected: false, scopes: [], email: null, error: true };
-      renderGoogle();
-    }
+    await Promise.all(['gmail','calendar'].map(async (service) => {
+      try {
+        const status = await api('/v1/google/status?service=' + service);
+        googleStatus[service] = { available:status?.available===true, connected:status?.connected===true, scopes:Array.isArray(status?.scopes)?status.scopes:[], email:typeof status?.email==='string'?status.email:null };
+      } catch { googleStatus[service] = { available:false, connected:false, scopes:[], email:null, error:true }; }
+    }));
+    renderGoogle();
   }
   function renderGoogle() {
     for (const [service, item] of Object.entries(googlePlugins)) {
       const scopes = service === 'gmail'
         ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify']
         : ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events'];
-      const connected = googleStatus.connected && scopes.some((scope) => googleStatus.scopes.includes(scope));
-      item.sub.textContent = googleStatus.error
+      const status = googleStatus[service];
+      const connected = status.connected && scopes.some((scope) => status.scopes.includes(scope));
+      item.sub.textContent = status.error
         ? 'Connection status unavailable'
-        : !googleStatus.available
+        : !status.available
           ? 'Not configured on this site yet'
           : connected
-            ? 'Connected' + (googleStatus.email ? ' · ' + googleStatus.email : '')
+            ? 'Connected' + (status.email ? ' · ' + status.email : '')
             : 'Not connected';
       item.connect.textContent = connected ? 'Disconnect Google account' : 'Connect ' + item.title;
-      item.connect.disabled = !googleStatus.available;
+      item.connect.disabled = !status.available;
       item.connect.classList.toggle('danger', connected);
-      item.connect.onclick = connected ? disconnectGoogle : () => connectGoogle(service);
+      item.connect.onclick = connected ? () => disconnectGoogle(service) : () => connectGoogle(service);
       item.disconnect.hidden = true;
       (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
     }
@@ -7496,14 +7491,14 @@
       status.textContent = err.message || 'Google could not be connected. Please try again.';
     }
   }
-  async function disconnectGoogle() {
+  async function disconnectGoogle(service) {
     const status = $('githubStatus');
-    const buttons = Object.values(googlePlugins).map((p) => p.connect);
+    const buttons = [googlePlugins[service]?.connect].filter(Boolean);
     buttons.forEach((button) => { button.disabled = true; });
     status.textContent = 'Disconnecting Google…';
     try {
-      await api('/v1/google', { method: 'DELETE' });
-      googleStatus = { ...googleStatus, connected: false, scopes: [], email: null };
+      await api('/v1/google?service=' + encodeURIComponent(service), { method: 'DELETE' });
+      googleStatus[service] = { ...googleStatus[service], connected: false, scopes: [], email: null };
       renderGoogle();
       status.textContent = 'Google account disconnected.';
     } catch (err) {
