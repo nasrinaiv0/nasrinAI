@@ -2859,3 +2859,37 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .google-team-controls select { width:auto; min-width:4.6rem; padding:.45rem; }
 .google-team-controls .btn { min-height:2.25rem; padding:0 .75rem; }
 @media (max-width:420px) { .google-team-member { align-items:flex-start; flex-direction:column; gap:.6rem; } .google-team-controls { width:100%; } .google-team-controls select { flex:1; } }
+
+
+/* Follow-up prompts read like a compact checklist while keeping every answer editable. */
+.ask-card .ask-questions {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0.5rem 0 0;
+  padding-left: 1.35rem;
+}
+.ask-card .ask-questions > li {
+  padding-left: 0.15rem;
+}
+.ask-card .ask-questions > li::marker {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.ask-card .ask-questions .question {
+  min-width: 0;
+  margin: 0;
+}
+.ask-card .question legend {
+  max-width: 100%;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.reply-sources-heading {
+  margin: 0.55rem 0 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.reply-sources-heading[hidden] {
+  display: none;
+}
