@@ -7185,9 +7185,9 @@
     catch { $('pluginCatalogStatus').textContent = 'Could not save this preference in this browser.'; return false; }
   }
   const pluginAccessProfiles = {
-    Gmail: { service: 'gmail', supported: true, readScope: 'https://www.googleapis.com/auth/gmail.readonly', writeScope: null, readLabel: 'Read emails and message metadata', writeLabel: 'Send or modify email', account: 'Google' },
-    'Google Calendar': { service: 'calendar', supported: true, readScope: null, writeScope: 'https://www.googleapis.com/auth/calendar.events', readLabel: 'Read calendar events', writeLabel: 'Create and update calendar events', account: 'Google' },
-    'Google Drive': { service: 'drive', supported: false, readScope: null, writeScope: null, account: 'Google' },
+    Gmail: { service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope: 'https://www.googleapis.com/auth/gmail.readonly', writeScope: 'https://www.googleapis.com/auth/gmail.modify', account: 'Google' },
+    'Google Calendar': { service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope: 'https://www.googleapis.com/auth/calendar.readonly', writeScope: 'https://www.googleapis.com/auth/calendar.events', account: 'Google' },
+    'Google Drive': { service: 'drive', supported: false, readScope: 'https://www.googleapis.com/auth/drive.readonly', writeScope: 'https://www.googleapis.com/auth/drive.file', account: 'Google' },
     'Google Meet': { supported: false }, 'Google Keep': { supported: false },
     'Google Search': { supported: false }, 'Google Maps': { supported: false },
     Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
@@ -7222,8 +7222,8 @@
     $('pluginCatalogWebsite').href = catalogWebsite[name] || 'https://nasrinai.com';
     const profile = pluginAccessProfiles[name] || { supported: false };
     const connectedGoogle = profile.account === 'Google' && googleStatus.connected;
-    const hasRead = Boolean(profile.readScope && googleStatus.scopes.includes(profile.readScope));
     const hasWrite = Boolean(profile.writeScope && googleStatus.scopes.includes(profile.writeScope));
+    const hasRead = Boolean((profile.readScope && googleStatus.scopes.includes(profile.readScope)) || hasWrite);
     const isConnected = Boolean(connectedGoogle && (hasRead || hasWrite));
     $('pluginCatalogAccountLabel').textContent = 'Google account';
     $('pluginCatalogAccountStatus').textContent = isConnected
@@ -7246,13 +7246,19 @@
     $('pluginCatalogConfigure').textContent = isConnected ? 'Reconnect to update access' : 'Configure access';
     $('pluginCatalogConfigure').onclick = () => {
       if (!profile.supported) return;
-      const selected = $('pluginCatalogReadOnly').checked || $('pluginCatalogReadWrite').checked;
-      if (!selected) {
-        $('pluginCatalogPermissionHint').textContent = 'Select at least one supported permission before continuing.';
+      const readSelected = $('pluginCatalogReadOnly').checked;
+      const writeSelected = $('pluginCatalogReadWrite').checked;
+      if (!readSelected && !writeSelected) {
+        $('pluginCatalogPermissionHint').textContent = 'Select Read-only access or Read and write access before continuing.';
         return;
       }
-      $('pluginCatalogPermissionHint').textContent = 'Continue to Google to authorize the selected app access. Actual access depends on the provider approval.';
-      connectGoogle(profile.service);
+      const service = writeSelected ? profile.writeService : profile.readService;
+      if (!service) {
+        $('pluginCatalogPermissionHint').textContent = 'This access level is not available for this integration yet.';
+        return;
+      }
+      $('pluginCatalogPermissionHint').textContent = 'Continue to Google to authorize the selected access level. Google may require additional verification for sensitive or restricted scopes.';
+      connectGoogle(service);
     };
     $('pluginCatalogPermissionHint').textContent = profile.supported
       ? (isConnected ? 'Checked permissions reflect scopes currently granted by Google. Changes require reconnecting and approving the provider request.' : 'Choose a supported permission, then configure access through Google authorization.')
