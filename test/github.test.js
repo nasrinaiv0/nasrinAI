@@ -470,12 +470,13 @@ test('plugins: catalog settings expose account connection and read/write access 
     'pluginCatalogDisconnect', 'pluginCatalogReadOnly', 'pluginCatalogReadWrite',
     'pluginCatalogConfigure', 'pluginCatalogPermissionHint'
   ]) assert.ok(html.includes('id="' + id + '"'), 'missing settings control: ' + id);
-  assert.match(js, /Gmail: \{ service: 'gmail', supported: true, readScope:/);
-  assert.match(js, /'Google Calendar': \{ service: 'calendar', supported: true, readScope: null, writeScope:/);
+  assert.match(js, /Gmail: \{ service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope:/);
+  assert.match(js, /'Google Calendar': \{ service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope:/);
   assert.match(js, /const isConnected = Boolean\(connectedGoogle && \(hasRead \|\| hasWrite\)\)/);
   assert.match(js, /Checked permissions reflect scopes currently granted by Google/);
   assert.match(js, /This app cannot connect yet/);
-  assert.match(js, /connectGoogle\(profile\.service\)/);
+  assert.match(js, /const service = writeSelected \? profile\.writeService : profile\.readService/);
+  assert.match(js, /connectGoogle\(service\)/);
   assert.match(css, /\.plugin-catalog-settings #pluginCatalogConfigure/);
 });
 
