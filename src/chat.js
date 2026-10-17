@@ -289,16 +289,16 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (typeof reply === 'string') reply = reply.replace(PR_CHIP_LINES, (line) => (ownChips.has(line.trim()) ? line : ''));
       // When a reply used a page the person shared, keep the evidence attached
       // to the answer instead of silently losing its provenance in the UI.
-      if (typeof reply === 'string' && webSources.length && !/\\n\\s*\\*\\*Sources\\*\\*/i.test(reply)) {
+      if (typeof reply === 'string' && webSources.length && !/\n\s*\*\*Sources\*\*/i.test(reply)) {
         const refs = webSources.slice(0, 20).flatMap((source) => {
           try {
             const url = new URL(source.url);
             if (!['http:', 'https:'].includes(url.protocol)) return [];
-            const title = String(source.title || url.hostname).replace(/[\\[\\]<>\\r\\n]/g, '').slice(0, 120) || url.hostname;
+            const title = String(source.title || url.hostname).replace(/[\[\]<>\r\n]/g, '').slice(0, 120) || url.hostname;
             return [`- [${title}](<${url.href}>)`];
           } catch { return []; }
         });
-        if (refs.length) reply = reply.trimEnd() + '\\n\\n**Sources**\\n' + refs.join('\\n');
+        if (refs.length) reply = reply.trimEnd() + '\n\n**Sources**\n' + refs.join('\n');
       }
       if (!codeFile && !codingChat && typeof reply === 'string') reply = documentFiles(reply, askedText);
       // The coding chat never shows question cards: a stray [[ask]] block becomes plain questions.
