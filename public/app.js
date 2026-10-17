@@ -7160,17 +7160,68 @@
   };
   const MORE_PLUGINS = [
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map'], ['Google Team', 'team']]],
     ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
+  // Each catalog entry has a Settings action. Pins are a local, account-scoped
+  // display preference only; they never imply a connection or grant permissions.
+  const pluginCatalogPinKey = () => identityKey('nasrin.plugin-catalog-pins.v1');
+  function readPluginCatalogPins() {
+    try {
+      const value = JSON.parse(localStorage.getItem(pluginCatalogPinKey()) || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+  }
+  function writePluginCatalogPins(pins) {
+    try { localStorage.setItem(pluginCatalogPinKey(), JSON.stringify(pins)); return true; }
+    catch { $('pluginCatalogStatus').textContent = 'Could not save this preference in this browser.'; return false; }
+  }
+  function openPluginCatalogSettings(name, li, status = 'Coming soon', description = 'Manage this app’s catalog preference and review its availability.') {
+    $('pluginsList').hidden = true;
+    $('pluginCatalogSettings').hidden = false;
+    $('pluginCatalogTitle').textContent = name + ' settings';
+    $('pluginCatalogDescription').textContent = description;
+    $('pluginCatalogStatus').textContent = status;
+    $('pluginCatalogUnavailable').hidden = status !== 'Coming soon';
+    $('pluginCatalogActions').replaceChildren();
+    const pins = readPluginCatalogPins();
+    $('pluginCatalogPinned').checked = pins[name] === true;
+    $('pluginCatalogPinned').onchange = () => {
+      const next = readPluginCatalogPins();
+      if ($('pluginCatalogPinned').checked) next[name] = true;
+      else delete next[name];
+      if (!writePluginCatalogPins(next)) {
+        $('pluginCatalogPinned').checked = !next[name];
+        return;
+      }
+      if (li) {
+        li.dataset.pinned = next[name] ? '1' : '0';
+        const list = li.parentElement;
+        [...list.children].sort((a, b) => Number(b.dataset.pinned === '1') - Number(a.dataset.pinned === '1'))
+          .forEach((item) => list.appendChild(item));
+      }
+      $('pluginCatalogStatus').textContent = next[name] ? 'Pinned in the catalog.' : 'Pin removed.';
+    };
+    $('githubTitle').lastChild.textContent = name;
+    $('pluginCatalogBack').focus();
+  }
+  $('pluginCatalogBack').addEventListener('click', () => {
+    $('pluginCatalogSettings').hidden = true;
+    $('pluginsList').hidden = false;
+    $('githubTitle').lastChild.textContent = 'Plugins';
+    $('githubClose').focus();
+  });
   {
     const box = $('pluginsMore');
     const svgNs = 'http://www.w3.org/2000/svg';
+    const pins = readPluginCatalogPins();
     for (const [group, items] of MORE_PLUGINS) {
       box.appendChild(mk('p', 'plugins-group', group));
       const ul = mk('ul', 'plugins-list');
       for (const [name, glyph] of items) {
         const li = mk('li', 'plugins-item');
+        li.dataset.pluginName = name;
+        li.dataset.pinned = pins[name] === true ? '1' : '0';
         const svg = document.createElementNS(svgNs, 'svg');
         svg.setAttribute('viewBox', '0 0 24 24');
         svg.setAttribute('aria-hidden', 'true');
@@ -7194,12 +7245,33 @@
           logo.className = 'plugins-glyph plugins-product-logo';
           logo.loading = 'lazy';
           logo.decoding = 'async';
-          li.append(logo, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
-        } else {
-          li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
-        }
+          li.append(logo);
+        } else li.appendChild(svg);
+        li.appendChild(mk('span', 'plugins-name', name));
+        li.appendChild(mk('span', 'plugins-soon', name === 'Google Team' ? 'Settings' : 'Coming soon'));
+        const settings = mk('button', 'plugins-settings-btn', 'Settings');
+        settings.type = 'button';
+        settings.setAttribute('aria-label', name + ' settings');
+        settings.addEventListener('click', () => {
+          if (name === 'Google Team') {
+            closeGithub();
+            openSettings();
+            showPage('team');
+            return;
+          }
+          const descriptions = {
+            'Google Meet': 'Create and manage meeting links when this integration becomes available.',
+            'Google Keep': 'Access notes and lists when this integration becomes available.',
+            'Google Search': 'Configure search access when this integration becomes available.',
+            'Google Maps': 'Configure maps and place lookup when this integration becomes available.'
+          };
+          openPluginCatalogSettings(name, li, 'Coming soon', descriptions[name] || 'This integration is not connected yet.');
+        });
+        li.appendChild(settings);
         ul.appendChild(li);
       }
+      [...ul.children].sort((a, b) => Number(b.dataset.pinned === '1') - Number(a.dataset.pinned === '1'))
+        .forEach((item) => ul.appendChild(item));
       box.appendChild(ul);
     }
   }
@@ -7238,6 +7310,11 @@
     head.append(icon, main, chev);
     const actions = mk('div', 'menu plugin-actions');
     actions.hidden = true;
+    const settings = mk('button', 'menu-row', 'Settings');
+    settings.type = 'button';
+    settings.addEventListener('click', () => openPluginCatalogSettings(title, null,
+      googleStatus.connected ? 'Google account connected' : googleStatus.available ? 'Not connected' : 'Not configured on this site yet',
+      'Manage the catalog display preference. Connection controls remain available below this card.'));
     const connect = mk('button', 'menu-row', 'Connect ' + title);
     connect.type = 'button';
     connect.addEventListener('click', () => connectGoogle(service));
@@ -7245,7 +7322,7 @@
     disconnect.type = 'button';
     disconnect.hidden = true;
     disconnect.addEventListener('click', disconnectGoogle);
-    actions.append(connect, disconnect);
+    actions.append(settings, connect, disconnect);
     head.addEventListener('click', () => {
       const open = actions.hidden;
       actions.hidden = !open;
