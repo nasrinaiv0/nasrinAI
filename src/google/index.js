@@ -67,8 +67,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     return { tenant_id: caller.tenantId, user_id: caller.actor.id };
   };
   const sealOpts = (w) => ({ tenantId: w.tenant_id, name: 'google:' + w.user_id });
-  async function tokenFor(w) {
-    const rows = await db('GET', 'google_connections?select=*&tenant_id=eq.' + encodeURIComponent(w.tenant_id) + '&user_id=eq.' + encodeURIComponent(w.user_id) + '&limit=1');
+  async function tokenFor(w, service) {
+    const rows = await db('GET', 'google_connections?select=*&tenant_id=eq.' + encodeURIComponent(w.tenant_id) + '&user_id=eq.' + encodeURIComponent(w.user_id) + '&service=eq.' + encodeURIComponent(service) + '&limit=1');
     const row = rows?.[0];
     if (!row) throw new HttpError(409, 'google_not_connected', 'Connect Google first.');
     let access;
@@ -81,7 +81,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     const data = await res.json().catch(()=>null);
     if (!res.ok || typeof data?.access_token !== 'string') throw new HttpError(409, 'google_reconnect_required', 'Google authorization expired. Please reconnect Google.');
     const update = { access_token_enc: seal(key, data.access_token, sealOpts(w)), expires_at: new Date(now() + Number(data.expires_in || 3600)*1000).toISOString(), updated_at: new Date(now()).toISOString() };
-    await db('PATCH', 'google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id), update);
+    await db('PATCH', 'google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(service), update);
     return data.access_token;
   }
   async function googleApi(path, token, options = {}) {
@@ -95,10 +95,12 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
   }
   const redirectBack = (res, query) => { res.writeHead(302, { Location: '/?google=' + query }); res.end(); };
   const routes = [
-    { method:'GET', path:'/v1/google/status', scope:'chat', handler:async ({caller}) => {
+    { method:'GET', path:'/v1/google/status', scope:'chat', handler:async ({caller,req}) => {
       if (!available || caller?.actor?.type !== 'user') return { body:{available,connected:false,scopes:[]} };
-      const w=who(caller); const rows=await db('GET','google_connections?select=scopes,email,connected_at&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&limit=1');
-      return { body:{available,connected:Boolean(rows?.[0]),email:rows?.[0]?.email||null,scopes:rows?.[0]?.scopes||[],connected_at:rows?.[0]?.connected_at||null} };
+      const w=who(caller); const service = new URL(req.url, 'https://nasrinai.com').searchParams.get('service');
+      if (!['gmail','calendar'].includes(service)) throw new HttpError(400,'invalid_google_service','Choose Gmail or Calendar status.');
+      const rows=await db('GET','google_connections?select=scopes,email,connected_at&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(service)+'&limit=1');
+      return { body:{available,service,connected:Boolean(rows?.[0]),email:rows?.[0]?.email||null,scopes:rows?.[0]?.scopes||[],connected_at:rows?.[0]?.connected_at||null} };
     }},
     { method:'POST', path:'/v1/google/connect', scope:'chat', body:true, handler:async ({caller,body,res,req}) => {
       const w=who(caller);
@@ -131,24 +133,28 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const me=await googleApi('oauth2/v2/userinfo',t.access_token);
         if(typeof me?.email!=='string'||!EMAIL.test(me.email)) return redirectBack(res,'failed');
         const w={tenant_id:state.t,user_id:state.u};
-        const existing=await db('GET','google_connections?select=refresh_token_enc,scopes&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&limit=1');
+        const connectionService = state.s.startsWith('gmail') ? 'gmail' : state.s.startsWith('calendar') ? 'calendar' : state.s === 'both' ? 'calendar' : '';
+        if (!connectionService) return redirectBack(res,'failed');
+        const existing=await db('GET','google_connections?select=refresh_token_enc,scopes&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(connectionService)+'&limit=1');
         const opts=sealOpts(w);
-        const row={tenant_id:w.tenant_id,user_id:w.user_id,email:me.email.toLowerCase(),access_token_enc:seal(key,t.access_token,opts),refresh_token_enc:t.refresh_token?seal(key,t.refresh_token,opts):(existing?.[0]?.refresh_token_enc||null),expires_at:new Date(now()+Number(t.expires_in||3600)*1000).toISOString(),scopes:(t.scope||'').split(' ').filter(Boolean),connected_at:new Date(now()).toISOString(),updated_at:new Date(now()).toISOString()};
-        await db('POST','google_connections?on_conflict=tenant_id,user_id',row);
+        const row={tenant_id:w.tenant_id,user_id:w.user_id,service:connectionService,email:me.email.toLowerCase(),access_token_enc:seal(key,t.access_token,opts),refresh_token_enc:t.refresh_token?seal(key,t.refresh_token,opts):(existing?.[0]?.refresh_token_enc||null),expires_at:new Date(now()+Number(t.expires_in||3600)*1000).toISOString(),scopes:(t.scope||'').split(' ').filter(Boolean),connected_at:new Date(now()).toISOString(),updated_at:new Date(now()).toISOString()};
+        await db('POST','google_connections?on_conflict=tenant_id,user_id,service',row);
         logger?.info('google integration connected',{service:state.s,email_domain:me.email.split('@')[1]});
         return redirectBack(res,'connected');
       } catch(err) { logger?.warn('google integration callback failed',{code:err?.code||'failed'}); return redirectBack(res,'failed'); }
     }},
-    { method:'DELETE', path:'/v1/google', scope:'chat', handler:async ({caller}) => {
+    { method:'DELETE', path:'/v1/google', scope:'chat', handler:async ({caller,req}) => {
       const w=who(caller); if(!available) throw new HttpError(503,'google_not_configured','Google integration is not configured.');
-      await db('DELETE','google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id));
-      return {body:{connected:false}};
+      const service = new URL(req.url,'https://nasrinai.com').searchParams.get('service');
+      if (!['gmail','calendar'].includes(service)) throw new HttpError(400,'invalid_google_service','Choose Gmail or Calendar to disconnect.');
+      await db('DELETE','google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(service));
+      return {body:{connected:false,service}};
     }},
     { method:'GET', path:'/v1/google/gmail/messages', scope:'chat', handler:async ({caller,req}) => {
       const w=who(caller); if(!available) throw new HttpError(503,'google_not_configured','Google integration is not configured.');
       const q=new URL(req.url,'https://nasrinai.com').searchParams;
       const max=Math.max(1,Math.min(20,Number(q.get('maxResults')||10)));
-      const token=await tokenFor(w);
+      const token=await tokenFor(w, 'gmail');
       const data=await googleApi('gmail/v1/users/me/messages?maxResults='+max+(q.get('q')?'&q='+encodeURIComponent(q.get('q').slice(0,200)):''),token);
       return {body:{messages:Array.isArray(data.messages)?data.messages:[],resultSizeEstimate:data.resultSizeEstimate||0}};
     }},
@@ -158,7 +164,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       const max=Math.max(1,Math.min(50,Number(q.get('maxResults')||20)));
       const params=new URLSearchParams({maxResults:String(max),singleEvents:'true',orderBy:'startTime',timeMin:q.get('timeMin')||new Date(now()).toISOString()});
       if(q.get('timeMax')) params.set('timeMax',q.get('timeMax'));
-      const token=await tokenFor(w);
+      const token=await tokenFor(w, 'calendar');
       const data=await googleApi('calendar/v3/calendars/primary/events?'+params,token);
       return {body:{events:Array.isArray(data.items)?data.items:[],nextPageToken:data.nextPageToken||null}};
     }}
@@ -179,7 +185,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       async run(args, ctx) {
         const w = who(ctx);
         if (!available) throw new HttpError(503, 'google_not_configured', 'Google integration is not configured.');
-        const token = await tokenFor(w);
+        const token = await tokenFor(w, 'gmail');
         const max = Math.max(1, Math.min(10, Number(args.max_results || 5)));
         const query = String(args.query || 'newer_than:7d').slice(0, 200);
         const list = await googleApi('gmail/v1/users/me/messages?' + new URLSearchParams({ maxResults: String(max), q: query }), token);
@@ -239,7 +245,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const endMs = Date.parse(endValue);
         if (!allDay && (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs)) throw new HttpError(400, 'invalid_event_time', 'The event end must be after its start, with valid date-times.');
         if (allDay && endValue <= startValue) throw new HttpError(400, 'invalid_event_time', 'The all-day event end date must be after its start date.');
-        const token = await tokenFor(w);
+        const token = await tokenFor(w, 'calendar');
         const event = allDay
           ? { summary, start: { date: startValue }, end: { date: endValue } }
           : { summary, start: { dateTime: startValue, ...(args.time_zone ? { timeZone: String(args.time_zone).slice(0, 80) } : {}) }, end: { dateTime: endValue, ...(args.time_zone ? { timeZone: String(args.time_zone).slice(0, 80) } : {}) } };
@@ -282,7 +288,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
           timeMin: new Date(start).toISOString(),
           timeMax: new Date(start + days * 86400000).toISOString()
         });
-        const token = await tokenFor(w);
+        const token = await tokenFor(w, 'calendar');
         const data = await googleApi('calendar/v3/calendars/primary/events?' + params, token);
         const events = (Array.isArray(data.items) ? data.items : []).slice(0, max).map((event) => ({
           summary: String(event.summary || '(untitled event)').slice(0, 200),
@@ -311,7 +317,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       async run(args, ctx) {
         const w = who(ctx);
         if (!available) throw new HttpError(503, 'google_not_configured', 'Google integration is not configured.');
-        const token = await tokenFor(w);
+        const token = await tokenFor(w, 'gmail');
         const query = String(args.query || '').trim().slice(0, 200);
         if (!query) throw new HttpError(400, 'invalid_drive_query', 'Enter a search term for Google Drive.');
         const max = Math.max(1, Math.min(10, Number(args.max_results || 5)));
