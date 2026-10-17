@@ -803,9 +803,21 @@
         <p class="setting-hint plugin-hero-text" id="pluginCatalogDescription"></p>
         <p class="setting-hint" id="pluginCatalogStatus" role="status"></p>
       </div>
+      <p class="menu-label">Connected accounts</p>
+      <div class="menu" id="pluginCatalogAccounts">
+        <div class="menu-row plugin-info"><span id="pluginCatalogAccountLabel">Account</span><em id="pluginCatalogAccountStatus">Not connected</em></div>
+        <button type="button" class="menu-row" id="pluginCatalogConnect">Connect account</button>
+        <button type="button" class="menu-row danger" id="pluginCatalogDisconnect" hidden>Disconnect account</button>
+      </div>
+      <p class="setting-hint" id="pluginCatalogAccountHint">Connecting an account is separate from choosing permissions. Only supported integrations can request provider access.</p>
+      <p class="menu-label">Permissions</p>
+      <div class="menu-card setting-row"><label for="pluginCatalogReadOnly">Read-only access<span class="setting-hint">Allow reading supported data without changing it.</span></label><input type="checkbox" role="switch" class="switch" id="pluginCatalogReadOnly" disabled></div>
+      <div class="menu-card setting-row"><label for="pluginCatalogReadWrite">Read and write access<span class="setting-hint">Allow reading and making changes where the provider supports it.</span></label><input type="checkbox" role="switch" class="switch" id="pluginCatalogReadWrite" disabled></div>
+      <button type="button" class="btn primary" id="pluginCatalogConfigure" disabled>Configure access</button>
+      <p class="setting-hint" id="pluginCatalogPermissionHint">Access is determined by the provider's authorization and the permissions actually granted.</p>
+      <div class="menu-card" id="pluginCatalogUnavailable" hidden><p class="setting-hint">This integration is not available to connect yet. Permission controls remain disabled until a secure provider integration is implemented.</p></div>
       <p class="menu-label">Catalog preferences</p>
       <div class="menu-card setting-row"><label for="pluginCatalogPinned">Pin this app in Plugins<span class="setting-hint">Keep this app near the top of its category. This only changes your catalog display; it does not connect the app or grant permissions.</span></label><input type="checkbox" role="switch" class="switch" id="pluginCatalogPinned"></div>
-      <div class="menu-card" id="pluginCatalogUnavailable" hidden><p class="setting-hint">This integration is not available to connect yet. No external account access or permissions are active.</p></div>
       <div class="menu" id="pluginCatalogActions"></div>
     </div>
     <div id="pluginDetail" class="plugin-detail" hidden>
