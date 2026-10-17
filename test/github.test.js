@@ -460,6 +460,22 @@ test('web source resources are expanded by default and retain a hide/show contro
   assert.match(js, /row\.after\(heading, list\)/);
 });
 
+test('plugins: reopening the sheet resets catalog settings and detail panels', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const openStart = js.indexOf('function openGithub()');
+  const openEnd = js.indexOf('function closeGithub()', openStart);
+  assert.ok(openStart >= 0 && openEnd > openStart, 'plugin sheet open/close handlers should exist');
+  const openBody = js.slice(openStart, openEnd);
+  assert.match(openBody, /\$\('pluginsList'\)\.hidden = false;/);
+  assert.match(openBody, /\$\('pluginCatalogSettings'\)\.hidden = true;/);
+  assert.match(openBody, /\$\('pluginDetail'\)\.hidden = true;/);
+  assert.ok(
+    openBody.indexOf("$('pluginCatalogSettings').hidden = true;") < openBody.indexOf("githubSheet.hidden = false;"),
+    'catalog settings must be hidden before the Plugins sheet is shown'
+  );
+});
+
 test('plugins: connected plugins are listed first, under Connected', async () => {
   const { readFile } = await import('node:fs/promises');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
