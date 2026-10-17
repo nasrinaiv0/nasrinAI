@@ -3281,7 +3281,7 @@
   let lastFocus = null;
   // Settings is a menu: rows open their own page; Back returns to the menu.
   const PAGES = { main: ['pageMain', 'Settings'], account: ['pageAccount', 'Signed in account'], space: ['pageSpace', 'NasrinAI Space'],
-    general: ['pageGeneral', 'Preferences'], voice: ['pageVoice', 'Voice'], language: ['pageLanguage', 'Language'],
+    general: ['pageGeneral', 'Preferences'], team: ['pageTeam', 'Team'], voice: ['pageVoice', 'Voice'], language: ['pageLanguage', 'Language'],
     memory: ['pageMemory', 'What Nasrin remembers'], data: ['pageData', 'Data controls'], about: ['pageAbout', 'About'],
     security: ['pageSecurity', 'Security & Devices'], privacy: ['pagePrivacy', 'Data Privacy & Permissions'], retention: ['pageRetention', 'Data Retention'],
     usage: ['pageUsage', 'Usage'], billing: ['pageBilling', 'Billing'], notices: ['pageNotices', 'Notifications'],
@@ -3324,6 +3324,104 @@
       box.appendChild(p);
     }
   }
+
+
+  // Google Team contacts: account-scoped browser settings shared by Google plugin flows.
+  // No hard contact-count cap; each contact has a default email role.
+  const googleTeamStorageKey = () => identityKey('nasrin.google-team.v1');
+  let googleTeamContacts = [];
+  function readGoogleTeam() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(googleTeamStorageKey()) || '[]');
+      googleTeamContacts = Array.isArray(parsed) ? parsed.filter((x) =>
+        x && typeof x.id === 'string' && typeof x.email === 'string' &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email) &&
+        ['to','cc','bcc'].includes(x.role)
+      ) : [];
+    } catch { googleTeamContacts = []; }
+  }
+  function saveGoogleTeam() {
+    try {
+      localStorage.setItem(googleTeamStorageKey(), JSON.stringify(googleTeamContacts));
+      return true;
+    } catch {
+      $('googleTeamStatus').textContent = 'Could not save team contacts in this browser. Check available storage and try again.';
+      return false;
+    }
+  }
+  function renderGoogleTeam() {
+    const list = $('googleTeamList');
+    if (!list) return;
+    list.replaceChildren();
+    if (!googleTeamContacts.length) {
+      list.appendChild(mk('p', 'setting-hint', 'No team members yet. Add an email address above.'));
+      return;
+    }
+    for (const contact of googleTeamContacts) {
+      const item = mk('div', 'setting-row google-team-member');
+      const details = mk('div', 'google-team-details');
+      details.append(mk('strong', 'google-team-name', contact.name || contact.email));
+      if (contact.name) details.appendChild(mk('span', 'setting-hint', contact.email));
+      const controls = mk('div', 'google-team-controls');
+      const role = document.createElement('select');
+      role.setAttribute('aria-label', 'Default email role for ' + contact.email);
+      for (const [value, label] of [['to','To'],['cc','CC'],['bcc','BCC']]) {
+        const option = document.createElement('option');
+        option.value = value; option.textContent = label; role.appendChild(option);
+      }
+      role.value = contact.role;
+      role.addEventListener('change', () => {
+        contact.role = role.value;
+        if (saveGoogleTeam()) $('googleTeamStatus').textContent = 'Saved role for ' + contact.email + '.';
+      });
+      const remove = mk('button', 'btn small outline', 'Remove');
+      remove.type = 'button';
+      remove.addEventListener('click', () => {
+        googleTeamContacts = googleTeamContacts.filter((x) => x.id !== contact.id);
+        if (saveGoogleTeam()) { renderGoogleTeam(); $('googleTeamStatus').textContent = 'Removed ' + contact.email + '.'; }
+      });
+      controls.append(role, remove);
+      item.append(details, controls);
+      list.appendChild(item);
+    }
+  }
+  function initGoogleTeamSettings() {
+    readGoogleTeam();
+    renderGoogleTeam();
+    $('googleTeamForm')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const name = $('googleTeamName').value.trim();
+      const email = $('googleTeamEmail').value.trim().toLowerCase();
+      const role = $('googleTeamRole').value;
+      const status = $('googleTeamStatus');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        status.textContent = 'Enter a valid email address.';
+        $('googleTeamEmail').focus();
+        return;
+      }
+      const existing = googleTeamContacts.find((x) => x.email.toLowerCase() === email);
+      if (existing) {
+        existing.name = name || existing.name || '';
+        existing.role = role;
+        status.textContent = 'Updated ' + email + '.';
+      } else {
+        googleTeamContacts.push({ id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2)), name, email, role });
+        status.textContent = 'Added ' + email + '.';
+      }
+      if (saveGoogleTeam()) {
+        $('googleTeamName').value = '';
+        $('googleTeamEmail').value = '';
+        $('googleTeamRole').value = 'to';
+        renderGoogleTeam();
+      }
+    });
+    $('googleTeamClear')?.addEventListener('click', () => {
+      if (!googleTeamContacts.length) { $('googleTeamStatus').textContent = 'There are no team members to remove.'; return; }
+      googleTeamContacts = [];
+      if (saveGoogleTeam()) { renderGoogleTeam(); $('googleTeamStatus').textContent = 'All team members removed.'; }
+    });
+  }
+  initGoogleTeamSettings();
 
   for (const b of document.querySelectorAll('#settings [data-page]')) b.addEventListener('click', () => showPage(b.dataset.page));
   $('settingsBack').addEventListener('click', () => {
