@@ -183,6 +183,10 @@
 
       <p class="menu-label">App settings</p>
       <div class="menu">
+        <button type="button" class="menu-row" data-page="team">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19a6 6 0 0 1 12 0M14 16a4.5 4.5 0 0 1 7 3"/></svg>
+          <span>Team</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
         <button type="button" class="menu-row" data-page="usage">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15v-4M12 15V7M16 15V9"/></svg>
           <span>Usage</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
@@ -408,6 +412,25 @@
       <div class="connect-config-actions">
         <button type="button" class="btn small outline" id="connectPreviewDone">Back to configuration</button>
       </div>
+    </div>
+
+    <div class="settings-page" id="pageTeam" hidden>
+      <p class="menu-label">Google team</p>
+      <p class="setting-hint">Save team email addresses for convenient reference across Google workflows. Contacts are stored in this browser for the signed-in account. Saving a contact does not send email, invite anyone, or grant Drive access.</p>
+      <form id="googleTeamForm" class="menu-card" autocomplete="off">
+        <label for="googleTeamName">Name (optional)</label>
+        <input id="googleTeamName" name="name" type="text" maxlength="120" placeholder="e.g. Finance team">
+        <label for="googleTeamEmail">Email address</label>
+        <input id="googleTeamEmail" name="email" type="email" maxlength="254" required placeholder="name@company.com" autocomplete="email">
+        <label for="googleTeamRole">Default email role</label>
+        <select id="googleTeamRole" name="role"><option value="to">To</option><option value="cc">CC</option><option value="bcc">BCC</option></select>
+        <button type="submit" class="btn" id="googleTeamAdd">Add team member</button>
+        <p id="googleTeamStatus" class="setting-hint" role="status" aria-live="polite"></p>
+      </form>
+      <p class="menu-label">Saved team members</p>
+      <p class="setting-hint">Edit each member’s default email role or remove them. To/CC/BCC are email roles only; Calendar invitations and Drive sharing use Google’s native attendee and permission rules.</p>
+      <div id="googleTeamList" class="menu-card" aria-live="polite"></div>
+      <div class="menu"><button type="button" class="menu-row danger" id="googleTeamClear">Remove all team members</button></div>
     </div>
 
     <div class="settings-page" id="pageGeneral" hidden>
