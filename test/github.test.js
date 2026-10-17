@@ -496,7 +496,7 @@ test('plugins: catalog apps are grouped by provider family and add-account is gu
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(html, /id="pluginCatalogAddAccount"[^>]*hidden/);
-  assert.match(js, /Google Calendar: 'Google'/);
+  assert.match(js, /'Google Calendar': 'Google'/);
   assert.match(js, /Outlook: 'Microsoft'/);
   assert.match(js, /Canva: 'Design'/);
   assert.match(js, /Facebook: 'Social & messaging'/);
