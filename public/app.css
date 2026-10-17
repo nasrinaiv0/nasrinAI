@@ -2742,6 +2742,111 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugin-info { cursor: default; }
 .plugin-info em { font-style: normal; color: var(--ink-3); font-size: 0.92rem; }
 
+/* Plugin catalog settings: keep account and information rows readable on mobile.
+   Use a grid rather than the generic menu-row flex rules so labels and values
+   never compete for the same horizontal space. */
+.plugin-catalog-settings { min-width: 0; }
+.plugin-catalog-settings > .plugin-hero { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
+.plugin-catalog-settings .plugin-hero-title { max-width: 100%; overflow-wrap: anywhere; line-height: 1.25; }
+.plugin-catalog-settings .plugin-hero-text,
+.plugin-catalog-settings #pluginCatalogStatus,
+.plugin-catalog-settings #pluginCatalogAccountHint,
+.plugin-catalog-settings #pluginCatalogPermissionHint,
+.plugin-catalog-settings .setting-hint {
+  max-width: 100%;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.plugin-catalog-settings .menu-label { margin: 1.25rem 0 .55rem; line-height: 1.35; }
+.plugin-catalog-settings #pluginCatalogAccounts .plugin-info,
+.plugin-catalog-settings #pluginCatalogInformation .plugin-info {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: .75rem;
+  min-height: 3.5rem;
+  height: auto;
+  padding: .85rem 1rem;
+  line-height: 1.4;
+  white-space: normal;
+}
+.plugin-catalog-settings #pluginCatalogAccounts .plugin-info > span,
+.plugin-catalog-settings #pluginCatalogInformation .plugin-info > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.plugin-catalog-settings #pluginCatalogAccounts .plugin-info > em,
+.plugin-catalog-settings #pluginCatalogInformation .plugin-info > em {
+  display: block;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.4;
+}
+.plugin-catalog-settings #pluginCatalogInformation > .menu-row:not(.plugin-info) {
+  min-height: 3.5rem;
+  height: auto;
+  padding-top: .8rem;
+  padding-bottom: .8rem;
+  line-height: 1.4;
+}
+.plugin-catalog-settings .menu-card.setting-row {
+  align-items: flex-start;
+  padding: 1rem;
+  gap: 1rem;
+}
+.plugin-catalog-settings .menu-card.setting-row > label {
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.plugin-catalog-settings .menu-card.setting-row .setting-hint {
+  display: block;
+  margin-top: .35rem;
+  line-height: 1.5;
+}
+.plugin-catalog-settings .menu-card.setting-row > input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin-top: .15rem;
+}
+.plugin-catalog-settings #pluginCatalogConnect,
+.plugin-catalog-settings #pluginCatalogDisconnect {
+  min-height: 3.4rem;
+  height: auto;
+  padding-top: .8rem;
+  padding-bottom: .8rem;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.plugin-catalog-settings #pluginCatalogConfigure {
+  min-height: 3.25rem;
+  height: auto;
+  padding: .85rem 1rem;
+  line-height: 1.35;
+  white-space: normal;
+}
+.plugin-catalog-settings .plugin-back { max-width: 100%; white-space: normal; }
+@media (max-width: 420px) {
+  .plugin-catalog-settings #pluginCatalogAccounts .plugin-info,
+  .plugin-catalog-settings #pluginCatalogInformation .plugin-info {
+    grid-template-columns: minmax(0, 1fr);
+    gap: .25rem;
+    align-items: start;
+  }
+  .plugin-catalog-settings #pluginCatalogAccounts .plugin-info > em,
+  .plugin-catalog-settings #pluginCatalogInformation .plugin-info > em {
+    text-align: left;
+  }
+}
+
+
 /* Coding chat thinking line: two more moods of the pixel robot (owner,
    2026-10-13). Still robot when motion is reduced. */
 .code-logo.is-remembering { background-image: url(/space-logos/code-bot-light-remember.svg); }
