@@ -104,3 +104,9 @@ Changes in this follow-up:
 - Safety/implementation boundary: the current directory is stored in browser local storage scoped to the signed-in account. Adding a contact does not invite users, grant access, send messages, or automatically make every provider integration consume the contacts. Each connected app must explicitly integrate with the shared directory and respect its own permissions before cross-app actions are available.
 - Added regression assertions that Google Team is absent from the plugin catalog while the global Settings → Team page remains present.
 - Branch: `fix/shared-team-settings-remove-google-team-plugin`. PR and CI status pending.
+
+
+### PR #385 CI failure fix (2026-10-18)
+- Fixed the stale assertion in `test/google-team-settings.test.js`: the Google catalog no longer includes `['Google Team', 'team']`; the test now verifies Google Maps remains and Google Team is absent.
+- Commit: a1ad2371cf55a68f08f27a2034a2c56df4e71a93.
+- This is a commit to the existing PR #385 branch, not a new PR. Re-check CI before merging; no test pass is claimed until the workflow completes.
