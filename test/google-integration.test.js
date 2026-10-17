@@ -40,6 +40,10 @@ test('Google integration exposes read-only Gmail and Calendar tools to signed-in
     assert.match(gmail.description,/read-only/i);
     assert.match(calendar.description,/read-only/i);
     assert.match(createEvent.description,/explicitly confirmed/i);
+    assert.match(createEvent.description,/actual email/i);
+    assert.match(createEvent.description,/Never use placeholders/i);
+    assert.ok(createEvent.parameters.properties.recipient_email);
+    assert.match(createEvent.parameters.properties.recipient_email.description,/exact real address/i);
   } finally {
     if(oldId===undefined) delete process.env.GOOGLE_INTEGRATION_CLIENT_ID; else process.env.GOOGLE_INTEGRATION_CLIENT_ID=oldId;
     if(oldSecret===undefined) delete process.env.GOOGLE_INTEGRATION_CLIENT_SECRET; else process.env.GOOGLE_INTEGRATION_CLIENT_SECRET=oldSecret;
