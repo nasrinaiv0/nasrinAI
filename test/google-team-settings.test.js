@@ -66,21 +66,21 @@ test('Every new Google catalog item has a defined glyph', () => {
 
 
 test('Gmail, Calendar, and Drive have independent OAuth status and disconnect services', () => {
-  assert.match(google, /\['gmail','calendar','drive'\]\.includes\(service\)/);
+  assert.match(google, /\['gmail','calendar','drive','meet','keep'\]\.includes\(service\)/);
   assert.match(google, /DRIVE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.readonly'/);
   assert.match(google, /state\.s === 'drive' \? 'drive'/);
   assert.match(google, /tokenFor\(w, 'drive'\)/);
-  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive'\]/);
+  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','search','maps'\]/);
   assert.match(app, /'Google Drive': \{ service: 'drive', readService: 'drive', supported: true/);
   assert.match(app, /disconnectGoogle\(service\)/);
 });
 
-test('Google Meet, Keep, Search, and Maps are not falsely shown as connected', () => {
-  for (const name of ['Google Meet', 'Google Keep', 'Google Search', 'Google Maps']) {
-    assert.match(app, new RegExp("'" + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "': \\{ supported: false \\}"));
-  }
+test('Google Meet, Keep, Search, and Maps are explicitly supported in the catalog', () => {
+  assert.match(app, /'Google Meet': \\{ service: 'meet'.*supported: true/s);
+  assert.match(app, /'Google Keep': \\{ service: 'keep'.*supported: true/s);
+  assert.match(app, /'Google Search': \\{ service: 'search', supported: true, siteConfigured: true/);
+  assert.match(app, /'Google Maps': \\{ service: 'maps', supported: true, siteConfigured: true/);
 });
-
 
 test('Google catalog exposes server-backed Meet, Keep, Search, and Maps integrations', () => {
   for (const [name, service] of [['Google Meet', 'meet'], ['Google Keep', 'keep'], ['Google Search', 'search'], ['Google Maps', 'maps']]) {
