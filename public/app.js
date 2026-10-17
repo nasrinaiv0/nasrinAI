@@ -1163,7 +1163,15 @@
     lede.textContent = asks.length === 1 ? 'Your answer:' : 'Your answers:';
     card.appendChild(lede);
     const picked = asks.map(() => '');
-    asks.forEach((q, i) => card.appendChild(questionBox(q, (value) => { picked[i] = value; refresh(); })));
+    const questionList = document.createElement('ul');
+    questionList.className = 'ask-questions';
+    questionList.setAttribute('aria-label', 'Follow-up questions');
+    asks.forEach((q, i) => {
+      const item = document.createElement('li');
+      item.appendChild(questionBox(q, (value) => { picked[i] = value; refresh(); }));
+      questionList.appendChild(item);
+    });
+    card.appendChild(questionList);
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     const go = document.createElement('button');
@@ -3046,7 +3054,10 @@
     const list = document.createElement('ul');
     list.className = 'reply-sources';
     list.id = 'reply-sources-' + (++sourcesCount);
-    list.hidden = true;
+    list.hidden = false;
+    const heading = mk('p', 'reply-sources-heading', 'Sources & Resources');
+    heading.id = list.id + '-heading';
+    list.setAttribute('aria-labelledby', heading.id);
     for (const l of links) {
       const li = document.createElement('li');
       const a = document.createElement('a');
@@ -3080,9 +3091,9 @@
     b.type = 'button';
     b.className = 'act sources-toggle';
     b.dataset.kind = 'sources';
-    b.setAttribute('aria-expanded', 'false');
+    b.setAttribute('aria-expanded', 'true');
     b.setAttribute('aria-controls', list.id);
-    b.setAttribute('aria-label', `Sources (${links.length})`);
+    b.setAttribute('aria-label', `Hide sources (${links.length})`);
     // Overlapping round badges, one per site (its first letter; no outside
     // images, so the strict CSP holds), then the word Sources.
     const faces = mk('span', 'src-faces');
@@ -3098,10 +3109,12 @@
     b.addEventListener('click', () => {
       const open = list.hidden;
       list.hidden = !open;
+      heading.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
+      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources (${links.length})`);
     });
     row.appendChild(b);
-    row.after(list);
+    row.after(heading, list);
   }
 
   function replyActions(text, id, full = text) {
