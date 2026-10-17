@@ -28,18 +28,25 @@ test('Google integration exposes read-only Gmail and Calendar tools to signed-in
     const gmail=integration.tools.find((tool)=>tool.name==='google_gmail_search');
     const calendar=integration.tools.find((tool)=>tool.name==='google_calendar_events');
     const send=integration.tools.find((tool)=>tool.name==='google_gmail_send');
+    const createEvent=integration.tools.find((tool)=>tool.name==='google_calendar_create_event');
     assert.ok(gmail);
     assert.ok(calendar);
     assert.ok(send);
+    assert.ok(createEvent);
     assert.equal(gmail.risk,'read');
     assert.equal(calendar.risk,'read');
     assert.equal(send.risk,'write');
+    assert.equal(createEvent.risk,'write');
+    assert.ok(createEvent.parameters.properties.attendee_email);
+    assert.match(createEvent.parameters.properties.attendee_email.description,/placeholder/i);
     assert.deepEqual(gmail.who,['user']);
     assert.deepEqual(calendar.who,['user']);
     assert.deepEqual(send.who,['user']);
+    assert.deepEqual(createEvent.who,['user']);
     assert.match(gmail.description,/read-only/i);
     assert.match(calendar.description,/read-only/i);
     assert.match(send.description,/confirm/i);
+    assert.match(createEvent.description,/confirm/i);
   } finally {
     if(oldId===undefined) delete process.env.GOOGLE_INTEGRATION_CLIENT_ID; else process.env.GOOGLE_INTEGRATION_CLIENT_ID=oldId;
     if(oldSecret===undefined) delete process.env.GOOGLE_INTEGRATION_CLIENT_SECRET; else process.env.GOOGLE_INTEGRATION_CLIENT_SECRET=oldSecret;
