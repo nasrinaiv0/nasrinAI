@@ -76,20 +76,20 @@ test('Gmail, Calendar, and Drive have independent OAuth status and disconnect se
 });
 
 test('Google Meet, Keep, Search, and Maps are explicitly supported in the catalog', () => {
-  assert.match(app, /'Google Meet': \\{ service: 'meet'.*supported: true/s);
-  assert.match(app, /'Google Keep': \\{ service: 'keep'.*supported: true/s);
-  assert.match(app, /'Google Search': \\{ service: 'search', supported: true, siteConfigured: true/);
-  assert.match(app, /'Google Maps': \\{ service: 'maps', supported: true, siteConfigured: true/);
+  assert.match(app, /'Google Meet': \{ service: 'meet'.*supported: true/s);
+  assert.match(app, /'Google Keep': \{ service: 'keep'.*supported: true/s);
+  assert.match(app, /'Google Search': \{ service: 'search', supported: true, siteConfigured: true/);
+  assert.match(app, /'Google Maps': \{ service: 'maps', supported: true, siteConfigured: true/);
 });
 
 test('Google catalog exposes server-backed Meet, Keep, Search, and Maps integrations', () => {
   for (const [name, service] of [['Google Meet', 'meet'], ['Google Keep', 'keep'], ['Google Search', 'search'], ['Google Maps', 'maps']]) {
     assert.match(app, new RegExp("'" + name + "': \\{ service: '" + service + "',"));
   }
-  assert.match(app, /'Google Meet': \\{ service: 'meet'.*supported: true/s);
-  assert.match(app, /'Google Keep': \\{ service: 'keep'.*supported: true/s);
-  assert.match(app, /'Google Search': \\{ service: 'search', supported: true, siteConfigured: true/);
-  assert.match(app, /'Google Maps': \\{ service: 'maps', supported: true, siteConfigured: true/);
+  assert.match(app, /'Google Meet': \{ service: 'meet'.*supported: true/s);
+  assert.match(app, /'Google Keep': \{ service: 'keep'.*supported: true/s);
+  assert.match(app, /'Google Search': \{ service: 'search', supported: true, siteConfigured: true/);
+  assert.match(app, /'Google Maps': \{ service: 'maps', supported: true, siteConfigured: true/);
 });
 
 test('Google Meet and Keep use independent OAuth scopes and service records', () => {
