@@ -7167,7 +7167,24 @@
           for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
           svg.appendChild(el);
         }
-        li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        const logo = document.createElement('img');
+        const productLogoUrls = {
+          'Google Meet': 'https://cdn.simpleicons.org/googlemeet',
+          'Google Keep': 'https://cdn.simpleicons.org/googlekeep',
+          'Google Search': 'https://cdn.simpleicons.org/googlesearch',
+          'Google Maps': 'https://cdn.simpleicons.org/googlemaps'
+        };
+        if (productLogoUrls[name]) {
+          logo.src = productLogoUrls[name];
+          logo.alt = '';
+          logo.setAttribute('aria-hidden', 'true');
+          logo.className = 'plugins-glyph plugins-product-logo';
+          logo.loading = 'lazy';
+          logo.decoding = 'async';
+          li.append(logo, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        } else {
+          li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        }
         ul.appendChild(li);
       }
       box.appendChild(ul);
