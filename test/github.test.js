@@ -435,8 +435,7 @@ test('plugins: every catalog app has settings and account-scoped pin preferences
   assert.match(js, /mk\('button', 'plugins-settings-btn', 'Settings'\)/);
   assert.match(js, /settings\.addEventListener\('click'/);
   assert.match(js, /openPluginCatalogSettings\(name, li, 'Coming soon'/);
-  assert.match(js, /if \(name === 'Google Team'\)/);
-  assert.match(js, /showPage\('team'\)/);
+  assert.doesNotMatch(js, /Google Team/);
   assert.match(js, /actions\.append\(settings, connect, disconnect\)/);
 });
 
@@ -501,8 +500,10 @@ test('plugins: catalog apps are grouped by provider family and add-account is gu
   assert.match(js, /Canva: 'Design'/);
   assert.match(js, /Facebook: 'Social & messaging'/);
   assert.match(js, /\['Design', \[\['Canva', 'design'\]\]\]/);
-  assert.match(js, /This provider currently stores one connected account for this integration/);
-  assert.match(js, /Multi-account linking is not implemented yet/);
+  assert.match(js, /Multiple Google accounts are not supported by the current secure connection store/);
+  assert.match(js, /actions\.hidden = !open/);
+  assert.match(js, /otherActions\.hidden = true/);
+  assert.match(js, /Disconnect Google account/);
 });
 
 test('plugins: app settings include account, permission, and information sections', async () => {
