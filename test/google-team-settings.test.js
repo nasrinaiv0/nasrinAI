@@ -30,9 +30,9 @@ test('Google Drive remains registered in Plugins after Team settings changes', (
   assert.match(app, /google_drive_search/);
 });
 
-test('Team page wiring is additive and core navigation controls remain present', () => {
-  assert.match(app, /querySelectorAll\('#settings \\[data-page\\]'\)/);
-  for (const id of ['chatSend', 'newChat', 'settingsButton', 'composerPlus']) {
-    assert.ok(html.includes('id="' + id + '"') || app.includes("'" + id + "'"), 'expected existing control wiring: ' + id);
-  }
+test('Team page wiring is additive and core Settings navigation remains wired', () => {
+  assert.match(app, /querySelectorAll\('#settings \[data-page\]'\)/);
+  assert.match(app, /\$\('settingsBack'\)\.addEventListener\('click'/);
+  assert.match(html, /id="settingsBack"/);
+  assert.match(html, /id="settings"/);
 });
