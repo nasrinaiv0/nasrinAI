@@ -7207,7 +7207,7 @@
     // catalog section happened to render it. Keep this mapping explicit.
     const pluginFamilyByName = {
       Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
-      'Google Meet': 'Google', 'Google Keep': 'Google', 'Google Search': 'Google',
+      'Google Meet': 'Google', 'Google Keep': 'Google',
       'Google Maps': 'Google',
       Outlook: 'Microsoft', 'Microsoft Outlook': 'Microsoft', OneDrive: 'Microsoft',
       Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
@@ -7223,7 +7223,7 @@
     const catalogWebsite = {
       Gmail: 'https://mail.google.com', 'Google Calendar': 'https://calendar.google.com',
       'Google Drive': 'https://drive.google.com', 'Google Meet': 'https://meet.google.com',
-      'Google Keep': 'https://keep.google.com', 'Google Search': 'https://www.google.com',
+      'Google Keep': 'https://keep.google.com',
       'Google Maps': 'https://maps.google.com', Outlook: 'https://outlook.live.com',
       OneDrive: 'https://onedrive.live.com', Teams: 'https://teams.microsoft.com',
       Excel: 'https://www.microsoft.com/microsoft-365/excel', PowerPoint: 'https://www.microsoft.com/microsoft-365/powerpoint',
@@ -7345,7 +7345,6 @@
         const productLogoUrls = {
           'Google Meet': 'https://cdn.simpleicons.org/googlemeet',
           'Google Keep': 'https://cdn.simpleicons.org/googlekeep',
-          'Google Search': 'https://cdn.simpleicons.org/googlesearch',
           'Google Maps': 'https://cdn.simpleicons.org/googlemaps'
         };
         if (productLogoUrls[name]) {
@@ -7366,7 +7365,6 @@
           const descriptions = {
             'Google Meet': 'Create and manage meeting links when this integration becomes available.',
             'Google Keep': 'Access notes and lists when this integration becomes available.',
-            'Google Search': 'Configure search access when this integration becomes available.',
             'Google Maps': 'Configure maps and place lookup when this integration becomes available.'
           };
           openPluginCatalogSettings(name, li, 'Coming soon', descriptions[name] || 'This integration is not connected yet.');
