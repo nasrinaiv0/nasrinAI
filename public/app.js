@@ -7167,9 +7167,10 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
     ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map'], ['Google Team', 'team']]],
-    ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
+    ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
+    ['Design', [['Canva', 'design']]],
+    ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
   // Each catalog entry has a Settings action. Pins are a local, account-scoped
   // display preference only; they never imply a connection or grant permissions.
@@ -7202,10 +7203,23 @@
     $('pluginCatalogTitle').textContent = name + ' settings';
     $('pluginCatalogDescription').textContent = description;
     $('pluginCatalogStatus').textContent = status;
-    const catalogGroup = MORE_PLUGINS.find(([, items]) => items.some(([app]) => app === name))?.[0] || 'Developer tools';
-    const catalogDeveloper = catalogGroup === 'Google' ? 'Google'
-      : catalogGroup === 'Microsoft' ? 'Microsoft'
-        : catalogGroup === 'Social' ? 'Social provider' : 'NasrinAI';
+    // Classify by the app's actual provider/function, not by whichever
+    // catalog section happened to render it. Keep this mapping explicit.
+    const pluginFamilyByName = {
+      Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
+      'Google Meet': 'Google', 'Google Keep': 'Google', 'Google Search': 'Google',
+      'Google Maps': 'Google', 'Google Team': 'Google',
+      Outlook: 'Microsoft', 'Microsoft Outlook': 'Microsoft', OneDrive: 'Microsoft',
+      Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
+      Canva: 'Design', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
+      Threads: 'Social & messaging', X: 'Social & messaging',
+      Messenger: 'Social & messaging', WhatsApp: 'Social & messaging',
+      GitHub: 'Developer tools'
+    };
+    const catalogGroup = pluginFamilyByName[name] || 'Other integrations';
+    const catalogDeveloper = ['Google', 'Microsoft'].includes(catalogGroup) ? catalogGroup
+      : catalogGroup === 'Design' ? 'Canva'
+        : catalogGroup === 'Developer tools' ? 'NasrinAI' : 'Third-party provider';
     const catalogWebsite = {
       Gmail: 'https://mail.google.com', 'Google Calendar': 'https://calendar.google.com',
       'Google Drive': 'https://drive.google.com', 'Google Meet': 'https://meet.google.com',
@@ -7225,7 +7239,10 @@
     const hasWrite = Boolean(profile.writeScope && googleStatus.scopes.includes(profile.writeScope));
     const hasRead = Boolean((profile.readScope && googleStatus.scopes.includes(profile.readScope)) || hasWrite);
     const isConnected = Boolean(connectedGoogle && (hasRead || hasWrite));
-    $('pluginCatalogAccountLabel').textContent = 'Google account';
+    $('pluginCatalogAccountLabel').textContent = catalogGroup === 'Google' ? 'Google account'
+      : catalogGroup === 'Microsoft' ? 'Microsoft account'
+        : catalogGroup === 'Design' ? 'Canva account'
+          : catalogGroup === 'Social & messaging' ? 'App account' : 'Connected account';
     $('pluginCatalogAccountStatus').textContent = isConnected
       ? (googleStatus.email || 'Connected')
       : profile.supported && !googleStatus.available ? 'Not configured on this site'
@@ -7238,6 +7255,16 @@
     $('pluginCatalogDisconnect').hidden = !isConnected;
     $('pluginCatalogDisconnect').onclick = () => disconnectGoogle();
     $('pluginCatalogConnect').onclick = () => connectGoogle(profile.service);
+    $('pluginCatalogAddAccount').hidden = !profile.supported;
+    $('pluginCatalogAddAccount').disabled = !profile.supported || !googleStatus.available;
+    $('pluginCatalogAddAccount').onclick = () => {
+      if (!profile.supported || !googleStatus.available) return;
+      if (isConnected) {
+        $('pluginCatalogPermissionHint').textContent = 'This provider currently stores one connected account for this integration. Multi-account linking is not implemented yet; use “Reconnect to update access” to change the authorized account. No account has been changed.';
+        return;
+      }
+      connectGoogle(profile.service);
+    };
     $('pluginCatalogReadOnly').checked = hasRead;
     $('pluginCatalogReadWrite').checked = hasWrite;
     $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !googleStatus.available;
