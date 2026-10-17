@@ -80,3 +80,36 @@ test('Google Meet, Keep, Search, and Maps are not falsely shown as connected', (
     assert.match(app, new RegExp("'" + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "': \\{ supported: false \\}"));
   }
 });
+
+
+test('Google catalog exposes server-backed Meet, Keep, Search, and Maps integrations', () => {
+  for (const [name, service] of [['Google Meet', 'meet'], ['Google Keep', 'keep'], ['Google Search', 'search'], ['Google Maps', 'maps']]) {
+    assert.match(app, new RegExp("'" + name + "': \\{ service: '" + service + "',"));
+  }
+  assert.match(app, /'Google Meet': \\{ service: 'meet'.*supported: true/s);
+  assert.match(app, /'Google Keep': \\{ service: 'keep'.*supported: true/s);
+  assert.match(app, /'Google Search': \\{ service: 'search', supported: true, siteConfigured: true/);
+  assert.match(app, /'Google Maps': \\{ service: 'maps', supported: true, siteConfigured: true/);
+});
+
+test('Google Meet and Keep use independent OAuth scopes and service records', () => {
+  assert.match(google, /MEET_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/meetings\.space\.created'/);
+  assert.match(google, /KEEP_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/keep\.readonly'/);
+  assert.match(google, /\['gmail','calendar','drive','meet','keep'\]\.includes\(service\)/);
+  assert.match(google, /\['drive','meet','keep'\]\.includes\(state\.s\)/);
+  assert.match(google, /tokenFor\(w, 'meet'\)/);
+  assert.match(google, /tokenFor\(w,'keep'\)/);
+  assert.match(google, /name: 'google_meet_create_space'/);
+  assert.match(google, /name: 'google_keep_list_notes'/);
+});
+
+test('Google Search and Maps use server-side environment credentials and expose search tools', () => {
+  assert.match(google, /GOOGLE_SEARCH_API_KEY/);
+  assert.match(google, /GOOGLE_SEARCH_ENGINE_ID/);
+  assert.match(google, /GOOGLE_MAPS_API_KEY/);
+  assert.match(google, /name: 'google_search_web'/);
+  assert.match(google, /name: 'google_maps_places_search'/);
+  assert.match(google, /service === 'search'.*searchAvailable/s);
+  assert.match(google, /service === 'maps'.*mapsAvailable/s);
+  assert.doesNotMatch(app, /GOOGLE_SEARCH_API_KEY|GOOGLE_MAPS_API_KEY/);
+});
