@@ -425,6 +425,21 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
   assert.match(js, /api\('\/v1\/google\/connect'/);
 });
 
+test('plugins: every catalog app has settings and account-scoped pin preferences', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="pluginCatalogSettings"/);
+  assert.match(html, /id="pluginCatalogPinned"/);
+  assert.match(js, /const pluginCatalogPinKey = \(\) => identityKey\('nasrin\.plugin-catalog-pins\.v1'\)/);
+  assert.match(js, /mk\('button', 'plugins-settings-btn', 'Settings'\)/);
+  assert.match(js, /settings\.addEventListener\('click'/);
+  assert.match(js, /openPluginCatalogSettings\(name, li, 'Coming soon'/);
+  assert.match(js, /if \(name === 'Google Team'\)/);
+  assert.match(js, /showPage\('team'\)/);
+  assert.match(js, /actions\.append\(settings, connect, disconnect\)/);
+});
+
 test('plugins: connected plugins are listed first, under Connected', async () => {
   const { readFile } = await import('node:fs/promises');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
