@@ -82,8 +82,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     await db('PATCH', 'google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id), update);
     return data.access_token;
   }
-  async function googleApi(path, token) {
-    const res = await fetchImpl('https://www.googleapis.com/' + path, { headers:{Authorization:'Bearer '+token, Accept:'application/json'}, redirect:'error', signal:AbortSignal.timeout(10000) });
+  async function googleApi(path, token, options = {}) {
+    const res = await fetchImpl('https://www.googleapis.com/' + path, { ...options, headers:{Authorization:'Bearer '+token, Accept:'application/json', ...(options.headers || {})}, redirect:'error', signal:AbortSignal.timeout(10000) });
     const data = await res.json().catch(()=>null);
     if (!res.ok) {
       const status = res.status === 401 || res.status === 403 ? 403 : res.status === 429 ? 429 : 502;
@@ -106,7 +106,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       const nonce=randomBytes(24).toString('base64url');
       const state=signedState({u:w.user_id,t:w.tenant_id,n:sha(nonce),e:Math.floor(now()/1000)+TTL,s:service});
       res.appendHeader('Set-Cookie', COOKIE+'='+encodeURIComponent(nonce)+'; Path=/v1/google; Max-Age='+TTL+'; HttpOnly; Secure; SameSite=Lax');
-      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE]:[]),...(service==='calendar'||service==='both'||service==='calendar-write'?[CALENDAR_SCOPE]:[]),...(service==='calendar-write'?[CALENDAR_EVENTS_SCOPE]:[])];
+      const scopes=['openid','email','profile',...(service==='gmail'||service==='both'?[GMAIL_SCOPE]:[]),...(service==='calendar'||service==='both'||service==='calendar-write'?[CALENDAR_SCOPE,CALENDAR_EVENTS_SCOPE]:[])];
       const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
       return {body:{url:'https://accounts.google.com/o/oauth2/v2/auth?'+q.toString()}};
     }},
