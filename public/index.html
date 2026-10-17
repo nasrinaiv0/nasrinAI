@@ -415,8 +415,8 @@
     </div>
 
     <div class="settings-page" id="pageTeam" hidden>
-      <p class="menu-label">Google team</p>
-      <p class="setting-hint">Save team email addresses for convenient reference across Google workflows. Contacts are stored in this browser for the signed-in account. Saving a contact does not send email, invite anyone, or grant Drive access.</p>
+      <p class="menu-label">Team directory</p>
+      <p class="setting-hint">Manage your team directory in one place for use across connected apps and supported workflows. Team members are saved in this browser for the signed-in account. Adding a person does not invite them, send messages, grant app access, or share files automatically.</p>
       <form id="googleTeamForm" class="menu-card" autocomplete="off">
         <label for="googleTeamName">Name (optional)</label>
         <input id="googleTeamName" name="name" type="text" maxlength="120" placeholder="e.g. Finance team">
@@ -428,7 +428,7 @@
         <p id="googleTeamStatus" class="setting-hint" role="status" aria-live="polite"></p>
       </form>
       <p class="menu-label">Saved team members</p>
-      <p class="setting-hint">Edit each member’s default email role or remove them. To/CC/BCC are email roles only; Calendar invitations and Drive sharing use Google’s native attendee and permission rules.</p>
+      <p class="setting-hint">Manage team contacts here. To/CC/BCC is a default for email workflows only; each connected app still follows its own permissions and native sharing rules.</p>
       <div id="googleTeamList" class="menu-card" aria-live="polite"></div>
       <div class="menu"><button type="button" class="menu-row danger" id="googleTeamClear">Remove all team members</button></div>
     </div>

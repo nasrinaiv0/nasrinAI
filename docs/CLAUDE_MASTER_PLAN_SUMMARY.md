@@ -125,3 +125,10 @@ Changes in this follow-up:
 - CI and Vercel validation pending; do not treat the feature as production-ready until migration and checks are verified.
 
 - Final test correction commit: `8e1d11b397d0ab27c864e344020746f1b0224492`; the Google catalog regression now asserts Google Maps remains and Google Team is absent. Latest observed Vercel status is pending; no PR-triggered workflow runs were returned by the status wrapper. Full CI has not been confirmed.
+
+
+## PR #385 conflict resolution handoff (2026-10-18)
+- PR #385 branch diverged from `main` (8 commits ahead, 21 behind). The current `main` already contains the Google Team catalog removal and stale-test correction; preserve current main application code and tests.
+- Reapply only the Team directory copy changes to `public/index.html` and record this conflict resolution. Do not overwrite newer `main` app code with stale PR snapshots.
+- Team directory remains browser-local/account-scoped; it is not yet automatically consumed by every integration.
+- Validation required after conflict resolution: run CI and verify the mergeability status before merging.
