@@ -3013,3 +3013,14 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
     text-align: left;
   }
 }
+
+/* Plugin controls: one expanded Google card at a time, with mobile-safe actions. */
+.plugin-actions .menu-row { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.plugin-actions .menu-row.danger, .plugin-catalog-settings #pluginCatalogConnect.danger { color: var(--danger, #b42318); }
+@media (max-width: 480px) {
+  .plugin-head { gap: .6rem; padding-inline: .7rem; }
+  .plugin-actions .menu-row { min-height: 3.25rem; padding-inline: .85rem; }
+  .plugins-item { flex-wrap: wrap; padding-block: .45rem; }
+  .plugins-name { flex: 1 1 7rem; white-space: normal; overflow-wrap: anywhere; }
+  .plugins-settings-btn { min-height: 2.25rem; }
+}
