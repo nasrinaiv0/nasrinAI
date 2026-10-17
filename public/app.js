@@ -7085,7 +7085,7 @@
   };
   const MORE_PLUGINS = [
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
-    ['Google', [['Gmail', 'mail'], ['Google Cloud', 'cloud'], ['Google Meet', 'video'], ['Google Calendar', 'calendar']]],
+    ['Google', [['Google Cloud', 'cloud'], ['Google Meet', 'video']]],
     ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
   {
@@ -7112,6 +7112,141 @@
     }
   }
 
+  // Gmail and Google Calendar use the server-side OAuth integration. These rows
+  // only show Connected when the authenticated status endpoint confirms scopes.
+  const googlePlugins = {};
+  function makeGooglePlugin(service, title, glyph) {
+    const card = mk('div', 'plugin-card');
+    card.id = service === 'gmail' ? 'googleGmailCard' : 'googleCalendarCard';
+    const head = mk('button', 'plugin-head');
+    head.type = 'button';
+    head.setAttribute('aria-expanded', 'false');
+    const icon = mk('span', 'plugin-icon');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'gh-mark');
+    for (const [tag, attrs] of PLUGIN_GLYPHS[glyph]) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      svg.appendChild(el);
+    }
+    icon.appendChild(svg);
+    const main = mk('span', 'plugin-main');
+    main.append(mk('span', 'plugin-title', title));
+    const sub = mk('span', 'plugin-sub', 'Checking connection…');
+    main.appendChild(sub);
+    const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    chev.setAttribute('viewBox', '0 0 24 24');
+    chev.setAttribute('aria-hidden', 'true');
+    chev.setAttribute('class', 'plugin-chev');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'm6 9 6 6 6-6');
+    chev.appendChild(path);
+    head.append(icon, main, chev);
+    const actions = mk('div', 'menu plugin-actions');
+    actions.hidden = true;
+    const connect = mk('button', 'menu-row', 'Connect ' + title);
+    connect.type = 'button';
+    connect.addEventListener('click', () => connectGoogle(service));
+    const disconnect = mk('button', 'menu-row danger', 'Disconnect Google account');
+    disconnect.type = 'button';
+    disconnect.hidden = true;
+    disconnect.addEventListener('click', disconnectGoogle);
+    actions.append(connect, disconnect);
+    head.addEventListener('click', () => {
+      const open = actions.hidden;
+      actions.hidden = !open;
+      head.setAttribute('aria-expanded', String(open));
+    });
+    card.append(head, actions);
+    googlePlugins[service] = { card, sub, connect, disconnect, title };
+    $('pluginsDev').appendChild(card);
+  }
+  makeGooglePlugin('gmail', 'Gmail', 'mail');
+  makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
+  let googleStatus = { available: false, connected: false, scopes: [], email: null };
+  async function loadGoogle() {
+    try {
+      const status = await api('/v1/google/status');
+      googleStatus = {
+        available: status?.available === true,
+        connected: status?.connected === true,
+        scopes: Array.isArray(status?.scopes) ? status.scopes : [],
+        email: typeof status?.email === 'string' ? status.email : null
+      };
+      renderGoogle();
+    } catch {
+      googleStatus = { available: false, connected: false, scopes: [], email: null, error: true };
+      renderGoogle();
+    }
+  }
+  function renderGoogle() {
+    for (const [service, item] of Object.entries(googlePlugins)) {
+      const scope = service === 'gmail'
+        ? 'https://www.googleapis.com/auth/gmail.readonly'
+        : 'https://www.googleapis.com/auth/calendar.readonly';
+      const connected = googleStatus.connected && googleStatus.scopes.includes(scope);
+      item.sub.textContent = googleStatus.error
+        ? 'Connection status unavailable'
+        : !googleStatus.available
+          ? 'Not configured on this site yet'
+          : connected
+            ? 'Connected' + (googleStatus.email ? ' · ' + googleStatus.email : '')
+            : 'Not connected';
+      item.connect.textContent = connected ? 'Reconnect ' + item.title : 'Connect ' + item.title;
+      item.connect.disabled = !googleStatus.available;
+      item.disconnect.hidden = !googleStatus.connected;
+      (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
+    }
+    $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
+    $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
+  }
+  async function connectGoogle(service) {
+    if (!account) { openSignIn('Sign in to connect Google.'); return; }
+    const status = $('githubStatus');
+    status.textContent = 'Starting secure Google authorization…';
+    try {
+      const result = await api('/v1/google/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service })
+      });
+      if (!result || typeof result.url !== 'string' || !result.url.startsWith('https://accounts.google.com/')) {
+        throw new Error('Google did not return a valid authorization URL.');
+      }
+      location.assign(result.url);
+    } catch (err) {
+      status.textContent = err.message || 'Google could not be connected. Please try again.';
+    }
+  }
+  async function disconnectGoogle() {
+    const status = $('githubStatus');
+    const buttons = Object.values(googlePlugins).flatMap((p) => [p.connect, p.disconnect]);
+    buttons.forEach((button) => { button.disabled = true; });
+    status.textContent = 'Disconnecting Google…';
+    try {
+      await api('/v1/google', { method: 'DELETE' });
+      googleStatus = { ...googleStatus, connected: false, scopes: [], email: null };
+      renderGoogle();
+      status.textContent = 'Google account disconnected.';
+    } catch (err) {
+      status.textContent = err.message || 'Google could not be disconnected.';
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+      renderGoogle();
+    }
+  }
+  {
+    const back = new URLSearchParams(location.search).get('google');
+    if (back) {
+      history.replaceState(null, '', location.pathname);
+      notice.textContent = back === 'connected'
+        ? 'Google account connected. Open Plugins to confirm Gmail and Calendar access.'
+        : 'Google was not connected. Check the OAuth setup and try again.';
+    }
+  }
+
   // The Plugins sheet (Plugins in the menu); GitHub is the first plugin.
   const githubSheet = $('githubSheet');
   function openGithub() {
@@ -7125,6 +7260,7 @@
     scrim.hidden = false;
     githubSheet.hidden = false;
     loadGithub();
+    loadGoogle();
   }
   function closeGithub() {
     if (githubSheet.hidden) return;
