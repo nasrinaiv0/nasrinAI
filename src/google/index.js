@@ -9,6 +9,7 @@ const GMAIL_WRITE_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const CALENDAR_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cookies(req) {
@@ -59,7 +60,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
     try {
       const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-      return p && typeof p.u === 'string' && typeof p.t === 'string' && typeof p.n === 'string' && p.e > Math.floor(now() / 1000) && ['gmail','calendar','drive','both'].includes(p.s) ? p : null;
+      return p && typeof p.u === 'string' && typeof p.t === 'string' && typeof p.n === 'string' && p.e > Math.floor(now() / 1000) && ['gmail','gmail-readwrite','calendar','calendar-write','drive','both'].includes(p.s) ? p : null;
     } catch { return null; }
   }
   const who = (caller) => {
@@ -98,14 +99,14 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     { method:'GET', path:'/v1/google/status', scope:'chat', handler:async ({caller,req}) => {
       if (!available || caller?.actor?.type !== 'user') return { body:{available,connected:false,scopes:[]} };
       const w=who(caller); const service = new URL(req.url, 'https://nasrinai.com').searchParams.get('service');
-      if (!['gmail','calendar'].includes(service)) throw new HttpError(400,'invalid_google_service','Choose Gmail or Calendar status.');
+      if (!['gmail','calendar','drive'].includes(service)) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, or Drive status.');
       const rows=await db('GET','google_connections?select=scopes,email,connected_at&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(service)+'&limit=1');
       return { body:{available,service,connected:Boolean(rows?.[0]),email:rows?.[0]?.email||null,scopes:rows?.[0]?.scopes||[],connected_at:rows?.[0]?.connected_at||null} };
     }},
     { method:'POST', path:'/v1/google/connect', scope:'chat', body:true, handler:async ({caller,body,res,req}) => {
       const w=who(caller);
       if (!available) throw new HttpError(503,'google_not_configured','Google integration is not configured on this deployment yet.');
-      const service = ['gmail','gmail-readwrite','calendar','calendar-write','both'].includes(body?.service) ? body.service : '';
+      const service = ['gmail','gmail-readwrite','calendar','calendar-write','drive','both'].includes(body?.service) ? body.service : '';
       if (!service) throw new HttpError(400,'invalid_google_service','Choose Gmail read-only or read/write, Calendar read-only or read/write, or both.');
       const nonce=randomBytes(24).toString('base64url');
       const state=signedState({u:w.user_id,t:w.tenant_id,n:sha(nonce),e:Math.floor(now()/1000)+TTL,s:service});
@@ -115,6 +116,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         ...(service==='gmail-readwrite'?[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE]:[]),
         ...(service==='calendar'?[CALENDAR_SCOPE]:[]),
         ...(service==='calendar-write'||service==='both'?[CALENDAR_SCOPE,CALENDAR_EVENTS_SCOPE]:[]),
+        ...(service==='drive'?[DRIVE_SCOPE]:[]),
         ...(service==='both'?[GMAIL_SCOPE]:[])
       ];
       const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
@@ -133,7 +135,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const me=await googleApi('oauth2/v2/userinfo',t.access_token);
         if(typeof me?.email!=='string'||!EMAIL.test(me.email)) return redirectBack(res,'failed');
         const w={tenant_id:state.t,user_id:state.u};
-        const connectionService = state.s.startsWith('gmail') ? 'gmail' : state.s.startsWith('calendar') ? 'calendar' : state.s === 'both' ? 'calendar' : '';
+        const connectionService = state.s.startsWith('gmail') ? 'gmail' : state.s.startsWith('calendar') ? 'calendar' : state.s === 'drive' ? 'drive' : state.s === 'both' ? 'calendar' : '';
         if (!connectionService) return redirectBack(res,'failed');
         const existing=await db('GET','google_connections?select=refresh_token_enc,scopes&tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(connectionService)+'&limit=1');
         const opts=sealOpts(w);
@@ -146,7 +148,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     { method:'DELETE', path:'/v1/google', scope:'chat', handler:async ({caller,req}) => {
       const w=who(caller); if(!available) throw new HttpError(503,'google_not_configured','Google integration is not configured.');
       const service = new URL(req.url,'https://nasrinai.com').searchParams.get('service');
-      if (!['gmail','calendar'].includes(service)) throw new HttpError(400,'invalid_google_service','Choose Gmail or Calendar to disconnect.');
+      if (!['gmail','calendar','drive'].includes(service)) throw new HttpError(400,'invalid_google_service','Choose Gmail, Calendar, or Drive to disconnect.');
       await db('DELETE','google_connections?tenant_id=eq.'+encodeURIComponent(w.tenant_id)+'&user_id=eq.'+encodeURIComponent(w.user_id)+'&service=eq.'+encodeURIComponent(service));
       return {body:{connected:false,service}};
     }},
@@ -317,7 +319,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       async run(args, ctx) {
         const w = who(ctx);
         if (!available) throw new HttpError(503, 'google_not_configured', 'Google integration is not configured.');
-        const token = await tokenFor(w, 'gmail');
+        const token = await tokenFor(w, 'drive');
         const query = String(args.query || '').trim().slice(0, 200);
         if (!query) throw new HttpError(400, 'invalid_drive_query', 'Enter a search term for Google Drive.');
         const max = Math.max(1, Math.min(10, Number(args.max_results || 5)));
