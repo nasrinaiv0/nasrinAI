@@ -7202,6 +7202,24 @@
     $('pluginCatalogTitle').textContent = name + ' settings';
     $('pluginCatalogDescription').textContent = description;
     $('pluginCatalogStatus').textContent = status;
+    const catalogGroup = MORE_PLUGINS.find(([, items]) => items.some(([app]) => app === name))?.[0] || 'Developer tools';
+    const catalogDeveloper = catalogGroup === 'Google' ? 'Google'
+      : catalogGroup === 'Microsoft' ? 'Microsoft'
+        : catalogGroup === 'Social' ? 'Social provider' : 'NasrinAI';
+    const catalogWebsite = {
+      Gmail: 'https://mail.google.com', 'Google Calendar': 'https://calendar.google.com',
+      'Google Drive': 'https://drive.google.com', 'Google Meet': 'https://meet.google.com',
+      'Google Keep': 'https://keep.google.com', 'Google Search': 'https://www.google.com',
+      'Google Maps': 'https://maps.google.com', Outlook: 'https://outlook.live.com',
+      OneDrive: 'https://onedrive.live.com', Teams: 'https://teams.microsoft.com',
+      Excel: 'https://www.microsoft.com/microsoft-365/excel', PowerPoint: 'https://www.microsoft.com/microsoft-365/powerpoint',
+      Canva: 'https://www.canva.com', Facebook: 'https://www.facebook.com',
+      Instagram: 'https://www.instagram.com', Threads: 'https://www.threads.net',
+      X: 'https://x.com', Messenger: 'https://www.messenger.com', WhatsApp: 'https://www.whatsapp.com'
+    };
+    $('pluginCatalogCategory').textContent = catalogGroup === 'Developer tools' ? catalogGroup : catalogGroup + ' apps';
+    $('pluginCatalogDeveloper').textContent = catalogDeveloper;
+    $('pluginCatalogWebsite').href = catalogWebsite[name] || 'https://nasrinai.com';
     const profile = pluginAccessProfiles[name] || { supported: false };
     const connectedGoogle = profile.account === 'Google' && googleStatus.connected;
     const hasRead = Boolean(profile.readScope && googleStatus.scopes.includes(profile.readScope));
