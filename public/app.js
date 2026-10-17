@@ -7184,13 +7184,86 @@
     try { localStorage.setItem(pluginCatalogPinKey(), JSON.stringify(pins)); return true; }
     catch { $('pluginCatalogStatus').textContent = 'Could not save this preference in this browser.'; return false; }
   }
+  const pluginAccessProfiles = {
+    Gmail: { service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope: 'https://www.googleapis.com/auth/gmail.readonly', writeScope: 'https://www.googleapis.com/auth/gmail.modify', account: 'Google' },
+    'Google Calendar': { service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope: 'https://www.googleapis.com/auth/calendar.readonly', writeScope: 'https://www.googleapis.com/auth/calendar.events', account: 'Google' },
+    'Google Drive': { service: 'drive', supported: false, readScope: 'https://www.googleapis.com/auth/drive.readonly', writeScope: 'https://www.googleapis.com/auth/drive.file', account: 'Google' },
+    'Google Meet': { supported: false }, 'Google Keep': { supported: false },
+    'Google Search': { supported: false }, 'Google Maps': { supported: false },
+    Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
+    Teams: { supported: false }, Excel: { supported: false }, PowerPoint: { supported: false },
+    Canva: { supported: false }, Facebook: { supported: false }, Instagram: { supported: false },
+    Threads: { supported: false }, X: { supported: false }, Messenger: { supported: false },
+    WhatsApp: { supported: false }
+  };
   function openPluginCatalogSettings(name, li, status = 'Coming soon', description = 'Manage this app’s catalog preference and review its availability.') {
     $('pluginsList').hidden = true;
     $('pluginCatalogSettings').hidden = false;
     $('pluginCatalogTitle').textContent = name + ' settings';
     $('pluginCatalogDescription').textContent = description;
     $('pluginCatalogStatus').textContent = status;
-    $('pluginCatalogUnavailable').hidden = status !== 'Coming soon';
+    const catalogGroup = MORE_PLUGINS.find(([, items]) => items.some(([app]) => app === name))?.[0] || 'Developer tools';
+    const catalogDeveloper = catalogGroup === 'Google' ? 'Google'
+      : catalogGroup === 'Microsoft' ? 'Microsoft'
+        : catalogGroup === 'Social' ? 'Social provider' : 'NasrinAI';
+    const catalogWebsite = {
+      Gmail: 'https://mail.google.com', 'Google Calendar': 'https://calendar.google.com',
+      'Google Drive': 'https://drive.google.com', 'Google Meet': 'https://meet.google.com',
+      'Google Keep': 'https://keep.google.com', 'Google Search': 'https://www.google.com',
+      'Google Maps': 'https://maps.google.com', Outlook: 'https://outlook.live.com',
+      OneDrive: 'https://onedrive.live.com', Teams: 'https://teams.microsoft.com',
+      Excel: 'https://www.microsoft.com/microsoft-365/excel', PowerPoint: 'https://www.microsoft.com/microsoft-365/powerpoint',
+      Canva: 'https://www.canva.com', Facebook: 'https://www.facebook.com',
+      Instagram: 'https://www.instagram.com', Threads: 'https://www.threads.net',
+      X: 'https://x.com', Messenger: 'https://www.messenger.com', WhatsApp: 'https://www.whatsapp.com'
+    };
+    $('pluginCatalogCategory').textContent = catalogGroup === 'Developer tools' ? catalogGroup : catalogGroup + ' apps';
+    $('pluginCatalogDeveloper').textContent = catalogDeveloper;
+    $('pluginCatalogWebsite').href = catalogWebsite[name] || 'https://nasrinai.com';
+    const profile = pluginAccessProfiles[name] || { supported: false };
+    const connectedGoogle = profile.account === 'Google' && googleStatus.connected;
+    const hasWrite = Boolean(profile.writeScope && googleStatus.scopes.includes(profile.writeScope));
+    const hasRead = Boolean((profile.readScope && googleStatus.scopes.includes(profile.readScope)) || hasWrite);
+    const isConnected = Boolean(connectedGoogle && (hasRead || hasWrite));
+    $('pluginCatalogAccountLabel').textContent = 'Google account';
+    $('pluginCatalogAccountStatus').textContent = isConnected
+      ? (googleStatus.email || 'Connected')
+      : profile.supported && !googleStatus.available ? 'Not configured on this site'
+        : 'Not connected';
+    $('pluginCatalogAccountHint').textContent = profile.supported
+      ? 'Configure access opens Google authorization. The provider will request only the scopes supported for this app.'
+      : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
+    $('pluginCatalogConnect').hidden = !profile.supported || isConnected;
+    $('pluginCatalogConnect').disabled = !profile.supported || !googleStatus.available;
+    $('pluginCatalogDisconnect').hidden = !isConnected;
+    $('pluginCatalogDisconnect').onclick = () => disconnectGoogle();
+    $('pluginCatalogConnect').onclick = () => connectGoogle(profile.service);
+    $('pluginCatalogReadOnly').checked = hasRead;
+    $('pluginCatalogReadWrite').checked = hasWrite;
+    $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !googleStatus.available;
+    $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !googleStatus.available;
+    $('pluginCatalogConfigure').disabled = !profile.supported || !googleStatus.available;
+    $('pluginCatalogConfigure').textContent = isConnected ? 'Reconnect to update access' : 'Configure access';
+    $('pluginCatalogConfigure').onclick = () => {
+      if (!profile.supported) return;
+      const readSelected = $('pluginCatalogReadOnly').checked;
+      const writeSelected = $('pluginCatalogReadWrite').checked;
+      if (!readSelected && !writeSelected) {
+        $('pluginCatalogPermissionHint').textContent = 'Select Read-only access or Read and write access before continuing.';
+        return;
+      }
+      const service = writeSelected ? profile.writeService : profile.readService;
+      if (!service) {
+        $('pluginCatalogPermissionHint').textContent = 'This access level is not available for this integration yet.';
+        return;
+      }
+      $('pluginCatalogPermissionHint').textContent = 'Continue to Google to authorize the selected access level. Google may require additional verification for sensitive or restricted scopes.';
+      connectGoogle(service);
+    };
+    $('pluginCatalogPermissionHint').textContent = profile.supported
+      ? (isConnected ? 'Checked permissions reflect scopes currently granted by Google. Changes require reconnecting and approving the provider request.' : 'Choose a supported permission, then configure access through Google authorization.')
+      : 'No permissions are active for this app. Options become available after a secure integration is implemented.';
+    $('pluginCatalogUnavailable').hidden = profile.supported;
     $('pluginCatalogActions').replaceChildren();
     const pins = readPluginCatalogPins();
     $('pluginCatalogPinned').checked = pins[name] === true;
@@ -7361,10 +7434,10 @@
   }
   function renderGoogle() {
     for (const [service, item] of Object.entries(googlePlugins)) {
-      const scope = service === 'gmail'
-        ? 'https://www.googleapis.com/auth/gmail.readonly'
-        : 'https://www.googleapis.com/auth/calendar.events';
-      const connected = googleStatus.connected && googleStatus.scopes.includes(scope);
+      const scopes = service === 'gmail'
+        ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify']
+        : ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events'];
+      const connected = googleStatus.connected && scopes.some((scope) => googleStatus.scopes.includes(scope));
       item.sub.textContent = googleStatus.error
         ? 'Connection status unavailable'
         : !googleStatus.available
