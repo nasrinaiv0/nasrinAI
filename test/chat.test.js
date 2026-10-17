@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeProvider } from '../src/ai/fake.js';
+import { buildSystemPrompt } from '../src/ai/prompt.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
 // Starts an app with the given provider and runs fn against it.
@@ -256,4 +257,13 @@ test('comparison replies never reuse an older cached answer; other cache entries
   const src = await (await import('node:fs/promises')).readFile(new URL('../src/chat.js', import.meta.url), 'utf8');
   // Every non-comparison variant is exactly what it was, so existing entries still match.
   assert.match(src, /: \(blocks \? 'blocks' : 'plain'\)\) \+ \(compare \? '\|compare' : ''\);/);
+});
+
+
+test('normal chat prompt supports grounded summarization of available content', () => {
+  const prompt = buildSystemPrompt({ blocks: true, memory: true });
+  assert.match(prompt, /Summarization in normal chat/);
+  assert.match(prompt, /current conversation/);
+  assert.match(prompt, /never pretend to have read inaccessible content/);
+  assert.match(prompt, /authorized integration tool has actually retrieved/);
 });
