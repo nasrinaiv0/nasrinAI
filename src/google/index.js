@@ -177,7 +177,9 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const ids = Array.isArray(list.messages) ? list.messages.slice(0, max) : [];
         const messages = await Promise.all(ids.map(async (item) => {
           if (!item || typeof item.id !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(item.id)) return null;
-          const detail = await googleApi('gmail/v1/users/me/messages/' + encodeURIComponent(item.id) + '?' + new URLSearchParams({ format: 'metadata', metadataHeaders: ['From', 'Subject', 'Date'] }), token);
+          const detailParams = new URLSearchParams({ format: 'metadata' });
+          for (const name of ['From', 'Subject', 'Date']) detailParams.append('metadataHeaders', name);
+          const detail = await googleApi('gmail/v1/users/me/messages/' + encodeURIComponent(item.id) + '?' + detailParams, token);
           const headers = Array.isArray(detail.payload?.headers) ? detail.payload.headers : [];
           const header = (name) => String(headers.find((h) => String(h.name).toLowerCase() === name.toLowerCase())?.value || '').slice(0, 300);
           return {
