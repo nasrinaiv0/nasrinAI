@@ -53,6 +53,7 @@ import { createSemanticCache } from './semanticCache.js';
 import { createOpenAIEmbedder } from './ai/embeddings.js';
 import { createWebAnswers } from './web-answers.js';
 import { createGithub } from './github/index.js';
+import { createGoogleIntegration } from './google/index.js';
 import { createCite } from './web/cite.js';
 import { createSiteIcons } from './web/site-icon.js';
 
@@ -190,6 +191,8 @@ export function buildApp({ config, logger }) {
   const founder = config.founderKnowledgeUrl ? createFounderKnowledge({ url: config.founderKnowledgeUrl, logger }) : null;
   const productKnowledge = createProductKnowledge();
   const github = createGithub({ config: effective, store, logger });
+  const google = createGoogleIntegration({ config: effective, logger });
+  if (google.available) logger.info('Google Gmail/Calendar integration ready');
   const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
@@ -221,7 +224,7 @@ export function buildApp({ config, logger }) {
     config: effective,
     logger,
     gateway,
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), connect, budget: reasoningBudget, logger }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), connect, budget: reasoningBudget, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });

@@ -35,3 +35,6 @@ updated in the same change.
 
 Exact permissions and review steps are set when each plugin is built; they are
 not verified here.
+
+
+Gmail and Calendar are being introduced as a read-only integration. The UI must not label either service connected unless `GET /v1/google/status` confirms it. Sending mail and modifying events remain out of scope for the initial phase.
