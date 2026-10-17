@@ -105,3 +105,5 @@ Changes in this follow-up:
 - Improved small-screen plugin action wrapping and catalog row wrapping.
 - Add-account limitation remains: the Google connection table/API is keyed to one row per tenant/user and the OAuth callback upserts on that key. The UI now explicitly avoids launching OAuth from Add account while multi-account storage is unsupported, preventing accidental replacement. True Add account requires a schema/API migration to provider/account-keyed rows and per-account token selection/disconnect before safely enabling it.
 - PR #384 was already merged; these changes are being committed directly to main rather than creating another PR, per request. Tests and deployment status must be checked after these commits.
+
+- Follow-up implementation note: removed the legacy extra click listener so the single state-aware connect/disconnect control cannot launch connect and disconnect handlers together. Latest direct-main commit: `705492d00ca5c9aebfc50e3878f819fc50327012`. At last check Vercel status was pending and no PR-triggered workflow runs were returned for this direct-main commit; do not claim deployment or tests passed until verified.
