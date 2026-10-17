@@ -250,6 +250,56 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       }
     },
     {
+      name: 'google_calendar_create_event',
+      description: 'Create an event on the signed-in user’s connected primary Google Calendar. Use only when the user asks to create or schedule an event and provides a title, start, and end. This is a write action; show the exact event details and obtain user confirmation before executing. Never claim success unless Google returns the created event.',
+      risk: 'write',
+      who: ['user'],
+      parameters: {
+        properties: {
+          summary: { type: 'string', maxLength: 200 },
+          start: { type: 'string', maxLength: 80, description: 'ISO 8601 date-time with timezone offset, e.g. 2026-10-20T14:00:00+08:00.' },
+          end: { type: 'string', maxLength: 80, description: 'ISO 8601 date-time with timezone offset, later than start.' },
+          description: { type: 'string', maxLength: 4000 },
+          location: { type: 'string', maxLength: 500 },
+          timezone: { type: 'string', maxLength: 80 }
+        },
+        required: ['summary', 'start', 'end']
+      },
+      async run(args, ctx) {
+        const w = who(ctx);
+        if (!available) throw new HttpError(503, 'google_not_configured', 'Google integration is not configured.');
+        const summary = String(args.summary || '').trim();
+        const start = String(args.start || '').trim();
+        const end = String(args.end || '').trim();
+        if (!summary || summary.length > 200) throw new HttpError(400, 'invalid_event', 'A valid event title is required.');
+        const startDate = new Date(start), endDate = new Date(end);
+        if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || endDate <= startDate || !/(Z|[+-]\\d{2}:?\\d{2})$/.test(start) || !/(Z|[+-]\\d{2}:?\\d{2})$/.test(end)) {
+          throw new HttpError(400, 'invalid_event_time', 'Provide valid start and end date-times with timezone offsets; end must be after start.');
+        }
+        const token = await tokenFor(w);
+        const event = {
+          summary,
+          start: { dateTime: startDate.toISOString(), ...(args.timezone ? { timeZone: String(args.timezone).slice(0, 80) } : {}) },
+          end: { dateTime: endDate.toISOString(), ...(args.timezone ? { timeZone: String(args.timezone).slice(0, 80) } : {}) },
+          ...(args.description ? { description: String(args.description).slice(0, 4000) } : {}),
+          ...(args.location ? { location: String(args.location).slice(0, 500) } : {})
+        };
+        const res = await fetchImpl('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(event),
+          redirect: 'error',
+          signal: AbortSignal.timeout(10000)
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || typeof data?.id !== 'string') {
+          const status = res.status === 401 || res.status === 403 ? 403 : res.status === 429 ? 429 : 502;
+          throw new HttpError(status, 'calendar_create_failed', status === 403 ? 'Google denied event creation. Reconnect Calendar and approve event-write permission.' : status === 429 ? 'Google rate limit reached. Try again shortly.' : 'Google could not confirm event creation.');
+        }
+        return { ok: true, created: true, event: { id: data.id, summary: data.summary, start: data.start?.dateTime, end: data.end?.dateTime, htmlLink: data.htmlLink || null }, message: 'Google confirmed the calendar event was created.' };
+      }
+    },
+    {
       name: 'google_calendar_events',
       description: 'Read upcoming events from the signed-in user’s connected primary Google Calendar. Use for requests about calendar, schedule, meetings, appointments, or what is happening on a date. Read-only; never create, edit, or delete events.',
       risk: 'read',
