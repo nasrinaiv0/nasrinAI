@@ -98,15 +98,37 @@ Changes in this follow-up:
 - Re-run CI and confirm all checks pass before merging; results for this new commit are pending.
 
 
-## Update — shared Team settings across plugin apps (2026-10-18)
-- Removed “Google Team” from the Google plugin catalog. Team is a workspace-level Settings page, not a Google app/integration.
-- Renamed the Team page copy to “Team directory” and clarified that it is a shared directory intended for connected apps and supported workflows. Email To/CC/BCC remains an email-specific default only.
-- Safety/implementation boundary: the current directory is stored in browser local storage scoped to the signed-in account. Adding a contact does not invite users, grant access, send messages, or automatically make every provider integration consume the contacts. Each connected app must explicitly integrate with the shared directory and respect its own permissions before cross-app actions are available.
-- Added regression assertions that Google Team is absent from the plugin catalog while the global Settings → Team page remains present.
-- Branch: `fix/shared-team-settings-remove-google-team-plugin`. PR and CI status pending.
+## Update — plugin accordion, account actions, and catalog cleanup (2026-10-18)
+- Removed the legacy Google Team pseudo-plugin from the Google catalog; Team remains a workspace Settings feature.
+- Google plugin cards now enforce a single-open accordion: opening one collapses the others.
+- Consolidated connect/disconnect into one state-aware action for supported Google integrations. Connected apps show a disconnect action; disconnected apps show connect.
+- Improved small-screen plugin action wrapping and catalog row wrapping.
+- Add-account limitation remains: the Google connection table/API is keyed to one row per tenant/user and the OAuth callback upserts on that key. The UI now explicitly avoids launching OAuth from Add account while multi-account storage is unsupported, preventing accidental replacement. True Add account requires a schema/API migration to provider/account-keyed rows and per-account token selection/disconnect before safely enabling it.
+- PR #384 was already merged; these changes are being committed directly to main rather than creating another PR, per request. Tests and deployment status must be checked after these commits.
+
+- Follow-up implementation note: removed the legacy extra click listener so the single state-aware connect/disconnect control cannot launch connect and disconnect handlers together. Latest direct-main commit: `705492d00ca5c9aebfc50e3878f819fc50327012`. At last check Vercel status was pending and no PR-triggered workflow runs were returned for this direct-main commit; do not claim deployment or tests passed until verified.
 
 
-### PR #385 CI failure fix (2026-10-18)
-- Fixed the stale assertion in `test/google-team-settings.test.js`: the Google catalog no longer includes `['Google Team', 'team']`; the test now verifies Google Maps remains and Google Team is absent.
-- Commit: a1ad2371cf55a68f08f27a2034a2c56df4e71a93.
-- This is a commit to the existing PR #385 branch, not a new PR. Re-check CI before merging; no test pass is claimed until the workflow completes.
+## Update — independent Google app connections and stale test (2026-10-18)
+- Fixed `test/google-team-settings.test.js`: its Google catalog assertion still expected the removed `Google Team` pseudo-plugin.
+- Changed Google connection storage to use a `service` key per user/tenant and added independent Gmail/Calendar status, OAuth callback upserts, token refresh updates, and service-scoped disconnects. Existing encrypted token payloads retain the existing AAD so the migration can duplicate the prior connection safely.
+- Added migration `042_google_service_connections.sql` to split the legacy connection row into Gmail and Calendar rows according to existing granted scopes, and change the primary key to `(tenant_id,user_id,service)`. Apply this migration to Supabase before deploying the backend code; until it is applied, the new endpoints cannot work.
+- Gmail and Calendar UI now load status independently and disconnect only the selected app. The legacy `both` OAuth choice maps to Calendar; new UI flows use the per-app service values.
+- Validation pending: required tests, CI and Vercel must pass before considering this complete.
+
+
+## Update — independent Google app connections and stale test (2026-10-18)
+- Fixed the stale assertion in `test/google-team-settings.test.js`: Google Team was removed from the Google catalog and must not be expected there.
+- Google backend connections now use a per-service key; status, OAuth callback upsert, token refresh and disconnect are scoped to Gmail or Calendar.
+- Gmail and Calendar cards now request separate status and disconnect only their own service. Catalog settings derive granted scopes from the selected app's status.
+- Added `db/migrations/042_google_service_connections.sql` to split existing rows based on scopes and change the primary key to `(tenant_id,user_id,service)`. Apply it in Supabase before deploying code. The migration preserves existing encrypted tokens and only creates a Gmail row if Gmail scopes were granted.
+- CI and Vercel validation pending; do not treat the feature as production-ready until migration and checks are verified.
+
+- Final test correction commit: `8e1d11b397d0ab27c864e344020746f1b0224492`; the Google catalog regression now asserts Google Maps remains and Google Team is absent. Latest observed Vercel status is pending; no PR-triggered workflow runs were returned by the status wrapper. Full CI has not been confirmed.
+
+
+## PR #385 — conflict reconciliation against latest main (2026-10-18)
+- Reconciled the intended Team directory changes against the latest `main` file contents rather than overwriting newer unrelated work.
+- The latest `main` already contains the Google catalog removal and regression assertions in `public/app.js` and `test/github.test.js`; those current versions are retained.
+- Updated `public/index.html` with shared Team directory copy, clarifying that contact storage does not automatically grant app access or trigger actions.
+- Conflict resolution is not verified until GitHub reports the PR mergeable and required CI checks pass.
