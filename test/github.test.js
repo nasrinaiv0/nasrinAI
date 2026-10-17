@@ -440,6 +440,26 @@ test('plugins: every catalog app has settings and account-scoped pin preferences
   assert.match(js, /actions\.append\(settings, connect, disconnect\)/);
 });
 
+test('chat follow-up questions are numbered and keep quick choices plus free-text answers', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /card\.className = 'msg assistant image-card ask-card'/);
+  assert.match(js, /questionList\.className = 'ask-questions'/);
+  assert.match(js, /item\.appendChild\(questionBox\(q, \(value\) => \{ picked\[i\] = value; \}\)\)/);
+  assert.match(js, /field\.placeholder = 'Type your answer'/);
+  assert.match(css, /\.ask-card \.ask-questions > li::marker/);
+});
+
+test('web source resources are expanded by default and retain a hide/show control', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(js, /list\.hidden = false/);
+  assert.match(js, /mk\('p', 'reply-sources-heading', 'Sources & Resources'\)/);
+  assert.match(js, /b\.setAttribute\('aria-expanded', 'true'\)/);
+  assert.match(js, /row\.after\(heading, list\)/);
+});
+
 test('plugins: connected plugins are listed first, under Connected', async () => {
   const { readFile } = await import('node:fs/promises');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
