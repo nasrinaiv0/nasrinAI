@@ -13,5 +13,5 @@ on conflict (tenant_id,user_id,service) do nothing;
 delete from public.google_connections where service='calendar' and not (scopes && array['https://www.googleapis.com/auth/calendar.readonly','https://www.googleapis.com/auth/calendar.events']::text[]);
 alter table public.google_connections alter column service set not null;
 alter table public.google_connections drop constraint if exists google_connections_service_check;
-alter table public.google_connections add constraint google_connections_service_check check (service in ('gmail','calendar','drive'));
+alter table public.google_connections add constraint google_connections_service_check check (service in ('gmail','calendar'));
 commit;
