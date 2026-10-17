@@ -21,12 +21,13 @@ In the same Google Cloud project as the existing OAuth Web client, add
 the existing `https://<project-ref>.supabase.co/auth/v1/callback` entry.
 Do not replace or delete the Supabase callback.
 
-Gmail and Calendar APIs must be enabled. The app requests read-only scopes:
-- Gmail: `https://www.googleapis.com/auth/gmail.readonly`
-- Calendar: `https://www.googleapis.com/auth/calendar.readonly`
+Gmail and Calendar APIs must be enabled. The access settings can request these scopes:
+- Gmail read-only: `https://www.googleapis.com/auth/gmail.readonly`
+- Gmail read/write: `https://www.googleapis.com/auth/gmail.modify` and `https://www.googleapis.com/auth/gmail.send`
+- Calendar read-only: `https://www.googleapis.com/auth/calendar.readonly`
+- Calendar read/write: `https://www.googleapis.com/auth/calendar.events`
 
-Google may require OAuth verification for public production use of Gmail scopes.
-Test with approved test users first.
+The user must choose the access level and approve the Google consent screen. OAuth scopes are not a substitute for implementing and testing each write operation. The current API surface below remains read-oriented; do not claim the app can send email or modify events until dedicated, authorization-checked write endpoints and confirmation flows are implemented. Google may require OAuth verification for sensitive/restricted Gmail scopes. Test with approved test users first.
 
 ## Supabase migration
 
@@ -37,13 +38,11 @@ bound to the user's tenant and user ID. The raw token is never returned by an AP
 
 ## Current API surface
 
-- `POST /v1/google/connect` body `{"service":"gmail"|"calendar"|"both"}` returns an authorization URL.
+- `POST /v1/google/connect` accepts `gmail`, `gmail-readwrite`, `calendar`, `calendar-write`, or `both` and returns an authorization URL. It requests the scopes for the selected access level.
 - `GET /v1/google/callback` validates signed state and a one-time HttpOnly cookie.
 - `GET /v1/google/status` returns connection metadata only.
 - `GET /v1/google/gmail/messages` lists message IDs (not message bodies).
 - `GET /v1/google/calendar/events` lists primary-calendar events.
 - `DELETE /v1/google` disconnects the saved account.
 
-This initial phase is read-only. It does not send email, read message bodies,
-modify events, or expose tokens to the model/browser. Those require a separately
-reviewed permission increase and explicit confirmation UX.
+Current data tools remain read-oriented: they do not send email or modify events, and tokens are never exposed to the model/browser. Write scopes are now selectable for OAuth consent, but write actions must not be advertised as functional until dedicated server-side write endpoints, audit logging, and explicit confirmation UX are implemented. Google Drive and other providers remain unavailable until their provider-specific OAuth, API, and tool support is implemented.
