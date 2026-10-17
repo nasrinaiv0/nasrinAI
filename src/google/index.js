@@ -223,8 +223,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const startValue = String(args.start || '').trim();
         const endValue = String(args.end || '').trim();
         if (!summary || !startValue || !endValue) throw new HttpError(400, 'invalid_event', 'Event title, start, and end are required.');
-        const allDay = /^\\d{4}-\\d{2}-\\d{2}$/.test(startValue) && /^\\d{4}-\\d{2}-\\d{2}$/.test(endValue);
-        const dateTime = /^\\d{4}-\\d{2}-\\d{2}T/.test(startValue) && /^\\d{4}-\\d{2}-\\d{2}T/.test(endValue);
+        const allDay = /^\d{4}-\d{2}-\d{2}$/.test(startValue) && /^\d{4}-\d{2}-\d{2}$/.test(endValue);
+        const dateTime = /^\d{4}-\d{2}-\d{2}T/.test(startValue) && /^\d{4}-\d{2}-\d{2}T/.test(endValue);
         if (!allDay && !dateTime) throw new HttpError(400, 'invalid_event_time', 'Use ISO 8601 start/end date-times, or dates for an all-day event.');
         const startMs = Date.parse(startValue);
         const endMs = Date.parse(endValue);
