@@ -7167,7 +7167,7 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map'], ['Google Team', 'team']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
     ['Design', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
@@ -7208,7 +7208,7 @@
     const pluginFamilyByName = {
       Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
       'Google Meet': 'Google', 'Google Keep': 'Google', 'Google Search': 'Google',
-      'Google Maps': 'Google', 'Google Team': 'Google',
+      'Google Maps': 'Google',
       Outlook: 'Microsoft', 'Microsoft Outlook': 'Microsoft', OneDrive: 'Microsoft',
       Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
       Canva: 'Design', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
@@ -7250,20 +7250,17 @@
     $('pluginCatalogAccountHint').textContent = profile.supported
       ? 'Configure access opens Google authorization. The provider will request only the scopes supported for this app.'
       : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
-    $('pluginCatalogConnect').hidden = !profile.supported || isConnected;
+    $('pluginCatalogConnect').hidden = !profile.supported;
     $('pluginCatalogConnect').disabled = !profile.supported || !googleStatus.available;
-    $('pluginCatalogDisconnect').hidden = !isConnected;
-    $('pluginCatalogDisconnect').onclick = () => disconnectGoogle();
-    $('pluginCatalogConnect').onclick = () => connectGoogle(profile.service);
+    $('pluginCatalogConnect').textContent = isConnected ? 'Disconnect Google account' : 'Connect account';
+    $('pluginCatalogConnect').classList.toggle('danger', isConnected);
+    $('pluginCatalogConnect').onclick = isConnected ? disconnectGoogle : () => connectGoogle(profile.service);
+    $('pluginCatalogDisconnect').hidden = true;
     $('pluginCatalogAddAccount').hidden = !profile.supported;
     $('pluginCatalogAddAccount').disabled = !profile.supported || !googleStatus.available;
     $('pluginCatalogAddAccount').onclick = () => {
       if (!profile.supported || !googleStatus.available) return;
-      if (isConnected) {
-        $('pluginCatalogPermissionHint').textContent = 'This provider currently stores one connected account for this integration. Multi-account linking is not implemented yet; use “Reconnect to update access” to change the authorized account. No account has been changed.';
-        return;
-      }
-      connectGoogle(profile.service);
+      $('pluginCatalogPermissionHint').textContent = 'Multiple Google accounts are not supported by the current secure connection store. No OAuth flow was started, so the existing account cannot be accidentally replaced.';
     };
     $('pluginCatalogReadOnly').checked = hasRead;
     $('pluginCatalogReadWrite').checked = hasWrite;
@@ -7356,17 +7353,11 @@
           li.append(logo);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
-        li.appendChild(mk('span', 'plugins-soon', name === 'Google Team' ? 'Settings' : 'Coming soon'));
+        li.appendChild(mk('span', 'plugins-soon', 'Coming soon'));
         const settings = mk('button', 'plugins-settings-btn', 'Settings');
         settings.type = 'button';
         settings.setAttribute('aria-label', name + ' settings');
         settings.addEventListener('click', () => {
-          if (name === 'Google Team') {
-            closeGithub();
-            openSettings();
-            showPage('team');
-            return;
-          }
           const descriptions = {
             'Google Meet': 'Create and manage meeting links when this integration becomes available.',
             'Google Keep': 'Access notes and lists when this integration becomes available.',
@@ -7429,10 +7420,16 @@
     const disconnect = mk('button', 'menu-row danger', 'Disconnect Google account');
     disconnect.type = 'button';
     disconnect.hidden = true;
-    disconnect.addEventListener('click', disconnectGoogle);
-    actions.append(settings, connect, disconnect);
+    actions.append(settings, connect);
     head.addEventListener('click', () => {
       const open = actions.hidden;
+      for (const other of Object.values(googlePlugins)) {
+        if (other.card === card) continue;
+        const otherActions = other.card.querySelector('.plugin-actions');
+        const otherHead = other.card.querySelector('.plugin-head');
+        if (otherActions) otherActions.hidden = true;
+        if (otherHead) otherHead.setAttribute('aria-expanded', 'false');
+      }
       actions.hidden = !open;
       head.setAttribute('aria-expanded', String(open));
     });
@@ -7472,9 +7469,11 @@
           : connected
             ? 'Connected' + (googleStatus.email ? ' · ' + googleStatus.email : '')
             : 'Not connected';
-      item.connect.textContent = connected ? 'Reconnect ' + item.title : 'Connect ' + item.title;
+      item.connect.textContent = connected ? 'Disconnect Google account' : 'Connect ' + item.title;
       item.connect.disabled = !googleStatus.available;
-      item.disconnect.hidden = !googleStatus.connected;
+      item.connect.classList.toggle('danger', connected);
+      item.connect.onclick = connected ? disconnectGoogle : () => connectGoogle(service);
+      item.disconnect.hidden = true;
       (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
     }
     $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
@@ -7500,7 +7499,7 @@
   }
   async function disconnectGoogle() {
     const status = $('githubStatus');
-    const buttons = Object.values(googlePlugins).flatMap((p) => [p.connect, p.disconnect]);
+    const buttons = Object.values(googlePlugins).map((p) => p.connect);
     buttons.forEach((button) => { button.disabled = true; });
     status.textContent = 'Disconnecting Google…';
     try {
