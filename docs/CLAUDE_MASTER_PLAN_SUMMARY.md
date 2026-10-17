@@ -75,3 +75,35 @@ These statuses are historical snapshots and may have changed.
 4. Merge only if checks pass and diff is safe; otherwise fix the failing check without unrelated changes.
 5. After merge, verify the actual deployment and mobile rendering. Do not claim visual verification unless it happened.
 6. Update this file with final PR/merge/deployment/test status and the next concrete task.
+
+
+## Permanent progress-documentation policy (added 2026-10-18)
+**Every meaningful change must update project documentation before the work is considered handed off.** This applies to feature work, bug fixes, refactors, security changes, configuration changes, test fixes, and PR merges.
+
+For each work session, record:
+- Goal / user request and scope.
+- Files or components changed and a concise description of the implementation.
+- PR number and URL, branch, latest commit SHA, and merge state.
+- Tests actually run and their results; distinguish local tests, CI, deployment checks, and manual/device verification.
+- Security implications, permission/scope changes, migrations, environment-variable changes, and rollback considerations.
+- Known limitations, deferred items, and the next concrete steps.
+
+Rules:
+1. Update the relevant feature/technical document and this master handoff when a change affects project direction, shared architecture, security, deployment, or ongoing work.
+2. Do not update docs with guessed results. Check the actual workflow/deployment status first and label anything not verified as pending or unverified.
+3. Include the handoff/document update in the same PR as the implementation whenever practical, so code and progress notes are reviewed together.
+4. After a PR merges, update the canonical documentation with the merge commit, final checks, deployment status, and remaining follow-up work.
+5. Keep a short “Current checkpoint” and “Next actions” section current; archive stale notes instead of silently treating old statuses as current.
+6. Claude must read this file and the relevant feature documents before continuing a task, inspect the current repository state, and update the docs again before handing work back.
+7. Never treat conversational memory as the sole record of project state. GitHub docs, PRs, commits, CI, and deployment evidence are the durable source of truth.
+
+## Current checkpoint — documentation policy
+- The user explicitly requested on 2026-10-18 that project documentation always be updated to save progress.
+- This policy is now recorded in this file.
+- PR #383 remains the active context in this handoff. Recheck its current head, required CI checks, merge state, and deployment before acting; statuses above are snapshots, not guarantees.
+
+## Next actions
+1. Apply this documentation policy to every future NasrinAI task.
+2. Before coding, inspect current GitHub state and relevant docs.
+3. Include progress-document updates in the same PR as the code change where practical.
+4. Before handoff, summarize verified changes, test results, open risks, and next steps in both the response and the relevant docs.
