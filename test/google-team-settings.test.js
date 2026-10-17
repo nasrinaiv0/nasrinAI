@@ -27,7 +27,7 @@ test('Google Team contacts are account-scoped, editable and not capped by a fixe
 });
 
 test('Google Drive remains registered in Plugins after Team settings changes', () => {
-  assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'folder'\)/);
+  assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'team'\)/);
   assert.match(google, /name: 'google_drive_search'/);
 });
 
