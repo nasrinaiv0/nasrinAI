@@ -24,3 +24,15 @@ test('Google Team contacts are account-scoped, editable and not capped by a fixe
   assert.match(html, /Remove all team members/);
   assert.doesNotMatch(app, /googleTeamContacts\.length\s*[><=]+\s*\d+/);
 });
+
+test('Google Drive remains registered in Plugins after Team settings changes', () => {
+  assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'folder'\)/);
+  assert.match(app, /google_drive_search/);
+});
+
+test('Team page wiring is additive and core navigation controls remain present', () => {
+  assert.match(app, /querySelectorAll\('#settings \\[data-page\\]'\)/);
+  for (const id of ['chatSend', 'newChat', 'settingsButton', 'composerPlus']) {
+    assert.ok(html.includes('id="' + id + '"') || app.includes("'" + id + "'"), 'expected existing control wiring: ' + id);
+  }
+});
