@@ -7313,7 +7313,7 @@
     const settings = mk('button', 'menu-row', 'Settings');
     settings.type = 'button';
     settings.addEventListener('click', () => openPluginCatalogSettings(title, null,
-      googleStatus.connected ? 'Google account connected' : googleStatus.available ? 'Not connected' : 'Not configured on this site yet',
+      sub.textContent || 'Checking connection…',
       'Manage the catalog display preference. Connection controls remain available below this card.'));
     const connect = mk('button', 'menu-row', 'Connect ' + title);
     connect.type = 'button';
