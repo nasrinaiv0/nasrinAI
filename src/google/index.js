@@ -203,12 +203,12 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
     },
     {
       name: 'google_gmail_send',
-      description: 'Send an email from the signed-in user’s connected Gmail account. Use only when the user explicitly asks to send an email and supplies or clearly states the recipient, subject, and body. This is an external action and requires the user to confirm the exact recipient, subject, and body before sending. Never substitute placeholders such as [email], invent an address, or claim sent before Google confirms success.',
+      description: 'Send an email from the signed-in user’s connected Gmail account. When the user has already provided a recipient address anywhere in the current conversation, reuse that exact address; do not ask for it again and do not confuse the sender account with the recipient. Extract the actual email address from natural language and pass it in to. If the user asks to email someone but no real recipient address is present, ask only for the missing address. Never use placeholders such as [email], email, recipient, or name@example.com. Before sending, show the exact recipient, subject, and body and obtain explicit confirmation. Never substitute a different address or claim sent before Google confirms success.',
       risk: 'write',
       who: ['user'],
       parameters: {
         properties: {
-          to: { type: 'string', maxLength: 254, description: 'Exact recipient email address.' },
+          to: { type: 'string', maxLength: 254, description: 'The exact real recipient email address explicitly supplied by the user in this conversation. Reuse it verbatim; never pass [email], email, recipient, or example addresses.' },
           subject: { type: 'string', maxLength: 250, description: 'Email subject.' },
           body: { type: 'string', maxLength: 10000, description: 'Plain-text email body.' }
         },
@@ -220,7 +220,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         const to = String(args.to || '').trim();
         const subject = String(args.subject || '').trim();
         const body = String(args.body || '').trim();
-        if (!EMAIL.test(to) || to.length > 254 || /[\\r\\n]/.test(to)) throw new HttpError(400, 'invalid_recipient', 'Enter one valid recipient email address.');
+        if (!EMAIL.test(to) || to.length > 254 || /[\\r\\n\\s<>\\[\\]]/.test(to) || /^(email|recipient|name@example\\.com)$/i.test(to)) throw new HttpError(400, 'invalid_recipient', 'Enter one real recipient email address, not a placeholder.');
         if (!subject || subject.length > 250 || /[\\r\\n]/.test(subject)) throw new HttpError(400, 'invalid_subject', 'Enter a valid email subject.');
         if (!body || body.length > 10000) throw new HttpError(400, 'invalid_body', 'Enter an email body of 1 to 10000 characters.');
         const token = await tokenFor(w);
