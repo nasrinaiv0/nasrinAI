@@ -460,6 +460,25 @@ test('web source resources are expanded by default and retain a hide/show contro
   assert.match(js, /row\.after\(heading, list\)/);
 });
 
+test('plugins: catalog settings expose account connection and read/write access controls', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  for (const id of [
+    'pluginCatalogAccounts', 'pluginCatalogAccountStatus', 'pluginCatalogConnect',
+    'pluginCatalogDisconnect', 'pluginCatalogReadOnly', 'pluginCatalogReadWrite',
+    'pluginCatalogConfigure', 'pluginCatalogPermissionHint'
+  ]) assert.ok(html.includes('id="' + id + '"'), 'missing settings control: ' + id);
+  assert.match(js, /Gmail: \{ service: 'gmail', supported: true, readScope:/);
+  assert.match(js, /'Google Calendar': \{ service: 'calendar', supported: true, readScope: null, writeScope:/);
+  assert.match(js, /const isConnected = Boolean\(connectedGoogle && \(hasRead \|\| hasWrite\)\)/);
+  assert.match(js, /Checked permissions reflect scopes currently granted by Google/);
+  assert.match(js, /This app cannot connect yet/);
+  assert.match(js, /connectGoogle\(profile\.service\)/);
+  assert.match(css, /\.plugin-catalog-settings #pluginCatalogConfigure/);
+});
+
 test('plugins: reopening the sheet resets catalog settings and detail panels', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
