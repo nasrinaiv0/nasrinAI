@@ -7235,23 +7235,24 @@
     $('pluginCatalogDeveloper').textContent = catalogDeveloper;
     $('pluginCatalogWebsite').href = catalogWebsite[name] || 'https://nasrinai.com';
     const profile = pluginAccessProfiles[name] || { supported: false };
-    const connectedGoogle = profile.account === 'Google' && googleStatus.connected;
-    const hasWrite = Boolean(profile.writeScope && googleStatus.scopes.includes(profile.writeScope));
-    const hasRead = Boolean((profile.readScope && googleStatus.scopes.includes(profile.readScope)) || hasWrite);
+    const serviceStatus = googleStatus[profile.service === 'calendar' ? 'calendar' : 'gmail'];
+    const connectedGoogle = profile.account === 'Google' && serviceStatus.connected && Boolean(profile.service);
+    const hasWrite = Boolean(profile.writeScope && serviceStatus.scopes.includes(profile.writeScope));
+    const hasRead = Boolean((profile.readScope && serviceStatus.scopes.includes(profile.readScope)) || hasWrite);
     const isConnected = Boolean(connectedGoogle && (hasRead || hasWrite));
     $('pluginCatalogAccountLabel').textContent = catalogGroup === 'Google' ? 'Google account'
       : catalogGroup === 'Microsoft' ? 'Microsoft account'
         : catalogGroup === 'Design' ? 'Canva account'
           : catalogGroup === 'Social & messaging' ? 'App account' : 'Connected account';
     $('pluginCatalogAccountStatus').textContent = isConnected
-      ? (googleStatus.email || 'Connected')
-      : profile.supported && !googleStatus.available ? 'Not configured on this site'
+      ? (serviceStatus.email || 'Connected')
+      : profile.supported && !serviceStatus.available ? 'Not configured on this site'
         : 'Not connected';
     $('pluginCatalogAccountHint').textContent = profile.supported
       ? 'Configure access opens Google authorization. The provider will request only the scopes supported for this app.'
       : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
     $('pluginCatalogConnect').hidden = !profile.supported;
-    $('pluginCatalogConnect').disabled = !profile.supported || !googleStatus.available;
+    $('pluginCatalogConnect').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogConnect').textContent = isConnected ? 'Disconnect Google account' : 'Connect account';
     $('pluginCatalogConnect').classList.toggle('danger', isConnected);
     $('pluginCatalogConnect').onclick = isConnected ? disconnectGoogle : () => connectGoogle(profile.service);
@@ -7259,7 +7260,7 @@
     $('pluginCatalogAddAccount').hidden = !profile.supported;
     $('pluginCatalogAddAccount').disabled = !profile.supported || !googleStatus.available;
     $('pluginCatalogAddAccount').onclick = () => {
-      if (!profile.supported || !googleStatus.available) return;
+      if (!profile.supported || !serviceStatus.available) return;
       $('pluginCatalogPermissionHint').textContent = 'Multiple Google accounts are not supported by the current secure connection store. No OAuth flow was started, so the existing account cannot be accidentally replaced.';
     };
     $('pluginCatalogReadOnly').checked = hasRead;
