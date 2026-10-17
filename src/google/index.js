@@ -4,9 +4,9 @@ import { HttpError } from '../http/errors.js';
 
 const TTL = 600;
 const COOKIE = 'nasrin_google_oauth';
-const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
 const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
-const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cookies(req) {
