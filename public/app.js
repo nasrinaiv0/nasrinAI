@@ -7190,7 +7190,7 @@
     'Google Drive': { service: 'drive', supported: false, readScope: null, writeScope: null, account: 'Google' },
     'Google Meet': { supported: false }, 'Google Keep': { supported: false },
     'Google Search': { supported: false }, 'Google Maps': { supported: false },
-    'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
+    Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
     Teams: { supported: false }, Excel: { supported: false }, PowerPoint: { supported: false },
     Canva: { supported: false }, Facebook: { supported: false }, Instagram: { supported: false },
     Threads: { supported: false }, X: { supported: false }, Messenger: { supported: false },
