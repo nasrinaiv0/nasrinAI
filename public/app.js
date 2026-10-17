@@ -7255,10 +7255,10 @@
     $('pluginCatalogConnect').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogConnect').textContent = isConnected ? 'Disconnect Google account' : 'Connect account';
     $('pluginCatalogConnect').classList.toggle('danger', isConnected);
-    $('pluginCatalogConnect').onclick = isConnected ? disconnectGoogle : () => connectGoogle(profile.service);
+    $('pluginCatalogConnect').onclick = isConnected ? () => disconnectGoogle(profile.service) : () => connectGoogle(profile.service);
     $('pluginCatalogDisconnect').hidden = true;
     $('pluginCatalogAddAccount').hidden = !profile.supported;
-    $('pluginCatalogAddAccount').disabled = !profile.supported || !googleStatus.available;
+    $('pluginCatalogAddAccount').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogAddAccount').onclick = () => {
       if (!profile.supported || !serviceStatus.available) return;
       $('pluginCatalogPermissionHint').textContent = 'Multiple Google accounts are not supported by the current secure connection store. No OAuth flow was started, so the existing account cannot be accidentally replaced.';
@@ -7267,7 +7267,7 @@
     $('pluginCatalogReadWrite').checked = hasWrite;
     $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !googleStatus.available;
     $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !googleStatus.available;
-    $('pluginCatalogConfigure').disabled = !profile.supported || !googleStatus.available;
+    $('pluginCatalogConfigure').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogConfigure').textContent = isConnected ? 'Reconnect to update access' : 'Configure access';
     $('pluginCatalogConfigure').onclick = () => {
       if (!profile.supported) return;
