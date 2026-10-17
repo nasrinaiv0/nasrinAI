@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [html, app] = await Promise.all([
+const [html, app, google] = await Promise.all([
   readFile(new URL('../public/index.html', import.meta.url), 'utf8'),
-  readFile(new URL('../public/app.js', import.meta.url), 'utf8')
+  readFile(new URL('../public/app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/google/index.js', import.meta.url), 'utf8')
 ]);
 
 test('Settings exposes Google Team contacts with To, CC and BCC roles', () => {
@@ -27,7 +28,7 @@ test('Google Team contacts are account-scoped, editable and not capped by a fixe
 
 test('Google Drive remains registered in Plugins after Team settings changes', () => {
   assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'folder'\)/);
-  assert.match(app, /google_drive_search/);
+  assert.match(google, /name: 'google_drive_search'/);
 });
 
 test('Team page wiring is additive and core Settings navigation remains wired', () => {
