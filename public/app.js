@@ -7189,8 +7189,10 @@
     Gmail: { service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope: 'https://www.googleapis.com/auth/gmail.readonly', writeScope: 'https://www.googleapis.com/auth/gmail.modify', account: 'Google' },
     'Google Calendar': { service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope: 'https://www.googleapis.com/auth/calendar.readonly', writeScope: 'https://www.googleapis.com/auth/calendar.events', account: 'Google' },
     'Google Drive': { service: 'drive', readService: 'drive', supported: true, readScope: 'https://www.googleapis.com/auth/drive.readonly', account: 'Google' },
-    'Google Meet': { supported: false }, 'Google Keep': { supported: false },
-    'Google Search': { supported: false }, 'Google Maps': { supported: false },
+    'Google Meet': { service: 'meet', readService: 'meet', supported: true, readScope: 'https://www.googleapis.com/auth/meetings.space.created', account: 'Google' },
+    'Google Keep': { service: 'keep', readService: 'keep', supported: true, readScope: 'https://www.googleapis.com/auth/keep.readonly', account: 'Google' },
+    'Google Search': { service: 'search', supported: true, siteConfigured: true, account: 'Google' },
+    'Google Maps': { service: 'maps', supported: true, siteConfigured: true, account: 'Google' },
     Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
     Teams: { supported: false }, Excel: { supported: false }, PowerPoint: { supported: false },
     Canva: { supported: false }, Facebook: { supported: false }, Instagram: { supported: false },
@@ -7237,9 +7239,10 @@
     const profile = pluginAccessProfiles[name] || { supported: false };
     const serviceStatus = googleStatus[profile.service] || { available: false, connected: false, scopes: [], email: null };
     const connectedGoogle = profile.account === 'Google' && serviceStatus.connected && Boolean(profile.service);
+    const configuredService = Boolean(profile.siteConfigured && serviceStatus.available);
     const hasWrite = Boolean(profile.writeScope && serviceStatus.scopes.includes(profile.writeScope));
     const hasRead = Boolean((profile.readScope && serviceStatus.scopes.includes(profile.readScope)) || hasWrite);
-    const isConnected = Boolean(connectedGoogle && (hasRead || hasWrite));
+    const isConnected = profile.siteConfigured ? configuredService : Boolean(connectedGoogle && (hasRead || hasWrite));
     $('pluginCatalogAccountLabel').textContent = catalogGroup === 'Google' ? 'Google account'
       : catalogGroup === 'Microsoft' ? 'Microsoft account'
         : catalogGroup === 'Design' ? 'Canva account'
@@ -7248,16 +7251,18 @@
       ? (serviceStatus.email || 'Connected')
       : profile.supported && !serviceStatus.available ? 'Not configured on this site'
         : 'Not connected';
-    $('pluginCatalogAccountHint').textContent = profile.supported
-      ? 'Configure access opens Google authorization. The provider will request only the scopes supported for this app.'
+    $('pluginCatalogAccountHint').textContent = profile.siteConfigured
+      ? 'This app uses a server-side Google API configuration. API keys remain on the server and are never exposed to the browser.'
+      : profile.supported
+        ? 'Configure access opens Google authorization. The provider will request only the scopes supported for this app.'
       : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
-    $('pluginCatalogConnect').hidden = !profile.supported;
+    $('pluginCatalogConnect').hidden = !profile.supported || profile.siteConfigured;
     $('pluginCatalogConnect').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogConnect').textContent = isConnected ? 'Disconnect Google account' : 'Connect account';
     $('pluginCatalogConnect').classList.toggle('danger', isConnected);
     $('pluginCatalogConnect').onclick = isConnected ? () => disconnectGoogle(profile.service) : () => connectGoogle(profile.service);
     $('pluginCatalogDisconnect').hidden = true;
-    $('pluginCatalogAddAccount').hidden = !profile.supported;
+    $('pluginCatalogAddAccount').hidden = !profile.supported || profile.siteConfigured;
     $('pluginCatalogAddAccount').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogAddAccount').onclick = () => {
       if (!profile.supported || !serviceStatus.available) return;
@@ -7265,8 +7270,9 @@
     };
     $('pluginCatalogReadOnly').checked = hasRead;
     $('pluginCatalogReadWrite').checked = hasWrite;
-    $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !googleStatus.available;
-    $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !googleStatus.available;
+    $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !serviceStatus.available;
+    $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !serviceStatus.available;
+    $('pluginCatalogConfigure').hidden = profile.siteConfigured;
     $('pluginCatalogConfigure').disabled = !profile.supported || !serviceStatus.available;
     $('pluginCatalogConfigure').textContent = isConnected ? 'Reconnect to update access' : 'Configure access';
     $('pluginCatalogConfigure').onclick = () => {
@@ -7440,10 +7446,10 @@
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
   makeGooglePlugin('drive', 'Google Drive', 'team');
-  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null } };
-  Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive'].some((service) => googleStatus[service].available); } });
+  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null }, meet: { available:false, connected:false, scopes:[], email:null }, keep: { available:false, connected:false, scopes:[], email:null }, search: { available:false, connected:false, scopes:[], email:null }, maps: { available:false, connected:false, scopes:[], email:null } };
+  Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive','meet','keep','search','maps'].some((service) => googleStatus[service].available); } });
   async function loadGoogle() {
-    await Promise.all(['gmail','calendar','drive'].map(async (service) => {
+    await Promise.all(['gmail','calendar','drive','meet','keep','search','maps'].map(async (service) => {
       try {
         const status = await api('/v1/google/status?service=' + service);
         googleStatus[service] = { available:status?.available===true, connected:status?.connected===true, scopes:Array.isArray(status?.scopes)?status.scopes:[], email:typeof status?.email==='string'?status.email:null };
@@ -7457,7 +7463,9 @@
         ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send']
         : service === 'calendar'
           ? ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events']
-          : ['https://www.googleapis.com/auth/drive.readonly'];
+          : service === 'drive' ? ['https://www.googleapis.com/auth/drive.readonly']
+            : service === 'meet' ? ['https://www.googleapis.com/auth/meetings.space.created']
+              : service === 'keep' ? ['https://www.googleapis.com/auth/keep.readonly'] : [];
       const status = googleStatus[service] || { available:false, connected:false, scopes:[], email:null, error:false };
       const connected = status.connected && scopes.some((scope) => status.scopes.includes(scope));
       item.sub.textContent = status.error
