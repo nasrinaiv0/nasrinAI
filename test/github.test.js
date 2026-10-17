@@ -466,7 +466,7 @@ test('plugins: catalog settings expose account connection and read/write access 
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   for (const id of [
-    'pluginCatalogAccounts', 'pluginCatalogAccountStatus', 'pluginCatalogConnect',
+    'pluginCatalogAccounts', 'pluginCatalogAccountStatus', 'pluginCatalogAddAccount', 'pluginCatalogConnect',
     'pluginCatalogDisconnect', 'pluginCatalogReadOnly', 'pluginCatalogReadWrite',
     'pluginCatalogConfigure', 'pluginCatalogPermissionHint'
   ]) assert.ok(html.includes('id="' + id + '"'), 'missing settings control: ' + id);
@@ -489,6 +489,20 @@ test('Google OAuth requests only the selected read or read/write scopes', async 
   assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
   assert.match(js, /service==='calendar-write'\|\|service==='both'/);
   assert.match(js, /include_granted_scopes:'true'/);
+});
+
+test('plugins: catalog apps are grouped by provider family and add-account is guarded', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="pluginCatalogAddAccount"[^>]*hidden/);
+  assert.match(js, /Google Calendar: 'Google'/);
+  assert.match(js, /Outlook: 'Microsoft'/);
+  assert.match(js, /Canva: 'Design'/);
+  assert.match(js, /Facebook: 'Social & messaging'/);
+  assert.match(js, /\['Design', \[\['Canva', 'design'\]\]\]/);
+  assert.match(js, /This provider currently stores one connected account for this integration/);
+  assert.match(js, /Multi-account linking is not implemented yet/);
 });
 
 test('plugins: app settings include account, permission, and information sections', async () => {
