@@ -96,3 +96,11 @@ Changes in this follow-up:
 - Corrected the test assertion to match the actual valid JavaScript key. No runtime application code was changed for this test-only fix.
 - Commit: `d6a941a9f2b0e83026faf892250e3dbd813b387a`.
 - Re-run CI and confirm all checks pass before merging; results for this new commit are pending.
+
+
+## Update — shared Team settings across plugin apps (2026-10-18)
+- Removed “Google Team” from the Google plugin catalog. Team is a workspace-level Settings page, not a Google app/integration.
+- Renamed the Team page copy to “Team directory” and clarified that it is a shared directory intended for connected apps and supported workflows. Email To/CC/BCC remains an email-specific default only.
+- Safety/implementation boundary: the current directory is stored in browser local storage scoped to the signed-in account. Adding a contact does not invite users, grant access, send messages, or automatically make every provider integration consume the contacts. Each connected app must explicitly integrate with the shared directory and respect its own permissions before cross-app actions are available.
+- Added regression assertions that Google Team is absent from the plugin catalog while the global Settings → Team page remains present.
+- Branch: `fix/shared-team-settings-remove-google-team-plugin`. PR and CI status pending.
