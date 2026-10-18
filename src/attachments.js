@@ -46,7 +46,9 @@ function sniff(bytes) {
   if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'OggS') return 'application/ogg';
   if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'fLaC') return 'audio/flac';
   if (bytes.length >= 3 && bytes.toString('ascii', 0, 3) === 'ID3') return 'audio/mpeg';
-  if (bytes.length >= 2 && at(0) === 0xff && (at(1) & 0xe0) === 0xe0) return 'audio/mpeg';
+  if (bytes.length >= 4 && at(0) === 0xff && (at(1) & 0xe0) === 0xe0 &&
+      (at(1) & 0x06) !== 0 && (at(2) & 0xf0) !== 0 && (at(2) & 0x0c) !== 0x0c &&
+      !(at(0) === 0xff && at(1) === 0xfe)) return 'audio/mpeg';
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE') return 'audio/wav';
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'AVI ') return 'video/x-msvideo';
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'FORM' && bytes.toString('ascii', 8, 12) === 'AIFF') return 'audio/aiff';
