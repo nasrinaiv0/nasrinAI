@@ -7420,7 +7420,7 @@
           li.appendChild(logo);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
-        const availabilityTag = mk('span', 'plugins-soon', ['Google Meet', 'Google Keep', 'Google Maps'].includes(name) ? 'Available' : 'Coming soon');
+        const availabilityTag = mk('span', 'plugins-soon', 'Coming soon');
         if (['Google Meet', 'Google Keep', 'Google Maps'].includes(name)) availabilityTag.classList.add('plugins-available');
         li.appendChild(availabilityTag);
         const settings = mk('button', 'plugins-settings-btn', 'Settings');
