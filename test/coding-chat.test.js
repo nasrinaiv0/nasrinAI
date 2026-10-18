@@ -82,3 +82,15 @@ test('coding chat: reviews and audits quote only code a tool returned, with path
   assert.match(CODING_CHAT_RULE, /do not ask what behavior they want/);
   assert.match(CODING_CHAT_RULE, /inspect the named repository and current ref, run available checks, fix verified defects/);
 });
+
+
+test('coding chat executes autonomously, preserves continuity, and avoids unnecessary question cards', async () => {
+  const { CODING_CHAT_RULE } = await import('../src/coding.js');
+  assert.match(CODING_CHAT_RULE, /EXECUTE-FIRST/);
+  assert.match(CODING_CHAT_RULE, /AUTONOMOUS CONTINUITY/);
+  assert.match(CODING_CHAT_RULE, /NO UNNECESSARY QUESTIONS/);
+  assert.match(CODING_CHAT_RULE, /AUTOMATIC REPAIR/);
+  assert.match(CODING_CHAT_RULE, /REAL UI WORK/);
+  assert.match(CODING_CHAT_RULE, /5-second observation interval/);
+  assert.match(CODING_CHAT_RULE, /Never claim a continuous background watcher is running/);
+});

@@ -16,6 +16,7 @@ test('the chat page loads its script and styles as files that the strict CSP all
     assert.match(html, /<link rel="icon" type="image\/png" href="\/logo\.png">/, 'Google-search favicon points to logo.png');
     assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
+    assert.match(page.headers.get('content-security-policy'), /youtube-nocookie\.com/);
     assert.match(html, /<script src="\/app\.js" defer><\/script>/);
 
     for (const [path, type] of [['/app.js', /javascript/], ['/character.js', /javascript/], ['/app.css', /text\/css/], ['/icon.svg', /image\/svg\+xml/], ['/apple-touch-icon.png', /image\/png/], ['/icon-512.png', /image\/png/], ['/logo.png', /image\/png/], ['/favicon.ico', /image\/x-icon/], ['/manifest.webmanifest', /application\/manifest\+json/]]) {
@@ -182,15 +183,15 @@ test('sign-in Turnstile widget is centered below the email form and smaller on p
   assert.ok(form > -1 && form < widget && widget < status, 'widget sits below the email form and above the status message');
 });
 
-test('oversized pasted composer text becomes a plain-text attachment', async () => {
+test('a paste over 2,000 characters becomes a plain-text attachment; shorter stays text (spec section 4)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(js, /function pastedTextOverflows\(text\)/, 'overflow is measured against the composer max height');
-  assert.match(js, /input\.addEventListener\('paste',[\s\S]{0,1600}pastedTextOverflows\(text\)/,
-    'the paste handler checks plain text before allowing it into the composer');
-  assert.match(js, /new File\(\[text\], 'pasted-message-'[\s\S]{0,100}type: 'text\/plain'/,
-    'overflowing pasted text is wrapped in a TXT file');
-  assert.match(js, /if \(!text \|\| !pastedTextOverflows\(text\)\) return;/,
-    'short text continues to paste normally');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<script src="\/paste\.js" defer><\/script>/, 'the rule is loaded on the page');
+  assert.doesNotMatch(js, /pastedTextOverflows/, 'the old composer-height rule is gone');
+  assert.match(js, /input\.addEventListener\('paste',[\s\S]{0,2400}NasrinPaste\.shouldAttach\(text\)/);
+  assert.match(js, /if \(!text \|\| !NasrinPaste\.shouldAttach\(text\)\) return;/, 'short text continues to paste normally');
+  assert.match(js, /new File\(\[text\], name, \{ type: 'text\/plain' \}\)/);
+  assert.match(js, /The pasted text was kept in the message box instead/, 'a failed attach never loses the text');
 });
 
 test('a tech-style loader shows while a picture, video or file is being made (owner, 2026-10-13)', async () => {
@@ -228,14 +229,16 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
 });
 
-test('web sources fold under a Sources button beside the reply actions (owner, 2026-10-13)', async () => {
+test('web sources stay behind an accessible Sources and Resources toggle by default (owner, 2026-10-18)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
   assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
   assert.match(toggle, /list\.hidden = true;/);
+  assert.match(toggle, /const heading = mk\('p', 'reply-sources-heading', 'Sources & Resources'\);/);
   assert.match(toggle, /b\.setAttribute\('aria-expanded', 'false'\);/);
+  assert.match(toggle, /heading\.hidden = !open;/);
   assert.match(toggle, /a\.rel = 'noopener noreferrer';/);
   assert.doesNotMatch(toggle, /innerHTML/);
   // Copy, share and Save to Library keep the sources; read-aloud skips them.
@@ -261,6 +264,18 @@ test('"clean this" with a spreadsheet runs the cleaner on the device, never the 
   assert.doesNotMatch(card, /innerHTML/);
 });
 
+test('chat follow-up questions are presented as a list with editable answers (owner, 2026-10-18)', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const card = js.slice(js.indexOf('function askCard('), js.indexOf('function show(role, text'));
+  assert.match(card, /const questionList = document\.createElement\('ul'\);/);
+  assert.match(card, /questionList\.className = 'ask-questions';/);
+  assert.match(card, /item\.appendChild\(questionBox\(q,/);
+  assert.match(js, /field\.placeholder = 'Type your answer';/);
+  assert.match(js, /field\.addEventListener\('input', \(\) =>/);
+  assert.match(css, /\.ask-card \.ask-questions/);
+});
+
 test('normal chats use a slightly smaller text size (owner, 2026-10-13)', async () => {
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.msg\.assistant \{ align-self: flex-start; font-size: 0\.95rem; line-height: 1\.62; \}/);
@@ -282,11 +297,12 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /b\.setAttribute\('aria-label', `Sources \(\$\{links\.length\}\)`\);/);
-  assert.match(toggle, /const hosts = \[\.\.\.new Set\(links\.map\(\(l\) => l\.host\)\)\]\.slice\(0, 3\);/);
-  assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
-  assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
-  assert.match(css, /\.src-face \+ \.src-face \{ margin-left: -0\.38rem; \}/);
+  assert.ok(toggle.includes("b.setAttribute('aria-label', `Show sources and resources (${links.length})`);"));
+  assert.ok(toggle.includes("b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);"));
+  assert.ok(toggle.includes('const hosts = [...new Set(links.map((l) => l.host))].slice(0, 3);'));
+  assert.ok(toggle.includes("b.append(faces, mk('span', 'src-word', 'Sources'));") );
+  assert.ok(!toggle.includes('<img') && !toggle.includes('.src = ')); // no outside images (strict CSP, no third-party requests)
+  assert.ok(css.includes('.src-face + .src-face { margin-left: -0.38rem; }'));
 });
 
 test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact the team (owner, 2026-10-13)', async () => {
@@ -309,4 +325,66 @@ test('the NCC tile uses the owner’s chosen logo: B · Flow, three triangles (o
   assert.match(tile, /<svg class="space-app-logo space-app-glyph space-ncc-glyph" viewBox="0 0 120 120" aria-hidden="true">/);
   assert.equal((tile.match(/<path d="M[^"]+Z" fill="currentColor"/g) || []).length, 3);
   assert.doesNotMatch(tile, /space-movo-glyph|<circle/);
+});
+
+
+test('web-researched replies render safe, same-origin source image previews', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  const preview = await readFile(new URL('../src/web/page-preview.js', import.meta.url), 'utf8');
+  assert.match(js, /renderWebPreviews\(el, cited\.links\)/);
+  assert.match(js, /\/v1\/page-preview\?url=/);
+  assert.match(js, /noopener noreferrer/);
+  assert.match(css, /\.web-preview-grid/);
+  assert.match(routes, /path: '\/v1\/page-preview'/);
+  assert.match(preview, /image\/jpeg/);
+  assert.match(preview, /readBytesImpl/);
+});
+
+
+test('tutorial intent uses a privacy-enhanced YouTube player and only trusted video IDs', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
+  assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
+  assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
+  assert.ok(!js.includes('const sourceIds = sourceLinks.map'), 'unverified links must not be embedded when search returns no playable videos');
+  assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
+  assert.match(js, /Practical how-to questions should surface a video/);
+  assert.match(js, /\/v1\/youtube\/search\?q=/);
+  assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
+  assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
+  assert.match(css, /\.youtube-video-frame/);
+  assert.match(js, /youtube-fullscreen-button/);
+  assert.match(js, /requestFullscreen\(\)/);
+  assert.match(js, /Play video fullscreen/);
+  assert.match(js, /window\.open\('https:\/\/www\.youtube\.com\/watch\?v='/);
+  assert.match(css, /\.youtube-fullscreen-button/);
+  assert.match(css, /\.youtube-video-frame:fullscreen/);
+  assert.match(js, /const PERSISTENT_YOUTUBE_KEY = 'nasrin\.persistentYoutubePlayer'/);
+  assert.match(js, /function mountPersistentYouTubePlayer\(video, existingCard = null\)/);
+  assert.match(js, /function restorePersistentYouTubePlayer\(\)/);
+  assert.match(js, /restorePersistentYouTubePlayer\(\);/);
+  assert.match(js, /localStorage\.setItem\(PERSISTENT_YOUTUBE_KEY, JSON\.stringify\(state\)\)/);
+  assert.match(js, /localStorage\.removeItem\(PERSISTENT_YOUTUBE_KEY\)/);
+  assert.match(css, /\.persistent-youtube-player/);
+  assert.match(css, /bottom: calc\(var\(--dock-h/);
+  assert.match(routes, /path: '\/v1\/youtube\/search'/);
+  assert.ok(routes.includes("path: '/v1/youtube/verify'"));
+  assert.ok(js.includes("/v1/youtube/verify?id="));
+  assert.match(youtube, /safeSearch: 'moderate'/);
+  assert.match(youtube, /maxResults: '5'/);
+});
+
+
+test('audio attachment chips expose manual transcription and keep transcript editable', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(app, /className = 'chip-transcribe'/);
+  assert.match(app, /\/v1\/transcriptions\?name=/);
+  assert.match(app, /Transcript added to your message\. Review it before sending\./);
+  assert.match(app, /f\.bytes > 4 \* 1024 \* 1024/);
+  assert.ok(html.includes('/app.js'));
 });
