@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createGoogleReadWriteTools } from '../src/google/read-write.js';
 
 const GMAIL_READ = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_MODIFY = 'https://www.googleapis.com/auth/gmail.modify';
 const GMAIL_SEND = 'https://www.googleapis.com/auth/gmail.send';
 const CALENDAR_WRITE = 'https://www.googleapis.com/auth/calendar.events';
 const ctx = { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } };
@@ -74,4 +75,37 @@ test('Calendar update rejects incomplete time changes before calling Google', as
   const update = tools.find((tool) => tool.name === 'google_calendar_update_event');
   await assert.rejects(update.run({ event_id: 'event_123', start: '2026-10-20T10:00:00+08:00' }, ctx), (error) => error.code === 'invalid_event_time');
   assert.equal(calls.some((c) => c.kind === 'fetch' && c.url.includes('/events/event_123')), false);
+});
+
+test('Gmail modify scope also permits reading a message because it is a permission superset', async () => {
+  const { tools, calls } = setup({
+    scopes: [GMAIL_MODIFY],
+    apiResponse: {
+      id: 'message-1',
+      threadId: 'thread-1',
+      payload: { mimeType: 'text/plain', body: { data: Buffer.from('Message body').toString('base64url') }, headers: [] },
+      labelIds: ['INBOX']
+    }
+  });
+  const read = tools.find((tool) => tool.name === 'google_gmail_read_message');
+  const result = await read.run({ message_id: 'message-1' }, ctx);
+  assert.equal(result.message.body_text, 'Message body');
+  assert.ok(calls.some((c) => c.kind === 'fetch' && c.url.includes('/messages/message-1?format=full')));
+});
+
+test('Gmail read bounds long untrusted message bodies below the tool response ceiling', async () => {
+  const longBody = 'x'.repeat(11000);
+  const { tools } = setup({
+    scopes: [GMAIL_READ],
+    apiResponse: {
+      id: 'message-1',
+      threadId: 'thread-1',
+      payload: { mimeType: 'text/plain', body: { data: Buffer.from(longBody).toString('base64url') }, headers: [] },
+      labelIds: ['INBOX']
+    }
+  });
+  const read = tools.find((tool) => tool.name === 'google_gmail_read_message');
+  const result = await read.run({ message_id: 'message-1' }, ctx);
+  assert.ok(JSON.stringify(result).length < 8192);
+  assert.ok(result.message.body_text.length < longBody.length);
 });
