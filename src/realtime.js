@@ -11,7 +11,7 @@ export function createRealtime({ apiKey, fetchImpl = fetch }) {
   if (!apiKey) return null;
 
   return {
-    async session({ model, voice = 'coral', instructions, reasoningEffort = 'low', maxOutputTokens = 512, maxSeconds = 900 }) {
+    async session({ model, voice = 'cedar', instructions, reasoningEffort = 'low', maxOutputTokens = 512, maxSeconds = 900 }) {
       if (!/^gpt-realtime(?:-2\.1(?:-mini)?|-2|-1\.5)$/.test(String(model))) {
         throw new ProviderError('config', 'Realtime model is not allowed.');
       }
