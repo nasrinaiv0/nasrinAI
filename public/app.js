@@ -7360,6 +7360,9 @@
           logo.decoding = 'async';
           logo.setAttribute('aria-hidden', 'true');
           logo.setAttribute('class', 'plugins-glyph plugins-product-logo');
+          logo.addEventListener('error', () => {
+            logo.replaceWith(svg);
+          }, { once: true });
           li.appendChild(logo);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
@@ -7423,6 +7426,9 @@
       logo.decoding = 'async';
       logo.setAttribute('aria-hidden', 'true');
       logo.setAttribute('class', 'plugin-brand-logo');
+      logo.addEventListener('error', () => {
+        logo.replaceWith(svg);
+      }, { once: true });
       icon.appendChild(logo);
     } else icon.appendChild(svg);
     const main = mk('span', 'plugin-main');
