@@ -7376,17 +7376,23 @@
           li.appendChild(logo);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
-        li.appendChild(mk('span', 'plugins-soon', 'Coming soon'));
+        const availabilityTag = mk('span', 'plugins-soon', ['Google Meet', 'Google Keep', 'Google Maps'].includes(name) ? 'Available' : 'Coming soon');
+        if (['Google Meet', 'Google Keep', 'Google Maps'].includes(name)) availabilityTag.classList.add('plugins-available');
+        li.appendChild(availabilityTag);
         const settings = mk('button', 'plugins-settings-btn', 'Settings');
         settings.type = 'button';
         settings.setAttribute('aria-label', name + ' settings');
         settings.addEventListener('click', () => {
           const descriptions = {
-            'Google Meet': 'Create and manage meeting links when this integration becomes available.',
-            'Google Keep': 'Access notes and lists when this integration becomes available.',
-            'Google Maps': 'Configure maps and place lookup when this integration becomes available.'
+            'Google Meet': 'Connect Google Meet to let NasrinAI create meeting spaces and return shareable meeting links. Google API access and OAuth approval may be required.',
+            'Google Keep': 'Connect Google Keep to let NasrinAI read your recent notes and lists. Keep API access may require an eligible Google Workspace account and Google approval.',
+            'Google Maps': 'Use the server-configured Google Maps Places integration to search places and businesses. The API key stays on the server and is never exposed to the browser.'
           };
-          openPluginCatalogSettings(name, li, 'Coming soon', descriptions[name] || 'This integration is not connected yet.');
+          const profile = pluginAccessProfiles[name] || {};
+          const status = profile.siteConfigured
+            ? (googleStatus.maps?.available ? 'Available · configured by NasrinAI' : 'Needs server configuration')
+            : (googleStatus[profile.service]?.connected ? 'Connected' : googleStatus[profile.service]?.available ? 'Ready to connect' : 'Needs OAuth configuration');
+          openPluginCatalogSettings(name, li, status, descriptions[name] || 'Manage this integration.');
         });
         li.appendChild(settings);
         ul.appendChild(li);
@@ -7485,6 +7491,8 @@
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
   makeGooglePlugin('drive', 'Google Drive', 'team');
+  makeGooglePlugin('meet', 'Google Meet', 'video');
+  makeGooglePlugin('keep', 'Google Keep', 'note');
   const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null }, meet: { available:false, connected:false, scopes:[], email:null }, keep: { available:false, connected:false, scopes:[], email:null }, maps: { available:false, connected:false, scopes:[], email:null } };
   Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive','meet','keep','maps'].some((service) => googleStatus[service].available); } });
   async function loadGoogle() {
