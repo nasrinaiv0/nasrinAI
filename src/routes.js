@@ -1559,7 +1559,7 @@ return { body: { sites: await connect.list(caller) } }; }
       // Search public Wikimedia Commons photos. Image URLs are limited to Wikimedia's
       // upload host and every result includes its source page and license metadata.
       method: 'GET',
-      path: '/v1/images/search',
+      path: '/v1/web-images/search',
       scope: 'chat',
       handler: async ({ req, ip }) => {
         if (!imageSearch) throw new HttpError(503, 'image_search_unavailable', 'Internet image search is not available right now.');
