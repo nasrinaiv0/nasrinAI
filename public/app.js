@@ -7345,7 +7345,9 @@
         const productLogoUrls = {
           'Google Meet': 'https://cdn.simpleicons.org/googlemeet',
           'Google Keep': 'https://cdn.simpleicons.org/googlekeep',
-          'Google Maps': 'https://cdn.simpleicons.org/googlemaps'
+          'Google Maps': 'https://cdn.simpleicons.org/googlemaps',
+          Outlook: 'https://cdn.simpleicons.org/microsoftoutlook',
+          OneDrive: 'https://cdn.simpleicons.org/microsoftonedrive'
         };
         if (productLogoUrls[name]) {
           logo.src = productLogoUrls[name];
@@ -7354,6 +7356,7 @@
           logo.className = 'plugins-glyph plugins-product-logo';
           logo.loading = 'lazy';
           logo.decoding = 'async';
+          logo.onerror = () => { logo.replaceWith(svg); };
           li.append(logo);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
@@ -7397,7 +7400,23 @@
       for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
       svg.appendChild(el);
     }
-    icon.appendChild(svg);
+    const mainProductLogos = {
+      Gmail: 'gmail',
+      'Google Calendar': 'googlecalendar',
+      'Google Drive': 'googledrive'
+    };
+    const logoSlug = mainProductLogos[title];
+    if (logoSlug) {
+      const logo = document.createElement('img');
+      logo.src = 'https://cdn.simpleicons.org/' + logoSlug;
+      logo.alt = '';
+      logo.setAttribute('aria-hidden', 'true');
+      logo.className = 'gh-mark plugin-brand-logo';
+      logo.loading = 'lazy';
+      logo.decoding = 'async';
+      logo.onerror = () => { logo.replaceWith(svg); };
+      icon.appendChild(logo);
+    } else icon.appendChild(svg);
     const main = mk('span', 'plugin-main');
     main.append(mk('span', 'plugin-title', title));
     const sub = mk('span', 'plugin-sub', 'Checking connection…');
