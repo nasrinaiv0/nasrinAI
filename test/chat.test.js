@@ -292,3 +292,22 @@ test('chat frontend contains a user-initiated location action with manual fallba
   assert.match(src, /Enter a city, address, or landmark/);
   assert.match(src, /if \(service === 'maps'\) \{ item\.card\.remove\(\); continue; \}/);
 });
+
+
+test('uploaded images reach the vision-capable provider with image-analysis instructions', async () => {
+  const provider = createFakeProvider();
+  await withApp({ provider }, async ({ url }) => {
+    const token = await guestToken(url);
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/8ioAAAAASUVORK5CYII=';
+    const response = await send(url, token, {
+      message: 'What is in this image?',
+      attachments: [{ name: 'test.png', data: png }]
+    });
+    assert.equal(response.status, 200);
+    assert.equal(provider.calls.length, 1);
+    assert.match(provider.calls[0].system, /attached one or more images/i);
+    assert.match(provider.calls[0].system, /Inspect the actual image content/i);
+    assert.equal(provider.calls[0].attachments?.[0]?.kind, 'image');
+    assert.equal(provider.calls[0].attachments?.[0]?.mime, 'image/png');
+  });
+});
