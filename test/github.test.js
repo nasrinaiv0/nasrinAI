@@ -415,12 +415,14 @@ test('coding chat page: PR description from the reply, many-file card, automatic
 test('plugins: more apps are listed as Coming soon, never as connected', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Google Meet', 'Google Keep', 'Google Search', 'Google Maps', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
+  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
   assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
   const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
-  assert.doesNotMatch(catalog, /Google Team/);
+  assert.doesNotMatch(catalog, /Google (?:Search|Meet|Keep|Maps)/);
+  assert.match(catalog, /\\['Microsoft 365'/);
+  assert.match(catalog, /\\['Design & creativity'/);
   assert.match(js, /makeGooglePlugin\('gmail', 'Gmail', 'mail'\)/);
   assert.match(js, /makeGooglePlugin\('calendar', 'Google Calendar', 'calendar'\)/);
   assert.match(js, /api\('\/v1\/google\/status\?service=' \+ service\)/);
@@ -436,7 +438,7 @@ test('plugins: every catalog app has settings and account-scoped pin preferences
   assert.match(js, /const pluginCatalogPinKey = \(\) => identityKey\('nasrin\.plugin-catalog-pins\.v1'\)/);
   assert.match(js, /mk\('button', 'plugins-settings-btn', 'Settings'\)/);
   assert.match(js, /settings\.addEventListener\('click'/);
-  assert.match(js, /openPluginCatalogSettings\(name, li, 'Coming soon'/);
+  assert.match(js, /openPluginCatalogSettings\(name, li, status/);
   const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
   assert.doesNotMatch(catalog, /Google Team/);
   assert.match(js, /actions\.append\(settings, connect\)/);
@@ -474,7 +476,7 @@ test('plugins: catalog settings expose account connection and read/write access 
   ]) assert.ok(html.includes('id="' + id + '"'), 'missing settings control: ' + id);
   assert.match(js, /Gmail: \{ service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope:/);
   assert.match(js, /'Google Calendar': \{ service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope:/);
-  assert.match(js, /const isConnected = Boolean\(connectedGoogle && \(hasRead \|\| hasWrite\)\)/);
+  assert.match(js, /const isConnected = profile\.siteConfigured \? configuredService : Boolean\(connectedGoogle && \(hasRead \|\| hasWrite\)\)/);
   assert.match(js, /Checked permissions reflect scopes currently granted by Google/);
   assert.match(js, /This app cannot connect yet/);
   assert.match(js, /const service = writeSelected \? profile\.writeService : profile\.readService/);
@@ -499,11 +501,11 @@ test('plugins: catalog apps are grouped by provider family and add-account is gu
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(html, /id="pluginCatalogAddAccount"[^>]*hidden/);
   assert.match(js, /'Google Calendar': 'Google'/);
-  assert.match(js, /Outlook: 'Microsoft'/);
-  assert.match(js, /Canva: 'Design'/);
+  assert.match(js, /Outlook: 'Microsoft 365'/);
+  assert.match(js, /Canva: 'Design & creativity'/);
   assert.match(js, /Facebook: 'Social & messaging'/);
   assert.match(js, /\['Design', \[\['Canva', 'design'\]\]\]/);
-  assert.match(js, /Multiple Google accounts are not supported by the current secure connection store/);
+  assert.match(js, /Multiple accounts are not enabled for this Google app yet/);
   assert.match(js, /actions\.hidden = !open/);
   assert.match(js, /otherActions\.hidden = true/);
   assert.match(js, /Disconnect Google account/);
