@@ -7172,11 +7172,9 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    // Only additional integrations belong in this catalog. Implemented Google
-    // apps already appear in their connection cards above.
-    ['Google', [['Google Search', 'search']]],
-    ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
-    ['Design', [['Canva', 'design']]],
+    // Google integrations have dedicated connection cards; avoid duplicate entries.
+    ['Microsoft 365', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
+    ['Design & creativity', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
   const DEVELOPER_PLUGINS = [
@@ -7224,9 +7222,9 @@
       Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
       'Google Meet': 'Google', 'Google Keep': 'Google',
       'Google Maps': 'Google',
-      Outlook: 'Microsoft', 'Microsoft Outlook': 'Microsoft', OneDrive: 'Microsoft',
-      Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
-      Canva: 'Design', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
+      Outlook: 'Microsoft 365', 'Microsoft Outlook': 'Microsoft 365', OneDrive: 'Microsoft 365',
+      Teams: 'Microsoft 365', Excel: 'Microsoft 365', PowerPoint: 'Microsoft 365',
+      Canva: 'Design & creativity', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
       Threads: 'Social & messaging', X: 'Social & messaging',
       Messenger: 'Social & messaging', WhatsApp: 'Social & messaging',
       GitHub: 'Developer tools'
