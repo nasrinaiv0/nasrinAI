@@ -1286,7 +1286,7 @@
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
       // Consent-based location CTA, rendered inside a location-related assistant reply.
-      if (/(?:cannot|can't|unable to|do not|don't)\\s+(?:directly\\s+)?(?:access|get|use|see)\\s+(?:your\\s+)?(?:real[- ]time\\s+)?(?:gps|current|device)?\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
+      if (/(?:cannot|can't|unable to|do not|don't)[\s\S]{0,140}(?:gps|current|device)?\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
         const card = document.createElement('div');
         card.className = 'location-cta';
         const copy = document.createElement('p');
