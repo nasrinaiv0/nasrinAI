@@ -25,7 +25,9 @@ export function setBaseHeaders(res, { isProduction }) {
   res.setHeader('Origin-Agent-Cluster', '?1');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)');
+  // Allow the first-party page to request location only after an explicit user action.
+  // The browser still prompts for permission; this header does not grant it.
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(self), microphone=(self)');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   if (isProduction) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 }
