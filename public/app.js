@@ -1521,7 +1521,7 @@
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const n = 64, tilt = 0.35, R = 13, TAU = Math.PI * 2;
+    const n = 64, tilt = 0.35, R = 10.5, TAU = Math.PI * 2;
     const ct = Math.cos(tilt), st = Math.sin(tilt);
     // beep / gather: 0 … 1, eased toward their goals so changes blend smoothly.
     let cycle = 2400, beep = 0, goal = 0, gather = 0, goalG = 0;
@@ -1539,6 +1539,9 @@
       // Sphere: a full turn at a steady speed, and a burst that peaks near the middle.
       const turn = t * TAU;   // steady: it keeps turning while it grows and shrinks
       const burst = (1 - beep) * (1 - gather) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      // One unified mark: the particle sphere expands as the face recedes,
+      // then contracts and reveals the face again. Keep the burst inside the art bounds.
+      box.style.setProperty('--sphere-burst', burst.toFixed(3));
       const ca = Math.cos(turn), sa = Math.sin(turn);
       // Beep: a ring of light runs out from the middle, twice a cycle.
       const wave = (t * 2) % 1;
