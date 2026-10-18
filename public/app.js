@@ -3610,10 +3610,11 @@
     // first can start navigation immediately, before Safari applies the policy;
     // YouTube may then reject the embed when it receives no usable referrer.
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    frame.allowFullscreen = true;
     frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
-    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0';
+    frame.allowFullscreen = true;
+    frame.setAttribute('loading', 'lazy');
+    frame.setAttribute('playsinline', '');
+    frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
     frameWrap.appendChild(frame);
     const fullscreen = document.createElement('button');
     fullscreen.type = 'button';
@@ -3777,8 +3778,11 @@
       heading.className = 'youtube-results-heading';
       heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
       section.appendChild(heading);
+      // Render the primary video directly in the answer. Moving it into the
+      // persistent mini-player detaches it from the tutorial card and can make
+      // the inline video appear missing or behave inconsistently on iOS Safari.
       const firstCard = createYouTubeVideoCard(videos[0]);
-      if (firstCard) mountPersistentYouTubePlayer(videos[0], firstCard);
+      if (firstCard) section.appendChild(firstCard);
       for (const video of videos.slice(1)) {
         const card = createYouTubeVideoCard(video);
         if (card) section.appendChild(card);
