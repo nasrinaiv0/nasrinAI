@@ -34,7 +34,7 @@ test('audio and video formats are detected from signatures without pretending to
 });
 
 test('gzip-compressed text exports are decompressed within the output limit', () => {
-  const payload = gzipSync(Buffer.from('id,value\\n1,Kumusta\\n'));
+  const payload = gzipSync(Buffer.from('id,value\n1,Kumusta\n'));
   const [file] = parseAttachments([{ name: 'export.csv.gz', data: b64(payload) }], limits);
   assert.match(file.text, /1,Kumusta/); assert.match(file.text, /Gzip-compressed text/);
 });
