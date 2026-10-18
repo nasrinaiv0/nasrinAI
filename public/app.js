@@ -7084,6 +7084,11 @@
     $('ghDetailConnect').hidden = !github.available;
     $('ghDetailConnect').firstElementChild.textContent = on ? 'Reconnect main account' : 'Connect GitHub';
     $('ghDetailDisconnect').hidden = !on;
+    // Keep the Developer tools catalog card in sync with live GitHub state.
+    // The catalog is built once at load time (before loadGithub resolves), so
+    // without this the GitHub card would always read "Not configured".
+    const ghDevStatus = document.querySelector('.developer-tool-item[data-plugin-name="GitHub"] .plugins-soon');
+    if (ghDevStatus) ghDevStatus.textContent = on ? 'Connected' : github.available ? 'Available' : 'Not configured';
   }
   async function ghConnect(btn, add = false) {
     if (btn) btn.disabled = true;
@@ -7156,6 +7161,7 @@
     video: [['path', { d: 'M4 7h11v10H4z' }], ['path', { d: 'm15 10.5 5-3v9l-5-3' }]],
     note: [['path', { d: 'M6 3.5h9l3 3V20H6z' }], ['path', { d: 'M15 3.5V7h3M9 11h6M9 14.5h6M9 18h4' }]],
     map: [['path', { d: 'm3.5 6 5-2.5 7 2.5 5-2.5v14l-5 2.5-7-2.5-5 2.5z' }], ['path', { d: 'M8.5 3.5v14M15.5 6v14' }]],
+    search: [['circle', { cx: '10.8', cy: '10.8', r: '6.3' }], ['path', { d: 'm15.5 15.5 4.2 4.2' }]],
 
     calendar: [['path', { d: 'M4.5 6h15v13.5h-15z' }], ['path', { d: 'M4.5 10h15M8.5 4v4M15.5 4v4' }]],
     social: [['circle', { cx: '12', cy: '12', r: '8' }], ['path', { d: 'M12 7.5v9M8.5 11h7' }]],
@@ -7166,10 +7172,17 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Maps', 'map']]],
-    ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
-    ['Design', [['Canva', 'design']]],
+    // Google integrations have dedicated connection cards; avoid duplicate entries.
+    ['Microsoft 365', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
+    ['Design & creativity', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
+  ];
+  const DEVELOPER_PLUGINS = [
+    ['GitHub', 'cloud', 'https://github.com'],
+    ['Vercel', 'cloud', 'https://vercel.com'],
+    ['Render', 'cloud', 'https://render.com'],
+    ['Supabase', 'cloud', 'https://supabase.com'],
+    ['Cloudflare', 'cloud', 'https://cloudflare.com']
   ];
   // Each catalog entry has a Settings action. Pins are a local, account-scoped
   // display preference only; they never imply a connection or grant permissions.
@@ -7209,9 +7222,9 @@
       Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
       'Google Meet': 'Google', 'Google Keep': 'Google',
       'Google Maps': 'Google',
-      Outlook: 'Microsoft', 'Microsoft Outlook': 'Microsoft', OneDrive: 'Microsoft',
-      Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
-      Canva: 'Design', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
+      Outlook: 'Microsoft 365', 'Microsoft Outlook': 'Microsoft 365', OneDrive: 'Microsoft 365',
+      Teams: 'Microsoft 365', Excel: 'Microsoft 365', PowerPoint: 'Microsoft 365',
+      Canva: 'Design & creativity', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
       Threads: 'Social & messaging', X: 'Social & messaging',
       Messenger: 'Social & messaging', WhatsApp: 'Social & messaging',
       GitHub: 'Developer tools'
@@ -7332,10 +7345,41 @@
     $('githubTitle').lastChild.textContent = 'Plugins';
     $('githubClose').focus();
   });
+  function developerToolCard(name, glyph, website) {
+    const li = mk('li', 'plugins-item developer-tool-item');
+    li.dataset.pluginName = name;
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNs, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'plugins-glyph');
+    for (const [tag, attrs] of PLUGIN_GLYPHS[glyph]) {
+      const el = document.createElementNS(svgNs, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      svg.appendChild(el);
+    }
+    li.appendChild(svg);
+    li.appendChild(mk('span', 'plugins-name', name));
+    const state = name === 'GitHub'
+      ? (github.connected ? 'Connected' : github.available ? 'Available' : 'Not configured')
+      : 'Dashboard';
+    li.appendChild(mk('span', 'plugins-soon', state));
+    const open = mk('a', 'plugins-settings-btn', 'Open');
+    open.href = website;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.setAttribute('aria-label', 'Open ' + name + ' dashboard');
+    li.appendChild(open);
+    return li;
+  }
   {
     const box = $('pluginsMore');
     const svgNs = 'http://www.w3.org/2000/svg';
     const pins = readPluginCatalogPins();
+    box.appendChild(mk('p', 'plugins-group developer-tools-heading', 'Developer tools'));
+    const devList = mk('ul', 'plugins-list developer-tools-list');
+    for (const [name, glyph, website] of DEVELOPER_PLUGINS) devList.appendChild(developerToolCard(name, glyph, website));
+    box.appendChild(devList);
     for (const [group, items] of MORE_PLUGINS) {
       box.appendChild(mk('p', 'plugins-group', group));
       const ul = mk('ul', 'plugins-list');
