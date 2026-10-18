@@ -1215,6 +1215,7 @@
       el.appendChild(row);
     }
     let made = { files: [], asks: [] };
+    let hasLocationCta = false;
     const raw = text;
     if (role === 'assistant') {
       // Files and questions are written into the reply as blocks; the page shows them as cards.
@@ -1286,7 +1287,8 @@
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
       // Consent-based location CTA, rendered inside a location-related assistant reply.
-      if (/(?:cannot|can't|unable to|do not|don't)[\s\S]{0,140}(?:gps|current|device)?\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
+      if (/(?:cannot|can't|unable to|do not|don't)[\\s\\S]{0,140}(?:gps|current|device)?\\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
+        hasLocationCta = true;
         const card = document.createElement('div');
         card.className = 'location-cta';
         const copy = document.createElement('p');
@@ -1395,7 +1397,8 @@
         }
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
-      if (asks && made.asks.length) el.appendChild(askCard(made.asks));
+      // The location card already has a place field; don't show a duplicate follow-up card.
+      if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
       if (cited.links.length) sourcesToggle(actions, cited.links);
