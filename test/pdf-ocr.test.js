@@ -36,3 +36,9 @@ test('PDF OCR hides provider errors and rejects empty extraction', async () => {
   const empty = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text: ' ' }), { status: 200 }) });
   await assert.rejects(() => empty.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'empty_ocr');
 });
+
+test('PDF OCR rejects a PDF signature embedded after a non-PDF prefix', async () => {
+  const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => { throw new Error('must not call upstream'); } });
+  const prefixed = Buffer.concat([Buffer.from('not-a-pdf\n'), pdf]);
+  await assert.rejects(() => service.extract({ bytes: prefixed, name: 'invoice.pdf' }), (e) => e.status === 415 && e.code === 'unsupported_document');
+});
