@@ -2722,6 +2722,8 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 :root[data-theme="dark"] .plugin-icon { background: #3A3A3C; color: #F4F4F1; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plugin-icon { background: #3A3A3C; color: #F4F4F1; } }
 .plugin-icon .gh-mark { width: 1.35rem; height: 1.35rem; }
+.plugin-icon .plugin-brand-logo { display: block; object-fit: contain; }
+.plugins-product-logo { display: block; object-fit: contain; stroke: none; }
 .plugin-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 .plugin-title { font-weight: 500; }
 .plugin-sub { color: var(--ink-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
