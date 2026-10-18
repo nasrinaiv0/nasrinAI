@@ -1732,6 +1732,37 @@
         img.src = f.thumb;
         img.alt = f.name;
         chip.appendChild(img);
+        const crop = document.createElement('button');
+        crop.type = 'button';
+        crop.className = 'chip-crop';
+        crop.textContent = 'Crop';
+        crop.setAttribute('aria-label', 'Crop ' + f.name);
+        crop.addEventListener('click', async () => {
+          if (!window.NasrinImageCrop?.cropImage) {
+            notice.textContent = 'Image cropping is unavailable. Reload the page and try again.';
+            return;
+          }
+          crop.disabled = true;
+          try {
+            const blob = await window.NasrinImageCrop.cropImage({ src: f.thumb, name: f.name });
+            if (!blob) return;
+            const oldThumb = f.thumb;
+            f.name = f.name.replace(/\\.[^.]+$/, '') + '-crop.png';
+            f.type = 'image/png';
+            f.bytes = blob.size;
+            f.data = await toBase64(blob);
+            f.upload = undefined;
+            f.local = undefined;
+            f.thumb = URL.createObjectURL(blob);
+            URL.revokeObjectURL(oldThumb);
+            notice.textContent = 'Cropped image added to your message.';
+            renderTray();
+          } catch {
+            notice.textContent = 'Could not prepare the cropped image. Please try again.';
+            crop.disabled = false;
+          }
+        });
+        chip.appendChild(crop);
       } else {
         const icon = document.createElement('span');
         icon.className = 'doc-icon';
