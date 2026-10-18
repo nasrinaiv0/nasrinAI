@@ -17,7 +17,7 @@
     for(let i=0;i<n;i++)f[i]=view.getInt16(i*2,true)/32768;
     // Gemini audio frames declare their PCM sample rate in inlineData.mimeType.
     // Using a guessed rate changes both duration and pitch (the classic chipmunk effect).
-    const declaredRate = Number(/(?:^|;)\\s*rate=(\\d+)/i.exec(String(mimeType))?.[1]);
+    const declaredRate = Number(/(?:^|;)\s*rate=(\d+)/i.exec(String(mimeType))?.[1]);
     const sampleRate = Number.isFinite(declaredRate) && declaredRate >= 8000 && declaredRate <= 96000 ? declaredRate : 24000;
     const buf=state.ctx.createBuffer(1,n,sampleRate);
     if(typeof buf.copyToChannel==='function')buf.copyToChannel(f,0);
