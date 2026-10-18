@@ -34,6 +34,26 @@
   const sendBtn = $('send');
   const micBtn = sendBtn;
   const notice = $('notice');
+  // The small inline status banner (including the coding-chat hint) must
+  // never remain stuck on screen. The separate new-user welcome card
+  // (#appNotice) is intentionally unaffected and remains dismissible by its
+  // close button.
+  let inlineNoticeTimer = null;
+  if (notice && window.MutationObserver) {
+    const inlineNoticeObserver = new MutationObserver(() => {
+      if (inlineNoticeTimer !== null) {
+        clearTimeout(inlineNoticeTimer);
+        inlineNoticeTimer = null;
+      }
+      const message = notice.textContent;
+      if (!message || !message.trim()) return;
+      inlineNoticeTimer = setTimeout(() => {
+        inlineNoticeTimer = null;
+        if (notice.textContent === message) notice.textContent = '';
+      }, 3000);
+    });
+    inlineNoticeObserver.observe(notice, { childList: true, characterData: true, subtree: true });
+  }
   const settingsBtn = $('settingsBtn');
   const sheet = $('settings');
   const scrim = $('scrim');
