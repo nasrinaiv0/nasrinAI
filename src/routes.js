@@ -1677,13 +1677,13 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Raw audio bytes avoid base64 expansion. Keep the request capped to 20 MiB.
+      // Raw audio bytes avoid base64 expansion. Keep this below serverless request limits.
       // The browser sends the filename in the query and the MIME type in Content-Type.
       method: 'POST',
       path: '/v1/transcriptions',
       scope: 'chat',
       raw: true,
-      maxBody: 20 * 1024 * 1024,
+      maxBody: 4 * 1024 * 1024,
       handler: async ({ req, raw, caller, ip }) => {
         if (!transcription?.available) throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
         await limiter.transcription(caller, ip);
