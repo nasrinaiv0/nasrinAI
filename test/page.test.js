@@ -384,7 +384,7 @@ test('chat page loads the client-side image crop tool', async () => {
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
-  assert.match(html, /<script src="\\/image-crop\\.js" defer><\\/script>/);
+  assert.ok(html.includes('<script src="/image-crop.js" defer></script>'));
   assert.match(js, /canvas\.toBlob/);
   assert.match(js, /drawImage\(image, sx, sy, sw, sh/);
   assert.match(app, /NasrinImageCrop\.cropImage/);
