@@ -28,6 +28,29 @@
   if (window.ResizeObserver) new ResizeObserver(fitDock).observe(dock);
   fitDock();
   const welcome = $('welcome');
+  // Dedicated animated welcome for an empty coding chat. It stays in the log
+  // across clearScreen(), but CSS hides it outside coding mode or once a turn
+  // has started.
+  const codingEmptyState = document.createElement('section');
+  codingEmptyState.className = 'coding-empty-state';
+  codingEmptyState.setAttribute('aria-label', 'Coding chat welcome');
+  codingEmptyState.innerHTML = `
+    <div class="coding-empty-art" aria-hidden="true">
+      <span class="coding-empty-orbit coding-empty-orbit-one"></span>
+      <span class="coding-empty-orbit coding-empty-orbit-two"></span>
+      <span class="coding-empty-spark coding-empty-spark-one">✳</span>
+      <span class="coding-empty-spark coding-empty-spark-two">＋</span>
+      <span class="code-logo coding-empty-logo"></span>
+      <span class="coding-empty-cursor"></span>
+    </div>
+    <h1 class="coding-empty-title">What are we building today?</h1>
+    <p class="coding-empty-subtitle">Your next idea starts here.</p>
+    <div class="coding-empty-words" aria-label="Websites, apps, tools, and more">
+      <div class="coding-empty-word-track" aria-hidden="true">
+        <span>A website</span><span>An app</span><span>A smart tool</span><span>Something amazing</span><span>A website</span>
+      </div>
+    </div>`;
+  log.appendChild(codingEmptyState);
   const hero = $('hero');
   const form = $('composer');
   const input = $('input');
@@ -1630,7 +1653,7 @@
     // Leaving this chat: a reply still being written is stopped, an edit dropped.
     if (turn) turn.ctrl.abort();
     if (editing) cancelEdit();
-    for (const el of [...log.children]) if (el !== welcome) el.remove();
+    for (const el of [...log.children]) if (el !== welcome && el !== codingEmptyState) el.remove();
     welcome.hidden = false;
     document.body.classList.remove('has-chat');
   }
