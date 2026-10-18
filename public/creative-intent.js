@@ -51,6 +51,11 @@
     return Object.freeze({ name, args: (match[2] || '').trim(), ...command });
   }
 
+  function isImageEnhancement(text) {
+    const value = String(text || '').trim().toLowerCase();
+    return imageEnhancement.test(value) && /\\b(make|improve|enhance|upscale|sharpen|deblur|denoise|restore|convert|fix|please|turn)\\b/.test(value);
+  }
+
   function detect(text) {
     const s = String(text || '').trim().toLowerCase();
     if (!s) return null;
@@ -72,5 +77,5 @@
     return null;
   }
 
-  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, commands: COMMANDS });
+  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, commands: COMMANDS });
 })();
