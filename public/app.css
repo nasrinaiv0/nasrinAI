@@ -3378,3 +3378,16 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .location-consent-allow{background:#101010}
 @media(max-width:520px){.location-consent-overlay{padding:14px}.location-consent-card{padding:22px 18px;border-radius:24px}.location-consent-header{grid-template-columns:56px minmax(0,1fr);gap:14px;align-items:start}.location-consent-icon{width:56px;height:56px;border-radius:17px}.location-consent-icon svg{width:28px;height:28px}.location-consent-copy h2{margin-top:2px}.location-consent-divider{margin:24px 0 18px}.location-consent-actions{gap:10px}.location-consent-choice{min-height:100px;padding:13px 8px;border-radius:17px}}
 @media(prefers-reduced-motion:reduce){.location-consent-choice{transition:none}}
+
+
+/* Desktop layout correction: keep the composer close to the viewport edge
+   and show each primary navigation action only once. */
+@media (min-width: 70rem) {
+  body:not(.has-chat) .dock { bottom: 150px; }
+  body.has-chat .dock { bottom: 50px; }
+  .bar-actions > #historyBtn,
+  .bar-actions > #settingsBtn,
+  .bar-actions > #newChat { display: none !important; }
+  .desktop-rail-action { min-width: 0; }
+  .desktop-rail-action span { min-width: 0; overflow-wrap: anywhere; }
+}
