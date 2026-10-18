@@ -33,7 +33,16 @@ test('transcription rejects missing keys, oversized files and unsupported format
   assert.equal(called, false);
 });
 
-test('transcription ignores invalid language hints and maps timeouts to a retryable public error', async () => {\n  let form;\n  const service = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async (_url, options) => { form = options.body; return new Response(JSON.stringify({ text: 'hello' }), { status: 200 }); } });\n  await service.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg', language: 'english!' });\n  assert.equal(form.get('language'), null);\n  const timeout = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async () => { const err = new Error('timed out'); err.name = 'TimeoutError'; throw err; } });\n  await assert.rejects(() => timeout.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg' }), (e) => e.code === 'transcription_timeout' && e.status === 504);\n});\n\ntest('transcription converts provider failures into safe public errors', async () => {
+test('transcription ignores invalid language hints and maps timeouts to a retryable public error', async () => {
+  let form;
+  const service = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async (_url, options) => { form = options.body; return new Response(JSON.stringify({ text: 'hello' }), { status: 200 }); } });
+  await service.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg', language: 'english!' });
+  assert.equal(form.get('language'), null);
+  const timeout = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async () => { const err = new Error('timed out'); err.name = 'TimeoutError'; throw err; } });
+  await assert.rejects(() => timeout.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg' }), (e) => e.code === 'transcription_timeout' && e.status === 504);
+});
+
+test('transcription converts provider failures into safe public errors', async () => {
   const service = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async () => new Response('denied', { status: 429 }) });
   await assert.rejects(() => service.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg' }), (e) => e.code === 'transcription_busy' && !e.message.includes('denied'));
   const empty = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ text: '  ' }), { status: 200 }) });
