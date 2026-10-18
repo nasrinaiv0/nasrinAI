@@ -401,3 +401,8 @@ test('audio attachment chips expose manual transcription and keep transcript edi
   assert.match(app, /f\.bytes > 4 \* 1024 \* 1024/);
   assert.ok(html.includes('/app.js'));
 });
+
+test('audio attachment MIME and extension checks use valid regex literals', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.ok(app.includes(String.raw`(/^audio\//i.test(f.type || '') || /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name))`));
+});

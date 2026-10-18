@@ -1838,7 +1838,7 @@
         name.textContent = f.name;
         chip.append(icon, name);
       }
-      if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+      if ((/^audio\//i.test(f.type || '') || /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
         const language = document.createElement('select');
         language.className = 'chip-transcribe-language';
         language.setAttribute('aria-label', 'Transcription language');
