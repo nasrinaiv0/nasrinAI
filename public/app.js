@@ -1781,6 +1781,41 @@
         name.textContent = f.name;
         chip.append(icon, name);
       }
+      if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+        const transcribe = document.createElement('button');
+        transcribe.type = 'button';
+        transcribe.className = 'chip-transcribe';
+        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Too large' : 'Transcribe';
+        transcribe.disabled = f.bytes > 4 * 1024 * 1024;
+        transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
+        transcribe.addEventListener('click', async () => {
+          if (transcribe.disabled) return;
+          transcribe.disabled = true;
+          transcribe.textContent = 'Transcribing…';
+          try {
+            const token = await credential();
+            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name), {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': f.type || 'application/octet-stream' },
+              body: f.local
+            });
+            if (!response.ok) throw await errorFrom(response);
+            const result = await response.json();
+            if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No speech was detected in this audio.');
+            const existing = input.value.trim();
+            input.value = existing ? existing + '\\n\\n' + result.text.trim() : result.text.trim();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+            notice.textContent = 'Transcript added to your message. Review it before sending.';
+            transcribe.textContent = 'Transcribed';
+          } catch (err) {
+            notice.textContent = err.message || 'Could not transcribe this audio. Please try again.';
+            transcribe.disabled = false;
+            transcribe.textContent = 'Retry transcription';
+          }
+        });
+        chip.appendChild(transcribe);
+      }
       const x = document.createElement('button');
       x.type = 'button';
       x.className = 'chip-x';
