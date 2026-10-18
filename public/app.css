@@ -3235,30 +3235,6 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
   .youtube-video-details { padding: 0.7rem; }
 }
 
-.youtube-fullscreen-button {
-  position: absolute;
-  z-index: 2;
-  right: 0.65rem;
-  bottom: 0.65rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  min-height: 38px;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.78);
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.youtube-fullscreen-button:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 3px;
-}
 .youtube-video-frame:fullscreen {
   width: 100vw;
   height: 100vh;
@@ -3268,11 +3244,6 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .youtube-video-frame:fullscreen iframe {
   width: 100%;
   height: 100%;
-}
-.youtube-video-frame:fullscreen .youtube-fullscreen-button {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
 }
 
 
