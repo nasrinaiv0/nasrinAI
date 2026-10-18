@@ -179,16 +179,24 @@ test('page previews reject non-http URLs and refuse SVG/HTML image payloads', as
 });
 
 
-test('YouTube search returns only valid video IDs and keeps the API key server-side', async () => {
-  let requested;
+test('YouTube search returns only valid embeddable video IDs and keeps the API key server-side', async () => {
+  const requests = [];
   const youtube = createYouTubeSearch({
     apiKey: 'test-secret-key',
     fetchImpl: async (url, options) => {
-      requested = { url: new URL(url), options };
+      const requestedUrl = new URL(url);
+      requests.push({ url: requestedUrl, options });
+      if (requestedUrl.pathname.endsWith('/search')) {
+        return Response.json({ items: [
+          { id: { videoId: 'abcdefghijk' }, snippet: { title: 'Tutorial', channelTitle: 'Channel', description: 'Steps', thumbnails: { medium: { url: 'https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg' } } } },
+          { id: { videoId: 'lmnopqrstuv' }, snippet: { title: 'Cannot embed', channelTitle: 'Channel' } },
+          { id: { videoId: 'bad id' }, snippet: { title: 'Invalid', channelTitle: 'Bad' } },
+          { id: { channelId: 'not-a-video' }, snippet: { title: 'Channel result', channelTitle: 'Channel' } }
+        ] });
+      }
       return Response.json({ items: [
-        { id: { videoId: 'abcdefghijk' }, snippet: { title: 'Tutorial', channelTitle: 'Channel', description: 'Steps', thumbnails: { medium: { url: 'https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg' } } } },
-        { id: { videoId: 'bad id' }, snippet: { title: 'Invalid', channelTitle: 'Bad' } },
-        { id: { channelId: 'not-a-video' }, snippet: { title: 'Channel result', channelTitle: 'Channel' } }
+        { id: 'abcdefghijk', status: { embeddable: true, privacyStatus: 'public' } },
+        { id: 'lmnopqrstuv', status: { embeddable: false, privacyStatus: 'public' } }
       ] });
     }
   });
@@ -197,11 +205,51 @@ test('YouTube search returns only valid video IDs and keeps the API key server-s
   assert.equal(result.videos.length, 1);
   assert.equal(result.videos[0].id, 'abcdefghijk');
   assert.equal(result.videos[0].embedUrl, 'https://www.youtube-nocookie.com/embed/abcdefghijk');
-  assert.equal(requested.url.searchParams.get('type'), 'video');
-  assert.equal(requested.url.searchParams.get('maxResults'), '5');
-  assert.equal(requested.url.searchParams.get('q'), 'how to configure an app');
-  assert.equal(requested.url.searchParams.get('key'), 'test-secret-key');
-  assert.equal(requested.options.method, 'GET');
+  const searchRequest = requests.find((item) => item.url.pathname.endsWith('/search'));
+  const statusRequest = requests.find((item) => item.url.pathname.endsWith('/videos'));
+  assert.equal(searchRequest.url.searchParams.get('type'), 'video');
+  assert.equal(searchRequest.url.searchParams.get('maxResults'), '5');
+  assert.equal(searchRequest.url.searchParams.get('q'), 'how to configure an app');
+  assert.equal(searchRequest.url.searchParams.get('key'), 'test-secret-key');
+  assert.equal(searchRequest.options.method, 'GET');
+  assert.equal(statusRequest.url.searchParams.get('part'), 'status');
+  assert.equal(statusRequest.url.searchParams.get('id'), 'abcdefghijk,lmnopqrstuv');
+  assert.equal(statusRequest.url.searchParams.get('key'), 'test-secret-key');
+});
+
+test('YouTube search returns no embeds if embed permission cannot be verified', async () => {
+  let calls = 0;
+  const youtube = createYouTubeSearch({
+    apiKey: 'test-key',
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return Response.json({ items: [
+        { id: { videoId: 'abcdefghijk' }, snippet: { title: 'Tutorial', channelTitle: 'Channel' } }
+      ] });
+      return new Response('', { status: 403 });
+    }
+  });
+  assert.deepEqual(await youtube.search('tutorial'), { available: true, videos: [] });
+});
+
+test('persisted YouTube videos are restored only when still embeddable', async () => {
+  const requests = [];
+  const youtube = createYouTubeSearch({
+    apiKey: 'test-key',
+    fetchImpl: async (url) => {
+      const requested = new URL(url);
+      requests.push(requested);
+      return Response.json({ items: [
+        { id: 'abcdefghijk', status: { embeddable: true, privacyStatus: 'public' } }
+      ] });
+    }
+  });
+  assert.equal(await youtube.verify('abcdefghijk'), true);
+  assert.equal(requests[0].pathname.endsWith('/videos'), true);
+  assert.equal(requests[0].searchParams.get('part'), 'status');
+  assert.equal(requests[0].searchParams.get('id'), 'abcdefghijk');
+  assert.equal(await youtube.verify('not-a-valid-id'), false);
+  assert.equal(requests.length, 1, 'invalid IDs never reach YouTube');
 });
 
 test('YouTube search is disabled without an API key and handles upstream failures gracefully', async () => {

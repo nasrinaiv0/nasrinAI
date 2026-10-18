@@ -3360,11 +3360,36 @@
     panel.dataset.videoId = state.id;
   }
 
+  let persistentYouTubeRestore = null;
   function restorePersistentYouTubePlayer() {
-    try {
-      const state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
-      if (state && /^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) mountPersistentYouTubePlayer(state);
-    } catch {}
+    if (persistentYouTubeRestore) return persistentYouTubeRestore;
+    persistentYouTubeRestore = (async () => {
+      let state;
+      try { state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null'); } catch { return; }
+      if (!state || !/^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) return;
+      const mounted = document.getElementById('persistent-youtube-player');
+      if (mounted?.dataset.videoId === state.id) return;
+      try {
+        const token = account?.token || await guestToken(false);
+        const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(state.id), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const result = response.ok ? await response.json() : { valid: false };
+        // A stored player can outlive a video or its embed permission. Never
+        // restore a known-unavailable iframe after refresh or account changes.
+        if (result.valid !== true) {
+          const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+          if (latest?.id === state.id) localStorage.removeItem(PERSISTENT_YOUTUBE_KEY);
+          if (mounted?.dataset.videoId === state.id) mounted.remove();
+          return;
+        }
+        const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+        if (latest?.id === state.id) mountPersistentYouTubePlayer(state);
+      } catch {
+        // Keep the saved state for a later retry, but don't show an unverified iframe.
+      }
+    })().finally(() => { persistentYouTubeRestore = null; });
+    return persistentYouTubeRestore;
   }
 
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
@@ -3384,21 +3409,6 @@
         }
       } catch {
         // Fall back to researched YouTube links when live search is unavailable.
-      }
-      if (!videos.length) {
-        const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
-        const idPattern = /(?:youtube\.com\/(?:watch\?[^\s#]*?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/g;
-        const answerIds = [...answerText.matchAll(idPattern)].map((match) => match[1]);
-        const sourceIds = sourceLinks.map((item) => {
-          try {
-            const url = new URL(item.url);
-            if (url.hostname === 'youtu.be') return url.pathname.slice(1);
-            if (url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com') return url.searchParams.get('v') || url.pathname.match(/^\/embed\/([A-Za-z0-9_-]{11})$/)?.[1] || '';
-          } catch {}
-          return '';
-        });
-        const ids = [...new Set([...answerIds, ...sourceIds])].filter((id) => /^[A-Za-z0-9_-]{11}$/.test(id)).slice(0, 3);
-        videos = ids.map((id) => ({ id, title: sourceLinks.find((item) => item.url.includes(id))?.title || 'YouTube tutorial', channelTitle: 'YouTube' }));
       }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
