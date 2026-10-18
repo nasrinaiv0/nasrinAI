@@ -377,3 +377,17 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
 });
+
+
+test('chat page loads the client-side image crop tool', async () => {
+  const js = await readFile(new URL('../public/image-crop.js', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.ok(html.includes('<script src="/image-crop.js" defer></script>'));
+  assert.match(js, /canvas\.toBlob/);
+  assert.match(js, /drawImage\(image, sx, sy, sw, sh/);
+  assert.match(app, /NasrinImageCrop\.cropImage/);
+  assert.match(app, /Cropped image added to your message/);
+  assert.match(css, /\.image-crop-overlay/);
+});
