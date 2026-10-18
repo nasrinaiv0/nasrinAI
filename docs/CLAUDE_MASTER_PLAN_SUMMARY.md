@@ -133,15 +133,20 @@ Changes in this follow-up:
 - Team directory remains browser-local/account-scoped; it is not yet automatically consumed by every integration.
 - Validation required after conflict resolution: run CI and verify the mergeability status before merging.
 
-## Update — plugin read/write capability expansion (2026-10-18)
-### PR: plugin read/write capabilities
-Branch: `feat/plugin-read-write-capabilities`
-- Added `src/google/read-write.js` and registered the tools in `src/main.js`.
-- Gmail: added full text read for a selected message, send email, and mark read/unread.
-- Calendar: added update and delete for existing primary-calendar events. Existing event creation and event listing remain.
-- Every new mutation is marked `risk: 'write'` and therefore uses the existing server-side confirmation flow; the model cannot confirm its own actions.
-- Before acting, new tools query the per-user/per-tenant Google connection and verify the required scope actually granted by Google. Gmail send requires `gmail.send`; label updates require `gmail.modify`; event updates/deletes require `calendar.events`. Scope mismatch fails closed before the provider mutation.
-- Added regression tests for tool registration, Gmail send payload/confirmed provider ID, denied scope, Calendar deletion method, and incomplete event-time validation.
-- Updated `docs/plugins.md` to distinguish implemented actions from catalog-only integrations.
-- This is not yet proof that every catalog app has read/write support. Microsoft, Canva, X and personal Messenger remain provider-specific work; unsupported integrations must remain unavailable/coming soon. GitHub and NCC Meta actions are separate existing implementations.
-- Validation status: CI run #2824 is failing the full test job (677 passed, 7 failed, 1 skipped); dependency audit passed and database job was still in progress at last inspection. The seven failures are existing plugin catalog/UI assertions in `test/github.test.js` and `test/google-team-settings.test.js` (missing Google Search catalog/glyph plus stale assertions for current settings and OAuth implementation). The new read/write tests did not appear among the reported failures. Do not merge until the plugin assertions are reconciled with the intended product behavior and CI passes. Google API/OAuth verification and production DB migration/configuration remain independent deployment requirements.
+
+## Plugin settings layout cleanup (2026-10-18)
+- Removed Google Meet, Google Keep and Google Maps from the lower generic catalog because their per-app connection cards already render in the upper plugin list. The independent connection cards and their status/actions remain intact.
+- Removed Google Search from the generic catalog, as requested, and kept Google integrations in their dedicated connection cards.
+- Added a separate **Developer tools** group with GitHub, Vercel, Render, Supabase and Cloudflare, each opening its official dashboard in a new tab.
+- The separate GitHub coding connection card and its OAuth/account controls remain unchanged. The developer-catalog GitHub row links to GitHub; it does not claim Vercel, Render, Supabase or Cloudflare are connected to NasrinAI.
+- Grouped the remaining catalog entries under Microsoft 365, Design & creativity, and Social & messaging.
+- Validation is pending: run the targeted and full tests in CI, then visually verify the layout in iPhone Safari before merging or deploying.
+
+
+## Plugin read/write capabilities (PR #386, 2026-10-18)
+- Added Gmail message reading, sending, and read/unread status updates, plus Google Calendar event updates and deletion.
+- All external mutations use the existing server-side one-time confirmation flow; model output cannot approve its own action.
+- Each operation checks the current user's actual Google OAuth scopes before calling the provider. Missing or insufficient scopes fail closed; tokens remain server-side.
+- Added regression coverage for tool registration, Gmail send payloads, denied scopes, Calendar deletion, and incomplete event-time validation.
+- Catalog-only providers remain clearly marked as unsupported/coming soon until provider-specific functionality is implemented.
+- Local validation after catalog assertion updates: `npm test` passed 687 tests with 1 skipped. CI must also pass before merge; production OAuth verification and configuration remain separate requirements.
