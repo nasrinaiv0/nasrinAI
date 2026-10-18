@@ -259,3 +259,16 @@ test('YouTube search is disabled without an API key and handles upstream failure
   const failing = createYouTubeSearch({ apiKey: 'test-key', fetchImpl: async () => new Response('', { status: 403 }) });
   assert.deepEqual(await failing.search('tutorial'), { available: true, videos: [] });
 });
+
+
+test('web intent detection covers public-entity questions and source-seeking research without browsing timeless basics', () => {
+  assert.equal(needsWeb('Who is Fei-Fei Li?'), true);
+  assert.equal(needsWeb('What is OpenAI?'), true);
+  assert.equal(needsWeb('Compare Claude and OpenAI models'), true);
+  assert.equal(needsWeb('Find the best AI coding tools'), true);
+  assert.equal(needsWeb('Show reviews of the latest iPhone'), true);
+  assert.equal(needsWeb('Find peer-reviewed papers on ocean warming'), true);
+  assert.equal(needsWeb('Explain photosynthesis'), false);
+  assert.equal(needsWeb('What is a variable?'), false);
+  assert.equal(needsWeb('Can NasrinAI browse the internet?'), false);
+});
