@@ -348,36 +348,47 @@ const kb = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1,
 function legacyOfficeText(bytes, name) {
   const ext = /\.([^.]+)$/i.exec(name)?.[1]?.toLowerCase();
   const formats = {
-    doc: { label: 'Legacy Word document', hint: 'Word paragraphs may be incomplete; verify the recovered text against the original.' },
-    xls: { label: 'Legacy Excel workbook', hint: 'Workbook cells and formulas may be incomplete; verify values against the original.' },
+    doc: { label: 'Legacy Word document', hint: 'Word paragraphs may be incomplete; verify against the original.' },
+    xls: { label: 'Legacy Excel workbook', hint: 'Worksheet cells and formulas may be incomplete; verify against the original.' },
     ppt: { label: 'Legacy PowerPoint presentation', hint: 'Slide text and ordering may be incomplete; verify against the original.' }
   };
   const format = formats[ext];
+  // OLE Compound File signature, checked against bytes (not extension alone).
   if (!format || bytes.length < 512 || bytes.readUInt32LE(0) !== 0xe011cfd0 || bytes.readUInt32LE(4) !== 0xe11ab1a1) return null;
 
   const candidates = [];
+  let scannedChars = 0;
   const addRuns = (text) => {
-    for (const match of text.matchAll(/[\\p{L}\\p{N}][\\p{L}\\p{N}\\p{P}\\p{Zs}\\t]{3,}/gu)) {
-      const value = match[0].replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '').replace(/[ \\t]+/g, ' ').trim();
-      if (value.length >= 4 && /[\\p{L}\\p{N}]/u.test(value)) candidates.push(value);
-      if (candidates.join('\\n').length > 220_000) return;
+    const pattern = /[A-Za-z0-9][A-Za-z0-9 .,;:!?()\[\]{}'"+\/_-]{3,}/g;
+    for (const match of text.matchAll(pattern)) {
+      const value = match[0].replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/[ \t]+/g, ' ').trim();
+      if (value.length >= 4 && /[A-Za-z]{3}/.test(value)) candidates.push(value);
+      scannedChars += match[0].length;
+      if (scannedChars >= 220_000) break;
     }
   };
-  // The same bytes may contain ANSI/8-bit text and UTF-16LE strings.
-  addRuns(bytes.toString('latin1'));
-  const utf16 = [];
-  for (let i = 0; i + 1 < bytes.length; i += 2) utf16.push(bytes.readUInt16LE(i));
-  addRuns(String.fromCharCode(...utf16.slice(0, Math.min(utf16.length, 12000))));
+  // Bound both work and output; never spread an unbounded array into a function call.
+  addRuns(bytes.toString('latin1').slice(0, 2 * 1024 * 1024));
+  if (scannedChars < 220_000) {
+    const utf16 = [];
+    const limit = Math.min(bytes.length, 2 * 1024 * 1024);
+    for (let i = 0; i + 1 < limit; i += 2) utf16.push(bytes.readUInt16LE(i));
+    addRuns(String.fromCharCode(...utf16.slice(0, Math.min(utf16.length, 12000))));
+  }
   const seen = new Set();
-  const lines = candidates.filter((line) => {
-    const normalized = line.replace(/\\s+/g, ' ').trim();
-    if (seen.has(normalized)) return false;
+  const lines = [];
+  let outputChars = 0;
+  for (const line of candidates) {
+    const normalized = line.replace(/\s+/g, ' ').trim();
+    if (seen.has(normalized)) continue;
     seen.add(normalized);
-    return true;
-  });
-  const text = lines.join('\\n').slice(0, 200_000).trim();
-  if (!text || !/[\\p{L}]{3}/u.test(text)) return null;
-  return { source: format.label, text: text + '\\n\\n[Legacy binary extraction is best-effort. ' + format.hint + ']' };
+    lines.push(normalized);
+    outputChars += normalized.length + 1;
+    if (outputChars >= 100_000) break;
+  }
+  const text = lines.join('\n').slice(0, 100_000).trim();
+  if (!text || !/[A-Za-z]{3}/.test(text)) return null;
+  return { source: format.label, text: text + '\n\n[Legacy binary extraction is best-effort. ' + format.hint + ']' };
 }
 
 // Returns [{ kind: 'image' | 'pdf' | 'text', mime, name, data (base64), text? }].
