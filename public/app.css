@@ -3674,3 +3674,15 @@ body.coding-mode:not(.has-chat) .coding-empty-words {
     transform: none;
   }
 }
+
+
+/* Coding welcome: sphere-only identity; remove the eye/face logo entirely. */
+body.coding-mode:not(.has-chat) .coding-empty-logo {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+body.coding-mode:not(.has-chat) .coding-empty-sphere {
+  opacity: 1;
+  transform: scale(calc(.42 + var(--sphere-burst, 0) * .58));
+}
