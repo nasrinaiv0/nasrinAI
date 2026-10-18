@@ -34,22 +34,33 @@
   const codingEmptyState = document.createElement('section');
   codingEmptyState.className = 'coding-empty-state';
   codingEmptyState.setAttribute('aria-label', 'Coding chat welcome');
-  codingEmptyState.innerHTML = `
-    <div class="coding-empty-art" aria-hidden="true">
-      <span class="coding-empty-orbit coding-empty-orbit-one"></span>
-      <span class="coding-empty-orbit coding-empty-orbit-two"></span>
-      <span class="coding-empty-spark coding-empty-spark-one">✳</span>
-      <span class="coding-empty-spark coding-empty-spark-two">＋</span>
-      <span class="code-logo coding-empty-logo"></span>
-      <span class="coding-empty-cursor"></span>
-    </div>
-    <h1 class="coding-empty-title">What are we building today?</h1>
-    <p class="coding-empty-subtitle">Your next idea starts here.</p>
-    <div class="coding-empty-words" aria-label="Websites, apps, tools, and more">
-      <div class="coding-empty-word-track" aria-hidden="true">
-        <span>A website</span><span>An app</span><span>A smart tool</span><span>Something amazing</span><span>A website</span>
-      </div>
-    </div>`;
+  const makeCodingWelcomeNode = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const codingArt = makeCodingWelcomeNode('div', 'coding-empty-art');
+  codingArt.setAttribute('aria-hidden', 'true');
+  codingArt.append(
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-one'),
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-two'),
+    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-one', '✳'),
+    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-two', '＋'),
+    makeCodingWelcomeNode('span', 'code-logo coding-empty-logo'),
+    makeCodingWelcomeNode('span', 'coding-empty-cursor')
+  );
+  const codingTitle = makeCodingWelcomeNode('h1', 'coding-empty-title', 'What are we building today?');
+  const codingSubtitle = makeCodingWelcomeNode('p', 'coding-empty-subtitle', 'Your next idea starts here.');
+  const codingWords = makeCodingWelcomeNode('div', 'coding-empty-words');
+  codingWords.setAttribute('aria-label', 'Websites, apps, tools, and more');
+  const codingWordTrack = makeCodingWelcomeNode('div', 'coding-empty-word-track');
+  codingWordTrack.setAttribute('aria-hidden', 'true');
+  for (const word of ['A website', 'An app', 'A smart tool', 'Something amazing', 'A website']) {
+    codingWordTrack.appendChild(makeCodingWelcomeNode('span', '', word));
+  }
+  codingWords.appendChild(codingWordTrack);
+  codingEmptyState.append(codingArt, codingTitle, codingSubtitle, codingWords);
   log.appendChild(codingEmptyState);
   const hero = $('hero');
   const form = $('composer');
