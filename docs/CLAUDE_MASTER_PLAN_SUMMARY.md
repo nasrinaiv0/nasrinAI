@@ -132,3 +132,12 @@ Changes in this follow-up:
 - Reapply only the Team directory copy changes to `public/index.html` and record this conflict resolution. Do not overwrite newer `main` app code with stale PR snapshots.
 - Team directory remains browser-local/account-scoped; it is not yet automatically consumed by every integration.
 - Validation required after conflict resolution: run CI and verify the mergeability status before merging.
+
+
+## Plugin settings layout cleanup (2026-10-18)
+- Removed Google Meet, Google Keep and Google Maps from the lower generic catalog because their per-app connection cards already render in the upper plugin list. The independent connection cards and their status/actions remain intact.
+- Kept Google Search in the Google catalog because it is a distinct entry and is not one of those existing connection cards.
+- Added a separate **Developer tools** group with GitHub, Vercel, Render, Supabase and Cloudflare, each opening its official dashboard in a new tab.
+- The separate GitHub coding connection card and its OAuth/account controls remain unchanged. The developer-catalog GitHub row links to GitHub; it does not claim Vercel, Render, Supabase or Cloudflare are connected to NasrinAI.
+- Preserved Microsoft, Design, and Social & messaging catalog entries.
+- Validation is pending: run the targeted and full tests in CI, then visually verify the layout in iPhone Safari before merging or deploying.
