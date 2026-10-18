@@ -350,14 +350,16 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
   assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
+  assert.match(js, /if \(firstCard\) section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer');
+  assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
+  assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
   assert.ok(!js.includes('const sourceIds = sourceLinks.map'), 'unverified links must not be embedded when search returns no playable videos');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
-  assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
   const youtubePlayer = js.slice(js.indexOf('function createYouTubeVideoCard'), js.indexOf('function mountPersistentYouTubePlayer'));
   assert.ok(youtubePlayer.includes("frame.referrerPolicy = 'strict-origin-when-cross-origin'"), 'set a referrer policy on the iframe');
-  assert.ok(youtubePlayer.includes("frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0'"), 'enable inline playback with the privacy-enhanced YouTube embed URL');
+  assert.ok(youtubePlayer.includes("frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0'"), 'enable inline playback with the standard YouTube embed URL');
   assert.ok(youtubePlayer.indexOf('frame.referrerPolicy =') < youtubePlayer.indexOf('frame.src ='), 'configure iframe policy before navigation starts');
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
   assert.match(css, /\.youtube-video-frame/);
