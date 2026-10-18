@@ -133,13 +133,19 @@ test('web sources are taken out of the reply text and listed separately (only ht
   assert.equal(F.sources(mid).links[0].title, 'a');
 });
 
-test('inline external links are hidden from reply prose and collected as Sources resources', async () => {
+test('inline links remain in reply prose and are also collected as Sources resources', async () => {
   const F = await format();
   const reply = 'Watch [How to do a PERFECT Push Up](https://www.youtube.com/watch?v=IODxDxX7oi4) or visit https://example.com/guide for details.';
   const result = F.sources(reply);
-  assert.equal(result.text, 'Watch How to do a PERFECT Push Up or visit for details.');
+  assert.equal(result.text, reply, 'do not strip link labels or destinations from the reply');
   assert.deepEqual(JSON.parse(JSON.stringify(result.links.map((l) => [l.title, l.url, l.host]))), [
     ['How to do a PERFECT Push Up', 'https://www.youtube.com/watch?v=IODxDxX7oi4', 'youtube.com'],
     ['example.com', 'https://example.com/guide', 'example.com']
   ]);
+  const rendered = F.render(result.text).node;
+  const anchors = rendered.all('A');
+  assert.equal(anchors.length, 2, 'both Markdown and bare URLs render as clickable links');
+  assert.equal(anchors[0].textContent, 'How to do a PERFECT Push Up');
+  assert.equal(anchors[0].href, 'https://www.youtube.com/watch?v=IODxDxX7oi4');
+  assert.equal(anchors[1].href, 'https://example.com/guide');
 });
