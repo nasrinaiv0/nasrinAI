@@ -21,7 +21,7 @@ export function createRealtime({ apiKey, fetchImpl = fetch }) {
       const session = {
         type: 'realtime',
         model,
-        instructions: String(instructions || 'You are NasrinAI, a helpful voice assistant. Be concise and natural.'),
+        instructions: 'Speak in a natural adult vocal register at a comfortable, moderate pitch and normal conversational speed. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Keep articulation clear and intonation relaxed.\\n\\n' + String(instructions || 'You are NasrinAI, a helpful voice assistant. Be concise and natural.'),
         audio: {
           output: { voice },
           input: {
