@@ -3686,3 +3686,16 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
   opacity: 1;
   transform: scale(calc(.42 + var(--sphere-burst, 0) * .58));
 }
+
+/* Mobile chat spacing: the global composer translate was pushing the input
+   down into the browser toolbar, leaving an oversized gap after the last reply.
+   Keep the dock safe-area-aware, but align the composer naturally on phones. */
+@media (max-width: 47.99rem) {
+  .dock {
+    padding-top: 0;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+  .composer {
+    transform: none;
+  }
+}
