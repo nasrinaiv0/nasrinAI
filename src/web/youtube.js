@@ -8,7 +8,7 @@ export function createYouTubeSearch({ apiKey = '', fetchImpl = fetch, timeoutMs 
     available: Boolean(key),
     async search(rawQuery) {
       if (!key) return { available: false, videos: [] };
-      const query = String(rawQuery || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, 180);
+      const query = String(rawQuery || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180);
       if (query.length < 2) return { available: true, videos: [] };
       const url = new URL(YOUTUBE_SEARCH_URL);
       url.search = new URLSearchParams({
@@ -39,7 +39,7 @@ export function createYouTubeSearch({ apiKey = '', fetchImpl = fetch, timeoutMs 
             title: String(snippet.title).slice(0, 240),
             channelTitle: String(snippet.channelTitle).slice(0, 120),
             description: String(snippet.description || '').slice(0, 400),
-            publishedAt: /^\\d{4}-\\d\\d-\\d\\dT/.test(String(snippet.publishedAt || '')) ? snippet.publishedAt : null,
+            publishedAt: /^\d{4}-\d\d-\d\dT/.test(String(snippet.publishedAt || '')) ? snippet.publishedAt : null,
             thumbnailUrl: thumbnail ? thumbnail.url : null,
             watchUrl: 'https://www.youtube.com/watch?v=' + id,
             embedUrl: 'https://www.youtube-nocookie.com/embed/' + id
