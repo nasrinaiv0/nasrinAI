@@ -1874,7 +1874,13 @@
             });
             if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
             const duration = video.duration;
-            const times = [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])];
+            if (duration > 15 * 60) throw new Error('This video is longer than 15 minutes. Choose a shorter clip to extract frames safely.');
+            // Sample across the clip rather than only its endpoints. Keep a hard
+            // cap so large videos cannot create an unbounded number of images.
+            const frameCount = duration < 6 ? 3 : 8;
+            const times = [...new Set(Array.from({ length: frameCount }, (_, i) => duration < 6
+              ? [Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))][i]
+              : duration * (i + 0.5) / frameCount))];
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;
