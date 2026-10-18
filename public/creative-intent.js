@@ -40,6 +40,7 @@
   const action = /\b(create|generate|make|design|draw|render|produce|animate|build|turn|need|want)\b/i;
   const imageTarget = /\b(image|images|picture|pictures|photo|photos|photograph|photographs|portrait|poster|thumbnail|logo|illustration|artwork|graphic|visual|banner|cover|wallpaper|icon)\b/i;
   const videoTarget = /\b(video|videos|clip|clips|short film|reel|reels|ad|ads|advertisement|commercial|promo|promotional video|video ad)\b/i;
+  const imageEnhancement = /\b(enhance|enhancement|upscale|upscaling|sharpen|sharpening|deblur|denoise|restore|restoration|improve (?:the )?(?:image|photo|picture|quality)|higher resolution|high resolution|hd|4k|8k|make it clear(?:er)?|make this clear(?:er)?|less blurry|remove blur|fix blur)\b/i;
 
   function parseShortcut(text) {
     const match = String(text || '').trim().match(/^\/([a-z][a-z0-9-]*)(?:\s+([\s\S]*))?$/i);
@@ -57,6 +58,9 @@
     if (shortcut) return shortcut.capability === 'image' || shortcut.capability === 'video' ? shortcut.capability : null;
     if (informational.test(s)) return null;
 
+    // Enhancement requests often omit the word image/photo (e.g. “make it clear and HD”).
+    // Route them to the existing image-edit endpoint rather than ordinary chat.
+    if (imageEnhancement.test(s) && /\b(make|improve|enhance|upscale|sharpen|deblur|denoise|restore|convert|fix|please|turn)\b/.test(s)) return 'image';
     if (/\b(turn|animate|convert|make)\b[\s\S]*\b(into|as)\b[\s\S]*\b(video|clip|reel)\b/.test(s)) return 'video';
     if (imageTarget.test(s) && /\b(video thumbnail|thumbnail|poster|cover|banner|logo|icon|wallpaper|photo|photograph|picture|image)\b/.test(s)
         && action.test(s)) return 'image';
