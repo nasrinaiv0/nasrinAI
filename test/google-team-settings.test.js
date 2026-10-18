@@ -57,7 +57,6 @@ test('Google integrations with dedicated cards are excluded from the duplicate c
   const end = app.indexOf('const DEVELOPER_PLUGINS', start);
   const catalog = app.slice(start, end);
   for (const name of ['Google Search', 'Google Meet', 'Google Keep', 'Google Maps']) assert.doesNotMatch(catalog, new RegExp(name));
-
   assert.doesNotMatch(catalog, /Google Team|Google Cloud/);
 });
 
