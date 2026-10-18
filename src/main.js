@@ -54,6 +54,7 @@ import { createOpenAIEmbedder } from './ai/embeddings.js';
 import { createWebAnswers } from './web-answers.js';
 import { createGithub } from './github/index.js';
 import { createGoogleIntegration } from './google/index.js';
+import { createGoogleReadWriteTools } from './google/read-write.js';
 import { createCite } from './web/cite.js';
 import { createSiteIcons } from './web/site-icon.js';
 
@@ -192,8 +193,9 @@ export function buildApp({ config, logger }) {
   const productKnowledge = createProductKnowledge();
   const github = createGithub({ config: effective, store, logger });
   const google = createGoogleIntegration({ config: effective, logger });
+  const googleReadWrite = createGoogleReadWriteTools({ google, config: effective, logger });
   if (google.available) logger.info('Google Gmail/Calendar integration ready');
-  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools], usageLog, config: effective, logger });
+  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });

@@ -490,7 +490,7 @@ test('Google OAuth requests only the selected read or read/write scopes', async 
   assert.match(js, /'gmail-readwrite'/);
   assert.match(js, /GMAIL_WRITE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.modify'/);
   assert.match(js, /GMAIL_SEND_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.send'/);
-  assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
+  assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_SCOPE,GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
   assert.match(js, /service==='calendar-write'\|\|service==='both'/);
   assert.match(js, /include_granted_scopes:'true'/);
 });

@@ -141,3 +141,11 @@ Changes in this follow-up:
 - The separate GitHub coding connection card and its OAuth/account controls remain unchanged. The developer-catalog GitHub row links to GitHub; it does not claim Vercel, Render, Supabase or Cloudflare are connected to NasrinAI.
 - Preserved Microsoft, Design, and Social & messaging catalog entries.
 - Validation is pending: run the targeted and full tests in CI, then visually verify the layout in iPhone Safari before merging or deploying.
+
+## Plugin read/write capabilities (PR #386, 2026-10-18)
+- Added Gmail message reading, sending, and read/unread status updates, plus Google Calendar event updates and deletion.
+- All external mutations use the existing server-side one-time confirmation flow; model output cannot approve its own action.
+- Each operation checks the current user's actual Google OAuth scopes before calling the provider. Missing or insufficient scopes fail closed; tokens remain server-side.
+- Added regression coverage for tool registration, Gmail send payloads, denied scopes, Calendar deletion, and incomplete event-time validation.
+- Catalog-only providers remain clearly marked as unsupported/coming soon until provider-specific functionality is implemented.
+- Local validation: `npm test` passed 687 tests with 1 skipped. CI must also pass before merge; production OAuth verification and configuration remain separate requirements.
