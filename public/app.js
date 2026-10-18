@@ -1892,7 +1892,7 @@
             const frameCount = duration < 6 ? 3 : 8;
             const times = duration < 6
               ? [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])]
-              : (() => {
+              : await (async () => {
                   const candidateCount = 24;
                   const candidates = [];
                   let previousPixels = null;
