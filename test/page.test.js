@@ -355,6 +355,7 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
   assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
+  assert.match(js, /frame\.referrerPolicy = 'strict-origin-when-cross-origin'[\\s\\S]*?frame\.src = 'https:\/\/www\.youtube-nocookie\.com\/embed\/' \+ video\.id \+ '\?playsinline=1&rel=0'/, 'configure the iframe referrer policy before starting YouTube navigation and enable inline playback');
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
   assert.match(css, /\.youtube-video-frame/);
   assert.match(js, /youtube-fullscreen-button/);
