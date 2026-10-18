@@ -7341,23 +7341,19 @@
           for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
           svg.appendChild(el);
         }
-        const logo = document.createElement('img');
-        const productLogoUrls = {
-          'Google Meet': 'https://cdn.simpleicons.org/googlemeet',
-          'Google Keep': 'https://cdn.simpleicons.org/googlekeep',
-          'Google Maps': 'https://cdn.simpleicons.org/googlemaps',
-          Outlook: 'https://cdn.simpleicons.org/microsoftoutlook',
-          OneDrive: 'https://cdn.simpleicons.org/microsoftonedrive'
+        const catalogBrandMarkup = {
+          'Google Meet': '<path fill="#00832D" d="M4 12a8 8 0 0 1 14-5l-4 4H8v6H4z"/><path fill="#0066DA" d="M4 18V12h10l4 4a8 8 0 0 1-14 2z"/><path fill="#00AC47" d="M14 12l5-5 5 3v8l-5 3-5-5z"/><path fill="#FFBA00" d="M19 7l5 3v8l-5 3z"/>',
+          'Google Keep': '<path fill="#FBBC04" d="M12 2h8l2 4v36H10V6z"/><path fill="#F29900" d="M10 6h12v6H10z"/><path fill="#fff" d="M14 15h8v2h-8zm0 5h8v2h-8zm0 5h6v2h-6z"/>',
+          'Google Maps': '<path fill="#4285F4" d="M24 3C15 3 9 9 9 17c0 10 15 28 15 28s15-18 15-28C39 9 33 3 24 3z"/><path fill="#34A853" d="M24 3C15 3 9 9 9 17c0 6 5 14 9 20l6-10z"/><path fill="#FBBC04" d="M24 3C15 3 9 9 9 17c0 4 2 8 5 13l8-9z"/><circle cx="24" cy="17" r="6" fill="#fff"/>',
+          Outlook: '<path fill="#0078D4" d="M3 9l13-6 14 6v30l-14 6-13-6z"/><path fill="#fff" d="M7 15h18v18H7z"/><path fill="#0078D4" d="M7 16l9 7 9-7v3l-9 7-9-7z"/><path fill="#28A8EA" d="M30 12h15v24H30z"/><path fill="#fff" d="M32 16l5.5 4 5.5-4v3l-5.5 4-5.5-4z"/>',
+          OneDrive: '<path fill="#0364B8" d="M18 15a11 11 0 0 1 20 2 9 9 0 0 1 2 18H12a8 8 0 0 1 6-20z"/><path fill="#1490DF" d="M4 27a8 8 0 0 1 13-6l10 14H10a8 8 0 0 1-6-8z"/><path fill="#28A8EA" d="M17 22a11 11 0 0 1 21-2l-11 15z"/>'
         };
-        if (productLogoUrls[name]) {
-          logo.src = productLogoUrls[name];
-          logo.alt = '';
-          logo.setAttribute('aria-hidden', 'true');
-          logo.className = 'plugins-glyph plugins-product-logo';
-          logo.loading = 'lazy';
-          logo.decoding = 'async';
-          logo.onerror = () => { logo.replaceWith(svg); };
-          li.append(logo);
+        const catalogBrand = catalogBrandMarkup[name];
+        if (catalogBrand) {
+          svg.setAttribute('viewBox', '0 0 48 48');
+          svg.setAttribute('class', 'plugins-glyph plugins-product-logo');
+          svg.innerHTML = catalogBrand;
+          li.appendChild(svg);
         } else li.appendChild(svg);
         li.appendChild(mk('span', 'plugins-name', name));
         li.appendChild(mk('span', 'plugins-soon', 'Coming soon'));
@@ -7400,22 +7396,19 @@
       for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
       svg.appendChild(el);
     }
-    const mainProductLogos = {
-      Gmail: 'gmail',
-      'Google Calendar': 'googlecalendar',
-      'Google Drive': 'googledrive'
-    };
-    const logoSlug = mainProductLogos[title];
-    if (logoSlug) {
-      const logo = document.createElement('img');
-      logo.src = 'https://cdn.simpleicons.org/' + logoSlug;
-      logo.alt = '';
-      logo.setAttribute('aria-hidden', 'true');
-      logo.className = 'gh-mark plugin-brand-logo';
-      logo.loading = 'lazy';
-      logo.decoding = 'async';
-      logo.onerror = () => { logo.replaceWith(svg); };
-      icon.appendChild(logo);
+    const brand = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    brand.setAttribute('viewBox', '0 0 48 48');
+    brand.setAttribute('aria-hidden', 'true');
+    brand.setAttribute('class', 'gh-mark plugin-brand-logo');
+    const brandMarkup = {
+      Gmail: '<path fill="#4285F4" d="M5 12v24h6V18z"/><path fill="#34A853" d="M37 18v18h6V12z"/><path fill="#EA4335" d="M5 12l4-3 15 12L39 9l4 3-19 16z"/><path fill="#C5221F" d="M5 12l6 6v-6L9 9z"/><path fill="#FBBC04" d="M37 18l6-6-4-3-2 3z"/>',
+      'Google Calendar': '<rect x="5" y="7" width="38" height="36" rx="5" fill="#4285F4"/><path fill="#34A853" d="M5 17h38v8H5z"/><path fill="#FBBC04" d="M5 25h38v8H5z"/><path fill="#EA4335" d="M5 7h38v10H5z"/><rect x="13" y="16" width="22" height="23" rx="2" fill="#fff"/><path fill="#4285F4" d="M18 21h5v5h-5zm8 0h5v5h-5zm-8 8h5v5h-5zm8 0h5v5h-5z"/>',
+      'Google Drive': '<path fill="#00832D" d="M17 5h10L45 36H34z"/><path fill="#0066DA" d="M17 5L2 31l5 9 16-27z"/><path fill="#FFBA00" d="M7 40l5-9h33l-5 9z"/><path fill="#00AC47" d="M17 5h10L45 36H34z"/>',
+      GitHub: '<path fill="#181717" d="M24 3C12.4 3 3 12.4 3 24c0 9.3 6 17.2 14.3 20 .9.2 1.2-.4 1.2-.9v-3.3c-5.8 1.3-7-2.5-7-2.5-.9-2.4-2.3-3-2.3-3-1.9-1.3.1-1.3.1-1.3 2.1.2 3.2 2.2 3.2 2.2 1.9 3.2 4.9 2.3 6.1 1.8.2-1.4.7-2.3 1.3-2.9-4.6-.5-9.4-2.3-9.4-10.3 0-2.3.8-4.2 2.2-5.7-.2-.5-.9-2.7.2-5.6 0 0 1.8-.6 5.8 2.2a20 20 0 0 1 10.6 0c4-2.8 5.8-2.2 5.8-2.2 1.1 2.9.4 5.1.2 5.6 1.4 1.5 2.2 3.4 2.2 5.7 0 8-4.8 9.8-9.4 10.3.7.6 1.4 1.8 1.4 3.7v5.5c0 .5.3 1.1 1.2.9C39 41.2 45 33.3 45 24 45 12.4 35.6 3 24 3z"/>'
+    }[title];
+    if (brandMarkup) {
+      brand.innerHTML = brandMarkup;
+      icon.appendChild(brand);
     } else icon.appendChild(svg);
     const main = mk('span', 'plugin-main');
     main.append(mk('span', 'plugin-title', title));
