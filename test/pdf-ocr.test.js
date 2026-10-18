@@ -8,10 +8,10 @@ test('PDF OCR submits a PDF as a Responses API file input and returns extracted 
   let request;
   const ocr = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async (url, options) => {
     request = { url, options };
-    return new Response(JSON.stringify({ output_text: 'Scanned invoice\nTotal: $12.00' }), { status: 200 });
+    return new Response(JSON.stringify({ output_text: '[Page 1]\nScanned invoice\nTotal: $12.00' }), { status: 200 });
   }});
   const result = await ocr.extract({ bytes: pdf, name: 'invoice.pdf' });
-  assert.equal(result.text, 'Scanned invoice\nTotal: $12.00');
+  assert.equal(result.text, '[Page 1]\nScanned invoice\nTotal: $12.00');
   assert.equal(request.url, 'https://api.openai.com/v1/responses');
   assert.equal(request.options.headers.Authorization, 'Bearer test-key');
   const body = JSON.parse(request.options.body);
