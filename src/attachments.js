@@ -370,6 +370,12 @@ export function parseAttachments(list, limits) {
       throw new HttpError(413, 'attachments_too_large', `Files can be up to ${Math.round(limits.maxTotalBytes / 1048576)} MB in total.`);
     }
 
+    const cut = (t) => (t.length > limits.maxTextChars ? t.slice(0, limits.maxTextChars) + '\n[… cut here: the file is longer]' : t);
+    const unreadable = (why) => ({
+      kind: 'text', mime: 'text/plain', name, data, unreadable: true,
+      text: `[NasrinAI could not read the contents of this file (${why}; ${kb(bytes.length)}). Tell the person plainly that you cannot open it, and suggest a format you can read: a photo, PDF, Word, Excel, PowerPoint, text or CSV file.]`
+    });
+
     const sniffed = sniff(bytes);
     if (sniffed === 'application/pdf') return { kind: 'pdf', mime: sniffed, name, data };
     if (sniffed && sniffed.startsWith('image/')) return { kind: 'image', mime: sniffed, name, data };
@@ -386,12 +392,6 @@ export function parseAttachments(list, limits) {
         return unreadable('a gzip file whose decompressed contents are not text');
       } catch { return unreadable('a damaged gzip file or one exceeding the decompression limit'); }
     }
-
-    const cut = (t) => (t.length > limits.maxTextChars ? t.slice(0, limits.maxTextChars) + '\n[… cut here: the file is longer]' : t);
-    const unreadable = (why) => ({
-      kind: 'text', mime: 'text/plain', name, data, unreadable: true,
-      text: `[NasrinAI could not read the contents of this file (${why}; ${kb(bytes.length)}). Tell the person plainly that you cannot open it, and suggest a format you can read: a photo, PDF, Word, Excel, PowerPoint, text or CSV file.]`
-    });
 
     if (sniffed === 'application/zip') {
       const doc = zipText(bytes, limits);
