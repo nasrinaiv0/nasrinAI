@@ -287,17 +287,35 @@
   const SOURCES_BLOCK = /\n*\*\*Sources\*\*\n((?:- \[[^\]\n]*\]\(<[^>\s]+>\)[ \t]*(?:\n|$))+)\s*$/;
   function sources(text) {
     const raw = String(text || '');
-    const m = SOURCES_BLOCK.exec(raw);
-    if (!m) return { text: raw, links: [] };
+    const block = SOURCES_BLOCK.exec(raw);
+    let visible = block ? raw.slice(0, block.index).trim() : raw;
     const links = [];
-    for (const [, title, url] of m[1].matchAll(/- \[([^\]\n]*)\]\(<([^>\s]+)>\)/g)) {
+    const addLink = (title, rawUrl) => {
       let u;
-      try { u = new URL(url); } catch { return { text: raw, links: [] }; }
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') return { text: raw, links: [] };
+      try { u = new URL(rawUrl); } catch { return false; }
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
       const host = u.hostname.replace(/^www\./, '');
-      links.push({ title: title.trim() || host, url: u.href, host });
+      if (!links.some((item) => item.url === u.href)) {
+        links.push({ title: String(title || '').trim() || host, url: u.href, host });
+      }
+      return true;
+    };
+    if (block) {
+      for (const [, title, url] of block[1].matchAll(/- \[([^\]\n]*)\]\(<([^>\s]+)>\)/g)) {
+        if (!addLink(title, url)) return { text: raw, links: [] };
+      }
     }
-    return { text: raw.slice(0, m.index).trim(), links: links.slice(0, 20) };
+    // Keep readable Markdown link labels in the prose, but move destinations to Sources.
+    visible = visible.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, title, url) => {
+      addLink(title, url);
+      return title;
+    });
+    // Bare URLs are also sources; remove the URL itself from the prose.
+    visible = visible.replace(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g, (url) => {
+      addLink('', url.replace(/[)\]}]+$/, ''));
+      return '';
+    }).replace(/[ \t]{2,}/g, ' ').replace(/ +([,.;:!?])/g, '$1').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    return { text: visible, links: links.slice(0, 20) };
   }
 
   window.NasrinFormat = { render, plain, sources };

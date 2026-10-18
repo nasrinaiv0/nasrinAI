@@ -229,15 +229,15 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
 });
 
-test('web sources are visible by default with an accessible toggle beside reply actions (owner, 2026-10-18)', async () => {
+test('web sources stay behind an accessible Sources and Resources toggle by default (owner, 2026-10-18)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
   assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /list\.hidden = false;/);
+  assert.match(toggle, /list\.hidden = true;/);
   assert.match(toggle, /const heading = mk\('p', 'reply-sources-heading', 'Sources & Resources'\);/);
-  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'true'\);/);
+  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'false'\);/);
   assert.match(toggle, /heading\.hidden = !open;/);
   assert.match(toggle, /a\.rel = 'noopener noreferrer';/);
   assert.doesNotMatch(toggle, /innerHTML/);
@@ -297,11 +297,12 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /b\.setAttribute\('aria-label', `Hide sources \(\$\{links\.length\}\)`\);/);
-  assert.match(toggle, /const hosts = \[\.\.\.new Set\(links\.map\(\(l\) => l\.host\)\)\]\.slice\(0, 3\);/);
-  assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
-  assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
-  assert.match(css, /\.src-face \+ \.src-face \{ margin-left: -0\.38rem; \}/);
+  assert.ok(toggle.includes("b.setAttribute('aria-label', `Show sources and resources (${links.length})`);"));
+  assert.ok(toggle.includes("b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);"));
+  assert.ok(toggle.includes('const hosts = [...new Set(links.map((l) => l.host))].slice(0, 3);'));
+  assert.ok(toggle.includes("b.append(faces, mk('span', 'src-word', 'Sources'));") );
+  assert.ok(!toggle.includes('<img') && !toggle.includes('.src = ')); // no outside images (strict CSP, no third-party requests)
+  assert.ok(css.includes('.src-face + .src-face { margin-left: -0.38rem; }'));
 });
 
 test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact the team (owner, 2026-10-13)', async () => {
@@ -348,6 +349,8 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
+  assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
+  assert.match(js, /const sourceIds = sourceLinks\.map/);
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
