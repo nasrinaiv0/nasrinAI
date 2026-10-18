@@ -3209,7 +3209,7 @@
     );
     if (ok(voiceChoice)) return voiceChoice;
     if (speech.available && AudioCtx) {
-      const v = speech.voices.find((x) => x.id === 'openai:cedar' && x.available !== false) || speech.voices.find((x) => x.available !== false);
+      const v = speech.voices.find((x) => x.id === 'openai:cedar' && x.available !== false) || speech.voices.find((x) => x.id === 'gemini:Charon' && x.available !== false) || speech.voices.find((x) => x.available !== false);
       if (v) return 'ai:' + v.id;
     }
     return 'device:default';
