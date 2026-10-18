@@ -121,3 +121,12 @@ test('Google Maps fleet routing uses Directions URLs without a Maps API key', ()
   assert.doesNotMatch(google, /GOOGLE_MAPS_API_KEY|google_maps_places_search/);
   assert.doesNotMatch(app, /GOOGLE_SEARCH_API_KEY|GOOGLE_SEARCH_ENGINE_ID|GOOGLE_MAPS_API_KEY/);
 });
+
+test('Google integrations are grouped separately and the empty Google heading is hidden', () => {
+  assert.match(html, /id="pluginsGoogleLabel" hidden>Google<\/p>/);
+  assert.match(html, /id="pluginsGoogle"/);
+  assert.match(app, /\$\('pluginsGoogle'\)\.appendChild\(card\)/);
+  assert.match(app, /connected \? \$\('pluginsConnected'\) : \$\('pluginsGoogle'\)/);
+  assert.match(app, /\$\('pluginsGoogleLabel'\)\.hidden = !\$\('pluginsGoogle'\)\.children\.length/);
+  assert.doesNotMatch(app.slice(app.indexOf('function makeGooglePlugin'), app.indexOf('async function connectGoogle')), /\$\('pluginsDev'\)\.appendChild\(card\)/);
+});

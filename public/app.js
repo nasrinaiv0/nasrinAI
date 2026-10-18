@@ -7969,7 +7969,7 @@
     });
     card.append(head, actions);
     googlePlugins[service] = { card, sub, connect, disconnect, title };
-    $('pluginsDev').appendChild(card);
+    $('pluginsGoogle').appendChild(card);
   }
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
@@ -8025,9 +8025,10 @@
         item.connect.onclick = connected ? () => disconnectGoogle(service) : () => connectGoogle(service);
       }
       item.disconnect.hidden = true;
-      (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
+      (connected ? $('pluginsConnected') : $('pluginsGoogle')).appendChild(item.card);
     }
     $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
+    $('pluginsGoogleLabel').hidden = !$('pluginsGoogle').children.length;
     $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
   }
   async function connectGoogle(service) {
