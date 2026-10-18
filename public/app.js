@@ -1785,16 +1785,24 @@
         const transcribe = document.createElement('button');
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
-        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Too large' : 'Transcribe';
+        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Split audio first' : 'Transcribe';
         transcribe.disabled = f.bytes > 4 * 1024 * 1024;
+        if (transcribe.disabled) transcribe.title = 'This upload is limited to 4 MB. Split the recording into shorter clips, then transcribe each clip.';
         transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
         transcribe.addEventListener('click', async () => {
           if (transcribe.disabled) return;
           transcribe.disabled = true;
           transcribe.textContent = 'Transcribing…';
+          const language = document.createElement('select');
+          language.className = 'chip-transcribe-language';
+          language.setAttribute('aria-label', 'Transcription language');
+          for (const [value, label] of [['', 'Auto language'], ['en', 'English'], ['fil', 'Filipino'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['ja', 'Japanese'], ['zh', 'Chinese']]) {
+            const option = document.createElement('option'); option.value = value; option.textContent = label; language.appendChild(option);
+          }
+          transcribe.before(language);
           try {
             const token = await credential();
-            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name), {
+            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name) + (language.value ? '&language=' + encodeURIComponent(language.value) : ''), {
               method: 'POST',
               headers: { Authorization: 'Bearer ' + token, 'Content-Type': f.type || 'application/octet-stream' },
               body: f.local
@@ -1808,10 +1816,12 @@
             input.focus();
             notice.textContent = 'Transcript added to your message. Review it before sending.';
             transcribe.textContent = 'Transcribed';
+            language.disabled = true;
           } catch (err) {
             notice.textContent = err.message || 'Could not transcribe this audio. Please try again.';
             transcribe.disabled = false;
             transcribe.textContent = 'Retry transcription';
+            language.disabled = false;
           }
         });
         chip.appendChild(transcribe);
