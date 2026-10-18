@@ -47,7 +47,7 @@
     makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-two'),
     makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-one', '✳'),
     makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-two', '＋'),
-    makeCodingWelcomeNode('span', 'code-logo coding-empty-logo'),
+    makeCodingWelcomeNode('span', 'code-logo coding-empty-logo is-busy'),
     makeCodingWelcomeNode('span', 'coding-empty-cursor')
   );
   const codingTitle = makeCodingWelcomeNode('h1', 'coding-empty-title', 'What are we building today?');
