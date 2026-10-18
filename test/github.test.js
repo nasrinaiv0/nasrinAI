@@ -418,7 +418,7 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
   for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
-  assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
+  assert.match(js, /mk\('span', 'plugins-soon', \['Google Meet', 'Google Keep', 'Google Maps'\]\.includes\(name\) \? 'Available' : 'Coming soon'\)/);
   const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
   assert.doesNotMatch(catalog, /Google (?:Search|Meet|Keep|Maps)/);
   assert.match(catalog, /\['Microsoft 365'/);
@@ -504,7 +504,7 @@ test('plugins: catalog apps are grouped by provider family and add-account is gu
   assert.match(js, /Outlook: 'Microsoft 365'/);
   assert.match(js, /Canva: 'Design & creativity'/);
   assert.match(js, /Facebook: 'Social & messaging'/);
-  assert.match(js, /\['Design', \[\['Canva', 'design'\]\]\]/);
+  assert.match(js, /\['Design & creativity', \[\['Canva', 'design'\]\]\]/);
   assert.match(js, /Multiple accounts are not enabled for this Google app yet/);
   assert.match(js, /actions\.hidden = !open/);
   assert.match(js, /otherActions\.hidden = true/);
