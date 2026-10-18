@@ -1028,3 +1028,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** branded 404 page (status 404, `noindex`) for browsers; `robots.txt`; `sitemap.xml`; description, canonical and share tags on the home, FAQ and legal pages; `.xml` served by the static server. Details and unverified items: `docs/seo.md`.
 - **Not changed:** API behaviour, security headers, database, settings, legal text (no data handling changes).
 - **Validation:** `npm test` 711 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Live 404 and domain behaviour not yet checked.
+
+## Proposed PR — Performance baseline (`docs/performance-baseline`)
+
+- **Owner request:** do the small upgrades first (PR #363 spec, first step: measure).
+- **Change:** `docs/performance-baseline.md` with measured results and candidate improvements; `scripts/measure-page-load.mjs` to repeat the measurement (Node built-ins and a local Chromium only, not part of the app). No application, security-header, schema or settings change.
+- **Validation:** script run locally (3 runs, fast and slow-phone settings); `npm test` and `npm run check:secrets` run before opening the PR. Lighthouse and live-site numbers are not included.
