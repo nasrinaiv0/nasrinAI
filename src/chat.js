@@ -172,6 +172,15 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const sent = !regenerate && uploads ? await uploads.resolve(caller, body.attachments) : body.attachments;
     const files = regenerate ? [] : parseAttachments(sent, config.ai.attachments);
     let typed = regenerate || body.message === undefined || body.message === '' ? '' : cleanUserText(body.message, config.ai.maxMessageChars);
+    // Explicitly shared location is transient request context, never message content.
+    const location = !regenerate && body.location_context && typeof body.location_context === 'object' ? body.location_context : null;
+    const locationPrompt = location
+      && Number.isFinite(location.latitude) && location.latitude >= -90 && location.latitude <= 90
+      && Number.isFinite(location.longitude) && location.longitude >= -180 && location.longitude <= 180
+      ? '\\n\\nThe user explicitly chose to share their current device location for this request. Treat it as private transient context and never repeat exact coordinates in the answer: latitude ' + location.latitude + ', longitude ' + location.longitude
+        + (Number.isFinite(location.accuracy) && location.accuracy >= 0 ? ' (reported accuracy about ' + Math.min(location.accuracy, 100000) + ' metres).' : '.')
+        + ' Use available live map or web tools for nearby places or directions. Never invent business details, route distances, traffic, opening hours, or ETAs. If the required live tool is unavailable, say so and offer a map link or ask for the destination.'
+      : '';
     if (!regenerate && (typed === null || (!typed && !files.length))) {
       throw new HttpError(400, 'invalid_message', `Send a message of 1 to ${config.ai.maxMessageChars} characters.`);
     }
@@ -451,7 +460,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         let webProviderStarted = false;
         try {
           if (!budget) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now.');
-          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare });
+          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt;
           const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
           const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
           webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
