@@ -1,6 +1,6 @@
 import { HttpError } from '../http/errors.js';
 
-export const MAX_TRANSCRIPTION_BYTES = 20 * 1024 * 1024;
+export const MAX_TRANSCRIPTION_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXT = /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i;
 const MIME_BY_EXTENSION = Object.freeze({ mp3: 'audio/mpeg', mpga: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'audio/mp4', mpeg: 'audio/mpeg', mpg: 'audio/mpeg', mp2: 'audio/mpeg', wav: 'audio/wav', webm: 'audio/webm', ogg: 'audio/ogg', oga: 'audio/ogg', flac: 'audio/flac' });
 const ALLOWED_MIME = new Set([
@@ -20,7 +20,7 @@ export function createOpenAITranscription({ apiKey, model = 'whisper-1', fetchIm
     async transcribe({ bytes, name, mime, language }) {
       if (!apiKey) throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
       if (!Buffer.isBuffer(bytes) || bytes.length === 0) throw new HttpError(400, 'audio_required', 'Choose a non-empty audio file to transcribe.');
-      if (bytes.length > MAX_TRANSCRIPTION_BYTES) throw new HttpError(413, 'audio_too_large', 'For transcription, choose an audio file smaller than 20 MB.');
+      if (bytes.length > MAX_TRANSCRIPTION_BYTES) throw new HttpError(413, 'audio_too_large', 'For transcription, choose an audio file smaller than 4 MB. Long recordings must be split into shorter clips before uploading.');
       const filename = safeName(name);
       let contentType = String(mime || '').split(';')[0].trim().toLowerCase();
       const ext = filename.toLowerCase().split('.').pop();
