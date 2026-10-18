@@ -1401,7 +1401,8 @@
       if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
       if (cited.links.length) renderWebPreviews(el, cited.links);
       if (fresh && role === 'assistant') {
-        const lastUser = log.querySelector('.msg.user:last-of-type');
+        const userMessages = log.querySelectorAll('.msg.user');
+        const lastUser = userMessages[userMessages.length - 1] || null;
         const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
         if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery);
       }
