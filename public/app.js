@@ -3385,21 +3385,6 @@
       } catch {
         // Fall back to researched YouTube links when live search is unavailable.
       }
-      if (!videos.length) {
-        const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
-        const idPattern = /(?:youtube\.com\/(?:watch\?[^\s#]*?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/g;
-        const answerIds = [...answerText.matchAll(idPattern)].map((match) => match[1]);
-        const sourceIds = sourceLinks.map((item) => {
-          try {
-            const url = new URL(item.url);
-            if (url.hostname === 'youtu.be') return url.pathname.slice(1);
-            if (url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com') return url.searchParams.get('v') || url.pathname.match(/^\/embed\/([A-Za-z0-9_-]{11})$/)?.[1] || '';
-          } catch {}
-          return '';
-        });
-        const ids = [...new Set([...answerIds, ...sourceIds])].filter((id) => /^[A-Za-z0-9_-]{11}$/.test(id)).slice(0, 3);
-        videos = ids.map((id) => ({ id, title: sourceLinks.find((item) => item.url.includes(id))?.title || 'YouTube tutorial', channelTitle: 'YouTube' }));
-      }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
