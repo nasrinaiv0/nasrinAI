@@ -374,7 +374,7 @@ export function parseAttachments(list, limits) {
   if (list.length > limits.maxCount) throw bad(`Send at most ${limits.maxCount} files at a time.`);
 
   let total = 0;
-  return list.map((item) => {
+  return list.flatMap((item) => {
     if (!item || typeof item !== 'object' || typeof item.data !== 'string') throw bad('Each file needs its data.');
     const name = cleanName(item.name);
     const data = item.data.replace(/^data:[^;,]{1,100};base64,/, '');
