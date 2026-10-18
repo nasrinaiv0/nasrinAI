@@ -1556,6 +1556,19 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Verify a persisted YouTube player before restoring its iframe.
+      method: 'GET',
+      path: '/v1/youtube/verify',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!youtubeSearch?.available) return { valid: false };
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many search requests.');
+        const id = new URL(req.url, 'http://localhost').searchParams.get('id') || '';
+        if (!/^[A-Za-z0-9_-]{11}$/.test(id)) throw new HttpError(400, 'invalid_video_id', 'That video is not valid.');
+        return { valid: await youtubeSearch.verify(id) };
+      }
+    },
+    {
       // Search public Wikimedia Commons photos. Image URLs are limited to Wikimedia's
       // upload host and every result includes its source page and license metadata.
       method: 'GET',
