@@ -32,7 +32,7 @@ export function createYouTubeSearch({ apiKey = '', fetchImpl = fetch, timeoutMs 
           const snippet = item?.snippet || {};
           if (!VIDEO_ID.test(id) || !snippet.title || !snippet.channelTitle) return [];
           const thumbnails = snippet.thumbnails || {};
-          const thumbnail = [thumbnails.medium, thumbnails.high, thumbnails.default].find((t) => /^https:\/\/i.test(String(t?.url || '')));
+          const thumbnail = [thumbnails.medium, thumbnails.high, thumbnails.default].find((t) => String(t?.url || '').startsWith('https://'));
           return [{
             id,
             title: String(snippet.title).slice(0, 240),
