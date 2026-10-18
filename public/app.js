@@ -7357,7 +7357,6 @@
           'Google Keep': '/assets/brand/google-keep.svg',
           'Google Maps': '/assets/brand/google-maps.svg',
           Outlook: '/assets/brand/outlook.svg',
-          OneDrive: '/assets/brand/onedrive.svg',
           GitHub: '/assets/brand/github.svg'
         };
         const catalogBrandAsset = catalogBrandAssets[name];
