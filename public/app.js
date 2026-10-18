@@ -4364,6 +4364,7 @@
   const NOTICE_KIND = { info: 'Tip', success: 'Done', warning: 'Heads up', error: 'Problem', security: 'Security', feature: 'New' };
   const STICKY = ['security', 'warning', 'error'];
   const noticeBox = $('appNotice');
+  let noticeAutoDismissTimer = null;
   let noticeQueue = [];
   let noticeShown = null;
   let noticeRun = 0;
@@ -4445,8 +4446,18 @@
   }
 
   function hideNotice() {
+    if (noticeAutoDismissTimer !== null) {
+      clearTimeout(noticeAutoDismissTimer);
+      noticeAutoDismissTimer = null;
+    }
     noticeBox.hidden = true;
     noticeShown = null;
+  }
+
+  function isNewUserNotice(n) {
+    if (!n) return false;
+    const identity = [n.id, n.title, n.body].filter(Boolean).join(' ').toLowerCase();
+    return /new[-_ ]user|welcome|getting started|first[-_ ]time/.test(identity);
   }
 
   function renderNotice() {
@@ -4465,6 +4476,17 @@
     $('appNoticeActions').hidden = !n.action;
     $('appNoticeAction').textContent = n.action ? n.action.label : '';
     noticeBox.hidden = false;
+
+    // Brief in-app notices auto-dismiss after three seconds. Keep the
+    // new-user welcome notice visible until the user closes it explicitly.
+    if (!isNewUserNotice(n)) {
+      noticeAutoDismissTimer = setTimeout(() => {
+        noticeAutoDismissTimer = null;
+        if (noticeShown !== n) return;
+        dismissNotice(n);
+        renderNotice();
+      }, 3000);
+    }
   }
 
   function dismissNotice(n) {
