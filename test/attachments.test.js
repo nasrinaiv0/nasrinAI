@@ -63,7 +63,11 @@ test('any kind of file is accepted: text of every kind is read, the rest is mark
   assert.equal(html.text, '<p>Kumusta</p>');
   assert.equal(utf16.text, 'hello');
   for (const f of [exe, bin, ole]) { assert.equal(f.kind, 'text'); assert.equal(f.unreadable, true); assert.match(f.text, /could not read the contents/); }
-  assert.match(ole.text, /\.docx/);
+  assert.match(ole.text, /legacy Word binary document/);
+  const legacy = ['doc', 'xls', 'ppt'].map((ext) => parseAttachments([{ name: `old.${ext}`, data: b64([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0]) }], limits)[0]);
+  assert.match(legacy[0].text, /save\\/export it as .docx or PDF/);
+  assert.match(legacy[1].text, /save\\/export it as .xlsx or PDF/);
+  assert.match(legacy[2].text, /save\\/export it as .pptx or PDF/);
 });
 
 // A tiny ZIP writer, so documents can be built here without any package.
