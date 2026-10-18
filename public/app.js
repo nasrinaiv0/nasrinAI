@@ -7438,7 +7438,7 @@
     });
     card.append(head, actions);
     googlePlugins[service] = { card, sub, connect, disconnect, title };
-    $('pluginsDev').appendChild(card);
+    $('pluginsGoogle').appendChild(card);
   }
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
@@ -7475,7 +7475,7 @@
       item.connect.textContent = connected ? 'Reconnect ' + item.title : 'Connect ' + item.title;
       item.connect.disabled = !googleStatus.available;
       item.disconnect.hidden = !googleStatus.connected;
-      (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
+      (connected ? $('pluginsConnected') : $('pluginsGoogle')).appendChild(item.card);
     }
     $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
     $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
