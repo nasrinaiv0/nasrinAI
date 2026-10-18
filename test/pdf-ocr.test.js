@@ -34,15 +34,15 @@ test('PDF OCR rejects missing key, oversized and invalid files without calling p
 });
 
 test('PDF OCR hides provider errors and rejects empty extraction', async () => {
-  const failed = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response('private details', { status: 429 }) });
+  const failed = createOpenAIPdfOcr({ apiKey: 'test-key', getPageCount: async () => 1, fetchImpl: async () => new Response('private details', { status: 429 }) });
   await assert.rejects(() => failed.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'ocr_busy' && !e.message.includes('private details'));
-  const empty = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text: ' ' }), { status: 200 }) });
+  const empty = createOpenAIPdfOcr({ apiKey: 'test-key', getPageCount: async () => 1, fetchImpl: async () => new Response(JSON.stringify({ output_text: ' ' }), { status: 200 }) });
   await assert.rejects(() => empty.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'empty_ocr');
 });
 
 test('PDF OCR rejects responses without page markers or with pages out of order', async () => {
   for (const output_text of ['Text without page markers', '[Page 2]\\nsecond\\n[Page 1]\\nfirst']) {
-    const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text }), { status: 200 }) });
+    const service = createOpenAIPdfOcr({ apiKey: 'test-key', getPageCount: async () => 1, fetchImpl: async () => new Response(JSON.stringify({ output_text }), { status: 200 }) });
     await assert.rejects(() => service.extract({ bytes: pdf, name: 'invoice.pdf' }), (e) => e.code === 'invalid_ocr_order');
   }
 });
