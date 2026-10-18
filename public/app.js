@@ -1885,12 +1885,55 @@
             if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
             const duration = video.duration;
             if (duration > 15 * 60) throw new Error('This video is longer than 15 minutes. Choose a shorter clip to extract frames safely.');
-            // Sample across the clip rather than only its endpoints. Keep a hard
-            // cap so large videos cannot create an unbounded number of images.
+            // Short clips get three representative frames. For longer clips, inspect
+            // low-resolution candidates and prefer timestamps with the largest visual
+            // changes, while enforcing temporal spacing and a hard eight-frame cap.
+            // This is a lightweight scene-change heuristic, not semantic recognition.
             const frameCount = duration < 6 ? 3 : 8;
-            const times = [...new Set(Array.from({ length: frameCount }, (_, i) => duration < 6
-              ? [Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))][i]
-              : duration * (i + 0.5) / frameCount))];
+            const times = duration < 6
+              ? [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])]
+              : (() => {
+                  const candidateCount = 24;
+                  const candidates = [];
+                  let previousPixels = null;
+                  const probe = document.createElement('canvas');
+                  probe.width = 32;
+                  probe.height = 18;
+                  const probeContext = probe.getContext('2d', { willReadFrequently: true });
+                  if (!probeContext) throw new Error('Frame analysis is not supported by this device.');
+                  for (let i = 0; i < candidateCount; i++) {
+                    const time = duration * (i + 0.5) / candidateCount;
+                    video.currentTime = time;
+                    await new Promise((resolve, reject) => {
+                      const timeout = setTimeout(() => reject(new Error('Video scene analysis timed out. Try a shorter video.')), 10000);
+                      video.onseeked = () => { clearTimeout(timeout); resolve(); };
+                      video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not analyze a video scene.')); };
+                    });
+                    probeContext.drawImage(video, 0, 0, probe.width, probe.height);
+                    const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+                    let score = 0;
+                    if (previousPixels) {
+                      for (let p = 0; p < pixels.length; p += 4) {
+                        score += Math.abs(pixels[p] - previousPixels[p]) +
+                          Math.abs(pixels[p + 1] - previousPixels[p + 1]) +
+                          Math.abs(pixels[p + 2] - previousPixels[p + 2]);
+                      }
+                      score /= (pixels.length / 4) * 3 * 255;
+                    }
+                    candidates.push({ time, score });
+                    previousPixels = new Uint8ClampedArray(pixels);
+                  }
+                  const minGap = duration / 16;
+                  const selected = [];
+                  // Reserve temporal coverage first, then fill remaining slots with
+                  // the strongest visual transitions so a single cut cannot dominate.
+                  for (const index of [0, 7, 15, 23]) selected.push(candidates[index]);
+                  for (const candidate of [...candidates].sort((a, b) => b.score - a.score)) {
+                    if (selected.length >= frameCount) break;
+                    if (selected.every((item) => Math.abs(item.time - candidate.time) >= minGap)) selected.push(candidate);
+                  }
+                  return selected.sort((a, b) => a.time - b.time).slice(0, frameCount).map((item) => item.time);
+                })();
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;
