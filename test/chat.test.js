@@ -257,3 +257,57 @@ test('comparison replies never reuse an older cached answer; other cache entries
   // Every non-comparison variant is exactly what it was, so existing entries still match.
   assert.match(src, /: \(blocks \? 'blocks' : 'plain'\)\) \+ \(compare \? '\|compare' : ''\);/);
 });
+
+
+test('explicit customer location is transient provider context and bypasses semantic cache', async () => {
+  const provider = createFakeProvider();
+  await withApp({ provider }, async ({ url, store }) => {
+    const token = await guestToken(url);
+    const first = await send(url, token, {
+      message: 'Find cafes near me',
+      location_context: { latitude: 7.0731, longitude: 125.6128, accuracy: 35 }
+    });
+    assert.equal(first.status, 200);
+    const second = await send(url, token, {
+      message: 'Find cafes near me',
+      location_context: { latitude: 7.1907, longitude: 125.4553, accuracy: 80 }
+    });
+    assert.equal(second.status, 200);
+    assert.equal(provider.calls.length, 2, 'location-aware replies must not reuse a cached answer from another location');
+    assert.match(provider.calls[0].system, /latitude 7\.0731, longitude 125\.6128/);
+    assert.match(provider.calls[1].system, /latitude 7\.1907, longitude 125\.4553/);
+    for (const call of provider.calls) {
+      const serializedMessages = JSON.stringify(call.messages);
+      assert.doesNotMatch(serializedMessages, /125\.6128|125\.4553/, 'precise coordinates must not be included in saved/user-visible message content');
+    }
+  });
+});
+
+test('chat frontend contains a user-initiated location action with manual fallback', async () => {
+  const fs = await import('node:fs/promises');
+  const src = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(src, /Use my location/);
+  assert.match(src, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(src, /Location permission was denied/);
+  assert.match(src, /Enter a city, address, or landmark/);
+  assert.match(src, /if \(service === 'maps'\) \{ item\.card\.remove\(\); continue; \}/);
+});
+
+
+test('uploaded images reach the vision-capable provider with image-analysis instructions', async () => {
+  const provider = createFakeProvider();
+  await withApp({ provider }, async ({ url }) => {
+    const token = await guestToken(url);
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/8ioAAAAASUVORK5CYII=';
+    const response = await send(url, token, {
+      message: 'What is in this image?',
+      attachments: [{ name: 'test.png', data: png }]
+    });
+    assert.equal(response.status, 200);
+    assert.equal(provider.calls.length, 1);
+    assert.match(provider.calls[0].system, /attached one or more images/i);
+    assert.match(provider.calls[0].system, /Inspect the actual image content/i);
+    assert.equal(provider.calls[0].attachments?.[0]?.kind, 'image');
+    assert.equal(provider.calls[0].attachments?.[0]?.mime, 'image/png');
+  });
+});
