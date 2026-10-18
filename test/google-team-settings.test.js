@@ -52,11 +52,23 @@ test('Google Drive plugin uses an existing glyph key', () => {
   assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'team'\)/);
 });
 
-test('Google integrations catalog replaces Google Cloud with Meet, Keep, Search and Maps', () => {
-  const catalog = app.slice(app.indexOf('const MORE_PLUGINS'), app.indexOf('const MORE_PLUGINS') + 700);
-  assert.match(catalog, /Google Maps/);
-  assert.doesNotMatch(catalog, /Google Team/);
-  assert.doesNotMatch(catalog, /Google Cloud/);
+test('Google integrations with dedicated cards are excluded from the duplicate catalog', () => {
+  const start = app.indexOf('const MORE_PLUGINS');
+  const end = app.indexOf('const DEVELOPER_PLUGINS', start);
+  const catalog = app.slice(start, end);
+  for (const name of ['Google Search', 'Google Meet', 'Google Keep', 'Google Maps']) assert.doesNotMatch(catalog, new RegExp(name));
+  assert.doesNotMatch(catalog, /Google Team|Google Cloud/);
+});
+
+test('Developer tools are separately listed with the five requested dashboards', () => {
+  const start = app.indexOf('const DEVELOPER_PLUGINS');
+  const end = app.indexOf('function developerToolCard', start);
+  const catalog = app.slice(start, end);
+  for (const name of ['GitHub', 'Vercel', 'Render', 'Supabase', 'Cloudflare']) {
+    assert.ok(catalog.includes(`['${name}'`), 'missing developer tool: ' + name);
+  }
+  assert.match(app, /Developer tools/);
+  assert.match(app, /open\.href = website/);
 });
 
 test('Every new Google catalog item has a defined glyph', () => {
@@ -68,9 +80,9 @@ test('Every new Google catalog item has a defined glyph', () => {
 test('Gmail, Calendar, and Drive have independent OAuth status and disconnect services', () => {
   assert.match(google, /\['gmail','calendar','drive','meet','keep'\]\.includes\(service\)/);
   assert.match(google, /DRIVE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.readonly'/);
-  assert.match(google, /state\.s === 'drive' \? 'drive'/);
+  assert.match(google, /\['drive','meet','keep'\]\.includes\(state\.s\) \? state\.s/);
   assert.match(google, /tokenFor\(w, 'drive'\)/);
-  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','search','maps'\]/);
+  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','maps'\]/);
   assert.match(app, /'Google Drive': \{ service: 'drive', readService: 'drive', supported: true/);
   assert.match(app, /disconnectGoogle\(service\)/);
 });
