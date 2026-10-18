@@ -179,7 +179,7 @@ export function createGeminiSpeech({ apiKey, model = 'gemini-3.1-flash-tts-previ
     provider: 'gemini',
     mime: 'audio/wav',
     voices: GEMINI_VOICES,
-    defaultVoice: 'Kore',
+    defaultVoice: 'Charon',
     previewText: PREVIEW_TEXT,
     model,
     fastModel: quick,
