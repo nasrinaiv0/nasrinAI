@@ -7526,15 +7526,15 @@
         : !status.available
           ? 'Not configured on this site yet'
           : service === 'maps'
-            ? 'Ready · server-side Places search'
+            ? 'Ready · fleet routing (no API key)'
             : connected
               ? 'Connected' + (status.email ? ' · ' + status.email : '')
               : 'Not connected';
       if (service === 'maps') {
-        item.connect.textContent = status.available ? 'Open Google Maps' : 'Maps not configured';
+        item.connect.textContent = status.available ? 'Open fleet route planner' : 'Maps unavailable';
         item.connect.disabled = !status.available;
         item.connect.classList.remove('danger');
-        item.connect.onclick = () => { if (status.available) window.open('https://maps.google.com', '_blank', 'noopener,noreferrer'); };
+        item.connect.onclick = () => { if (status.available) window.open('https://www.google.com/maps/dir/?api=1&travelmode=driving', '_blank', 'noopener,noreferrer'); };
       } else {
         item.connect.textContent = connected ? 'Disconnect Google account' : 'Connect ' + item.title;
         item.connect.disabled = !status.available;
