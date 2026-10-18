@@ -1028,3 +1028,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** branded 404 page (status 404, `noindex`) for browsers; `robots.txt`; `sitemap.xml`; description, canonical and share tags on the home, FAQ and legal pages; `.xml` served by the static server. Details and unverified items: `docs/seo.md`.
 - **Not changed:** API behaviour, security headers, database, settings, legal text (no data handling changes).
 - **Validation:** `npm test` 711 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Live 404 and domain behaviour not yet checked.
+
+## Proposed PR — Fix unstyled FAQ and registry pages (`fix/faq-registry-styles`)
+
+- **Finding:** `docs/seo.md` (PR #405) — inline styles are blocked by the page policy, so both pages rendered unstyled.
+- **Change:** styles moved unchanged into `public/faq.css` and `public/registry.css`; the registry's `style=` attribute became the class `main-flush`. The security policy is unchanged.
+- **Validation:** `npm test` 726 pass, 0 fail, 1 skipped; before/after screenshots of `/faq.html` rendered locally under the real policy in headless Chromium. Not checked on a real phone or on the live site.
