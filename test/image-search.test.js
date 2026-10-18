@@ -5,7 +5,7 @@ import { createImageSearch } from '../src/web/image-search.js';
 test('image search returns Commons thumbnails with source and license attribution', async () => {
   const fetchImpl = async (url, options) => {
     assert.equal(new URL(url).hostname, 'commons.wikimedia.org');
-    assert.match(options.headers.User-Agent, /NasrinAI/);
+    assert.match(options.headers['User-Agent'], /NasrinAI/);
     return new Response(JSON.stringify({ query: { pages: {
       1: { title: 'File:Samal beach.jpg', imageinfo: [{ thumburl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/samal.jpg/900px-samal.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Samal_beach.jpg', extmetadata: { LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: 'Example artist' } } }] },
       2: { title: 'File:Bad host.jpg', imageinfo: [{ thumburl: 'https://evil.example/bad.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Bad_host.jpg' }] }
