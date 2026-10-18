@@ -1843,6 +1843,31 @@
     return transcripts.filter(Boolean).join('\\n\\n');
   }
 
+  // Register seek handlers before changing currentTime so fast decoders cannot
+  // fire seeked between the assignment and listener registration.
+  async function seekVideoTo(video, time, timeoutMs = 10000) {
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onError);
+      };
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error); else resolve();
+      };
+      const onSeeked = () => finish();
+      const onError = () => finish(new Error('Could not seek to a video frame.'));
+      const timeout = setTimeout(() => finish(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), timeoutMs);
+      video.addEventListener('seeked', onSeeked);
+      video.addEventListener('error', onError);
+      try { video.currentTime = time; } catch (error) { finish(error); }
+    });
+  }
+
   function renderTray() {
     tray.replaceChildren(...pending.map((f, i) => {
       const chip = document.createElement('div');
@@ -2018,18 +2043,46 @@
             // Sample across the clip rather than only its endpoints. Keep a hard
             // cap so large videos cannot create an unbounded number of images.
             const frameCount = duration < 6 ? 3 : 8;
-            const times = [...new Set(Array.from({ length: frameCount }, (_, i) => duration < 6
-              ? [Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))][i]
-              : duration * (i + 0.5) / frameCount))];
+            const times = duration < 6
+              ? [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])]
+              : await (async () => {
+                  const candidateCount = 24;
+                  const candidates = [];
+                  let previousPixels = null;
+                  const probe = document.createElement('canvas');
+                  probe.width = 32;
+                  probe.height = 18;
+                  const probeContext = probe.getContext('2d', { willReadFrequently: true });
+                  if (!probeContext) throw new Error('Frame analysis is not supported by this device.');
+                  for (let i = 0; i < candidateCount; i++) {
+                    const time = duration * (i + 0.5) / candidateCount;
+                    await seekVideoTo(video, time);
+                    probeContext.drawImage(video, 0, 0, probe.width, probe.height);
+                    const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+                    let score = 0;
+                    if (previousPixels) {
+                      for (let p = 0; p < pixels.length; p += 4) {
+                        score += Math.abs(pixels[p] - previousPixels[p]) +
+                          Math.abs(pixels[p + 1] - previousPixels[p + 1]) +
+                          Math.abs(pixels[p + 2] - previousPixels[p + 2]);
+                      }
+                      score /= (pixels.length / 4) * 3 * 255;
+                    }
+                    candidates.push({ time, score });
+                    previousPixels = new Uint8ClampedArray(pixels);
+                  }
+                  const selected = [candidates[0], candidates[7], candidates[15], candidates[23]];
+                  const minGap = duration / 16;
+                  for (const candidate of [...candidates].sort((a, b) => b.score - a.score)) {
+                    if (selected.length >= frameCount) break;
+                    if (selected.every((item) => Math.abs(item.time - candidate.time) >= minGap)) selected.push(candidate);
+                  }
+                  return selected.sort((a, b) => a.time - b.time).slice(0, frameCount).map((item) => item.time);
+                })();
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;
-              video.currentTime = times[index];
-              await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), 10000);
-                video.onseeked = () => { clearTimeout(timeout); resolve(); };
-                video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not seek to a video frame.')); };
-              });
+              await seekVideoTo(video, times[index]);
               const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
               const canvas = document.createElement('canvas');
               canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
