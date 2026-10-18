@@ -3062,3 +3062,52 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .location-cta-manual-button:disabled{opacity:.6;cursor:wait}
 .location-cta-manual input:focus-visible,.location-cta-manual-button:focus-visible{outline:2px solid var(--accent,#e87935);outline-offset:2px}
 @media(min-width:520px){.location-cta-manual{grid-template-columns:minmax(0,1fr) auto}.location-cta-manual-button{width:auto;max-width:100%}}
+
+
+/* Follow-up answer card: keep fields and actions aligned with the card's
+   content edge, and prevent browser default sizing from creating overflow. */
+.ask-card {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 1rem;
+}
+.ask-card .ask-questions {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding-left: 1.25rem;
+}
+.ask-card .ask-questions > li,
+.ask-card .ask-questions .question,
+.ask-card .ask-questions .question fieldset {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.ask-card .ask-questions input,
+.ask-card .ask-questions textarea,
+.ask-card .ask-questions select {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+}
+.ask-card .card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.65rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+.ask-card .card-actions > .btn {
+  box-sizing: border-box;
+  max-width: 100%;
+  margin-inline: 0;
+}
+@media (max-width: 480px) {
+  .ask-card { padding: 0.85rem; }
+  .ask-card .ask-questions { padding-left: 1.1rem; }
+}
