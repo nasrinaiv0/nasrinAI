@@ -48,3 +48,7 @@ NasrinAI should use the workspace map and event timeline as retrieval context fo
 ## Current status
 
 The initial UI slice adds a dropdown for Settings and Connect / Disconnect. GitHub delegates to its existing connection controls. Other providers intentionally show a not-configured state until their server-side adapters and secure credential storage are implemented. This is a safe scaffold, not a claim that all five provider APIs are already connected.
+
+## Platform-wide ownership requirement
+
+This contract applies to every current and future NasrinAI integration, not just the five Developer tools providers. See [Universal Integration Security](./universal-integration-security.md). Existing integrations must be audited against it; new providers and actions must not ship until user ownership, authorization, credential handling, and cross-account isolation tests pass. A platform environment key must never be reused as a shared end-user credential. Provider connections remain explicitly unavailable until their server-side adapters and secure credential persistence are implemented and verified.
