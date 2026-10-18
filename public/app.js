@@ -2514,6 +2514,21 @@
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
   async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+    // Automatically request device location for location-dependent questions. The browser
+    // still controls permission; denial or timeout must never block the user's message.
+    const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location)\b/i.test(text);
+    if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
+      locationContext = await new Promise((resolve) => {
+        let settled = false;
+        const finish = (value) => { if (!settled) { settled = true; resolve(value); } };
+        navigator.geolocation.getCurrentPosition((position) => finish({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null
+        }), () => finish(null), { enableHighAccuracy: false, maximumAge: 120000, timeout: 5000 });
+        setTimeout(() => finish(null), 5500);
+      });
+    }
     busy = true;
     notice.textContent = '';
     stopSpeaking();
