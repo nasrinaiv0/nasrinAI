@@ -13,12 +13,13 @@ test('transcription uploads audio to OpenAI and returns plain transcript text', 
       return new Response(JSON.stringify({ text: '  Hello from the meeting.  ' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
   });
-  const result = await service.transcribe({ bytes, name: 'meeting.webm', mime: 'audio/webm' });
+  const result = await service.transcribe({ bytes, name: 'meeting.webm', mime: 'audio/webm', language: 'EN' });
   assert.equal(result.text, 'Hello from the meeting.');
   assert.equal(request.url, 'https://api.openai.com/v1/audio/transcriptions');
   assert.equal(request.options.headers.Authorization, 'Bearer test-key');
   assert.ok(request.options.body instanceof FormData);
   assert.equal(request.options.body.get('model'), 'whisper-1');
+  assert.equal(request.options.body.get('language'), 'en');
   assert.equal(request.options.body.get('file').name, 'meeting.webm');
 });
 
@@ -30,6 +31,15 @@ test('transcription rejects missing keys, oversized files and unsupported format
   await assert.rejects(() => service.transcribe({ bytes: Buffer.alloc(MAX_TRANSCRIPTION_BYTES + 1), name: 'voice.mp3', mime: 'audio/mpeg' }), (e) => e.status === 413);
   await assert.rejects(() => service.transcribe({ bytes, name: 'payload.exe', mime: 'application/octet-stream' }), (e) => e.status === 415);
   assert.equal(called, false);
+});
+
+test('transcription ignores invalid language hints and maps timeouts to a retryable public error', async () => {
+  let form;
+  const service = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async (_url, options) => { form = options.body; return new Response(JSON.stringify({ text: 'hello' }), { status: 200 }); } });
+  await service.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg', language: 'english!' });
+  assert.equal(form.get('language'), null);
+  const timeout = createOpenAITranscription({ apiKey: 'test-key', fetchImpl: async () => { const err = new Error('timed out'); err.name = 'TimeoutError'; throw err; } });
+  await assert.rejects(() => timeout.transcribe({ bytes, name: 'voice.mp3', mime: 'audio/mpeg' }), (e) => e.code === 'transcription_timeout' && e.status === 504);
 });
 
 test('transcription converts provider failures into safe public errors', async () => {

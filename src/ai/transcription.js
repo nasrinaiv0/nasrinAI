@@ -17,10 +17,10 @@ function safeName(value) {
 export function createOpenAITranscription({ apiKey, model = 'whisper-1', fetchImpl = fetch, timeoutMs = 120_000 }) {
   return {
     available: Boolean(apiKey),
-    async transcribe({ bytes, name, mime }) {
+    async transcribe({ bytes, name, mime, language }) {
       if (!apiKey) throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
       if (!Buffer.isBuffer(bytes) || bytes.length === 0) throw new HttpError(400, 'audio_required', 'Choose a non-empty audio file to transcribe.');
-      if (bytes.length > MAX_TRANSCRIPTION_BYTES) throw new HttpError(413, 'audio_too_large', 'For transcription, choose an audio file smaller than 4 MB.');
+      if (bytes.length > MAX_TRANSCRIPTION_BYTES) throw new HttpError(413, 'audio_too_large', 'For transcription, choose an audio file smaller than 4 MB. Long recordings must be split into shorter clips before uploading.');
       const filename = safeName(name);
       let contentType = String(mime || '').split(';')[0].trim().toLowerCase();
       const ext = filename.toLowerCase().split('.').pop();
@@ -34,6 +34,10 @@ export function createOpenAITranscription({ apiKey, model = 'whisper-1', fetchIm
       form.append('file', new Blob([bytes], { type: contentType === 'application/octet-stream' ? 'application/octet-stream' : contentType }), filename);
       form.append('model', model);
       form.append('response_format', 'json');
+      // Only send a language hint when it is a valid ISO 639-1 code; otherwise
+      // let the model detect the spoken language automatically.
+      const languageCode = typeof language === 'string' ? language.trim().toLowerCase() : '';
+      if (/^[a-z]{2}$/.test(languageCode)) form.append('language', languageCode);
       let response;
       try {
         response = await fetchImpl('https://api.openai.com/v1/audio/transcriptions', {
@@ -43,6 +47,7 @@ export function createOpenAITranscription({ apiKey, model = 'whisper-1', fetchIm
           signal: AbortSignal.timeout(timeoutMs)
         });
       } catch (err) {
+        if (err?.name === 'TimeoutError' || err?.name === 'AbortError') throw new HttpError(504, 'transcription_timeout', 'Transcription took too long. Try a shorter recording or split it into smaller files.');
         throw new HttpError(502, 'transcription_upstream_unavailable', 'The transcription service could not be reached. Please try again.');
       }
 

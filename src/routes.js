@@ -1677,7 +1677,7 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Raw audio bytes avoid base64 expansion. Keep the request capped to 4 MiB.
+      // Raw audio bytes avoid base64 expansion. Keep this below serverless request limits.
       // The browser sends the filename in the query and the MIME type in Content-Type.
       method: 'POST',
       path: '/v1/transcriptions',
@@ -1690,7 +1690,8 @@ return { body: { sites: await connect.list(caller) } }; }
         const url = new URL(req.url, 'http://local');
         const name = url.searchParams.get('name') || 'recording.webm';
         const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
-        const result = await transcription.transcribe({ bytes: raw, name, mime });
+        const language = url.searchParams.get('language') || undefined;
+        const result = await transcription.transcribe({ bytes: raw, name, mime, language });
         return { body: { text: result.text, characters: result.characters, model: result.model } };
       }
     },

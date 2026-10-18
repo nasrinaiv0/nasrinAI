@@ -1782,19 +1782,27 @@
         chip.append(icon, name);
       }
       if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+        const language = document.createElement('select');
+        language.className = 'chip-transcribe-language';
+        language.setAttribute('aria-label', 'Transcription language');
+        for (const [value, label] of [['', 'Auto language'], ['en', 'English'], ['tl', 'Filipino'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['ja', 'Japanese'], ['zh', 'Chinese']]) {
+          const option = document.createElement('option'); option.value = value; option.textContent = label; language.appendChild(option);
+        }
         const transcribe = document.createElement('button');
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
-        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Too large' : 'Transcribe';
+        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Split audio first' : 'Transcribe';
         transcribe.disabled = f.bytes > 4 * 1024 * 1024;
+        if (transcribe.disabled) transcribe.title = 'This upload is limited to 4 MB. Split the recording into shorter clips, then transcribe each clip.';
         transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
         transcribe.addEventListener('click', async () => {
           if (transcribe.disabled) return;
           transcribe.disabled = true;
+          language.disabled = true;
           transcribe.textContent = 'Transcribing…';
           try {
             const token = await credential();
-            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name), {
+            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name) + (language.value ? '&language=' + encodeURIComponent(language.value) : ''), {
               method: 'POST',
               headers: { Authorization: 'Bearer ' + token, 'Content-Type': f.type || 'application/octet-stream' },
               body: f.local
@@ -1808,13 +1816,15 @@
             input.focus();
             notice.textContent = 'Transcript added to your message. Review it before sending.';
             transcribe.textContent = 'Transcribed';
+            language.disabled = true;
           } catch (err) {
             notice.textContent = err.message || 'Could not transcribe this audio. Please try again.';
             transcribe.disabled = false;
             transcribe.textContent = 'Retry transcription';
+            language.disabled = false;
           }
         });
-        chip.appendChild(transcribe);
+        chip.append(language, transcribe);
       }
       if (/\.pdf$/i.test(f.name) && f.local instanceof File) {
         const ocr = document.createElement('button');
@@ -1874,7 +1884,13 @@
             });
             if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
             const duration = video.duration;
-            const times = [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])];
+            if (duration > 15 * 60) throw new Error('This video is longer than 15 minutes. Choose a shorter clip to extract frames safely.');
+            // Sample across the clip rather than only its endpoints. Keep a hard
+            // cap so large videos cannot create an unbounded number of images.
+            const frameCount = duration < 6 ? 3 : 8;
+            const times = [...new Set(Array.from({ length: frameCount }, (_, i) => duration < 6
+              ? [Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))][i]
+              : duration * (i + 0.5) / frameCount))];
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;

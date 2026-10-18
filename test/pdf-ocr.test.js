@@ -8,10 +8,10 @@ test('PDF OCR submits a PDF as a Responses API file input and returns extracted 
   let request;
   const ocr = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async (url, options) => {
     request = { url, options };
-    return new Response(JSON.stringify({ output_text: 'Scanned invoice\nTotal: $12.00' }), { status: 200 });
+    return new Response(JSON.stringify({ output_text: '[Page 1]\nScanned invoice\nTotal: $12.00' }), { status: 200 });
   }});
   const result = await ocr.extract({ bytes: pdf, name: 'invoice.pdf' });
-  assert.equal(result.text, 'Scanned invoice\nTotal: $12.00');
+  assert.equal(result.text, '[Page 1]\nScanned invoice\nTotal: $12.00');
   assert.equal(request.url, 'https://api.openai.com/v1/responses');
   assert.equal(request.options.headers.Authorization, 'Bearer test-key');
   const body = JSON.parse(request.options.body);
@@ -37,6 +37,13 @@ test('PDF OCR hides provider errors and rejects empty extraction', async () => {
   await assert.rejects(() => failed.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'ocr_busy' && !e.message.includes('private details'));
   const empty = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text: ' ' }), { status: 200 }) });
   await assert.rejects(() => empty.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'empty_ocr');
+});
+
+test('PDF OCR rejects responses without page markers or with pages out of order', async () => {
+  for (const output_text of ['Text without page markers', '[Page 2]\\nsecond\\n[Page 1]\\nfirst']) {
+    const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text }), { status: 200 }) });
+    await assert.rejects(() => service.extract({ bytes: pdf, name: 'invoice.pdf' }), (e) => e.code === 'invalid_ocr_order');
+  }
 });
 
 test('PDF OCR rejects a PDF signature embedded after a non-PDF prefix', async () => {
