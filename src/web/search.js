@@ -27,7 +27,7 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
             model,
             tools: [{ type: 'web_search', search_context_size: searchContextSize }],
             include: ['web_search_call.action.sources'],
-            instructions: String(system || '') + '\\n\\nWeb research quality requirements:\\n' + researchInstructions,
+            instructions: String(system || '') + '\n\nWeb research quality requirements:\n' + researchInstructions,
             input: messages.map((m) => ({ role: m.role, content: m.content })),
             max_output_tokens: maxTokens,
             ...(onText ? { stream: true } : {})
