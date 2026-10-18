@@ -3525,3 +3525,11 @@ body.coding-mode #welcome { display: none; }
   .coding-empty-word-track { transform: none; }
   .coding-empty-word-track span:not(:first-child) { display: none; }
 }
+
+
+/* Empty coding chat: keep the name/header controls, but remove the small
+   coding-bot avatar so the animated, combined mark is the central focus. */
+body.coding-mode:not(.has-chat) .brand-code-logo {
+  display: none !important;
+  visibility: hidden !important;
+}
