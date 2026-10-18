@@ -7430,6 +7430,9 @@
       Gmail: '/assets/brand/gmail.svg',
       'Google Calendar': '/assets/brand/google-calendar.svg',
       'Google Drive': '/assets/brand/google-drive.svg',
+      'Google Meet': '/assets/brand/google-meet.svg',
+      'Google Keep': '/assets/brand/google-keep.svg',
+      'Google Maps': '/assets/brand/google-maps.svg',
       GitHub: '/assets/brand/github.svg'
     };
     const brandAsset = brandAssets[title];
@@ -7493,6 +7496,7 @@
   makeGooglePlugin('drive', 'Google Drive', 'team');
   makeGooglePlugin('meet', 'Google Meet', 'video');
   makeGooglePlugin('keep', 'Google Keep', 'note');
+  makeGooglePlugin('maps', 'Google Maps', 'map');
   const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null }, meet: { available:false, connected:false, scopes:[], email:null }, keep: { available:false, connected:false, scopes:[], email:null }, maps: { available:false, connected:false, scopes:[], email:null } };
   Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive','meet','keep','maps'].some((service) => googleStatus[service].available); } });
   async function loadGoogle() {
@@ -7514,18 +7518,29 @@
             : service === 'meet' ? ['https://www.googleapis.com/auth/meetings.space.created']
               : service === 'keep' ? ['https://www.googleapis.com/auth/keep.readonly'] : [];
       const status = googleStatus[service] || { available:false, connected:false, scopes:[], email:null, error:false };
-      const connected = status.connected && scopes.some((scope) => status.scopes.includes(scope));
+      const connected = service === 'maps'
+        ? status.available
+        : status.connected && scopes.some((scope) => status.scopes.includes(scope));
       item.sub.textContent = status.error
         ? 'Connection status unavailable'
         : !status.available
           ? 'Not configured on this site yet'
-          : connected
-            ? 'Connected' + (status.email ? ' · ' + status.email : '')
-            : 'Not connected';
-      item.connect.textContent = connected ? 'Disconnect Google account' : 'Connect ' + item.title;
-      item.connect.disabled = !status.available;
-      item.connect.classList.toggle('danger', connected);
-      item.connect.onclick = connected ? () => disconnectGoogle(service) : () => connectGoogle(service);
+          : service === 'maps'
+            ? 'Ready · server-side Places search'
+            : connected
+              ? 'Connected' + (status.email ? ' · ' + status.email : '')
+              : 'Not connected';
+      if (service === 'maps') {
+        item.connect.textContent = status.available ? 'Open Google Maps' : 'Maps not configured';
+        item.connect.disabled = !status.available;
+        item.connect.classList.remove('danger');
+        item.connect.onclick = () => { if (status.available) window.open('https://maps.google.com', '_blank', 'noopener,noreferrer'); };
+      } else {
+        item.connect.textContent = connected ? 'Disconnect Google account' : 'Connect ' + item.title;
+        item.connect.disabled = !status.available;
+        item.connect.classList.toggle('danger', connected);
+        item.connect.onclick = connected ? () => disconnectGoogle(service) : () => connectGoogle(service);
+      }
       item.disconnect.hidden = true;
       (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
     }
