@@ -1772,6 +1772,63 @@
         img.src = f.thumb;
         img.alt = f.name;
         chip.appendChild(img);
+        const crop = document.createElement('button');
+        crop.type = 'button';
+        crop.className = 'chip-crop';
+        crop.textContent = 'Crop';
+        crop.setAttribute('aria-label', 'Crop ' + f.name);
+        crop.addEventListener('click', async () => {
+          if (!window.NasrinImageCrop?.cropImage) {
+            notice.textContent = 'Image cropping is unavailable. Reload the page and try again.';
+            return;
+          }
+          crop.disabled = true;
+          try {
+            const blob = await window.NasrinImageCrop.cropImage({ src: f.thumb, name: f.name });
+            if (!blob) { crop.disabled = false; return; }
+            // Keep cropped attachments comfortably below request-body limits.
+            // Prefer lossless PNG, but fall back to JPEG when a screenshot crop is large.
+            let croppedBlob = blob;
+            if (croppedBlob.size > 3 * 1024 * 1024) {
+              const imageUrl = URL.createObjectURL(croppedBlob);
+              try {
+                const image = new Image();
+                image.src = imageUrl;
+                await image.decode();
+                const canvas = document.createElement('canvas');
+                canvas.width = image.naturalWidth;
+                canvas.height = image.naturalHeight;
+                const context = canvas.getContext('2d');
+                if (!context) throw new Error('Canvas is unavailable');
+                context.drawImage(image, 0, 0);
+                croppedBlob = await new Promise((resolve, reject) => canvas.toBlob(
+                  (value) => value ? resolve(value) : reject(new Error('Could not compress crop')),
+                  'image/jpeg', 0.84
+                ));
+              } finally { URL.revokeObjectURL(imageUrl); }
+            }
+            if (croppedBlob.size > 4 * 1024 * 1024) {
+              notice.textContent = 'That crop is too large to send. Select a smaller area and try again.';
+              crop.disabled = false;
+              return;
+            }
+            const oldThumb = f.thumb;
+            f.name = f.name.replace(/\.[^.]+$/, '') + (croppedBlob.type === 'image/jpeg' ? '-crop.jpg' : '-crop.png');
+            f.type = croppedBlob.type || 'image/png';
+            f.bytes = croppedBlob.size;
+            f.data = await toBase64(croppedBlob);
+            f.upload = undefined;
+            f.local = undefined;
+            f.thumb = URL.createObjectURL(croppedBlob);
+            URL.revokeObjectURL(oldThumb);
+            notice.textContent = 'Cropped image added to your message.';
+            renderTray();
+          } catch {
+            notice.textContent = 'Could not prepare the cropped image. Please try again.';
+            crop.disabled = false;
+          }
+        });
+        chip.appendChild(crop);
       } else {
         const icon = document.createElement('span');
         icon.className = 'doc-icon';
