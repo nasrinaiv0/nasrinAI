@@ -418,7 +418,7 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
   for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
-  assert.match(js, /mk\('span', 'plugins-soon', \['Google Meet', 'Google Keep', 'Google Maps'\]\.includes\(name\) \? 'Available' : 'Coming soon'\)/);
+  assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
   const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
   assert.doesNotMatch(catalog, /Google Team/);
   assert.match(js, /makeGooglePlugin\('gmail', 'Gmail', 'mail'\)/);
@@ -488,7 +488,7 @@ test('Google OAuth requests only the selected read or read/write scopes', async 
   assert.match(js, /'gmail-readwrite'/);
   assert.match(js, /GMAIL_WRITE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.modify'/);
   assert.match(js, /GMAIL_SEND_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.send'/);
-  assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
+  assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_SCOPE,GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
   assert.match(js, /service==='calendar-write'\|\|service==='both'/);
   assert.match(js, /include_granted_scopes:'true'/);
 });
