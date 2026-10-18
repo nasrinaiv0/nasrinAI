@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1511,6 +1511,34 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, body, ip }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.scan(caller, body, ip) };
+      }
+    },
+    {
+      // Open Graph / Twitter card raster image for a cited web page. The
+      // server fetches and validates the image so the browser stays same-origin.
+      method: 'GET',
+      path: '/v1/page-preview',
+      public: true,
+      handler: async ({ req, ip, res }) => {
+        if (!pagePreviews) throw new HttpError(404, 'not_found', 'Not found.');
+        const url = new URL(req.url, 'http://localhost').searchParams.get('url') || '';
+        if (url.length > 2048) throw new HttpError(400, 'invalid_url', 'Invalid page URL.');
+        if (!pagePreviews.cached(url) && !(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many image requests.');
+        const preview = await pagePreviews.preview(url);
+        if (!preview) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+          res.end('No preview image');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': preview.type,
+          'Content-Length': preview.bytes.length,
+          'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+          'Cross-Origin-Resource-Policy': 'same-origin'
+        });
+        res.end(preview.bytes);
       }
     },
     {
