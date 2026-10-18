@@ -2627,13 +2627,13 @@
       const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true });
       // Explicit requests for real internet photos get a separate inline gallery.
       // Keep this opt-in by intent so ordinary replies never gain unrelated images.
-      if (!turnCoding && /\\b(show|find|search|display|give me)\\b.{0,70}\\b(real )?(photos?|pictures?|images?)\\b/i.test(text)
-          && /\\b(internet|online|from the web|web search|from the internet)\\b/i.test(text)) {
+      if (!turnCoding && /\b(show|find|search|display|give me)\b.{0,70}\b(real )?(photos?|pictures?|images?)\b/i.test(text)
+          && /\b(internet|online|from the web|web search|from the internet)\b/i.test(text)) {
         const query = text
-          .replace(/\\b(show|find|search|display|give me)\\b/ig, ' ')
-          .replace(/\\b\\d+\\b/ig, ' ')
-          .replace(/\\b(real|actual|photos?|pictures?|images?|from|the|internet|online|web|search|directly|inside|this|chat|with|captions?|source|links?|please|do not|only)\\b/ig, ' ')
-          .replace(/\\s+/g, ' ').trim().slice(0, 160);
+          .replace(/\b(show|find|search|display|give me)\b/ig, ' ')
+          .replace(/\b\d+\b/ig, ' ')
+          .replace(/\b(real|actual|photos?|pictures?|images?|from|the|internet|online|web|search|directly|inside|this|chat|with|captions?|source|links?|please|do not|only)\b/ig, ' ')
+          .replace(/\s+/g, ' ').trim().slice(0, 160);
         if (query.length >= 2) {
           const gallery = document.createElement('section');
           gallery.className = 'internet-image-gallery';
