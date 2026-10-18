@@ -136,12 +136,11 @@ Changes in this follow-up:
 
 ## Plugin settings layout cleanup (2026-10-18)
 - Removed Google Meet, Google Keep and Google Maps from the lower generic catalog because their per-app connection cards already render in the upper plugin list. The independent connection cards and their status/actions remain intact.
-- Removed Google Search from the generic catalog, as requested, and kept Google integrations in their dedicated connection cards.
+- Kept Google Search in the Google catalog because it is a distinct entry and is not one of those existing connection cards.
 - Added a separate **Developer tools** group with GitHub, Vercel, Render, Supabase and Cloudflare, each opening its official dashboard in a new tab.
 - The separate GitHub coding connection card and its OAuth/account controls remain unchanged. The developer-catalog GitHub row links to GitHub; it does not claim Vercel, Render, Supabase or Cloudflare are connected to NasrinAI.
-- Grouped the remaining catalog entries under Microsoft 365, Design & creativity, and Social & messaging.
+- Preserved Microsoft, Design, and Social & messaging catalog entries.
 - Validation is pending: run the targeted and full tests in CI, then visually verify the layout in iPhone Safari before merging or deploying.
-
 
 ## Plugin read/write capabilities (PR #386, 2026-10-18)
 - Added Gmail message reading, sending, and read/unread status updates, plus Google Calendar event updates and deletion.
