@@ -1,6 +1,6 @@
 # NasrinAI Upgrade: Slash Command Registry, Attachment Previews, and Smart Paste
 
-**Status (checked 2026-10-18):** partly implemented. Slash commands shipped in #356 as a dependency-free client registry (`public/creative-intent.js`, see [features/universal-slash-commands.md](features/universal-slash-commands.md)), **not** the database-backed registry described in section 2; no migration for it exists. Long pasted text becomes a `.txt` attachment (#296), but the trigger is the composer height (`pastedTextOverflows` in `public/app.js`), not the exact 2,000-character rule in section 4. Attachment previews: verify against section 3 before closing.  
+**Status (checked 2026-10-18):** partly implemented. Slash commands shipped in #356 as a dependency-free client registry (`public/creative-intent.js`, see [features/universal-slash-commands.md](features/universal-slash-commands.md)), **not** the database-backed registry described in section 2; no migration for it exists. Smart paste (section 4) is implemented (#403): `public/paste.js` and the paste handler in `public/app.js` keep up to 2,000 characters as text and attach 2,001+ as `pasted-text.txt`; it replaced the composer-height trigger of #296. Unit-tested only; Safari on iPhone/iPad and desktop still need a manual check. Attachment previews: verify against section 3 before closing.  
 **Repository:** `primusco20/nasrinAI`  
 **Scope:** Product behavior, database-backed command catalog, composer UX, attachment rendering, security, and acceptance tests.
 

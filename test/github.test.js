@@ -455,15 +455,15 @@ test('chat follow-up questions are numbered and keep quick choices plus free-tex
   assert.match(css, /\.ask-card \.ask-questions > li::marker/);
 });
 
-test('web source resources are expanded by default and retain a hide/show control', async () => {
+test('web source resources stay collapsed behind an accessible hide/show control', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(js, /list\.hidden = false/);
-  assert.match(js, /mk\('p', 'reply-sources-heading', 'Sources & Resources'\)/);
-  assert.match(js, /b\.setAttribute\('aria-expanded', 'true'\)/);
-  assert.match(js, /row\.after\(heading, list\)/);
+  const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.ok(toggle.includes('list.hidden = true;'));
+  assert.ok(toggle.includes("mk('p', 'reply-sources-heading', 'Sources & Resources')"));
+  assert.ok(toggle.includes("b.setAttribute('aria-expanded', 'false');"));
+  assert.ok(toggle.includes('row.after(heading, list)'));
 });
-
 test('plugins: catalog settings expose account connection and read/write access controls', async () => {
   const { readFile } = await import('node:fs/promises');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -678,4 +678,14 @@ test('github: merged or not, the whole diff size, and the recent pull requests l
   assert.ok(JSON.stringify(st).length < 8192, 'fits the tool result limit even for a big pull request');
   const list = await api.listPulls('tok', 'o/r', { state: 'all', limit: 5 });
   assert.deepEqual(list.pull_requests.map((p) => [p.number, p.state]), [[7, 'merged'], [6, 'closed'], [8, 'open']]);
+});
+
+test('coding chat shows a visible confirmation control for prepared repository files', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /github\.connected \? 'Confirm change' : 'Connect GitHub to confirm'/);
+  assert.match(js, /function openPr\(sources, text\)/);
+  assert.match(js, /body: JSON\.stringify\(\{ confirm: true, repo,/);
+  assert.match(css, /body\.coding-mode \.pr-open \{ display: inline-flex; \}/);
 });

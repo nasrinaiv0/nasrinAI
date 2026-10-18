@@ -127,7 +127,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
         ...(service==='keep'?[KEEP_SCOPE]:[]),
         ...(service==='both'?[GMAIL_SCOPE]:[])
       ];
-      const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent',state});
+      const q=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:scopes.join(' '),access_type:'offline',include_granted_scopes:'true',prompt:'consent select_account',state});
       return {body:{url:'https://accounts.google.com/o/oauth2/v2/auth?'+q.toString()}};
     }},
     { method:'GET', path:'/v1/google/callback', public:true, handler:async ({req,res}) => {

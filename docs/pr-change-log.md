@@ -1019,3 +1019,18 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** documentation only. `docs/claude-code-handoff.md` backlog statuses now match merged PRs (#316, #317, #318, #319); `docs/nasrinai-slash-commands-attachments-composer-upgrade.md` states what is and is not implemented (client-side registry, not the database-backed one; paste trigger is composer height, not 2,000 characters); `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` drops a duplicated section and records that migration 042 is live.
 - **Evidence for 042:** read-only Supabase query on 2026-10-18 showed the `google_connections` primary key is `(tenant_id, user_id, service)`. No data was read and nothing was changed.
 - **Validation:** `npm test` and `npm run check:secrets` run locally; CI pending. No app code, schema or settings changed.
+
+## Proposed PR — Smart paste at 2,000 characters (`feature/smart-paste-2000`)
+
+- **Owner request:** implement the upgrade in `docs/nasrinai-slash-commands-attachments-composer-upgrade.md`, section 4.
+- **Change:** `public/paste.js` holds the rule; the paste handler in `public/app.js` uses it. One paste of 2,000 characters or fewer (Unicode code points) stays editable; 2,001 or more becomes a UTF-8 `pasted-text.txt` attachment (`pasted-text-2.txt` if the name is taken) with a notice such as "Long paste attached as pasted-text.txt (2,438 characters)." If the file cannot be added, the text is put into the message box instead, so nothing is lost. Only the pasted text is counted, never what is already typed. Images and files paste as before.
+- **Behaviour change:** replaces the composer-height trigger from #296, as the spec requires.
+- **Not changed:** the database-backed slash registry and attachment previews (sections 2 and 3); no schema, legal or settings change. The spec's status line is updated in PR #402.
+- **Validation:** `npm test` 705 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Not yet checked on Safari iOS/iPadOS or a desktop browser.
+
+## Proposed PR — Search and address basics (`feature/seo-basics`)
+
+- **Owner request:** implement the small upgrades first (production-quality spec, PR #366).
+- **Change:** branded 404 page (status 404, `noindex`) for browsers; `robots.txt`; `sitemap.xml`; description, canonical and share tags on the home, FAQ and legal pages; `.xml` served by the static server. Details and unverified items: `docs/seo.md`.
+- **Not changed:** API behaviour, security headers, database, settings, legal text (no data handling changes).
+- **Validation:** `npm test` 711 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Live 404 and domain behaviour not yet checked.

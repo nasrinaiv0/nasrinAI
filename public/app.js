@@ -28,12 +28,68 @@
   if (window.ResizeObserver) new ResizeObserver(fitDock).observe(dock);
   fitDock();
   const welcome = $('welcome');
+  // Dedicated animated welcome for an empty coding chat. It stays in the log
+  // across clearScreen(), but CSS hides it outside coding mode or once a turn
+  // has started.
+  const codingEmptyState = document.createElement('section');
+  codingEmptyState.className = 'coding-empty-state';
+  codingEmptyState.setAttribute('aria-label', 'Coding chat welcome');
+  const makeCodingWelcomeNode = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const codingArt = makeCodingWelcomeNode('div', 'coding-empty-art');
+  codingArt.setAttribute('aria-hidden', 'true');
+  codingArt.append(
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-one'),
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-two'),
+    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-two', '＋'),
+    makeCodingWelcomeNode('span', 'code-logo coding-empty-logo is-busy'),
+    makeCodingWelcomeNode('span', 'coding-empty-cursor')
+  );
+  const codingTitle = makeCodingWelcomeNode('h1', 'coding-empty-title', 'What are we building today?');
+  const codingSubtitle = makeCodingWelcomeNode('p', 'coding-empty-subtitle', 'Your next idea starts here.');
+  const codingWords = makeCodingWelcomeNode('div', 'coding-empty-words');
+  codingWords.setAttribute('aria-label', 'Websites, apps, tools, and more');
+  const codingWordTrack = makeCodingWelcomeNode('div', 'coding-empty-word-track');
+  codingWordTrack.setAttribute('aria-hidden', 'true');
+  for (const word of ['A website', 'An app', 'A smart tool', 'Something amazing', 'A website']) {
+    codingWordTrack.appendChild(makeCodingWelcomeNode('span', '', word));
+  }
+  codingWords.appendChild(codingWordTrack);
+  const codingSphere = makeCodingWelcomeNode('span', 'coding-empty-sphere');
+  codingSphere.setAttribute('aria-hidden', 'true');
+  codingArt.prepend(codingSphere);
+  codingEmptyState.append(codingArt, codingTitle, codingSubtitle, codingWords);
+  log.appendChild(codingEmptyState);
   const hero = $('hero');
   const form = $('composer');
   const input = $('input');
   const sendBtn = $('send');
   const micBtn = sendBtn;
   const notice = $('notice');
+  // The small inline status banner (including the coding-chat hint) must
+  // never remain stuck on screen. The separate new-user welcome card
+  // (#appNotice) is intentionally unaffected and remains dismissible by its
+  // close button.
+  let inlineNoticeTimer = null;
+  if (notice && window.MutationObserver) {
+    const inlineNoticeObserver = new MutationObserver(() => {
+      if (inlineNoticeTimer !== null) {
+        clearTimeout(inlineNoticeTimer);
+        inlineNoticeTimer = null;
+      }
+      const message = notice.textContent;
+      if (!message || !message.trim()) return;
+      inlineNoticeTimer = setTimeout(() => {
+        inlineNoticeTimer = null;
+        if (notice.textContent === message) notice.textContent = '';
+      }, 3000);
+    });
+    inlineNoticeObserver.observe(notice, { childList: true, characterData: true, subtree: true });
+  }
   const settingsBtn = $('settingsBtn');
   const sheet = $('settings');
   const scrim = $('scrim');
@@ -49,6 +105,7 @@
   // Less motion: the device asks for it, or Settings > General > Reduce motion.
   const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduced = () => motionQuery.matches || document.documentElement.getAttribute('data-motion') === 'reduce';
+  dotSphere(codingSphere);
   const Nasrin = window.Nasrin;
 
   // localStorage holds only the guest session, the current conversation id,
@@ -1404,7 +1461,7 @@
         const userMessages = log.querySelectorAll('.msg.user');
         const lastUser = userMessages[userMessages.length - 1] || null;
         const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
-        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery);
+        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery, cited.links);
       }
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
@@ -1464,7 +1521,7 @@
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const n = 64, tilt = 0.35, R = 13, TAU = Math.PI * 2;
+    const n = 64, tilt = 0.35, R = 10.5, TAU = Math.PI * 2;
     const ct = Math.cos(tilt), st = Math.sin(tilt);
     // beep / gather: 0 … 1, eased toward their goals so changes blend smoothly.
     let cycle = 2400, beep = 0, goal = 0, gather = 0, goalG = 0;
@@ -1482,6 +1539,9 @@
       // Sphere: a full turn at a steady speed, and a burst that peaks near the middle.
       const turn = t * TAU;   // steady: it keeps turning while it grows and shrinks
       const burst = (1 - beep) * (1 - gather) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      // One unified mark: the particle sphere expands as the face recedes,
+      // then contracts and reveals the face again. Keep the burst inside the art bounds.
+      box.style.setProperty('--sphere-burst', burst.toFixed(3));
       const ca = Math.cos(turn), sa = Math.sin(turn);
       // Beep: a ring of light runs out from the middle, twice a cycle.
       const wave = (t * 2) % 1;
@@ -1610,7 +1670,7 @@
     // Leaving this chat: a reply still being written is stopped, an edit dropped.
     if (turn) turn.ctrl.abort();
     if (editing) cancelEdit();
-    for (const el of [...log.children]) if (el !== welcome) el.remove();
+    for (const el of [...log.children]) if (el !== welcome && el !== codingEmptyState) el.remove();
     welcome.hidden = false;
     document.body.classList.remove('has-chat');
   }
@@ -1803,47 +1863,33 @@
     e.preventDefault();
     addFiles([...e.dataTransfer.files]);
   });
-  // If pasted text would make the composer taller than its visible limit,
-  // attach the complete pasted text as a .txt file instead of trapping it in
-  // a scrollable message field. Existing draft text remains untouched.
-  function pastedTextOverflows(text) {
-    const start = input.selectionStart ?? input.value.length;
-    const end = input.selectionEnd ?? start;
-    const candidate = input.value.slice(0, start) + text + input.value.slice(end);
-    const style = getComputedStyle(input);
-    const maxHeight = Number.parseFloat(style.maxHeight);
-    if (!Number.isFinite(maxHeight) || maxHeight <= 0) return false;
-
-    const measure = document.createElement('textarea');
-    measure.value = candidate;
-    measure.setAttribute('aria-hidden', 'true');
-    measure.tabIndex = -1;
-    Object.assign(measure.style, {
-      position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden',
-      width: input.getBoundingClientRect().width + 'px', height: 'auto',
-      minHeight: '0', maxHeight: 'none', overflow: 'hidden', resize: 'none',
-      boxSizing: style.boxSizing, padding: style.padding, border: style.border,
-      font: style.font, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing,
-      whiteSpace: style.whiteSpace, overflowWrap: style.overflowWrap
-    });
-    document.body.appendChild(measure);
-    const contentHeight = measure.scrollHeight;
-    measure.remove();
-    return contentHeight > maxHeight + 1;
-  }
-
+  // One paste of up to 2,000 characters stays editable text; 2,001 or more is
+  // attached as a UTF-8 .txt file (public/paste.js). Only the pasted text is
+  // counted, never what is already typed, and images/files are handled above.
   input.addEventListener('paste', (e) => {
     const clipboard = e.clipboardData;
     const files = clipboard ? [...clipboard.files] : [];
     if (files.length) { e.preventDefault(); addFiles(files); return; }
 
     const text = clipboard ? clipboard.getData('text/plain') : '';
-    if (!text || !pastedTextOverflows(text)) return;
+    if (!text || !NasrinPaste.shouldAttach(text)) return;
+    if (pending.length >= MAX_FILES) { notice.textContent = `You can send up to ${MAX_FILES} files at a time. The long paste was kept as text.`; return; }
     e.preventDefault();
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = new File([text], 'pasted-message-' + stamp + '.txt', { type: 'text/plain' });
-    addFiles([file]);
-    notice.textContent = 'Long pasted message attached as a .txt file. You can send it with your prompt.';
+    const name = NasrinPaste.fileName(pending.map((f) => f.name));
+    const file = new File([text], name, { type: 'text/plain' });
+    const before = pending.length;
+    addFiles([file]).then(() => {
+      if (pending.length > before) {
+        notice.textContent = `Long paste attached as ${name} (${NasrinPaste.count(text).toLocaleString('en-US')} characters).`;
+      } else {
+        // Nothing is lost: the text goes into the box so it can be sent as text.
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        input.setRangeText(text, start, end, 'end');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        notice.textContent = (notice.textContent ? notice.textContent + ' ' : '') + 'The pasted text was kept in the message box instead.';
+      }
+    });
   });
 
   // ---------- the + menu: files, or creating a picture ----------
@@ -2521,6 +2567,56 @@
     return runTurn({ text, files, editId: editing ? editing.id : null, editEl: editing ? editing.el : null });
   }
 
+
+  function showLocationPermissionCard() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div'); overlay.className = 'location-consent-overlay';
+      const card = document.createElement('section'); card.className = 'location-consent-card';
+      card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+      card.setAttribute('aria-labelledby','locationConsentTitle'); card.setAttribute('aria-describedby','locationConsentDescription');
+      const header = document.createElement('div'); header.className = 'location-consent-header';
+      const iconBox = document.createElement('div'); iconBox.className = 'location-consent-icon'; iconBox.setAttribute('aria-hidden','true');
+      const pinSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      pinSvg.setAttribute('viewBox', '0 0 24 24');
+      pinSvg.setAttribute('fill', 'none');
+      pinSvg.setAttribute('stroke', 'currentColor');
+      pinSvg.setAttribute('stroke-width', '1.8');
+      pinSvg.setAttribute('stroke-linecap', 'round');
+      pinSvg.setAttribute('stroke-linejoin', 'round');
+      const pinPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      pinPath.setAttribute('d', 'M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z');
+      const pinCenter = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      pinCenter.setAttribute('cx', '12');
+      pinCenter.setAttribute('cy', '10');
+      pinCenter.setAttribute('r', '2.7');
+      pinSvg.append(pinPath, pinCenter);
+      iconBox.append(pinSvg);
+      const copy = document.createElement('div'); copy.className = 'location-consent-copy';
+      const title = document.createElement('h2'); title.id = 'locationConsentTitle'; title.textContent = 'Allow NasrinAI to access your location?';
+      const desc = document.createElement('p'); desc.id = 'locationConsentDescription'; desc.textContent = 'Your location helps provide local weather, nearby places, and directions.';
+      copy.append(title,desc); header.append(iconBox,copy);
+      const divider = document.createElement('div'); divider.className = 'location-consent-divider';
+      const actions = document.createElement('div'); actions.className = 'location-consent-actions';
+      const choice = (label,hint,extra) => { const b=document.createElement('button'); b.type='button'; b.className='location-consent-choice'+(extra?' '+extra:''); const a=document.createElement('span'); a.textContent=label; const h=document.createElement('span'); h.textContent=hint; b.append(a,h); return b; };
+      const cancel=choice('Cancel','Continue without location',''), allow=choice('Allow location','Then request browser permission','location-consent-allow');
+      actions.append(cancel,allow); card.append(header,divider,actions); overlay.append(card); document.body.append(overlay);
+      const finish = (value) => { overlay.remove(); document.removeEventListener('keydown', keydown); resolve(value); };
+      const keydown = (event) => { if(event.key==='Escape') finish(false); };
+      cancel.addEventListener('click',()=>finish(false)); allow.addEventListener('click',()=>finish(true));
+      overlay.addEventListener('click',(event)=>{if(event.target===overlay)finish(false);});
+      document.addEventListener('keydown',keydown); allow.focus();
+    });
+  }
+  function getDeviceLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation || !window.isSecureContext) return resolve(null);
+      let settled=false; const finish=(value)=>{if(!settled){settled=true;resolve(value);}};
+      navigator.geolocation.getCurrentPosition((p)=>finish({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Number.isFinite(p.coords.accuracy)?p.coords.accuracy:null}),()=>finish(null),{enableHighAccuracy:false,maximumAge:120000,timeout:15000});
+      // Allow time for the native browser permission prompt before falling back.
+      setTimeout(()=>finish(null),16000);
+    });
+  }
+
   // One reply: a new message, Regenerate (replace: the old answer), Retry
   // (regenerate after a failure), or an edited last message.
   // spoken: this turn is part of a voice conversation (short, spoken-style reply).
@@ -2528,6 +2624,15 @@
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
   async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+    const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
+    if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
+      // Lock the composer before awaiting consent so a second submit cannot
+      // open another permission card or send the same message twice.
+      busy = true;
+      refreshSendButton();
+      const consent = await showLocationPermissionCard();
+      if (consent) locationContext = await getDeviceLocation();
+    }
     busy = true;
     notice.textContent = '';
     stopSpeaking();
@@ -2813,8 +2918,6 @@
   for (const b of document.querySelectorAll('.starter[data-starter-action]')) {
     b.addEventListener('click', () => starterActions[b.dataset.starterAction]?.());
   }
-  // Create image switches to picture mode; the person then describes it.
-  $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
   // Detaches a reply still being written from the screen without stopping it:
   // it finishes and is saved in its own chat. True when one was running.
@@ -3280,7 +3383,133 @@
     return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
   }
 
-  async function renderYouTubeVideos(message, userQuery) {
+  const PERSISTENT_YOUTUBE_KEY = 'nasrin.persistentYoutubePlayer';
+
+  function createYouTubeVideoCard(video) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return null;
+    const card = document.createElement('article');
+    card.className = 'youtube-video-card';
+    const frameWrap = document.createElement('div');
+    frameWrap.className = 'youtube-video-frame';
+    const frame = document.createElement('iframe');
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
+    frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
+    frame.loading = 'lazy';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allowFullscreen = true;
+    frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+    frameWrap.appendChild(frame);
+    const fullscreen = document.createElement('button');
+    fullscreen.type = 'button';
+    fullscreen.className = 'youtube-fullscreen-button';
+    fullscreen.setAttribute('aria-label', 'Play video fullscreen');
+    fullscreen.title = 'Play video fullscreen';
+    fullscreen.textContent = '⛶ Fullscreen';
+    fullscreen.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
+          await document.exitFullscreen();
+          return;
+        }
+        if (typeof frameWrap.requestFullscreen === 'function') await frameWrap.requestFullscreen();
+        else if (typeof frame.requestFullscreen === 'function') await frame.requestFullscreen();
+        else window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+      } catch {
+        window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+      }
+    });
+    frameWrap.appendChild(fullscreen);
+    const details = document.createElement('div');
+    details.className = 'youtube-video-details';
+    const title = document.createElement('p');
+    title.className = 'youtube-video-title';
+    title.textContent = String(video.title || 'YouTube video').slice(0, 240);
+    const channel = document.createElement('p');
+    channel.className = 'youtube-video-channel';
+    channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
+    const open = document.createElement('a');
+    open.className = 'youtube-video-link';
+    open.href = 'https://www.youtube.com/watch?v=' + video.id;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.textContent = 'Watch on YouTube';
+    details.append(title, channel, open);
+    card.append(frameWrap, details);
+    return card;
+  }
+
+  function mountPersistentYouTubePlayer(video, existingCard = null) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return;
+    const state = { id: video.id, title: String(video.title || 'YouTube video').slice(0, 240), channelTitle: String(video.channelTitle || 'YouTube').slice(0, 120) };
+    try { localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify(state)); } catch {}
+    let panel = document.getElementById('persistent-youtube-player');
+    if (!panel) {
+      panel = document.createElement('aside');
+      panel.id = 'persistent-youtube-player';
+      panel.className = 'persistent-youtube-player';
+      panel.setAttribute('aria-label', 'Persistent video player');
+      panel.setAttribute('role', 'region');
+      const header = document.createElement('div');
+      header.className = 'persistent-youtube-header';
+      const label = document.createElement('span');
+      label.className = 'persistent-youtube-label';
+      label.textContent = 'Continue watching';
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'persistent-youtube-close';
+      close.setAttribute('aria-label', 'Close persistent video player');
+      close.title = 'Close video player';
+      close.textContent = '×';
+      close.addEventListener('click', () => {
+        panel.remove();
+        try { localStorage.removeItem(PERSISTENT_YOUTUBE_KEY); } catch {}
+      });
+      header.append(label, close);
+      panel.appendChild(header);
+      document.body.appendChild(panel);
+    }
+    let card = existingCard;
+    if (!card) card = createYouTubeVideoCard(state);
+    if (!card) return;
+    panel.querySelector('.youtube-video-card')?.remove();
+    panel.appendChild(card);
+    panel.dataset.videoId = state.id;
+  }
+
+  let persistentYouTubeRestore = null;
+  function restorePersistentYouTubePlayer() {
+    if (persistentYouTubeRestore) return persistentYouTubeRestore;
+    persistentYouTubeRestore = (async () => {
+      let state;
+      try { state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null'); } catch { return; }
+      if (!state || !/^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) return;
+      const mounted = document.getElementById('persistent-youtube-player');
+      if (mounted?.dataset.videoId === state.id) return;
+      try {
+        const token = account?.token || await guestToken(false);
+        const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(state.id), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const result = response.ok ? await response.json() : { valid: false };
+        // A stored player can outlive a video or its embed permission. Never
+        // restore a known-unavailable iframe after refresh or account changes.
+        if (result.valid !== true) {
+          const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+          if (latest?.id === state.id) localStorage.removeItem(PERSISTENT_YOUTUBE_KEY);
+          if (mounted?.dataset.videoId === state.id) mounted.remove();
+          return;
+        }
+        const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+        if (latest?.id === state.id) mountPersistentYouTubePlayer(state);
+      } catch {
+        // Keep the saved state for a later retry, but don't show an unverified iframe.
+      }
+    })().finally(() => { persistentYouTubeRestore = null; });
+    return persistentYouTubeRestore;
+  }
+
+  async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
     if (message.querySelector('.youtube-results')) return;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
@@ -3296,14 +3525,7 @@
           videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
         }
       } catch {
-        // If live search is not configured/reachable, embed relevant YouTube
-        // links already returned in the assistant's researched answer below.
-      }
-      if (!videos.length) {
-        const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
-        const idPattern = /(?:youtube\.com\/(?:watch\?[^\s#]*?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/g;
-        const ids = [...answerText.matchAll(idPattern)].map((match) => match[1]).filter((id, index, all) => all.indexOf(id) === index).slice(0, 3);
-        videos = ids.map((id) => ({ id, title: 'YouTube tutorial', channelTitle: 'YouTube' }));
+        // Fall back to researched YouTube links when live search is unavailable.
       }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
@@ -3313,64 +3535,11 @@
       heading.className = 'youtube-results-heading';
       heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
       section.appendChild(heading);
-      for (const video of videos) {
-        if (!/^[A-Za-z0-9_-]{11}$/.test(String(video.id || ''))) continue;
-        const card = document.createElement('article');
-        card.className = 'youtube-video-card';
-        const frameWrap = document.createElement('div');
-        frameWrap.className = 'youtube-video-frame';
-        const frame = document.createElement('iframe');
-        frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
-        frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
-        frame.loading = 'lazy';
-        frame.referrerPolicy = 'strict-origin-when-cross-origin';
-        frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-        frame.allowFullscreen = true;
-        frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
-        frameWrap.appendChild(frame);
-        const fullscreen = document.createElement('button');
-        fullscreen.type = 'button';
-        fullscreen.className = 'youtube-fullscreen-button';
-        fullscreen.setAttribute('aria-label', 'Play video fullscreen');
-        fullscreen.title = 'Play video fullscreen';
-        fullscreen.textContent = '⛶ Fullscreen';
-        fullscreen.addEventListener('click', async () => {
-          try {
-            if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
-              await document.exitFullscreen();
-              return;
-            }
-            if (typeof frameWrap.requestFullscreen === 'function') {
-              await frameWrap.requestFullscreen();
-            } else if (typeof frame.requestFullscreen === 'function') {
-              await frame.requestFullscreen();
-            } else {
-              // Older iOS versions may not expose the fullscreen API for iframes.
-              // Keep the action useful by opening the same video in YouTube.
-              window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-            }
-          } catch {
-            window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-          }
-        });
-        frameWrap.appendChild(fullscreen);
-        const details = document.createElement('div');
-        details.className = 'youtube-video-details';
-        const title = document.createElement('p');
-        title.className = 'youtube-video-title';
-        title.textContent = String(video.title || 'YouTube video').slice(0, 240);
-        const channel = document.createElement('p');
-        channel.className = 'youtube-video-channel';
-        channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
-        const open = document.createElement('a');
-        open.className = 'youtube-video-link';
-        open.href = 'https://www.youtube.com/watch?v=' + video.id;
-        open.target = '_blank';
-        open.rel = 'noopener noreferrer';
-        open.textContent = 'Watch on YouTube';
-        details.append(title, channel, open);
-        card.append(frameWrap, details);
-        section.appendChild(card);
+      const firstCard = createYouTubeVideoCard(videos[0]);
+      if (firstCard) mountPersistentYouTubePlayer(videos[0], firstCard);
+      for (const video of videos.slice(1)) {
+        const card = createYouTubeVideoCard(video);
+        if (card) section.appendChild(card);
       }
       if (section.querySelector('.youtube-video-card')) {
         const body = message.querySelector('.msg-body');
@@ -3385,8 +3554,9 @@
     const list = document.createElement('ul');
     list.className = 'reply-sources';
     list.id = 'reply-sources-' + (++sourcesCount);
-    list.hidden = false;
+    list.hidden = true;
     const heading = mk('p', 'reply-sources-heading', 'Sources & Resources');
+    heading.hidden = true;
     heading.id = list.id + '-heading';
     list.setAttribute('aria-labelledby', heading.id);
     for (const l of links) {
@@ -3422,9 +3592,9 @@
     b.type = 'button';
     b.className = 'act sources-toggle';
     b.dataset.kind = 'sources';
-    b.setAttribute('aria-expanded', 'true');
+    b.setAttribute('aria-expanded', 'false');
     b.setAttribute('aria-controls', list.id);
-    b.setAttribute('aria-label', `Hide sources (${links.length})`);
+    b.setAttribute('aria-label', `Show sources and resources (${links.length})`);
     // Overlapping round badges, one per site (its first letter; no outside
     // images, so the strict CSP holds), then the word Sources.
     const faces = mk('span', 'src-faces');
@@ -3442,7 +3612,7 @@
       list.hidden = !open;
       heading.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
-      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources (${links.length})`);
+      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);
     });
     row.appendChild(b);
     row.after(heading, list);
@@ -3911,7 +4081,8 @@
     if (accountOpen) accountOpen.hidden = !account;
     if (accountDetailEmail) accountDetailEmail.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
     headerSignIn.hidden = Boolean(account) || !can;
-    showConnectForSignedIn();
+    restorePersistentYouTubePlayer();
+  showConnectForSignedIn();
     $('logoutMenu').hidden = !account;
   }
 
@@ -4253,6 +4424,7 @@
   const NOTICE_KIND = { info: 'Tip', success: 'Done', warning: 'Heads up', error: 'Problem', security: 'Security', feature: 'New' };
   const STICKY = ['security', 'warning', 'error'];
   const noticeBox = $('appNotice');
+  let noticeAutoDismissTimer = null;
   let noticeQueue = [];
   let noticeShown = null;
   let noticeRun = 0;
@@ -4334,8 +4506,18 @@
   }
 
   function hideNotice() {
+    if (noticeAutoDismissTimer !== null) {
+      clearTimeout(noticeAutoDismissTimer);
+      noticeAutoDismissTimer = null;
+    }
     noticeBox.hidden = true;
     noticeShown = null;
+  }
+
+  function isNewUserNotice(n) {
+    if (!n) return false;
+    const identity = [n.id, n.title, n.body].filter(Boolean).join(' ').toLowerCase();
+    return /new[-_ ]user|welcome|getting started|first[-_ ]time/.test(identity);
   }
 
   function renderNotice() {
@@ -4354,6 +4536,17 @@
     $('appNoticeActions').hidden = !n.action;
     $('appNoticeAction').textContent = n.action ? n.action.label : '';
     noticeBox.hidden = false;
+
+    // Brief in-app notices auto-dismiss after three seconds. Keep the
+    // new-user welcome notice visible until the user closes it explicitly.
+    if (!isNewUserNotice(n)) {
+      noticeAutoDismissTimer = setTimeout(() => {
+        noticeAutoDismissTimer = null;
+        if (noticeShown !== n) return;
+        dismissNotice(n);
+        renderNotice();
+      }, 3000);
+    }
   }
 
   function dismissNotice(n) {
@@ -5287,6 +5480,15 @@
     voiceTier.title = 'AI tier: ' + current;
     voiceTierMenu.replaceChildren();
     const descriptions = { nasrinai: 'Fast everyday work', pro: 'Smarter professional work', max: 'Longer, deeper thinking', ultra: 'Deepest reasoning' };
+    const quota = planInfo && planInfo.quota;
+    if (quota && quota.used >= quota.limit && quota.reset_at) {
+      const notice = document.createElement('div');
+      notice.className = 'tier-quota-notice';
+      const reset = new Date(quota.reset_at);
+      notice.textContent = names[quota.plan] + ' allowance used. Quick chat stays unlimited; coding is paused until ' +
+        reset.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' }) + ' Manila time.';
+      voiceTierMenu.appendChild(notice);
+    }
     for (const id of ['nasrinai', 'pro', 'max', 'ultra']) {
       const button = document.createElement('button');
       button.type = 'button'; button.role = 'menuitem'; button.className = 'voice-tier-option';
@@ -6038,19 +6240,19 @@
   const PLAN_DETAILS = Object.freeze({
     free: {
       summary: 'Unlimited everyday chat on Quick.',
-      features: ['Quick tier for everyday questions', 'Unlimited chat on Quick', 'Up to 2 image generations per day', 'Video creation is not included']
+      features: ['Quick tier for everyday questions', 'Unlimited chat on Quick', 'Up to 2 image generations per day', 'Coding is unavailable on Quick', 'Video creation is not included']
     },
     pro: {
       summary: 'More capable AI for professional everyday work.',
-      features: ['Pro tier for harder questions and analysis', '1 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'Subscription billing will be enabled after recurring checkout is configured']
+      features: ['Pro tier for harder questions and analysis', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'Subscription billing will be enabled after recurring checkout is configured']
     },
     max: {
       summary: 'More thinking power for complex work.',
-      features: ['Everything in Pro', 'Max tier for harder reasoning and complex tasks', '5 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'AI video generation up to 1 minute', 'No automatic renewal']
+      features: ['Everything in Pro', 'Max tier for harder reasoning and complex tasks', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'AI video generation up to 1 minute', 'No automatic renewal']
     },
     ultra: {
       summary: 'The deepest thinking available in NasrinAI.',
-      features: ['Everything in Max', 'Ultra tier for the most demanding tasks', '10 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'No automatic renewal', 'AI video generation up to 1 minute']
+      features: ['Everything in Max', 'Ultra tier for the most demanding tasks', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'No automatic renewal', 'AI video generation up to 1 minute']
     }
   });
 
@@ -6095,6 +6297,11 @@
     detailsIcon.textContent = '+';
     detailsToggle.append(detailsLabel, detailsIcon);
 
+    const weeklyAllowance = Number(p.weekly_tokens);
+    const planFeatures = p.id !== 'free' && Number.isSafeInteger(weeklyAllowance) && weeklyAllowance > 0
+      ? [weeklyAllowance.toLocaleString() + ' tokens per week', ...details.features.filter((feature) => !/tokens per week/i.test(feature))]
+      : details.features;
+
     const detailsPanel = document.createElement('div');
     detailsPanel.className = 'plan-details';
     detailsPanel.hidden = true;
@@ -6102,7 +6309,7 @@
     summary.className = 'plan-details-summary';
     summary.textContent = details.summary;
     const list = document.createElement('ul');
-    for (const feature of details.features) {
+    for (const feature of planFeatures) {
       const li = document.createElement('li');
       li.textContent = feature;
       list.appendChild(li);
@@ -7856,7 +8063,7 @@
     });
     card.append(head, actions);
     googlePlugins[service] = { card, sub, connect, disconnect, title };
-    $('pluginsDev').appendChild(card);
+    $('pluginsGoogle').appendChild(card);
   }
   makeGooglePlugin('gmail', 'Gmail', 'mail');
   makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
@@ -7912,9 +8119,10 @@
         item.connect.onclick = connected ? () => disconnectGoogle(service) : () => connectGoogle(service);
       }
       item.disconnect.hidden = true;
-      (connected ? $('pluginsConnected') : $('pluginsDev')).appendChild(item.card);
+      (connected ? $('pluginsConnected') : $('pluginsGoogle')).appendChild(item.card);
     }
     $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
+    $('pluginsGoogleLabel').hidden = !$('pluginsGoogle').children.length;
     $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
   }
   async function connectGoogle(service) {
@@ -8099,7 +8307,7 @@
   let prFiles = [];
   let prText = '';
   function prButton(sources, text) {
-    const b = mk('button', 'btn small outline pr-open', 'Open pull request');
+    const b = mk('button', 'btn small outline pr-open', github.connected ? 'Confirm change' : 'Connect GitHub to confirm');
     b.type = 'button';
     b.addEventListener('click', () => openPr(sources, text));
     return b;
@@ -8469,7 +8677,6 @@
       directUploads = s.uploads && s.uploads.direct === true && Number(s.uploads.max_mb) > 0 ? { maxBytes: Number(s.uploads.max_mb) * 1048576 } : null;
       imagesOn = Boolean(s.images && s.images.available);
       $('pickImage').hidden = !imagesOn;
-      $('starterImage').hidden = !imagesOn;
       imageLimits = imagesOn ? { perGuest: Number(s.images.per_guest) || 0, perUserDay: Number(s.images.per_user_day) || 0 } : null;
       renderImageHint();
       // Cache the public site key here, but render the widget only when the
