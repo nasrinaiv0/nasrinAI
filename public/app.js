@@ -3744,6 +3744,55 @@
       } catch {
         // Fall back to researched YouTube links when live search is unavailable.
       }
+      // If live search is unavailable or returns no playable results, recover
+      // YouTube links already present in the assistant answer or its citations.
+      // Verify every candidate server-side before creating an iframe.
+      if (!videos.length) {
+        const candidates = [];
+        const seen = new Set();
+        const links = [
+          ...(Array.isArray(sourceLinks) ? sourceLinks : []).map((link) => ({ href: link?.url || link?.href || '', title: link?.title || '' })),
+          ...Array.from(message.querySelectorAll('a[href]')).map((anchor) => ({ href: anchor.href, title: anchor.textContent || '' }))
+        ];
+        for (const link of links) {
+          try {
+            const url = new URL(link.href);
+            const host = url.hostname.toLowerCase().replace(/^www\\./, '');
+            if (!['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) continue;
+            let id = '';
+            if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
+            else if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
+            else {
+              const match = url.pathname.match(/^\\/(?:embed|shorts|live)\\/([A-Za-z0-9_-]{11})(?:$|\\/)/);
+              if (match) id = match[1];
+            }
+            if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
+            seen.add(id);
+            candidates.push({ id, title: String(link.title || 'YouTube video tutorial').trim().slice(0, 240) });
+            if (candidates.length >= 3) break;
+          } catch {
+            // Ignore malformed or non-YouTube links.
+          }
+        }
+        if (candidates.length) {
+          try {
+            const token = account?.token || await guestToken(false);
+            for (const candidate of candidates) {
+              try {
+                const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id), {
+                  headers: { Authorization: 'Bearer ' + token }
+                });
+                const result = response.ok ? await response.json() : { valid: false };
+                if (result.valid === true) videos.push({ ...candidate, channelTitle: 'YouTube' });
+              } catch {
+                // A failed verification must never produce an unverified iframe.
+              }
+            }
+          } catch {
+            // Keep the text answer usable if verification cannot be reached.
+          }
+        }
+      }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
