@@ -138,7 +138,7 @@ test('inline external links are hidden from reply prose and collected as Sources
   const result = F.sources(reply);
   assert.equal(result.text, 'Watch How to do a PERFECT Push Up or visit for details.');
   assert.deepEqual(JSON.parse(JSON.stringify(result.links.map((l) => [l.title, l.url, l.host]))), [
-    ['How to do a PERFECT Push Up', 'https://www.youtube.com/watch?v=IODxDxX7oi4', 'www.youtube.com'],
+    ['How to do a PERFECT Push Up', 'https://www.youtube.com/watch?v=IODxDxX7oi4', 'youtube.com'],
     ['example.com', 'https://example.com/guide', 'example.com']
   ]);
 });
