@@ -7223,7 +7223,7 @@
       'Google Meet': 'Google', 'Google Keep': 'Google',
       'Google Maps': 'Google',
       Outlook: 'Microsoft 365', 'Microsoft Outlook': 'Microsoft 365', OneDrive: 'Microsoft 365',
-      Teams: 'Microsoft', Excel: 'Microsoft', PowerPoint: 'Microsoft',
+      Teams: 'Microsoft 365', Excel: 'Microsoft 365', PowerPoint: 'Microsoft 365',
       Canva: 'Design & creativity', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
       Threads: 'Social & messaging', X: 'Social & messaging',
       Messenger: 'Social & messaging', WhatsApp: 'Social & messaging',
