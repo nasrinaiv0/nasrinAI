@@ -1,0 +1,31 @@
+name: Regenerate parser lockfile
+
+on:
+  push:
+    branches: [feat/secure-document-parser-integration]
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/regenerate-parser-lock.yml
+          git add package-lock.json .github/workflows/regenerate-parser-lock.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "Update parser dependency lockfile"
+            git push
+          fi
