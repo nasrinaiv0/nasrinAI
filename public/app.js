@@ -1873,7 +1873,7 @@
             });
             if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
             const duration = video.duration;
-            const times = [...new Set([0, duration * 0.5, Math.max(0, duration - 0.15)])];
+            const times = [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])];
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;
