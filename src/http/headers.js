@@ -5,10 +5,10 @@ export const PAGE_CSP = [
   "default-src 'self'",
   "script-src 'self' https://challenges.cloudflare.com",
   "style-src 'self'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://i.ytimg.com",
   // *.supabase.co: direct uploads to the project's private bucket (docs/uploads.md).
   "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co",
-  "frame-src https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'none'",
