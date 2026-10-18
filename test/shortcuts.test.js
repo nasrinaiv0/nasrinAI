@@ -46,6 +46,7 @@ test('normal natural-language creative intent continues to work', () => {
 test('natural image enhancement requests route to image editing without requiring the word photo', () => {
   for (const request of ['make it clear and hd', 'Please upscale this', 'make this less blurry', 'sharpen and improve quality', 'restore this photo in 4K']) {
     assert.equal(shortcuts.detect(request), 'image', request);
+    assert.equal(shortcuts.isImageEnhancement(request), true, request);
   }
   for (const request of ['What is HD image enhancement?', 'How does upscaling work?']) {
     assert.equal(shortcuts.detect(request), null, request);
@@ -64,5 +65,7 @@ test('image slash commands dispatch directly without optional brief questions or
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(app, /if \(executeFirst\) return makeImage\(job, \{ confirm: false \}\)/);
   assert.match(app, /if \(shortcut && shortcut\.requiresPhoto && !pending\.some/);
+  assert.match(app, /window\.NasrinCreativeIntent\.isImageEnhancement\(text\).*pending\.some/s);
+  assert.match(app, /const directEdit = Boolean\(shortcut \|\| window\.NasrinCreativeIntent\.isImageEnhancement\(text\)\)/);
   assert.match(app, /if \(confirm && !window\.confirm/);
 });
