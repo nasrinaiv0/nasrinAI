@@ -288,6 +288,9 @@ test('chat frontend contains a user-initiated location action with manual fallba
   const src = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(src, /Use my location/);
   assert.match(src, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(src, /needsDeviceLocation/);
+  assert.match(src, /location_context: locationContext/);
+  assert.match(src, /maximumAge: 120000, timeout: 5000/);
   assert.match(src, /Location permission was denied/);
   assert.match(src, /Enter a city, address, or landmark/);
   assert.match(src, /if \(service === 'maps'\) \{ item\.card\.remove\(\); continue; \}/);
