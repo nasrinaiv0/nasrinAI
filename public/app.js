@@ -3210,12 +3210,25 @@
     const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
     try {
       const token = account?.token || await guestToken(false);
-      const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      const videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+      let videos = [];
+      try {
+        const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+        }
+      } catch {
+        // If live search is not configured/reachable, embed relevant YouTube
+        // links already returned in the assistant's researched answer below.
+      }
+      if (!videos.length) {
+        const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
+        const idPattern = /(?:youtube\\.com\\/(?:watch\\?[^\\s#]*?v=|embed\\/)|youtu\\.be\\/)([A-Za-z0-9_-]{11})/g;
+        const ids = [...answerText.matchAll(idPattern)].map((match) => match[1]).filter((id, index, all) => all.indexOf(id) === index).slice(0, 3);
+        videos = ids.map((id) => ({ id, title: 'YouTube tutorial', channelTitle: 'YouTube' }));
+      }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
