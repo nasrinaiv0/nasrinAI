@@ -7245,26 +7245,37 @@
       : catalogGroup === 'Microsoft' ? 'Microsoft account'
         : catalogGroup === 'Design' ? 'Canva account'
           : catalogGroup === 'Social & messaging' ? 'App account' : 'Connected account';
+    const accountEmail = serviceStatus.email || '';
+    $('pluginCatalogAccountAvatar').textContent = (accountEmail || name).trim().charAt(0).toUpperCase() || 'A';
     $('pluginCatalogAccountStatus').textContent = isConnected
-      ? (serviceStatus.email || 'Connected')
+      ? (accountEmail || 'Connected')
       : profile.supported && !serviceStatus.available ? 'Not configured on this site'
         : 'Not connected';
+    $('pluginCatalogAccountMain').hidden = !isConnected;
+    $('pluginCatalogAccountRow').hidden = !profile.supported && !isConnected;
     $('pluginCatalogAccountHint').textContent = profile.siteConfigured
       ? 'This app uses a server-side Google API configuration. API keys remain on the server and are never exposed to the browser.'
       : profile.supported
-        ? 'Configure access opens Google authorization. The provider will request only the scopes supported for this app.'
-      : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
+        ? (isConnected
+          ? 'This Google app has its own independent connection. Multiple accounts per app are not enabled yet, so your existing connection is protected from accidental replacement.'
+          : 'Connect an account, then choose the permissions this app may use. Each Google app has its own independent connection.')
+        : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
     $('pluginCatalogConnect').hidden = !profile.supported || profile.siteConfigured;
     $('pluginCatalogConnect').disabled = !profile.supported || !serviceStatus.available;
-    $('pluginCatalogConnect').textContent = isConnected ? 'Disconnect Google account' : 'Connect account';
-    $('pluginCatalogConnect').classList.toggle('danger', isConnected);
-    $('pluginCatalogConnect').onclick = isConnected ? () => disconnectGoogle(profile.service) : () => connectGoogle(profile.service);
-    $('pluginCatalogDisconnect').hidden = true;
-    $('pluginCatalogAddAccount').hidden = !profile.supported || profile.siteConfigured;
-    $('pluginCatalogAddAccount').disabled = !profile.supported || !serviceStatus.available;
+    $('pluginCatalogConnect').textContent = isConnected ? 'Reconnect account' : 'Connect account';
+    $('pluginCatalogConnect').classList.remove('danger');
+    $('pluginCatalogConnect').onclick = () => {
+      if (profile.supported && serviceStatus.available) connectGoogle(profile.service);
+    };
+    $('pluginCatalogDisconnect').hidden = !isConnected || profile.siteConfigured;
+    $('pluginCatalogDisconnect').onclick = () => {
+      if (profile.service) disconnectGoogle(profile.service);
+    };
+    $('pluginCatalogAddAccount').hidden = !isConnected || !profile.supported || profile.siteConfigured;
+    $('pluginCatalogAddAccount').disabled = true;
+    $('pluginCatalogAddAccount').title = 'Multiple accounts are not enabled for this Google app yet.';
     $('pluginCatalogAddAccount').onclick = () => {
-      if (!profile.supported || !serviceStatus.available) return;
-      $('pluginCatalogPermissionHint').textContent = 'Multiple Google accounts are not supported by the current secure connection store. No OAuth flow was started, so the existing account cannot be accidentally replaced.';
+      $('pluginCatalogPermissionHint').textContent = 'Adding multiple accounts is not enabled for this Google app yet. Your current connection has not been changed.';
     };
     $('pluginCatalogReadOnly').checked = hasRead;
     $('pluginCatalogReadWrite').checked = hasWrite;
