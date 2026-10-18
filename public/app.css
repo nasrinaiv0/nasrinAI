@@ -3234,3 +3234,16 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 @media (max-width: 480px) {
   .youtube-video-details { padding: 0.7rem; }
 }
+
+
+/* Real internet image results requested by the person; compact, responsive and accessible. */
+.internet-image-gallery { margin-top: 1rem; min-width: 0; }
+.internet-image-heading { margin: 0 0 .65rem; font-size: .88rem; font-weight: 600; color: var(--ink-2); }
+.internet-image-status { margin: .35rem 0; color: var(--ink-3); font-size: .84rem; }
+.internet-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.internet-image-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: .85rem; padding: .4rem; background: var(--surface, transparent); }
+.internet-image-card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: .55rem; background: var(--surface-2, transparent); }
+.internet-image-caption { margin: .45rem .1rem .2rem; font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
+.internet-image-credit { margin: .2rem .1rem .35rem; color: var(--ink-3); font-size: .68rem; line-height: 1.35; overflow-wrap: anywhere; }
+.internet-image-card a { display: inline-block; margin: 0 .1rem .15rem; font-size: .75rem; text-underline-offset: .15em; }
+@media (min-width: 620px) { .internet-image-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
