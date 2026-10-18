@@ -16,6 +16,7 @@ test('the chat page loads its script and styles as files that the strict CSP all
     assert.match(html, /<link rel="icon" type="image\/png" href="\/logo\.png">/, 'Google-search favicon points to logo.png');
     assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
+    assert.match(page.headers.get('content-security-policy'), /youtube-nocookie\.com/);
     assert.match(html, /<script src="\/app\.js" defer><\/script>/);
 
     for (const [path, type] of [['/app.js', /javascript/], ['/character.js', /javascript/], ['/app.css', /text\/css/], ['/icon.svg', /image\/svg\+xml/], ['/apple-touch-icon.png', /image\/png/], ['/icon-512.png', /image\/png/], ['/logo.png', /image\/png/], ['/favicon.ico', /image\/x-icon/], ['/manifest.webmanifest', /application\/manifest\+json/]]) {
@@ -338,4 +339,20 @@ test('web-researched replies render safe, same-origin source image previews', as
   assert.match(routes, /path: '\/v1\/page-preview'/);
   assert.match(preview, /image\/jpeg/);
   assert.match(preview, /readBytesImpl/);
+});
+
+
+test('tutorial intent uses a privacy-enhanced YouTube player and only trusted video IDs', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
+  assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
+  assert.match(js, /\/v1\/youtube\/search\?q=/);
+  assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
+  assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
+  assert.match(css, /\.youtube-video-frame/);
+  assert.match(routes, /path: '\/v1\/youtube\/search'/);
+  assert.match(youtube, /safeSearch: 'moderate'/);
+  assert.match(youtube, /maxResults: '5'/);
 });
