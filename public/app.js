@@ -3746,14 +3746,15 @@
       // present in the assistant answer into the same playable cards. This keeps
       // tutorial replies useful when the search API is temporarily unavailable.
       if (!videos.length) {
-        const answerText = message.querySelector('.msg-body')?.textContent || message.textContent || '';
-        const markdownLinks = [...answerText.matchAll(/\\[([^\\]]{3,180})\\]\\((https?:\\/\\/[^\\s)]+)\\)/g)];
+        // Prefer rendered links over parsing Markdown text: the answer has
+        // already been rendered by the message formatter, and this also works
+        // when links are displayed as ordinary anchors on mobile.
+        const answerBody = message.querySelector('.msg-body') || message;
         const candidates = [];
         const seen = new Set();
-        for (const match of markdownLinks) {
-          const url = match[2];
+        for (const anchor of answerBody.querySelectorAll('a[href]')) {
           let parsed;
-          try { parsed = new URL(url); } catch { continue; }
+          try { parsed = new URL(anchor.href); } catch { continue; }
           const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
           let id = '';
           if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
@@ -3763,7 +3764,7 @@
           }
           if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
           seen.add(id);
-          candidates.push({ id, title: match[1].trim(), url });
+          candidates.push({ id, title: (anchor.textContent || '').trim().slice(0, 240) || 'YouTube video tutorial', url: parsed.href });
           if (candidates.length >= 3) break;
         }
         videos = candidates;
