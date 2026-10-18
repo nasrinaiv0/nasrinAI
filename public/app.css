@@ -3525,3 +3525,42 @@ body.coding-mode #welcome { display: none; }
   .coding-empty-word-track { transform: none; }
   .coding-empty-word-track span:not(:first-child) { display: none; }
 }
+
+
+/* In an empty coding chat, reserve the header avatar for active conversations
+   and bring the thinking indicator into the large central coding identity. */
+body.coding-mode:not(.has-chat) .brand-code-logo { visibility: hidden; }
+.coding-empty-logo {
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.coding-empty-art::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  width: 30%;
+  height: 30%;
+  right: 1%;
+  top: 0;
+  background: radial-gradient(circle, var(--surface, #f7f7f5) 0 34%, transparent 36%),
+    radial-gradient(circle, currentColor 1.5px, transparent 2px) 0 0 / 11px 11px;
+  border-radius: 50%;
+  color: var(--muted, #8b8b89);
+  opacity: .9;
+  animation: coding-thinking-dots 2.4s ease-in-out infinite;
+}
+.coding-empty-art::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ink) 10%, transparent), transparent 70%);
+  filter: blur(9px);
+  animation: coding-welcome-breathe 3.8s ease-in-out infinite;
+  z-index: -1;
+}
+@keyframes coding-thinking-dots {
+  0%,100% { transform: rotate(0deg) scale(.92); opacity: .5; }
+  50% { transform: rotate(18deg) scale(1.08); opacity: 1; }
+}
