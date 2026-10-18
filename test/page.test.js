@@ -336,6 +336,6 @@ test('web-researched replies render safe, same-origin source image previews', as
   assert.match(js, /noopener noreferrer/);
   assert.match(css, /\.web-preview-grid/);
   assert.match(routes, /path: '\/v1\/page-preview'/);
-  assert.match(preview, /image\\/jpeg/);
+  assert.match(preview, /image\/jpeg/);
   assert.match(preview, /readBytesImpl/);
 });
