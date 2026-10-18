@@ -391,3 +391,13 @@ test('chat page loads the client-side image crop tool', async () => {
   assert.match(app, /Cropped image added to your message/);
   assert.match(css, /\.image-crop-overlay/);
 });
+
+test('audio attachment chips expose manual transcription and keep transcript editable', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(app, /className = 'chip-transcribe'/);
+  assert.match(app, /\/v1\/transcriptions\?name=/);
+  assert.match(app, /Transcript added to your message\. Review it before sending\./);
+  assert.match(app, /f\.bytes > 4 \* 1024 \* 1024/);
+  assert.ok(html.includes('/app.js'));
+});

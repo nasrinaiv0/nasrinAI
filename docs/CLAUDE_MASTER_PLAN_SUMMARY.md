@@ -1,5 +1,7 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
+> Status audit 2026-10-18: this log is a running record. Entries that say "pending" describe the moment they were written; check the PR and CI before relying on them. See also [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
+
 Last updated: 2026-10-18
 Repository: https://github.com/primusco20/nasrinAI
 
@@ -114,18 +116,10 @@ Changes in this follow-up:
 - Changed Google connection storage to use a `service` key per user/tenant and added independent Gmail/Calendar status, OAuth callback upserts, token refresh updates, and service-scoped disconnects. Existing encrypted token payloads retain the existing AAD so the migration can duplicate the prior connection safely.
 - Added migration `042_google_service_connections.sql` to split the legacy connection row into Gmail and Calendar rows according to existing granted scopes, and change the primary key to `(tenant_id,user_id,service)`. Apply this migration to Supabase before deploying the backend code; until it is applied, the new endpoints cannot work.
 - Gmail and Calendar UI now load status independently and disconnect only the selected app. The legacy `both` OAuth choice maps to Calendar; new UI flows use the per-app service values.
-- Validation pending: required tests, CI and Vercel must pass before considering this complete.
+- Migration 042 is live in production Supabase (checked read-only on 2026-10-18: `google_connections` primary key is `(tenant_id, user_id, service)`). CI and Vercel results for the code remain to be confirmed per PR.
 
-
-## Update — independent Google app connections and stale test (2026-10-18)
-- Fixed the stale assertion in `test/google-team-settings.test.js`: Google Team was removed from the Google catalog and must not be expected there.
-- Google backend connections now use a per-service key; status, OAuth callback upsert, token refresh and disconnect are scoped to Gmail or Calendar.
-- Gmail and Calendar cards now request separate status and disconnect only their own service. Catalog settings derive granted scopes from the selected app's status.
-- Added `db/migrations/042_google_service_connections.sql` to split existing rows based on scopes and change the primary key to `(tenant_id,user_id,service)`. Apply it in Supabase before deploying code. The migration preserves existing encrypted tokens and only creates a Gmail row if Gmail scopes were granted.
-- CI and Vercel validation pending; do not treat the feature as production-ready until migration and checks are verified.
 
 - Final test correction commit: `8e1d11b397d0ab27c864e344020746f1b0224492`; the Google catalog regression now asserts Google Maps remains and Google Team is absent. Latest observed Vercel status is pending; no PR-triggered workflow runs were returned by the status wrapper. Full CI has not been confirmed.
-
 
 ## PR #385 conflict resolution handoff (2026-10-18)
 - PR #385 branch diverged from `main` (8 commits ahead, 21 behind). The current `main` already contains the Google Team catalog removal and stale-test correction; preserve current main application code and tests.
@@ -149,3 +143,12 @@ Changes in this follow-up:
 - Added regression coverage for tool registration, Gmail send payloads, denied scopes, Calendar deletion, and incomplete event-time validation.
 - Catalog-only providers remain clearly marked as unsupported/coming soon until provider-specific functionality is implemented.
 - Local validation: `npm test` passed 687 tests with 1 skipped. CI must also pass before merge; production OAuth verification and configuration remain separate requirements.
+
+
+## Production quality and anti-vibe-coding upgrade (PR #366)
+
+- **Specification:** [NasrinAI Production Quality & Anti-Vibe-Coding Upgrade](nasrinai-production-quality-anti-vibe-coding-upgrade.md).
+- **Goal:** make NasrinAI look intentionally designed and professionally engineered: routing, SEO, metadata, 404 handling, favicon and share images, performance, console and source-map hygiene, copy integrity.
+- **Status (2026-10-19):** partly implemented. Done: 404 page, `robots.txt`, `sitemap.xml`, page descriptions, canonical and share tags (#405, see [seo.md](seo.md)); unstyled FAQ and registry pages fixed (#431); performance measured (#432, see [performance-baseline.md](performance-baseline.md)). Not done: route inventory, structured data, source-map and console review, live verification of the 404 page and the `www` redirect.
+- **Constraints:** audit before changing architecture; preserve behaviour and security; no hardcoded production configuration; use Vercel environment variables.
+- **Acceptance:** section 13 of the specification. Record evidence, tests, remaining risks and deployment verification before marking anything complete.

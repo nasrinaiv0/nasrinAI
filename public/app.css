@@ -3551,3 +3551,158 @@ body.coding-mode:not(.has-chat) .brand-code-logo {
 .chip-crop { margin-inline: 5px; min-height: 30px; padding: 3px 9px; border: 1px solid var(--border, #d7d7d7); border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: .78rem; }
 .chip-crop:disabled { opacity: .5; }
 @media (prefers-reduced-motion: reduce) { .image-crop-overlay, .image-crop-panel { animation: none !important; transition: none !important; } }
+
+/* Keep the conversation title geometrically centered regardless of the
+   unequal left/right header controls. */
+.bar { position: relative; }
+.bar > .brand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  justify-content: center;
+  margin: 0;
+  white-space: nowrap;
+}
+body:not(.has-chat) .bar > .brand {
+  transform: translate(-50%, -50%);
+}
+body.coding-mode .bar > .brand {
+  transform: translate(-50%, -50%);
+}
+body.coding-mode:not(.has-chat) .bar > .brand-code-logo {
+  display: none !important;
+}
+.coding-empty-sphere {
+  position: absolute;
+  inset: -7%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--ink);
+  opacity: .8;
+}
+.coding-empty-sphere .dots {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: inherit;
+}
+.coding-empty-sphere .dots circle { fill: currentColor; }
+.coding-empty-logo {
+  z-index: 2;
+}
+.coding-empty-spark-one { display: none !important; }
+@media (max-width: 540px) {
+  .bar > .brand { max-width: calc(100% - 7rem); }
+  .coding-empty-sphere { inset: -12%; }
+}
+
+
+/* Unified coding welcome mark: one face that blooms into a contained particle sphere.
+   Remove the decorative layers that previously collided with the logo/text. */
+body.coding-mode:not(.has-chat) .coding-empty-state {
+  gap: .55rem;
+  padding-top: 1rem;
+  padding-bottom: calc(var(--dock-h, 7rem) + 1rem);
+}
+body.coding-mode:not(.has-chat) .coding-empty-art {
+  width: min(15rem, 54vw);
+  height: min(15rem, 54vw);
+  flex: 0 0 auto;
+  margin: 0 auto .8rem;
+  overflow: visible;
+}
+body.coding-mode:not(.has-chat) .coding-empty-art::before,
+body.coding-mode:not(.has-chat) .coding-empty-orbit,
+body.coding-mode:not(.has-chat) .coding-empty-spark,
+body.coding-mode:not(.has-chat) .coding-empty-cursor {
+  display: none !important;
+}
+body.coding-mode:not(.has-chat) .coding-empty-sphere {
+  inset: 0 !important;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  opacity: calc(.18 + var(--sphere-burst, 0) * .82);
+  transform: scale(calc(.42 + var(--sphere-burst, 0) * .58));
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+body.coding-mode:not(.has-chat) .coding-empty-sphere .dots {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+body.coding-mode:not(.has-chat) .coding-empty-sphere .dots circle {
+  fill: currentColor;
+}
+body.coding-mode:not(.has-chat) .coding-empty-logo {
+  position: absolute;
+  inset: 12%;
+  z-index: 2;
+  width: 76%;
+  height: 76%;
+  margin: auto;
+  transform: scale(calc(1 - var(--sphere-burst, 0) * .24));
+  opacity: calc(1 - var(--sphere-burst, 0) * .72);
+  transition: opacity .08s linear;
+  filter: drop-shadow(0 5px 12px color-mix(in srgb, var(--ink) 10%, transparent));
+}
+body.coding-mode:not(.has-chat) .coding-empty-title {
+  max-width: min(100%, 32rem);
+  margin-top: 0;
+  text-wrap: balance;
+}
+body.coding-mode:not(.has-chat) .coding-empty-subtitle {
+  max-width: 30rem;
+  text-wrap: balance;
+}
+body.coding-mode:not(.has-chat) .coding-empty-words {
+  margin-top: .4rem;
+}
+@media (max-width: 540px) {
+  body.coding-mode:not(.has-chat) .coding-empty-state {
+    min-height: min(58vh, 32rem);
+    padding-inline: .75rem;
+  }
+  body.coding-mode:not(.has-chat) .coding-empty-art {
+    width: min(13rem, 54vw);
+    height: min(13rem, 54vw);
+    margin-bottom: .65rem;
+  }
+  body.coding-mode:not(.has-chat) .coding-empty-logo {
+    inset: 12%;
+    width: 76%;
+    height: 76%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.coding-mode:not(.has-chat) .coding-empty-sphere {
+    transform: none;
+    opacity: .12;
+  }
+  body.coding-mode:not(.has-chat) .coding-empty-logo {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
+/* Coding welcome: sphere-only identity; remove the eye/face logo entirely. */
+body.coding-mode:not(.has-chat) .coding-empty-logo {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+body.coding-mode:not(.has-chat) .coding-empty-sphere {
+  opacity: 1;
+  transform: scale(calc(.42 + var(--sphere-burst, 0) * .58));
+}
+
+.chip-transcribe { margin-inline: 5px; min-height: 30px; padding: 3px 9px; border: 1px solid var(--border, #d7d7d7); border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: .78rem; }
+.chip-transcribe:disabled { opacity: .55; }
