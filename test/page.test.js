@@ -324,3 +324,18 @@ test('the NCC tile uses the owner’s chosen logo: B · Flow, three triangles (o
   assert.equal((tile.match(/<path d="M[^"]+Z" fill="currentColor"/g) || []).length, 3);
   assert.doesNotMatch(tile, /space-movo-glyph|<circle/);
 });
+
+
+test('web-researched replies render safe, same-origin source image previews', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  const preview = await readFile(new URL('../src/web/page-preview.js', import.meta.url), 'utf8');
+  assert.match(js, /renderWebPreviews\(el, cited\.links\)/);
+  assert.match(js, /\/v1\/page-preview\?url=/);
+  assert.match(js, /noopener noreferrer/);
+  assert.match(css, /\.web-preview-grid/);
+  assert.match(routes, /path: '\/v1\/page-preview'/);
+  assert.match(preview, /image\/jpeg/);
+  assert.match(preview, /readBytesImpl/);
+});

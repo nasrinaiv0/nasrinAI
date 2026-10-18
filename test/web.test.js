@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { readLink, checkUrl, isPublicAddress, htmlToText, linksIn } from '../src/web/read-link.js';
 import { createWebSearch, needsWeb } from '../src/web/search.js';
+import { createPagePreviews } from '../src/web/page-preview.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
@@ -130,4 +131,48 @@ test('a draft that admits it lacks current facts is replaced by a web search', a
     assert.match(r.message.content, /Sources/);
     assert.doesNotMatch(r.message.content, /check the web|outdated/);
   } finally { await srv.close(); }
+});
+
+
+test('page previews only return validated raster images from safe page metadata', async () => {
+  let imageReads = 0;
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const previews = createPagePreviews({
+    readLinkImpl: async (url) => ({
+      url,
+      html: '<html><head><meta property="og:image" content="/media/photo.png"></head><body>Page</body></html>',
+      text: 'Page'
+    }),
+    readBytesImpl: async (url) => {
+      imageReads++;
+      assert.equal(url, 'https://example.com/media/photo.png');
+      return { bytes: png };
+    },
+    now: () => 1000
+  });
+  const result = await previews.preview('https://example.com/article');
+  assert.equal(result.type, 'image/png');
+  assert.deepEqual(result.bytes, png);
+  assert.equal(imageReads, 1);
+  await previews.preview('https://example.com/article');
+  assert.equal(imageReads, 1, 'successful previews are cached');
+});
+
+test('page previews reject non-http URLs and refuse SVG/HTML image payloads', async () => {
+  let pageReads = 0;
+  let imageReads = 0;
+  const previews = createPagePreviews({
+    readLinkImpl: async (url) => {
+      pageReads++;
+      return { url, html: '<meta property="og:image" content="https://example.com/image.svg">', text: 'Page' };
+    },
+    readBytesImpl: async () => {
+      imageReads++;
+      return { bytes: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>') };
+    }
+  });
+  assert.equal(await previews.preview('data:text/plain,hello'), null);
+  assert.equal(pageReads, 0);
+  assert.equal(await previews.preview('https://example.com/article'), null);
+  assert.equal(imageReads, 1);
 });
