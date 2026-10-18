@@ -52,7 +52,7 @@ test('Google Drive plugin uses an existing glyph key', () => {
   assert.match(app, /makeGooglePlugin\('drive', 'Google Drive', 'team'\)/);
 });
 
-test('implemented Google apps and Google Search are excluded from the duplicate catalog', () => {
+test('Google integrations with dedicated cards are excluded from the duplicate catalog', () => {
   const start = app.indexOf('const MORE_PLUGINS');
   const end = app.indexOf('const DEVELOPER_PLUGINS', start);
   const catalog = app.slice(start, end);
