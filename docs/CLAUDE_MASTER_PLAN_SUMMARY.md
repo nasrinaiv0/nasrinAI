@@ -1,6 +1,6 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
-> Status audit 2026-10-18: this log is a running record. Entries that say "pending" describe the moment they were written; check the PR and CI before relying on them. See also [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog.
+> Status audit 2026-10-18: this log is a running record. Entries that say "pending" describe the moment they were written; check the PR and CI before relying on them. See also [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
 Last updated: 2026-10-18
 Repository: https://github.com/primusco20/nasrinAI
