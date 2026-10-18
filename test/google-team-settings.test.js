@@ -68,9 +68,9 @@ test('Every new Google catalog item has a defined glyph', () => {
 test('Gmail, Calendar, and Drive have independent OAuth status and disconnect services', () => {
   assert.match(google, /\['gmail','calendar','drive','meet','keep'\]\.includes\(service\)/);
   assert.match(google, /DRIVE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.readonly'/);
-  assert.match(google, /state\.s === 'drive' \? 'drive'/);
+  assert.match(google, /\['drive','meet','keep'\]\.includes\(state\.s\) \? state\.s/);
   assert.match(google, /tokenFor\(w, 'drive'\)/);
-  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','search','maps'\]/);
+  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','maps'\]/);
   assert.match(app, /'Google Drive': \{ service: 'drive', readService: 'drive', supported: true/);
   assert.match(app, /disconnectGoogle\(service\)/);
 });
