@@ -1021,3 +1021,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Behaviour change:** replaces the composer-height trigger from #296, as the spec requires.
 - **Not changed:** the database-backed slash registry and attachment previews (sections 2 and 3); no schema, legal or settings change. The spec's status line is updated in PR #402.
 - **Validation:** `npm test` 705 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Not yet checked on Safari iOS/iPadOS or a desktop browser.
+
+## Proposed PR — Search and address basics (`feature/seo-basics`)
+
+- **Owner request:** implement the small upgrades first (production-quality spec, PR #366).
+- **Change:** branded 404 page (status 404, `noindex`) for browsers; `robots.txt`; `sitemap.xml`; description, canonical and share tags on the home, FAQ and legal pages; `.xml` served by the static server. Details and unverified items: `docs/seo.md`.
+- **Not changed:** API behaviour, security headers, database, settings, legal text (no data handling changes).
+- **Validation:** `npm test` 711 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Live 404 and domain behaviour not yet checked.

@@ -76,6 +76,8 @@ export function createApp({ config, logger, gateway, routes = [], serveStatic = 
       }
       if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic && await serveStatic(req, res, pageFor(req, pathname))) return;
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method_not_allowed', 'Method not allowed.');
+      // A person who typed a wrong address gets the branded page; everything else keeps the plain answer.
+      if (serveStatic && String(req.headers.accept || '').includes('text/html') && await serveStatic(req, res, '/404.html', 404)) return;
       res.statusCode = 404;
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.end('Not found');
