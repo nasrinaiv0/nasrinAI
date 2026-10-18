@@ -340,6 +340,46 @@ function decodeText(bytes) {
 
 const kb = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
 
+// Best-effort text recovery for legacy OLE Compound File Binary formats (.doc/.xls/.ppt).
+// These formats are binary record containers, not ZIP/XML. Recover bounded printable
+// runs from the container (including UTF-16LE strings); never execute or launch Office.
+// This is intentionally labelled best-effort because compressed Word text and some
+// BIFF/PowerPoint record encodings cannot be faithfully reconstructed without a full parser.
+function legacyOfficeText(bytes, name) {
+  const ext = /\\.([^.]+)$/i.exec(name)?.[1]?.toLowerCase();
+  const formats = {
+    doc: { label: 'Legacy Word document', hint: 'Word paragraphs may be incomplete; verify the recovered text against the original.' },
+    xls: { label: 'Legacy Excel workbook', hint: 'Workbook cells and formulas may be incomplete; verify values against the original.' },
+    ppt: { label: 'Legacy PowerPoint presentation', hint: 'Slide text and ordering may be incomplete; verify against the original.' }
+  };
+  const format = formats[ext];
+  if (!format || bytes.length < 512 || bytes.readUInt32LE(0) !== 0xe11ab1a1 || bytes.readUInt32LE(4) !== 0xe011cfd0) return null;
+
+  const candidates = [];
+  const addRuns = (text) => {
+    for (const match of text.matchAll(/[\\p{L}\\p{N}][\\p{L}\\p{N}\\p{P}\\p{Zs}\\t]{3,}/gu)) {
+      const value = match[0].replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '').replace(/[ \\t]+/g, ' ').trim();
+      if (value.length >= 4 && /[\\p{L}\\p{N}]/u.test(value)) candidates.push(value);
+      if (candidates.join('\\n').length > 220_000) return;
+    }
+  };
+  // The same bytes may contain ANSI/8-bit text and UTF-16LE strings.
+  addRuns(bytes.toString('latin1'));
+  const utf16 = [];
+  for (let i = 0; i + 1 < bytes.length; i += 2) utf16.push(bytes.readUInt16LE(i));
+  addRuns(String.fromCharCode(...utf16.slice(0, Math.min(utf16.length, 12000))));
+  const seen = new Set();
+  const lines = candidates.filter((line) => {
+    const normalized = line.replace(/\\s+/g, ' ').trim();
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+  const text = lines.join('\\n').slice(0, 200_000).trim();
+  if (!text || !/[\\p{L}]{3}/u.test(text)) return null;
+  return { source: format.label, text: text + '\\n\\n[Legacy binary extraction is best-effort. ' + format.hint + ']' };
+}
+
 // Returns [{ kind: 'image' | 'pdf' | 'text', mime, name, data (base64), text? }].
 // Everything that is not a photo or PDF comes back as kind 'text', so the chat
 // puts it in front of the model as the file's contents (data, not instructions).
@@ -378,7 +418,11 @@ export function parseAttachments(list, limits) {
       if (!text) return unreadable(`a ${doc.source} with no readable text`);
       return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[${doc.source}, converted to text]\n${text}`) };
     }
-    if (sniffed === 'application/x-ole') return unreadable('an old Microsoft Office file; saving it as .docx, .xlsx or .pptx makes it readable');
+    if (sniffed === 'application/x-ole') {
+      const legacy = legacyOfficeText(bytes, name);
+      if (!legacy) return unreadable('a legacy Microsoft Office file with no recoverable text; try saving it as .docx, .xlsx or .pptx');
+      return { kind: 'text', mime: 'text/plain', name, data, text: cut('[' + legacy.source + ', best-effort text extraction]\\n' + legacy.text) };
+    }
     if (sniffed === 'text/rtf') {
       const text = rtfText(bytes.toString('latin1'));
       return text ? { kind: 'text', mime: 'text/plain', name, data, text: cut('[RTF document, converted to text]\n' + text) } : unreadable('an RTF file with no readable text');
