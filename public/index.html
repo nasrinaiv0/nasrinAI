@@ -804,12 +804,15 @@
         <p class="setting-hint" id="pluginCatalogStatus" role="status"></p>
       </div>
       <p class="menu-label">Connected accounts</p>
-      <div class="menu" id="pluginCatalogAccounts">
-        <div class="menu-row plugin-info"><span id="pluginCatalogAccountLabel">Account</span><em id="pluginCatalogAccountStatus">Not connected</em></div>
+      <div class="menu plugin-account-manager" id="pluginCatalogAccounts">
+        <div class="menu-row plugin-account" id="pluginCatalogAccountRow">
+          <span class="plugin-avatar" id="pluginCatalogAccountAvatar" aria-hidden="true">A</span>
+          <span class="plugin-login"><span id="pluginCatalogAccountLabel">Account</span><span class="plugin-account-sub" id="pluginCatalogAccountStatus">Not connected</span></span>
+          <em class="plugin-main-tag" id="pluginCatalogAccountMain" hidden>Main</em>
+        </div>
         <button type="button" class="menu-row" id="pluginCatalogAddAccount" hidden><span class="plugin-avatar plugin-add" aria-hidden="true">+</span><span>Add account</span></button>
         <button type="button" class="menu-row" id="pluginCatalogConnect">Connect account</button>
-        <button type="button" class="menu-row danger" id="pluginCatalogDisconnect" hidden>Disconnect account</button>
-
+        <button type="button" class="menu-row danger" id="pluginCatalogDisconnect" hidden><span>Disconnect all</span></button>
       </div>
       <p class="setting-hint" id="pluginCatalogAccountHint">Connecting an account is separate from choosing permissions. Only supported integrations can request provider access.</p>
       <p class="menu-label">Permissions</p>
