@@ -1453,7 +1453,9 @@
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       // The location card already has a place field; don't show a duplicate follow-up card.
-      if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
+      // Keep the conversation focused: show at most one optional follow-up
+      // at a time so long answers and media cards remain visible on mobile.
+      if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks.slice(0, 1)));
       if (cited.links.length) renderWebPreviews(el, cited.links);
       if (fresh && role === 'assistant') {
         const userMessages = log.querySelectorAll('.msg.user');
