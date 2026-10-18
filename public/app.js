@@ -5400,6 +5400,15 @@
     voiceTier.title = 'AI tier: ' + current;
     voiceTierMenu.replaceChildren();
     const descriptions = { nasrinai: 'Fast everyday work', pro: 'Smarter professional work', max: 'Longer, deeper thinking', ultra: 'Deepest reasoning' };
+    const quota = planInfo && planInfo.quota;
+    if (quota && quota.used >= quota.limit && quota.reset_at) {
+      const notice = document.createElement('div');
+      notice.className = 'tier-quota-notice';
+      const reset = new Date(quota.reset_at);
+      notice.textContent = names[quota.plan] + ' allowance used. Quick chat stays unlimited; coding is paused until ' +
+        reset.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' }) + ' Manila time.';
+      voiceTierMenu.appendChild(notice);
+    }
     for (const id of ['nasrinai', 'pro', 'max', 'ultra']) {
       const button = document.createElement('button');
       button.type = 'button'; button.role = 'menuitem'; button.className = 'voice-tier-option';
@@ -6151,19 +6160,19 @@
   const PLAN_DETAILS = Object.freeze({
     free: {
       summary: 'Unlimited everyday chat on Quick.',
-      features: ['Quick tier for everyday questions', 'Unlimited chat on Quick', 'Up to 2 image generations per day', 'Video creation is not included']
+      features: ['Quick tier for everyday questions', 'Unlimited chat on Quick', 'Up to 2 image generations per day', 'Coding is unavailable on Quick', 'Video creation is not included']
     },
     pro: {
       summary: 'More capable AI for professional everyday work.',
-      features: ['Pro tier for harder questions and analysis', '1 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'Subscription billing will be enabled after recurring checkout is configured']
+      features: ['Pro tier for harder questions and analysis', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'Subscription billing will be enabled after recurring checkout is configured']
     },
     max: {
       summary: 'More thinking power for complex work.',
-      features: ['Everything in Pro', 'Max tier for harder reasoning and complex tasks', '5 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'AI video generation up to 1 minute', 'No automatic renewal']
+      features: ['Everything in Pro', 'Max tier for harder reasoning and complex tasks', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'AI video generation up to 1 minute', 'No automatic renewal']
     },
     ultra: {
       summary: 'The deepest thinking available in NasrinAI.',
-      features: ['Everything in Max', 'Ultra tier for the most demanding tasks', '10 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'No automatic renewal', 'AI video generation up to 1 minute']
+      features: ['Everything in Max', 'Ultra tier for the most demanding tasks', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'No automatic renewal', 'AI video generation up to 1 minute']
     }
   });
 
@@ -6207,6 +6216,12 @@
     detailsIcon.setAttribute('aria-hidden', 'true');
     detailsIcon.textContent = '+';
     detailsToggle.append(detailsLabel, detailsIcon);
+
+    const weeklyAllowance = Number(p.weekly_tokens);
+    if (p.id !== 'free' && Number.isSafeInteger(weeklyAllowance) && weeklyAllowance > 0) {
+      const allowanceFeature = weeklyAllowance.toLocaleString() + ' tokens per week';
+      details.features = [allowanceFeature, ...details.features.filter((feature) => !/tokens per week/i.test(feature))];
+    }
 
     const detailsPanel = document.createElement('div');
     detailsPanel.className = 'plan-details';
