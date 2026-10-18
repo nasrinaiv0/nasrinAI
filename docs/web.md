@@ -108,3 +108,10 @@ Set the server-side Vercel environment variable `YOUTUBE_DATA_API_KEY` to a Goog
 For fresh assistant replies, the UI detects explicit tutorial, walkthrough, demonstration, and directions/navigation intent from the latest user message. It then searches YouTube through authenticated `GET /v1/youtube/search?q=…`, returning up to five relevant video results; the chat renders at most three responsive embedded players. Ordinary replies do not trigger video search. Embeds use `youtube-nocookie.com`, lazy loading, validated 11-character video IDs, and a visible link to open the video on YouTube. The page CSP permits only the YouTube player hosts and its thumbnail host.
 
 The integration uses the **YouTube Data API** for public video search and metadata. The separate YouTube Analytics API is for an authenticated channel owner's private performance reports and is not needed to search or embed public videos. If channel analytics are added later, implement OAuth consent and least-privilege scopes separately; never request channel access just to show tutorials.
+
+
+## Inline internet image search
+
+When a person explicitly asks for real photos or images from the internet, the chat page calls the authenticated `GET /v1/web-images/search?q=…` endpoint and renders up to five Wikimedia Commons results in a responsive gallery. Results include a caption, original file page, creator when available, and the license label. The upstream search is server-side; the browser only loads validated HTTPS thumbnails from `upload.wikimedia.org`. The strict CSP allows that one image host; scripts and API calls remain same-origin. If search fails or yields no usable results, the chat shows a short fallback rather than claiming that inline images are unsupported.
+
+Wikimedia Commons is the initial provider and results can be incomplete for some queries. Image availability, license terms, and attribution should be checked on the linked file page before reuse. Image-search requests share the existing per-IP web/search rate limiter.
