@@ -58,6 +58,18 @@ test('the model reply is checked: questions de-duplicated and capped, briefs lim
   const prompt = promptFromBrief(brief, { quality: 'QUALITY' });
   assert.match(prompt, /^QUALITY\n\nSubject: A bottle of calamansi juice[\s\S]*Keep exactly as in the photo: bottle shape/);
   assert.match(prompt, /Do not add any text/);
+  const restorationPrompt = promptFromBrief(cleanBrief({
+    subject: 'Make this photo clear and HD',
+    objective: 'Photo restoration / clarity enhancement',
+    may_change: 'sharpness, noise, blur, exposure and contrast only',
+    preserve: 'the entire original scene and all visible people',
+    aspect_ratio: '1:1'
+  }), { quality: 'QUALITY' });
+  assert.match(restorationPrompt, /PHOTO RESTORATION MODE/);
+  assert.match(restorationPrompt, /Preserve every person.s identity/);
+  assert.match(restorationPrompt, /do not generate a replacement scene/);
+  assert.match(restorationPrompt, /Do not beautify, sexualize, add\/remove people or objects/);
+  assert.match(BRIEF_SYSTEM, /do not ask follow-up questions about purpose, audience, mood, or output size/);
   assert.equal(summarize(brief), 'A bottle of calamansi juice · clean product photography · beach table · golden hour · bright and fresh · 4:5');
   assert.match(fallbackBrief('a cup', { photo: true }).preserve, /label, logo/);
 
