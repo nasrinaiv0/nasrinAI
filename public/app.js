@@ -3311,8 +3311,9 @@
     const list = document.createElement('ul');
     list.className = 'reply-sources';
     list.id = 'reply-sources-' + (++sourcesCount);
-    list.hidden = false;
+    list.hidden = true;
     const heading = mk('p', 'reply-sources-heading', 'Sources & Resources');
+    heading.hidden = true;
     heading.id = list.id + '-heading';
     list.setAttribute('aria-labelledby', heading.id);
     for (const l of links) {
@@ -3348,9 +3349,9 @@
     b.type = 'button';
     b.className = 'act sources-toggle';
     b.dataset.kind = 'sources';
-    b.setAttribute('aria-expanded', 'true');
+    b.setAttribute('aria-expanded', 'false');
     b.setAttribute('aria-controls', list.id);
-    b.setAttribute('aria-label', `Hide sources (${links.length})`);
+    b.setAttribute('aria-label', `Show sources and resources (${links.length})`);
     // Overlapping round badges, one per site (its first letter; no outside
     // images, so the strict CSP holds), then the word Sources.
     const faces = mk('span', 'src-faces');
@@ -3368,7 +3369,7 @@
       list.hidden = !open;
       heading.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
-      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources (${links.length})`);
+      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);
     });
     row.appendChild(b);
     row.after(heading, list);
