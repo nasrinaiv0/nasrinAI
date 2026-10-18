@@ -3046,7 +3046,7 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 
 
 /* Consent-first location action embedded in an assistant reply. */
-.location-cta{display:grid;gap:10px;margin:16px 0 8px;padding:14px;border:1px solid var(--line,rgba(128,128,128,.24));border-radius:18px;background:var(--surface,rgba(128,128,128,.06));max-width:440px}
+.location-cta{box-sizing:border-box;display:grid;gap:10px;width:100%;max-width:100%;min-width:0;margin:16px 0 8px;padding:clamp(12px,3.5vw,16px);border:1px solid var(--line,rgba(128,128,128,.24));border-radius:18px;background:var(--surface,rgba(128,128,128,.06))}
 .location-cta-copy{margin:0;color:var(--text-secondary,inherit);font-size:.92rem;line-height:1.5}
 .location-cta-button{display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;width:100%;padding:12px 16px;border:0;border-radius:14px;background:var(--text,#f5f5f5);color:var(--background,#151515);font:inherit;font-weight:650;cursor:pointer;transition:opacity .15s ease,transform .15s ease}
 .location-cta-button:hover{opacity:.9}.location-cta-button:active{transform:scale(.99)}.location-cta-button:disabled{opacity:.6;cursor:wait}
@@ -3055,10 +3055,10 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 
 
 /* Compact, accessible manual fallback for the location consent card. */
-.location-cta-manual{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:2px}
-.location-cta-manual input{min-width:0;width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:12px;background:var(--background,transparent);color:var(--text,inherit);font:inherit}
+.location-cta-manual{box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;width:100%;min-width:0;margin-top:2px}
+.location-cta-manual input{box-sizing:border-box;display:block;min-width:0;width:100%;max-width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:12px;background:var(--background,transparent);color:var(--text,inherit);font:inherit}
 .location-cta-manual input::placeholder{color:var(--text-secondary,rgba(128,128,128,.9))}
-.location-cta-manual-button{min-height:44px;padding:10px 13px;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:12px;background:var(--surface,rgba(128,128,128,.08));color:var(--text,inherit);font:inherit;font-weight:600;cursor:pointer}
+.location-cta-manual-button{box-sizing:border-box;display:block;width:100%;min-width:0;min-height:44px;padding:10px 13px;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:12px;background:var(--surface,rgba(128,128,128,.08));color:var(--text,inherit);font:inherit;font-weight:600;cursor:pointer}
 .location-cta-manual-button:disabled{opacity:.6;cursor:wait}
 .location-cta-manual input:focus-visible,.location-cta-manual-button:focus-visible{outline:2px solid var(--accent,#e87935);outline-offset:2px}
-@media(max-width:420px){.location-cta-manual{grid-template-columns:1fr}.location-cta-manual-button{width:100%}}
+@media(min-width:520px){.location-cta-manual{grid-template-columns:minmax(0,1fr) auto}.location-cta-manual-button{width:auto;max-width:100%}}
