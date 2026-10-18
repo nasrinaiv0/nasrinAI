@@ -132,3 +132,16 @@ Changes in this follow-up:
 - Reapply only the Team directory copy changes to `public/index.html` and record this conflict resolution. Do not overwrite newer `main` app code with stale PR snapshots.
 - Team directory remains browser-local/account-scoped; it is not yet automatically consumed by every integration.
 - Validation required after conflict resolution: run CI and verify the mergeability status before merging.
+
+## Update — plugin read/write capability expansion (2026-10-18)
+### PR: plugin read/write capabilities
+Branch: `feat/plugin-read-write-capabilities`
+- Added `src/google/read-write.js` and registered the tools in `src/main.js`.
+- Gmail: added full text read for a selected message, send email, and mark read/unread.
+- Calendar: added update and delete for existing primary-calendar events. Existing event creation and event listing remain.
+- Every new mutation is marked `risk: 'write'` and therefore uses the existing server-side confirmation flow; the model cannot confirm its own actions.
+- Before acting, new tools query the per-user/per-tenant Google connection and verify the required scope actually granted by Google. Gmail send requires `gmail.send`; label updates require `gmail.modify`; event updates/deletes require `calendar.events`. Scope mismatch fails closed before the provider mutation.
+- Added regression tests for tool registration, Gmail send payload/confirmed provider ID, denied scope, Calendar deletion method, and incomplete event-time validation.
+- Updated `docs/plugins.md` to distinguish implemented actions from catalog-only integrations.
+- This is not yet proof that every catalog app has read/write support. Microsoft, Canva, X and personal Messenger remain provider-specific work; unsupported integrations must remain unavailable/coming soon. GitHub and NCC Meta actions are separate existing implementations.
+- Validation status: pending CI and full test suite. Do not merge or claim tests pass until checks are inspected. Google API/OAuth verification and production DB migration/configuration remain independent deployment requirements.
