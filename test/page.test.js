@@ -357,6 +357,7 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /if \(!videos\.length \|\| message\.querySelector\('\.youtube-results'\)\) return;/, 'do not skip rendering while the assistant message is being attached');
   assert.ok(js.includes("message.querySelectorAll('a[href]')"), 'recover YouTube links rendered in the answer');
   assert.ok(js.includes('on the optional YouTube Data API key'), 'allow valid answer links to render without the optional search API');
+  assert.ok(!js.includes("net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id)"), 'do not make fallback rendering depend on the optional verification endpoint');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
@@ -382,7 +383,6 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(css, /bottom: calc\(var\(--dock-h/);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
   assert.ok(routes.includes("path: '/v1/youtube/verify'"));
-  assert.ok(js.includes("/v1/youtube/verify?id="));
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
 });
