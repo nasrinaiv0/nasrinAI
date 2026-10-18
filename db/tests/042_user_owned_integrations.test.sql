@@ -1,5 +1,4 @@
 -- Migration 042: browser roles cannot read/write credentials or OAuth state.
-\\set ON_ERROR_STOP on
 begin;
 
 insert into public.integration_connections
