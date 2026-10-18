@@ -372,6 +372,9 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /const PERSISTENT_YOUTUBE_KEY = 'nasrin\.persistentYoutubePlayer'/);
   assert.match(js, /function mountPersistentYouTubePlayer\(video, existingCard = null\)/);
   assert.match(js, /function restorePersistentYouTubePlayer\(\)/);
+  assert.ok(js.includes('Do not delete a saved player because a verification/search API'));
+  assert.ok(js.includes('Keep the most recently surfaced tutorial available when starting a new'));
+  assert.ok(js.includes('localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify({'));
   assert.match(js, /restorePersistentYouTubePlayer\(\);/);
   assert.match(js, /localStorage\.setItem\(PERSISTENT_YOUTUBE_KEY, JSON\.stringify\(state\)\)/);
   assert.match(js, /localStorage\.removeItem\(PERSISTENT_YOUTUBE_KEY\)/);
