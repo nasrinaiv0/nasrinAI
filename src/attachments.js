@@ -346,7 +346,7 @@ const kb = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1,
 // This is intentionally labelled best-effort because compressed Word text and some
 // BIFF/PowerPoint record encodings cannot be faithfully reconstructed without a full parser.
 function legacyOfficeText(bytes, name) {
-  const ext = /\\.([^.]+)$/i.exec(name)?.[1]?.toLowerCase();
+  const ext = /\.([^.]+)$/i.exec(name)?.[1]?.toLowerCase();
   const formats = {
     doc: { label: 'Legacy Word document', hint: 'Word paragraphs may be incomplete; verify the recovered text against the original.' },
     xls: { label: 'Legacy Excel workbook', hint: 'Workbook cells and formulas may be incomplete; verify values against the original.' },
