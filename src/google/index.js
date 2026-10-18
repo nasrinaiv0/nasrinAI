@@ -119,7 +119,7 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       res.appendHeader('Set-Cookie', COOKIE+'='+encodeURIComponent(nonce)+'; Path=/v1/google; Max-Age='+TTL+'; HttpOnly; Secure; SameSite=Lax');
       const scopes=['openid','email','profile',
         ...(service==='gmail'?[GMAIL_SCOPE]:[]),
-        ...(service==='gmail-readwrite'?[GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE]:[]),
+        ...(service==='gmail-readwrite'?[GMAIL_SCOPE,GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE]:[]),
         ...(service==='calendar'?[CALENDAR_SCOPE]:[]),
         ...(service==='calendar-write'||service==='both'?[CALENDAR_SCOPE,CALENDAR_EVENTS_SCOPE]:[]),
         ...(service==='drive'?[DRIVE_SCOPE]:[]),
