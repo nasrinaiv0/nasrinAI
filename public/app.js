@@ -2625,6 +2625,80 @@
       busy = false;
       if (!data.message) return;
       const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true });
+      // Explicit requests for real internet photos get a separate inline gallery.
+      // Keep this opt-in by intent so ordinary replies never gain unrelated images.
+      if (!turnCoding && /\b(show|find|search|display|give me)\b.{0,70}\b(real )?(photos?|pictures?|images?)\b/i.test(text)
+          && /\b(internet|online|from the web|web search|from the internet)\b/i.test(text)) {
+        const query = text
+          .replace(/\b(show|find|search|display|give me)\b/ig, ' ')
+          .replace(/\b\d+\b/ig, ' ')
+          .replace(/\b(real|actual|photos?|pictures?|images?|from|the|internet|online|web|search|directly|inside|this|chat|with|captions?|source|links?|please|do not|only)\b/ig, ' ')
+          .replace(/\s+/g, ' ').trim().slice(0, 160);
+        if (query.length >= 2) {
+          const gallery = document.createElement('section');
+          gallery.className = 'internet-image-gallery';
+          gallery.setAttribute('aria-label', 'Internet image results');
+          const label = document.createElement('p');
+          label.className = 'internet-image-heading';
+          label.textContent = 'Photos from the internet';
+          gallery.appendChild(label);
+          const loading = document.createElement('p');
+          loading.className = 'internet-image-status';
+          loading.textContent = 'Finding real photos…';
+          gallery.appendChild(loading);
+          shown.appendChild(gallery);
+          api('/v1/web-images/search?q=' + encodeURIComponent(query)).then(({ images = [] }) => {
+            loading.remove();
+            if (!images.length) {
+              loading.textContent = 'No suitable photos were found. Try a more specific place or subject.';
+              gallery.appendChild(loading);
+              return;
+            }
+            const grid = document.createElement('div');
+            grid.className = 'internet-image-grid';
+            for (const item of images.slice(0, 5)) {
+              let imageUrl, sourceUrl;
+              try {
+                imageUrl = new URL(item.image_url);
+                sourceUrl = new URL(item.source_url);
+              } catch { continue; }
+              if (imageUrl.protocol !== 'https:' || imageUrl.hostname !== 'upload.wikimedia.org'
+                  || sourceUrl.protocol !== 'https:' || sourceUrl.hostname !== 'commons.wikimedia.org') continue;
+              const card = document.createElement('article');
+              card.className = 'internet-image-card';
+              const image = document.createElement('img');
+              image.src = imageUrl.href;
+              image.alt = String(item.title || 'Internet photo').slice(0, 160);
+              image.loading = 'lazy';
+              image.referrerPolicy = 'no-referrer';
+              image.addEventListener('error', () => card.remove(), { once: true });
+              card.appendChild(image);
+              const caption = document.createElement('p');
+              caption.className = 'internet-image-caption';
+              caption.textContent = item.title || 'Photo';
+              card.appendChild(caption);
+              const credit = document.createElement('p');
+              credit.className = 'internet-image-credit';
+              credit.textContent = [item.artist, item.license].filter(Boolean).join(' · ');
+              if (credit.textContent) card.appendChild(credit);
+              const source = document.createElement('a');
+              source.href = sourceUrl.href;
+              source.target = '_blank';
+              source.rel = 'noopener noreferrer';
+              source.textContent = 'View source';
+              card.appendChild(source);
+              grid.appendChild(card);
+            }
+            if (grid.children.length) gallery.appendChild(grid);
+            else {
+              loading.textContent = 'The images could not be loaded. Please try again.';
+              gallery.appendChild(loading);
+            }
+          }).catch(() => {
+            loading.textContent = 'Internet image search is temporarily unavailable.';
+          });
+        }
+      }
       shown.dataset.id = data.message.id;
       const used = Array.isArray(data.professionals) ? data.professionals.map(proById).filter(Boolean) : [];
       if (used.length) {
