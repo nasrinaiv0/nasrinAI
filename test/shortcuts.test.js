@@ -43,6 +43,15 @@ test('normal natural-language creative intent continues to work', () => {
   assert.equal(shortcuts.detect('What is image generation?'), null);
 });
 
+test('natural image enhancement requests route to image editing without requiring the word photo', () => {
+  for (const request of ['make it clear and hd', 'Please upscale this', 'make this less blurry', 'sharpen and improve quality', 'restore this photo in 4K']) {
+    assert.equal(shortcuts.detect(request), 'image', request);
+  }
+  for (const request of ['What is HD image enhancement?', 'How does upscaling work?']) {
+    assert.equal(shortcuts.detect(request), null, request);
+  }
+});
+
 test('system prompt enforces execute-first behavior for supported shortcuts', () => {
   const prompt = buildSystemPrompt();
   assert.match(prompt, /Universal slash commands are explicit task requests/);
