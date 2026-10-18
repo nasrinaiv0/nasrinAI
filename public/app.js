@@ -3774,26 +3774,20 @@
             // Ignore malformed or non-YouTube links.
           }
         }
+        // These candidates came from an explicit YouTube link already shown
+        // in the assistant answer or its citations. Do not make rendering depend
+        // on the optional YouTube Data API key: the API may be unavailable even
+        // when a valid watch URL is present. YouTube itself determines whether
+        // playback is permitted; keep the watch link available as a fallback.
         if (candidates.length) {
-          try {
-            const token = account?.token || await guestToken(false);
-            for (const candidate of candidates) {
-              try {
-                const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id), {
-                  headers: { Authorization: 'Bearer ' + token }
-                });
-                const result = response.ok ? await response.json() : { valid: false };
-                if (result.valid === true) videos.push({ ...candidate, channelTitle: 'YouTube' });
-              } catch {
-                // A failed verification must never produce an unverified iframe.
-              }
-            }
-          } catch {
-            // Keep the text answer usable if verification cannot be reached.
-          }
+          videos = candidates.map((candidate) => ({
+            ...candidate,
+            channelTitle: 'YouTube',
+            watchUrl: 'https://www.youtube.com/watch?v=' + candidate.id
+          }));
         }
       }
-      if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
+      if (!videos.length || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
       section.setAttribute('aria-label', 'Relevant YouTube videos');
