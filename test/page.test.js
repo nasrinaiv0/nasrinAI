@@ -402,7 +402,10 @@ test('audio attachment chips expose manual transcription and keep transcript edi
   assert.match(app, /className = 'chip-transcribe'/);
   assert.match(app, /\/v1\/transcriptions\?name=/);
   assert.match(app, /Transcript added to your message\. Review it before sending\./);
-  assert.match(app, /f\.bytes > 4 \* 1024 \* 1024/);
+  assert.match(app, /async function transcribeAudioChunks/);
+  assert.match(app, /MAX_DURATION_SECONDS = 5 \* 60/);
+  assert.match(app, /'Content-Type': 'audio\/wav'/);
+  assert.match(app, /samplesPerChunk = SAMPLE_RATE \* CHUNK_SECONDS/);
   assert.ok(html.includes('/app.js'));
 });
 
