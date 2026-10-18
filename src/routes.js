@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1539,6 +1539,20 @@ return { body: { sites: await connect.list(caller) } }; }
           'Cross-Origin-Resource-Policy': 'same-origin'
         });
         res.end(preview.bytes);
+      }
+    },
+    {
+      // Search relevant YouTube tutorials. API key stays server-side; callers
+      // must have a chat-scoped session and requests share the existing limiter.
+      method: 'GET',
+      path: '/v1/youtube/search',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!youtubeSearch?.available) throw new HttpError(503, 'youtube_unavailable', 'Video search is not configured.');
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many search requests.');
+        const query = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+        if (query.length > 180) throw new HttpError(400, 'invalid_query', 'Search query is too long.');
+        return await youtubeSearch.search(query);
       }
     },
     {
