@@ -39,7 +39,14 @@ test('PDF OCR hides provider errors and rejects empty extraction', async () => {
   await assert.rejects(() => empty.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'empty_ocr');
 });
 
-test('PDF OCR rejects responses without page markers or with pages out of order', async () => {\n  for (const output_text of ['Text without page markers', '[Page 2]\\nsecond\\n[Page 1]\\nfirst']) {\n    const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text }), { status: 200 }) });\n    await assert.rejects(() => service.extract({ bytes: pdf, name: 'invoice.pdf' }), (e) => e.code === 'invalid_ocr_order');\n  }\n});\n\ntest('PDF OCR rejects a PDF signature embedded after a non-PDF prefix', async () => {
+test('PDF OCR rejects responses without page markers or with pages out of order', async () => {
+  for (const output_text of ['Text without page markers', '[Page 2]\\nsecond\\n[Page 1]\\nfirst']) {
+    const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text }), { status: 200 }) });
+    await assert.rejects(() => service.extract({ bytes: pdf, name: 'invoice.pdf' }), (e) => e.code === 'invalid_ocr_order');
+  }
+});
+
+test('PDF OCR rejects a PDF signature embedded after a non-PDF prefix', async () => {
   const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => { throw new Error('must not call upstream'); } });
   const prefixed = Buffer.concat([Buffer.from('not-a-pdf\n'), pdf]);
   await assert.rejects(() => service.extract({ bytes: prefixed, name: 'invoice.pdf' }), (e) => e.status === 415 && e.code === 'unsupported_document');
