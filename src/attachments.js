@@ -50,7 +50,7 @@ function sniff(bytes) {
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE') return 'audio/wav';
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'AVI ') return 'video/x-msvideo';
   if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'FORM' && bytes.toString('ascii', 8, 12) === 'AIFF') return 'audio/aiff';
-  if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '{\\\\rtf') return 'text/rtf';
+  if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '{\\rtf') return 'text/rtf';
   return null;
 }
 
@@ -379,7 +379,7 @@ export function parseAttachments(list, limits) {
     const sniffed = sniff(bytes);
     if (sniffed === 'application/pdf') return { kind: 'pdf', mime: sniffed, name, data };
     if (sniffed && sniffed.startsWith('image/')) return { kind: 'image', mime: sniffed, name, data };
-    if (sniffed && (/^(?:audio|video)\\//.test(sniffed) || sniffed === 'application/ogg')) {
+    if (sniffed && (/^(?:audio|video)\//.test(sniffed) || sniffed === 'application/ogg')) {
       return { kind: 'text', mime: 'text/plain', name, data, unreadable: true, detectedMime: sniffed,
         text: `[NasrinAI detected this attachment as ${sniffed} (${kb(bytes.length)}). The current attachment pipeline does not yet transcribe audio or extract video frames. Do not claim to have listened to or watched it. Ask for a transcript, captions (.srt/.vtt), or key frames as images until media processing is available.]` };
     }
@@ -388,7 +388,7 @@ export function parseAttachments(list, limits) {
       try {
         const expanded = gunzipSync(bytes, { maxOutputLength: ZIP_TOTAL_BYTES });
         const decoded = decodeText(expanded);
-        if (decoded !== null && !decoded.includes('\\u0000')) return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[Gzip-compressed text, safely decompressed; ${kb(expanded.length)} uncompressed]\\n${decoded}`) };
+        if (decoded !== null && !decoded.includes('\u0000')) return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[Gzip-compressed text, safely decompressed; ${kb(expanded.length)} uncompressed]\n${decoded}`) };
         return unreadable('a gzip file whose decompressed contents are not text');
       } catch { return unreadable('a damaged gzip file or one exceeding the decompression limit'); }
     }
