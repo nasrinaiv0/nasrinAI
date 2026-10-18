@@ -36,8 +36,8 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
   const dbUrl = config.supabaseUrl;
   const dbKey = config.supabaseSecretKey;
   const available = Boolean(clientId && clientSecret && publicUrl && key && dbUrl && dbKey);
-  const mapsApiKey = String(env.GOOGLE_MAPS_API_KEY || '').trim();
-  const mapsAvailable = Boolean(mapsApiKey);
+  // Google Maps fleet routing uses Maps URLs; it does not require a Maps API key.
+  const mapsAvailable = true;
   const stateKey = key ? createHmac('sha256', key).update('google-oauth-state').digest() : null;
 
   async function db(method, path, body) {
@@ -215,17 +215,26 @@ export function createGoogleIntegration({ config, logger = null, fetchImpl = (..
       }
     },
     {
-      name: 'google_maps_places_search',
-      description: 'Search for places and businesses with Google Maps Places Text Search.',
+      name: 'google_maps_fleet_route',
+      description: 'Build a Google Maps driving route for fleet dispatch. Uses the Google Maps directions URL and does not require a Google Maps API key. Include origin, destination, and optional ordered stops.',
       risk: 'read', who: ['user'],
-      parameters: { properties: { query:{type:'string',minLength:1,maxLength:200}, region:{type:'string',maxLength:10} }, required:['query'] },
+      parameters: {
+        properties: {
+          origin: { type:'string', minLength:1, maxLength:300, description:'Fleet vehicle start location or depot.' },
+          destination: { type:'string', minLength:1, maxLength:300, description:'Final delivery or destination.' },
+          waypoints: { type:'array', maxItems:9, items:{type:'string', minLength:1, maxLength:300}, description:'Optional stops in visit order.' },
+          travel_mode: { type:'string', enum:['driving','walking','bicycling','transit'] }
+        },
+        required:['origin','destination']
+      },
       async run(args) {
-        if(!mapsAvailable) throw new HttpError(503,'google_maps_not_configured','Google Maps needs GOOGLE_MAPS_API_KEY in Vercel with Places API enabled.');
-        const query=String(args.query||'').trim().slice(0,200); if(!query) throw new HttpError(400,'invalid_places_query','Enter a place or business to search for.');
-        const params=new URLSearchParams({key:mapsApiKey,query}); if(args.region) params.set('region',String(args.region).slice(0,10));
-        const res=await fetchImpl('https://maps.googleapis.com/maps/api/place/textsearch/json?'+params,{headers:{Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(10000)});
-        const data=await res.json().catch(()=>null); if(!res.ok||!['OK','ZERO_RESULTS'].includes(data?.status)) throw new HttpError(data?.status==='OVER_QUERY_LIMIT'?429:502,'google_maps_search_failed','Google Maps Places search failed. Check API enablement, billing, key restrictions, and quota.');
-        return {source:'Google Maps Places',query,places:(Array.isArray(data?.results)?data.results:[]).slice(0,10).map(p=>({name:String(p.name||'').slice(0,200),address:String(p.formatted_address||'').slice(0,400),place_id:p.place_id||null,rating:typeof p.rating==='number'?p.rating:null,user_ratings_total:typeof p.user_ratings_total==='number'?p.user_ratings_total:null,business_status:p.business_status||null,location:p.geometry?.location||null})),next_page_token:data?.next_page_token||null};
+        const origin=String(args.origin||'').trim().slice(0,300);
+        const destination=String(args.destination||'').trim().slice(0,300);
+        if(!origin || !destination) throw new HttpError(400,'invalid_fleet_route','Enter both a start location and a destination.');
+        const params=new URLSearchParams({api:'1',origin,destination,travelmode:['driving','walking','bicycling','transit'].includes(args.travel_mode)?args.travel_mode:'driving'});
+        const waypoints=Array.isArray(args.waypoints)?args.waypoints.map(v=>String(v||'').trim().slice(0,300)).filter(Boolean).slice(0,9):[];
+        if(waypoints.length) params.set('waypoints',waypoints.join('|'));
+        return {source:'Google Maps fleet routing',mode:params.get('travelmode'),origin,destination,waypoints,url:'https://www.google.com/maps/dir/?'+params.toString(),apiKeyRequired:false};
       }
     },
     {
