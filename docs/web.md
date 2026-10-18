@@ -115,3 +115,10 @@ The integration uses the **YouTube Data API** for public video search and metada
 When a person explicitly asks for real photos or images from the internet, the chat page calls the authenticated `GET /v1/web-images/search?q=…` endpoint and renders up to five Wikimedia Commons results in a responsive gallery. Results include a caption, original file page, creator when available, and the license label. The upstream search is server-side; the browser only loads validated HTTPS thumbnails from `upload.wikimedia.org`. The strict CSP allows that one image host; scripts and API calls remain same-origin. If search fails or yields no usable results, the chat shows a short fallback rather than claiming that inline images are unsupported.
 
 Wikimedia Commons is the initial provider and results can be incomplete for some queries. Image availability, license terms, and attribution should be checked on the linked file page before reuse. Image-search requests share the existing per-IP web/search rate limiter.
+
+
+## Broader automatic discovery
+
+Automatic web search is not limited to words such as "today" or "latest". The chat also recognizes common public-information requests where live sources improve coverage: questions about named public entities, reviews, alternatives, pros and cons, official documentation, peer-reviewed papers, market/industry research, statistics, and comparisons of products, models, tools, platforms, or services. It intentionally leaves ordinary timeless questions (for example, "Explain photosynthesis" or "What is a variable?") to the regular answer path unless the person asks for sources or current information. Capability questions such as "Can NasrinAI browse the internet?" do not trigger a paid search.
+
+This is an intent heuristic, not a guarantee that every question is searchable. Search still runs only when the caller's plan/policy, hourly limit, and spending budget allow it; results without usable source links are rejected rather than shown as verified. Existing source display, provider redaction, usage accounting, and privacy protections remain in effect.
