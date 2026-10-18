@@ -353,7 +353,7 @@ function legacyOfficeText(bytes, name) {
     ppt: { label: 'Legacy PowerPoint presentation', hint: 'Slide text and ordering may be incomplete; verify against the original.' }
   };
   const format = formats[ext];
-  if (!format || bytes.length < 512 || bytes.readUInt32LE(0) !== 0xe11ab1a1 || bytes.readUInt32LE(4) !== 0xe011cfd0) return null;
+  if (!format || bytes.length < 512 || bytes.readUInt32LE(0) !== 0xe011cfd0 || bytes.readUInt32LE(4) !== 0xe11ab1a1) return null;
 
   const candidates = [];
   const addRuns = (text) => {
