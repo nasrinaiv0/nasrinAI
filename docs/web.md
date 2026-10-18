@@ -80,3 +80,22 @@ says the logos and names belong to their sites.
 - **No logo found:** the site's first letter shows instead.
 - **Privacy:** Privacy Notice 2026-10-13d says our server asks websites for
   their icons. Nothing about the person is sent.
+
+
+## Visual web previews
+
+When a researched answer includes source links, the chat can show up to three
+thumbnail images from those pages' Open Graph or Twitter card metadata. Each
+thumbnail links to its cited source; pages without a usable image simply have
+no thumbnail. This does not generate replacement pictures and does not change
+the cited answer.
+
+Images are fetched through `GET /v1/page-preview?url=…` on the server, never
+directly by the browser from third-party hosts. The page and image fetches use
+the SSRF-safe reader, which blocks private/internal addresses and revalidates
+redirects. The endpoint accepts only validated PNG, JPEG, GIF, and WebP bytes,
+rejects SVG and other active content, sets `nosniff` and a sandbox CSP, and
+returns same-origin responses. Results are cached in memory (successes for a
+day, misses for an hour), capped at 300 page entries, and guarded by the
+existing per-IP site-icon request limiter. The UI uses lazy loading, accessible
+alt text, responsive cards, and removes broken thumbnails automatically.
