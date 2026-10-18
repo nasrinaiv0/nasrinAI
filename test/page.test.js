@@ -353,7 +353,9 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /if \(firstCard\) section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer');
   assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
   assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
-  assert.ok(!js.includes('const sourceIds = sourceLinks.map'), 'unverified links must not be embedded when search returns no playable videos');
+  assert.match(js, /Recover\\n      \/\/ YouTube links already present in the assistant answer or its citations/);
+  assert.match(js, /\/v1\/youtube\/verify\\?id=/, 'verify fallback YouTube IDs before embedding them');
+  assert.match(js, /message\.querySelectorAll\('a\\[href\\]'\)/, 'recover YouTube links rendered in the answer');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
