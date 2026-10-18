@@ -297,11 +297,12 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.ok(toggle.includes("b.setAttribute('aria-label', `Show sources and resources (${links.length})`);"));
   assert.ok(toggle.includes("b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);"));
-  assert.match(toggle, /const hosts = \[\.\.\.new Set\(links\.map\(\(l\) => l\.host\)\)\]\.slice\(0, 3\);/);
-  assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
-  assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
-  assert.match(css, /\.src-face \+ \.src-face \{ margin-left: -0\.38rem; \}/);
+  assert.ok(toggle.includes('const hosts = [...new Set(links.map((l) => l.host))].slice(0, 3);'));
+  assert.ok(toggle.includes("b.append(faces, mk('span', 'src-word', 'Sources'));") );
+  assert.ok(!/<img|\\.src = /.test(toggle)); // no outside images (strict CSP, no third-party requests)
+  assert.ok(css.includes('.src-face + .src-face { margin-left: -0.38rem; }'));
 });
 
 test('NCC (Nasrin Client Connect) is in NasrinAI Space for enterprises: contact the team (owner, 2026-10-13)', async () => {
