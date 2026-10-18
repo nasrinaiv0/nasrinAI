@@ -10,7 +10,7 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
       if (!apiKey) throw new HttpError(503, 'ocr_unavailable', 'PDF text extraction is not available right now.');
       if (!Buffer.isBuffer(bytes) || bytes.length === 0) throw new HttpError(400, 'pdf_required', 'Choose a non-empty PDF file.');
       if (bytes.length > MAX_OCR_PDF_BYTES) throw new HttpError(413, 'pdf_too_large', 'Choose a PDF smaller than 6 MB for text extraction.');
-      if (bytes.indexOf(PDF_SIGNATURE) < 0 || !/\.pdf$/i.test(String(name))) {
+      if (bytes.subarray(0, PDF_SIGNATURE.length).compare(PDF_SIGNATURE) !== 0 || !/\.pdf$/i.test(String(name))) {
         throw new HttpError(415, 'unsupported_document', 'Choose a valid PDF document.');
       }
       const fileName = String(name).split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 120) || 'scanned-document.pdf';

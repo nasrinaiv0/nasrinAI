@@ -26,6 +26,7 @@ test('PDF OCR rejects missing key, oversized and invalid files without calling p
   const ocr = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => { called = true; } });
   await assert.rejects(() => ocr.extract({ bytes: Buffer.alloc(MAX_OCR_PDF_BYTES + 1), name: 'x.pdf' }), (e) => e.status === 413);
   await assert.rejects(() => ocr.extract({ bytes: Buffer.from('not a pdf'), name: 'x.pdf' }), (e) => e.status === 415);
+  await assert.rejects(() => ocr.extract({ bytes: Buffer.from('prefix %PDF-1.7 but not at the start'), name: 'x.pdf' }), (e) => e.status === 415);
   await assert.rejects(() => ocr.extract({ bytes: pdf, name: 'x.txt' }), (e) => e.status === 415);
   assert.equal(called, false);
 });
