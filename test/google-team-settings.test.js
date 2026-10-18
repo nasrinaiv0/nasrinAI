@@ -121,3 +121,25 @@ test('Google Maps fleet routing uses Directions URLs without a Maps API key', ()
   assert.doesNotMatch(google, /GOOGLE_MAPS_API_KEY|google_maps_places_search/);
   assert.doesNotMatch(app, /GOOGLE_SEARCH_API_KEY|GOOGLE_SEARCH_ENGINE_ID|GOOGLE_MAPS_API_KEY/);
 });
+
+
+test('Developer tools expose provider Settings and Connect/Disconnect actions without faking connections', () => {
+  assert.match(app, /const DEVELOPER_TOOL_DETAILS/);
+  assert.match(app, /function openDeveloperToolSettings/);
+  assert.match(app, /mk\('summary', 'plugins-settings-btn', 'Actions'\)/);
+  assert.match(app, /mk\('button', 'btn outline small', 'Settings'\)/);
+  assert.match(app, /name === 'GitHub' \? \(github\.connected \? 'Connected'/);
+  assert.match(app, /API connection not configured yet/);
+  for (const provider of ['Vercel', 'Render', 'Supabase', 'Cloudflare']) {
+    assert.ok(app.includes(provider), 'missing developer provider ' + provider);
+  }
+});
+
+test('Developer integration plan requires encrypted multi-account storage and cross-tool memory', () => {
+  const spec = readFileSync(new URL('../docs/developer-integrations-hub.md', import.meta.url), 'utf8');
+  assert.match(spec, /encrypted server-side token storage/);
+  assert.match(spec, /Multi-account support/);
+  assert.match(spec, /developer workspace map/);
+  assert.match(spec, /enforce server-side authorization and RLS/);
+  assert.match(spec, /Never mark a connection successful based on opening a provider dashboard/);
+});
