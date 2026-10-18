@@ -1782,6 +1782,12 @@
         chip.append(icon, name);
       }
       if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+        const language = document.createElement('select');
+        language.className = 'chip-transcribe-language';
+        language.setAttribute('aria-label', 'Transcription language');
+        for (const [value, label] of [['', 'Auto language'], ['en', 'English'], ['fil', 'Filipino'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['ja', 'Japanese'], ['zh', 'Chinese']]) {
+          const option = document.createElement('option'); option.value = value; option.textContent = label; language.appendChild(option);
+        }
         const transcribe = document.createElement('button');
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
@@ -1792,14 +1798,8 @@
         transcribe.addEventListener('click', async () => {
           if (transcribe.disabled) return;
           transcribe.disabled = true;
+          language.disabled = true;
           transcribe.textContent = 'Transcribing…';
-          const language = document.createElement('select');
-          language.className = 'chip-transcribe-language';
-          language.setAttribute('aria-label', 'Transcription language');
-          for (const [value, label] of [['', 'Auto language'], ['en', 'English'], ['fil', 'Filipino'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['ja', 'Japanese'], ['zh', 'Chinese']]) {
-            const option = document.createElement('option'); option.value = value; option.textContent = label; language.appendChild(option);
-          }
-          transcribe.before(language);
           try {
             const token = await credential();
             const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name) + (language.value ? '&language=' + encodeURIComponent(language.value) : ''), {
@@ -1824,7 +1824,7 @@
             language.disabled = false;
           }
         });
-        chip.appendChild(transcribe);
+        chip.append(language, transcribe);
       }
       if (/\.pdf$/i.test(f.name) && f.local instanceof File) {
         const ocr = document.createElement('button');
