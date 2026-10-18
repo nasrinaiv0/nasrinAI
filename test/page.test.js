@@ -363,6 +363,14 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /window\.open\('https:\/\/www\.youtube\.com\/watch\?v='/);
   assert.match(css, /\.youtube-fullscreen-button/);
   assert.match(css, /\.youtube-video-frame:fullscreen/);
+  assert.match(js, /const PERSISTENT_YOUTUBE_KEY = 'nasrin\.persistentYoutubePlayer'/);
+  assert.match(js, /function mountPersistentYouTubePlayer\(video, existingCard = null\)/);
+  assert.match(js, /function restorePersistentYouTubePlayer\(\)/);
+  assert.match(js, /restorePersistentYouTubePlayer\(\);/);
+  assert.match(js, /localStorage\.setItem\(PERSISTENT_YOUTUBE_KEY, JSON\.stringify\(state\)\)/);
+  assert.match(js, /localStorage\.removeItem\(PERSISTENT_YOUTUBE_KEY\)/);
+  assert.match(css, /\.persistent-youtube-player/);
+  assert.match(css, /bottom: calc\(var\(--dock-h/);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
