@@ -447,7 +447,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Also used after a draft answer that admits it lacks current facts (GAP).
     let webTried = false;
     const webAllowed = () => smart && !only && webSearch && !files.length && !links.length && !isPastIntent(typed) && !isConversationMeta(typed);
-    async function webAnswer() {
+    async function webAnswer({ stream = true } = {}) {
       webTried = true;
       if (!(await limiter.web(caller))) return null;
       stage('web');
@@ -475,7 +475,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           const found = await webSearch.search({
             system: webSystem,
             messages: webMessages,
-            onText: live ? (delta) => live.push(delta) : null
+            onText: live && stream ? (delta) => live.push(delta) : null
           });
           const hasUsage = Number.isFinite(found.inputTokens) && found.inputTokens > 0
             && Number.isFinite(found.outputTokens) && found.outputTokens >= 0;
@@ -702,8 +702,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       }
       // The draft says it lacks current facts: search instead of showing that.
       if (!usedTools && !webTried && webAllowed() && GAP.test(reply)) {
-        live?.reset();   // the page drops the draft; `done` carries the final text either way
-        const found = await webAnswer();
+        // Keep the draft visible while the evidence-backed replacement is fetched.
+        // Do not stream the replacement into the same bubble; `done` swaps in the final reply atomically.
+        const found = await webAnswer({ stream: false });
         if (found) return finish(found);
       }
       if (!usedTools) {
