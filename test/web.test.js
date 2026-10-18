@@ -232,6 +232,26 @@ test('YouTube search returns no embeds if embed permission cannot be verified', 
   assert.deepEqual(await youtube.search('tutorial'), { available: true, videos: [] });
 });
 
+test('persisted YouTube videos are restored only when still embeddable', async () => {
+  const requests = [];
+  const youtube = createYouTubeSearch({
+    apiKey: 'test-key',
+    fetchImpl: async (url) => {
+      const requested = new URL(url);
+      requests.push(requested);
+      return Response.json({ items: [
+        { id: 'abcdefghijk', status: { embeddable: true, privacyStatus: 'public' } }
+      ] });
+    }
+  });
+  assert.equal(await youtube.verify('abcdefghijk'), true);
+  assert.equal(requests[0].pathname.endsWith('/videos'), true);
+  assert.equal(requests[0].searchParams.get('part'), 'status');
+  assert.equal(requests[0].searchParams.get('id'), 'abcdefghijk');
+  assert.equal(await youtube.verify('not-a-valid-id'), false);
+  assert.equal(requests.length, 1, 'invalid IDs never reach YouTube');
+});
+
 test('YouTube search is disabled without an API key and handles upstream failures gracefully', async () => {
   const disabled = createYouTubeSearch({ apiKey: '' });
   assert.equal(disabled.available, false);
