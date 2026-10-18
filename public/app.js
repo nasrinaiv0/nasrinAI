@@ -3360,11 +3360,36 @@
     panel.dataset.videoId = state.id;
   }
 
+  let persistentYouTubeRestore = null;
   function restorePersistentYouTubePlayer() {
-    try {
-      const state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
-      if (state && /^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) mountPersistentYouTubePlayer(state);
-    } catch {}
+    if (persistentYouTubeRestore) return persistentYouTubeRestore;
+    persistentYouTubeRestore = (async () => {
+      let state;
+      try { state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null'); } catch { return; }
+      if (!state || !/^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) return;
+      const mounted = document.getElementById('persistent-youtube-player');
+      if (mounted?.dataset.videoId === state.id) return;
+      try {
+        const token = account?.token || await guestToken(false);
+        const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(state.id), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const result = response.ok ? await response.json() : { valid: false };
+        // A stored player can outlive a video or its embed permission. Never
+        // restore a known-unavailable iframe after refresh or account changes.
+        if (result.valid !== true) {
+          const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+          if (latest?.id === state.id) localStorage.removeItem(PERSISTENT_YOUTUBE_KEY);
+          if (mounted?.dataset.videoId === state.id) mounted.remove();
+          return;
+        }
+        const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+        if (latest?.id === state.id) mountPersistentYouTubePlayer(state);
+      } catch {
+        // Keep the saved state for a later retry, but don't show an unverified iframe.
+      }
+    })().finally(() => { persistentYouTubeRestore = null; });
+    return persistentYouTubeRestore;
   }
 
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
