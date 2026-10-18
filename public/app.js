@@ -3201,12 +3201,12 @@
   function needsYouTubeVideos(query) {
     const q = String(query || '').trim();
     if (q.length < 5 || q.length > 600) return false;
-    return /\b(?:youtube|video tutorial|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|can i|does|can you)|learn how to|demonstration|demo|directions? to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
+    return /\b(?:youtube|video tutorial|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|can i|does|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
   }
 
   async function renderYouTubeVideos(message, userQuery) {
     if (message.querySelector('.youtube-results')) return;
-    const nav = /\b(?:directions?|navigate|route|walking|driving|how to get to|how do i get to)\b/i.test(userQuery);
+    const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
     try {
       const token = account?.token || await guestToken(false);
