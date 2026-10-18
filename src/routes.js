@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1553,6 +1553,20 @@ return { body: { sites: await connect.list(caller) } }; }
         const query = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
         if (query.length > 180) throw new HttpError(400, 'invalid_query', 'Search query is too long.');
         return await youtubeSearch.search(query);
+      }
+    },
+    {
+      // Search public Wikimedia Commons photos. Image URLs are limited to Wikimedia's
+      // upload host and every result includes its source page and license metadata.
+      method: 'GET',
+      path: '/v1/images/search',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!imageSearch) throw new HttpError(503, 'image_search_unavailable', 'Internet image search is not available right now.');
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many search requests.');
+        const query = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+        if (query.length > 180) throw new HttpError(400, 'invalid_query', 'Search query is too long.');
+        return await imageSearch.search(query);
       }
     },
     {
