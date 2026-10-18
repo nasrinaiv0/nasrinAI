@@ -433,7 +433,13 @@ export function parseAttachments(list, limits) {
       });
       return result;
     }
-    if (sniffed === 'application/x-ole') return unreadable('an old Microsoft Office file; saving it as .docx, .xlsx or .pptx makes it readable');
+    if (sniffed === 'application/x-ole') {
+      const extension = name.toLowerCase().split('.').pop();
+      const format = ({ doc: 'Word', xls: 'Excel', ppt: 'PowerPoint' })[extension];
+      return unreadable(format
+        ? `a legacy ${format} binary document (.${extension}); this server does not yet have a safe legacy Office parser. Open it in Office or LibreOffice and save/export it as .${extension === 'doc' ? 'docx' : extension === 'xls' ? 'xlsx' : 'pptx'} or PDF, then upload the converted file`
+        : 'a legacy Microsoft Office binary file; save/export it as .docx, .xlsx, .pptx or PDF before uploading');
+    }
     if (sniffed === 'text/rtf') {
       const text = rtfText(bytes.toString('latin1'));
       return text ? { kind: 'text', mime: 'text/plain', name, data, text: cut('[RTF document, converted to text]\n' + text) } : unreadable('an RTF file with no readable text');
