@@ -3209,9 +3209,9 @@
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
     try {
-      const token = account?.token || await guestToken(false);
       let videos = [];
       try {
+        const token = account?.token || await guestToken(false);
         const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
           headers: { Authorization: 'Bearer ' + token }
         });
