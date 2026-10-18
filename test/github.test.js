@@ -684,8 +684,8 @@ test('coding chat shows a visible confirmation control for prepared repository f
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
-  assert.match(js, /github\\.connected \\? 'Confirm change' : 'Connect GitHub to confirm'/);
-  assert.match(js, /function openPr\\(sources, text\\)/);
-  assert.match(js, /body: JSON\\.stringify\\(\\{ confirm: true, repo,/);
-  assert.match(css, /body\\.coding-mode \\.pr-open \\{ display: inline-flex; \\}/);
+  assert.match(js, /github\.connected \? 'Confirm change' : 'Connect GitHub to confirm'/);
+  assert.match(js, /function openPr\(sources, text\)/);
+  assert.match(js, /body: JSON\.stringify\(\{ confirm: true, repo,/);
+  assert.match(css, /body\.coding-mode \.pr-open \{ display: inline-flex; \}/);
 });
