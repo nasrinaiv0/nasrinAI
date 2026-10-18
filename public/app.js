@@ -3602,13 +3602,16 @@
     const frameWrap = document.createElement('div');
     frameWrap.className = 'youtube-video-frame';
     const frame = document.createElement('iframe');
-    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
     frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
     frame.loading = 'lazy';
+    // Set playback permissions and referrer policy BEFORE src. Assigning src
+    // first can start navigation immediately, before Safari applies the policy;
+    // YouTube may then reject the embed when it receives no usable referrer.
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     frame.allowFullscreen = true;
-    frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+    frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0';
     frameWrap.appendChild(frame);
     const fullscreen = document.createElement('button');
     fullscreen.type = 'button';
