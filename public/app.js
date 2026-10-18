@@ -28,6 +28,40 @@
   if (window.ResizeObserver) new ResizeObserver(fitDock).observe(dock);
   fitDock();
   const welcome = $('welcome');
+  // Dedicated animated welcome for an empty coding chat. It stays in the log
+  // across clearScreen(), but CSS hides it outside coding mode or once a turn
+  // has started.
+  const codingEmptyState = document.createElement('section');
+  codingEmptyState.className = 'coding-empty-state';
+  codingEmptyState.setAttribute('aria-label', 'Coding chat welcome');
+  const makeCodingWelcomeNode = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const codingArt = makeCodingWelcomeNode('div', 'coding-empty-art');
+  codingArt.setAttribute('aria-hidden', 'true');
+  codingArt.append(
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-one'),
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-two'),
+    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-one', '✳'),
+    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-two', '＋'),
+    makeCodingWelcomeNode('span', 'code-logo coding-empty-logo'),
+    makeCodingWelcomeNode('span', 'coding-empty-cursor')
+  );
+  const codingTitle = makeCodingWelcomeNode('h1', 'coding-empty-title', 'What are we building today?');
+  const codingSubtitle = makeCodingWelcomeNode('p', 'coding-empty-subtitle', 'Your next idea starts here.');
+  const codingWords = makeCodingWelcomeNode('div', 'coding-empty-words');
+  codingWords.setAttribute('aria-label', 'Websites, apps, tools, and more');
+  const codingWordTrack = makeCodingWelcomeNode('div', 'coding-empty-word-track');
+  codingWordTrack.setAttribute('aria-hidden', 'true');
+  for (const word of ['A website', 'An app', 'A smart tool', 'Something amazing', 'A website']) {
+    codingWordTrack.appendChild(makeCodingWelcomeNode('span', '', word));
+  }
+  codingWords.appendChild(codingWordTrack);
+  codingEmptyState.append(codingArt, codingTitle, codingSubtitle, codingWords);
+  log.appendChild(codingEmptyState);
   const hero = $('hero');
   const form = $('composer');
   const input = $('input');
@@ -1630,7 +1664,7 @@
     // Leaving this chat: a reply still being written is stopped, an edit dropped.
     if (turn) turn.ctrl.abort();
     if (editing) cancelEdit();
-    for (const el of [...log.children]) if (el !== welcome) el.remove();
+    for (const el of [...log.children]) if (el !== welcome && el !== codingEmptyState) el.remove();
     welcome.hidden = false;
     document.body.classList.remove('has-chat');
   }
