@@ -62,3 +62,12 @@ test('Every new Google catalog item has a defined glyph', () => {
   const glyphs = app.slice(app.indexOf('const PLUGIN_GLYPHS'), app.indexOf('const MORE_PLUGINS'));
   for (const glyph of ['video:', 'note:', 'search:', 'map:']) assert.ok(glyphs.includes(glyph), 'missing plugin glyph: ' + glyph);
 });
+
+
+test('Google integrations are grouped for all users, separate from Developer tools', () => {
+  assert.match(html, /id="pluginsGoogleLabel">Google<\/p>/);
+  assert.match(html, /id="pluginsGoogle"/);
+  assert.match(app, /\$\('pluginsGoogle'\)\.appendChild\(card\)/);
+  assert.match(app, /connected \? \$\('pluginsConnected'\) : \$\('pluginsGoogle'\)/);
+  assert.doesNotMatch(app.slice(app.indexOf('function makeGooglePlugin'), app.indexOf('async function connectGoogle')), /\$\('pluginsDev'\)\.appendChild\(card\)/);
+});
