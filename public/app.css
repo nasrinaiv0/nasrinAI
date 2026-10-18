@@ -2699,11 +2699,11 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugins-more { margin-top: 0.4rem; }
 .plugins-group { margin: 1rem 0.25rem 0.35rem; color: var(--ink-3); font: 500 0.74rem/1.2 var(--sans); }
 .plugins-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 1rem; overflow: hidden; }
-.plugins-item { display: flex; align-items: center; gap: 0.7rem; min-height: 2.9rem; padding: 0 0.9rem; color: var(--ink); font-size: 0.92rem; }
-.plugins-item + .plugins-item { border-top: 1px solid var(--line); }
-.plugins-glyph { flex: none; width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.plugins-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plugins-soon { flex: none; padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--paper); color: var(--ink-3); font-size: 0.72rem; }
+.plugins-item { display: grid; grid-template-columns: 1.35rem minmax(0, 1fr) auto auto; align-items: center; column-gap: 0.75rem; min-height: 3.5rem; padding: 0.4rem 0.9rem; color: var(--ink); font-size: 0.92rem; }
+.plugins-item + .plugins-item { border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent); }
+.plugins-glyph { display: block; width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.plugins-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.plugins-soon { display: inline-flex; align-items: center; justify-content: center; min-width: 6.1rem; min-height: 1.8rem; padding: 0.2rem 0.65rem; border-radius: 999px; background: var(--paper); color: var(--ink-3); font-size: 0.72rem; white-space: nowrap; }
 .plugins-settings-btn { flex: none; min-height: 2rem; padding: 0.35rem 0.55rem; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink-2); font: 500 0.78rem/1 var(--sans); cursor: pointer; }
 .plugins-settings-btn:hover, .plugins-settings-btn:focus-visible { background: var(--paper); color: var(--ink); outline-offset: 2px; }
 .plugins-item .plugins-soon { margin-left: auto; }
