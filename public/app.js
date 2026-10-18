@@ -3225,7 +3225,7 @@
       }
       if (!videos.length) {
         const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
-        const idPattern = /(?:youtube\\.com\\/(?:watch\\?[^\\s#]*?v=|embed\\/)|youtu\\.be\\/)([A-Za-z0-9_-]{11})/g;
+        const idPattern = /(?:youtube\.com\/(?:watch\?[^\s#]*?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/g;
         const ids = [...answerText.matchAll(idPattern)].map((match) => match[1]).filter((id, index, all) => all.indexOf(id) === index).slice(0, 3);
         videos = ids.map((id) => ({ id, title: 'YouTube tutorial', channelTitle: 'YouTube' }));
       }
