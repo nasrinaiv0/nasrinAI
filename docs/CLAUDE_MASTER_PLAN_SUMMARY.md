@@ -136,18 +136,17 @@ Changes in this follow-up:
 
 ## Plugin settings layout cleanup (2026-10-18)
 - Removed Google Meet, Google Keep and Google Maps from the lower generic catalog because their per-app connection cards already render in the upper plugin list. The independent connection cards and their status/actions remain intact.
-- Kept Google Search in the Google catalog because it is a distinct entry and is not one of those existing connection cards.
+- Removed Google Search from the generic catalog, as requested, and kept Google integrations in their dedicated connection cards.
 - Added a separate **Developer tools** group with GitHub, Vercel, Render, Supabase and Cloudflare, each opening its official dashboard in a new tab.
 - The separate GitHub coding connection card and its OAuth/account controls remain unchanged. The developer-catalog GitHub row links to GitHub; it does not claim Vercel, Render, Supabase or Cloudflare are connected to NasrinAI.
-- Preserved Microsoft, Design, and Social & messaging catalog entries.
+- Grouped the remaining catalog entries under Microsoft 365, Design & creativity, and Social & messaging.
 - Validation is pending: run the targeted and full tests in CI, then visually verify the layout in iPhone Safari before merging or deploying.
 
 
-## Update — plugin read/write capability expansion (2026-10-18)
-
-- Added `src/google/read-write.js` and registered Gmail/Calendar read-write tools in `src/main.js`.
-- Gmail supports reading a selected message's full text, sending email, and marking messages read/unread. Calendar supports updating and deleting existing events in addition to existing list/create actions.
-- Each write action is marked `risk: 'write'` and must pass the existing one-time server-side confirmation gate. The tool checks the actual per-user/per-tenant OAuth scopes before calling Google and fails closed when permissions are missing.
-- The Gmail read/write OAuth request includes `gmail.readonly`, `gmail.modify`, and `gmail.send`; Calendar mutations require `calendar.events`.
-- Regression tests cover registration, provider payloads, missing scopes, deletion method, and invalid event-time input. Catalog entries alone must never imply a provider/action is implemented.
-- Google OAuth verification and production configuration remain separate deployment requirements. Validate CI on the current PR head before merge.
+## Plugin read/write capabilities (PR #386, 2026-10-18)
+- Added Gmail message reading, sending, and read/unread status updates, plus Google Calendar event updates and deletion.
+- All external mutations use the existing server-side one-time confirmation flow; model output cannot approve its own action.
+- Each operation checks the current user's actual Google OAuth scopes before calling the provider. Missing or insufficient scopes fail closed; tokens remain server-side.
+- Added regression coverage for tool registration, Gmail send payloads, denied scopes, Calendar deletion, and incomplete event-time validation.
+- Catalog-only providers remain clearly marked as unsupported/coming soon until provider-specific functionality is implemented.
+- Local validation: `npm test` passed 687 tests with 1 skipped. CI must also pass before merge; production OAuth verification and configuration remain separate requirements.
