@@ -66,7 +66,7 @@ export function createOpenAISpeech({ apiKey, model = 'gpt-4o-mini-tts', fastMode
     provider: 'openai',
     mime: responseFormat === 'wav' ? 'audio/wav' : responseFormat === 'pcm' ? 'audio/pcm' : 'audio/mpeg',
     voices: VOICES,
-    defaultVoice: 'coral',
+    defaultVoice: 'cedar',
     model,
     // The quick model used while talking (empty: always the normal model).
     fastModel: quick,
@@ -212,7 +212,7 @@ export function createResponsiveSpeech({ openai, gemini, timeoutMs = 3000 }) {
   const engines = [openai, gemini].filter(Boolean);
   const voices = openai?.voices?.length ? openai.voices : gemini?.voices || [];
   const voiceIds = new Set(voices.map((v) => v.id));
-  const defaultVoice = openai?.defaultVoice || gemini?.defaultVoice || 'Kore';
+  const defaultVoice = openai?.defaultVoice || gemini?.defaultVoice || 'Cedar';
 
   async function attempt(engine, text, voice) {
     const mappedVoice = engine.provider === 'gemini'
