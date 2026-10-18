@@ -2507,6 +2507,41 @@
     return runTurn({ text, files, editId: editing ? editing.id : null, editEl: editing ? editing.el : null });
   }
 
+
+  function showLocationPermissionCard() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div'); overlay.className = 'location-consent-overlay';
+      const card = document.createElement('section'); card.className = 'location-consent-card';
+      card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+      card.setAttribute('aria-labelledby','locationConsentTitle'); card.setAttribute('aria-describedby','locationConsentDescription');
+      const header = document.createElement('div'); header.className = 'location-consent-header';
+      const iconBox = document.createElement('div'); iconBox.className = 'location-consent-icon'; iconBox.setAttribute('aria-hidden','true');
+      iconBox.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.7"/></svg>';
+      const copy = document.createElement('div'); copy.className = 'location-consent-copy';
+      const title = document.createElement('h2'); title.id = 'locationConsentTitle'; title.textContent = 'Allow NasrinAI to access your location?';
+      const desc = document.createElement('p'); desc.id = 'locationConsentDescription'; desc.textContent = 'Your location helps provide local weather, nearby places, and directions.';
+      copy.append(title,desc); header.append(iconBox,copy);
+      const divider = document.createElement('div'); divider.className = 'location-consent-divider';
+      const actions = document.createElement('div'); actions.className = 'location-consent-actions';
+      const choice = (label,hint,extra) => { const b=document.createElement('button'); b.type='button'; b.className='location-consent-choice'+(extra?' '+extra:''); const a=document.createElement('span'); a.textContent=label; const h=document.createElement('span'); h.textContent=hint; b.append(a,h); return b; };
+      const cancel=choice('Cancel','Continue without location',''), allow=choice('Allow location','Then request browser permission','location-consent-allow');
+      actions.append(cancel,allow); card.append(header,divider,actions); overlay.append(card); document.body.append(overlay);
+      const finish = (value) => { overlay.remove(); document.removeEventListener('keydown', keydown); resolve(value); };
+      const keydown = (event) => { if(event.key==='Escape') finish(false); };
+      cancel.addEventListener('click',()=>finish(false)); allow.addEventListener('click',()=>finish(true));
+      overlay.addEventListener('click',(event)=>{if(event.target===overlay)finish(false);});
+      document.addEventListener('keydown',keydown); allow.focus();
+    });
+  }
+  function getDeviceLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation || !window.isSecureContext) return resolve(null);
+      let settled=false; const finish=(value)=>{if(!settled){settled=true;resolve(value);}};
+      navigator.geolocation.getCurrentPosition((p)=>finish({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Number.isFinite(p.coords.accuracy)?p.coords.accuracy:null}),()=>finish(null),{enableHighAccuracy:false,maximumAge:120000,timeout:5000});
+      setTimeout(()=>finish(null),5500);
+    });
+  }
+
   // One reply: a new message, Regenerate (replace: the old answer), Retry
   // (regenerate after a failure), or an edited last message.
   // spoken: this turn is part of a voice conversation (short, spoken-style reply).
@@ -2514,6 +2549,11 @@
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
   async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+    const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
+    if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
+      const consent = await showLocationPermissionCard();
+      if (consent) locationContext = await getDeviceLocation();
+    }
     busy = true;
     notice.textContent = '';
     stopSpeaking();
