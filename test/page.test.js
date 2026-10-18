@@ -350,7 +350,7 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
   assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
-  assert.doesNotMatch(js, /const sourceIds = sourceLinks\\.map/, 'unverified links must not be embedded when search returns no playable videos');
+  assert.ok(!js.includes('const sourceIds = sourceLinks.map'), 'unverified links must not be embedded when search returns no playable videos');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
@@ -372,8 +372,8 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(css, /\.persistent-youtube-player/);
   assert.match(css, /bottom: calc\(var\(--dock-h/);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
-  assert.match(routes, /path: '\\/v1\\/youtube\\/verify'/);
-  assert.match(js, /\\/v1\\/youtube\\/verify\\?id=/);
+  assert.ok(routes.includes("path: '/v1/youtube/verify'"));
+  assert.ok(js.includes("/v1/youtube/verify?id="));
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
 });
