@@ -229,15 +229,15 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
   assert.match(css, /\.msg\.assistant\.is-new \{ animation: fade-in 360ms/);
 });
 
-test('web sources are visible by default with an accessible toggle beside reply actions (owner, 2026-10-18)', async () => {
+test('web sources stay behind an accessible Sources and Resources toggle by default (owner, 2026-10-18)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
   assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /list\.hidden = false;/);
+  assert.match(toggle, /list\.hidden = true;/);
   assert.match(toggle, /const heading = mk\('p', 'reply-sources-heading', 'Sources & Resources'\);/);
-  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'true'\);/);
+  assert.match(toggle, /b\.setAttribute\('aria-expanded', 'false'\);/);
   assert.match(toggle, /heading\.hidden = !open;/);
   assert.match(toggle, /a\.rel = 'noopener noreferrer';/);
   assert.doesNotMatch(toggle, /innerHTML/);
