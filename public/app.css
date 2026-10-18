@@ -2223,6 +2223,10 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
   .bar { padding-inline: 1.5rem; }
   .log { padding-inline: 1.75rem; }
   .dock { left: 15.5rem; right: 0; width: auto; max-width: var(--column); padding-inline: 1.5rem; }
+  /* On the desktop welcome screen, lift the composer clear of the bottom edge.
+     Once a conversation starts, return it to the normal chat dock position. */
+  body:not(.has-chat) .dock .composer { transform: translateY(-40px); }
+  body.has-chat .dock .composer { transform: translateY(16px); }
   body:not(.has-chat) .brand { opacity: 1; transform: none; pointer-events: auto; }
   body:not(.has-chat) #newChat { display: inline-flex; }
 }
