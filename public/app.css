@@ -2223,6 +2223,13 @@ html[data-theme="dark"] #pageSpace .space-cloud-logo { background-color: #09090B
   .bar { padding-inline: 1.5rem; }
   .log { padding-inline: 1.75rem; }
   .dock { left: 15.5rem; right: 0; width: auto; max-width: var(--column); padding-inline: 1.5rem; }
+  /* Desktop composer spacing is measured from the viewport bottom.
+     Hide the prewritten welcome prompts; keep the welcome hero intact. */
+  body:not(.has-chat) .dock { bottom: 250px; }
+  body.has-chat .dock { bottom: 100px; }
+  body:not(.has-chat) .starters { display: none; }
+  body:not(.has-chat) .composer { transform: none; }
+  body.has-chat .composer { transform: none; }
   body:not(.has-chat) .brand { opacity: 1; transform: none; pointer-events: auto; }
   body:not(.has-chat) #newChat { display: inline-flex; }
 }
