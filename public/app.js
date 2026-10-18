@@ -1288,7 +1288,8 @@
       el.appendChild(body);
       // Consent-based location CTA, rendered inside a location-related assistant reply.
       if (/(?:cannot|can't|unable to|do not|don't)[\\s\\S]{0,140}(?:gps|current|device)?\\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
-        hasLocationCta = true;        const card = document.createElement('div');
+        hasLocationCta = true;
+        const card = document.createElement('div');
         card.className = 'location-cta';
         const copy = document.createElement('p');
         copy.className = 'location-cta-copy';
