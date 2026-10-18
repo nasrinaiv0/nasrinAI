@@ -3237,7 +3237,34 @@
         frame.referrerPolicy = 'strict-origin-when-cross-origin';
         frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         frame.allowFullscreen = true;
+        frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
         frameWrap.appendChild(frame);
+        const fullscreen = document.createElement('button');
+        fullscreen.type = 'button';
+        fullscreen.className = 'youtube-fullscreen-button';
+        fullscreen.setAttribute('aria-label', 'Play video fullscreen');
+        fullscreen.title = 'Play video fullscreen';
+        fullscreen.textContent = '⛶ Fullscreen';
+        fullscreen.addEventListener('click', async () => {
+          try {
+            if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
+              await document.exitFullscreen();
+              return;
+            }
+            if (typeof frameWrap.requestFullscreen === 'function') {
+              await frameWrap.requestFullscreen();
+            } else if (typeof frame.requestFullscreen === 'function') {
+              await frame.requestFullscreen();
+            } else {
+              // Older iOS versions may not expose the fullscreen API for iframes.
+              // Keep the action useful by opening the same video in YouTube.
+              window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+            }
+          } catch {
+            window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+          }
+        });
+        frameWrap.appendChild(fullscreen);
         const details = document.createElement('div');
         details.className = 'youtube-video-details';
         const title = document.createElement('p');
