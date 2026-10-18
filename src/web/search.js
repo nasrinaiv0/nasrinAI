@@ -128,4 +128,12 @@ export const GAP = /\b(check the (web|internet)|search the (web|internet)|browse
 // "Can you browse the internet?" asks about NasrinAI itself: answered from the
 // prompt, without spending a search.
 const CAPABILITY = /^\s*(can|could|do|are|will) (you|nasrin(ai)?) (be able to |able to )?(browse|search|access|use|check|go on|surf)\b[^.!]*\b(internet|web|online)\b[^.!]*\??\s*$/i;
-export const needsWeb = (text) => FRESH.test(String(text || '')) && !CAPABILITY.test(String(text || ''));
+// Broaden automatic discovery beyond explicitly time-sensitive phrasing. These patterns
+// target requests where current, source-backed coverage is usually useful, while
+// keeping ordinary timeless explanations (for example, "Explain photosynthesis") local.
+const PUBLIC_ENTITY_QUESTION = /\\b(?:what|who|where|when)\\s+(?:is|are|was|were)\\s+(?:the\\s+)?[A-Z][\\w.-]+(?:\\s+[A-Z][\\w.-]+){0,4}/;
+const WEB_RESEARCH_INTENT = /\\b(?:who is|who was|reviews? of|user reviews|pros and cons of|alternatives to|official documentation for|official docs for|academic papers? on|peer[- ]reviewed|market research|industry report|statistics for|data on|compare .{1,100}\\b(?:products?|models?|services?|tools?|providers?|platforms?|companies|options?|solutions?)\\b|best .{1,80}\\b(?:apps?|tools?|services?|products?|platforms?|models?|providers?|places?|restaurants?|laptops?|phones?|software)\\b)\\b/i;
+export const needsWeb = (text) => {
+  const value = String(text || '');
+  return !CAPABILITY.test(value) && (FRESH.test(value) || WEB_RESEARCH_INTENT.test(value) || PUBLIC_ENTITY_QUESTION.test(value));
+};
