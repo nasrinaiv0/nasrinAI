@@ -6218,10 +6218,9 @@
     detailsToggle.append(detailsLabel, detailsIcon);
 
     const weeklyAllowance = Number(p.weekly_tokens);
-    if (p.id !== 'free' && Number.isSafeInteger(weeklyAllowance) && weeklyAllowance > 0) {
-      const allowanceFeature = weeklyAllowance.toLocaleString() + ' tokens per week';
-      details.features = [allowanceFeature, ...details.features.filter((feature) => !/tokens per week/i.test(feature))];
-    }
+    const planFeatures = p.id !== 'free' && Number.isSafeInteger(weeklyAllowance) && weeklyAllowance > 0
+      ? [weeklyAllowance.toLocaleString() + ' tokens per week', ...details.features.filter((feature) => !/tokens per week/i.test(feature))]
+      : details.features;
 
     const detailsPanel = document.createElement('div');
     detailsPanel.className = 'plan-details';
@@ -6230,7 +6229,7 @@
     summary.className = 'plan-details-summary';
     summary.textContent = details.summary;
     const list = document.createElement('ul');
-    for (const feature of details.features) {
+    for (const feature of planFeatures) {
       const li = document.createElement('li');
       li.textContent = feature;
       list.appendChild(li);
