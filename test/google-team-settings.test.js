@@ -70,7 +70,7 @@ test('Gmail, Calendar, and Drive have independent OAuth status and disconnect se
   assert.match(google, /DRIVE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/drive\.readonly'/);
   assert.match(google, /\['drive','meet','keep'\]\.includes\(state\.s\) \? state\.s/);
   assert.match(google, /tokenFor\(w, 'drive'\)/);
-  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','search','maps'\]/);
+  assert.match(app, /await Promise\.all\(\['gmail','calendar','drive','meet','keep','maps'\]/);
   assert.match(app, /'Google Drive': \{ service: 'drive', readService: 'drive', supported: true/);
   assert.match(app, /disconnectGoogle\(service\)/);
 });
