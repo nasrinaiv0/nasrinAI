@@ -421,8 +421,8 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
   assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
   const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
   assert.doesNotMatch(catalog, /Google (?:Search|Meet|Keep|Maps)/);
-  assert.match(catalog, /\\['Microsoft 365'/);
-  assert.match(catalog, /\\['Design & creativity'/);
+  assert.match(catalog, /\['Microsoft 365'/);
+  assert.match(catalog, /\['Design & creativity'/);
   assert.match(js, /makeGooglePlugin\('gmail', 'Gmail', 'mail'\)/);
   assert.match(js, /makeGooglePlugin\('calendar', 'Google Calendar', 'calendar'\)/);
   assert.match(js, /api\('\/v1\/google\/status\?service=' \+ service\)/);
