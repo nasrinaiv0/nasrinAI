@@ -3617,26 +3617,6 @@
     frame.setAttribute('playsinline', '');
     frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
     frameWrap.appendChild(frame);
-    const fullscreen = document.createElement('button');
-    fullscreen.type = 'button';
-    fullscreen.className = 'youtube-fullscreen-button';
-    fullscreen.setAttribute('aria-label', 'Play video fullscreen');
-    fullscreen.title = 'Play video fullscreen';
-    fullscreen.textContent = '⛶ Fullscreen';
-    fullscreen.addEventListener('click', async () => {
-      try {
-        if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
-          await document.exitFullscreen();
-          return;
-        }
-        if (typeof frameWrap.requestFullscreen === 'function') await frameWrap.requestFullscreen();
-        else if (typeof frame.requestFullscreen === 'function') await frame.requestFullscreen();
-        else window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-      } catch {
-        window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-      }
-    });
-    frameWrap.appendChild(fullscreen);
     const details = document.createElement('div');
     details.className = 'youtube-video-details';
     const title = document.createElement('p');
