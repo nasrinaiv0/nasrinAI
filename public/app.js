@@ -7167,10 +7167,19 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
+    // Only additional integrations belong in this catalog. Implemented Google
+    // apps already appear in their connection cards above.
+    ['Google', [['Google Search', 'search']]],
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
     ['Design', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
+  ];
+  const DEVELOPER_PLUGINS = [
+    ['GitHub', 'cloud', 'https://github.com'],
+    ['Vercel', 'cloud', 'https://vercel.com'],
+    ['Render', 'cloud', 'https://render.com'],
+    ['Supabase', 'cloud', 'https://supabase.com'],
+    ['Cloudflare', 'cloud', 'https://cloudflare.com']
   ];
   // Each catalog entry has a Settings action. Pins are a local, account-scoped
   // display preference only; they never imply a connection or grant permissions.
@@ -7333,10 +7342,41 @@
     $('githubTitle').lastChild.textContent = 'Plugins';
     $('githubClose').focus();
   });
+  function developerToolCard(name, glyph, website) {
+    const li = mk('li', 'plugins-item developer-tool-item');
+    li.dataset.pluginName = name;
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNs, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'plugins-glyph');
+    for (const [tag, attrs] of PLUGIN_GLYPHS[glyph]) {
+      const el = document.createElementNS(svgNs, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      svg.appendChild(el);
+    }
+    li.appendChild(svg);
+    li.appendChild(mk('span', 'plugins-name', name));
+    const state = name === 'GitHub'
+      ? (github.connected ? 'Connected' : github.available ? 'Available' : 'Not configured')
+      : 'Dashboard';
+    li.appendChild(mk('span', 'plugins-soon', state));
+    const open = mk('a', 'plugins-settings-btn', 'Open');
+    open.href = website;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.setAttribute('aria-label', 'Open ' + name + ' dashboard');
+    li.appendChild(open);
+    return li;
+  }
   {
     const box = $('pluginsMore');
     const svgNs = 'http://www.w3.org/2000/svg';
     const pins = readPluginCatalogPins();
+    box.appendChild(mk('p', 'plugins-group developer-tools-heading', 'Developer tools'));
+    const devList = mk('ul', 'plugins-list developer-tools-list');
+    for (const [name, glyph, website] of DEVELOPER_PLUGINS) devList.appendChild(developerToolCard(name, glyph, website));
+    box.appendChild(devList);
     for (const [group, items] of MORE_PLUGINS) {
       box.appendChild(mk('p', 'plugins-group', group));
       const ul = mk('ul', 'plugins-list');
