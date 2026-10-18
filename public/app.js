@@ -2551,8 +2551,9 @@
     return new Promise((resolve) => {
       if (!navigator.geolocation || !window.isSecureContext) return resolve(null);
       let settled=false; const finish=(value)=>{if(!settled){settled=true;resolve(value);}};
-      navigator.geolocation.getCurrentPosition((p)=>finish({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Number.isFinite(p.coords.accuracy)?p.coords.accuracy:null}),()=>finish(null),{enableHighAccuracy:false,maximumAge:120000,timeout:5000});
-      setTimeout(()=>finish(null),5500);
+      navigator.geolocation.getCurrentPosition((p)=>finish({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Number.isFinite(p.coords.accuracy)?p.coords.accuracy:null}),()=>finish(null),{enableHighAccuracy:false,maximumAge:120000,timeout:15000});
+      // Allow time for the native browser permission prompt before falling back.
+      setTimeout(()=>finish(null),16000);
     });
   }
 
@@ -2565,6 +2566,10 @@
   async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
     const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
     if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
+      // Lock the composer before awaiting consent so a second submit cannot
+      // open another permission card or send the same message twice.
+      busy = true;
+      refreshSendButton();
       const consent = await showLocationPermissionCard();
       if (consent) locationContext = await getDeviceLocation();
     }
