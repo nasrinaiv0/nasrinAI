@@ -53,7 +53,7 @@
 
   function isImageEnhancement(text) {
     const value = String(text || '').trim().toLowerCase();
-    return imageEnhancement.test(value) && /\\b(make|improve|enhance|upscale|sharpen|deblur|denoise|restore|convert|fix|please|turn)\\b/.test(value);
+    return imageEnhancement.test(value) && /\b(make|improve|enhance|upscale|sharpen|deblur|denoise|restore|convert|fix|please|turn)\b/.test(value);
   }
 
   function detect(text) {
@@ -65,7 +65,7 @@
 
     // Enhancement requests often omit the word image/photo (e.g. “make it clear and HD”).
     // Route them to the existing image-edit endpoint rather than ordinary chat.
-    if (imageEnhancement.test(s) && /\b(make|improve|enhance|upscale|sharpen|deblur|denoise|restore|convert|fix|please|turn)\b/.test(s)) return 'image';
+    if (isImageEnhancement(s)) return 'image';
     if (/\b(turn|animate|convert|make)\b[\s\S]*\b(into|as)\b[\s\S]*\b(video|clip|reel)\b/.test(s)) return 'video';
     if (imageTarget.test(s) && /\b(video thumbnail|thumbnail|poster|cover|banner|logo|icon|wallpaper|photo|photograph|picture|image)\b/.test(s)
         && action.test(s)) return 'image';
