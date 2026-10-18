@@ -2858,8 +2858,6 @@
   for (const b of document.querySelectorAll('.starter[data-starter-action]')) {
     b.addEventListener('click', () => starterActions[b.dataset.starterAction]?.());
   }
-  // Create image switches to picture mode; the person then describes it.
-  $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
   // Detaches a reply still being written from the screen without stopping it:
   // it finishes and is saved in its own chat. True when one was running.
@@ -8583,7 +8581,6 @@
       directUploads = s.uploads && s.uploads.direct === true && Number(s.uploads.max_mb) > 0 ? { maxBytes: Number(s.uploads.max_mb) * 1048576 } : null;
       imagesOn = Boolean(s.images && s.images.available);
       $('pickImage').hidden = !imagesOn;
-      $('starterImage').hidden = !imagesOn;
       imageLimits = imagesOn ? { perGuest: Number(s.images.per_guest) || 0, perUserDay: Number(s.images.per_user_day) || 0 } : null;
       renderImageHint();
       // Cache the public site key here, but render the widget only when the
