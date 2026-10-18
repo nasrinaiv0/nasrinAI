@@ -1,3 +1,10 @@
+## Proposed PR — Customer location permission foundation (`feature/customer-location-consent`)
+
+- **Owner request (2026-10-18):** let NasrinAI use a customer's device location when the customer chooses to share it.
+- **Change:** permit same-origin browser geolocation in Node and Vercel Permissions-Policy headers; add a focused policy regression test and `docs/customer-location.md` describing consent, privacy, fallback, and completion requirements.
+- **Security:** this only permits the browser to request location; it does not grant permission. No automatic prompt, coordinate storage, or location tracking is added. Camera remains disabled.
+- **Validation:** a regression test was added, but CI and the full `npm test` suite have not been run from this connector session. This is foundation-only; the visible consent control and short-lived chat-context integration remain required before the customer-facing feature is complete.
+
 ## Proposed PR — Remove legacy food-ordering reference
 
 - **Owner request (2026-10-14):** remove the obsolete food-ordering project from the current NasrinAI repository after it appeared in a domain reputation report.
