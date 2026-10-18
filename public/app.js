@@ -45,7 +45,6 @@
   codingArt.append(
     makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-one'),
     makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-two'),
-    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-one', '✳'),
     makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-two', '＋'),
     makeCodingWelcomeNode('span', 'code-logo coding-empty-logo is-busy'),
     makeCodingWelcomeNode('span', 'coding-empty-cursor')
@@ -60,6 +59,10 @@
     codingWordTrack.appendChild(makeCodingWelcomeNode('span', '', word));
   }
   codingWords.appendChild(codingWordTrack);
+  const codingSphere = makeCodingWelcomeNode('span', 'coding-empty-sphere');
+  codingSphere.setAttribute('aria-hidden', 'true');
+  codingArt.prepend(codingSphere);
+  dotSphere(codingSphere);
   codingEmptyState.append(codingArt, codingTitle, codingSubtitle, codingWords);
   log.appendChild(codingEmptyState);
   const hero = $('hero');
