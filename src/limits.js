@@ -88,6 +88,14 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       if (type !== 'service') await hit(`sp:ip:${ip || 'unknown'}`, limits.ipMessagesHour);
     },
 
+    // Audio transcription has its own hourly bucket, separate from read-aloud speech.
+    async transcription(caller, ip) {
+      const { type, id } = caller.actor;
+      const perCaller = { guest: limits.guestSpeechHour, user: limits.userSpeechHour, service: limits.serviceMessagesHour }[type];
+      await hit(`trn:${type}:${caller.tenantId}:${id}`, perCaller, 'You have transcribed a lot of audio this hour. Please try again later.');
+      if (type !== 'service') await hit(`trn:ip:${ip || 'unknown'}`, limits.ipMessagesHour);
+    },
+
     // Web pages read and web searches: per caller, people only.
     async web(caller) {
       const { type, id } = caller.actor;

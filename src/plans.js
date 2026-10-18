@@ -84,10 +84,28 @@ export function createPlans({ store, config, logger = null, now = () => Date.now
           annual_available: p.id !== 'free' && Boolean(config.plans.annualPrices[p.id]) && purchasable
         };
       });
+      let quota = null;
+      if (caller.actor.type === 'user' && !mine.open && ['pro', 'max', 'ultra'].includes(mine.plan)) {
+        const limit = ({ pro: config.limits.proWeeklyTokens, max: config.limits.maxWeeklyTokens, ultra: config.limits.ultraWeeklyTokens })[mine.plan];
+        const nowMs = now();
+        const manilaNow = new Date(nowMs + 8 * 3600_000);
+        const weekday = manilaNow.getUTCDay();
+        const mondayOffset = (weekday + 6) % 7;
+        const weekStartMs = Date.UTC(manilaNow.getUTCFullYear(), manilaNow.getUTCMonth(), manilaNow.getUTCDate()) - mondayOffset * 86400_000 - 8 * 3600_000;
+        const resetAt = new Date(weekStartMs + 7 * 86400_000);
+        let used = 0;
+        try {
+          used = await store.tokensSince({ since: new Date(weekStartMs), tenantId: caller.tenantId, actorType: 'user', actorId: caller.actor.id });
+        } catch (err) {
+          if (logger) logger.warn('weekly plan usage unavailable for display', { error: err.message });
+        }
+        quota = { plan: mine.plan, limit, used, reset_at: resetAt.toISOString() };
+      }
       return {
         enabled: config.plans.enabled,
         current: mine.open ? null : mine.plan,
         ends_at: mine.endsAt,
+        quota,
         plans: list
       };
     },

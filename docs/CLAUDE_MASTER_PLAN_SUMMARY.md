@@ -1,183 +1,145 @@
-# NasrinAI Master Plan Summary for Claude
+# NasrinAI — Claude Handoff & Progress Snapshot
 
-**Purpose:** This is the durable handoff and memory index for Claude Code and future contributors working on NasrinAI. Read this file before planning or implementing changes, then read the linked source-of-truth documents relevant to the task.
+> Status audit 2026-10-18: this log is a running record. Entries that say "pending" describe the moment they were written; check the PR and CI before relying on them. See also [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
-**Status rule:** This file summarizes plans; it does not prove implementation. Always distinguish **planned**, **documented**, **in development**, **merged**, **deployed**, and **verified in production**. Never report a feature as shipped without checking code, tests, GitHub PR state, configuration, and live behavior where applicable.
+Last updated: 2026-10-18
+Repository: https://github.com/primusco20/nasrinAI
 
-**Last updated:** 2026-10-17
+## How to use this file
+Read this before making changes. Treat GitHub's current `main`, open PRs, workflow results, and Vercel deployment state as the source of truth. Do not assume an open PR is merged or that a successful deployment status means every test passed. Inspect the actual diff and run the applicable checks before changing code.
 
-## 1. Required continuity rule
+## Working rules
+- Quality and security take priority over speed. Avoid speculative fixes and broad refactors when a narrow fix is safer.
+- Never claim tests, deployment, OAuth, or UI behavior are verified unless the relevant evidence was checked.
+- Keep environment configuration in Vercel; do not introduce hardcoded production secrets or default secret values.
+- Preserve authentication, Supabase RLS, provider routing, streaming, and plan/rate/token limits when modifying adjacent code.
+- Treat provider permissions as least-privilege. Read/write checkboxes describe requested access only; actual grants must be confirmed by provider OAuth scopes.
+- Never expose OAuth tokens or secrets to the browser/model. Write operations need server-side authorization, audit logging, and explicit user confirmation.
+- Keep user-facing UI premium, restrained, consistent, accessible, responsive, and especially reliable on mobile Safari.
+- After each meaningful change, update this handoff with the PR, commit, test state, limitations, and next steps so Claude can resume without guessing.
 
-Whenever a NasrinAI plan, upgrade, architecture, feature set, implementation phase, or significant decision is created or changed:
+## Current task — plugin settings mobile layout
+### PR #383
+URL: https://github.com/primusco20/nasrinAI/pull/383
+Branch: `fix/plugin-settings-mobile-overlap`
+Base: `main`
+Latest known head at snapshot: `ebaf14a049008e14ce0a997200bf9f83d955188c`
+Status at snapshot: open, not merged.
 
-1. Update the relevant detailed plan document.
-2. Update this file, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, with a concise entry, status, dependencies, and links to the detailed source of truth.
-3. Record important decisions, exclusions, blockers, PR/branch references, test evidence, and owner actions. Do not rely on chat history alone.
-4. Keep historical facts separate from current verified status. If current status has not been checked, label it **needs verification**.
-5. Prefer a feature branch and reviewable PR; do not commit directly to `main`, merge, or deploy unless the owner explicitly authorizes that action and repository policy permits it.
-6. Before implementing, inspect the current repository, existing code/schema/docs/tests and open PRs. Avoid duplicate documents, tables, routes, adapters, or conflicting implementations.
-7. After implementation, update the detailed document and this summary with exact files, migrations, tests run/results, PR link, deployment status, known gaps, and next step.
-8. Do not stop after documentation when the approved task requires implementation. Do not claim success without verified evidence.
-9. Preserve the project's security requirements, tenant isolation, RLS, authentication/authorization, privacy and consent rules, plan limits, provider policy, compatibility and existing contracts. Never expose credentials or private infrastructure details.
+Purpose: fix overlapping/inconsistent text in per-app plugin settings shown in mobile Safari screenshot. CSS changes in `public/app.css` give account and information rows independent grid columns, allow safe wrapping, stack values under labels at widths <= 420px, and normalize spacing/line heights/action button wrapping. A regression test was added to `test/github.test.js`.
 
-## 2. Product and naming
+Validation observed on 2026-10-18:
+- Vercel status for the PR head: success.
+- GitHub Actions CI workflow run #2721: completed successfully.
+- This does not prove live iPhone rendering has been manually verified. Check the PR is still on the same head and all required checks remain green before merging. Then inspect the settings page on mobile Safari and desktop.
 
-- **NasrinAI** is the main AI workforce platform.
-- **Quick, Pro, Max, Ultra** are the four AI intelligence/subscription tiers. Keep limits configurable as specified by the active plan documents; do not silently hardcode production quotas.
-- **NCC means Nasrin Client Connect** and is the CRM, client-management, and workflow-automation product at `ncc.nasrinai.com`.
-- **NasrinAI Connect** is a separate product for authorized website/widget integrations. Do not rename NCC to “NasrinAI Control Center.”
-- **NCC Automation Studio** is the workflow builder within Nasrin Client Connect.
-- **NCC AI Voice Front Desk** is a planned NCC module for inbound customer calls and authorized outbound calls. It is not the same as NasrinAI Connect.
-- **Gallery:** `gallery.nasrinai.com`, premium monochrome/minimal motion and animation library with restrained orange accents.
-- **NN:** `nn.nasrinai.com`, separate noise-canceling, transcription, meeting-notes and related productivity app.
+## Recent plugin settings / access work
+### PR #382
+PR #382 was previously reported merged. It added per-app access settings and scoped Google OAuth authorization options. Verify current `main` before relying on exact implementation details.
+- Gmail scopes: read-only (`gmail.readonly`) and write-capable (`gmail.modify` plus `gmail.send`).
+- Calendar scopes: read-only (`calendar.readonly`) and event-write (`calendar.events`).
+- OAuth scopes alone do not implement send/modify actions. Current tools may remain read-oriented until dedicated safe server-side write endpoints, confirmation UX, and audit logging are implemented.
+- Other providers need provider-specific OAuth/API/tool support before their permissions can truthfully be shown as granted.
+- UI should display access based on scopes actually granted by Google, not merely the requested setting.
+- A settings-sheet bug was identified where opening Plugins could leave both `#pluginsList` and `#pluginCatalogSettings` visible; ensure the panel state is reset when reopening.
 
-## 3. Major plan index
+## Earlier plugin catalog work
+### PR #378 and follow-up history
+- Requested removing the Google Cloud catalog entry and adding Google Meet, Google Keep, Google Search, and Google Maps.
+- Catalog entries were placeholders / “Coming soon” unless provider APIs, OAuth, and tools were implemented. Do not represent catalog presence as a functioning integration.
+- Product icon implementation used Simple Icons CDN URLs; do not call them verified official Google-approved assets without checking source and branding requirements.
+- Google Keep API support and Google Search implementation approach require verification before promising functionality.
 
-Treat the detailed files and actual repository code as the source of truth. File names below should be verified before editing; do not invent a path if it is absent.
+## Chat answer citations and follow-up forms
+The user requested:
+- Replies should include resources/citations, especially when data comes from the internet.
+- Clarifying follow-up questions should be organized in bullet points like ChatGPT, while preserving free-text answers and letting users select suggested answers.
+When implementing, preserve keyboard/mobile accessibility, source attribution, and user ability to type custom answers. Test both structured suggestions and free-text entry.
 
-| Initiative | Goal / scope | Status rule / next check |
-|---|---|---|
-| AI orchestration and professional workforce | Detect intent/complexity/profession, select authorized tools and suitable model/provider, consider latency, context, privacy, plan and cost; support Quick/Pro/Max/Ultra | Audit current routing and adapters before claiming coverage |
-| Research and education | Stronger web research; relevant sources and clickable citations; target 10 distinct resources for research/study requests when appropriate | Verify source retrieval, citation quality and intent handling |
-| Provider pool and quota resilience | Multiple eligible model providers, provider allowlist, quota/error classification, safe fallback, cooldowns and reset recovery | A provider catalog alone does not prove working runtime adapters |
-| AI capability awareness and conversation storage | Agent knows actual available capabilities without exposing private internal stack/resources; persist replies only under approved filtering/access/privacy rules | Verify implementation, retention, RLS and secret redaction |
-| Autonomous coding / repository assistance | Inspect code, identify issues, propose/fix changes, run tests and report evidence; do not falsely claim merge/deploy/rollback | Use branch/PR review process; protect secrets and production |
-| NCC CRM and workflow automation | Contacts, deals, tasks, activities, workflow builder, triggers, logic, connectors, approval outbox, execution queue/workers, logs, retries and analytics | See `docs/ncc.md` and `docs/ncc-upgrade.md`; audit current code and PRs |
-| NCC AI Voice Front Desk (planned) | AI disclosure; inbound call answering; approved knowledge; lead capture; verified appointment/CRM actions; human transfer; authorized outbound callbacks/campaigns; consent, suppression, costs, recording/privacy controls | Not shipped until a real telephony adapter, compatible media runtime, verified credentials/webhooks and end-to-end tests exist |
-| NCC social, lead and sales automation | Supported official social APIs, approval-first outbound messages/posts, scheduled publishing, lead response/qualification, follow-up workflows, consent/opt-out and CRM analytics | Validate each provider/channel capability; never promise universal integration or universal 1 GB uploads |
-| NCC automation runtime | Separate control plane from durable execution plane; scheduler, durable queue/workers, typed nodes, versioned workflows, retries/checkpoints/cancellation, policy checks | Do not assume Vercel request handlers are persistent workers; select runtime after testing |
-| Performance and reliability | Images/lazy loading, code splitting, cache, API payload optimization, SQL/index/pagination/render improvements, loading states, CDN and Lighthouse measurements | Benchmark before/after; avoid unjustified infrastructure such as load balancers |
-| Motion gallery | Reusable animation/motion patterns; premium minimalist monochrome design with restrained orange | Verify the gallery spec and implementation status |
-| NN noise-canceling app | Local AI noise cancellation with native fallback, cloud transcription/summaries, storage choice, notes/meetings/chat/calendar and supported integrations | Verify actual OAuth scopes, API availability and feature implementation |
-| npm to pnpm migration | Consistent package manager, lockfile, scripts, CI and deployment workflow | Inspect current package files and open PRs; don't mix package managers |
-| Security, privacy and database quality | Server-side authorization, RLS/tenant isolation, secret management, consent, retention/export/deletion, migrations and audit logs | Re-run relevant tests after later schema or routing changes |
-| Premium UI and voice UX | Accessible responsive UI, refined dark/light appearance, restrained color, established voice-control layout preferences | Check existing design system before introducing new styling |
+## Broader product constraints
+- NasrinAI settings should consistently expose settings for catalog apps that are actually implemented, including account connection, reconnect/disconnect, configure access, requested read-only/read-write permissions, and app information.
+- Avoid false “connected” state for unsupported integrations.
+- Main buttons and critical flows must not regress; run the relevant regression suite.
+- Keep all production environment values in Vercel; do not add hardcoded env defaults.
+- Security and quality are more important than speed.
 
-## 4. NCC AI Voice Front Desk requirements to preserve
+## Other tracked work (historical; re-check GitHub before acting)
+- PR #363: performance optimization handoff document; prior context said open and documentation-only. Baseline audit and measured optimization were still required; no Lighthouse/performance results should be assumed.
+- PR #365: documentation-only master summary; prior context said open and mergeability needed review.
+- PR #366: production-quality upgrade documentation; prior context said open, required checks pending.
+- PR #352: Vercel-only environment configuration and NCC AI voice front desk planning; prior context did not establish it was merged or deployed.
+These statuses are historical snapshots and may have changed.
 
-This is a **planned capability** until verified in code and staging.
-
-### Inbound
-- Answer calls on a verified, connected business number; clearly disclose the AI identity.
-- Use approved business knowledge; do not invent pricing, policies, availability or promises.
-- Capture and qualify leads with approved, non-sensitive fields.
-- Look up CRM data only with proper caller verification before disclosing account-specific details.
-- Book, change or cancel appointments only through a real connected scheduling API, after confirming details.
-- Transfer/escalate when asked, when confidence is low, or for complaints, sensitive/high-impact matters, repeated failures, or unsupported requests.
-- Provide business-hours, after-hours, voicemail/human fallback and provider-outage behavior.
-- Record the verified call outcome and permitted summary in the CRM timeline.
-
-### Outbound
-- Support legitimate, authorized callbacks, appointment reminders, service notifications and eligible lead follow-ups.
-- Default outbound calling/campaigns to disabled until provider setup, jurisdiction rules, consent/suppression and explicit per-workflow authorization are configured.
-- Enforce do-not-call/suppression, opt-out, local calling hours, retry limits, rate/concurrency/cost budgets and an emergency stop.
-- Identify the business and AI agent; never spoof caller ID, impersonate a person or retry indefinitely.
-- Preview audience and expected volume; require explicit launch confirmation for campaigns.
-- Reconcile uncertain provider outcomes before retrying to avoid duplicate calls.
-
-### Architecture, privacy and done criteria
-- Use provider adapters for telephony, call control, media streaming, speech recognition/synthesis and optional real-time voice models.
-- Verify regional/Philippine number support if needed, transfer, webhooks, recording controls, costs, concurrency and a compatible long-lived media runtime. Do not assume standard Vercel functions can host persistent real-time media streams.
-- Authenticate provider webhooks and prevent replay; keep credentials server-side; isolate sessions and tenants.
-- Recording/transcription must be separately configured with appropriate notice/consent, retention, access controls, deletion/export and redaction. Do not train on calls by default.
-- Use staged delivery: provider/architecture validation and mocked harness; inbound pilot with human fallback; authorized outbound callbacks; broader campaigns only after policy/legal review and owner approval.
-- Required tests include consent/opt-out, caller verification, webhook signatures, duplicate events, tenant isolation, transfer/fallback, provider outage, retry behavior, spend limits and privacy lifecycle.
-- Never report it as production-ready until end-to-end staging evidence exists.
-
-## 5. NCC architecture and safety rules
-
-- NCC is a CRM/workflow product, separate from NasrinAI Connect.
-- Access is intended to be account-allowlisted and off by default as defined in NCC source docs. Verify current configuration; do not expose owner/private controls.
-- Preserve existing CRM data, Meta integration contracts, tenant checks, approval outbox, and the zero-runtime-dependency rule unless an explicit owner-approved architecture decision changes it.
-- The workflow editor uses registered typed nodes and immutable published versions. AI can propose workflows but cannot grant itself permissions or bypass policies.
-- Use durable execution, idempotency, bounded retries/backoff, cancellation and reconciliation for external side effects.
-- External messages, publishing, destructive/financial actions and permission changes require approval or a narrow explicit authorization.
-- Keep secrets out of prompts, workflow JSON, browser state, logs, screenshots and Git.
-- Treat webhooks, connector outputs, imported data and model output as untrusted.
-- Do not claim an integration, event source, analytics event or provider action works until its adapter and tests verify it.
-- Audit existing schema before migrations. Reuse existing tables such as NCC contacts/deals/tasks/activities/automations/channels/outbox where appropriate; do not blindly create duplicates.
-- Large media belongs in secure object storage with direct/resumable uploads where supported, not in database rows or oversized Vercel request bodies. Claim 1 GB support only for a fully verified compatible path and platform API.
-
-## 6. Subscription and usage policy reminders
-
-The most recently recorded values from prior planning discussions were:
-- Quick: configured free-tier limits.
-- Pro: 1M tokens per allowance, with fallback to Quick after allowance as previously specified.
-- Max: 5M tokens/week.
-- Ultra: 10M tokens/week.
-- Earlier plans included image-generation limits and Ultra-only video up to one minute.
-
-These are historical plan notes, **not verified live configuration**. Check the active source-of-truth config and owner requirements before changing or advertising limits. Production token limits should be set through the intended Vercel environment variables/configuration, not duplicated as hardcoded values. Keep hourly anti-abuse limits separate from token allowances; count input and output usage as defined by the active policy.
-
-## 7. Recorded historical repository notes — verify before relying on them
-
-These references came from earlier discussions and may have changed:
-- NCC upgrade architecture was discussed in `docs/ncc-upgrade.md`, branch `feature/ncc-upgrade-architecture`, with PR #352 referenced for documentation.
-- NCC implementation work was associated with PR #353.
-- A performance handoff document was previously reported in `docs/performance-optimization-handoff.md`, PR #363, open/unmerged at that time.
-- Free LLM provider-pool work was reported in PR #361.
-- Recent discussions referenced PRs #360 and #362 for weekly token configuration, conflicts and failed tests.
-- Earlier QA reported 37/37 RLS checks passing and a 405-test suite passing; other historical test counts also existed. Never use these old numbers as proof that current HEAD passes.
-- Historical branch/PR state, file presence, test results and deployment status must be checked live before continuing work.
-
-## 8. Required implementation report format
-
-For every meaningful task, conclude the relevant detailed plan and this summary with:
-
-- **Scope completed:** what was actually changed.
-- **Files changed:** exact repository paths.
-- **Database/config changes:** migrations and environment variables, without secret values.
-- **Tests run:** exact commands and pass/fail counts, plus skipped tests.
-- **Security/privacy checks:** relevant results.
-- **Git status:** branch and PR URL/state; never claim merged unless verified.
-- **Deployment status:** not deployed / preview tested / production deployed / production behavior verified.
-- **Known gaps and blockers:** explicit, not hidden.
-- **Next step and owner action:** what is needed to proceed.
-
-## 9. Current task tracking
-
-Keep this section current when new work begins or finishes. Do not invent status; use **needs verification** when unsure.
-
-| Workstream | Current recorded status | Next action |
-|---|---|---|
-| NCC master architecture | Detailed plan exists in recorded work; current branch/PR state needs verification | Inspect `docs/ncc.md`, `docs/ncc-upgrade.md`, implementation and PR state |
-| AI Voice Front Desk | Newly specified in this summary; detailed source document update still required unless verified otherwise | Add full specification to NCC upgrade source document, then stage implementation phases |
-| Free LLM pool | PR #361 historically reported open/unmerged | Check current PR, tests and runtime adapters |
-| Weekly token limit fix | PR #362 historically had conflict/config naming/test concerns | Check current branch, conflicts, CI and environment-variable contract |
-| Performance handoff | PR #363 historically reported open/unmerged | Check current PR and actual implementation status |
-| Gallery and NN | Plans exist in prior project discussions | Locate current specs and record branch/PR/implementation status |
-| Master plan summary | This file is the continuity index | Update on every meaningful plan or implementation change |
-
-**Claude's first action:** inspect the repository and open PRs; reconcile this summary with actual source-of-truth files and current code. If anything conflicts, preserve current verified code/security contracts, explain the discrepancy, and update the documents rather than blindly following stale notes.
+## Immediate next steps for Claude
+1. Fetch current `main`, PR #383 diff/head, and current required-check results.
+2. Confirm PR #383 CSS and test match the intended settings markup; run full CI and relevant tests.
+3. Check mobile layout at narrow widths and desktop, including long account/provider names and action buttons.
+4. Merge only if checks pass and diff is safe; otherwise fix the failing check without unrelated changes.
+5. After merge, verify the actual deployment and mobile rendering. Do not claim visual verification unless it happened.
+6. Update this file with final PR/merge/deployment/test status and the next concrete task.
 
 
-## 10. Mandatory Vercel configuration rule — all plans and implementation work
+## Update — plugin account entry and provider-family categorization (2026-10-18)
+### Follow-up to PR #382
+PR #382 is already merged into `main`; merged PRs cannot be edited. Follow-up changes are being prepared on branch `feat/plugin-family-categories-add-account` for a new PR.
 
-**Owner requirement recorded 2026-10-17:** do not hardcode deployment configuration or use embedded defaults as a substitute for configured environment values. All environment-specific settings and secrets must be configured in the appropriate Vercel project's Environment Variables for the intended environment (Production, Preview, Development, as applicable).
+Changes in this follow-up:
+- Corrected plugin family classification explicitly: Google apps (including Gmail, Google Calendar, Drive, Meet, Keep, Search, Maps, and Google Team) map to Google; Outlook, OneDrive, Teams, Excel, and PowerPoint map to Microsoft; Canva is classified under Design; Facebook, Instagram, Threads, X, Messenger, and WhatsApp are Social & messaging; GitHub is Developer tools.
+- Moved Canva out of the Microsoft catalog section and gave it a Design section.
+- Added an Add account action to the plugin settings account area for supported integrations.
+- Safety limitation: current Google connection handling stores one connected account for the integration. When that account is already connected, Add account explains that multi-account linking is not implemented and does not launch OAuth or replace the current account. True multi-account support requires backend token storage keyed by provider/account, account selection, isolated authorization state, disconnect-one-account behavior, and security tests.
+- Added regression tests for provider-family classification, Add account markup, and the one-account guard.
+- These changes are not yet merged. Run full CI and inspect the diff before merge. Do not claim multi-account support until the backend is implemented and verified.
 
-- Never hardcode API keys, provider credentials, database credentials, auth/signing secrets, provider/account IDs, quota limits, model/provider selections, origins, owner allowlists, feature flags, voice settings, concurrency/cost caps or other deployment-specific policy.
-- Do not silently fall back when required configuration is missing/invalid. Validate server-side and fail closed with a clear, non-sensitive diagnostic.
-- Keep secrets server-only and out of client bundles, public environment-variable prefixes, prompts, workflow JSON, logs, tests and Git.
-- Maintain a central configuration schema/validation layer and an inventory documenting variable names, purpose, environment scope, secrecy, validation and required/optional behavior. Do not invent values or claim the owner configured a variable without checking.
-- Vercel is the deployment configuration source of truth. Runtime business data (CRM, workflow definitions, call history, executions, consent records and media) belongs in the authorized database/object storage—not environment variables.
-- A placeholder-only `.env.example` may document variable names; it must contain no real secrets. Local development values, when needed, are not a production source of truth and must not be committed.
-- Check the existing environment-variable contract before adding names; avoid duplicate or competing variables. Verify the correct Vercel project/environment and redeploy as needed before claiming runtime configuration is active.
-- Tests must cover missing, malformed and valid required configuration; secret scans must pass. Public non-secret browser configuration is allowed only when deliberately designed as public and protected by server-side authorization as appropriate.
-- For every future plan or upgrade, update the detailed source document and this summary. Include the variable-name inventory and owner actions when relevant; never ask the owner to paste secrets into chat.
 
-## 11. AI Agents Front Desk — NCC (Nasrin Client Connect)
+### CI failure fix — PR #384 (2026-10-18)
+- CI run #2730 failed in the Node test job; database tests and dependency audit passed, and Vercel status was successful.
+- The single failing test was `plugins: catalog apps are grouped by provider family and add-account is guarded`. The implementation correctly uses the quoted object key `'Google Calendar': 'Google'`, but the test expected the invalid unquoted form `Google Calendar: 'Google'`.
+- Corrected the test assertion to match the actual valid JavaScript key. No runtime application code was changed for this test-only fix.
+- Commit: `d6a941a9f2b0e83026faf892250e3dbd813b387a`.
+- Re-run CI and confirm all checks pass before merging; results for this new commit are pending.
 
-Detailed specification added to `docs/ncc-upgrade.md` under sections 20 and 21 on branch `feature/ncc-upgrade-architecture` (commit `ef680cd3790fa58fcb89428c8f08e0903a045452`). This work is documentation/specification only; it is not a working telephony implementation.
 
-The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect. It includes:
+## Update — plugin accordion, account actions, and catalog cleanup (2026-10-18)
+- Removed the legacy Google Team pseudo-plugin from the Google catalog; Team remains a workspace Settings feature.
+- Google plugin cards now enforce a single-open accordion: opening one collapses the others.
+- Consolidated connect/disconnect into one state-aware action for supported Google integrations. Connected apps show a disconnect action; disconnected apps show connect.
+- Improved small-screen plugin action wrapping and catalog row wrapping.
+- Add-account limitation remains: the Google connection table/API is keyed to one row per tenant/user and the OAuth callback upserts on that key. The UI now explicitly avoids launching OAuth from Add account while multi-account storage is unsupported, preventing accidental replacement. True Add account requires a schema/API migration to provider/account-keyed rows and per-account token selection/disconnect before safely enabling it.
+- PR #384 was already merged; these changes are being committed directly to main rather than creating another PR, per request. Tests and deployment status must be checked after these commits.
 
-- Inbound calls: AI identity disclosure, approved knowledge, lead capture, caller verification, verified CRM/scheduling actions, human transfer and safe fallback.
-- Outbound/scheduled callbacks: customer-requested callbacks, appointment reminders and authorized follow-ups; durable scheduling, reschedule/cancel, timezone handling, bounded attempts and delivery reconciliation.
-- Strict outbound policy: disabled by default until the provider/number/configuration is verified and the exact workflow is authorized; enforce consent/legal basis, suppression/do-not-call, opt-outs, local calling hours, attempt/concurrency/cost budgets and emergency stop.
-- Provider-neutral telephony/media/speech adapter; verify regional phone availability, transfer, webhooks, cost and compatible real-time media runtime. Do not assume Vercel functions support persistent audio streams.
-- Recording/transcription are separately opt-in/configured subject to notice/consent, retention, access, export/deletion and legal/privacy review. Do not use call data for model training by default.
-- NCC dashboard: front-desk setup, agent behavior, call inbox, callback scheduler, outbound controls, call details, CRM timeline and deterministic analytics.
-- Staged implementation: architecture/provider audit → mock harness → inbound pilot → requested/scheduled callbacks → narrowly authorized outbound expansion → production hardening.
-- Fail closed on missing Vercel configuration; never simulate successful calls or claim production readiness before end-to-end staging evidence.
+- Follow-up implementation note: removed the legacy extra click listener so the single state-aware connect/disconnect control cannot launch connect and disconnect handlers together. Latest direct-main commit: `705492d00ca5c9aebfc50e3878f819fc50327012`. At last check Vercel status was pending and no PR-triggered workflow runs were returned for this direct-main commit; do not claim deployment or tests passed until verified.
 
-**Next step:** review and merge the documentation PRs through the normal process, then have Claude inspect the actual NCC code, Vercel project configuration contract, current provider capabilities, legal/privacy docs and open PRs before implementing the first approved phase. No provider is selected and no telephony credentials are assumed configured.
+
+## Update — independent Google app connections and stale test (2026-10-18)
+- Fixed `test/google-team-settings.test.js`: its Google catalog assertion still expected the removed `Google Team` pseudo-plugin.
+- Changed Google connection storage to use a `service` key per user/tenant and added independent Gmail/Calendar status, OAuth callback upserts, token refresh updates, and service-scoped disconnects. Existing encrypted token payloads retain the existing AAD so the migration can duplicate the prior connection safely.
+- Added migration `042_google_service_connections.sql` to split the legacy connection row into Gmail and Calendar rows according to existing granted scopes, and change the primary key to `(tenant_id,user_id,service)`. Apply this migration to Supabase before deploying the backend code; until it is applied, the new endpoints cannot work.
+- Gmail and Calendar UI now load status independently and disconnect only the selected app. The legacy `both` OAuth choice maps to Calendar; new UI flows use the per-app service values.
+- Migration 042 is live in production Supabase (checked read-only on 2026-10-18: `google_connections` primary key is `(tenant_id, user_id, service)`). CI and Vercel results for the code remain to be confirmed per PR.
+
+
+- Final test correction commit: `8e1d11b397d0ab27c864e344020746f1b0224492`; the Google catalog regression now asserts Google Maps remains and Google Team is absent. Latest observed Vercel status is pending; no PR-triggered workflow runs were returned by the status wrapper. Full CI has not been confirmed.
+
+## PR #385 conflict resolution handoff (2026-10-18)
+- PR #385 branch diverged from `main` (8 commits ahead, 21 behind). The current `main` already contains the Google Team catalog removal and stale-test correction; preserve current main application code and tests.
+- Reapply only the Team directory copy changes to `public/index.html` and record this conflict resolution. Do not overwrite newer `main` app code with stale PR snapshots.
+- Team directory remains browser-local/account-scoped; it is not yet automatically consumed by every integration.
+- Validation required after conflict resolution: run CI and verify the mergeability status before merging.
+
+
+## Plugin settings layout cleanup (2026-10-18)
+- Removed Google Meet, Google Keep and Google Maps from the lower generic catalog because their per-app connection cards already render in the upper plugin list. The independent connection cards and their status/actions remain intact.
+- Kept Google Search in the Google catalog because it is a distinct entry and is not one of those existing connection cards.
+- Added a separate **Developer tools** group with GitHub, Vercel, Render, Supabase and Cloudflare, each opening its official dashboard in a new tab.
+- The separate GitHub coding connection card and its OAuth/account controls remain unchanged. The developer-catalog GitHub row links to GitHub; it does not claim Vercel, Render, Supabase or Cloudflare are connected to NasrinAI.
+- Preserved Microsoft, Design, and Social & messaging catalog entries.
+- Validation is pending: run the targeted and full tests in CI, then visually verify the layout in iPhone Safari before merging or deploying.
+
+## Plugin read/write capabilities (PR #386, 2026-10-18)
+- Added Gmail message reading, sending, and read/unread status updates, plus Google Calendar event updates and deletion.
+- All external mutations use the existing server-side one-time confirmation flow; model output cannot approve its own action.
+- Each operation checks the current user's actual Google OAuth scopes before calling the provider. Missing or insufficient scopes fail closed; tokens remain server-side.
+- Added regression coverage for tool registration, Gmail send payloads, denied scopes, Calendar deletion, and incomplete event-time validation.
+- Catalog-only providers remain clearly marked as unsupported/coming soon until provider-specific functionality is implemented.
+- Local validation: `npm test` passed 687 tests with 1 skipped. CI must also pass before merge; production OAuth verification and configuration remain separate requirements.

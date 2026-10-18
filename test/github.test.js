@@ -415,10 +415,139 @@ test('coding chat page: PR description from the reply, many-file card, automatic
 test('plugins: more apps are listed as Coming soon, never as connected', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Gmail', 'Google Cloud', 'Google Meet', 'Google Calendar', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
+  for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
-  assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
+  assert.match(js, /mk\('span', 'plugins-soon', \['Google Meet', 'Google Keep', 'Google Maps'\]\.includes\(name\) \? 'Available' : 'Coming soon'\)/);
+  const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
+  assert.doesNotMatch(catalog, /Google (?:Search|Meet|Keep|Maps)/);
+  assert.match(catalog, /\['Microsoft 365'/);
+  assert.match(catalog, /\['Design & creativity'/);
+  assert.match(js, /makeGooglePlugin\('gmail', 'Gmail', 'mail'\)/);
+  assert.match(js, /makeGooglePlugin\('calendar', 'Google Calendar', 'calendar'\)/);
+  assert.match(js, /api\('\/v1\/google\/status\?service=' \+ service\)/);
+  assert.match(js, /api\('\/v1\/google\/connect'/);
+});
+
+test('plugins: every catalog app has settings and account-scoped pin preferences', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="pluginCatalogSettings"/);
+  assert.match(html, /id="pluginCatalogPinned"/);
+  assert.match(js, /const pluginCatalogPinKey = \(\) => identityKey\('nasrin\.plugin-catalog-pins\.v1'\)/);
+  assert.match(js, /mk\('button', 'plugins-settings-btn', 'Settings'\)/);
+  assert.match(js, /settings\.addEventListener\('click'/);
+  assert.match(js, /openPluginCatalogSettings\(name, li, status/);
+  const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
+  assert.doesNotMatch(catalog, /Google Team/);
+  assert.match(js, /actions\.append\(settings, connect\)/);
+});
+
+test('chat follow-up questions are numbered and keep quick choices plus free-text answers', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /card\.className = 'msg assistant image-card ask-card'/);
+  assert.match(js, /questionList\.className = 'ask-questions'/);
+  assert.match(js, /item\.appendChild\(questionBox\(q, \(value\) => \{ picked\[i\] = value; \}\)\)/);
+  assert.match(js, /field\.placeholder = 'Type your answer'/);
+  assert.match(css, /\.ask-card \.ask-questions > li::marker/);
+});
+
+test('web source resources stay collapsed behind an accessible hide/show control', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.ok(toggle.includes('list.hidden = true;'));
+  assert.ok(toggle.includes("mk('p', 'reply-sources-heading', 'Sources & Resources')"));
+  assert.ok(toggle.includes("b.setAttribute('aria-expanded', 'false');"));
+  assert.ok(toggle.includes('row.after(heading, list)'));
+});
+test('plugins: catalog settings expose account connection and read/write access controls', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  for (const id of [
+    'pluginCatalogAccounts', 'pluginCatalogAccountStatus', 'pluginCatalogAddAccount', 'pluginCatalogConnect',
+    'pluginCatalogDisconnect', 'pluginCatalogReadOnly', 'pluginCatalogReadWrite',
+    'pluginCatalogConfigure', 'pluginCatalogPermissionHint'
+  ]) assert.ok(html.includes('id="' + id + '"'), 'missing settings control: ' + id);
+  assert.match(js, /Gmail: \{ service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope:/);
+  assert.match(js, /'Google Calendar': \{ service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope:/);
+  assert.match(js, /const isConnected = profile\.siteConfigured \? configuredService : Boolean\(connectedGoogle && \(hasRead \|\| hasWrite\)\)/);
+  assert.match(js, /Checked permissions reflect scopes currently granted by Google/);
+  assert.match(js, /This app cannot connect yet/);
+  assert.match(js, /const service = writeSelected \? profile\.writeService : profile\.readService/);
+  assert.match(js, /connectGoogle\(service\)/);
+  assert.match(css, /\.plugin-catalog-settings #pluginCatalogConfigure/);
+});
+
+test('Google OAuth requests only the selected read or read/write scopes', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../src/google/index.js', import.meta.url), 'utf8');
+  assert.match(js, /'gmail-readwrite'/);
+  assert.match(js, /GMAIL_WRITE_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.modify'/);
+  assert.match(js, /GMAIL_SEND_SCOPE = 'https:\/\/www\.googleapis\.com\/auth\/gmail\.send'/);
+  assert.match(js, /service==='gmail-readwrite'\?\[GMAIL_SCOPE,GMAIL_WRITE_SCOPE,GMAIL_SEND_SCOPE\]/);
+  assert.match(js, /service==='calendar-write'\|\|service==='both'/);
+  assert.match(js, /include_granted_scopes:'true'/);
+});
+
+test('plugins: catalog apps are grouped by provider family and add-account is guarded', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="pluginCatalogAddAccount"[^>]*hidden/);
+  assert.match(js, /'Google Calendar': 'Google'/);
+  assert.match(js, /Outlook: 'Microsoft 365'/);
+  assert.match(js, /Canva: 'Design & creativity'/);
+  assert.match(js, /Facebook: 'Social & messaging'/);
+  assert.match(js, /\['Design & creativity', \[\['Canva', 'design'\]\]\]/);
+  assert.match(js, /Multiple accounts are not enabled for this Google app yet/);
+  assert.match(js, /actions\.hidden = !open/);
+  assert.match(js, /otherActions\.hidden = true/);
+  assert.match(js, /Disconnect Google account/);
+});
+
+test('plugins: app settings include account, permission, and information sections', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  for (const id of ['pluginCatalogCategory', 'pluginCatalogDeveloper', 'pluginCatalogWebsite', 'pluginCatalogInformation']) {
+    assert.ok(html.includes('id="' + id + '"'), 'missing information field: ' + id);
+  }
+  assert.match(html, /Privacy Policy/);
+  assert.match(html, /Report an issue/);
+  assert.match(js, /\$\('pluginCatalogWebsite'\)\.href = catalogWebsite\[name\]/);
+});
+
+test('plugins: responsive settings rows prevent mobile text overlap', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /#pluginCatalogInformation \.plugin-info\s*\{[\s\S]*?display: grid/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+  assert.match(css, /overflow-wrap: anywhere/);
+  assert.match(css, /@media \(max-width: 420px\)/);
+  assert.match(css, /#pluginCatalogInformation \.plugin-info > em[\s\S]*?text-align: left/);
+  assert.match(css, /#pluginCatalogConfigure\s*\{[\s\S]*?white-space: normal/);
+});
+
+test('plugins: reopening the sheet resets catalog settings and detail panels', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const openStart = js.indexOf('function openGithub()');
+  const openEnd = js.indexOf('function closeGithub()', openStart);
+  assert.ok(openStart >= 0 && openEnd > openStart, 'plugin sheet open/close handlers should exist');
+  const openBody = js.slice(openStart, openEnd);
+  assert.match(openBody, /\$\('pluginsList'\)\.hidden = false;/);
+  assert.match(openBody, /\$\('pluginCatalogSettings'\)\.hidden = true;/);
+  assert.match(openBody, /\$\('pluginDetail'\)\.hidden = true;/);
+  assert.ok(
+    openBody.indexOf("$('pluginCatalogSettings').hidden = true;") < openBody.indexOf("githubSheet.hidden = false;"),
+    'catalog settings must be hidden before the Plugins sheet is shown'
+  );
 });
 
 test('plugins: connected plugins are listed first, under Connected', async () => {
@@ -549,4 +678,14 @@ test('github: merged or not, the whole diff size, and the recent pull requests l
   assert.ok(JSON.stringify(st).length < 8192, 'fits the tool result limit even for a big pull request');
   const list = await api.listPulls('tok', 'o/r', { state: 'all', limit: 5 });
   assert.deepEqual(list.pull_requests.map((p) => [p.number, p.state]), [[7, 'merged'], [6, 'closed'], [8, 'open']]);
+});
+
+test('coding chat shows a visible confirmation control for prepared repository files', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /github\.connected \? 'Confirm change' : 'Connect GitHub to confirm'/);
+  assert.match(js, /function openPr\(sources, text\)/);
+  assert.match(js, /body: JSON\.stringify\(\{ confirm: true, repo,/);
+  assert.match(css, /body\.coding-mode \.pr-open \{ display: inline-flex; \}/);
 });
