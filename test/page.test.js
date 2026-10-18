@@ -297,7 +297,7 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
-  assert.match(toggle, /b\.setAttribute\('aria-label', `Hide sources and resources \\(\$\{links\.length\}\\)`\);/);
+  assert.ok(toggle.includes("b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);"));
   assert.match(toggle, /const hosts = \[\.\.\.new Set\(links\.map\(\(l\) => l\.host\)\)\]\.slice\(0, 3\);/);
   assert.match(toggle, /b\.append\(faces, mk\('span', 'src-word', 'Sources'\)\);/);
   assert.doesNotMatch(toggle, /<img|\.src = /);   // no outside images (strict CSP, no third-party requests)
