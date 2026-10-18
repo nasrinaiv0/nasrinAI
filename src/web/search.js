@@ -8,6 +8,16 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
+      const queryText = (Array.isArray(messages) ? messages : []).map((m) => String(m?.content || '')).join('\n');
+      const deepResearch = /\\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons)\\b/i.test(queryText);
+      const searchContextSize = deepResearch ? 'high' : 'medium';
+      const researchInstructions = [
+        'Search for evidence that directly answers the user question, not just pages that repeat its wording.',
+        'Prefer primary and authoritative sources when available: official documentation, government or institutional data, original research, and direct company announcements.',
+        'For material factual claims, cross-check with more than one credible source when feasible. Distinguish independent corroboration from sources that repeat the same report.',
+        'Check publication or update dates for time-sensitive claims. Clearly flag uncertainty, disagreement, and gaps instead of guessing.',
+        'Cite sources that directly support the nearby claims. Do not invent sources, dates, statistics, quotations, or consensus.'
+      ].join('\\n');
       let resp;
       try {
         resp = await fetchImpl(baseUrl + '/responses', {
@@ -15,8 +25,9 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
           body: JSON.stringify({
             model,
-            tools: [{ type: 'web_search' }],
-            instructions: system,
+            tools: [{ type: 'web_search', search_context_size: searchContextSize }],
+            include: ['web_search_call.action.sources'],
+            instructions: String(system || '') + '\\n\\nWeb research quality requirements:\\n' + researchInstructions,
             input: messages.map((m) => ({ role: m.role, content: m.content })),
             max_output_tokens: maxTokens,
             ...(onText ? { stream: true } : {})
