@@ -134,7 +134,7 @@ test('settings: GitHub is on only with a client id, secret and connector key', (
   assert.equal(testConfig(ENV).githubOff, null);
 });
 
-async function ghApp(table = {}) {
+async function ghApp(table = {}, verifyUser) {
   const gh = fakeGithub({
     'POST github.com/login/oauth/access_token': (init) => {
       const p = new URLSearchParams(init.body);
@@ -147,9 +147,9 @@ async function ghApp(table = {}) {
   });
   let clock = Date.parse('2026-10-12T00:00:00Z');
   const now = () => clock;
-  const built = buildTestApp({ env: ENV });
+  const built = buildTestApp({ env: ENV, ...(verifyUser ? { verifyUser } : {}) });
   const github = createGithub({ config: built.config, store: built.store, fetchImpl: gh.fetchImpl, now });
-  const app = buildTestApp({ env: ENV, store: built.store, extraRoutes: github.routes });
+  const app = buildTestApp({ env: ENV, store: built.store, extraRoutes: github.routes, ...(verifyUser ? { verifyUser } : {}) });
   const srv = await serve(app.app);
   return { ...srv, github, store: built.store, gh, tick: (ms) => { clock += ms; } };
 }
@@ -678,4 +678,39 @@ test('github: merged or not, the whole diff size, and the recent pull requests l
   assert.ok(JSON.stringify(st).length < 8192, 'fits the tool result limit even for a big pull request');
   const list = await api.listPulls('tok', 'o/r', { state: 'all', limit: 5 });
   assert.deepEqual(list.pull_requests.map((p) => [p.number, p.state]), [[7, 'merged'], [6, 'closed'], [8, 'open']]);
+});
+
+
+test('github: connections and disconnect operations are isolated to the signed-in user', async () => {
+  const secondToken = 'user-two-token';
+  const verifyUser = async (token) => {
+    if (token === USER_TOKEN) return { id: 'user-1' };
+    if (token === secondToken) return { id: 'user-2' };
+    return null;
+  };
+  const t = await ghApp({}, verifyUser);
+  try {
+    await connected(t);
+    const secondHeaders = bearer(secondToken);
+    const secondStatusResponse = await fetch(t.url + '/v1/github/status', { headers: secondHeaders });
+    assert.equal(secondStatusResponse.status, 200);
+    const secondStatus = await secondStatusResponse.json();
+    assert.equal(secondStatus.connected, false);
+    assert.deepEqual(secondStatus.accounts, []);
+
+    const secondDelete = await fetch(t.url + '/v1/github', { method: 'DELETE', headers: secondHeaders });
+    assert.equal(secondDelete.status, 200);
+    assert.equal((await secondDelete.json()).connected, false);
+
+    const firstStatus = await (await fetch(t.url + '/v1/github/status', { headers: bearer(USER_TOKEN) })).json();
+    assert.equal(firstStatus.connected, true);
+    assert.deepEqual(firstStatus.accounts.map((account) => account.login), ['octo-cat']);
+
+    const spoofedMain = await fetch(t.url + '/v1/github/main', {
+      method: 'POST',
+      headers: { ...secondHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: 'octo-cat' })
+    });
+    assert.equal(spoofedMain.status, 404, 'another user cannot select the first user account');
+  } finally { await t.close(); }
 });
