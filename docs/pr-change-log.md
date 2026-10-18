@@ -1013,3 +1013,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
 - **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.
+
+## Proposed PR — Upgrade docs status cleanup (`docs/status-cleanup`)
+
+- **Change:** documentation only. `docs/claude-code-handoff.md` backlog statuses now match merged PRs (#316, #317, #318, #319); `docs/nasrinai-slash-commands-attachments-composer-upgrade.md` states what is and is not implemented (client-side registry, not the database-backed one; paste trigger is composer height, not 2,000 characters); `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` drops a duplicated section and records that migration 042 is live.
+- **Evidence for 042:** read-only Supabase query on 2026-10-18 showed the `google_connections` primary key is `(tenant_id, user_id, service)`. No data was read and nothing was changed.
+- **Validation:** `npm test` and `npm run check:secrets` run locally; CI pending. No app code, schema or settings changed.
