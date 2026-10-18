@@ -71,7 +71,7 @@ test('limits apply, failures are a plain 503, and status lists the voices', asyn
     assert.equal((await speak(url, g, { voice: 'onyx', message_id: chat.message.id })).status, 429);
     const status = await (await fetch(url + '/v1/status')).json();
     assert.equal(status.speech.available, true);
-    assert.equal(status.speech.default, 'coral');
+    assert.equal(status.speech.default, 'cedar');
     assert.deepEqual(status.speech.voices.map((v) => v.id), VOICES.map((v) => v.id));
   });
   await withApp({ speechEngine: fakeEngine({ fail: true }) }, async ({ url, g, chat, store }) => {
