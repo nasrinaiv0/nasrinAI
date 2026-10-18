@@ -3757,13 +3757,13 @@
         for (const link of links) {
           try {
             const url = new URL(link.href);
-            const host = url.hostname.toLowerCase().replace(/^www\\./, '');
+            const host = url.hostname.toLowerCase().replace(/^www\./, '');
             if (!['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) continue;
             let id = '';
             if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
             else if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
             else {
-              const match = url.pathname.match(/^\\/(?:embed|shorts|live)\\/([A-Za-z0-9_-]{11})(?:$|\\/)/);
+              const match = url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})(?:$|\/)/);
               if (match) id = match[1];
             }
             if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
