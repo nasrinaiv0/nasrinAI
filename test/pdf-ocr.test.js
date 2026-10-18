@@ -18,6 +18,8 @@ test('PDF OCR submits a PDF as a Responses API file input and returns extracted 
   assert.equal(body.model, 'gpt-4o-mini');
   assert.match(body.input[0].content[0].file_data, /^data:application\/pdf;base64,/);
   assert.match(body.input[0].content[1].text, /visual OCR/);
+  assert.match(body.input[0].content[1].text, /\[Page 1\]/);
+  assert.match(body.input[0].content[1].text, /document order/);
 });
 
 test('PDF OCR rejects missing key, oversized and invalid files without calling provider', async () => {
@@ -35,4 +37,10 @@ test('PDF OCR hides provider errors and rejects empty extraction', async () => {
   await assert.rejects(() => failed.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'ocr_busy' && !e.message.includes('private details'));
   const empty = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => new Response(JSON.stringify({ output_text: ' ' }), { status: 200 }) });
   await assert.rejects(() => empty.extract({ bytes: pdf, name: 'x.pdf' }), (e) => e.code === 'empty_ocr');
+});
+
+test('PDF OCR rejects a PDF signature embedded after a non-PDF prefix', async () => {
+  const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => { throw new Error('must not call upstream'); } });
+  const prefixed = Buffer.concat([Buffer.from('not-a-pdf\n'), pdf]);
+  await assert.rejects(() => service.extract({ bytes: prefixed, name: 'invoice.pdf' }), (e) => e.status === 415 && e.code === 'unsupported_document');
 });

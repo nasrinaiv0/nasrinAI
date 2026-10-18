@@ -1868,8 +1868,9 @@
             objectUrl = URL.createObjectURL(f.local);
             video.src = objectUrl;
             await new Promise((resolve, reject) => {
-              video.onloadedmetadata = resolve;
-              video.onerror = () => reject(new Error('This video format could not be opened on this device.'));
+              const timeout = setTimeout(() => reject(new Error('Video metadata took too long to load. Try a shorter video or another format.')), 15000);
+              video.onloadedmetadata = () => { clearTimeout(timeout); resolve(); };
+              video.onerror = () => { clearTimeout(timeout); reject(new Error('This video format could not be opened on this device.')); };
             });
             if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
             const duration = video.duration;
@@ -1879,8 +1880,9 @@
               if (pending.length + extracted.length >= MAX_FILES) break;
               video.currentTime = times[index];
               await new Promise((resolve, reject) => {
-                video.onseeked = resolve;
-                video.onerror = () => reject(new Error('Could not seek to a video frame.'));
+                const timeout = setTimeout(() => reject(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), 10000);
+                video.onseeked = () => { clearTimeout(timeout); resolve(); };
+                video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not seek to a video frame.')); };
               });
               const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
               const canvas = document.createElement('canvas');

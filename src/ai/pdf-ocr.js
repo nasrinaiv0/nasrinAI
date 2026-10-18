@@ -10,7 +10,7 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
       if (!apiKey) throw new HttpError(503, 'ocr_unavailable', 'PDF text extraction is not available right now.');
       if (!Buffer.isBuffer(bytes) || bytes.length === 0) throw new HttpError(400, 'pdf_required', 'Choose a non-empty PDF file.');
       if (bytes.length > MAX_OCR_PDF_BYTES) throw new HttpError(413, 'pdf_too_large', 'Choose a PDF smaller than 6 MB for text extraction.');
-      if (bytes.indexOf(PDF_SIGNATURE) < 0 || !/\.pdf$/i.test(String(name))) {
+      if (bytes.subarray(0, PDF_SIGNATURE.length).compare(PDF_SIGNATURE) !== 0 || !/\.pdf$/i.test(String(name))) {
         throw new HttpError(415, 'unsupported_document', 'Choose a valid PDF document.');
       }
       const fileName = String(name).split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 120) || 'scanned-document.pdf';
@@ -20,7 +20,7 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
           role: 'user',
           content: [
             { type: 'input_file', filename: fileName, file_data: 'data:application/pdf;base64,' + bytes.toString('base64') },
-            { type: 'input_text', text: 'Extract all readable text from this PDF, including scanned pages using visual OCR. Preserve reading order, headings, paragraphs, lists, and table structure as plain text. Do not summarize, infer missing words, or add commentary. If a page is unreadable, mark it as [unreadable page].' }
+            { type: 'input_text', text: 'Extract all readable text from every page of this PDF, using visual OCR for scanned pages and image-only regions. Process pages in document order and begin each page with a clear marker such as [Page 1]. Preserve reading order, headings, paragraphs, lists, table rows and columns as plain text. Do not summarize, infer missing words, or add commentary. If a page is unreadable, include its page marker and write [unreadable page].' }
           ]
         }],
         max_output_tokens: 12000
