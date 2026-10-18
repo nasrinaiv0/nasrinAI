@@ -191,14 +191,20 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     let selection = config.professional?.enabled === false ? null : readSelection(body.professional);
     let codeFile = null;
     if (body.code_lines !== undefined && body.code_file_id === undefined) throw new HttpError(400, 'invalid_code_lines', 'Choose a code file before selecting lines.');
+    if (!provider) throw unavailable();
+    if (legal) await legal.require(caller);
+    // Compute the effective plan once. Exhausted paid allowances route ordinary
+    // chat to Quick, but coding-file operations remain paid-tier only.
+    const effectivePlan = plans ? await plans.planFor(caller) : 'ultra';
     if (body.code_file_id !== undefined) {
       if (!coding) throw new HttpError(404, 'not_found', 'Coding is not available.');
+      if (effectivePlan === 'free') {
+        throw new HttpError(403, 'coding_allowance_exhausted', 'Your paid coding allowance has been used. Unlimited Quick chat is still available; coding will return when your weekly allowance resets.');
+      }
       codeFile = await coding.load(caller, body.code_file_id, body.code_lines);
       if (!selection && config.professional?.enabled !== false) selection = readSelection({ enabled: true, mode: 'single', ids: ['software_developer'] });
     }
-    if (!provider) throw unavailable();
-    if (legal) await legal.require(caller);
-    const choice = await models.resolve(caller, body.model, { plan: plans ? await plans.planFor(caller) : 'ultra' });
+    const choice = await models.resolve(caller, body.model, { plan: effectivePlan });
     const model = choice.model;
 
     let startIn = null;
