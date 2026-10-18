@@ -3206,6 +3206,107 @@
     return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
   }
 
+  const PERSISTENT_YOUTUBE_KEY = 'nasrin.persistentYoutubePlayer';
+
+  function createYouTubeVideoCard(video) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return null;
+    const card = document.createElement('article');
+    card.className = 'youtube-video-card';
+    const frameWrap = document.createElement('div');
+    frameWrap.className = 'youtube-video-frame';
+    const frame = document.createElement('iframe');
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
+    frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
+    frame.loading = 'lazy';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allowFullscreen = true;
+    frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+    frameWrap.appendChild(frame);
+    const fullscreen = document.createElement('button');
+    fullscreen.type = 'button';
+    fullscreen.className = 'youtube-fullscreen-button';
+    fullscreen.setAttribute('aria-label', 'Play video fullscreen');
+    fullscreen.title = 'Play video fullscreen';
+    fullscreen.textContent = '⛶ Fullscreen';
+    fullscreen.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
+          await document.exitFullscreen();
+          return;
+        }
+        if (typeof frameWrap.requestFullscreen === 'function') await frameWrap.requestFullscreen();
+        else if (typeof frame.requestFullscreen === 'function') await frame.requestFullscreen();
+        else window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+      } catch {
+        window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+      }
+    });
+    frameWrap.appendChild(fullscreen);
+    const details = document.createElement('div');
+    details.className = 'youtube-video-details';
+    const title = document.createElement('p');
+    title.className = 'youtube-video-title';
+    title.textContent = String(video.title || 'YouTube video').slice(0, 240);
+    const channel = document.createElement('p');
+    channel.className = 'youtube-video-channel';
+    channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
+    const open = document.createElement('a');
+    open.className = 'youtube-video-link';
+    open.href = 'https://www.youtube.com/watch?v=' + video.id;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.textContent = 'Watch on YouTube';
+    details.append(title, channel, open);
+    card.append(frameWrap, details);
+    return card;
+  }
+
+  function mountPersistentYouTubePlayer(video, existingCard = null) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return;
+    const state = { id: video.id, title: String(video.title || 'YouTube video').slice(0, 240), channelTitle: String(video.channelTitle || 'YouTube').slice(0, 120) };
+    try { localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify(state)); } catch {}
+    let panel = document.getElementById('persistent-youtube-player');
+    if (!panel) {
+      panel = document.createElement('aside');
+      panel.id = 'persistent-youtube-player';
+      panel.className = 'persistent-youtube-player';
+      panel.setAttribute('aria-label', 'Persistent video player');
+      panel.setAttribute('role', 'region');
+      const header = document.createElement('div');
+      header.className = 'persistent-youtube-header';
+      const label = document.createElement('span');
+      label.className = 'persistent-youtube-label';
+      label.textContent = 'Continue watching';
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'persistent-youtube-close';
+      close.setAttribute('aria-label', 'Close persistent video player');
+      close.title = 'Close video player';
+      close.textContent = '×';
+      close.addEventListener('click', () => {
+        panel.remove();
+        try { localStorage.removeItem(PERSISTENT_YOUTUBE_KEY); } catch {}
+      });
+      header.append(label, close);
+      panel.appendChild(header);
+      document.body.appendChild(panel);
+    }
+    let card = existingCard;
+    if (!card) card = createYouTubeVideoCard(state);
+    if (!card) return;
+    panel.querySelector('.youtube-video-card')?.remove();
+    panel.appendChild(card);
+    panel.dataset.videoId = state.id;
+  }
+
+  function restorePersistentYouTubePlayer() {
+    try {
+      const state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+      if (state && /^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) mountPersistentYouTubePlayer(state);
+    } catch {}
+  }
+
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
     if (message.querySelector('.youtube-results')) return;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
@@ -3222,8 +3323,7 @@
           videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
         }
       } catch {
-        // If live search is not configured/reachable, embed relevant YouTube
-        // links already returned in the assistant's researched answer below.
+        // Fall back to researched YouTube links when live search is unavailable.
       }
       if (!videos.length) {
         const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
@@ -3248,64 +3348,11 @@
       heading.className = 'youtube-results-heading';
       heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
       section.appendChild(heading);
-      for (const video of videos) {
-        if (!/^[A-Za-z0-9_-]{11}$/.test(String(video.id || ''))) continue;
-        const card = document.createElement('article');
-        card.className = 'youtube-video-card';
-        const frameWrap = document.createElement('div');
-        frameWrap.className = 'youtube-video-frame';
-        const frame = document.createElement('iframe');
-        frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
-        frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
-        frame.loading = 'lazy';
-        frame.referrerPolicy = 'strict-origin-when-cross-origin';
-        frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-        frame.allowFullscreen = true;
-        frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
-        frameWrap.appendChild(frame);
-        const fullscreen = document.createElement('button');
-        fullscreen.type = 'button';
-        fullscreen.className = 'youtube-fullscreen-button';
-        fullscreen.setAttribute('aria-label', 'Play video fullscreen');
-        fullscreen.title = 'Play video fullscreen';
-        fullscreen.textContent = '⛶ Fullscreen';
-        fullscreen.addEventListener('click', async () => {
-          try {
-            if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
-              await document.exitFullscreen();
-              return;
-            }
-            if (typeof frameWrap.requestFullscreen === 'function') {
-              await frameWrap.requestFullscreen();
-            } else if (typeof frame.requestFullscreen === 'function') {
-              await frame.requestFullscreen();
-            } else {
-              // Older iOS versions may not expose the fullscreen API for iframes.
-              // Keep the action useful by opening the same video in YouTube.
-              window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-            }
-          } catch {
-            window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-          }
-        });
-        frameWrap.appendChild(fullscreen);
-        const details = document.createElement('div');
-        details.className = 'youtube-video-details';
-        const title = document.createElement('p');
-        title.className = 'youtube-video-title';
-        title.textContent = String(video.title || 'YouTube video').slice(0, 240);
-        const channel = document.createElement('p');
-        channel.className = 'youtube-video-channel';
-        channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
-        const open = document.createElement('a');
-        open.className = 'youtube-video-link';
-        open.href = 'https://www.youtube.com/watch?v=' + video.id;
-        open.target = '_blank';
-        open.rel = 'noopener noreferrer';
-        open.textContent = 'Watch on YouTube';
-        details.append(title, channel, open);
-        card.append(frameWrap, details);
-        section.appendChild(card);
+      const firstCard = createYouTubeVideoCard(videos[0]);
+      if (firstCard) mountPersistentYouTubePlayer(videos[0], firstCard);
+      for (const video of videos.slice(1)) {
+        const card = createYouTubeVideoCard(video);
+        if (card) section.appendChild(card);
       }
       if (section.querySelector('.youtube-video-card')) {
         const body = message.querySelector('.msg-body');
@@ -3847,7 +3894,8 @@
     if (accountOpen) accountOpen.hidden = !account;
     if (accountDetailEmail) accountDetailEmail.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
     headerSignIn.hidden = Boolean(account) || !can;
-    showConnectForSignedIn();
+    restorePersistentYouTubePlayer();
+  showConnectForSignedIn();
     $('logoutMenu').hidden = !account;
   }
 
