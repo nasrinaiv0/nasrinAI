@@ -2647,7 +2647,7 @@
           loading.textContent = 'Finding real photos…';
           gallery.appendChild(loading);
           shown.appendChild(gallery);
-          api('/v1/images/search?q=' + encodeURIComponent(query)).then(({ images = [] }) => {
+          api('/v1/web-images/search?q=' + encodeURIComponent(query)).then(({ images = [] }) => {
             loading.remove();
             if (!images.length) {
               loading.textContent = 'No suitable photos were found. Try a more specific place or subject.';
