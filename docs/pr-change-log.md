@@ -1013,3 +1013,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
 - **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.
+
+## Proposed PR — Smart paste at 2,000 characters (`feature/smart-paste-2000`)
+
+- **Owner request:** implement the upgrade in `docs/nasrinai-slash-commands-attachments-composer-upgrade.md`, section 4.
+- **Change:** `public/paste.js` holds the rule; the paste handler in `public/app.js` uses it. One paste of 2,000 characters or fewer (Unicode code points) stays editable; 2,001 or more becomes a UTF-8 `pasted-text.txt` attachment (`pasted-text-2.txt` if the name is taken) with a notice such as "Long paste attached as pasted-text.txt (2,438 characters)." If the file cannot be added, the text is put into the message box instead, so nothing is lost. Only the pasted text is counted, never what is already typed. Images and files paste as before.
+- **Behaviour change:** replaces the composer-height trigger from #296, as the spec requires.
+- **Not changed:** the database-backed slash registry and attachment previews (sections 2 and 3); no schema, legal or settings change. The spec's status line is updated in PR #402.
+- **Validation:** `npm test` 705 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Not yet checked on Safari iOS/iPadOS or a desktop browser.
