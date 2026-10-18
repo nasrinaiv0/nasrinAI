@@ -101,9 +101,11 @@ test('Google Meet and Keep use independent OAuth scopes and service records', ()
   assert.match(google, /name: 'google_keep_list_notes'/);
 });
 
-test('Google Maps uses server-side environment credentials without exposing keys in the frontend', () => {
-  assert.match(google, /GOOGLE_MAPS_API_KEY/);
-  assert.match(google, /name: 'google_maps_places_search'/);
-  assert.match(google, /service === 'maps'.*mapsAvailable/s);
+test('Google Maps fleet routing uses Directions URLs without a Maps API key', () => {
+  assert.match(google, /const mapsAvailable = true/);
+  assert.match(google, /name: 'google_maps_fleet_route'/);
+  assert.match(google, /https:\/\/www\.google\.com\/maps\/dir\//);
+  assert.match(google, /apiKeyRequired:false/);
+  assert.doesNotMatch(google, /GOOGLE_MAPS_API_KEY|google_maps_places_search/);
   assert.doesNotMatch(app, /GOOGLE_SEARCH_API_KEY|GOOGLE_SEARCH_ENGINE_ID|GOOGLE_MAPS_API_KEY/);
 });
