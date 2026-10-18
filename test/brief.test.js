@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readPlan, cleanBrief, cleanAnswers, promptFromBrief, summarize, fallbackBrief, MAX_QUESTIONS } from '../src/ai/brief.js';
+import { BRIEF_SYSTEM, readPlan, cleanBrief, cleanAnswers, promptFromBrief, summarize, fallbackBrief, MAX_QUESTIONS } from '../src/ai/brief.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { ProviderError } from '../src/ai/provider.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
