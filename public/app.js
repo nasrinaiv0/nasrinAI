@@ -3201,7 +3201,9 @@
   function needsYouTubeVideos(query) {
     const q = String(query || '').trim();
     if (q.length < 5 || q.length > 600) return false;
-    return /\b(?:youtube|video tutorial|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|can i|does|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
+    // Practical how-to questions should surface a video even when the user
+    // doesn't explicitly say "YouTube" or "tutorial" (e.g. "how to do push ups").
+    return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
   }
 
   async function renderYouTubeVideos(message, userQuery) {
