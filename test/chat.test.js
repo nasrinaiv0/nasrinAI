@@ -289,6 +289,7 @@ test('chat frontend contains a user-initiated location action with manual fallba
   assert.match(src, /Use my location/);
   assert.match(src, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(src, /needsDeviceLocation/);
+  assert.match(src, /window\.confirm\('Allow NasrinAI to access your device location for this request\?/);
   assert.match(src, /location_context: locationContext/);
   assert.match(src, /maximumAge: 120000, timeout: 5000/);
   assert.match(src, /Location permission was denied/);
