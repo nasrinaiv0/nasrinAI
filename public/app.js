@@ -7156,6 +7156,7 @@
     video: [['path', { d: 'M4 7h11v10H4z' }], ['path', { d: 'm15 10.5 5-3v9l-5-3' }]],
     note: [['path', { d: 'M6 3.5h9l3 3V20H6z' }], ['path', { d: 'M15 3.5V7h3M9 11h6M9 14.5h6M9 18h4' }]],
     map: [['path', { d: 'm3.5 6 5-2.5 7 2.5 5-2.5v14l-5 2.5-7-2.5-5 2.5z' }], ['path', { d: 'M8.5 3.5v14M15.5 6v14' }]],
+    search: [['circle', { cx: '10.8', cy: '10.8', r: '6.3' }], ['path', { d: 'm15.5 15.5 4.2 4.2' }]],
 
     calendar: [['path', { d: 'M4.5 6h15v13.5h-15z' }], ['path', { d: 'M4.5 10h15M8.5 4v4M15.5 4v4' }]],
     social: [['circle', { cx: '12', cy: '12', r: '8' }], ['path', { d: 'M12 7.5v9M8.5 11h7' }]],
@@ -7166,7 +7167,7 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Maps', 'map']]],
+    ['Google', [['Google Meet', 'video'], ['Google Keep', 'note'], ['Google Search', 'search'], ['Google Maps', 'map']]],
     ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
     ['Design', [['Canva', 'design']]],
     ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
