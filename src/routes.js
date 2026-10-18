@@ -1569,6 +1569,51 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Resolve public TikTok/Facebook URLs using their official oEmbed APIs.
+      // Only allowlisted provider hosts are accepted; upstream HTML is never
+      // returned to the client or injected into the page.
+      method: 'GET',
+      path: '/v1/social/oembed',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many embed requests.');
+        const raw = new URL(req.url, 'http://localhost').searchParams.get('url') || '';
+        if (!raw || raw.length > 2048) throw new HttpError(400, 'invalid_url', 'Invalid social video URL.');
+        let url;
+        try { url = new URL(raw); } catch { throw new HttpError(400, 'invalid_url', 'Invalid social video URL.'); }
+        if (url.protocol !== 'https:') throw new HttpError(400, 'invalid_url', 'Only HTTPS social URLs are supported.');
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        let provider = '';
+        let upstream = '';
+        let embedUrl = '';
+        if (host === 'tiktok.com' || host === 'm.tiktok.com') {
+          const match = url.pathname.match(/^\/@[A-Za-z0-9._-]+\/video\/(\d+)/);
+          if (!match) throw new HttpError(400, 'invalid_url', 'Use a direct TikTok video link.');
+          provider = 'tiktok';
+          upstream = 'https://www.tiktok.com/oembed?url=' + encodeURIComponent(url.href);
+          embedUrl = 'https://www.tiktok.com/player/v1/' + match[1] + '?controls=1&play_button=1&description=1';
+        } else if (host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch') {
+          if (host === 'fb.watch' && !/^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw new HttpError(400, 'invalid_url', 'Invalid Facebook video URL.');
+          if (host !== 'fb.watch' && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) {
+            throw new HttpError(400, 'invalid_url', 'Use a direct public Facebook post or video link.');
+          }
+          provider = 'facebook';
+          const endpoint = /\/videos\/|\/reel\//i.test(url.pathname) || url.searchParams.has('v') ? 'oembed_video' : 'oembed_post';
+          upstream = 'https://graph.facebook.com/v26.0/' + endpoint + '?url=' + encodeURIComponent(url.href) + '&omitscript=true';
+          embedUrl = 'https://www.facebook.com/plugins/' + (endpoint === 'oembed_video' ? 'video.php' : 'post.php') + '?href=' + encodeURIComponent(url.href) + '&show_text=true&width=500';
+        } else {
+          throw new HttpError(400, 'unsupported_provider', 'Only TikTok and Facebook URLs are supported.');
+        }
+        let response;
+        try { response = await fetch(upstream, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000) }); }
+        catch { throw new HttpError(502, 'oembed_unavailable', 'This provider is temporarily unavailable.'); }
+        if (!response.ok) throw new HttpError(422, 'embed_unavailable', 'This post may be private, removed, or unavailable for embedding.');
+        let data;
+        try { data = await response.json(); } catch { throw new HttpError(502, 'invalid_oembed_response', 'The provider returned an invalid response.'); }
+        return { provider, type: String(data.type || 'rich').slice(0, 32), title: String(data.title || (provider === 'tiktok' ? 'TikTok video' : 'Facebook post')).slice(0, 240), embedUrl, sourceUrl: url.href };
+      }
+    },
+    {
       // Search public Wikimedia Commons photos. Image URLs are limited to Wikimedia's
       // upload host and every result includes its source page and license metadata.
       method: 'GET',
