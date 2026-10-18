@@ -33,7 +33,8 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(timeoutMs)
         });
-      } catch {
+      } catch (err) {
+        if (err?.name === 'TimeoutError' || err?.name === 'AbortError') throw new HttpError(504, 'ocr_timeout', 'PDF extraction took too long. Try a smaller document or split it into smaller PDFs.');
         throw new HttpError(502, 'ocr_upstream_unavailable', 'The PDF text extraction service could not be reached. Please try again.');
       }
       if (!response.ok) {
@@ -54,7 +55,7 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
       // requests page markers, so require at least the first marker when present
       // markers are used. We cannot verify total page coverage without a PDF parser.
       const pageMarkers = [...text.matchAll(/\[Page\s+(\d+)\]/gi)].map((match) => Number(match[1]));
-      if (!pageMarkers.length || pageMarkers[0] !== 1 || pageMarkers.some((page, index) => index > 0 && page < pageMarkers[index - 1])) {
+      if (!pageMarkers.length || pageMarkers[0] !== 1 || pageMarkers.some((page, index) => index > 0 && page <= pageMarkers[index - 1])) {
         throw new HttpError(502, 'invalid_ocr_order', 'The extracted pages were not returned in document order. Please retry extraction.');
       }
       return { text, characters: text.length, model };
