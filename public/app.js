@@ -1785,7 +1785,7 @@
         const language = document.createElement('select');
         language.className = 'chip-transcribe-language';
         language.setAttribute('aria-label', 'Transcription language');
-        for (const [value, label] of [['', 'Auto language'], ['en', 'English'], ['fil', 'Filipino'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['ja', 'Japanese'], ['zh', 'Chinese']]) {
+        for (const [value, label] of [['', 'Auto language'], ['en', 'English'], ['tl', 'Filipino'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['ja', 'Japanese'], ['zh', 'Chinese']]) {
           const option = document.createElement('option'); option.value = value; option.textContent = label; language.appendChild(option);
         }
         const transcribe = document.createElement('button');
