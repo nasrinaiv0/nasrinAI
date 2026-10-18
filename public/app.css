@@ -3533,3 +3533,51 @@ body.coding-mode:not(.has-chat) .brand-code-logo {
   display: none !important;
   visibility: hidden !important;
 }
+
+
+/* Keep the conversation title geometrically centered regardless of the
+   unequal left/right header controls. */
+.bar { position: relative; }
+.bar > .brand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  justify-content: center;
+  margin: 0;
+  white-space: nowrap;
+}
+body:not(.has-chat) .bar > .brand {
+  transform: translate(-50%, -50%);
+}
+body.coding-mode .bar > .brand {
+  transform: translate(-50%, -50%);
+}
+body.coding-mode:not(.has-chat) .bar > .brand-code-logo {
+  display: none !important;
+}
+.coding-empty-sphere {
+  position: absolute;
+  inset: -7%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--ink);
+  opacity: .8;
+}
+.coding-empty-sphere .dots {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: inherit;
+}
+.coding-empty-sphere .dots circle { fill: currentColor; }
+.coding-empty-logo {
+  z-index: 2;
+}
+.coding-empty-spark-one { display: none !important; }
+@media (max-width: 540px) {
+  .bar > .brand { max-width: calc(100% - 7rem); }
+  .coding-empty-sphere { inset: -12%; }
+}
