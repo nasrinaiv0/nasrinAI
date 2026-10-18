@@ -2732,6 +2732,10 @@
       notice.textContent = 'Attach the image for /' + shortcut.name + ', then run the shortcut again.';
       return;
     }
+    if (!shortcut && window.NasrinCreativeIntent.isImageEnhancement(text) && !pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) {
+      notice.textContent = 'Attach the photo you want enhanced, then send your request again.';
+      return;
+    }
     if (!imageMode && intent === 'video') {
       const prompt = shortcut ? shortcutImagePrompt(shortcut) : text;
       return sendVideo(prompt);
@@ -2740,7 +2744,8 @@
       const files = pending;
       pending = [];
       renderTray();
-      return sendImage(text, files, shortcut ? { executeFirst: true, prompt: shortcutImagePrompt(shortcut) } : {});
+      const directEdit = Boolean(shortcut || window.NasrinCreativeIntent.isImageEnhancement(text));
+      return sendImage(text, files, directEdit ? { executeFirst: true, prompt: shortcut ? shortcutImagePrompt(shortcut) : text } : {});
     }
     if (imageMode) {
       if (!text) { notice.textContent = 'Describe the picture you want.'; return; }
