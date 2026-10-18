@@ -1781,7 +1781,7 @@
         name.textContent = f.name;
         chip.append(icon, name);
       }
-      if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+      if ((/^audio\//i.test(f.type || '') || /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
         const transcribe = document.createElement('button');
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
@@ -1803,7 +1803,7 @@
             const result = await response.json();
             if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No speech was detected in this audio.');
             const existing = input.value.trim();
-            input.value = existing ? existing + '\\n\\n' + result.text.trim() : result.text.trim();
+            input.value = existing ? existing + '\n\n' + result.text.trim() : result.text.trim();
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus();
             notice.textContent = 'Transcript added to your message. Review it before sending.';
@@ -1838,7 +1838,7 @@
             const result = await response.json();
             if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No readable text was found in this PDF.');
             const existing = input.value.trim();
-            input.value = existing ? existing + '\\n\\n' + result.text.trim() : result.text.trim();
+            input.value = existing ? existing + '\n\n' + result.text.trim() : result.text.trim();
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus();
             notice.textContent = 'Extracted PDF text added to your message. Review it before sending.';
@@ -1851,7 +1851,7 @@
         });
         chip.appendChild(ocr);
       }
-      if ((/^video\\//i.test(f.type || '') || /\\.(?:mp4|mov|webm|m4v|mpeg|mpg|ogv)$/i.test(f.name)) && f.local instanceof File) {
+      if ((/^video\//i.test(f.type || '') || /\.(?:mp4|mov|webm|m4v|mpeg|mpg|ogv)$/i.test(f.name)) && f.local instanceof File) {
         const frames = document.createElement('button');
         frames.type = 'button';
         frames.className = 'chip-transcribe';
@@ -1891,7 +1891,7 @@
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not encode a video frame.')), 'image/jpeg', 0.84));
               const stamp = Math.round(times[index] * 1000);
-              extracted.push(new File([blob], f.name.replace(/\\.[^.]+$/, '') + '-frame-' + (index + 1) + '-' + stamp + 'ms.jpg', { type: 'image/jpeg' }));
+              extracted.push(new File([blob], f.name.replace(/\.[^.]+$/, '') + '-frame-' + (index + 1) + '-' + stamp + 'ms.jpg', { type: 'image/jpeg' }));
             }
             if (!extracted.length) throw new Error('There is no room for more frames. Remove a file and try again.');
             await addFiles(extracted);
