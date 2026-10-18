@@ -352,6 +352,12 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
   assert.match(css, /\.youtube-video-frame/);
+  assert.match(js, /youtube-fullscreen-button/);
+  assert.match(js, /requestFullscreen\(\)/);
+  assert.match(js, /Play video fullscreen/);
+  assert.match(js, /window\.open\('https:\/\/www\.youtube\.com\/watch\?v='/);
+  assert.match(css, /\.youtube-fullscreen-button/);
+  assert.match(css, /\.youtube-video-frame:fullscreen/);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
