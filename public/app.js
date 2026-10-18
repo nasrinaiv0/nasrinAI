@@ -7084,6 +7084,11 @@
     $('ghDetailConnect').hidden = !github.available;
     $('ghDetailConnect').firstElementChild.textContent = on ? 'Reconnect main account' : 'Connect GitHub';
     $('ghDetailDisconnect').hidden = !on;
+    // Keep the Developer tools catalog card in sync with live GitHub state.
+    // The catalog is built once at load time (before loadGithub resolves), so
+    // without this the GitHub card would always read "Not configured".
+    const ghDevStatus = document.querySelector('.developer-tool-item[data-plugin-name="GitHub"] .plugins-soon');
+    if (ghDevStatus) ghDevStatus.textContent = on ? 'Connected' : github.available ? 'Available' : 'Not configured';
   }
   async function ghConnect(btn, add = false) {
     if (btn) btn.disabled = true;
