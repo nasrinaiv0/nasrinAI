@@ -12,6 +12,7 @@ const TYPES = {
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
   '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
   '.md': 'text/markdown; charset=utf-8'
 };
 
@@ -20,7 +21,7 @@ const TYPES = {
 export function createStatic(rootDir) {
   const root = path.resolve(rootDir);
 
-  return async function serveStatic(req, res, pathname) {
+  return async function serveStatic(req, res, pathname, status = 200) {
     let rel;
     try { rel = decodeURIComponent(pathname); } catch { return false; }
     if (rel.includes('\0') || rel.includes('\\')) return false;
@@ -37,7 +38,7 @@ export function createStatic(rootDir) {
     let data;
     try { data = await readFile(file); } catch { return false; }
 
-    res.statusCode = 200;
+    res.statusCode = status;
     res.setHeader('Content-Type', type);
     res.setHeader('Content-Length', data.length);
     // The page, its script, styles and manifest are checked on every load
@@ -47,7 +48,7 @@ export function createStatic(rootDir) {
     const etag = '"' + createHash('sha1').update(data).digest('base64url') + '"';
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', fresh ? 'no-cache' : 'public, max-age=3600');
-    if (fresh && req.headers['if-none-match'] === etag) {
+    if (status === 200 && fresh && req.headers['if-none-match'] === etag) {
       if (type.startsWith('text/html')) res.setHeader('Content-Security-Policy', PAGE_CSP);
       res.statusCode = 304;
       res.removeHeader('Content-Length');
