@@ -2739,6 +2739,16 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .plugin-hero-title { margin: 0.75rem 0 0.2rem; font: 500 1.35rem/1.2 var(--round, var(--sans)); }
 .plugin-hero-text { margin: 0; }
 .plugin-account { cursor: default; }
+.plugin-account-manager .plugin-account { display: flex; align-items: center; gap: .75rem; min-height: 3.75rem; }
+.plugin-account-manager .plugin-login { display: flex; flex-direction: column; gap: .18rem; min-width: 0; flex: 1; }
+.plugin-account-sub { color: var(--ink-3); font-size: .84rem; font-weight: 400; overflow-wrap: anywhere; }
+.plugin-account-manager #pluginCatalogAccountMain { margin-left: auto; }
+.plugin-account-manager #pluginCatalogAddAccount .plugin-avatar { width: 2.5rem; height: 2.5rem; }
+.plugin-account-manager #pluginCatalogConnect,
+.plugin-account-manager #pluginCatalogDisconnect { min-height: 3.25rem; }
+.plugin-account-manager #pluginCatalogDisconnect { color: var(--danger, #B3261E); }
+.plugin-account-manager #pluginCatalogAddAccount:disabled { opacity: .52; cursor: not-allowed; }
+.plugin-account-manager .plugin-account[hidden] { display: none; }
 .plugin-account:hover, .plugin-info:hover { background: none; }
 .plugin-avatar { display: grid; place-items: center; flex: none !important; width: 2rem; height: 2rem; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 0.9rem; }
 .plugin-info { cursor: default; }
