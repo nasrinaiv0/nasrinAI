@@ -2,15 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { requireIntegrationUser, assertIntegrationConnectionOwner, publicIntegrationConnection } from '../src/integrations/ownership.js';
 
-const userA = { actor: { type: 'user' }, userId: 'user-a', tenantId: 'tenant-a' };
-const userB = { actor: { type: 'user' }, userId: 'user-b', tenantId: 'tenant-a' };
+const userA = { actor: { type: 'user', id: 'user-a' }, tenantId: 'tenant-a' };
+const userB = { actor: { type: 'user', id: 'user-b' }, tenantId: 'tenant-a' };
 const connectionA = { id: 'conn-a', userId: 'user-a', tenantId: 'tenant-a', provider: 'render', accountId: 'acct-a', status: 'connected' };
 
 test('integration ownership: only a signed-in user with a tenant can manage connections', () => {
   assert.deepEqual(requireIntegrationUser(userA), { userId: 'user-a', tenantId: 'tenant-a' });
-  assert.throws(() => requireIntegrationUser({ actor: { type: 'guest' }, userId: 'guest-a', tenantId: 'tenant-a' }), (err) => err.status === 401);
-  assert.throws(() => requireIntegrationUser({ actor: { type: 'service' }, userId: 'service-a', tenantId: 'tenant-a' }), (err) => err.status === 401);
-  assert.throws(() => requireIntegrationUser({ actor: { type: 'user' }, userId: 'user-a' }), (err) => err.status === 403);
+  assert.throws(() => requireIntegrationUser({ actor: { type: 'guest', id: 'guest-a' }, tenantId: 'tenant-a' }), (err) => err.status === 401);
+  assert.throws(() => requireIntegrationUser({ actor: { type: 'service', id: 'service-a' }, tenantId: 'tenant-a' }), (err) => err.status === 401);
+  assert.throws(() => requireIntegrationUser({ actor: { type: 'user', id: 'user-a' } }), (err) => err.status === 403);
 });
 
 test('integration ownership: copied connection IDs cannot cross user or tenant boundaries', () => {
@@ -34,7 +34,9 @@ test('integration connection public projection never returns credential fields',
     id: 'conn-a',
     provider: 'render',
     accountId: 'acct-a',
-    status: 'connected'
+    accountLabel: 'Production',
+    status: 'connected',
+    scopes: ['read']
   });
   assert.equal(JSON.stringify(safe).includes('never-return-this'), false);
   assert.equal(JSON.stringify(safe).includes('ciphertext'), false);
