@@ -3043,3 +3043,12 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
   .plugins-name { flex: 1 1 7rem; white-space: normal; overflow-wrap: anywhere; }
   .plugins-settings-btn { min-height: 2.25rem; }
 }
+
+
+/* Consent-first location action embedded in an assistant reply. */
+.location-cta{display:grid;gap:10px;margin:16px 0 8px;padding:14px;border:1px solid var(--line,rgba(128,128,128,.24));border-radius:18px;background:var(--surface,rgba(128,128,128,.06));max-width:440px}
+.location-cta-copy{margin:0;color:var(--text-secondary,inherit);font-size:.92rem;line-height:1.5}
+.location-cta-button{display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;width:100%;padding:12px 16px;border:0;border-radius:14px;background:var(--text,#f5f5f5);color:var(--background,#151515);font:inherit;font-weight:650;cursor:pointer;transition:opacity .15s ease,transform .15s ease}
+.location-cta-button:hover{opacity:.9}.location-cta-button:active{transform:scale(.99)}.location-cta-button:disabled{opacity:.6;cursor:wait}
+.location-cta-status{margin:0;color:var(--text-secondary,inherit);font-size:.82rem;line-height:1.45}
+.location-cta-button:focus-visible{outline:2px solid var(--accent,#e87935);outline-offset:3px}

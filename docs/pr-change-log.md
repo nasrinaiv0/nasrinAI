@@ -1,3 +1,12 @@
+## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
+
+- Added an assistant-reply **Enable location** action for replies that indicate GPS/current location is needed. It requests browser geolocation only after an explicit tap, shows permission/timeout/unsupported states, and provides manual-location fallback.
+- Passed validated coordinates as transient chat system context for the active turn, excluded location-aware turns from semantic caching to avoid cross-location answer reuse, and kept coordinates out of the visible user message.
+- Hid the Google Maps status card from the customer-facing Google connection list without removing the internal Maps service code.
+- Added system guidance to inspect actual image attachments; existing attachment parsing and provider attachment forwarding are retained.
+- Added regression tests for transient location context/cache bypass, location CTA/manual fallback, and uploaded image forwarding.
+- **Validation status:** GitHub source edits and focused tests are committed to this branch. Tests have not yet been executed in this session; do not merge until CI passes. Live Google Maps API availability and accurate route/place results still require deployment/configuration verification.
+
 ## Proposed PR — Customer location permission foundation (`feature/customer-location-consent`)
 
 - **Owner request (2026-10-18):** let NasrinAI use a customer's device location when the customer chooses to share it.

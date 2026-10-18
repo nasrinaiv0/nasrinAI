@@ -1285,6 +1285,60 @@
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
+      // Consent-based location CTA, rendered inside a location-related assistant reply.
+      if (/(?:cannot|can't|unable to|do not|don't)[\s\S]{0,140}(?:gps|current|device)?\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
+        const card = document.createElement('div');
+        card.className = 'location-cta';
+        const copy = document.createElement('p');
+        copy.className = 'location-cta-copy';
+        copy.textContent = 'Share your current location to get more accurate nearby results and directions.';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'location-cta-button';
+        const locationGlyph = document.createElement('span');
+        locationGlyph.setAttribute('aria-hidden', 'true');
+        locationGlyph.textContent = '⌖';
+        const locationLabel = document.createElement('span');
+        locationLabel.textContent = 'Enable location';
+        button.append(locationGlyph, locationLabel);
+        button.setAttribute('aria-label', 'Enable location to help NasrinAI answer location questions');
+        const status = document.createElement('p');
+        status.className = 'location-cta-status';
+        status.setAttribute('role', 'status');
+        button.addEventListener('click', () => {
+          if (!navigator.geolocation) {
+            status.textContent = 'Location is not supported by this browser. Enter a city, address, or landmark instead.';
+            return;
+          }
+          if (!window.isSecureContext) {
+            status.textContent = 'Location access requires a secure HTTPS connection. Enter a city, address, or landmark instead.';
+            return;
+          }
+          button.disabled = true;
+          status.textContent = 'Waiting for your location permission…';
+          navigator.geolocation.getCurrentPosition((position) => {
+            status.textContent = 'Location received. Finding relevant results…';
+            runTurn({
+              text: 'Use my current location to answer my previous location, nearby-place, or directions question. Use live map or web tools when available; do not invent routes or travel times.',
+              locationContext: {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null
+              }
+            }).then(() => { status.textContent = 'Location request sent.'; })
+              .catch(() => { button.disabled = false; status.textContent = 'Could not use that location. Please try again or enter a location manually.'; });
+          }, (error) => {
+            button.disabled = false;
+            status.textContent = error.code === 1
+              ? 'Location permission was denied. Allow location in your browser settings, or enter a city, address, or landmark.'
+              : error.code === 3
+                ? 'Location took too long. Try again, or enter a location manually.'
+                : 'We could not determine your location. Check your device settings or enter a location manually.';
+          }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+        });
+        card.append(copy, button, status);
+        el.appendChild(card);
+      }
       // Coding chat with GitHub on: more than five files become one card
       // (pull request), never a pile of files in the chat. With automatic pull
       // requests on, a fresh reply's files go straight to a pull request.
@@ -2428,7 +2482,7 @@
   // speakVoice: a natural voice id; the server then sends the reply as speech while it is written (onAudio).
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
-  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null }) {
+  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
     busy = true;
     notice.textContent = '';
     stopSpeaking();
@@ -2475,6 +2529,7 @@
       ...(!id && turnProject ? { project_id: turnProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
+      ...(locationContext ? { location_context: locationContext } : {}),
       ...(codingProject ? { coding: true, ...(saved.get(KEYS.coding + ':repo:' + codingProject.id) ? { repo: saved.get(KEYS.coding + ':repo:' + codingProject.id) } : {}) } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
@@ -7554,6 +7609,9 @@
   }
   function renderGoogle() {
     for (const [service, item] of Object.entries(googlePlugins)) {
+      // Maps is an internal NasrinAI capability, not a customer-managed connection.
+      // Remove only its status card; the server-side Maps tools remain available.
+      if (service === 'maps') { item.card.remove(); continue; }
       const scopes = service === 'gmail'
         ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send']
         : service === 'calendar'
