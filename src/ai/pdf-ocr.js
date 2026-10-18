@@ -20,7 +20,7 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
           role: 'user',
           content: [
             { type: 'input_file', filename: fileName, file_data: 'data:application/pdf;base64,' + bytes.toString('base64') },
-            { type: 'input_text', text: 'Extract all readable text from this PDF, including scanned pages using visual OCR. Preserve reading order, headings, paragraphs, lists, and table structure as plain text. Do not summarize, infer missing words, or add commentary. If a page is unreadable, mark it as [unreadable page].' }
+            { type: 'input_text', text: 'Extract all readable text from every page of this PDF, using visual OCR for scanned pages and image-only regions. Process pages in document order and begin each page with a clear marker such as [Page 1]. Preserve reading order, headings, paragraphs, lists, table rows and columns as plain text. Do not summarize, infer missing words, or add commentary. If a page is unreadable, include its page marker and write [unreadable page].' }
           ]
         }],
         max_output_tokens: 12000
