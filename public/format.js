@@ -305,16 +305,18 @@
         if (!addLink(title, url)) return { text: raw, links: [] };
       }
     }
-    // Keep readable Markdown link labels in the prose, but move destinations to Sources.
-    visible = visible.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, title, url) => {
+    // Keep links visible and clickable in the reply. Also collect them for the
+    // Sources control so users can open a resource inline or from Sources.
+    visible.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, title, url) => {
       addLink(title, url);
-      return title;
+      return match;
     });
-    // Bare URLs are also sources; remove the URL itself from the prose.
-    visible = visible.replace(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g, (url) => {
+    // Collect bare URLs too, but do not remove them from the visible reply.
+    visible.replace(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g, (url) => {
       addLink('', url.replace(/[)\]}]+$/, ''));
-      return '';
-    }).replace(/[ \t]{2,}/g, ' ').replace(/ +([,.;:!?])/g, '$1').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      return url;
+    });
+    visible = visible.replace(/[ \t]{2,}/g, ' ').replace(/ +([,.;:!?])/g, '$1').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
     return { text: visible, links: links.slice(0, 20) };
   }
 
