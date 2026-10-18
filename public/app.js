@@ -7342,9 +7342,11 @@
           svg.appendChild(el);
         }
         const catalogBrandAssets = {
-          'Google Meet': '/assets/brand/google_meet.svg',
-          'Google Maps': '/assets/brand/google_maps.svg',
+          'Google Meet': '/assets/brand/google-meet.svg',
+          'Google Keep': '/assets/brand/google-keep.svg',
+          'Google Maps': '/assets/brand/google-maps.svg',
           Outlook: '/assets/brand/outlook.svg',
+          OneDrive: '/assets/brand/onedrive.svg',
           GitHub: '/assets/brand/github.svg'
         };
         const catalogBrandAsset = catalogBrandAssets[name];
@@ -7407,8 +7409,8 @@
     brand.setAttribute('class', 'gh-mark plugin-brand-logo');
     const brandAssets = {
       Gmail: '/assets/brand/gmail.svg',
-      'Google Calendar': '/assets/brand/google_calendar.svg',
-      'Google Drive': '/assets/brand/google_drive.svg',
+      'Google Calendar': '/assets/brand/google-calendar.svg',
+      'Google Drive': '/assets/brand/google-drive.svg',
       GitHub: '/assets/brand/github.svg'
     };
     const brandAsset = brandAssets[title];
