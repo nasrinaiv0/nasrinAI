@@ -1399,6 +1399,7 @@
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       // The location card already has a place field; don't show a duplicate follow-up card.
       if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
+      if (cited.links.length) renderWebPreviews(el, cited.links);
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
       if (cited.links.length) sourcesToggle(actions, cited.links);
@@ -3151,6 +3152,46 @@
   // The Sources button (site badges + "Sources"): a folded list of the pages a web answer used, opened in a
   // new tab (never with the page's access to this one).
   let sourcesCount = 0;
+  // Show source-page images when web research has useful Open Graph/Twitter
+  // thumbnails. Images are fetched through our same-origin, raster-only proxy.
+  function renderWebPreviews(message, links) {
+    const candidates = links.filter((link) => /^https?:$/.test((() => { try { return new URL(link.url).protocol; } catch { return ''; } })())).slice(0, 3);
+    if (!candidates.length) return;
+    const section = document.createElement('section');
+    section.className = 'web-preview-grid';
+    section.setAttribute('aria-label', 'Images from web sources');
+    let loaded = 0;
+    for (const source of candidates) {
+      const card = document.createElement('a');
+      card.className = 'web-preview-card';
+      card.href = source.url;
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      card.setAttribute('aria-label', 'Open source: ' + (source.title || source.host));
+      const img = document.createElement('img');
+      img.className = 'web-preview-image';
+      img.alt = (source.title || 'Web source image').slice(0, 180);
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.src = '/v1/page-preview?url=' + encodeURIComponent(source.url);
+      img.addEventListener('load', () => {
+        loaded++;
+        section.classList.add('has-images');
+      }, { once: true });
+      img.addEventListener('error', () => {
+        card.remove();
+        if (!section.querySelector('.web-preview-card')) section.remove();
+      }, { once: true });
+      const caption = document.createElement('span');
+      caption.className = 'web-preview-caption';
+      caption.textContent = (source.title || source.host || 'Source image').slice(0, 100);
+      card.append(img, caption);
+      section.appendChild(card);
+    }
+    message.appendChild(section);
+  }
+
   function sourcesToggle(row, links) {
     const list = document.createElement('ul');
     list.className = 'reply-sources';
