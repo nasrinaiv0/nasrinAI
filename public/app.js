@@ -1745,9 +1745,9 @@
           crop.disabled = true;
           try {
             const blob = await window.NasrinImageCrop.cropImage({ src: f.thumb, name: f.name });
-            if (!blob) return;
+            if (!blob) { crop.disabled = false; return; }
             const oldThumb = f.thumb;
-            f.name = f.name.replace(/\\.[^.]+$/, '') + '-crop.png';
+            f.name = f.name.replace(/\.[^.]+$/, '') + '-crop.png';
             f.type = 'image/png';
             f.bytes = blob.size;
             f.data = await toBase64(blob);
