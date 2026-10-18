@@ -350,7 +350,7 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
   assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
-  assert.match(js, /if \(firstCard\) section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer');
+  assert.match(js, /if \(firstCard\) \{\s*section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer and persist its metadata');
   assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
   assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
   assert.match(js, /YouTube links already present in the assistant answer or its citations/);
