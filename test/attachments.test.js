@@ -103,6 +103,30 @@ test('Word, Excel, PowerPoint, OpenDocument and EPUB files are read as text', ()
   assert.match(epub.text, /Chapter one\n\nChapter two/);
 });
 
+test('Office documents extract embedded raster images as separate image attachments', () => {
+  const logo = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+  const files = parseAttachments([{ name: 'brand.docx', data: zipOf({
+    'word/document.xml': '<w:document><w:body><w:p><w:r><w:t>Brand guidelines</w:t></w:r></w:p></w:body></w:document>',
+    'word/media/logo.png': logo
+  }).toString('base64') }], limits);
+  assert.equal(files.length, 2);
+  assert.equal(files[0].kind, 'text');
+  assert.match(files[0].text, /Brand guidelines/);
+  assert.match(files[0].text, /Extracted 1 embedded image/);
+  assert.equal(files[1].kind, 'image');
+  assert.equal(files[1].mime, 'image/png');
+  assert.equal(files[1].extractedFrom, 'brand.docx');
+  assert.deepEqual(Buffer.from(files[1].data, 'base64'), logo);
+});
+
+test('embedded document image extraction respects image count and size caps', () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+  const archive = { 'word/document.xml': '<w:document><w:body><w:p><w:r><w:t>Doc</w:t></w:r></w:p></w:body></w:document>' };
+  for (let i = 0; i < 8; i++) archive['word/media/image' + i + '.png'] = png;
+  const files = parseAttachments([{ name: 'many.docx', data: zipOf(archive).toString('base64') }], limits);
+  assert.equal(files.filter((file) => file.kind === 'image').length, 6);
+});
+
 test('malformed EPUB manifest URLs do not throw during file analysis', () => {
   const epub = read('bad.epub', zipOf({
     mimetype: 'application/epub+zip',

@@ -31,6 +31,9 @@ const ZIP_ENTRY_BYTES = 6 * 1024 * 1024;   // one entry, after unpacking
 const ZIP_TOTAL_BYTES = 16 * 1024 * 1024;  // everything unpacked from one file
 const SHEET_ROWS = 400;
 const SHEET_COLS = 40;
+const EMBEDDED_IMAGES = 6;
+const EMBEDDED_IMAGE_BYTES = 2 * 1024 * 1024;
+const EMBEDDED_TOTAL_BYTES = 5 * 1024 * 1024;
 
 function sniff(bytes) {
   const at = (i) => bytes[i];
@@ -270,6 +273,26 @@ function rtfText(src) {
   return tidy(out);
 }
 
+// Extract a small, bounded set of raster images embedded in an Office/OpenDocument ZIP.
+// Only image bytes whose signatures we recognize are returned; SVG and unknown data are skipped.
+function embeddedImages(zip, prefixes) {
+  const out = [];
+  let total = 0;
+  for (const entry of zip.entries) {
+    if (!prefixes.some((prefix) => entry.name.startsWith(prefix)) || entry.name.endsWith('/')) continue;
+    if (!/\.(?:png|jpe?g|gif|webp)$/i.test(entry.name) || entry.size < 8 || entry.size > EMBEDDED_IMAGE_BYTES) continue;
+    const bytes = zip.read(entry);
+    if (!bytes) continue;
+    const mime = sniff(bytes);
+    if (!mime || !mime.startsWith('image/')) continue;
+    if (out.length >= EMBEDDED_IMAGES || total + bytes.length > EMBEDDED_TOTAL_BYTES) break;
+    const ext = mime === 'image/jpeg' ? 'jpg' : mime.slice('image/'.length);
+    out.push({ mime, data: bytes.toString('base64'), sourceName: cleanName(entry.name.split('/').pop() || 'image.' + ext) });
+    total += bytes.length;
+  }
+  return out;
+}
+
 // ZIP files that are documents: the text, and what kind of document it was.
 function zipText(bytes, limits) {
   const zip = openZip(bytes);
@@ -279,15 +302,16 @@ function zipText(bytes, limits) {
 
   if (has(/^word\/document\.xml$/)) {
     const parts = ['word/document.xml', ...zip.entries.filter((e) => /^word\/(?:footnotes|endnotes)\.xml$/.test(e.name)).map((e) => e.name)];
-    return { source: 'Word document', text: parts.map((n) => docxText(get(n))).filter(Boolean).join('\n\n') };
+    return { source: 'Word document', text: parts.map((n) => docxText(get(n))).filter(Boolean).join('\n\n'), images: embeddedImages(zip, ['word/media/']) };
   }
-  if (has(/^xl\/workbook\.xml$/)) return { source: 'Excel workbook', text: xlsxText(zip) };
+  if (has(/^xl\/workbook\.xml$/)) return { source: 'Excel workbook', text: xlsxText(zip), images: embeddedImages(zip, ['xl/media/']) };
   if (has(/^ppt\/slides\/slide\d+\.xml$/)) {
     const slides = zip.entries.filter((e) => /^ppt\/slides\/slide\d+\.xml$/.test(e.name))
       .sort((a, b) => Number(a.name.match(/(\d+)\.xml$/)[1]) - Number(b.name.match(/(\d+)\.xml$/)[1]));
     const notes = (n) => slideText(get(`ppt/notesSlides/notesSlide${n}.xml`));
     return {
       source: 'PowerPoint presentation',
+      images: embeddedImages(zip, ['ppt/media/']),
       text: slides.map((e) => {
         const n = e.name.match(/(\d+)\.xml$/)[1];
         const note = notes(n);
@@ -296,7 +320,7 @@ function zipText(bytes, limits) {
     };
   }
   if (has(/^content\.xml$/) && /^application\/vnd\.oasis\.opendocument\./.test(get('mimetype').trim())) {
-    return { source: 'OpenDocument file', text: odfText(get('content.xml')) };
+    return { source: 'OpenDocument file', text: odfText(get('content.xml')), images: embeddedImages(zip, ['Pictures/']) };
   }
   if (has(/^META-INF\/container\.xml$/) && /epub/.test(get('mimetype'))) return { source: 'EPUB book', text: epubText(zip) };
 
@@ -350,7 +374,7 @@ export function parseAttachments(list, limits) {
   if (list.length > limits.maxCount) throw bad(`Send at most ${limits.maxCount} files at a time.`);
 
   let total = 0;
-  return list.map((item) => {
+  return list.flatMap((item) => {
     if (!item || typeof item !== 'object' || typeof item.data !== 'string') throw bad('Each file needs its data.');
     const name = cleanName(item.name);
     const data = item.data.replace(/^data:[^;,]{1,100};base64,/, '');
@@ -375,8 +399,15 @@ export function parseAttachments(list, limits) {
       const doc = zipText(bytes, limits);
       if (!doc) return unreadable('a damaged or unsupported archive');
       const text = String(doc.text || '').replace(/\u0000/g, '').trim();
-      if (!text) return unreadable(`a ${doc.source} with no readable text`);
-      return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[${doc.source}, converted to text]\n${text}`) };
+      const images = Array.isArray(doc.images) ? doc.images : [];
+      if (!text && !images.length) return unreadable(`a ${doc.source} with no readable text or supported embedded images`);
+      const imageNote = images.length ? `\n[Extracted ${images.length} embedded image${images.length === 1 ? '' : 's'} and attached them separately for visual analysis.] ` : '';
+      const result = [{ kind: 'text', mime: 'text/plain', name, data, text: cut(`[${doc.source}, converted to text]\n${text || '[No readable text was found.]'}${imageNote}`) }];
+      images.forEach((image, index) => {
+        const ext = image.mime === 'image/jpeg' ? 'jpg' : image.mime.slice('image/'.length);
+        result.push({ kind: 'image', mime: image.mime, name: cleanName(`${name} embedded ${index + 1} ${image.sourceName.replace(/\.[^.]+$/, '')}.${ext}`), data: image.data, extractedFrom: name });
+      });
+      return result;
     }
     if (sniffed === 'application/x-ole') return unreadable('an old Microsoft Office file; saving it as .docx, .xlsx or .pptx makes it readable');
     if (sniffed === 'text/rtf') {
