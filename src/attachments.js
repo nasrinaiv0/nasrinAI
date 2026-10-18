@@ -432,7 +432,7 @@ export function parseAttachments(list, limits) {
     if (sniffed === 'application/x-ole') {
       const legacy = legacyOfficeText(bytes, name);
       if (!legacy) return unreadable('a legacy Microsoft Office file with no recoverable text; try saving it as .docx, .xlsx or .pptx');
-      return { kind: 'text', mime: 'text/plain', name, data, text: cut('[' + legacy.source + ', best-effort text extraction]\\n' + legacy.text) };
+      return { kind: 'text', mime: 'text/plain', name, data, text: cut('[' + legacy.source + ', best-effort text extraction]\n' + legacy.text) };
     }
     if (sniffed === 'text/rtf') {
       const text = rtfText(bytes.toString('latin1'));
