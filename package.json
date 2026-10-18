@@ -9,9 +9,11 @@
   },
   "dependencies": {
     "@vercel/sandbox": "3.8.0",
-    "@agent-browser/sandbox": "0.39.1"
+    "@agent-browser/sandbox": "0.39.1",
+    "officeparser": "8.1.1",
+    "pdfjs-dist": "6.4.299"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   }
 }
