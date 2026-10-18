@@ -366,7 +366,8 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.ok(youtubePlayer.indexOf('frame.referrerPolicy =') < youtubePlayer.indexOf('frame.src ='), 'configure iframe policy before navigation starts');
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
   assert.match(css, /\.youtube-video-frame/);
-  assert.match(js, /window\.open\('https:\/\/www\.youtube\.com\/watch\?v='/);
+  assert.ok(!youtubePlayer.includes('youtube-fullscreen-button'), 'do not add a custom fullscreen overlay over the video');
+  assert.match(js, /frame\.allowFullscreen = true/, 'preserve the native YouTube fullscreen control');
   assert.match(css, /\.youtube-video-frame:fullscreen/);
   assert.match(js, /const PERSISTENT_YOUTUBE_KEY = 'nasrin\.persistentYoutubePlayer'/);
   assert.match(js, /function mountPersistentYouTubePlayer\(video, existingCard = null\)/);
