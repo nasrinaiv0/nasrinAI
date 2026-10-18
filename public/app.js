@@ -1456,7 +1456,7 @@
       const priorUserMessages = log.querySelectorAll('.msg.user');
       const latestUserMessage = priorUserMessages[priorUserMessages.length - 1] || null;
       const latestUserQuery = latestUserMessage ? String(latestUserMessage.dataset.text || latestUserMessage.textContent || '').trim() : '';
-      if (asks && made.asks.length && !hasLocationCta && !needsYouTubeVideos(latestUserQuery)) el.appendChild(askCard(made.asks.slice(0, 1));
+      if (asks && made.asks.length && !hasLocationCta && !needsYouTubeVideos(latestUserQuery)) el.appendChild(askCard(made.asks.slice(0, 1)));
       if (cited.links.length) renderWebPreviews(el, cited.links);
       if (fresh && role === 'assistant') {
         const userMessages = log.querySelectorAll('.msg.user');
