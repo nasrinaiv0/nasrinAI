@@ -51,6 +51,7 @@ import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
 import { createSemanticCache } from './semanticCache.js';
 import { createOpenAIEmbedder } from './ai/embeddings.js';
+import { createOpenAITranscription } from './ai/transcription.js';
 import { createWebAnswers } from './web-answers.js';
 import { createGithub } from './github/index.js';
 import { createGoogleIntegration } from './google/index.js';
@@ -220,6 +221,7 @@ export function buildApp({ config, logger }) {
         ? geminiSpeech
         : openaiSpeech;
   const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const transcription = config.ai.openaiApiKey ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey }) : null;
 
   const auth = config.auth.email || config.auth.google
     ? createSupabaseAuth({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey })
@@ -229,7 +231,7 @@ export function buildApp({ config, logger }) {
     config: effective,
     logger,
     gateway,
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, budget: reasoningBudget, logger }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, budget: reasoningBudget, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });
