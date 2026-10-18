@@ -1400,6 +1400,12 @@
       // The location card already has a place field; don't show a duplicate follow-up card.
       if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
       if (cited.links.length) renderWebPreviews(el, cited.links);
+      if (fresh && role === 'assistant') {
+        const userMessages = log.querySelectorAll('.msg.user');
+        const lastUser = userMessages[userMessages.length - 1] || null;
+        const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
+        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery);
+      }
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
       if (cited.links.length) sourcesToggle(actions, cited.links);
@@ -3190,6 +3196,73 @@
       section.appendChild(card);
     }
     message.appendChild(section);
+  }
+
+  function needsYouTubeVideos(query) {
+    const q = String(query || '').trim();
+    if (q.length < 5 || q.length > 600) return false;
+    return /\b(?:youtube|video tutorial|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|can i|does|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
+  }
+
+  async function renderYouTubeVideos(message, userQuery) {
+    if (message.querySelector('.youtube-results')) return;
+    const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
+    const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
+    try {
+      const token = account?.token || await guestToken(false);
+      const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+      if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
+      const section = document.createElement('section');
+      section.className = 'youtube-results';
+      section.setAttribute('aria-label', 'Relevant YouTube videos');
+      const heading = document.createElement('h3');
+      heading.className = 'youtube-results-heading';
+      heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
+      section.appendChild(heading);
+      for (const video of videos) {
+        if (!/^[A-Za-z0-9_-]{11}$/.test(String(video.id || ''))) continue;
+        const card = document.createElement('article');
+        card.className = 'youtube-video-card';
+        const frameWrap = document.createElement('div');
+        frameWrap.className = 'youtube-video-frame';
+        const frame = document.createElement('iframe');
+        frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
+        frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
+        frame.loading = 'lazy';
+        frame.referrerPolicy = 'strict-origin-when-cross-origin';
+        frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        frame.allowFullscreen = true;
+        frameWrap.appendChild(frame);
+        const details = document.createElement('div');
+        details.className = 'youtube-video-details';
+        const title = document.createElement('p');
+        title.className = 'youtube-video-title';
+        title.textContent = String(video.title || 'YouTube video').slice(0, 240);
+        const channel = document.createElement('p');
+        channel.className = 'youtube-video-channel';
+        channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
+        const open = document.createElement('a');
+        open.className = 'youtube-video-link';
+        open.href = 'https://www.youtube.com/watch?v=' + video.id;
+        open.target = '_blank';
+        open.rel = 'noopener noreferrer';
+        open.textContent = 'Watch on YouTube';
+        details.append(title, channel, open);
+        card.append(frameWrap, details);
+        section.appendChild(card);
+      }
+      if (section.querySelector('.youtube-video-card')) {
+        const body = message.querySelector('.msg-body');
+        (body || message).appendChild(section);
+      }
+    } catch {
+      // Video search is an enhancement; it must never break the chat reply.
+    }
   }
 
   function sourcesToggle(row, links) {

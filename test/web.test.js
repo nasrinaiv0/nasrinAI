@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import { readLink, checkUrl, isPublicAddress, htmlToText, linksIn } from '../src/web/read-link.js';
 import { createWebSearch, needsWeb } from '../src/web/search.js';
 import { createPagePreviews } from '../src/web/page-preview.js';
+import { createYouTubeSearch } from '../src/web/youtube.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
@@ -175,4 +176,38 @@ test('page previews reject non-http URLs and refuse SVG/HTML image payloads', as
   assert.equal(pageReads, 0);
   assert.equal(await previews.preview('https://example.com/article'), null);
   assert.equal(imageReads, 1);
+});
+
+
+test('YouTube search returns only valid video IDs and keeps the API key server-side', async () => {
+  let requested;
+  const youtube = createYouTubeSearch({
+    apiKey: 'test-secret-key',
+    fetchImpl: async (url, options) => {
+      requested = { url: new URL(url), options };
+      return Response.json({ items: [
+        { id: { videoId: 'abcdefghijk' }, snippet: { title: 'Tutorial', channelTitle: 'Channel', description: 'Steps', thumbnails: { medium: { url: 'https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg' } } } },
+        { id: { videoId: 'bad id' }, snippet: { title: 'Invalid', channelTitle: 'Bad' } },
+        { id: { channelId: 'not-a-video' }, snippet: { title: 'Channel result', channelTitle: 'Channel' } }
+      ] });
+    }
+  });
+  const result = await youtube.search('  how to configure an app  ');
+  assert.equal(result.available, true);
+  assert.equal(result.videos.length, 1);
+  assert.equal(result.videos[0].id, 'abcdefghijk');
+  assert.equal(result.videos[0].embedUrl, 'https://www.youtube-nocookie.com/embed/abcdefghijk');
+  assert.equal(requested.url.searchParams.get('type'), 'video');
+  assert.equal(requested.url.searchParams.get('maxResults'), '5');
+  assert.equal(requested.url.searchParams.get('q'), 'how to configure an app');
+  assert.equal(requested.url.searchParams.get('key'), 'test-secret-key');
+  assert.equal(requested.options.method, 'GET');
+});
+
+test('YouTube search is disabled without an API key and handles upstream failures gracefully', async () => {
+  const disabled = createYouTubeSearch({ apiKey: '' });
+  assert.equal(disabled.available, false);
+  assert.deepEqual(await disabled.search('tutorial'), { available: false, videos: [] });
+  const failing = createYouTubeSearch({ apiKey: 'test-key', fetchImpl: async () => new Response('', { status: 403 }) });
+  assert.deepEqual(await failing.search('tutorial'), { available: true, videos: [] });
 });
