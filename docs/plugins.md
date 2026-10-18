@@ -13,9 +13,10 @@ Plugins connect Nasrin to a person's other apps. They live in the menu →
 
 Connected plugins are listed first, under **Connected**; the rest follow in
 their groups. "Coming soon" plugins are shown with plain shared glyphs (not the companies'
-logos) and never as connected. Gmail and Google Calendar use the read-only integration
-described below; they appear connected only when `/v1/google/status` confirms the
-corresponding granted scope. Nothing is sent and calendar events are not modified.
+logos) and never as connected. A plugin may show as connected only when its provider's
+status endpoint confirms the specific account connection. A connection badge alone does
+not prove every action is available: each tool must verify the current account, tenant,
+provider scope, and action-specific permission server-side.
 
 Messenger here means a person's own Messenger. Businesses already answer on
 their Facebook Page through Connect (`docs/facebook.md`).
@@ -40,7 +41,7 @@ Exact permissions and review steps are set when each plugin is built; they are
 not verified here.
 
 
-Gmail and Calendar are being introduced as a read-only integration. The UI must not label either service connected unless `GET /v1/google/status` confirms it. Sending mail and modifying events remain out of scope for the initial phase.
+Gmail and Calendar have read tools plus selected confirmed write tools. The UI must not label either service connected unless `GET /v1/google/status` confirms it. Do not advertise an action until its server-side tool, actual granted OAuth scope, confirmation gate, provider response validation, and regression tests are all present.
 
 
 ## Read/write capability status (2026-10-18)
@@ -68,17 +69,11 @@ the per-user/per-tenant connection row before attempting a provider mutation. Pr
 responses are checked before returning success. OAuth scope availability and Google API
 approval still depend on the owner's Google Cloud configuration.
 
-### Other plugin providers
-- **GitHub:** repository/file/PR reads and confirmed pull-request writes are implemented.
-- **Meta business channels:** Facebook Page, Instagram, Threads and WhatsApp publishing/
-  messaging operations exist in the NCC channel implementation, subject to their own
-  token, asset, recipient/window, and app-review requirements. Do not confuse these
-  business-channel tools with a personal Messenger connection.
-- **Microsoft apps, Canva, X, personal Messenger, and other catalog-only entries:** do not
-  claim functional read/write access until each provider has its OAuth flow, least-privilege
-  scopes, encrypted token storage, server-side read/write operations, explicit write
-  confirmation, audit events, and provider-specific tests. The UI must continue to show
-  unsupported integrations as unavailable/coming soon rather than pretending they're connected.
+### Other implemented providers and strict capability boundaries
+- **GitHub:** repository/file/PR reads and confirmed pull-request writes are implemented. Writes must stay on a new branch and require explicit confirmation; never push directly to a protected/default branch as an implicit side effect.
+- **Meta business channels in Nasrin Client Connect:** only the specific server-side actions actually registered for the connected business account are available. Publishing/messaging must validate token, Page/business asset, recipient or messaging window, media constraints, app review, and provider response. This does not imply personal Messenger access or every Meta product is supported.
+- **Google Drive, Meet, Keep and Maps:** treat each action as separately implemented and configuration-gated. Maps URL generation is not route optimization, live traffic, or dispatch. Do not claim full Drive write access unless create/update/delete operations and corresponding tests exist.
+- **Microsoft apps, Canva, X, personal Messenger, and other catalog-only entries:** unavailable for read/write until their provider OAuth flow, least-privilege scopes, encrypted token storage, server-side operations, confirmation gate for mutations, audit events, and provider-specific tests are complete. Never infer capability from a logo or catalog listing.
 
 ### Required validation
 Run `npm test` and CI. Test scope denial, malformed arguments, provider errors, confirmation
