@@ -355,6 +355,8 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
+  assert.match(js, /answerBody\.querySelectorAll\('a\[href\]'\)/, 'fallback must inspect rendered answer links rather than parse raw Markdown');
+  assert.match(js, /host === 'youtube-nocookie\\.com'/);
   assert.match(js, /If live search is unavailable, turn trustworthy YouTube links already/);
   assert.match(js, /markdownLinks = \.\.\.answerText\.matchAll/);
   assert.match(js, /host === 'youtube-nocookie\\.com'/);
