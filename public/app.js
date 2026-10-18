@@ -1295,7 +1295,12 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'location-cta-button';
-        button.innerHTML = '<span aria-hidden="true">⌖</span><span>Enable location</span>';
+        const locationGlyph = document.createElement('span');
+        locationGlyph.setAttribute('aria-hidden', 'true');
+        locationGlyph.textContent = '⌖';
+        const locationLabel = document.createElement('span');
+        locationLabel.textContent = 'Enable location';
+        button.append(locationGlyph, locationLabel);
         button.setAttribute('aria-label', 'Enable location to help NasrinAI answer location questions');
         const status = document.createElement('p');
         status.className = 'location-cta-status';
