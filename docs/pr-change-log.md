@@ -1,3 +1,20 @@
+
+## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
+
+- Added an assistant-reply **Enable location** action for replies that indicate GPS/current location is needed. It requests browser geolocation only after an explicit tap, shows permission/timeout/unsupported states, and provides manual-location fallback.
+- Passed validated coordinates as transient chat system context for the active turn, excluded location-aware turns from semantic caching to avoid cross-location answer reuse, and kept coordinates out of the visible user message.
+- Hid the Google Maps status card from the customer-facing Google connection list without removing the internal Maps service code.
+- Added system guidance to inspect actual image attachments; existing attachment parsing and provider attachment forwarding are retained.
+- Added regression tests for transient location context/cache bypass, location CTA/manual fallback, and uploaded image forwarding.
+- **Validation status:** GitHub source edits and focused tests are committed to this branch. Tests have not yet been executed in this session; do not merge until CI passes. Live Google Maps API availability and accurate route/place results still require deployment/configuration verification.
+
+## Proposed PR — Customer location permission foundation (`feature/customer-location-consent`)
+
+- **Owner request (2026-10-18):** let NasrinAI use a customer's device location when the customer chooses to share it.
+- **Change:** permit same-origin browser geolocation in Node and Vercel Permissions-Policy headers; add a focused policy regression test and `docs/customer-location.md` describing consent, privacy, fallback, and completion requirements.
+- **Security:** this only permits the browser to request location; it does not grant permission. No automatic prompt, coordinate storage, or location tracking is added. Camera remains disabled.
+- **Validation:** a regression test was added, but CI and the full `npm test` suite have not been run from this connector session. This is foundation-only; the visible consent control and short-lived chat-context integration remain required before the customer-facing feature is complete.
+
 ## Proposed PR — Remove legacy food-ordering reference
 
 - **Owner request (2026-10-14):** remove the obsolete food-ordering project from the current NasrinAI repository after it appeared in a domain reputation report.
@@ -1005,3 +1022,65 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** Add `docs/nasrinai-production-quality-anti-vibe-coding-upgrade.md` with the full implementation and acceptance checklist; add `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` as the concise Claude progress index; link the work from `docs/claude-code-handoff.md`.
 - **Safety:** Documentation-only. No app code, environment variables, database, or production deployment changed. Claude must audit before implementation, preserve security/accessibility, use Vercel-managed configuration, and verify every result instead of claiming untested completion.
 - **Validation:** Documentation diff review and CI pending. Do not merge until the repository's required checks pass.
+
+## Proposed PR — Owner Command Center implementation (PR #353, `feature/owner-command-center`)
+
+- **Owner request (2026-10-14):** build the complete owner-only operations dashboard in one PR, with a premium restrained appearance, System/Light/Dark modes, iPhone support, shared day/week/month/year and custom date filtering, sorting, comparisons, security, verified operational data, alerts, and reporting.
+- **Phase 0 audit:** added `docs/owner-command-center-audit.md` and recorded verified current architecture in `docs/owner-command-center.md` Section P.
+- **Critical auth finding:** the existing refresh cookie is scoped to `/v1/auth`, while the access token is held in browser memory. A direct `/owner` request therefore needs a dedicated, short-lived owner-session bootstrap after server-side Supabase identity, email allowlist, and trusted-IP checks. Owner page and every API/export/control must independently enforce the same generic real HTTP 404 boundary for unauthorized callers.
+- **Current change:** documentation and read-only source audit only. No runtime code, schema, environment variables, DNS, or production behavior changed. No tests were executed by this audit.
+- **Next:** implement and regression-test the owner-session boundary first, then build all modules sequentially on this same branch. Verify real data sources before displaying metrics. No merge or deployment without explicit owner approval.
+
+
+- **Additional audit:** verified repository migration definitions for `usage_events`, `plan_periods`, automation runs, NCC outbox, and server-only RLS. Plan entitlement records alone are not a complete refunds/net-revenue ledger.
+- **Preview status:** the Vercel check for the audit commit is `BLOCKED` by deployment policy, not reported as an application build error. No Vercel protection/settings were changed. Owner or project-admin action is needed to enable an authorized preview validation path before the PR is ready.
+
+## Proposed PR #361 — Free LLM pool continuity, accounting, and owner visibility (2026-10-15)
+
+- **Owner request:** document the full free-provider pool plan; ensure a provider reaching its quota does not pause all NasrinAI use; record token consumption and costs per model; show separate remaining credits and costs for OpenAI, Gemini, and Claude in the Owner Command Center.
+- **Change:** expanded `docs/nasrinai-autonomous-coding-engine-upgrade.md` Section 15 with provider catalogue/security requirements, quota exhaustion classification and cooldown, bounded fallback/reset recovery, logical request vs provider-attempt accounting, token/cost provenance, provider credit source rules, privacy, detailed acceptance criteria, and current implementation status. Updated `docs/free-llm-provider-pool.md` is the provider catalogue/setup reference.
+- **Owner dashboard spec:** corresponding detailed UI, metric/source semantics, balance rules, alerts, authorization, acceptance tests, and progress are recorded in Section Q of `docs/owner-command-center.md` on PR #353.
+- **Status:** documentation/planning only for the new requirements. Existing provider pool foundations are on this branch; quota-aware reset/failover, live usage/billing APIs, real credit balances, and the live dashboard are not claimed as implemented.
+- **Validation:** previously reported CI was 655 tests passed with secret scan, dependency audit, and database tests passing; those results predate this documentation update. New commits require fresh CI. No keys, credits, Vercel settings, production schema, merge, or deployment changed.
+- **Next:** implement in reviewed phases, update progress with actual source mappings and test outcomes, and wait for explicit owner approval before merge/deployment.
+
+## Owner Command Center — LLM provider accounting and free-pool continuity (2026-10-15)
+
+- **Owner request:** integrate the legitimate free LLM provider pool; keep NasrinAI available when one free provider reaches its quota by cooling down that provider and failing over to another eligible provider until reset; show model-level token consumption, costs, and remaining credits in the owner dashboard.
+- **Specification:** added Section Q to `docs/owner-command-center.md` covering separate OpenAI, Gemini, and Anthropic/Claude accounting; other free-pool providers; input/output/other token categories; logical requests vs provider attempts; actual vs estimated cost; verified source/freshness; separate credit/balance semantics; filters, sorting, trends, exports, alerts, security, acceptance gates, and progress status.
+- **Dependency:** provider catalog/adapters and exact free-model allowlists are being tracked in [PR #361](https://github.com/primusco20/nasrinAI/pull/361). Provider quota reset/failover, live billing/usage sources, credit balances, and dashboard runtime remain unimplemented/unverified until code and tests prove them.
+- **Validation:** documentation-only. No runtime tests, provider API calls, account credits, secrets, schema changes, production environment changes, merge, or deployment performed by this entry. CI must rerun on new commits.
+- **Next:** inspect actual usage writers, spend reservations, provider pricing/billing APIs, and migration definitions; implement server-side accounting and owner-secured endpoints with regression tests. Never fabricate balances or stop the whole eligible pool because one provider quota is exhausted.
+
+## Proposed PR — Upgrade docs status cleanup (`docs/status-cleanup`)
+
+- **Change:** documentation only. `docs/claude-code-handoff.md` backlog statuses now match merged PRs (#316, #317, #318, #319); `docs/nasrinai-slash-commands-attachments-composer-upgrade.md` states what is and is not implemented (client-side registry, not the database-backed one; paste trigger is composer height, not 2,000 characters); `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` drops a duplicated section and records that migration 042 is live.
+- **Evidence for 042:** read-only Supabase query on 2026-10-18 showed the `google_connections` primary key is `(tenant_id, user_id, service)`. No data was read and nothing was changed.
+- **Validation:** `npm test` and `npm run check:secrets` run locally; CI pending. No app code, schema or settings changed.
+
+## Proposed PR — Smart paste at 2,000 characters (`feature/smart-paste-2000`)
+
+- **Owner request:** implement the upgrade in `docs/nasrinai-slash-commands-attachments-composer-upgrade.md`, section 4.
+- **Change:** `public/paste.js` holds the rule; the paste handler in `public/app.js` uses it. One paste of 2,000 characters or fewer (Unicode code points) stays editable; 2,001 or more becomes a UTF-8 `pasted-text.txt` attachment (`pasted-text-2.txt` if the name is taken) with a notice such as "Long paste attached as pasted-text.txt (2,438 characters)." If the file cannot be added, the text is put into the message box instead, so nothing is lost. Only the pasted text is counted, never what is already typed. Images and files paste as before.
+- **Behaviour change:** replaces the composer-height trigger from #296, as the spec requires.
+- **Not changed:** the database-backed slash registry and attachment previews (sections 2 and 3); no schema, legal or settings change. The spec's status line is updated in PR #402.
+- **Validation:** `npm test` 705 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Not yet checked on Safari iOS/iPadOS or a desktop browser.
+
+## Proposed PR — Search and address basics (`feature/seo-basics`)
+
+- **Owner request:** implement the small upgrades first (production-quality spec, PR #366).
+- **Change:** branded 404 page (status 404, `noindex`) for browsers; `robots.txt`; `sitemap.xml`; description, canonical and share tags on the home, FAQ and legal pages; `.xml` served by the static server. Details and unverified items: `docs/seo.md`.
+- **Not changed:** API behaviour, security headers, database, settings, legal text (no data handling changes).
+- **Validation:** `npm test` 711 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. Live 404 and domain behaviour not yet checked.
+
+## Proposed PR — Performance baseline (`docs/performance-baseline`)
+
+- **Owner request:** do the small upgrades first (PR #363 spec, first step: measure).
+- **Change:** `docs/performance-baseline.md` with measured results and candidate improvements; `scripts/measure-page-load.mjs` to repeat the measurement (Node built-ins and a local Chromium only, not part of the app). No application, security-header, schema or settings change.
+- **Validation:** script run locally (3 runs, fast and slow-phone settings); `npm test` and `npm run check:secrets` run before opening the PR. Lighthouse and live-site numbers are not included.
+
+## Proposed PR — Fix unstyled FAQ and registry pages (`fix/faq-registry-styles`)
+
+- **Finding:** `docs/seo.md` (PR #405) — inline styles are blocked by the page policy, so both pages rendered unstyled.
+- **Change:** styles moved unchanged into `public/faq.css` and `public/registry.css`; the registry's `style=` attribute became the class `main-flush`. The security policy is unchanged.
+- **Validation:** `npm test` 726 pass, 0 fail, 1 skipped; before/after screenshots of `/faq.html` rendered locally under the real policy in headless Chromium. Not checked on a real phone or on the live site.

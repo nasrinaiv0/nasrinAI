@@ -5,10 +5,10 @@ export const PAGE_CSP = [
   "default-src 'self'",
   "script-src 'self' https://challenges.cloudflare.com",
   "style-src 'self'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://i.ytimg.com https://upload.wikimedia.org",
   // *.supabase.co: direct uploads to the project's private bucket (docs/uploads.md).
   "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co",
-  "frame-src https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'none'",
@@ -25,7 +25,9 @@ export function setBaseHeaders(res, { isProduction }) {
   res.setHeader('Origin-Agent-Cluster', '?1');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)');
+  // Allow the first-party page to request location only after an explicit user action.
+  // The browser still prompts for permission; this header does not grant it.
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(self), microphone=(self)');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   if (isProduction) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 }

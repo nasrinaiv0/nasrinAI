@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1411,6 +1411,34 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Owner-only quota diagnostic. The token is a separate, high-entropy
+      // secret stored in Vercel; never return it or any other secret.
+      method: 'GET',
+      path: '/v1/owner/quota-config',
+      scope: 'chat',
+      handler: async ({ caller, req }) => {
+        const expected = String(config.ownerDiagnosticsToken || '');
+        const supplied = String(req.headers['x-owner-diagnostics-token'] || '');
+        if (!expected || caller.actor.type !== 'user' || supplied.length !== expected.length ||
+            supplied.length > 512 || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
+          throw new HttpError(404, 'not_found', 'Not found.');
+        }
+        return { body: {
+          deployment_environment: config.deploymentEnvironment,
+          plans_enabled: config.plans.enabled,
+          effective_limits: {
+            pro_weekly_tokens: config.limits.proWeeklyTokens,
+            max_weekly_tokens: config.limits.maxWeeklyTokens,
+            ultra_weekly_tokens: config.limits.ultraWeeklyTokens,
+            max_daily_tokens_legacy: config.limits.maxDailyTokens,
+            ultra_daily_tokens_legacy: config.limits.ultraDailyTokens
+          },
+          source: 'server-startup environment configuration',
+          note: 'Paid-plan fallback uses weekly token limits. The daily fields are legacy configuration and do not set the Ultra weekly allowance.'
+        } };
+      }
+    },
+    {
       // The plans (Free, Max, Ultra), their prices, and the caller's plan.
       method: 'GET',
       path: '/v1/plans',
@@ -1483,6 +1511,75 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, body, ip }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.scan(caller, body, ip) };
+      }
+    },
+    {
+      // Open Graph / Twitter card raster image for a cited web page. The
+      // server fetches and validates the image so the browser stays same-origin.
+      method: 'GET',
+      path: '/v1/page-preview',
+      public: true,
+      handler: async ({ req, ip, res }) => {
+        if (!pagePreviews) throw new HttpError(404, 'not_found', 'Not found.');
+        const url = new URL(req.url, 'http://localhost').searchParams.get('url') || '';
+        if (url.length > 2048) throw new HttpError(400, 'invalid_url', 'Invalid page URL.');
+        if (!pagePreviews.cached(url) && !(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many image requests.');
+        const preview = await pagePreviews.preview(url);
+        if (!preview) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+          res.end('No preview image');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': preview.type,
+          'Content-Length': preview.bytes.length,
+          'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+          'Cross-Origin-Resource-Policy': 'same-origin'
+        });
+        res.end(preview.bytes);
+      }
+    },
+    {
+      // Search relevant YouTube tutorials. API key stays server-side; callers
+      // must have a chat-scoped session and requests share the existing limiter.
+      method: 'GET',
+      path: '/v1/youtube/search',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!youtubeSearch?.available) throw new HttpError(503, 'youtube_unavailable', 'Video search is not configured.');
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many search requests.');
+        const query = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+        if (query.length > 180) throw new HttpError(400, 'invalid_query', 'Search query is too long.');
+        return await youtubeSearch.search(query);
+      }
+    },
+    {
+      // Verify a persisted YouTube player before restoring its iframe.
+      method: 'GET',
+      path: '/v1/youtube/verify',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!youtubeSearch?.available) return { valid: false };
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many search requests.');
+        const id = new URL(req.url, 'http://localhost').searchParams.get('id') || '';
+        if (!/^[A-Za-z0-9_-]{11}$/.test(id)) throw new HttpError(400, 'invalid_video_id', 'That video is not valid.');
+        return { valid: await youtubeSearch.verify(id) };
+      }
+    },
+    {
+      // Search public Wikimedia Commons photos. Image URLs are limited to Wikimedia's
+      // upload host and every result includes its source page and license metadata.
+      method: 'GET',
+      path: '/v1/web-images/search',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!imageSearch) throw new HttpError(503, 'image_search_unavailable', 'Internet image search is not available right now.');
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many search requests.');
+        const query = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+        if (query.length > 180) throw new HttpError(400, 'invalid_query', 'Search query is too long.');
+        return await imageSearch.search(query);
       }
     },
     {
@@ -1577,6 +1674,41 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.get(caller, params.id) };
+      }
+    },
+    {
+      // Raw audio bytes avoid base64 expansion. Keep this below serverless request limits.
+      // The browser sends the filename in the query and the MIME type in Content-Type.
+      method: 'POST',
+      path: '/v1/transcriptions',
+      scope: 'chat',
+      raw: true,
+      maxBody: 4 * 1024 * 1024,
+      handler: async ({ req, raw, caller, ip }) => {
+        if (!transcription?.available) throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
+        await limiter.transcription(caller, ip);
+        const url = new URL(req.url, 'http://local');
+        const name = url.searchParams.get('name') || 'recording.webm';
+        const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+        const language = url.searchParams.get('language') || undefined;
+        const result = await transcription.transcribe({ bytes: raw, name, mime, language });
+        return { body: { text: result.text, characters: result.characters, model: result.model } };
+      }
+    },
+    {
+      // Raw PDF bytes keep the upload simple and avoid browser-side PDF rendering.
+      method: 'POST',
+      path: '/v1/pdf-ocr',
+      scope: 'chat',
+      raw: true,
+      maxBody: 6 * 1024 * 1024,
+      handler: async ({ req, raw, caller, ip }) => {
+        if (!pdfOcr?.available) throw new HttpError(503, 'ocr_unavailable', 'PDF text extraction is not available right now.');
+        await limiter.transcription(caller, ip);
+        const url = new URL(req.url, 'http://local');
+        const name = url.searchParams.get('name') || 'scanned-document.pdf';
+        const result = await pdfOcr.extract({ bytes: raw, name });
+        return { body: { text: result.text, characters: result.characters, model: result.model } };
       }
     },
     {
