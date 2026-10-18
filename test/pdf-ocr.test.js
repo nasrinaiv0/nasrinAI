@@ -18,6 +18,8 @@ test('PDF OCR submits a PDF as a Responses API file input and returns extracted 
   assert.equal(body.model, 'gpt-4o-mini');
   assert.match(body.input[0].content[0].file_data, /^data:application\/pdf;base64,/);
   assert.match(body.input[0].content[1].text, /visual OCR/);
+  assert.match(body.input[0].content[1].text, /\[Page 1\]/);
+  assert.match(body.input[0].content[1].text, /document order/);
 });
 
 test('PDF OCR rejects missing key, oversized and invalid files without calling provider', async () => {
