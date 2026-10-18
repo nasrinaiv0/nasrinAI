@@ -1299,12 +1299,47 @@
         locationGlyph.setAttribute('aria-hidden', 'true');
         locationGlyph.textContent = '⌖';
         const locationLabel = document.createElement('span');
-        locationLabel.textContent = 'Enable location';
+        locationLabel.textContent = 'Use my location';
         button.append(locationGlyph, locationLabel);
-        button.setAttribute('aria-label', 'Enable location to help NasrinAI answer location questions');
+        button.setAttribute('aria-label', 'Use my current location to answer location questions');
         const status = document.createElement('p');
         status.className = 'location-cta-status';
         status.setAttribute('role', 'status');
+        const manual = document.createElement('form');
+        manual.className = 'location-cta-manual';
+        const manualInput = document.createElement('input');
+        manualInput.type = 'text';
+        manualInput.autocomplete = 'street-address';
+        manualInput.placeholder = 'City, address, or landmark';
+        manualInput.setAttribute('aria-label', 'Enter a city, address, or landmark');
+        const manualButton = document.createElement('button');
+        manualButton.type = 'submit';
+        manualButton.className = 'location-cta-manual-button';
+        manualButton.textContent = 'Use this place';
+        manual.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const place = manualInput.value.trim();
+          if (!place) {
+            manualInput.focus();
+            status.textContent = 'Enter a city, address, or landmark to continue.';
+            return;
+          }
+          button.disabled = true;
+          manualButton.disabled = true;
+          status.textContent = 'Searching for ' + place + '…';
+          Promise.resolve(runTurn({
+            text: 'Use this location for my previous nearby-place or directions question: ' + place + '. Use live map or web tools when available. If live routing is unavailable, provide a Google Maps route link and clearly say that live travel time could not be verified. Do not invent routes, distances, opening hours, or travel times.',
+          })).then(() => {
+            status.textContent = 'Location sent with your question. See the reply below for results.';
+            button.disabled = false;
+            manualButton.disabled = false;
+          }).catch(() => {
+            status.textContent = 'Could not search this location. Please try again.';
+            button.disabled = false;
+            manualButton.disabled = false;
+          });
+        });
+        manual.append(manualInput, manualButton);
         button.addEventListener('click', () => {
           if (!navigator.geolocation) {
             status.textContent = 'Location is not supported by this browser. Enter a city, address, or landmark instead.';
@@ -1325,7 +1360,7 @@
                 longitude: position.coords.longitude,
                 accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null
               }
-            }).then(() => { status.textContent = 'Location request sent.'; })
+            }).then(() => { status.textContent = 'Location shared for this request. See the reply below for results.'; })
               .catch(() => { button.disabled = false; status.textContent = 'Could not use that location. Please try again or enter a location manually.'; });
           }, (error) => {
             button.disabled = false;
@@ -1336,7 +1371,7 @@
                 : 'We could not determine your location. Check your device settings or enter a location manually.';
           }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
         });
-        card.append(copy, button, status);
+        card.append(copy, button, manual, status);
         el.appendChild(card);
       }
       // Coding chat with GitHub on: more than five files become one card

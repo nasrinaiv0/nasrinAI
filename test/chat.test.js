@@ -286,7 +286,7 @@ test('explicit customer location is transient provider context and bypasses sema
 test('chat frontend contains a user-initiated location action with manual fallback', async () => {
   const fs = await import('node:fs/promises');
   const src = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(src, /Enable location/);
+  assert.match(src, /Use my location/);
   assert.match(src, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(src, /Location permission was denied/);
   assert.match(src, /Enter a city, address, or landmark/);

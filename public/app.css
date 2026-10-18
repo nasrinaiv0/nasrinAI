@@ -3052,3 +3052,13 @@ body.coding-mode.github-on .pr-card .pr-open { display: inline-flex; }
 .location-cta-button:hover{opacity:.9}.location-cta-button:active{transform:scale(.99)}.location-cta-button:disabled{opacity:.6;cursor:wait}
 .location-cta-status{margin:0;color:var(--text-secondary,inherit);font-size:.82rem;line-height:1.45}
 .location-cta-button:focus-visible{outline:2px solid var(--accent,#e87935);outline-offset:3px}
+
+
+/* Compact, accessible manual fallback for the location consent card. */
+.location-cta-manual{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:2px}
+.location-cta-manual input{min-width:0;width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:12px;background:var(--background,transparent);color:var(--text,inherit);font:inherit}
+.location-cta-manual input::placeholder{color:var(--text-secondary,rgba(128,128,128,.9))}
+.location-cta-manual-button{min-height:44px;padding:10px 13px;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:12px;background:var(--surface,rgba(128,128,128,.08));color:var(--text,inherit);font:inherit;font-weight:600;cursor:pointer}
+.location-cta-manual-button:disabled{opacity:.6;cursor:wait}
+.location-cta-manual input:focus-visible,.location-cta-manual-button:focus-visible{outline:2px solid var(--accent,#e87935);outline-offset:2px}
+@media(max-width:420px){.location-cta-manual{grid-template-columns:1fr}.location-cta-manual-button{width:100%}}
