@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, gzipSync } from 'node:zlib';
 import { parseAttachments, cleanName, attachmentNote } from '../src/attachments.js';
 import { createOpenAIProvider } from '../src/ai/openai.js';
 import { createFakeProvider } from '../src/ai/fake.js';
@@ -23,6 +23,20 @@ test('types come from the bytes, not the name or claimed type', () => {
   ], limits);
   assert.deepEqual(out.map((f) => [f.kind, f.mime]), [['image', 'image/png'], ['image', 'image/jpeg'], ['pdf', 'application/pdf'], ['text', 'text/plain']]);
   assert.equal(out[3].text, 'name,qty\nrice,2\n');
+});
+
+test('audio and video formats are detected from signatures without pretending to transcribe them', () => {
+  const mp4 = Buffer.alloc(16); mp4.writeUInt32BE(16, 0); mp4.write('ftyp', 4, 'ascii'); mp4.write('isom', 8, 'ascii');
+  const wav = Buffer.alloc(16); wav.write('RIFF', 0, 'ascii'); wav.write('WAVE', 8, 'ascii');
+  const [video, audio] = parseAttachments([{ name: 'renamed.bin', data: b64(mp4) }, { name: 'sound.dat', data: b64(wav) }], { ...limits, maxCount: 10 });
+  assert.equal(video.detectedMime, 'video/mp4'); assert.equal(audio.detectedMime, 'audio/wav');
+  assert.equal(video.unreadable, true); assert.match(video.text, /does not yet transcribe audio or extract video frames/);
+});
+
+test('gzip-compressed text exports are decompressed within the output limit', () => {
+  const payload = gzipSync(Buffer.from('id,value\\n1,Kumusta\\n'));
+  const [file] = parseAttachments([{ name: 'export.csv.gz', data: b64(payload) }], limits);
+  assert.match(file.text, /1,Kumusta/); assert.match(file.text, /Gzip-compressed text/);
 });
 
 test('broken and oversized files are refused', () => {
