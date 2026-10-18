@@ -62,7 +62,6 @@
   const codingSphere = makeCodingWelcomeNode('span', 'coding-empty-sphere');
   codingSphere.setAttribute('aria-hidden', 'true');
   codingArt.prepend(codingSphere);
-  dotSphere(codingSphere);
   codingEmptyState.append(codingArt, codingTitle, codingSubtitle, codingWords);
   log.appendChild(codingEmptyState);
   const hero = $('hero');
@@ -106,6 +105,7 @@
   // Less motion: the device asks for it, or Settings > General > Reduce motion.
   const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduced = () => motionQuery.matches || document.documentElement.getAttribute('data-motion') === 'reduce';
+  dotSphere(codingSphere);
   const Nasrin = window.Nasrin;
 
   // localStorage holds only the guest session, the current conversation id,
