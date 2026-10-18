@@ -3185,6 +3185,12 @@
   let speech = { available: false, voices: [], default: null };
   let speakOn = saved.get(KEYS.speak) === true;
   let voiceChoice = saved.get(KEYS.voice);
+  // Coral can sound unusually bright on some devices. Migrate the previous default
+  // to Cedar once so existing users receive the more grounded voice by default.
+  if (voiceChoice === 'ai:coral' || voiceChoice === 'ai:openai:coral') {
+    voiceChoice = 'ai:openai:cedar';
+    saved.set(KEYS.voice, voiceChoice);
+  }
   // Reading speed comes from the server's setting (the voice screen no longer
   // has a speed button); an old per-device choice is cleared.
   let speechRate = 1;
@@ -3203,7 +3209,7 @@
     );
     if (ok(voiceChoice)) return voiceChoice;
     if (speech.available && AudioCtx) {
-      const v = speech.voices.find((x) => x.available !== false);
+      const v = speech.voices.find((x) => x.id === 'openai:cedar' && x.available !== false) || speech.voices.find((x) => x.available !== false);
       if (v) return 'ai:' + v.id;
     }
     return 'device:default';
