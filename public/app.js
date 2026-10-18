@@ -28,12 +28,68 @@
   if (window.ResizeObserver) new ResizeObserver(fitDock).observe(dock);
   fitDock();
   const welcome = $('welcome');
+  // Dedicated animated welcome for an empty coding chat. It stays in the log
+  // across clearScreen(), but CSS hides it outside coding mode or once a turn
+  // has started.
+  const codingEmptyState = document.createElement('section');
+  codingEmptyState.className = 'coding-empty-state';
+  codingEmptyState.setAttribute('aria-label', 'Coding chat welcome');
+  const makeCodingWelcomeNode = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const codingArt = makeCodingWelcomeNode('div', 'coding-empty-art');
+  codingArt.setAttribute('aria-hidden', 'true');
+  codingArt.append(
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-one'),
+    makeCodingWelcomeNode('span', 'coding-empty-orbit coding-empty-orbit-two'),
+    makeCodingWelcomeNode('span', 'coding-empty-spark coding-empty-spark-two', '＋'),
+    makeCodingWelcomeNode('span', 'code-logo coding-empty-logo is-busy'),
+    makeCodingWelcomeNode('span', 'coding-empty-cursor')
+  );
+  const codingTitle = makeCodingWelcomeNode('h1', 'coding-empty-title', 'What are we building today?');
+  const codingSubtitle = makeCodingWelcomeNode('p', 'coding-empty-subtitle', 'Your next idea starts here.');
+  const codingWords = makeCodingWelcomeNode('div', 'coding-empty-words');
+  codingWords.setAttribute('aria-label', 'Websites, apps, tools, and more');
+  const codingWordTrack = makeCodingWelcomeNode('div', 'coding-empty-word-track');
+  codingWordTrack.setAttribute('aria-hidden', 'true');
+  for (const word of ['A website', 'An app', 'A smart tool', 'Something amazing', 'A website']) {
+    codingWordTrack.appendChild(makeCodingWelcomeNode('span', '', word));
+  }
+  codingWords.appendChild(codingWordTrack);
+  const codingSphere = makeCodingWelcomeNode('span', 'coding-empty-sphere');
+  codingSphere.setAttribute('aria-hidden', 'true');
+  codingArt.prepend(codingSphere);
+  codingEmptyState.append(codingArt, codingTitle, codingSubtitle, codingWords);
+  log.appendChild(codingEmptyState);
   const hero = $('hero');
   const form = $('composer');
   const input = $('input');
   const sendBtn = $('send');
   const micBtn = sendBtn;
   const notice = $('notice');
+  // The small inline status banner (including the coding-chat hint) must
+  // never remain stuck on screen. The separate new-user welcome card
+  // (#appNotice) is intentionally unaffected and remains dismissible by its
+  // close button.
+  let inlineNoticeTimer = null;
+  if (notice && window.MutationObserver) {
+    const inlineNoticeObserver = new MutationObserver(() => {
+      if (inlineNoticeTimer !== null) {
+        clearTimeout(inlineNoticeTimer);
+        inlineNoticeTimer = null;
+      }
+      const message = notice.textContent;
+      if (!message || !message.trim()) return;
+      inlineNoticeTimer = setTimeout(() => {
+        inlineNoticeTimer = null;
+        if (notice.textContent === message) notice.textContent = '';
+      }, 3000);
+    });
+    inlineNoticeObserver.observe(notice, { childList: true, characterData: true, subtree: true });
+  }
   const settingsBtn = $('settingsBtn');
   const sheet = $('settings');
   const scrim = $('scrim');
@@ -49,6 +105,7 @@
   // Less motion: the device asks for it, or Settings > General > Reduce motion.
   const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduced = () => motionQuery.matches || document.documentElement.getAttribute('data-motion') === 'reduce';
+  dotSphere(codingSphere);
   const Nasrin = window.Nasrin;
 
   // localStorage holds only the guest session, the current conversation id,
@@ -1163,7 +1220,15 @@
     lede.textContent = asks.length === 1 ? 'Your answer:' : 'Your answers:';
     card.appendChild(lede);
     const picked = asks.map(() => '');
-    asks.forEach((q, i) => card.appendChild(questionBox(q, (value) => { picked[i] = value; refresh(); })));
+    const questionList = document.createElement('ul');
+    questionList.className = 'ask-questions';
+    questionList.setAttribute('aria-label', 'Follow-up questions');
+    asks.forEach((q, i) => {
+      const item = document.createElement('li');
+      item.appendChild(questionBox(q, (value) => { picked[i] = value; refresh(); }));
+      questionList.appendChild(item);
+    });
+    card.appendChild(questionList);
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     const go = document.createElement('button');
@@ -1207,6 +1272,7 @@
       el.appendChild(row);
     }
     let made = { files: [], asks: [] };
+    let hasLocationCta = false;
     const raw = text;
     if (role === 'assistant') {
       // Files and questions are written into the reply as blocks; the page shows them as cards.
@@ -1277,6 +1343,96 @@
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
+      // Consent-based location CTA, rendered inside a location-related assistant reply.
+      if (/(?:cannot|can't|unable to|do not|don't)[\\s\\S]{0,140}(?:gps|current|device)?\\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
+        hasLocationCta = true;
+        const card = document.createElement('div');
+        card.className = 'location-cta';
+        const copy = document.createElement('p');
+        copy.className = 'location-cta-copy';
+        copy.textContent = 'Share your current location to get more accurate nearby results and directions.';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'location-cta-button';
+        const locationGlyph = document.createElement('span');
+        locationGlyph.setAttribute('aria-hidden', 'true');
+        locationGlyph.textContent = '⌖';
+        const locationLabel = document.createElement('span');
+        locationLabel.textContent = 'Use my location';
+        button.append(locationGlyph, locationLabel);
+        button.setAttribute('aria-label', 'Use my current location to answer location questions');
+        const status = document.createElement('p');
+        status.className = 'location-cta-status';
+        status.setAttribute('role', 'status');
+        const manual = document.createElement('form');
+        manual.className = 'location-cta-manual';
+        const manualInput = document.createElement('input');
+        manualInput.type = 'text';
+        manualInput.autocomplete = 'street-address';
+        manualInput.placeholder = 'City, address, or landmark';
+        manualInput.setAttribute('aria-label', 'Enter a city, address, or landmark');
+        const manualButton = document.createElement('button');
+        manualButton.type = 'submit';
+        manualButton.className = 'location-cta-manual-button';
+        manualButton.textContent = 'Use this place';
+        manual.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const place = manualInput.value.trim();
+          if (!place) {
+            manualInput.focus();
+            status.textContent = 'Enter a city, address, or landmark to continue.';
+            return;
+          }
+          button.disabled = true;
+          manualButton.disabled = true;
+          status.textContent = 'Searching for ' + place + '…';
+          Promise.resolve(runTurn({
+            text: 'Use this location for my previous nearby-place or directions question: ' + place + '. Use live map or web tools when available. If live routing is unavailable, provide a Google Maps route link and clearly say that live travel time could not be verified. Do not invent routes, distances, opening hours, or travel times.',
+          })).then(() => {
+            status.textContent = 'Location sent with your question. See the reply below for results.';
+            button.disabled = false;
+            manualButton.disabled = false;
+          }).catch(() => {
+            status.textContent = 'Could not search this location. Please try again.';
+            button.disabled = false;
+            manualButton.disabled = false;
+          });
+        });
+        manual.append(manualInput, manualButton);
+        button.addEventListener('click', () => {
+          if (!navigator.geolocation) {
+            status.textContent = 'Location is not supported by this browser. Enter a city, address, or landmark instead.';
+            return;
+          }
+          if (!window.isSecureContext) {
+            status.textContent = 'Location access requires a secure HTTPS connection. Enter a city, address, or landmark instead.';
+            return;
+          }
+          button.disabled = true;
+          status.textContent = 'Waiting for your location permission…';
+          navigator.geolocation.getCurrentPosition((position) => {
+            status.textContent = 'Location received. Finding relevant results…';
+            runTurn({
+              text: 'Use my current location to answer my previous location, nearby-place, or directions question. Use live map or web tools when available; do not invent routes or travel times.',
+              locationContext: {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null
+              }
+            }).then(() => { status.textContent = 'Location shared for this request. See the reply below for results.'; })
+              .catch(() => { button.disabled = false; status.textContent = 'Could not use that location. Please try again or enter a location manually.'; });
+          }, (error) => {
+            button.disabled = false;
+            status.textContent = error.code === 1
+              ? 'Location permission was denied. Allow location in your browser settings, or enter a city, address, or landmark.'
+              : error.code === 3
+                ? 'Location took too long. Try again, or enter a location manually.'
+                : 'We could not determine your location. Check your device settings or enter a location manually.';
+          }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+        });
+        card.append(copy, button, manual, status);
+        el.appendChild(card);
+      }
       // Coding chat with GitHub on: more than five files become one card
       // (pull request), never a pile of files in the chat. With automatic pull
       // requests on, a fresh reply's files go straight to a pull request.
@@ -1298,7 +1454,15 @@
         }
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
-      if (asks && made.asks.length) el.appendChild(askCard(made.asks));
+      // The location card already has a place field; don't show a duplicate follow-up card.
+      if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
+      if (cited.links.length) renderWebPreviews(el, cited.links);
+      if (fresh && role === 'assistant') {
+        const userMessages = log.querySelectorAll('.msg.user');
+        const lastUser = userMessages[userMessages.length - 1] || null;
+        const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
+        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery, cited.links);
+      }
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
       if (cited.links.length) sourcesToggle(actions, cited.links);
@@ -1357,7 +1521,7 @@
     svg.setAttribute('viewBox', '0 0 40 40');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('dots');
-    const n = 64, tilt = 0.35, R = 13, TAU = Math.PI * 2;
+    const n = 64, tilt = 0.35, R = 10.5, TAU = Math.PI * 2;
     const ct = Math.cos(tilt), st = Math.sin(tilt);
     // beep / gather: 0 … 1, eased toward their goals so changes blend smoothly.
     let cycle = 2400, beep = 0, goal = 0, gather = 0, goalG = 0;
@@ -1375,6 +1539,9 @@
       // Sphere: a full turn at a steady speed, and a burst that peaks near the middle.
       const turn = t * TAU;   // steady: it keeps turning while it grows and shrinks
       const burst = (1 - beep) * (1 - gather) * Math.sin(Math.PI * Math.min(Math.max((t - 0.12) / 0.66, 0), 1)) ** 2;
+      // One unified mark: the particle sphere expands as the face recedes,
+      // then contracts and reveals the face again. Keep the burst inside the art bounds.
+      box.style.setProperty('--sphere-burst', burst.toFixed(3));
       const ca = Math.cos(turn), sa = Math.sin(turn);
       // Beep: a ring of light runs out from the middle, twice a cycle.
       const wave = (t * 2) % 1;
@@ -1503,7 +1670,7 @@
     // Leaving this chat: a reply still being written is stopped, an edit dropped.
     if (turn) turn.ctrl.abort();
     if (editing) cancelEdit();
-    for (const el of [...log.children]) if (el !== welcome) el.remove();
+    for (const el of [...log.children]) if (el !== welcome && el !== codingEmptyState) el.remove();
     welcome.hidden = false;
     document.body.classList.remove('has-chat');
   }
@@ -1614,6 +1781,134 @@
         name.textContent = f.name;
         chip.append(icon, name);
       }
+      if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+        const transcribe = document.createElement('button');
+        transcribe.type = 'button';
+        transcribe.className = 'chip-transcribe';
+        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Too large' : 'Transcribe';
+        transcribe.disabled = f.bytes > 4 * 1024 * 1024;
+        transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
+        transcribe.addEventListener('click', async () => {
+          if (transcribe.disabled) return;
+          transcribe.disabled = true;
+          transcribe.textContent = 'Transcribing…';
+          try {
+            const token = await credential();
+            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name), {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': f.type || 'application/octet-stream' },
+              body: f.local
+            });
+            if (!response.ok) throw await errorFrom(response);
+            const result = await response.json();
+            if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No speech was detected in this audio.');
+            const existing = input.value.trim();
+            input.value = existing ? existing + '\n\n' + result.text.trim() : result.text.trim();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+            notice.textContent = 'Transcript added to your message. Review it before sending.';
+            transcribe.textContent = 'Transcribed';
+          } catch (err) {
+            notice.textContent = err.message || 'Could not transcribe this audio. Please try again.';
+            transcribe.disabled = false;
+            transcribe.textContent = 'Retry transcription';
+          }
+        });
+        chip.appendChild(transcribe);
+      }
+      if (/\.pdf$/i.test(f.name) && f.local instanceof File) {
+        const ocr = document.createElement('button');
+        ocr.type = 'button';
+        ocr.className = 'chip-transcribe';
+        ocr.textContent = f.bytes > 6 * 1024 * 1024 ? 'Too large' : 'Extract text';
+        ocr.disabled = f.bytes > 6 * 1024 * 1024;
+        ocr.setAttribute('aria-label', 'Extract text from ' + f.name);
+        ocr.addEventListener('click', async () => {
+          if (ocr.disabled) return;
+          ocr.disabled = true;
+          ocr.textContent = 'Reading PDF…';
+          try {
+            const token = await credential();
+            const response = await net('/v1/pdf-ocr?name=' + encodeURIComponent(f.name), {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/pdf' },
+              body: f.local
+            });
+            if (!response.ok) throw await errorFrom(response);
+            const result = await response.json();
+            if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No readable text was found in this PDF.');
+            const existing = input.value.trim();
+            input.value = existing ? existing + '\n\n' + result.text.trim() : result.text.trim();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+            notice.textContent = 'Extracted PDF text added to your message. Review it before sending.';
+            ocr.textContent = 'Text extracted';
+          } catch (err) {
+            notice.textContent = err.message || 'Could not extract text from this PDF. Please try again.';
+            ocr.disabled = false;
+            ocr.textContent = 'Retry extraction';
+          }
+        });
+        chip.appendChild(ocr);
+      }
+      if ((/^video\//i.test(f.type || '') || /\.(?:mp4|mov|webm|m4v|mpeg|mpg|ogv)$/i.test(f.name)) && f.local instanceof File) {
+        const frames = document.createElement('button');
+        frames.type = 'button';
+        frames.className = 'chip-transcribe';
+        frames.textContent = 'Extract frames';
+        frames.setAttribute('aria-label', 'Extract frames from ' + f.name);
+        frames.addEventListener('click', async () => {
+          frames.disabled = true;
+          frames.textContent = 'Extracting…';
+          let objectUrl = '';
+          try {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            objectUrl = URL.createObjectURL(f.local);
+            video.src = objectUrl;
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('Video metadata took too long to load. Try a shorter video or another format.')), 15000);
+              video.onloadedmetadata = () => { clearTimeout(timeout); resolve(); };
+              video.onerror = () => { clearTimeout(timeout); reject(new Error('This video format could not be opened on this device.')); };
+            });
+            if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
+            const duration = video.duration;
+            const times = [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])];
+            const extracted = [];
+            for (let index = 0; index < times.length; index++) {
+              if (pending.length + extracted.length >= MAX_FILES) break;
+              video.currentTime = times[index];
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), 10000);
+                video.onseeked = () => { clearTimeout(timeout); resolve(); };
+                video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not seek to a video frame.')); };
+              });
+              const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+              canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+              const ctx = canvas.getContext('2d');
+              if (!ctx) throw new Error('Frame extraction is not supported by this device.');
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not encode a video frame.')), 'image/jpeg', 0.84));
+              const stamp = Math.round(times[index] * 1000);
+              extracted.push(new File([blob], f.name.replace(/\.[^.]+$/, '') + '-frame-' + (index + 1) + '-' + stamp + 'ms.jpg', { type: 'image/jpeg' }));
+            }
+            if (!extracted.length) throw new Error('There is no room for more frames. Remove a file and try again.');
+            await addFiles(extracted);
+            notice.textContent = 'Extracted ' + extracted.length + ' frame(s). Review the image attachments before sending.';
+            frames.textContent = 'Frames extracted';
+          } catch (err) {
+            notice.textContent = err.message || 'Could not extract video frames. Please try again.';
+            frames.disabled = false;
+            frames.textContent = 'Retry frames';
+          } finally {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+          }
+        });
+        chip.appendChild(frames);
+      }
       const x = document.createElement('button');
       x.type = 'button';
       x.className = 'chip-x';
@@ -1696,47 +1991,33 @@
     e.preventDefault();
     addFiles([...e.dataTransfer.files]);
   });
-  // If pasted text would make the composer taller than its visible limit,
-  // attach the complete pasted text as a .txt file instead of trapping it in
-  // a scrollable message field. Existing draft text remains untouched.
-  function pastedTextOverflows(text) {
-    const start = input.selectionStart ?? input.value.length;
-    const end = input.selectionEnd ?? start;
-    const candidate = input.value.slice(0, start) + text + input.value.slice(end);
-    const style = getComputedStyle(input);
-    const maxHeight = Number.parseFloat(style.maxHeight);
-    if (!Number.isFinite(maxHeight) || maxHeight <= 0) return false;
-
-    const measure = document.createElement('textarea');
-    measure.value = candidate;
-    measure.setAttribute('aria-hidden', 'true');
-    measure.tabIndex = -1;
-    Object.assign(measure.style, {
-      position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden',
-      width: input.getBoundingClientRect().width + 'px', height: 'auto',
-      minHeight: '0', maxHeight: 'none', overflow: 'hidden', resize: 'none',
-      boxSizing: style.boxSizing, padding: style.padding, border: style.border,
-      font: style.font, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing,
-      whiteSpace: style.whiteSpace, overflowWrap: style.overflowWrap
-    });
-    document.body.appendChild(measure);
-    const contentHeight = measure.scrollHeight;
-    measure.remove();
-    return contentHeight > maxHeight + 1;
-  }
-
+  // One paste of up to 2,000 characters stays editable text; 2,001 or more is
+  // attached as a UTF-8 .txt file (public/paste.js). Only the pasted text is
+  // counted, never what is already typed, and images/files are handled above.
   input.addEventListener('paste', (e) => {
     const clipboard = e.clipboardData;
     const files = clipboard ? [...clipboard.files] : [];
     if (files.length) { e.preventDefault(); addFiles(files); return; }
 
     const text = clipboard ? clipboard.getData('text/plain') : '';
-    if (!text || !pastedTextOverflows(text)) return;
+    if (!text || !NasrinPaste.shouldAttach(text)) return;
+    if (pending.length >= MAX_FILES) { notice.textContent = `You can send up to ${MAX_FILES} files at a time. The long paste was kept as text.`; return; }
     e.preventDefault();
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = new File([text], 'pasted-message-' + stamp + '.txt', { type: 'text/plain' });
-    addFiles([file]);
-    notice.textContent = 'Long pasted message attached as a .txt file. You can send it with your prompt.';
+    const name = NasrinPaste.fileName(pending.map((f) => f.name));
+    const file = new File([text], name, { type: 'text/plain' });
+    const before = pending.length;
+    addFiles([file]).then(() => {
+      if (pending.length > before) {
+        notice.textContent = `Long paste attached as ${name} (${NasrinPaste.count(text).toLocaleString('en-US')} characters).`;
+      } else {
+        // Nothing is lost: the text goes into the box so it can be sent as text.
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        input.setRangeText(text, start, end, 'end');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        notice.textContent = (notice.textContent ? notice.textContent + ' ' : '') + 'The pasted text was kept in the message box instead.';
+      }
+    });
   });
 
   // ---------- the + menu: files, or creating a picture ----------
@@ -2068,13 +2349,21 @@
   // Nasrin's questions: quick answers to tap, and a box under each to type your own.
   function showQuestions(job, questions) {
     const card = document.createElement('div');
-    card.className = 'msg assistant image-card';
+    card.className = 'msg assistant image-card ask-card';
     const lede = document.createElement('p');
     lede.className = 'card-lede';
     lede.textContent = questions.length === 1 ? 'One question before I start:' : `A few questions before I start (${questions.length}):`;
     card.appendChild(lede);
     const picked = questions.map(() => '');
-    questions.forEach((q, i) => card.appendChild(questionBox(q, (value) => { picked[i] = value; })));
+    const questionList = document.createElement('ol');
+    questionList.className = 'ask-questions';
+    questionList.setAttribute('aria-label', 'Follow-up questions');
+    questions.forEach((q, i) => {
+      const item = document.createElement('li');
+      item.appendChild(questionBox(q, (value) => { picked[i] = value; }));
+      questionList.appendChild(item);
+    });
+    card.appendChild(questionList);
     const actions = document.createElement('div');
     actions.className = 'card-actions';
     const go = document.createElement('button');
@@ -2406,13 +2695,72 @@
     return runTurn({ text, files, editId: editing ? editing.id : null, editEl: editing ? editing.el : null });
   }
 
+
+  function showLocationPermissionCard() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div'); overlay.className = 'location-consent-overlay';
+      const card = document.createElement('section'); card.className = 'location-consent-card';
+      card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+      card.setAttribute('aria-labelledby','locationConsentTitle'); card.setAttribute('aria-describedby','locationConsentDescription');
+      const header = document.createElement('div'); header.className = 'location-consent-header';
+      const iconBox = document.createElement('div'); iconBox.className = 'location-consent-icon'; iconBox.setAttribute('aria-hidden','true');
+      const pinSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      pinSvg.setAttribute('viewBox', '0 0 24 24');
+      pinSvg.setAttribute('fill', 'none');
+      pinSvg.setAttribute('stroke', 'currentColor');
+      pinSvg.setAttribute('stroke-width', '1.8');
+      pinSvg.setAttribute('stroke-linecap', 'round');
+      pinSvg.setAttribute('stroke-linejoin', 'round');
+      const pinPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      pinPath.setAttribute('d', 'M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z');
+      const pinCenter = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      pinCenter.setAttribute('cx', '12');
+      pinCenter.setAttribute('cy', '10');
+      pinCenter.setAttribute('r', '2.7');
+      pinSvg.append(pinPath, pinCenter);
+      iconBox.append(pinSvg);
+      const copy = document.createElement('div'); copy.className = 'location-consent-copy';
+      const title = document.createElement('h2'); title.id = 'locationConsentTitle'; title.textContent = 'Allow NasrinAI to access your location?';
+      const desc = document.createElement('p'); desc.id = 'locationConsentDescription'; desc.textContent = 'Your location helps provide local weather, nearby places, and directions.';
+      copy.append(title,desc); header.append(iconBox,copy);
+      const divider = document.createElement('div'); divider.className = 'location-consent-divider';
+      const actions = document.createElement('div'); actions.className = 'location-consent-actions';
+      const choice = (label,hint,extra) => { const b=document.createElement('button'); b.type='button'; b.className='location-consent-choice'+(extra?' '+extra:''); const a=document.createElement('span'); a.textContent=label; const h=document.createElement('span'); h.textContent=hint; b.append(a,h); return b; };
+      const cancel=choice('Cancel','Continue without location',''), allow=choice('Allow location','Then request browser permission','location-consent-allow');
+      actions.append(cancel,allow); card.append(header,divider,actions); overlay.append(card); document.body.append(overlay);
+      const finish = (value) => { overlay.remove(); document.removeEventListener('keydown', keydown); resolve(value); };
+      const keydown = (event) => { if(event.key==='Escape') finish(false); };
+      cancel.addEventListener('click',()=>finish(false)); allow.addEventListener('click',()=>finish(true));
+      overlay.addEventListener('click',(event)=>{if(event.target===overlay)finish(false);});
+      document.addEventListener('keydown',keydown); allow.focus();
+    });
+  }
+  function getDeviceLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation || !window.isSecureContext) return resolve(null);
+      let settled=false; const finish=(value)=>{if(!settled){settled=true;resolve(value);}};
+      navigator.geolocation.getCurrentPosition((p)=>finish({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Number.isFinite(p.coords.accuracy)?p.coords.accuracy:null}),()=>finish(null),{enableHighAccuracy:false,maximumAge:120000,timeout:15000});
+      // Allow time for the native browser permission prompt before falling back.
+      setTimeout(()=>finish(null),16000);
+    });
+  }
+
   // One reply: a new message, Regenerate (replace: the old answer), Retry
   // (regenerate after a failure), or an edited last message.
   // spoken: this turn is part of a voice conversation (short, spoken-style reply).
   // speakVoice: a natural voice id; the server then sends the reply as speech while it is written (onAudio).
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
-  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null }) {
+  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+    const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
+    if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
+      // Lock the composer before awaiting consent so a second submit cannot
+      // open another permission card or send the same message twice.
+      busy = true;
+      refreshSendButton();
+      const consent = await showLocationPermissionCard();
+      if (consent) locationContext = await getDeviceLocation();
+    }
     busy = true;
     notice.textContent = '';
     stopSpeaking();
@@ -2459,6 +2807,7 @@
       ...(!id && turnProject ? { project_id: turnProject.id } : {}),
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
+      ...(locationContext ? { location_context: locationContext } : {}),
       ...(codingProject ? { coding: true, ...(saved.get(KEYS.coding + ':repo:' + codingProject.id) ? { repo: saved.get(KEYS.coding + ':repo:' + codingProject.id) } : {}) } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
@@ -2509,6 +2858,80 @@
       busy = false;
       if (!data.message) return;
       const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true });
+      // Explicit requests for real internet photos get a separate inline gallery.
+      // Keep this opt-in by intent so ordinary replies never gain unrelated images.
+      if (!turnCoding && /\b(show|find|search|display|give me)\b.{0,70}\b(real )?(photos?|pictures?|images?)\b/i.test(text)
+          && /\b(internet|online|from the web|web search|from the internet)\b/i.test(text)) {
+        const query = text
+          .replace(/\b(show|find|search|display|give me)\b/ig, ' ')
+          .replace(/\b\d+\b/ig, ' ')
+          .replace(/\b(real|actual|photos?|pictures?|images?|from|the|internet|online|web|search|directly|inside|this|chat|with|captions?|source|links?|please|do not|only)\b/ig, ' ')
+          .replace(/\s+/g, ' ').trim().slice(0, 160);
+        if (query.length >= 2) {
+          const gallery = document.createElement('section');
+          gallery.className = 'internet-image-gallery';
+          gallery.setAttribute('aria-label', 'Internet image results');
+          const label = document.createElement('p');
+          label.className = 'internet-image-heading';
+          label.textContent = 'Photos from the internet';
+          gallery.appendChild(label);
+          const loading = document.createElement('p');
+          loading.className = 'internet-image-status';
+          loading.textContent = 'Finding real photos…';
+          gallery.appendChild(loading);
+          shown.appendChild(gallery);
+          api('/v1/web-images/search?q=' + encodeURIComponent(query)).then(({ images = [] }) => {
+            loading.remove();
+            if (!images.length) {
+              loading.textContent = 'No suitable photos were found. Try a more specific place or subject.';
+              gallery.appendChild(loading);
+              return;
+            }
+            const grid = document.createElement('div');
+            grid.className = 'internet-image-grid';
+            for (const item of images.slice(0, 5)) {
+              let imageUrl, sourceUrl;
+              try {
+                imageUrl = new URL(item.image_url);
+                sourceUrl = new URL(item.source_url);
+              } catch { continue; }
+              if (imageUrl.protocol !== 'https:' || imageUrl.hostname !== 'upload.wikimedia.org'
+                  || sourceUrl.protocol !== 'https:' || sourceUrl.hostname !== 'commons.wikimedia.org') continue;
+              const card = document.createElement('article');
+              card.className = 'internet-image-card';
+              const image = document.createElement('img');
+              image.src = imageUrl.href;
+              image.alt = String(item.title || 'Internet photo').slice(0, 160);
+              image.loading = 'lazy';
+              image.referrerPolicy = 'no-referrer';
+              image.addEventListener('error', () => card.remove(), { once: true });
+              card.appendChild(image);
+              const caption = document.createElement('p');
+              caption.className = 'internet-image-caption';
+              caption.textContent = item.title || 'Photo';
+              card.appendChild(caption);
+              const credit = document.createElement('p');
+              credit.className = 'internet-image-credit';
+              credit.textContent = [item.artist, item.license].filter(Boolean).join(' · ');
+              if (credit.textContent) card.appendChild(credit);
+              const source = document.createElement('a');
+              source.href = sourceUrl.href;
+              source.target = '_blank';
+              source.rel = 'noopener noreferrer';
+              source.textContent = 'View source';
+              card.appendChild(source);
+              grid.appendChild(card);
+            }
+            if (grid.children.length) gallery.appendChild(grid);
+            else {
+              loading.textContent = 'The images could not be loaded. Please try again.';
+              gallery.appendChild(loading);
+            }
+          }).catch(() => {
+            loading.textContent = 'Internet image search is temporarily unavailable.';
+          });
+        }
+      }
       shown.dataset.id = data.message.id;
       const used = Array.isArray(data.professionals) ? data.professionals.map(proById).filter(Boolean) : [];
       if (used.length) {
@@ -2623,8 +3046,6 @@
   for (const b of document.querySelectorAll('.starter[data-starter-action]')) {
     b.addEventListener('click', () => starterActions[b.dataset.starterAction]?.());
   }
-  // Create image switches to picture mode; the person then describes it.
-  $('starterImage').addEventListener('click', () => { setImageMode(true); input.focus(); });
 
   // Detaches a reply still being written from the screen without stopping it:
   // it finishes and is saved in its own chat. True when one was running.
@@ -3042,11 +3463,230 @@
   // The Sources button (site badges + "Sources"): a folded list of the pages a web answer used, opened in a
   // new tab (never with the page's access to this one).
   let sourcesCount = 0;
+  // Show source-page images when web research has useful Open Graph/Twitter
+  // thumbnails. Images are fetched through our same-origin, raster-only proxy.
+  function renderWebPreviews(message, links) {
+    const candidates = links.filter((link) => /^https?:$/.test((() => { try { return new URL(link.url).protocol; } catch { return ''; } })())).slice(0, 3);
+    if (!candidates.length) return;
+    const section = document.createElement('section');
+    section.className = 'web-preview-grid';
+    section.setAttribute('aria-label', 'Images from web sources');
+    let loaded = 0;
+    for (const source of candidates) {
+      const card = document.createElement('a');
+      card.className = 'web-preview-card';
+      card.href = source.url;
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      card.setAttribute('aria-label', 'Open source: ' + (source.title || source.host));
+      const img = document.createElement('img');
+      img.className = 'web-preview-image';
+      img.alt = (source.title || 'Web source image').slice(0, 180);
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.src = '/v1/page-preview?url=' + encodeURIComponent(source.url);
+      img.addEventListener('load', () => {
+        loaded++;
+        section.classList.add('has-images');
+      }, { once: true });
+      img.addEventListener('error', () => {
+        card.remove();
+        if (!section.querySelector('.web-preview-card')) section.remove();
+      }, { once: true });
+      const caption = document.createElement('span');
+      caption.className = 'web-preview-caption';
+      caption.textContent = (source.title || source.host || 'Source image').slice(0, 100);
+      card.append(img, caption);
+      section.appendChild(card);
+    }
+    message.appendChild(section);
+  }
+
+  function needsYouTubeVideos(query) {
+    const q = String(query || '').trim();
+    if (q.length < 5 || q.length > 600) return false;
+    // Practical how-to questions should surface a video even when the user
+    // doesn't explicitly say "YouTube" or "tutorial" (e.g. "how to do push ups").
+    return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
+  }
+
+  const PERSISTENT_YOUTUBE_KEY = 'nasrin.persistentYoutubePlayer';
+
+  function createYouTubeVideoCard(video) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return null;
+    const card = document.createElement('article');
+    card.className = 'youtube-video-card';
+    const frameWrap = document.createElement('div');
+    frameWrap.className = 'youtube-video-frame';
+    const frame = document.createElement('iframe');
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
+    frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
+    frame.loading = 'lazy';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allowFullscreen = true;
+    frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+    frameWrap.appendChild(frame);
+    const fullscreen = document.createElement('button');
+    fullscreen.type = 'button';
+    fullscreen.className = 'youtube-fullscreen-button';
+    fullscreen.setAttribute('aria-label', 'Play video fullscreen');
+    fullscreen.title = 'Play video fullscreen';
+    fullscreen.textContent = '⛶ Fullscreen';
+    fullscreen.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
+          await document.exitFullscreen();
+          return;
+        }
+        if (typeof frameWrap.requestFullscreen === 'function') await frameWrap.requestFullscreen();
+        else if (typeof frame.requestFullscreen === 'function') await frame.requestFullscreen();
+        else window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+      } catch {
+        window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
+      }
+    });
+    frameWrap.appendChild(fullscreen);
+    const details = document.createElement('div');
+    details.className = 'youtube-video-details';
+    const title = document.createElement('p');
+    title.className = 'youtube-video-title';
+    title.textContent = String(video.title || 'YouTube video').slice(0, 240);
+    const channel = document.createElement('p');
+    channel.className = 'youtube-video-channel';
+    channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
+    const open = document.createElement('a');
+    open.className = 'youtube-video-link';
+    open.href = 'https://www.youtube.com/watch?v=' + video.id;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.textContent = 'Watch on YouTube';
+    details.append(title, channel, open);
+    card.append(frameWrap, details);
+    return card;
+  }
+
+  function mountPersistentYouTubePlayer(video, existingCard = null) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return;
+    const state = { id: video.id, title: String(video.title || 'YouTube video').slice(0, 240), channelTitle: String(video.channelTitle || 'YouTube').slice(0, 120) };
+    try { localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify(state)); } catch {}
+    let panel = document.getElementById('persistent-youtube-player');
+    if (!panel) {
+      panel = document.createElement('aside');
+      panel.id = 'persistent-youtube-player';
+      panel.className = 'persistent-youtube-player';
+      panel.setAttribute('aria-label', 'Persistent video player');
+      panel.setAttribute('role', 'region');
+      const header = document.createElement('div');
+      header.className = 'persistent-youtube-header';
+      const label = document.createElement('span');
+      label.className = 'persistent-youtube-label';
+      label.textContent = 'Continue watching';
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'persistent-youtube-close';
+      close.setAttribute('aria-label', 'Close persistent video player');
+      close.title = 'Close video player';
+      close.textContent = '×';
+      close.addEventListener('click', () => {
+        panel.remove();
+        try { localStorage.removeItem(PERSISTENT_YOUTUBE_KEY); } catch {}
+      });
+      header.append(label, close);
+      panel.appendChild(header);
+      document.body.appendChild(panel);
+    }
+    let card = existingCard;
+    if (!card) card = createYouTubeVideoCard(state);
+    if (!card) return;
+    panel.querySelector('.youtube-video-card')?.remove();
+    panel.appendChild(card);
+    panel.dataset.videoId = state.id;
+  }
+
+  let persistentYouTubeRestore = null;
+  function restorePersistentYouTubePlayer() {
+    if (persistentYouTubeRestore) return persistentYouTubeRestore;
+    persistentYouTubeRestore = (async () => {
+      let state;
+      try { state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null'); } catch { return; }
+      if (!state || !/^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) return;
+      const mounted = document.getElementById('persistent-youtube-player');
+      if (mounted?.dataset.videoId === state.id) return;
+      try {
+        const token = account?.token || await guestToken(false);
+        const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(state.id), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const result = response.ok ? await response.json() : { valid: false };
+        // A stored player can outlive a video or its embed permission. Never
+        // restore a known-unavailable iframe after refresh or account changes.
+        if (result.valid !== true) {
+          const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+          if (latest?.id === state.id) localStorage.removeItem(PERSISTENT_YOUTUBE_KEY);
+          if (mounted?.dataset.videoId === state.id) mounted.remove();
+          return;
+        }
+        const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+        if (latest?.id === state.id) mountPersistentYouTubePlayer(state);
+      } catch {
+        // Keep the saved state for a later retry, but don't show an unverified iframe.
+      }
+    })().finally(() => { persistentYouTubeRestore = null; });
+    return persistentYouTubeRestore;
+  }
+
+  async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
+    if (message.querySelector('.youtube-results')) return;
+    const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
+    const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
+    try {
+      let videos = [];
+      try {
+        const token = account?.token || await guestToken(false);
+        const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+        }
+      } catch {
+        // Fall back to researched YouTube links when live search is unavailable.
+      }
+      if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
+      const section = document.createElement('section');
+      section.className = 'youtube-results';
+      section.setAttribute('aria-label', 'Relevant YouTube videos');
+      const heading = document.createElement('h3');
+      heading.className = 'youtube-results-heading';
+      heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
+      section.appendChild(heading);
+      const firstCard = createYouTubeVideoCard(videos[0]);
+      if (firstCard) mountPersistentYouTubePlayer(videos[0], firstCard);
+      for (const video of videos.slice(1)) {
+        const card = createYouTubeVideoCard(video);
+        if (card) section.appendChild(card);
+      }
+      if (section.querySelector('.youtube-video-card')) {
+        const body = message.querySelector('.msg-body');
+        (body || message).appendChild(section);
+      }
+    } catch {
+      // Video search is an enhancement; it must never break the chat reply.
+    }
+  }
+
   function sourcesToggle(row, links) {
     const list = document.createElement('ul');
     list.className = 'reply-sources';
     list.id = 'reply-sources-' + (++sourcesCount);
     list.hidden = true;
+    const heading = mk('p', 'reply-sources-heading', 'Sources & Resources');
+    heading.hidden = true;
+    heading.id = list.id + '-heading';
+    list.setAttribute('aria-labelledby', heading.id);
     for (const l of links) {
       const li = document.createElement('li');
       const a = document.createElement('a');
@@ -3082,7 +3722,7 @@
     b.dataset.kind = 'sources';
     b.setAttribute('aria-expanded', 'false');
     b.setAttribute('aria-controls', list.id);
-    b.setAttribute('aria-label', `Sources (${links.length})`);
+    b.setAttribute('aria-label', `Show sources and resources (${links.length})`);
     // Overlapping round badges, one per site (its first letter; no outside
     // images, so the strict CSP holds), then the word Sources.
     const faces = mk('span', 'src-faces');
@@ -3098,10 +3738,12 @@
     b.addEventListener('click', () => {
       const open = list.hidden;
       list.hidden = !open;
+      heading.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
+      b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);
     });
     row.appendChild(b);
-    row.after(list);
+    row.after(heading, list);
   }
 
   function replyActions(text, id, full = text) {
@@ -3281,7 +3923,7 @@
   let lastFocus = null;
   // Settings is a menu: rows open their own page; Back returns to the menu.
   const PAGES = { main: ['pageMain', 'Settings'], account: ['pageAccount', 'Signed in account'], space: ['pageSpace', 'NasrinAI Space'],
-    general: ['pageGeneral', 'Preferences'], voice: ['pageVoice', 'Voice'], language: ['pageLanguage', 'Language'],
+    general: ['pageGeneral', 'Preferences'], team: ['pageTeam', 'Team'], voice: ['pageVoice', 'Voice'], language: ['pageLanguage', 'Language'],
     memory: ['pageMemory', 'What Nasrin remembers'], data: ['pageData', 'Data controls'], about: ['pageAbout', 'About'],
     security: ['pageSecurity', 'Security & Devices'], privacy: ['pagePrivacy', 'Data Privacy & Permissions'], retention: ['pageRetention', 'Data Retention'],
     usage: ['pageUsage', 'Usage'], billing: ['pageBilling', 'Billing'], notices: ['pageNotices', 'Notifications'],
@@ -3324,6 +3966,64 @@
       box.appendChild(p);
     }
   }
+
+  // Google Team contacts are local to the signed-in account and never grant access automatically.
+  const googleTeamStorageKey = () => identityKey('nasrin.google-team.v1');
+  let googleTeamContacts = [];
+  function readGoogleTeam() {
+    try {
+      const value = JSON.parse(localStorage.getItem(googleTeamStorageKey()) || '[]');
+      googleTeamContacts = Array.isArray(value) ? value.filter((x) =>
+        x && typeof x.id === 'string' && typeof x.email === 'string' &&
+        /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x.email) && ['to','cc','bcc'].includes(x.role)
+      ) : [];
+    } catch { googleTeamContacts = []; }
+  }
+  function saveGoogleTeam() {
+    try { localStorage.setItem(googleTeamStorageKey(), JSON.stringify(googleTeamContacts)); return true; }
+    catch { const status = $('googleTeamStatus'); if (status) status.textContent = 'Could not save contacts in this browser. Check available storage and try again.'; return false; }
+  }
+  function renderGoogleTeam() {
+    const list = $('googleTeamList');
+    if (!list) return;
+    list.replaceChildren();
+    if (!googleTeamContacts.length) { list.appendChild(mk('p', 'setting-hint', 'No team members yet. Add an email address above.')); return; }
+    for (const contact of googleTeamContacts) {
+      const item = mk('div', 'setting-row google-team-member');
+      const details = mk('div', 'google-team-details');
+      details.append(mk('strong', 'google-team-name', contact.name || contact.email));
+      if (contact.name) details.appendChild(mk('span', 'setting-hint', contact.email));
+      const controls = mk('div', 'google-team-controls');
+      const role = document.createElement('select');
+      role.setAttribute('aria-label', 'Default email role for ' + contact.email);
+      for (const [value, label] of [['to','To'],['cc','CC'],['bcc','BCC']]) {
+        const option = document.createElement('option'); option.value = value; option.textContent = label; role.appendChild(option);
+      }
+      role.value = contact.role;
+      role.addEventListener('change', () => { contact.role = role.value; if (saveGoogleTeam()) $('googleTeamStatus').textContent = 'Saved role for ' + contact.email + '.'; });
+      const remove = mk('button', 'btn small outline', 'Remove'); remove.type = 'button';
+      remove.addEventListener('click', () => { googleTeamContacts = googleTeamContacts.filter((x) => x.id !== contact.id); if (saveGoogleTeam()) { renderGoogleTeam(); $('googleTeamStatus').textContent = 'Removed ' + contact.email + '.'; } });
+      controls.append(role, remove); item.append(details, controls); list.appendChild(item);
+    }
+  }
+  function initGoogleTeamSettings() {
+    readGoogleTeam(); renderGoogleTeam();
+    $('googleTeamForm')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const name = $('googleTeamName').value.trim(), email = $('googleTeamEmail').value.trim().toLowerCase(), role = $('googleTeamRole').value, status = $('googleTeamStatus');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { status.textContent = 'Enter a valid email address.'; $('googleTeamEmail').focus(); return; }
+      const existing = googleTeamContacts.find((x) => x.email.toLowerCase() === email);
+      if (existing) { existing.name = name || existing.name || ''; existing.role = role; status.textContent = 'Updated ' + email + '.'; }
+      else { googleTeamContacts.push({ id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2)), name, email, role }); status.textContent = 'Added ' + email + '.'; }
+      if (saveGoogleTeam()) { $('googleTeamName').value = ''; $('googleTeamEmail').value = ''; $('googleTeamRole').value = 'to'; renderGoogleTeam(); }
+    });
+    $('googleTeamClear')?.addEventListener('click', () => {
+      if (!googleTeamContacts.length) { $('googleTeamStatus').textContent = 'There are no team members to remove.'; return; }
+      googleTeamContacts = []; if (saveGoogleTeam()) { renderGoogleTeam(); $('googleTeamStatus').textContent = 'All team members removed.'; }
+    });
+  }
+  // Defer rendering until the full IIFE has initialized helpers such as mk().
+  queueMicrotask(initGoogleTeamSettings);
 
   for (const b of document.querySelectorAll('#settings [data-page]')) b.addEventListener('click', () => showPage(b.dataset.page));
   $('settingsBack').addEventListener('click', () => {
@@ -3509,7 +4209,8 @@
     if (accountOpen) accountOpen.hidden = !account;
     if (accountDetailEmail) accountDetailEmail.textContent = account ? (account.email || 'Signed in') : 'Not signed in';
     headerSignIn.hidden = Boolean(account) || !can;
-    showConnectForSignedIn();
+    restorePersistentYouTubePlayer();
+  showConnectForSignedIn();
     $('logoutMenu').hidden = !account;
   }
 
@@ -3851,6 +4552,7 @@
   const NOTICE_KIND = { info: 'Tip', success: 'Done', warning: 'Heads up', error: 'Problem', security: 'Security', feature: 'New' };
   const STICKY = ['security', 'warning', 'error'];
   const noticeBox = $('appNotice');
+  let noticeAutoDismissTimer = null;
   let noticeQueue = [];
   let noticeShown = null;
   let noticeRun = 0;
@@ -3932,8 +4634,18 @@
   }
 
   function hideNotice() {
+    if (noticeAutoDismissTimer !== null) {
+      clearTimeout(noticeAutoDismissTimer);
+      noticeAutoDismissTimer = null;
+    }
     noticeBox.hidden = true;
     noticeShown = null;
+  }
+
+  function isNewUserNotice(n) {
+    if (!n) return false;
+    const identity = [n.id, n.title, n.body].filter(Boolean).join(' ').toLowerCase();
+    return /new[-_ ]user|welcome|getting started|first[-_ ]time/.test(identity);
   }
 
   function renderNotice() {
@@ -3952,6 +4664,17 @@
     $('appNoticeActions').hidden = !n.action;
     $('appNoticeAction').textContent = n.action ? n.action.label : '';
     noticeBox.hidden = false;
+
+    // Brief in-app notices auto-dismiss after three seconds. Keep the
+    // new-user welcome notice visible until the user closes it explicitly.
+    if (!isNewUserNotice(n)) {
+      noticeAutoDismissTimer = setTimeout(() => {
+        noticeAutoDismissTimer = null;
+        if (noticeShown !== n) return;
+        dismissNotice(n);
+        renderNotice();
+      }, 3000);
+    }
   }
 
   function dismissNotice(n) {
@@ -4885,6 +5608,15 @@
     voiceTier.title = 'AI tier: ' + current;
     voiceTierMenu.replaceChildren();
     const descriptions = { nasrinai: 'Fast everyday work', pro: 'Smarter professional work', max: 'Longer, deeper thinking', ultra: 'Deepest reasoning' };
+    const quota = planInfo && planInfo.quota;
+    if (quota && quota.used >= quota.limit && quota.reset_at) {
+      const notice = document.createElement('div');
+      notice.className = 'tier-quota-notice';
+      const reset = new Date(quota.reset_at);
+      notice.textContent = names[quota.plan] + ' allowance used. Quick chat stays unlimited; coding is paused until ' +
+        reset.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' }) + ' Manila time.';
+      voiceTierMenu.appendChild(notice);
+    }
     for (const id of ['nasrinai', 'pro', 'max', 'ultra']) {
       const button = document.createElement('button');
       button.type = 'button'; button.role = 'menuitem'; button.className = 'voice-tier-option';
@@ -5636,19 +6368,19 @@
   const PLAN_DETAILS = Object.freeze({
     free: {
       summary: 'Unlimited everyday chat on Quick.',
-      features: ['Quick tier for everyday questions', 'Unlimited chat on Quick', 'Up to 2 image generations per day', 'Video creation is not included']
+      features: ['Quick tier for everyday questions', 'Unlimited chat on Quick', 'Up to 2 image generations per day', 'Coding is unavailable on Quick', 'Video creation is not included']
     },
     pro: {
       summary: 'More capable AI for professional everyday work.',
-      features: ['Pro tier for harder questions and analysis', '1 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'Subscription billing will be enabled after recurring checkout is configured']
+      features: ['Pro tier for harder questions and analysis', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'Subscription billing will be enabled after recurring checkout is configured']
     },
     max: {
       summary: 'More thinking power for complex work.',
-      features: ['Everything in Pro', 'Max tier for harder reasoning and complex tasks', '5 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'AI video generation up to 1 minute', 'No automatic renewal']
+      features: ['Everything in Pro', 'Max tier for harder reasoning and complex tasks', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'AI video generation up to 1 minute', 'No automatic renewal']
     },
     ultra: {
       summary: 'The deepest thinking available in NasrinAI.',
-      features: ['Everything in Max', 'Ultra tier for the most demanding tasks', '10 million tokens per week', 'Automatically continues on Quick when the allowance is used', 'No automatic renewal', 'AI video generation up to 1 minute']
+      features: ['Everything in Max', 'Ultra tier for the most demanding tasks', 'Automatically continues on unlimited Quick chat when the allowance is used', 'Coding and paid-tier tools pause until the weekly reset', 'No automatic renewal', 'AI video generation up to 1 minute']
     }
   });
 
@@ -5693,6 +6425,11 @@
     detailsIcon.textContent = '+';
     detailsToggle.append(detailsLabel, detailsIcon);
 
+    const weeklyAllowance = Number(p.weekly_tokens);
+    const planFeatures = p.id !== 'free' && Number.isSafeInteger(weeklyAllowance) && weeklyAllowance > 0
+      ? [weeklyAllowance.toLocaleString() + ' tokens per week', ...details.features.filter((feature) => !/tokens per week/i.test(feature))]
+      : details.features;
+
     const detailsPanel = document.createElement('div');
     detailsPanel.className = 'plan-details';
     detailsPanel.hidden = true;
@@ -5700,7 +6437,7 @@
     summary.className = 'plan-details-summary';
     summary.textContent = details.summary;
     const list = document.createElement('ul');
-    for (const feature of details.features) {
+    for (const feature of planFeatures) {
       const li = document.createElement('li');
       li.textContent = feature;
       list.appendChild(li);
@@ -7005,6 +7742,11 @@
     $('ghDetailConnect').hidden = !github.available;
     $('ghDetailConnect').firstElementChild.textContent = on ? 'Reconnect main account' : 'Connect GitHub';
     $('ghDetailDisconnect').hidden = !on;
+    // Keep the Developer tools catalog card in sync with live GitHub state.
+    // The catalog is built once at load time (before loadGithub resolves), so
+    // without this the GitHub card would always read "Not configured".
+    const ghDevStatus = document.querySelector('.developer-tool-item[data-plugin-name="GitHub"] .plugins-soon');
+    if (ghDevStatus) ghDevStatus.textContent = on ? 'Connected' : github.available ? 'Available' : 'Not configured';
   }
   async function ghConnect(btn, add = false) {
     if (btn) btn.disabled = true;
@@ -7075,6 +7817,10 @@
     slides: [['path', { d: 'M4 5h16v11H4z' }], ['path', { d: 'M12 16v3.5M8.5 19.5h7M8 9h5M8 12h8' }]],
     design: [['circle', { cx: '12', cy: '12', r: '8' }], ['circle', { cx: '9', cy: '10', r: '1.2' }], ['circle', { cx: '14.5', cy: '9', r: '1.2' }], ['circle', { cx: '15.5', cy: '13.5', r: '1.2' }]],
     video: [['path', { d: 'M4 7h11v10H4z' }], ['path', { d: 'm15 10.5 5-3v9l-5-3' }]],
+    note: [['path', { d: 'M6 3.5h9l3 3V20H6z' }], ['path', { d: 'M15 3.5V7h3M9 11h6M9 14.5h6M9 18h4' }]],
+    map: [['path', { d: 'm3.5 6 5-2.5 7 2.5 5-2.5v14l-5 2.5-7-2.5-5 2.5z' }], ['path', { d: 'M8.5 3.5v14M15.5 6v14' }]],
+    search: [['circle', { cx: '10.8', cy: '10.8', r: '6.3' }], ['path', { d: 'm15.5 15.5 4.2 4.2' }]],
+
     calendar: [['path', { d: 'M4.5 6h15v13.5h-15z' }], ['path', { d: 'M4.5 10h15M8.5 4v4M15.5 4v4' }]],
     social: [['circle', { cx: '12', cy: '12', r: '8' }], ['path', { d: 'M12 7.5v9M8.5 11h7' }]],
     photo: [['rect', { x: '4.5', y: '4.5', width: '15', height: '15', rx: '4.5' }], ['circle', { cx: '12', cy: '12', r: '3.5' }], ['circle', { cx: '16.3', cy: '7.7', r: '.6' }]],
@@ -7084,18 +7830,221 @@
     phone: [['path', { d: 'M5 19l1.2-3.6A7.5 7.5 0 1 1 9 18z' }], ['path', { d: 'M9.5 9.5c.3 2 2 3.8 4 4.2l1-1.2' }]]
   };
   const MORE_PLUGINS = [
-    ['Microsoft', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides'], ['Canva', 'design']]],
-    ['Google', [['Gmail', 'mail'], ['Google Cloud', 'cloud'], ['Google Meet', 'video'], ['Google Calendar', 'calendar']]],
-    ['Social', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
+    // Google integrations have dedicated connection cards; avoid duplicate entries.
+    ['Microsoft 365', [['Outlook', 'mail'], ['OneDrive', 'cloud'], ['Teams', 'team'], ['Excel', 'sheet'], ['PowerPoint', 'slides']]],
+    ['Design & creativity', [['Canva', 'design']]],
+    ['Social & messaging', [['Facebook', 'social'], ['Instagram', 'photo'], ['Threads', 'thread'], ['X', 'post'], ['Messenger', 'chat'], ['WhatsApp', 'phone']]]
   ];
+  const DEVELOPER_PLUGINS = [
+    ['GitHub', 'cloud', 'https://github.com'],
+    ['Vercel', 'cloud', 'https://vercel.com'],
+    ['Render', 'cloud', 'https://render.com'],
+    ['Supabase', 'cloud', 'https://supabase.com'],
+    ['Cloudflare', 'cloud', 'https://cloudflare.com']
+  ];
+  // Each catalog entry has a Settings action. Pins are a local, account-scoped
+  // display preference only; they never imply a connection or grant permissions.
+  const pluginCatalogPinKey = () => identityKey('nasrin.plugin-catalog-pins.v1');
+  function readPluginCatalogPins() {
+    try {
+      const value = JSON.parse(localStorage.getItem(pluginCatalogPinKey()) || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+  }
+  function writePluginCatalogPins(pins) {
+    try { localStorage.setItem(pluginCatalogPinKey(), JSON.stringify(pins)); return true; }
+    catch { $('pluginCatalogStatus').textContent = 'Could not save this preference in this browser.'; return false; }
+  }
+  const pluginAccessProfiles = {
+    Gmail: { service: 'gmail', readService: 'gmail', writeService: 'gmail-readwrite', supported: true, readScope: 'https://www.googleapis.com/auth/gmail.readonly', writeScope: 'https://www.googleapis.com/auth/gmail.modify', account: 'Google' },
+    'Google Calendar': { service: 'calendar', readService: 'calendar', writeService: 'calendar-write', supported: true, readScope: 'https://www.googleapis.com/auth/calendar.readonly', writeScope: 'https://www.googleapis.com/auth/calendar.events', account: 'Google' },
+    'Google Drive': { service: 'drive', readService: 'drive', supported: true, readScope: 'https://www.googleapis.com/auth/drive.readonly', account: 'Google' },
+    'Google Meet': { service: 'meet', readService: 'meet', supported: true, readScope: 'https://www.googleapis.com/auth/meetings.space.created', account: 'Google' },
+    'Google Keep': { service: 'keep', readService: 'keep', supported: true, readScope: 'https://www.googleapis.com/auth/keep.readonly', account: 'Google' },
+    'Google Maps': { service: 'maps', supported: true, siteConfigured: true, account: 'Google' },
+    Outlook: { supported: false }, 'Microsoft Outlook': { supported: false }, OneDrive: { supported: false },
+    Teams: { supported: false }, Excel: { supported: false }, PowerPoint: { supported: false },
+    Canva: { supported: false }, Facebook: { supported: false }, Instagram: { supported: false },
+    Threads: { supported: false }, X: { supported: false }, Messenger: { supported: false },
+    WhatsApp: { supported: false }
+  };
+  function openPluginCatalogSettings(name, li, status = 'Coming soon', description = 'Manage this app’s catalog preference and review its availability.') {
+    $('pluginsList').hidden = true;
+    $('pluginCatalogSettings').hidden = false;
+    $('pluginCatalogTitle').textContent = name + ' settings';
+    $('pluginCatalogDescription').textContent = description;
+    $('pluginCatalogStatus').textContent = status;
+    // Classify by the app's actual provider/function, not by whichever
+    // catalog section happened to render it. Keep this mapping explicit.
+    const pluginFamilyByName = {
+      Gmail: 'Google', 'Google Calendar': 'Google', 'Google Drive': 'Google',
+      'Google Meet': 'Google', 'Google Keep': 'Google',
+      'Google Maps': 'Google',
+      Outlook: 'Microsoft 365', 'Microsoft Outlook': 'Microsoft 365', OneDrive: 'Microsoft 365',
+      Teams: 'Microsoft 365', Excel: 'Microsoft 365', PowerPoint: 'Microsoft 365',
+      Canva: 'Design & creativity', Facebook: 'Social & messaging', Instagram: 'Social & messaging',
+      Threads: 'Social & messaging', X: 'Social & messaging',
+      Messenger: 'Social & messaging', WhatsApp: 'Social & messaging',
+      GitHub: 'Developer tools'
+    };
+    const catalogGroup = pluginFamilyByName[name] || 'Other integrations';
+    const catalogDeveloper = ['Google', 'Microsoft'].includes(catalogGroup) ? catalogGroup
+      : catalogGroup === 'Design' ? 'Canva'
+        : catalogGroup === 'Developer tools' ? 'NasrinAI' : 'Third-party provider';
+    const catalogWebsite = {
+      Gmail: 'https://mail.google.com', 'Google Calendar': 'https://calendar.google.com',
+      'Google Drive': 'https://drive.google.com', 'Google Meet': 'https://meet.google.com',
+      'Google Keep': 'https://keep.google.com',
+      'Google Maps': 'https://maps.google.com', Outlook: 'https://outlook.live.com',
+      OneDrive: 'https://onedrive.live.com', Teams: 'https://teams.microsoft.com',
+      Excel: 'https://www.microsoft.com/microsoft-365/excel', PowerPoint: 'https://www.microsoft.com/microsoft-365/powerpoint',
+      Canva: 'https://www.canva.com', Facebook: 'https://www.facebook.com',
+      Instagram: 'https://www.instagram.com', Threads: 'https://www.threads.net',
+      X: 'https://x.com', Messenger: 'https://www.messenger.com', WhatsApp: 'https://www.whatsapp.com'
+    };
+    $('pluginCatalogCategory').textContent = catalogGroup === 'Developer tools' ? catalogGroup : catalogGroup + ' apps';
+    $('pluginCatalogDeveloper').textContent = catalogDeveloper;
+    $('pluginCatalogWebsite').href = catalogWebsite[name] || 'https://nasrinai.com';
+    const profile = pluginAccessProfiles[name] || { supported: false };
+    const serviceStatus = googleStatus[profile.service] || { available: false, connected: false, scopes: [], email: null };
+    const connectedGoogle = profile.account === 'Google' && serviceStatus.connected && Boolean(profile.service);
+    const configuredService = Boolean(profile.siteConfigured && serviceStatus.available);
+    const hasWrite = Boolean(profile.writeScope && serviceStatus.scopes.includes(profile.writeScope));
+    const hasRead = Boolean((profile.readScope && serviceStatus.scopes.includes(profile.readScope)) || hasWrite);
+    const isConnected = profile.siteConfigured ? configuredService : Boolean(connectedGoogle && (hasRead || hasWrite));
+    $('pluginCatalogAccountLabel').textContent = catalogGroup === 'Google' ? 'Google account'
+      : catalogGroup === 'Microsoft' ? 'Microsoft account'
+        : catalogGroup === 'Design' ? 'Canva account'
+          : catalogGroup === 'Social & messaging' ? 'App account' : 'Connected account';
+    const accountEmail = serviceStatus.email || '';
+    $('pluginCatalogAccountAvatar').textContent = (accountEmail || name).trim().charAt(0).toUpperCase() || 'A';
+    $('pluginCatalogAccountStatus').textContent = isConnected
+      ? (accountEmail || 'Connected')
+      : profile.supported && !serviceStatus.available ? 'Not configured on this site'
+        : 'Not connected';
+    $('pluginCatalogAccountMain').hidden = !isConnected;
+    $('pluginCatalogAccountRow').hidden = !profile.supported && !isConnected;
+    $('pluginCatalogAccountHint').textContent = profile.siteConfigured
+      ? 'This app uses a server-side Google API configuration. API keys remain on the server and are never exposed to the browser.'
+      : profile.supported
+        ? (isConnected
+          ? 'This Google app has its own independent connection. Multiple accounts per app are not enabled yet, so your existing connection is protected from accidental replacement.'
+          : 'Connect an account, then choose the permissions this app may use. Each Google app has its own independent connection.')
+        : 'This app cannot connect yet. Account and permission controls stay disabled until its secure integration is implemented.';
+    $('pluginCatalogConnect').hidden = !profile.supported || profile.siteConfigured;
+    $('pluginCatalogConnect').disabled = !profile.supported || !serviceStatus.available;
+    $('pluginCatalogConnect').textContent = isConnected ? 'Reconnect account' : 'Connect account';
+    $('pluginCatalogConnect').classList.remove('danger');
+    $('pluginCatalogConnect').onclick = () => {
+      if (profile.supported && serviceStatus.available) connectGoogle(profile.service);
+    };
+    $('pluginCatalogDisconnect').hidden = !isConnected || profile.siteConfigured;
+    $('pluginCatalogDisconnect').onclick = () => {
+      if (profile.service) disconnectGoogle(profile.service);
+    };
+    $('pluginCatalogAddAccount').hidden = !isConnected || !profile.supported || profile.siteConfigured;
+    $('pluginCatalogAddAccount').disabled = true;
+    $('pluginCatalogAddAccount').title = 'Multiple accounts are not enabled for this Google app yet.';
+    $('pluginCatalogAddAccount').onclick = () => {
+      $('pluginCatalogPermissionHint').textContent = 'Adding multiple accounts is not enabled for this Google app yet. Your current connection has not been changed.';
+    };
+    $('pluginCatalogReadOnly').checked = hasRead;
+    $('pluginCatalogReadWrite').checked = hasWrite;
+    $('pluginCatalogReadOnly').disabled = !profile.supported || !profile.readScope || !serviceStatus.available;
+    $('pluginCatalogReadWrite').disabled = !profile.supported || !profile.writeScope || !serviceStatus.available;
+    $('pluginCatalogConfigure').hidden = profile.siteConfigured;
+    $('pluginCatalogConfigure').disabled = !profile.supported || !serviceStatus.available;
+    $('pluginCatalogConfigure').textContent = isConnected ? 'Reconnect to update access' : 'Configure access';
+    $('pluginCatalogConfigure').onclick = () => {
+      if (!profile.supported) return;
+      const readSelected = $('pluginCatalogReadOnly').checked;
+      const writeSelected = $('pluginCatalogReadWrite').checked;
+      if (!readSelected && !writeSelected) {
+        $('pluginCatalogPermissionHint').textContent = 'Select Read-only access or Read and write access before continuing.';
+        return;
+      }
+      const service = writeSelected ? profile.writeService : profile.readService;
+      if (!service) {
+        $('pluginCatalogPermissionHint').textContent = 'This access level is not available for this integration yet.';
+        return;
+      }
+      $('pluginCatalogPermissionHint').textContent = 'Continue to Google to authorize the selected access level. Google may require additional verification for sensitive or restricted scopes.';
+      connectGoogle(service);
+    };
+    $('pluginCatalogPermissionHint').textContent = profile.supported
+      ? (isConnected ? 'Checked permissions reflect scopes currently granted by Google. Changes require reconnecting and approving the provider request.' : 'Choose a supported permission, then configure access through Google authorization.')
+      : 'No permissions are active for this app. Options become available after a secure integration is implemented.';
+    $('pluginCatalogUnavailable').hidden = profile.supported;
+    $('pluginCatalogActions').replaceChildren();
+    const pins = readPluginCatalogPins();
+    $('pluginCatalogPinned').checked = pins[name] === true;
+    $('pluginCatalogPinned').onchange = () => {
+      const next = readPluginCatalogPins();
+      if ($('pluginCatalogPinned').checked) next[name] = true;
+      else delete next[name];
+      if (!writePluginCatalogPins(next)) {
+        $('pluginCatalogPinned').checked = !next[name];
+        return;
+      }
+      if (li) {
+        li.dataset.pinned = next[name] ? '1' : '0';
+        const list = li.parentElement;
+        [...list.children].sort((a, b) => Number(b.dataset.pinned === '1') - Number(a.dataset.pinned === '1'))
+          .forEach((item) => list.appendChild(item));
+      }
+      $('pluginCatalogStatus').textContent = next[name] ? 'Pinned in the catalog.' : 'Pin removed.';
+    };
+    $('githubTitle').lastChild.textContent = name;
+    $('pluginCatalogBack').focus();
+  }
+  $('pluginCatalogBack').addEventListener('click', () => {
+    $('pluginCatalogSettings').hidden = true;
+    $('pluginsList').hidden = false;
+    $('githubTitle').lastChild.textContent = 'Plugins';
+    $('githubClose').focus();
+  });
+  function developerToolCard(name, glyph, website) {
+    const li = mk('li', 'plugins-item developer-tool-item');
+    li.dataset.pluginName = name;
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNs, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'plugins-glyph');
+    for (const [tag, attrs] of PLUGIN_GLYPHS[glyph]) {
+      const el = document.createElementNS(svgNs, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      svg.appendChild(el);
+    }
+    li.appendChild(svg);
+    li.appendChild(mk('span', 'plugins-name', name));
+    const state = name === 'GitHub'
+      ? (github.connected ? 'Connected' : github.available ? 'Available' : 'Not configured')
+      : 'Dashboard';
+    li.appendChild(mk('span', 'plugins-soon', state));
+    const open = mk('a', 'plugins-settings-btn', 'Open');
+    open.href = website;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.setAttribute('aria-label', 'Open ' + name + ' dashboard');
+    li.appendChild(open);
+    return li;
+  }
   {
     const box = $('pluginsMore');
     const svgNs = 'http://www.w3.org/2000/svg';
+    const pins = readPluginCatalogPins();
+    box.appendChild(mk('p', 'plugins-group developer-tools-heading', 'Developer tools'));
+    const devList = mk('ul', 'plugins-list developer-tools-list');
+    for (const [name, glyph, website] of DEVELOPER_PLUGINS) devList.appendChild(developerToolCard(name, glyph, website));
+    box.appendChild(devList);
     for (const [group, items] of MORE_PLUGINS) {
       box.appendChild(mk('p', 'plugins-group', group));
       const ul = mk('ul', 'plugins-list');
       for (const [name, glyph] of items) {
         const li = mk('li', 'plugins-item');
+        li.dataset.pluginName = name;
+        li.dataset.pinned = pins[name] === true ? '1' : '0';
         const svg = document.createElementNS(svgNs, 'svg');
         svg.setAttribute('viewBox', '0 0 24 24');
         svg.setAttribute('aria-hidden', 'true');
@@ -7105,10 +8054,247 @@
           for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
           svg.appendChild(el);
         }
-        li.append(svg, mk('span', 'plugins-name', name), mk('span', 'plugins-soon', 'Coming soon'));
+        const catalogBrandAssets = {
+          'Google Meet': '/assets/brand/google-meet.svg',
+          'Google Keep': '/assets/brand/google-keep.svg',
+          'Google Maps': '/assets/brand/google-maps.svg',
+          Outlook: '/assets/brand/outlook.svg',
+          GitHub: '/assets/brand/github.svg'
+        };
+        const catalogBrandAsset = catalogBrandAssets[name];
+        if (catalogBrandAsset) {
+          const logo = document.createElement('img');
+          logo.src = catalogBrandAsset;
+          logo.alt = '';
+          logo.width = 24;
+          logo.height = 24;
+          logo.loading = 'lazy';
+          logo.decoding = 'async';
+          logo.setAttribute('aria-hidden', 'true');
+          logo.setAttribute('class', 'plugins-glyph plugins-product-logo');
+          logo.addEventListener('error', () => {
+            logo.replaceWith(svg);
+          }, { once: true });
+          li.appendChild(logo);
+        } else li.appendChild(svg);
+        li.appendChild(mk('span', 'plugins-name', name));
+        const availabilityTag = mk('span', 'plugins-soon', ['Google Meet', 'Google Keep', 'Google Maps'].includes(name) ? 'Available' : 'Coming soon');
+        if (['Google Meet', 'Google Keep', 'Google Maps'].includes(name)) availabilityTag.classList.add('plugins-available');
+        li.appendChild(availabilityTag);
+        const settings = mk('button', 'plugins-settings-btn', 'Settings');
+        settings.type = 'button';
+        settings.setAttribute('aria-label', name + ' settings');
+        settings.addEventListener('click', () => {
+          const descriptions = {
+            'Google Meet': 'Connect Google Meet to let NasrinAI create meeting spaces and return shareable meeting links. Google API access and OAuth approval may be required.',
+            'Google Keep': 'Connect Google Keep to let NasrinAI read your recent notes and lists. Keep API access may require an eligible Google Workspace account and Google approval.',
+            'Google Maps': 'Use the server-configured Google Maps Places integration to search places and businesses. The API key stays on the server and is never exposed to the browser.'
+          };
+          const profile = pluginAccessProfiles[name] || {};
+          const status = profile.siteConfigured
+            ? (googleStatus.maps?.available ? 'Available · configured by NasrinAI' : 'Needs server configuration')
+            : (googleStatus[profile.service]?.connected ? 'Connected' : googleStatus[profile.service]?.available ? 'Ready to connect' : 'Needs OAuth configuration');
+          openPluginCatalogSettings(name, li, status, descriptions[name] || 'Manage this integration.');
+        });
+        li.appendChild(settings);
         ul.appendChild(li);
       }
+      [...ul.children].sort((a, b) => Number(b.dataset.pinned === '1') - Number(a.dataset.pinned === '1'))
+        .forEach((item) => ul.appendChild(item));
       box.appendChild(ul);
+    }
+  }
+
+  // Gmail and Google Calendar use the server-side OAuth integration. These rows
+  // only show Connected when the authenticated status endpoint confirms scopes.
+  const googlePlugins = {};
+  function makeGooglePlugin(service, title, glyph) {
+    const card = mk('div', 'plugin-card');
+    card.id = service === 'gmail' ? 'googleGmailCard' : 'googleCalendarCard';
+    const head = mk('button', 'plugin-head');
+    head.type = 'button';
+    head.setAttribute('aria-expanded', 'false');
+    const icon = mk('span', 'plugin-icon');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'gh-mark');
+    for (const [tag, attrs] of PLUGIN_GLYPHS[glyph]) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      svg.appendChild(el);
+    }
+    const brand = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    brand.setAttribute('viewBox', '0 0 48 48');
+    brand.setAttribute('aria-hidden', 'true');
+    brand.setAttribute('class', 'gh-mark plugin-brand-logo');
+    const brandAssets = {
+      Gmail: '/assets/brand/gmail.svg',
+      'Google Calendar': '/assets/brand/google-calendar.svg',
+      'Google Drive': '/assets/brand/google-drive.svg',
+      'Google Meet': '/assets/brand/google-meet.svg',
+      'Google Keep': '/assets/brand/google-keep.svg',
+      'Google Maps': '/assets/brand/google-maps.svg',
+      GitHub: '/assets/brand/github.svg'
+    };
+    const brandAsset = brandAssets[title];
+    if (brandAsset) {
+      const logo = document.createElement('img');
+      logo.src = brandAsset;
+      logo.alt = '';
+      logo.width = 48;
+      logo.height = 48;
+      logo.decoding = 'async';
+      logo.setAttribute('aria-hidden', 'true');
+      logo.setAttribute('class', 'plugin-brand-logo');
+      logo.addEventListener('error', () => {
+        logo.replaceWith(svg);
+      }, { once: true });
+      icon.appendChild(logo);
+    } else icon.appendChild(svg);
+    const main = mk('span', 'plugin-main');
+    main.append(mk('span', 'plugin-title', title));
+    const sub = mk('span', 'plugin-sub', 'Checking connection…');
+    main.appendChild(sub);
+    const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    chev.setAttribute('viewBox', '0 0 24 24');
+    chev.setAttribute('aria-hidden', 'true');
+    chev.setAttribute('class', 'plugin-chev');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'm6 9 6 6 6-6');
+    chev.appendChild(path);
+    head.append(icon, main, chev);
+    const actions = mk('div', 'menu plugin-actions');
+    actions.hidden = true;
+    const settings = mk('button', 'menu-row', 'Settings');
+    settings.type = 'button';
+    settings.addEventListener('click', () => openPluginCatalogSettings(title, null,
+      sub.textContent || 'Checking connection…',
+      'Manage the catalog display preference. Connection controls remain available below this card.'));
+    const connect = mk('button', 'menu-row', 'Connect ' + title);
+    connect.type = 'button';
+    const disconnect = mk('button', 'menu-row danger', 'Disconnect Google account');
+    disconnect.type = 'button';
+    disconnect.hidden = true;
+    actions.append(settings, connect);
+    head.addEventListener('click', () => {
+      const open = actions.hidden;
+      for (const other of Object.values(googlePlugins)) {
+        if (other.card === card) continue;
+        const otherActions = other.card.querySelector('.plugin-actions');
+        const otherHead = other.card.querySelector('.plugin-head');
+        if (otherActions) otherActions.hidden = true;
+        if (otherHead) otherHead.setAttribute('aria-expanded', 'false');
+      }
+      actions.hidden = !open;
+      head.setAttribute('aria-expanded', String(open));
+    });
+    card.append(head, actions);
+    googlePlugins[service] = { card, sub, connect, disconnect, title };
+    $('pluginsGoogle').appendChild(card);
+  }
+  makeGooglePlugin('gmail', 'Gmail', 'mail');
+  makeGooglePlugin('calendar', 'Google Calendar', 'calendar');
+  makeGooglePlugin('drive', 'Google Drive', 'team');
+  makeGooglePlugin('meet', 'Google Meet', 'video');
+  makeGooglePlugin('keep', 'Google Keep', 'note');
+  makeGooglePlugin('maps', 'Google Maps', 'map');
+  const googleStatus = { gmail: { available:false, connected:false, scopes:[], email:null }, calendar: { available:false, connected:false, scopes:[], email:null }, drive: { available:false, connected:false, scopes:[], email:null }, meet: { available:false, connected:false, scopes:[], email:null }, keep: { available:false, connected:false, scopes:[], email:null }, maps: { available:false, connected:false, scopes:[], email:null } };
+  Object.defineProperty(googleStatus, 'available', { get() { return ['gmail','calendar','drive','meet','keep','maps'].some((service) => googleStatus[service].available); } });
+  async function loadGoogle() {
+    await Promise.all(['gmail','calendar','drive','meet','keep','maps'].map(async (service) => {
+      try {
+        const status = await api('/v1/google/status?service=' + service);
+        googleStatus[service] = { available:status?.available===true, connected:status?.connected===true, scopes:Array.isArray(status?.scopes)?status.scopes:[], email:typeof status?.email==='string'?status.email:null };
+      } catch { googleStatus[service] = { available:false, connected:false, scopes:[], email:null, error:true }; }
+    }));
+    renderGoogle();
+  }
+  function renderGoogle() {
+    for (const [service, item] of Object.entries(googlePlugins)) {
+      // Maps is an internal NasrinAI capability, not a customer-managed connection.
+      // Remove only its status card; the server-side Maps tools remain available.
+      if (service === 'maps') { item.card.remove(); continue; }
+      const scopes = service === 'gmail'
+        ? ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send']
+        : service === 'calendar'
+          ? ['https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/calendar.events']
+          : service === 'drive' ? ['https://www.googleapis.com/auth/drive.readonly']
+            : service === 'meet' ? ['https://www.googleapis.com/auth/meetings.space.created']
+              : service === 'keep' ? ['https://www.googleapis.com/auth/keep.readonly'] : [];
+      const status = googleStatus[service] || { available:false, connected:false, scopes:[], email:null, error:false };
+      const connected = service === 'maps'
+        ? status.available
+        : status.connected && scopes.some((scope) => status.scopes.includes(scope));
+      item.sub.textContent = status.error
+        ? 'Connection status unavailable'
+        : !status.available
+          ? 'Not configured on this site yet'
+          : service === 'maps'
+            ? 'Ready · fleet routing (no API key)'
+            : connected
+              ? 'Connected' + (status.email ? ' · ' + status.email : '')
+              : 'Not connected';
+      if (service === 'maps') {
+        item.connect.textContent = status.available ? 'Open fleet route planner' : 'Maps unavailable';
+        item.connect.disabled = !status.available;
+        item.connect.classList.remove('danger');
+        item.connect.onclick = () => { if (status.available) window.open('https://www.google.com/maps/dir/?api=1&travelmode=driving', '_blank', 'noopener,noreferrer'); };
+      } else {
+        item.connect.textContent = connected ? 'Disconnect Google account' : 'Connect ' + item.title;
+        item.connect.disabled = !status.available;
+        item.connect.classList.toggle('danger', connected);
+        item.connect.onclick = connected ? () => disconnectGoogle(service) : () => connectGoogle(service);
+      }
+      item.disconnect.hidden = true;
+      (connected ? $('pluginsConnected') : $('pluginsGoogle')).appendChild(item.card);
+    }
+    $('pluginsConnectedLabel').hidden = !$('pluginsConnected').children.length;
+    $('pluginsGoogleLabel').hidden = !$('pluginsGoogle').children.length;
+    $('pluginsDevLabel').hidden = !$('pluginsDev').children.length;
+  }
+  async function connectGoogle(service) {
+    if (!account) { openSignIn('Sign in to connect Google.'); return; }
+    const status = $('githubStatus');
+    status.textContent = 'Starting secure Google authorization…';
+    try {
+      const result = await api('/v1/google/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service })
+      });
+      if (!result || typeof result.url !== 'string' || !result.url.startsWith('https://accounts.google.com/')) {
+        throw new Error('Google did not return a valid authorization URL.');
+      }
+      location.assign(result.url);
+    } catch (err) {
+      status.textContent = err.message || 'Google could not be connected. Please try again.';
+    }
+  }
+  async function disconnectGoogle(service) {
+    const status = $('githubStatus');
+    const buttons = [googlePlugins[service]?.connect].filter(Boolean);
+    buttons.forEach((button) => { button.disabled = true; });
+    status.textContent = 'Disconnecting Google…';
+    try {
+      await api('/v1/google?service=' + encodeURIComponent(service), { method: 'DELETE' });
+      googleStatus[service] = { ...googleStatus[service], connected: false, scopes: [], email: null };
+      renderGoogle();
+      status.textContent = 'Google account disconnected.';
+    } catch (err) {
+      status.textContent = err.message || 'Google could not be disconnected.';
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+      renderGoogle();
+    }
+  }
+  {
+    const back = new URLSearchParams(location.search).get('google');
+    if (back) {
+      history.replaceState(null, '', location.pathname);
+      notice.textContent = back === 'connected'
+        ? 'Google account connected. Open Plugins to confirm the selected Google app access.'
+        : 'Google was not connected. Check the OAuth setup and try again.';
     }
   }
 
@@ -7119,12 +8305,16 @@
     closeSettings(); closeHistory(); closeSignIn(); closePlans(); closePro(); closeCodePicker();
     lastFocus = document.activeElement;
     $('githubStatus').textContent = '';
+    // Always reset the sheet to its catalog view when opening/reopening.
+    // A previous visit may have left the catalog-settings panel visible.
     $('pluginsList').hidden = false;
+    $('pluginCatalogSettings').hidden = true;
     $('pluginDetail').hidden = true;
     $('githubTitle').lastChild.textContent = 'Plugins';
     scrim.hidden = false;
     githubSheet.hidden = false;
     loadGithub();
+    loadGoogle();
   }
   function closeGithub() {
     if (githubSheet.hidden) return;
@@ -7245,7 +8435,7 @@
   let prFiles = [];
   let prText = '';
   function prButton(sources, text) {
-    const b = mk('button', 'btn small outline pr-open', 'Open pull request');
+    const b = mk('button', 'btn small outline pr-open', github.connected ? 'Confirm change' : 'Connect GitHub to confirm');
     b.type = 'button';
     b.addEventListener('click', () => openPr(sources, text));
     return b;
@@ -7615,7 +8805,6 @@
       directUploads = s.uploads && s.uploads.direct === true && Number(s.uploads.max_mb) > 0 ? { maxBytes: Number(s.uploads.max_mb) * 1048576 } : null;
       imagesOn = Boolean(s.images && s.images.available);
       $('pickImage').hidden = !imagesOn;
-      $('starterImage').hidden = !imagesOn;
       imageLimits = imagesOn ? { perGuest: Number(s.images.per_guest) || 0, perUserDay: Number(s.images.per_user_day) || 0 } : null;
       renderImageHint();
       // Cache the public site key here, but render the widget only when the

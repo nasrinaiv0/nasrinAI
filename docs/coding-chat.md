@@ -94,6 +94,7 @@ This quality standard does not authorize destructive changes, secret exposure, s
 - **New chat** inside the coding chat opens a fresh coding chat in the same
   project; it does not go back to the normal chat. The header's leave button
   is how to leave the coding chat.
+- **Autonomous execution and continuity**: coding chat must use connected repository tools immediately, preserve earlier conversation context and unfinished work, inspect the actual frontend before UI changes, fix ordinary test/build failures without asking, and rerun checks. It must not emit question cards or ask the user to inspect files when tools can do so. During active work it re-checks relevant status as often as the execution environment permits (target interval: 5 seconds); this is not a persistent background watcher after the response ends.
 - **Summary**: every coding-chat reply ends with the `[[checks title="Summary"]]`
   status list (`CODING_CHAT_RULE` in `src/coding.js`), also for short answers
   and questions.
