@@ -2518,7 +2518,12 @@
     // still controls permission; denial or timeout must never block the user's message.
     const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location)\b/i.test(text);
     if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
-      locationContext = await new Promise((resolve) => {
+      // Explain why location is requested before triggering the browser's native permission prompt.
+      let consent = false;
+      try {
+        consent = window.confirm('Allow NasrinAI to access your device location for this request? Your location helps provide local weather, nearby places, and directions. You can choose Cancel and continue without sharing it.');
+      } catch {}
+      if (consent) locationContext = await new Promise((resolve) => {
         let settled = false;
         const finish = (value) => { if (!settled) { settled = true; resolve(value); } };
         navigator.geolocation.getCurrentPosition((position) => finish({
