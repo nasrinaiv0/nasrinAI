@@ -350,13 +350,14 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
   assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
-  assert.match(js, /if \(firstCard\) section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer');
+  assert.match(js, /if \(firstCard\) \{\s*section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer and persist its metadata');
   assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
   assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
   assert.match(js, /YouTube links already present in the assistant answer or its citations/);
   assert.match(js, /if \(!videos\.length \|\| message\.querySelector\('\.youtube-results'\)\) return;/, 'do not skip rendering while the assistant message is being attached');
   assert.ok(js.includes("message.querySelectorAll('a[href]')"), 'recover YouTube links rendered in the answer');
   assert.ok(js.includes('on the optional YouTube Data API key'), 'allow valid answer links to render without the optional search API');
+  assert.ok(!js.includes("net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id)"), 'do not make fallback rendering depend on the optional verification endpoint');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
@@ -372,6 +373,9 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /const PERSISTENT_YOUTUBE_KEY = 'nasrin\.persistentYoutubePlayer'/);
   assert.match(js, /function mountPersistentYouTubePlayer\(video, existingCard = null\)/);
   assert.match(js, /function restorePersistentYouTubePlayer\(\)/);
+  assert.ok(js.includes('Do not delete a saved player because a verification/search API'));
+  assert.ok(js.includes('Keep the most recently surfaced tutorial available when starting a new'));
+  assert.ok(js.includes('localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify({'));
   assert.match(js, /restorePersistentYouTubePlayer\(\);/);
   assert.match(js, /localStorage\.setItem\(PERSISTENT_YOUTUBE_KEY, JSON\.stringify\(state\)\)/);
   assert.match(js, /localStorage\.removeItem\(PERSISTENT_YOUTUBE_KEY\)/);
@@ -379,7 +383,6 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(css, /bottom: calc\(var\(--dock-h/);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
   assert.ok(routes.includes("path: '/v1/youtube/verify'"));
-  assert.ok(js.includes("/v1/youtube/verify?id="));
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
 });
