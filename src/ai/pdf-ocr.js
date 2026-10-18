@@ -50,6 +50,13 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
         ? result.output_text.trim()
         : (Array.isArray(result.output) ? result.output.flatMap((item) => Array.isArray(item.content) ? item.content : []).map((part) => part.text || '').join('\n').trim() : '');
       if (!text) throw new HttpError(422, 'empty_ocr', 'No readable text was found in this PDF.');
+      // Avoid silently returning an obviously incomplete extraction: the prompt
+      // requests page markers, so require at least the first marker when present
+      // markers are used. We cannot verify total page coverage without a PDF parser.
+      const pageMarkers = [...text.matchAll(/\[Page\s+(\d+)\]/gi)].map((match) => Number(match[1]));
+      if (pageMarkers.length && (pageMarkers[0] !== 1 || pageMarkers.some((page, index) => index > 0 && page < pageMarkers[index - 1]))) {
+        throw new HttpError(502, 'invalid_ocr_order', 'The extracted pages were not returned in document order. Please retry extraction.');
+      }
       return { text, characters: text.length, model };
     }
   };
