@@ -69,3 +69,12 @@ test('image slash commands dispatch directly without optional brief questions or
   assert.match(app, /const directEdit = Boolean\(shortcut \|\| window\.NasrinCreativeIntent\.isImageEnhancement\(text\)\)/);
   assert.match(app, /if \(confirm && !window\.confirm/);
 });
+
+
+test('assistant image markers are extracted even when they follow explanatory prose', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /text\.matchAll\(\/\\\[image:\(\[0-9a-f-\]\{36\}\)\\\]\/g\)/);
+  assert.match(app, /text\.replace\(\/\\s\*\\\[image:\[0-9a-f-\]\{36\}\\\]\\s\*\/g/);
+  assert.match(app, /Show generated images after the reply text/);
+  assert.match(app, /This picture is no longer available\./);
+});

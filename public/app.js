@@ -1281,46 +1281,14 @@
       if (chosenRepo) saved.set(KEYS.coding + ':repo:' + codingProject.id, chosenRepo);
       made = window.NasrinFiles.parse(text);
       text = made.text || (made.files.length ? 'Here is your file.' : '');
-      // Render one or more retained pictures returned by a history-recall request.
-      // Each image is fetched through the existing owner-checked image endpoint.
-      const pics = [...text.matchAll(/^\[image:([0-9a-f-]{36})\]\s*$/gm)];
-      if (pics.length && pics[0].index === 0) {
-        const ids = pics.map((pic) => pic[1]);
-        text = text.slice(pics[pics.length - 1].index + pics[pics.length - 1][0].length).trim()
-          || (ids.length === 1 ? 'Here is your picture.' : 'Here are your pictures.');
-        if (ids.length > 10) {
-          const grid = document.createElement('div');
-          grid.className = 'image-gallery-grid';
-          grid.setAttribute('aria-label', 'Generated pictures');
-          let shown = 0;
-          const pageSize = 8; // eight images + the Show more tile make a 3×3 grid
-          const renderNext = () => {
-            const next = ids.slice(shown, shown + pageSize);
-            for (const imageId of next) grid.appendChild(imageFigure(imageId, regenerate, true));
-            shown += next.length;
-            const more = grid.querySelector('.image-gallery-more');
-            if (more) more.remove();
-            if (shown < ids.length) {
-              const button = document.createElement('button');
-              button.type = 'button';
-              button.className = 'image-gallery-more';
-              button.textContent = 'Show more';
-              button.setAttribute('aria-label', 'Show more generated pictures');
-              button.addEventListener('click', renderNext);
-              grid.appendChild(button);
-            }
-          };
-          renderNext();
-          el.appendChild(grid);
-        } else {
-          for (const imageId of ids) el.appendChild(imageFigure(imageId, regenerate));
-        }
-      } else {
-        const pic = /^\[image:([0-9a-f-]{36})\]\s*/.exec(text);
-        if (pic) {
-          el.appendChild(imageFigure(pic[1], regenerate));
-          text = text.slice(pic[0].length) || 'Here is your picture.';
-        }
+      // Image markers can appear after explanatory prose, not only at the start
+      // of a reply. Extract every valid marker before formatting text so internal
+      // storage IDs are never shown as raw assistant content.
+      const pics = [...text.matchAll(/\[image:([0-9a-f-]{36})\]/g)];
+      const generatedImageIds = pics.map((pic) => pic[1]);
+      if (generatedImageIds.length) {
+        text = text.replace(/\s*\[image:[0-9a-f-]{36}\]\s*/g, '\n\n').trim();
+        if (!text) text = generatedImageIds.length === 1 ? 'Here is your picture.' : 'Here are your pictures.';
       }
       // Screen recordings from render-and-test, right under the screenshot.
       for (let vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text); vid; vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text)) {
@@ -1343,6 +1311,36 @@
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
+      // Show generated images after the reply text, preserving the natural reading order.
+      if (generatedImageIds?.length) {
+        if (generatedImageIds.length > 10) {
+          const grid = document.createElement('div');
+          grid.className = 'image-gallery-grid';
+          grid.setAttribute('aria-label', 'Generated pictures');
+          let shown = 0;
+          const pageSize = 8;
+          const renderNext = () => {
+            for (const imageId of generatedImageIds.slice(shown, shown + pageSize)) {
+              grid.appendChild(imageFigure(imageId, regenerate, true));
+            }
+            shown = Math.min(shown + pageSize, generatedImageIds.length);
+            grid.querySelector('.image-gallery-more')?.remove();
+            if (shown < generatedImageIds.length) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'image-gallery-more';
+              button.textContent = 'Show more';
+              button.setAttribute('aria-label', 'Show more generated pictures');
+              button.addEventListener('click', renderNext);
+              grid.appendChild(button);
+            }
+          };
+          renderNext();
+          el.appendChild(grid);
+        } else {
+          for (const imageId of generatedImageIds) el.appendChild(imageFigure(imageId, regenerate));
+        }
+      }
       // Consent-based location CTA, rendered inside a location-related assistant reply.
       if (/(?:cannot|can't|unable to|do not|don't)[\\s\\S]{0,140}(?:gps|current|device)?\\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
         hasLocationCta = true;
