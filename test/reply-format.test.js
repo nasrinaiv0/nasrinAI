@@ -127,9 +127,10 @@ test('web sources are taken out of the reply text and listed separately (only ht
   assert.deepEqual(JSON.parse(JSON.stringify(F.sources('No sources here.'))), { text: 'No sources here.', links: [] });
   const bad = 'Hi.\n\n**Sources**\n- [x](<javascript:alert(1)>)';
   assert.deepEqual(JSON.parse(JSON.stringify(F.sources(bad))), { text: bad, links: [] });
-  // "**Sources**" in the middle of a reply is not a sources block.
-  const mid = '**Sources**\n- [a](<https://a.example>)\n\nMore text after.';
-  assert.equal(F.sources(mid).links.length, 0);
+  // A Markdown link outside a terminal Sources block is still collected as a resource.
+  const mid = '**Sources**\n- [a](https://a.example)\n\nMore text after.';
+  assert.equal(F.sources(mid).links.length, 1);
+  assert.equal(F.sources(mid).links[0].title, 'a');
 });
 
 test('inline external links are hidden from reply prose and collected as Sources resources', async () => {
