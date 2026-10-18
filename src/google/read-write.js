@@ -113,8 +113,10 @@ export function createGoogleReadWriteTools({ google, config, fetchImpl = (...arg
         // The body is untrusted content; cap it rather than allowing oversized output
         // to turn a valid read into an opaque tool failure.
         const maxResultChars = 7800;
-        const overflow = JSON.stringify(result).length - maxResultChars;
-        if (overflow > 0) message.body_text = message.body_text.slice(0, Math.max(0, message.body_text.length - overflow));
+        while (JSON.stringify(result).length > maxResultChars && message.body_text.length > 0) {
+          const overflow = JSON.stringify(result).length - maxResultChars;
+          message.body_text = message.body_text.slice(0, Math.max(0, message.body_text.length - Math.max(overflow, 1)));
+        }
         return result;
       }
     },
