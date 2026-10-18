@@ -2638,7 +2638,7 @@ body.coding-mode #welcome { display: none; }
 .pr-actions { justify-content: flex-end; margin-top: 0.6rem; }
 .pr-done a { color: inherit; text-decoration: underline; }
 .pr-open { display: none; }
-body.coding-mode.github-on .pr-open { display: inline-flex; }
+body.coding-mode .pr-open { display: inline-flex; }
 
 /* Coding replies with many files: one card, opened as a pull request. */
 .pr-card { margin: 0.5rem 0; padding: 0.85rem 0.95rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--surface); }

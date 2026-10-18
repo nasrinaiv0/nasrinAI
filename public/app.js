@@ -8212,7 +8212,7 @@
   let prFiles = [];
   let prText = '';
   function prButton(sources, text) {
-    const b = mk('button', 'btn small outline pr-open', 'Open pull request');
+    const b = mk('button', 'btn small outline pr-open', github.connected ? 'Confirm change' : 'Connect GitHub to confirm');
     b.type = 'button';
     b.addEventListener('click', () => openPr(sources, text));
     return b;

@@ -679,3 +679,13 @@ test('github: merged or not, the whole diff size, and the recent pull requests l
   const list = await api.listPulls('tok', 'o/r', { state: 'all', limit: 5 });
   assert.deepEqual(list.pull_requests.map((p) => [p.number, p.state]), [[7, 'merged'], [6, 'closed'], [8, 'open']]);
 });
+
+test('coding chat shows a visible confirmation control for prepared repository files', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /github\.connected \? 'Confirm change' : 'Connect GitHub to confirm'/);
+  assert.match(js, /function openPr\(sources, text\)/);
+  assert.match(js, /body: JSON\.stringify\(\{ confirm: true, repo,/);
+  assert.match(css, /body\.coding-mode \.pr-open \{ display: inline-flex; \}/);
+});
