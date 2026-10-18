@@ -2,8 +2,9 @@ import { HttpError } from '../http/errors.js';
 
 export const MAX_TRANSCRIPTION_BYTES = 4 * 1024 * 1024;
 const ALLOWED_EXT = /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i;
+const MIME_BY_EXTENSION = Object.freeze({ mp3: 'audio/mpeg', mpga: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'audio/mp4', mpeg: 'audio/mpeg', mpg: 'audio/mpeg', mp2: 'audio/mpeg', wav: 'audio/wav', webm: 'audio/webm', ogg: 'audio/ogg', oga: 'audio/ogg', flac: 'audio/flac' });
 const ALLOWED_MIME = new Set([
-  'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/wav', 'audio/x-wav',
+  'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/wav', 'audio/x-wav',
   'audio/webm', 'audio/ogg', 'audio/flac', 'audio/mpga', 'video/mp4', 'video/webm',
   'application/ogg', 'application/octet-stream'
 ]);
@@ -21,7 +22,10 @@ export function createOpenAITranscription({ apiKey, model = 'whisper-1', fetchIm
       if (!Buffer.isBuffer(bytes) || bytes.length === 0) throw new HttpError(400, 'audio_required', 'Choose a non-empty audio file to transcribe.');
       if (bytes.length > MAX_TRANSCRIPTION_BYTES) throw new HttpError(413, 'audio_too_large', 'For transcription, choose an audio file smaller than 4 MB.');
       const filename = safeName(name);
-      const contentType = String(mime || '').split(';')[0].trim().toLowerCase();
+      let contentType = String(mime || '').split(';')[0].trim().toLowerCase();
+      const ext = filename.toLowerCase().split('.').pop();
+      if (contentType === 'application/octet-stream' || !contentType) contentType = MIME_BY_EXTENSION[ext] || contentType;
+      if (contentType === 'audio/x-m4a') contentType = 'audio/mp4';
       if (!ALLOWED_EXT.test(filename) || !ALLOWED_MIME.has(contentType)) {
         throw new HttpError(415, 'unsupported_audio_format', 'Choose an MP3, M4A, WAV, WebM, OGG or FLAC audio file.');
       }
