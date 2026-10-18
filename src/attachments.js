@@ -1,4 +1,4 @@
-import { inflateRawSync } from 'node:zlib';
+import { inflateRawSync, gunzipSync } from 'node:zlib';
 import { HttpError } from './http/errors.js';
 
 // Files sent with a chat message. Any kind of file can be sent; what NasrinAI
@@ -41,7 +41,16 @@ function sniff(bytes) {
   if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '%PDF-') return 'application/pdf';
   if (bytes.length >= 4 && at(0) === 0x50 && at(1) === 0x4b && (at(2) === 0x03 || at(2) === 0x05) && (at(3) === 0x04 || at(3) === 0x06)) return 'application/zip';
   if (bytes.length >= 8 && at(0) === 0xd0 && at(1) === 0xcf && at(2) === 0x11 && at(3) === 0xe0) return 'application/x-ole';
-  if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '{\\rtf') return 'text/rtf';
+  // Common audio/video containers. Detection is signature-based, not extension-based.
+  if (bytes.length >= 12 && bytes.toString('ascii', 4, 8) === 'ftyp') return 'video/mp4';
+  if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'OggS') return 'application/ogg';
+  if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'fLaC') return 'audio/flac';
+  if (bytes.length >= 3 && bytes.toString('ascii', 0, 3) === 'ID3') return 'audio/mpeg';
+  if (bytes.length >= 2 && at(0) === 0xff && (at(1) & 0xe0) === 0xe0) return 'audio/mpeg';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE') return 'audio/wav';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'AVI ') return 'video/x-msvideo';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'FORM' && bytes.toString('ascii', 8, 12) === 'AIFF') return 'audio/aiff';
+  if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '{\\\\rtf') return 'text/rtf';
   return null;
 }
 
@@ -364,6 +373,19 @@ export function parseAttachments(list, limits) {
     const sniffed = sniff(bytes);
     if (sniffed === 'application/pdf') return { kind: 'pdf', mime: sniffed, name, data };
     if (sniffed && sniffed.startsWith('image/')) return { kind: 'image', mime: sniffed, name, data };
+    if (sniffed && (/^(?:audio|video)\\//.test(sniffed) || sniffed === 'application/ogg')) {
+      return { kind: 'text', mime: 'text/plain', name, data, unreadable: true, detectedMime: sniffed,
+        text: `[NasrinAI detected this attachment as ${sniffed} (${kb(bytes.length)}). The current attachment pipeline does not yet transcribe audio or extract video frames. Do not claim to have listened to or watched it. Ask for a transcript, captions (.srt/.vtt), or key frames as images until media processing is available.]` };
+    }
+    // Gzip-compressed logs, JSONL, XML and CSV exports: bounded decompression only.
+    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      try {
+        const expanded = gunzipSync(bytes, { maxOutputLength: ZIP_TOTAL_BYTES });
+        const decoded = decodeText(expanded);
+        if (decoded !== null && !decoded.includes('\\u0000')) return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[Gzip-compressed text, safely decompressed; ${kb(expanded.length)} uncompressed]\\n${decoded}`) };
+        return unreadable('a gzip file whose decompressed contents are not text');
+      } catch { return unreadable('a damaged gzip file or one exceeding the decompression limit'); }
+    }
 
     const cut = (t) => (t.length > limits.maxTextChars ? t.slice(0, limits.maxTextChars) + '\n[… cut here: the file is longer]' : t);
     const unreadable = (why) => ({
