@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1674,6 +1674,24 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.get(caller, params.id) };
+      }
+    },
+    {
+      // Raw audio bytes avoid base64 expansion. Keep the request capped to 4 MiB.
+      // The browser sends the filename in the query and the MIME type in Content-Type.
+      method: 'POST',
+      path: '/v1/transcriptions',
+      scope: 'chat',
+      raw: true,
+      maxBody: 4 * 1024 * 1024,
+      handler: async ({ req, raw, caller, ip }) => {
+        if (!transcription?.available) throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
+        await limiter.transcription(caller, ip);
+        const url = new URL(req.url, 'http://local');
+        const name = url.searchParams.get('name') || 'recording.webm';
+        const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+        const result = await transcription.transcribe({ bytes: raw, name, mime });
+        return { body: { text: result.text, characters: result.characters, model: result.model } };
       }
     },
     {
