@@ -1763,6 +1763,78 @@
     }
   }
 
+  // Decode supported browser audio and create valid PCM WAV chunks. Never split
+  // compressed audio at arbitrary byte offsets: those fragments are not valid media.
+  async function transcribeAudioChunks(file, language, token) {
+    const MAX_SOURCE_BYTES = 100 * 1024 * 1024;
+    const SAMPLE_RATE = 16000;
+    const CHUNK_SECONDS = 120;
+    if (file.size > MAX_SOURCE_BYTES) throw new Error('This recording is over 100 MB. Please split it into smaller files before transcription.');
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) throw new Error('Audio conversion is not supported by this browser. Please split the recording into shorter clips.');
+    const context = new AudioContextCtor();
+    let decoded;
+    try {
+      decoded = await context.decodeAudioData(await file.arrayBuffer());
+    } catch {
+      throw new Error('This audio format cannot be decoded by this browser. Try exporting it as WAV, MP3 or M4A.');
+    } finally {
+      await context.close().catch(() => {});
+    }
+    if (!Number.isFinite(decoded.duration) || decoded.duration <= 0 || decoded.duration > 3 * 60 * 60) {
+      throw new Error('Choose a recording that is shorter than three hours.');
+    }
+    const channels = [];
+    for (let c = 0; c < decoded.numberOfChannels; c++) channels.push(decoded.getChannelData(c));
+    const ratio = decoded.sampleRate / SAMPLE_RATE;
+    const outputLength = Math.ceil(decoded.length / ratio);
+    const mono = new Float32Array(outputLength);
+    for (let i = 0; i < outputLength; i++) {
+      const start = Math.floor(i * ratio);
+      const end = Math.min(decoded.length, Math.max(start + 1, Math.floor((i + 1) * ratio)));
+      let sum = 0, count = 0;
+      for (let j = start; j < end; j++) {
+        let sample = 0;
+        for (const channel of channels) sample += channel[j] || 0;
+        mono[i] += sample / channels.length;
+        count++;
+      }
+      if (count) mono[i] /= count;
+    }
+    const samplesPerChunk = SAMPLE_RATE * CHUNK_SECONDS;
+    const totalChunks = Math.ceil(mono.length / samplesPerChunk);
+    const transcripts = [];
+    for (let chunk = 0; chunk < totalChunks; chunk++) {
+      const start = chunk * samplesPerChunk;
+      const end = Math.min(mono.length, start + samplesPerChunk);
+      const count = end - start;
+      const wav = new ArrayBuffer(44 + count * 2);
+      const view = new DataView(wav);
+      const write = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+      write(0, 'RIFF'); view.setUint32(4, 36 + count * 2, true); write(8, 'WAVE');
+      write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true); view.setUint32(24, SAMPLE_RATE, true);
+      view.setUint32(28, SAMPLE_RATE * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+      write(36, 'data'); view.setUint32(40, count * 2, true);
+      for (let i = 0; i < count; i++) {
+        const sample = Math.max(-1, Math.min(1, mono[start + i]));
+        view.setInt16(44 + i * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
+      }
+      const chunkFile = new Blob([wav], { type: 'audio/wav' });
+      const suffix = '-part-' + String(chunk + 1).padStart(3, '0') + '.wav';
+      const response = await net('/v1/transcriptions?name=' + encodeURIComponent((file.name.replace(/\.[^.]+$/, '') || 'recording') + suffix) + (language ? '&language=' + encodeURIComponent(language) : ''), {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'audio/wav' },
+        body: chunkFile
+      });
+      if (!response.ok) throw await errorFrom(response);
+      const result = await response.json();
+      if (!result || typeof result.text !== 'string') throw new Error('The transcription service returned an invalid result.');
+      transcripts.push(result.text.trim());
+    }
+    return transcripts.filter(Boolean).join('\n\n');
+  }
+
   function renderTray() {
     tray.replaceChildren(...pending.map((f, i) => {
       const chip = document.createElement('div');
@@ -1791,9 +1863,8 @@
         const transcribe = document.createElement('button');
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
-        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Split audio first' : 'Transcribe';
-        transcribe.disabled = f.bytes > 4 * 1024 * 1024;
-        if (transcribe.disabled) transcribe.title = 'This upload is limited to 4 MB. Split the recording into shorter clips, then transcribe each clip.';
+        transcribe.textContent = 'Transcribe';
+        transcribe.title = 'Long recordings are decoded into valid audio chunks and transcribed in order. Browser codec support may vary.';
         transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
         transcribe.addEventListener('click', async () => {
           if (transcribe.disabled) return;
@@ -1802,16 +1873,11 @@
           transcribe.textContent = 'Transcribing…';
           try {
             const token = await credential();
-            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name) + (language.value ? '&language=' + encodeURIComponent(language.value) : ''), {
-              method: 'POST',
-              headers: { Authorization: 'Bearer ' + token, 'Content-Type': f.type || 'application/octet-stream' },
-              body: f.local
-            });
-            if (!response.ok) throw await errorFrom(response);
-            const result = await response.json();
-            if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No speech was detected in this audio.');
+            transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Preparing audio…' : 'Transcribing…';
+            const transcript = await transcribeAudioChunks(f.local, language.value, token);
+            if (!transcript) throw new Error('No speech was detected in this audio.');
             const existing = input.value.trim();
-            input.value = existing ? existing + '\n\n' + result.text.trim() : result.text.trim();
+            input.value = existing ? existing + '\n\n' + transcript : transcript;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus();
             notice.textContent = 'Transcript added to your message. Review it before sending.';
