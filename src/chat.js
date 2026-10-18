@@ -532,7 +532,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // the Library, a pasted secret, or when the person pressed Regenerate.
       const codingTask = plan.task === 'coding' || plan.task === 'debugging';
       const secretInside = typed.split('\n').some((line) => looksSecret(line));
-      const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || codingChat || regenerate || secretInside);
+      const cacheable = !(toolSpecs.length || extra.length || pro || voice || codeFile || codingChat || regenerate || secretInside || locationPrompt);
       // The page's block-rich response format is cacheable too, but must never
       // share an exact or semantic cache entry with plain API responses.
       // Comparison replies (tables) get their own entries, so an older answer
@@ -588,7 +588,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       let usedTools = false;
       const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
       const prChips = new Map();   // pull request chips from GitHub's answers, one per pull request
@@ -720,7 +720,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
