@@ -1453,7 +1453,10 @@
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       // The location card already has a place field; don't show a duplicate follow-up card.
-      if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
+      const priorUserMessages = log.querySelectorAll('.msg.user');
+      const latestUserMessage = priorUserMessages[priorUserMessages.length - 1] || null;
+      const latestUserQuery = latestUserMessage ? String(latestUserMessage.dataset.text || latestUserMessage.textContent || '').trim() : '';
+      if (asks && made.asks.length && !hasLocationCta && !needsYouTubeVideos(latestUserQuery)) el.appendChild(askCard(made.asks.slice(0, 1));
       if (cited.links.length) renderWebPreviews(el, cited.links);
       if (fresh && role === 'assistant') {
         const userMessages = log.querySelectorAll('.msg.user');
@@ -3608,10 +3611,11 @@
     // first can start navigation immediately, before Safari applies the policy;
     // YouTube may then reject the embed when it receives no usable referrer.
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    frame.allowFullscreen = true;
     frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
-    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0';
+    frame.allowFullscreen = true;
+    frame.setAttribute('loading', 'lazy');
+    frame.setAttribute('playsinline', '');
+    frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
     frameWrap.appendChild(frame);
     const fullscreen = document.createElement('button');
     fullscreen.type = 'button';
@@ -3748,8 +3752,10 @@
       heading.className = 'youtube-results-heading';
       heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
       section.appendChild(heading);
+      // Keep the primary player inline in the assistant answer. Moving it into
+      // the persistent mini-player detaches it from the tutorial card.
       const firstCard = createYouTubeVideoCard(videos[0]);
-      if (firstCard) mountPersistentYouTubePlayer(videos[0], firstCard);
+      if (firstCard) section.appendChild(firstCard);
       for (const video of videos.slice(1)) {
         const card = createYouTubeVideoCard(video);
         if (card) section.appendChild(card);
