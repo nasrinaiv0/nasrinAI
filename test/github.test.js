@@ -455,15 +455,15 @@ test('chat follow-up questions are numbered and keep quick choices plus free-tex
   assert.match(css, /\.ask-card \.ask-questions > li::marker/);
 });
 
-test('web source resources are expanded by default and retain a hide/show control', async () => {
+test('web source resources stay collapsed behind an accessible hide/show control', async () => {
   const { readFile } = await import('node:fs/promises');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(js, /list\.hidden = false/);
-  assert.match(js, /mk\('p', 'reply-sources-heading', 'Sources & Resources'\)/);
-  assert.match(js, /b\.setAttribute\('aria-expanded', 'true'\)/);
-  assert.match(js, /row\.after\(heading, list\)/);
+  const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
+  assert.ok(toggle.includes('list.hidden = true;'));
+  assert.ok(toggle.includes("mk('p', 'reply-sources-heading', 'Sources & Resources')"));
+  assert.ok(toggle.includes("b.setAttribute('aria-expanded', 'false');"));
+  assert.ok(toggle.includes('row.after(heading, list)'));
 });
-
 test('plugins: catalog settings expose account connection and read/write access controls', async () => {
   const { readFile } = await import('node:fs/promises');
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
