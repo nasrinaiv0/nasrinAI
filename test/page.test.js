@@ -348,6 +348,8 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
+  assert.match(js, /how \\(\?:do i\|to\|do\|does\|can i\|can you\\)/);
+  assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
   assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
