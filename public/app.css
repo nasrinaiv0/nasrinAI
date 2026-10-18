@@ -3686,3 +3686,6 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
   opacity: 1;
   transform: scale(calc(.42 + var(--sphere-burst, 0) * .58));
 }
+
+.chip-transcribe { margin-inline: 5px; min-height: 30px; padding: 3px 9px; border: 1px solid var(--border, #d7d7d7); border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: .78rem; }
+.chip-transcribe:disabled { opacity: .55; }
