@@ -3740,6 +3740,32 @@
       } catch {
         // Fall back to researched YouTube links when live search is unavailable.
       }
+      // If live search is unavailable, turn trustworthy YouTube links already
+      // present in the assistant answer into the same playable cards. This keeps
+      // tutorial replies useful when the search API is temporarily unavailable.
+      if (!videos.length) {
+        const answerText = message.querySelector('.msg-body')?.textContent || message.textContent || '';
+        const markdownLinks = [...answerText.matchAll(/\\[([^\\]]{3,180})\\]\\((https?:\\/\\/[^\\s)]+)\\)/g)];
+        const candidates = [];
+        const seen = new Set();
+        for (const match of markdownLinks) {
+          const url = match[2];
+          let parsed;
+          try { parsed = new URL(url); } catch { continue; }
+          const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+          let id = '';
+          if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+            id = parsed.pathname === '/watch' ? (parsed.searchParams.get('v') || '') : (parsed.pathname.match(/^\\/(?:embed|shorts)\\/([A-Za-z0-9_-]{11})/)?.[1] || '');
+          } else if (host === 'youtu.be') {
+            id = parsed.pathname.slice(1).split('/')[0];
+          }
+          if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
+          seen.add(id);
+          candidates.push({ id, title: match[1].trim(), url });
+          if (candidates.length >= 3) break;
+        }
+        videos = candidates;
+      }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
