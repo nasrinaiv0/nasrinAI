@@ -188,12 +188,13 @@ test('github: connecting needs sign-in, a signed state and this browser\'s one-t
   } finally { await t.close(); }
 });
 
-async function connected(t) {
-  const start = await fetch(t.url + '/v1/github/connect', { method: 'POST', headers: bearer(USER_TOKEN) });
+async function connectedAs(t, token = USER_TOKEN) {
+  const start = await fetch(t.url + '/v1/github/connect', { method: 'POST', headers: bearer(token) });
   const state = new URL((await start.json()).url).searchParams.get('state');
   const cookie = start.headers.get('set-cookie').split(';')[0];
   await fetch(t.url + '/v1/github/callback?code=good&state=' + state, { redirect: 'manual', headers: { cookie } });
 }
+async function connected(t) { return connectedAs(t, USER_TOKEN); }
 const ctx = { tenantId: PLATFORM_TENANT_ID, actor: { type: 'user', id: 'user-1' } };
 
 test('github: an expiring token is refreshed; disconnecting revokes and deletes it', async () => {
@@ -698,6 +699,13 @@ test('github: connections and disconnect operations are isolated to the signed-i
     assert.equal(secondStatus.connected, false);
     assert.deepEqual(secondStatus.accounts, []);
 
+    // A second signed-in user can complete their own OAuth flow and manage
+    // their own connection without gaining access to the first user's row.
+    await connectedAs(t, secondToken);
+    const secondConnected = await (await fetch(t.url + '/v1/github/status', { headers: secondHeaders })).json();
+    assert.equal(secondConnected.connected, true);
+    assert.deepEqual(secondConnected.accounts.map((account) => account.login), ['octo-cat']);
+
     const secondDelete = await fetch(t.url + '/v1/github', { method: 'DELETE', headers: secondHeaders });
     assert.equal(secondDelete.status, 200);
     assert.equal((await secondDelete.json()).connected, false);
@@ -711,6 +719,6 @@ test('github: connections and disconnect operations are isolated to the signed-i
       headers: { ...secondHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({ login: 'octo-cat' })
     });
-    assert.equal(spoofedMain.status, 404, 'another user cannot select the first user account');
+    assert.equal(spoofedMain.status, 404, 'after disconnect, a user cannot select another user account');
   } finally { await t.close(); }
 });
