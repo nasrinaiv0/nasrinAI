@@ -1816,6 +1816,97 @@
         });
         chip.appendChild(transcribe);
       }
+      if (/\.pdf$/i.test(f.name) && f.local instanceof File) {
+        const ocr = document.createElement('button');
+        ocr.type = 'button';
+        ocr.className = 'chip-transcribe';
+        ocr.textContent = f.bytes > 6 * 1024 * 1024 ? 'Too large' : 'Extract text';
+        ocr.disabled = f.bytes > 6 * 1024 * 1024;
+        ocr.setAttribute('aria-label', 'Extract text from ' + f.name);
+        ocr.addEventListener('click', async () => {
+          if (ocr.disabled) return;
+          ocr.disabled = true;
+          ocr.textContent = 'Reading PDF…';
+          try {
+            const token = await credential();
+            const response = await net('/v1/pdf-ocr?name=' + encodeURIComponent(f.name), {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/pdf' },
+              body: f.local
+            });
+            if (!response.ok) throw await errorFrom(response);
+            const result = await response.json();
+            if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No readable text was found in this PDF.');
+            const existing = input.value.trim();
+            input.value = existing ? existing + '\\n\\n' + result.text.trim() : result.text.trim();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+            notice.textContent = 'Extracted PDF text added to your message. Review it before sending.';
+            ocr.textContent = 'Text extracted';
+          } catch (err) {
+            notice.textContent = err.message || 'Could not extract text from this PDF. Please try again.';
+            ocr.disabled = false;
+            ocr.textContent = 'Retry extraction';
+          }
+        });
+        chip.appendChild(ocr);
+      }
+      if ((/^video\\//i.test(f.type || '') || /\\.(?:mp4|mov|webm|m4v|mpeg|mpg|ogv)$/i.test(f.name)) && f.local instanceof File) {
+        const frames = document.createElement('button');
+        frames.type = 'button';
+        frames.className = 'chip-transcribe';
+        frames.textContent = 'Extract frames';
+        frames.setAttribute('aria-label', 'Extract frames from ' + f.name);
+        frames.addEventListener('click', async () => {
+          frames.disabled = true;
+          frames.textContent = 'Extracting…';
+          let objectUrl = '';
+          try {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            objectUrl = URL.createObjectURL(f.local);
+            video.src = objectUrl;
+            await new Promise((resolve, reject) => {
+              video.onloadedmetadata = resolve;
+              video.onerror = () => reject(new Error('This video format could not be opened on this device.'));
+            });
+            if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
+            const duration = video.duration;
+            const times = [...new Set([0, duration * 0.5, Math.max(0, duration - 0.15)])];
+            const extracted = [];
+            for (let index = 0; index < times.length; index++) {
+              if (pending.length + extracted.length >= MAX_FILES) break;
+              video.currentTime = times[index];
+              await new Promise((resolve, reject) => {
+                video.onseeked = resolve;
+                video.onerror = () => reject(new Error('Could not seek to a video frame.'));
+              });
+              const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+              canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+              const ctx = canvas.getContext('2d');
+              if (!ctx) throw new Error('Frame extraction is not supported by this device.');
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not encode a video frame.')), 'image/jpeg', 0.84));
+              const stamp = Math.round(times[index] * 1000);
+              extracted.push(new File([blob], f.name.replace(/\\.[^.]+$/, '') + '-frame-' + (index + 1) + '-' + stamp + 'ms.jpg', { type: 'image/jpeg' }));
+            }
+            if (!extracted.length) throw new Error('There is no room for more frames. Remove a file and try again.');
+            await addFiles(extracted);
+            notice.textContent = 'Extracted ' + extracted.length + ' frame(s). Review the image attachments before sending.';
+            frames.textContent = 'Frames extracted';
+          } catch (err) {
+            notice.textContent = err.message || 'Could not extract video frames. Please try again.';
+            frames.disabled = false;
+            frames.textContent = 'Retry frames';
+          } finally {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+          }
+        });
+        chip.appendChild(frames);
+      }
       const x = document.createElement('button');
       x.type = 'button';
       x.className = 'chip-x';
