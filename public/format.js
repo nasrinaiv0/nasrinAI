@@ -294,29 +294,27 @@
       let u;
       try { u = new URL(rawUrl); } catch { return false; }
       if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
-      const host = u.hostname.replace(/^www\\./, '');
+      const host = u.hostname.replace(/^www\./, '');
       if (!links.some((item) => item.url === u.href)) {
         links.push({ title: String(title || '').trim() || host, url: u.href, host });
       }
       return true;
     };
     if (block) {
-      for (const [, title, url] of block[1].matchAll(/- \\[([^\\]\\n]*)\\]\\(<([^>\\s]+)>\\)/g)) {
+      for (const [, title, url] of block[1].matchAll(/- \[([^\]\n]*)\]\(<([^>\s]+)>\)/g)) {
         if (!addLink(title, url)) return { text: raw, links: [] };
       }
     }
-    // Move ordinary Markdown links out of every reply too. Keep their human
-    // readable labels in the prose, but expose the destinations only in Sources.
-    visible = visible.replace(/\\[([^\\]\\n]+)\\]\\((https?:\\/\\/[^)\\s]+)\\)/g, (match, title, url) => {
+    // Keep readable Markdown link labels in the prose, but move destinations to Sources.
+    visible = visible.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, title, url) => {
       addLink(title, url);
       return title;
     });
     // Bare URLs are also sources; remove the URL itself from the prose.
-    visible = visible.replace(/https?:\\/\\/[^\\s<>()"']+[^\\s<>()"'.,;:!?]/g, (url) => {
-      const clean = url.replace(/[)\\]}]+$/, '');
-      addLink('', clean);
+    visible = visible.replace(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g, (url) => {
+      addLink('', url.replace(/[)\]}]+$/, ''));
       return '';
-    }).replace(/[ \\t]{2,}/g, ' ').replace(/ +([,.;:!?])/g, '$1').replace(/\\n[ \\t]+/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim();
+    }).replace(/[ \t]{2,}/g, ' ').replace(/ +([,.;:!?])/g, '$1').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
     return { text: visible, links: links.slice(0, 20) };
   }
 
