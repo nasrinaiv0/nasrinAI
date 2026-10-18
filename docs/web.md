@@ -99,3 +99,12 @@ returns same-origin responses. Results are cached in memory (successes for a
 day, misses for an hour), capped at 300 page entries, and guarded by the
 existing per-IP site-icon request limiter. The UI uses lazy loading, accessible
 alt text, responsive cards, and removes broken thumbnails automatically.
+
+
+## YouTube tutorials in chat
+
+Set the server-side Vercel environment variable `YOUTUBE_DATA_API_KEY` to a Google Cloud API key with the YouTube Data API v3 enabled. Do not use a browser-visible variable or expose this key in client code. If the key is absent or YouTube search fails, chat still works normally and no video cards are shown.
+
+For fresh assistant replies, the UI detects explicit tutorial, walkthrough, demonstration, and directions/navigation intent from the latest user message. It then searches YouTube through authenticated `GET /v1/youtube/search?q=…`, returning up to five relevant video results; the chat renders at most three responsive embedded players. Ordinary replies do not trigger video search. Embeds use `youtube-nocookie.com`, lazy loading, validated 11-character video IDs, and a visible link to open the video on YouTube. The page CSP permits only the YouTube player hosts and its thumbnail host.
+
+The integration uses the **YouTube Data API** for public video search and metadata. The separate YouTube Analytics API is for an authenticated channel owner's private performance reports and is not needed to search or embed public videos. If channel analytics are added later, implement OAuth consent and least-privilege scopes separately; never request channel access just to show tutorials.
