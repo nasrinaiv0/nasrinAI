@@ -418,9 +418,11 @@ test('plugins: more apps are listed as Coming soon, never as connected', async (
   for (const name of ['Outlook', 'OneDrive', 'Teams', 'Excel', 'PowerPoint', 'Canva', 'Facebook', 'Instagram', 'Threads', "'X'", 'Messenger', 'WhatsApp']) {
     assert.ok(js.includes(name.startsWith("'") ? name : `'${name}'`), name);
   }
-  assert.match(js, /mk\('span', 'plugins-soon', \['Google Meet', 'Google Keep', 'Google Maps'\]\.includes\(name\) \? 'Available' : 'Coming soon'\)/);
+  assert.match(js, /mk\('span', 'plugins-soon', 'Coming soon'\)/);
   const catalog = js.slice(js.indexOf('const MORE_PLUGINS'), js.indexOf('const MORE_PLUGINS') + 700);
-  assert.doesNotMatch(catalog, /Google Team/);
+  assert.doesNotMatch(catalog, /Google (?:Search|Meet|Keep|Maps)/);
+  assert.match(catalog, /\\['Microsoft 365'/);
+  assert.match(catalog, /\\['Design & creativity'/);
   assert.match(js, /makeGooglePlugin\('gmail', 'Gmail', 'mail'\)/);
   assert.match(js, /makeGooglePlugin\('calendar', 'Google Calendar', 'calendar'\)/);
   assert.match(js, /api\('\/v1\/google\/status\?service=' \+ service\)/);
