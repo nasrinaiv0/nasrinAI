@@ -1690,7 +1690,8 @@ return { body: { sites: await connect.list(caller) } }; }
         const url = new URL(req.url, 'http://local');
         const name = url.searchParams.get('name') || 'recording.webm';
         const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
-        const result = await transcription.transcribe({ bytes: raw, name, mime });
+        const language = url.searchParams.get('language') || undefined;
+        const result = await transcription.transcribe({ bytes: raw, name, mime, language });
         return { body: { text: result.text, characters: result.characters, model: result.model } };
       }
     },
