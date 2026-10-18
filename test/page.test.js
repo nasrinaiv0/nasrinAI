@@ -183,15 +183,15 @@ test('sign-in Turnstile widget is centered below the email form and smaller on p
   assert.ok(form > -1 && form < widget && widget < status, 'widget sits below the email form and above the status message');
 });
 
-test('oversized pasted composer text becomes a plain-text attachment', async () => {
+test('a paste over 2,000 characters becomes a plain-text attachment; shorter stays text (spec section 4)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(js, /function pastedTextOverflows\(text\)/, 'overflow is measured against the composer max height');
-  assert.match(js, /input\.addEventListener\('paste',[\s\S]{0,1600}pastedTextOverflows\(text\)/,
-    'the paste handler checks plain text before allowing it into the composer');
-  assert.match(js, /new File\(\[text\], 'pasted-message-'[\s\S]{0,100}type: 'text\/plain'/,
-    'overflowing pasted text is wrapped in a TXT file');
-  assert.match(js, /if \(!text \|\| !pastedTextOverflows\(text\)\) return;/,
-    'short text continues to paste normally');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<script src="\/paste\.js" defer><\/script>/, 'the rule is loaded on the page');
+  assert.doesNotMatch(js, /pastedTextOverflows/, 'the old composer-height rule is gone');
+  assert.match(js, /input\.addEventListener\('paste',[\s\S]{0,2400}NasrinPaste\.shouldAttach\(text\)/);
+  assert.match(js, /if \(!text \|\| !NasrinPaste\.shouldAttach\(text\)\) return;/, 'short text continues to paste normally');
+  assert.match(js, /new File\(\[text\], name, \{ type: 'text\/plain' \}\)/);
+  assert.match(js, /The pasted text was kept in the message box instead/, 'a failed attach never loses the text');
 });
 
 test('a tech-style loader shows while a picture, video or file is being made (owner, 2026-10-13)', async () => {

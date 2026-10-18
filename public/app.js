@@ -1803,47 +1803,33 @@
     e.preventDefault();
     addFiles([...e.dataTransfer.files]);
   });
-  // If pasted text would make the composer taller than its visible limit,
-  // attach the complete pasted text as a .txt file instead of trapping it in
-  // a scrollable message field. Existing draft text remains untouched.
-  function pastedTextOverflows(text) {
-    const start = input.selectionStart ?? input.value.length;
-    const end = input.selectionEnd ?? start;
-    const candidate = input.value.slice(0, start) + text + input.value.slice(end);
-    const style = getComputedStyle(input);
-    const maxHeight = Number.parseFloat(style.maxHeight);
-    if (!Number.isFinite(maxHeight) || maxHeight <= 0) return false;
-
-    const measure = document.createElement('textarea');
-    measure.value = candidate;
-    measure.setAttribute('aria-hidden', 'true');
-    measure.tabIndex = -1;
-    Object.assign(measure.style, {
-      position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden',
-      width: input.getBoundingClientRect().width + 'px', height: 'auto',
-      minHeight: '0', maxHeight: 'none', overflow: 'hidden', resize: 'none',
-      boxSizing: style.boxSizing, padding: style.padding, border: style.border,
-      font: style.font, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing,
-      whiteSpace: style.whiteSpace, overflowWrap: style.overflowWrap
-    });
-    document.body.appendChild(measure);
-    const contentHeight = measure.scrollHeight;
-    measure.remove();
-    return contentHeight > maxHeight + 1;
-  }
-
+  // One paste of up to 2,000 characters stays editable text; 2,001 or more is
+  // attached as a UTF-8 .txt file (public/paste.js). Only the pasted text is
+  // counted, never what is already typed, and images/files are handled above.
   input.addEventListener('paste', (e) => {
     const clipboard = e.clipboardData;
     const files = clipboard ? [...clipboard.files] : [];
     if (files.length) { e.preventDefault(); addFiles(files); return; }
 
     const text = clipboard ? clipboard.getData('text/plain') : '';
-    if (!text || !pastedTextOverflows(text)) return;
+    if (!text || !NasrinPaste.shouldAttach(text)) return;
+    if (pending.length >= MAX_FILES) { notice.textContent = `You can send up to ${MAX_FILES} files at a time. The long paste was kept as text.`; return; }
     e.preventDefault();
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = new File([text], 'pasted-message-' + stamp + '.txt', { type: 'text/plain' });
-    addFiles([file]);
-    notice.textContent = 'Long pasted message attached as a .txt file. You can send it with your prompt.';
+    const name = NasrinPaste.fileName(pending.map((f) => f.name));
+    const file = new File([text], name, { type: 'text/plain' });
+    const before = pending.length;
+    addFiles([file]).then(() => {
+      if (pending.length > before) {
+        notice.textContent = `Long paste attached as ${name} (${NasrinPaste.count(text).toLocaleString('en-US')} characters).`;
+      } else {
+        // Nothing is lost: the text goes into the box so it can be sent as text.
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        input.setRangeText(text, start, end, 'end');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        notice.textContent = (notice.textContent ? notice.textContent + ' ' : '') + 'The pasted text was kept in the message box instead.';
+      }
+    });
   });
 
   // ---------- the + menu: files, or creating a picture ----------
