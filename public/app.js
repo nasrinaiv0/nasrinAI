@@ -1404,7 +1404,7 @@
         const userMessages = log.querySelectorAll('.msg.user');
         const lastUser = userMessages[userMessages.length - 1] || null;
         const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
-        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery);
+        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery, cited.links);
       }
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
@@ -3206,7 +3206,7 @@
     return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
   }
 
-  async function renderYouTubeVideos(message, userQuery) {
+  async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
     if (message.querySelector('.youtube-results')) return;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
@@ -3228,8 +3228,17 @@
       if (!videos.length) {
         const answerText = String(message.querySelector('.msg-body')?.innerText || message.innerText || '');
         const idPattern = /(?:youtube\.com\/(?:watch\?[^\s#]*?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/g;
-        const ids = [...answerText.matchAll(idPattern)].map((match) => match[1]).filter((id, index, all) => all.indexOf(id) === index).slice(0, 3);
-        videos = ids.map((id) => ({ id, title: 'YouTube tutorial', channelTitle: 'YouTube' }));
+        const answerIds = [...answerText.matchAll(idPattern)].map((match) => match[1]);
+        const sourceIds = sourceLinks.map((item) => {
+          try {
+            const url = new URL(item.url);
+            if (url.hostname === 'youtu.be') return url.pathname.slice(1);
+            if (url.hostname === 'youtube.com' || url.hostname === 'www.youtube.com') return url.searchParams.get('v') || url.pathname.match(/^\/embed\/([A-Za-z0-9_-]{11})$/)?.[1] || '';
+          } catch {}
+          return '';
+        });
+        const ids = [...new Set([...answerIds, ...sourceIds])].filter((id) => /^[A-Za-z0-9_-]{11}$/.test(id)).slice(0, 3);
+        videos = ids.map((id) => ({ id, title: sourceLinks.find((item) => item.url.includes(id))?.title || 'YouTube tutorial', channelTitle: 'YouTube' }));
       }
       if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
