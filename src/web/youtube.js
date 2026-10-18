@@ -6,6 +6,25 @@ export function createYouTubeSearch({ apiKey = '', fetchImpl = fetch, timeoutMs 
   const key = String(apiKey || '').trim();
   return {
     available: Boolean(key),
+    async verify(rawId) {
+      const id = String(rawId || '');
+      if (!key || !VIDEO_ID.test(id)) return false;
+      const url = new URL(YOUTUBE_VIDEOS_URL);
+      url.search = new URLSearchParams({ key, part: 'status', id }).toString();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchImpl(url, { method: 'GET', signal: controller.signal, headers: { Accept: 'application/json' } });
+        if (!response.ok) return false;
+        const data = await response.json();
+        return (Array.isArray(data?.items) ? data.items : []).some((item) =>
+          item?.id === id && item?.status?.embeddable === true && item?.status?.privacyStatus !== 'private');
+      } catch {
+        return false;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     async search(rawQuery) {
       if (!key) return { available: false, videos: [] };
       const query = String(rawQuery || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180);
