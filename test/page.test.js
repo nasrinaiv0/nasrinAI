@@ -355,13 +355,13 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /if \(firstCard\) \{\s*section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer and persist its metadata');
   assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
   assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
-  assert.match(js, /Never turn arbitrary assistant citations into embedded videos/);
+  assert.match(js, /YouTube links already present in the assistant answer or its citations/);
   assert.match(js, /if \(!videos\.length \|\| message\.querySelector\('\.youtube-results'\)\) return;/, 'do not skip rendering while the assistant message is being attached');
-  assert.ok(!js.includes("message.querySelectorAll('a[href]')"), 'do not scrape arbitrary answer/citation links for video fallback');
-  assert.ok(js.includes('If verification is unavailable or no playable results are found'), 'fail closed when no verified video is available');
+  assert.ok(js.includes("message.querySelectorAll('a[href]')"), 'fallback examines candidate links before server-side verification');
+  assert.ok(js.includes("net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id)"), 'fallback candidates require server-side verification');
   assert.ok(!js.includes("net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id)"), 'do not make fallback rendering depend on the optional verification endpoint');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
-  assert.match(js, /Only practical how-to requests should surface a video/);
+  assert.ok(js.includes('tutorialIntent'), 'tutorial terms are appended only when tutorial intent is detected');
   assert.match(js, /\/v1\/youtube\/search\?q=/);
   const youtubePlayer = js.slice(js.indexOf('function createYouTubeVideoCard'), js.indexOf('function mountPersistentYouTubePlayer'));
   assert.ok(youtubePlayer.includes("frame.referrerPolicy = 'strict-origin-when-cross-origin'"), 'set a referrer policy on the iframe');
