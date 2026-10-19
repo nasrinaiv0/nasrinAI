@@ -144,3 +144,12 @@ test('Developer integration plan requires encrypted multi-account storage and cr
   assert.match(spec, /enforce server-side authorization and RLS/);
   assert.match(spec, /Never mark a connection successful based on opening a provider dashboard/);
 });
+
+test('Google integrations are grouped separately and the empty Google heading is hidden', () => {
+  assert.match(html, /id="pluginsGoogleLabel" hidden>Google<\/p>/);
+  assert.match(html, /id="pluginsGoogle"/);
+  assert.match(app, /\$\('pluginsGoogle'\)\.appendChild\(card\)/);
+  assert.match(app, /connected \? \$\('pluginsConnected'\) : \$\('pluginsGoogle'\)/);
+  assert.match(app, /\$\('pluginsGoogleLabel'\)\.hidden = !\$\('pluginsGoogle'\)\.children\.length/);
+  assert.doesNotMatch(app.slice(app.indexOf('function makeGooglePlugin'), app.indexOf('async function connectGoogle')), /\$\('pluginsDev'\)\.appendChild\(card\)/);
+});

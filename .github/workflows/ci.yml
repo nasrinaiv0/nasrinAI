@@ -32,6 +32,11 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm test
+      - name: Check JavaScript syntax
+        run: |
+          node --check server.js
+          node --check public/app.js
+          find src test scripts -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - run: npm run check:secrets
 
   database:

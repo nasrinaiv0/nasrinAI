@@ -36,7 +36,7 @@ export function paceWords(rate) {
 }
 
 export function createOpenAISpeech({ apiKey, model = 'gpt-4o-mini-tts', fastModel = '', rate = 1, responseFormat = 'mp3', fetchImpl = fetch, timeoutMs = 45_000 }) {
-  const instructions = 'Speak warmly and naturally, like a helpful friend. Use the language the text is written in.' + paceWords(rate);
+  const instructions = 'Speak warmly and naturally, like a helpful adult friend. Use a natural adult vocal register, comfortable moderate pitch, clear articulation, and normal conversational intonation. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Use the language the text is written in.' + paceWords(rate);
   // One request to the speech API with a given model.
   async function call({ text, voice, useModel, timeout }) {
     const body = { model: useModel, voice, input: text, response_format: responseFormat };
@@ -66,7 +66,7 @@ export function createOpenAISpeech({ apiKey, model = 'gpt-4o-mini-tts', fastMode
     provider: 'openai',
     mime: responseFormat === 'wav' ? 'audio/wav' : responseFormat === 'pcm' ? 'audio/pcm' : 'audio/mpeg',
     voices: VOICES,
-    defaultVoice: 'coral',
+    defaultVoice: 'cedar',
     model,
     // The quick model used while talking (empty: always the normal model).
     fastModel: quick,
@@ -133,7 +133,7 @@ function geminiDirection(rate) {
     : rate > 1.05 ? ', at a slightly brisk pace'
     : rate < 0.85 ? ', slowly and calmly'
     : '';
-  return `Say warmly and naturally, like a helpful friend${pace}: `;
+  return `Say warmly and naturally, like a helpful adult friend. Use a natural adult vocal register, comfortable moderate pitch, clear articulation, and normal conversational intonation. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery${pace}: `;
 }
 
 export function createGeminiSpeech({ apiKey, model = 'gemini-3.1-flash-tts-preview', fastModel = '', rate = 1, fetchImpl = fetch, timeoutMs = 45_000 }) {
@@ -179,7 +179,7 @@ export function createGeminiSpeech({ apiKey, model = 'gemini-3.1-flash-tts-previ
     provider: 'gemini',
     mime: 'audio/wav',
     voices: GEMINI_VOICES,
-    defaultVoice: 'Kore',
+    defaultVoice: 'Charon',
     previewText: PREVIEW_TEXT,
     model,
     fastModel: quick,
@@ -212,7 +212,7 @@ export function createResponsiveSpeech({ openai, gemini, timeoutMs = 3000 }) {
   const engines = [openai, gemini].filter(Boolean);
   const voices = openai?.voices?.length ? openai.voices : gemini?.voices || [];
   const voiceIds = new Set(voices.map((v) => v.id));
-  const defaultVoice = openai?.defaultVoice || gemini?.defaultVoice || 'Kore';
+  const defaultVoice = openai?.defaultVoice || gemini?.defaultVoice || 'Cedar';
 
   async function attempt(engine, text, voice) {
     const mappedVoice = engine.provider === 'gemini'

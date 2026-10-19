@@ -1,4 +1,4 @@
-import { inflateRawSync } from 'node:zlib';
+import { inflateRawSync, gunzipSync } from 'node:zlib';
 import { HttpError } from './http/errors.js';
 
 // Files sent with a chat message. Any kind of file can be sent; what NasrinAI
@@ -31,6 +31,9 @@ const ZIP_ENTRY_BYTES = 6 * 1024 * 1024;   // one entry, after unpacking
 const ZIP_TOTAL_BYTES = 16 * 1024 * 1024;  // everything unpacked from one file
 const SHEET_ROWS = 400;
 const SHEET_COLS = 40;
+const EMBEDDED_IMAGES = 6;
+const EMBEDDED_IMAGE_BYTES = 2 * 1024 * 1024;
+const EMBEDDED_TOTAL_BYTES = 5 * 1024 * 1024;
 
 function sniff(bytes) {
   const at = (i) => bytes[i];
@@ -41,6 +44,17 @@ function sniff(bytes) {
   if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '%PDF-') return 'application/pdf';
   if (bytes.length >= 4 && at(0) === 0x50 && at(1) === 0x4b && (at(2) === 0x03 || at(2) === 0x05) && (at(3) === 0x04 || at(3) === 0x06)) return 'application/zip';
   if (bytes.length >= 8 && at(0) === 0xd0 && at(1) === 0xcf && at(2) === 0x11 && at(3) === 0xe0) return 'application/x-ole';
+  // Common audio/video containers. Detection is signature-based, not extension-based.
+  if (bytes.length >= 12 && bytes.toString('ascii', 4, 8) === 'ftyp') return 'video/mp4';
+  if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'OggS') return 'application/ogg';
+  if (bytes.length >= 4 && bytes.toString('ascii', 0, 4) === 'fLaC') return 'audio/flac';
+  if (bytes.length >= 3 && bytes.toString('ascii', 0, 3) === 'ID3') return 'audio/mpeg';
+  if (bytes.length >= 4 && at(0) === 0xff && (at(1) & 0xe0) === 0xe0 &&
+      (at(1) & 0x06) !== 0 && (at(2) & 0xf0) !== 0 && (at(2) & 0x0c) !== 0x0c &&
+      !(at(0) === 0xff && at(1) === 0xfe)) return 'audio/mpeg';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE') return 'audio/wav';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'AVI ') return 'video/x-msvideo';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'FORM' && bytes.toString('ascii', 8, 12) === 'AIFF') return 'audio/aiff';
   if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '{\\rtf') return 'text/rtf';
   return null;
 }
@@ -270,6 +284,26 @@ function rtfText(src) {
   return tidy(out);
 }
 
+// Extract a small, bounded set of raster images embedded in an Office/OpenDocument ZIP.
+// Only image bytes whose signatures we recognize are returned; SVG and unknown data are skipped.
+function embeddedImages(zip, prefixes) {
+  const out = [];
+  let total = 0;
+  for (const entry of zip.entries) {
+    if (!prefixes.some((prefix) => entry.name.startsWith(prefix)) || entry.name.endsWith('/')) continue;
+    if (!/\.(?:png|jpe?g|gif|webp)$/i.test(entry.name) || entry.size < 8 || entry.size > EMBEDDED_IMAGE_BYTES) continue;
+    const bytes = zip.read(entry);
+    if (!bytes) continue;
+    const mime = sniff(bytes);
+    if (!mime || !mime.startsWith('image/')) continue;
+    if (out.length >= EMBEDDED_IMAGES || total + bytes.length > EMBEDDED_TOTAL_BYTES) break;
+    const ext = mime === 'image/jpeg' ? 'jpg' : mime.slice('image/'.length);
+    out.push({ mime, data: bytes.toString('base64'), sourceName: cleanName(entry.name.split('/').pop() || 'image.' + ext) });
+    total += bytes.length;
+  }
+  return out;
+}
+
 // ZIP files that are documents: the text, and what kind of document it was.
 function zipText(bytes, limits) {
   const zip = openZip(bytes);
@@ -279,15 +313,16 @@ function zipText(bytes, limits) {
 
   if (has(/^word\/document\.xml$/)) {
     const parts = ['word/document.xml', ...zip.entries.filter((e) => /^word\/(?:footnotes|endnotes)\.xml$/.test(e.name)).map((e) => e.name)];
-    return { source: 'Word document', text: parts.map((n) => docxText(get(n))).filter(Boolean).join('\n\n') };
+    return { source: 'Word document', text: parts.map((n) => docxText(get(n))).filter(Boolean).join('\n\n'), images: embeddedImages(zip, ['word/media/']) };
   }
-  if (has(/^xl\/workbook\.xml$/)) return { source: 'Excel workbook', text: xlsxText(zip) };
+  if (has(/^xl\/workbook\.xml$/)) return { source: 'Excel workbook', text: xlsxText(zip), images: embeddedImages(zip, ['xl/media/']) };
   if (has(/^ppt\/slides\/slide\d+\.xml$/)) {
     const slides = zip.entries.filter((e) => /^ppt\/slides\/slide\d+\.xml$/.test(e.name))
       .sort((a, b) => Number(a.name.match(/(\d+)\.xml$/)[1]) - Number(b.name.match(/(\d+)\.xml$/)[1]));
     const notes = (n) => slideText(get(`ppt/notesSlides/notesSlide${n}.xml`));
     return {
       source: 'PowerPoint presentation',
+      images: embeddedImages(zip, ['ppt/media/']),
       text: slides.map((e) => {
         const n = e.name.match(/(\d+)\.xml$/)[1];
         const note = notes(n);
@@ -296,7 +331,7 @@ function zipText(bytes, limits) {
     };
   }
   if (has(/^content\.xml$/) && /^application\/vnd\.oasis\.opendocument\./.test(get('mimetype').trim())) {
-    return { source: 'OpenDocument file', text: odfText(get('content.xml')) };
+    return { source: 'OpenDocument file', text: odfText(get('content.xml')), images: embeddedImages(zip, ['Pictures/']) };
   }
   if (has(/^META-INF\/container\.xml$/) && /epub/.test(get('mimetype'))) return { source: 'EPUB book', text: epubText(zip) };
 
@@ -350,7 +385,7 @@ export function parseAttachments(list, limits) {
   if (list.length > limits.maxCount) throw bad(`Send at most ${limits.maxCount} files at a time.`);
 
   let total = 0;
-  return list.map((item) => {
+  return list.flatMap((item) => {
     if (!item || typeof item !== 'object' || typeof item.data !== 'string') throw bad('Each file needs its data.');
     const name = cleanName(item.name);
     const data = item.data.replace(/^data:[^;,]{1,100};base64,/, '');
@@ -361,24 +396,50 @@ export function parseAttachments(list, limits) {
       throw new HttpError(413, 'attachments_too_large', `Files can be up to ${Math.round(limits.maxTotalBytes / 1048576)} MB in total.`);
     }
 
-    const sniffed = sniff(bytes);
-    if (sniffed === 'application/pdf') return { kind: 'pdf', mime: sniffed, name, data };
-    if (sniffed && sniffed.startsWith('image/')) return { kind: 'image', mime: sniffed, name, data };
-
     const cut = (t) => (t.length > limits.maxTextChars ? t.slice(0, limits.maxTextChars) + '\n[… cut here: the file is longer]' : t);
     const unreadable = (why) => ({
       kind: 'text', mime: 'text/plain', name, data, unreadable: true,
       text: `[NasrinAI could not read the contents of this file (${why}; ${kb(bytes.length)}). Tell the person plainly that you cannot open it, and suggest a format you can read: a photo, PDF, Word, Excel, PowerPoint, text or CSV file.]`
     });
 
+    const sniffed = sniff(bytes);
+    if (sniffed === 'application/pdf') return { kind: 'pdf', mime: sniffed, name, data };
+    if (sniffed && sniffed.startsWith('image/')) return { kind: 'image', mime: sniffed, name, data };
+    if (sniffed && (/^(?:audio|video)\//.test(sniffed) || sniffed === 'application/ogg')) {
+      return { kind: 'text', mime: 'text/plain', name, data, unreadable: true, detectedMime: sniffed,
+        text: `[NasrinAI detected this attachment as ${sniffed} (${kb(bytes.length)}). The current attachment pipeline does not yet transcribe audio or extract video frames. Do not claim to have listened to or watched it. Ask for a transcript, captions (.srt/.vtt), or key frames as images until media processing is available.]` };
+    }
+    // Gzip-compressed logs, JSONL, XML and CSV exports: bounded decompression only.
+    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      try {
+        const expanded = gunzipSync(bytes, { maxOutputLength: ZIP_TOTAL_BYTES });
+        const decoded = decodeText(expanded);
+        if (decoded !== null && !decoded.includes('\u0000')) return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[Gzip-compressed text, safely decompressed; ${kb(expanded.length)} uncompressed]\n${decoded}`) };
+        return unreadable('a gzip file whose decompressed contents are not text');
+      } catch { return unreadable('a damaged gzip file or one exceeding the decompression limit'); }
+    }
+
     if (sniffed === 'application/zip') {
       const doc = zipText(bytes, limits);
       if (!doc) return unreadable('a damaged or unsupported archive');
       const text = String(doc.text || '').replace(/\u0000/g, '').trim();
-      if (!text) return unreadable(`a ${doc.source} with no readable text`);
-      return { kind: 'text', mime: 'text/plain', name, data, text: cut(`[${doc.source}, converted to text]\n${text}`) };
+      const images = Array.isArray(doc.images) ? doc.images : [];
+      if (!text && !images.length) return unreadable(`a ${doc.source} with no readable text or supported embedded images`);
+      const imageNote = images.length ? `\n[Extracted ${images.length} embedded image${images.length === 1 ? '' : 's'} and attached them separately for visual analysis.] ` : '';
+      const result = [{ kind: 'text', mime: 'text/plain', name, data, text: cut(`[${doc.source}, converted to text]\n${text || '[No readable text was found.]'}${imageNote}`) }];
+      images.forEach((image, index) => {
+        const ext = image.mime === 'image/jpeg' ? 'jpg' : image.mime.slice('image/'.length);
+        result.push({ kind: 'image', mime: image.mime, name: cleanName(`${name} embedded ${index + 1} ${image.sourceName.replace(/\.[^.]+$/, '')}.${ext}`), data: image.data, extractedFrom: name });
+      });
+      return result;
     }
-    if (sniffed === 'application/x-ole') return unreadable('an old Microsoft Office file; saving it as .docx, .xlsx or .pptx makes it readable');
+    if (sniffed === 'application/x-ole') {
+      const extension = name.toLowerCase().split('.').pop();
+      const format = ({ doc: 'Word', xls: 'Excel', ppt: 'PowerPoint' })[extension];
+      return unreadable(format
+        ? `a legacy ${format} binary document (.${extension}); this server does not yet have a safe legacy Office parser. Open it in Office or LibreOffice and save/export it as .${extension === 'doc' ? 'docx' : extension === 'xls' ? 'xlsx' : 'pptx'} or PDF, then upload the converted file`
+        : 'a legacy Microsoft Office binary file; save/export it as .docx, .xlsx, .pptx or PDF before uploading');
+    }
     if (sniffed === 'text/rtf') {
       const text = rtfText(bytes.toString('latin1'));
       return text ? { kind: 'text', mime: 'text/plain', name, data, text: cut('[RTF document, converted to text]\n' + text) } : unreadable('an RTF file with no readable text');

@@ -73,7 +73,9 @@ test('web search: Responses API with the web_search tool; answer with sources; r
     const r = await (await postJson(srv.url + '/v1/chat', { message: 'What is the weather in Cebu today?' }, bearer(USER_TOKEN))).json();
     assert.match(r.message.content, /sunny in Cebu[\s\S]*\*\*Sources\*\*\n- \[Cebu weather\]\(<https:\/\/weather\.example\.com\/cebu>\)/);
     assert.equal(calls[0].url, 'https://api.openai.com/v1/responses');
-    assert.deepEqual(calls[0].body.tools, [{ type: 'web_search' }]);
+    assert.deepEqual(calls[0].body.tools, [{ type: 'web_search', search_context_size: 'medium' }]);
+    assert.deepEqual(calls[0].body.include, ['web_search_call.action.sources']);
+    assert.match(calls[0].body.instructions, /Prefer primary and authoritative sources/);
     assert.equal(provider.calls.length, 0, 'the search answered; no second model call');
     const e = built.store.usage.at(-1);
     assert.deepEqual([e.task, e.model], ['web', 'gpt-6-luna']);
@@ -258,4 +260,45 @@ test('YouTube search is disabled without an API key and handles upstream failure
   assert.deepEqual(await disabled.search('tutorial'), { available: false, videos: [] });
   const failing = createYouTubeSearch({ apiKey: 'test-key', fetchImpl: async () => new Response('', { status: 403 }) });
   assert.deepEqual(await failing.search('tutorial'), { available: true, videos: [] });
+});
+
+
+test('web intent detection covers public-entity questions and source-seeking research without browsing timeless basics', () => {
+  assert.equal(needsWeb('Who is Fei-Fei Li?'), true);
+  assert.equal(needsWeb('What is OpenAI?'), true);
+  assert.equal(needsWeb('Compare Claude and OpenAI models'), true);
+  assert.equal(needsWeb('Find the best AI coding tools'), true);
+  assert.equal(needsWeb('Show reviews of the latest iPhone'), true);
+  assert.equal(needsWeb('Find peer-reviewed papers on ocean warming'), true);
+  assert.equal(needsWeb('Explain photosynthesis'), false);
+  assert.equal(needsWeb('What is a variable?'), false);
+  assert.equal(needsWeb('Can NasrinAI browse the internet?'), false);
+});
+
+
+test('web search uses deeper context for research and asks for evidence quality', async () => {
+  let body;
+  const ws = createWebSearch({ apiKey: 'sk-x', model: 'gpt-6-luna', fetchImpl: async (_url, init) => {
+    body = JSON.parse(init.body);
+    return Response.json({ output: [
+      { type: 'web_search_call', action: { sources: [{ url: 'https://official.example.com/docs' }] } },
+      { type: 'message', content: [{ type: 'output_text', text: 'A sourced comparison.', annotations: [{ type: 'url_citation', url: 'https://official.example.com/docs', title: 'Official docs' }] }] }
+    ], usage: { input_tokens: 30, output_tokens: 10 } });
+  } });
+  const result = await ws.search({ system: 'Answer carefully.', messages: [{ role: 'user', content: 'Research and compare official documentation and peer-reviewed papers across multiple sources.' }] });
+  assert.equal(body.tools[0].search_context_size, 'high');
+  assert.deepEqual(body.include, ['web_search_call.action.sources']);
+  assert.match(body.instructions, /cross-check with more than one credible source/);
+  assert.match(body.instructions, /flag uncertainty, disagreement/);
+  assert.equal(result.citations[0].url, 'https://official.example.com/docs');
+});
+
+test('broadened web intent patterns use working word boundaries', () => {
+  assert.equal(needsWeb('Who is Fei-Fei Li?'), true);
+  assert.equal(needsWeb('What is OpenAI?'), true);
+  assert.equal(needsWeb('Compare Claude and OpenAI models'), true);
+  assert.equal(needsWeb('Find the best AI coding tools'), true);
+  assert.equal(needsWeb('Find peer-reviewed papers on ocean warming'), true);
+  assert.equal(needsWeb('Explain photosynthesis'), false);
+  assert.equal(needsWeb('Can NasrinAI browse the internet?'), false);
 });

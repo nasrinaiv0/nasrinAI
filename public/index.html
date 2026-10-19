@@ -24,6 +24,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <script src="/theme.js"></script>
   <link rel="stylesheet" href="/app.css">
+  <script src="/image-crop.js" defer></script>
   <link rel="stylesheet" href="/voice-liquid-glass.css">
   <script src="/character.js" defer></script>
   <script src="/voice-wave.js" defer></script>
@@ -56,8 +57,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 12.6A8.5 8.5 0 1 0 6 6"/><path d="M6.4 2.9 6 6l3.1.5"/><path d="M12 7.6V12l3 1.8"/></svg><span>Your chats</span>
     </button>
     <button type="button" class="desktop-rail-action" id="desktopCodeBtn" aria-label="Open the coding chat">
-    <button type="button" class="desktop-rail-action" id="desktopResearchBtn" aria-label="Open research workspace"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M7.5 10.5h6M10.5 7.5v6"/></svg><span>Research</span></button>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></svg><span>Code</span>
+    </button>
+    <button type="button" class="desktop-rail-action" id="desktopResearchBtn" aria-label="Open research workspace">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M7.5 10.5h6M10.5 7.5v6"/></svg><span>Research</span>
     </button>
     <button type="button" class="desktop-rail-action" id="desktopGithubBtn" aria-label="Plugins">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0zM12 17v4"/></svg><span>Plugins</span>
@@ -787,6 +790,8 @@
     <p class="setting-hint">Plugins connect Nasrin to your other apps.</p>
     <p class="plugins-group" id="pluginsConnectedLabel" hidden>Connected</p>
     <div id="pluginsConnected"></div>
+    <p class="plugins-group" id="pluginsGoogleLabel" hidden>Google</p>
+    <div id="pluginsGoogle"></div>
     <p class="plugins-group" id="pluginsDevLabel">Developer</p>
     <div id="pluginsDev">
       <div class="plugin-card" id="ghCard">
@@ -972,13 +977,6 @@
       <button type="button" class="hero" id="hero" aria-label="Say hi to Nasrin"></button>
       <h1 class="greeting">Hi, I’m Nasrin.</h1>
       <p class="lede">Ask me anything, in any language.</p>
-      <div class="starters" id="starters">
-        <button type="button" class="starter" data-starter-action="space">Go to your space</button>
-        <button type="button" class="starter" data-starter-action="library">Check your library</button>
-        <button type="button" class="starter" data-starter-action="coding">Start coding</button>
-        <button type="button" class="starter" data-starter-action="connect">Connect your website</button>
-        <button type="button" class="starter" id="starterImage">Create image</button>
-      </div>
     </section>
   </main>
 

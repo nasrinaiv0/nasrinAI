@@ -24,7 +24,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1569,6 +1569,59 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Resolve public TikTok/Facebook URLs using their official oEmbed APIs.
+      // Only allowlisted provider hosts are accepted; upstream HTML is never
+      // returned to the client or injected into the page.
+      method: 'GET',
+      path: '/v1/social/oembed',
+      scope: 'chat',
+      handler: async ({ req, ip }) => {
+        if (!(await limiter.siteIcon(ip))) throw new HttpError(429, 'rate_limited', 'Too many embed requests.');
+        const raw = new URL(req.url, 'http://localhost').searchParams.get('url') || '';
+        if (!raw || raw.length > 2048) throw new HttpError(400, 'invalid_url', 'Invalid social video URL.');
+        let url;
+        try { url = new URL(raw); } catch { throw new HttpError(400, 'invalid_url', 'Invalid social video URL.'); }
+        if (url.protocol !== 'https:') throw new HttpError(400, 'invalid_url', 'Only HTTPS social URLs are supported.');
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        let provider = '';
+        let upstream = '';
+        let embedUrl = '';
+        if (host === 'tiktok.com' || host === 'm.tiktok.com') {
+          const match = url.pathname.match(/^\/@[A-Za-z0-9._-]+\/video\/(\d+)/);
+          if (!match) throw new HttpError(400, 'invalid_url', 'Use a direct TikTok video link.');
+          provider = 'tiktok';
+          upstream = 'https://www.tiktok.com/oembed?url=' + encodeURIComponent(url.href);
+          embedUrl = 'https://www.tiktok.com/player/v1/' + match[1] + '?controls=1&play_button=1&description=1';
+        } else if (host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch') {
+          if (host === 'fb.watch' && !/^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw new HttpError(400, 'invalid_url', 'Invalid Facebook video URL.');
+          if (host !== 'fb.watch' && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) {
+            throw new HttpError(400, 'invalid_url', 'Use a direct public Facebook post or video link.');
+          }
+          provider = 'facebook';
+          const endpoint = /\/videos\/|\/reel\//i.test(url.pathname) || url.searchParams.has('v') ? 'oembed_video' : 'oembed_post';
+          upstream = 'https://graph.facebook.com/v26.0/' + endpoint + '?url=' + encodeURIComponent(url.href) + '&omitscript=true';
+          embedUrl = 'https://www.facebook.com/plugins/' + (endpoint === 'oembed_video' ? 'video.php' : 'post.php') + '?href=' + encodeURIComponent(url.href) + '&show_text=true&width=500';
+        } else {
+          throw new HttpError(400, 'unsupported_provider', 'Only TikTok and Facebook URLs are supported.');
+        }
+        // oEmbed metadata is helpful, but it is not the player. In particular,
+        // Meta's Graph oEmbed endpoint can reject requests without an app token
+        // even when the public video plugin can still render the post. Keep the
+        // validated, provider-specific player URL usable when metadata lookup
+        // fails; the provider itself remains responsible for privacy/playback.
+        let data = {};
+        try {
+          const response = await fetch(upstream, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
+          if (response.ok) {
+            try { data = await response.json(); } catch { data = {}; }
+          }
+        } catch {
+          // A metadata outage must not prevent the public embed from loading.
+        }
+        return { provider, type: String(data.type || (provider === 'tiktok' ? 'video' : 'rich')).slice(0, 32), title: String(data.title || (provider === 'tiktok' ? 'TikTok video' : 'Facebook video/post')).slice(0, 240), embedUrl, sourceUrl: url.href };
+      }
+    },
+    {
       // Search public Wikimedia Commons photos. Image URLs are limited to Wikimedia's
       // upload host and every result includes its source page and license metadata.
       method: 'GET',
@@ -1674,6 +1727,41 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.get(caller, params.id) };
+      }
+    },
+    {
+      // Raw audio bytes avoid base64 expansion. Keep this below serverless request limits.
+      // The browser sends the filename in the query and the MIME type in Content-Type.
+      method: 'POST',
+      path: '/v1/transcriptions',
+      scope: 'chat',
+      raw: true,
+      maxBody: 4 * 1024 * 1024,
+      handler: async ({ req, raw, caller, ip }) => {
+        if (!transcription?.available) throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
+        await limiter.transcription(caller, ip);
+        const url = new URL(req.url, 'http://local');
+        const name = url.searchParams.get('name') || 'recording.webm';
+        const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+        const language = url.searchParams.get('language') || undefined;
+        const result = await transcription.transcribe({ bytes: raw, name, mime, language });
+        return { body: { text: result.text, characters: result.characters, model: result.model } };
+      }
+    },
+    {
+      // Raw PDF bytes keep the upload simple and avoid browser-side PDF rendering.
+      method: 'POST',
+      path: '/v1/pdf-ocr',
+      scope: 'chat',
+      raw: true,
+      maxBody: 6 * 1024 * 1024,
+      handler: async ({ req, raw, caller, ip }) => {
+        if (!pdfOcr?.available) throw new HttpError(503, 'ocr_unavailable', 'PDF text extraction is not available right now.');
+        await limiter.transcription(caller, ip);
+        const url = new URL(req.url, 'http://local');
+        const name = url.searchParams.get('name') || 'scanned-document.pdf';
+        const result = await pdfOcr.extract({ bytes: raw, name });
+        return { body: { text: result.text, characters: result.characters, model: result.model } };
       }
     },
     {

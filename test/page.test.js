@@ -17,6 +17,8 @@ test('the chat page loads its script and styles as files that the strict CSP all
     assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /youtube-nocookie\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.tiktok\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.facebook\.com/);
     assert.match(html, /<script src="\/app\.js" defer><\/script>/);
 
     for (const [path, type] of [['/app.js', /javascript/], ['/character.js', /javascript/], ['/app.css', /text\/css/], ['/icon.svg', /image\/svg\+xml/], ['/apple-touch-icon.png', /image\/png/], ['/icon-512.png', /image\/png/], ['/logo.png', /image\/png/], ['/favicon.ico', /image\/x-icon/], ['/manifest.webmanifest', /application\/manifest\+json/]]) {
@@ -350,30 +352,86 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
   assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
   assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
-  assert.ok(!js.includes('const sourceIds = sourceLinks.map'), 'unverified links must not be embedded when search returns no playable videos');
+  assert.match(js, /if \(firstCard\) \{\s*section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer and persist its metadata');
+  assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
+  assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
+  assert.match(js, /YouTube links already present in the assistant answer or its citations/);
+  assert.match(js, /if \(!videos\.length \|\| message\.querySelector\('\.youtube-results'\)\) return;/, 'do not skip rendering while the assistant message is being attached');
+  assert.ok(js.includes("message.querySelectorAll('a[href]')"), 'recover YouTube links rendered in the answer');
+  assert.ok(js.includes('on the optional YouTube Data API key'), 'allow valid answer links to render without the optional search API');
+  assert.ok(!js.includes("net('/v1/youtube/verify?id=' + encodeURIComponent(candidate.id)"), 'do not make fallback rendering depend on the optional verification endpoint');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.match(js, /Practical how-to questions should surface a video/);
   assert.match(js, /\/v1\/youtube\/search\?q=/);
-  assert.match(js, /https:\/\/www\.youtube-nocookie\.com\/embed\//);
+  const youtubePlayer = js.slice(js.indexOf('function createYouTubeVideoCard'), js.indexOf('function mountPersistentYouTubePlayer'));
+  assert.ok(youtubePlayer.includes("frame.referrerPolicy = 'strict-origin-when-cross-origin'"), 'set a referrer policy on the iframe');
+  assert.ok(youtubePlayer.includes("frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0'"), 'enable inline playback with the standard YouTube embed URL');
+  assert.ok(youtubePlayer.indexOf('frame.referrerPolicy =') < youtubePlayer.indexOf('frame.src ='), 'configure iframe policy before navigation starts');
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
   assert.match(css, /\.youtube-video-frame/);
-  assert.match(js, /youtube-fullscreen-button/);
-  assert.match(js, /requestFullscreen\(\)/);
-  assert.match(js, /Play video fullscreen/);
-  assert.match(js, /window\.open\('https:\/\/www\.youtube\.com\/watch\?v='/);
-  assert.match(css, /\.youtube-fullscreen-button/);
+  assert.ok(!youtubePlayer.includes('youtube-fullscreen-button'), 'do not add a custom fullscreen overlay over the video');
+  assert.match(js, /frame\.allowFullscreen = true/, 'preserve the native YouTube fullscreen control');
   assert.match(css, /\.youtube-video-frame:fullscreen/);
   assert.match(js, /const PERSISTENT_YOUTUBE_KEY = 'nasrin\.persistentYoutubePlayer'/);
   assert.match(js, /function mountPersistentYouTubePlayer\(video, existingCard = null\)/);
   assert.match(js, /function restorePersistentYouTubePlayer\(\)/);
+  assert.ok(js.includes('Do not delete a saved player because a verification/search API'));
+  assert.ok(js.includes('Keep the most recently surfaced tutorial available when starting a new'));
+  assert.ok(js.includes('localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify({'));
   assert.match(js, /restorePersistentYouTubePlayer\(\);/);
   assert.match(js, /localStorage\.setItem\(PERSISTENT_YOUTUBE_KEY, JSON\.stringify\(state\)\)/);
   assert.match(js, /localStorage\.removeItem\(PERSISTENT_YOUTUBE_KEY\)/);
   assert.match(css, /\.persistent-youtube-player/);
   assert.match(css, /bottom: calc\(var\(--dock-h/);
+  assert.match(js, /function renderSocialEmbeds\(message, links = \[\]\)/);
+  assert.match(js, /renderSocialEmbeds\(el, cited\.links\)/);
+  assert.match(js, /\/v1\/social\/oembed\?url=/);
+  assert.match(js, /embedUrl\.origin === 'https:\/\/www\.tiktok\.com'/);
+  assert.match(js, /embedUrl\.origin === 'https:\/\/www\.facebook\.com'/);
+  assert.match(routes, /path: '\/v1\/social\/oembed'/);
+  assert.match(routes, /https:\/\/www\.tiktok\.com\/oembed\?url=/);
+  assert.match(routes, /https:\/\/graph\.facebook\.com\/v26\.0\//);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
   assert.ok(routes.includes("path: '/v1/youtube/verify'"));
-  assert.ok(js.includes("/v1/youtube/verify?id="));
   assert.match(youtube, /safeSearch: 'moderate'/);
   assert.match(youtube, /maxResults: '5'/);
+});
+
+
+test('chat page loads the client-side image crop tool', async () => {
+  const js = await readFile(new URL('../public/image-crop.js', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.ok(html.includes('<script src="/image-crop.js" defer></script>'));
+  assert.match(js, /canvas\.toBlob/);
+  assert.match(js, /drawImage\(image, sx, sy, sw, sh/);
+  assert.match(app, /NasrinImageCrop\.cropImage/);
+  assert.match(app, /Cropped image added to your message/);
+  assert.match(css, /\.image-crop-overlay/);
+});
+
+test('audio attachment chips expose manual transcription and keep transcript editable', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(app, /className = 'chip-transcribe'/);
+  assert.match(app, /\/v1\/transcriptions\?name=/);
+  assert.match(app, /Transcript added to your message\. Review it before sending\./);
+  assert.match(app, /async function transcribeAudioChunks/);
+  assert.match(app, /MAX_DURATION_SECONDS = 5 \* 60/);
+  assert.match(app, /'Content-Type': 'audio\/wav'/);
+  assert.match(app, /samplesPerChunk = SAMPLE_RATE \* CHUNK_SECONDS/);
+  assert.ok(html.includes('/app.js'));
+});
+
+test('audio attachment MIME and extension checks use valid regex literals', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.ok(app.includes(String.raw`(/^audio\//i.test(f.type || '') || /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name))`));
+});
+
+test('transcript text is joined with real blank lines, not the characters backslash-n', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(app, /'\\\\n\\\\n'/, 'no over-escaped line breaks in app.js');
+  assert.match(app, /transcripts\.filter\(Boolean\)\.join\('\\n\\n'\)/);
+  assert.match(app, /existing \+ '\\n\\n' \+ transcript/);
 });

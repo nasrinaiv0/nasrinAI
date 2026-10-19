@@ -43,6 +43,16 @@ test('normal natural-language creative intent continues to work', () => {
   assert.equal(shortcuts.detect('What is image generation?'), null);
 });
 
+test('natural image enhancement requests route to image editing without requiring the word photo', () => {
+  for (const request of ['make it clear and hd', 'Please upscale this', 'make this less blurry', 'sharpen and improve quality', 'restore this photo in 4K']) {
+    assert.equal(shortcuts.detect(request), 'image', request);
+    assert.equal(shortcuts.isImageEnhancement(request), true, request);
+  }
+  for (const request of ['What is HD image enhancement?', 'How does upscaling work?']) {
+    assert.equal(shortcuts.detect(request), null, request);
+  }
+});
+
 test('system prompt enforces execute-first behavior for supported shortcuts', () => {
   const prompt = buildSystemPrompt();
   assert.match(prompt, /Universal slash commands are explicit task requests/);
@@ -55,5 +65,16 @@ test('image slash commands dispatch directly without optional brief questions or
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(app, /if \(executeFirst\) return makeImage\(job, \{ confirm: false \}\)/);
   assert.match(app, /if \(shortcut && shortcut\.requiresPhoto && !pending\.some/);
+  assert.match(app, /window\.NasrinCreativeIntent\.isImageEnhancement\(text\).*pending\.some/s);
+  assert.match(app, /const directEdit = Boolean\(shortcut \|\| window\.NasrinCreativeIntent\.isImageEnhancement\(text\)\)/);
   assert.match(app, /if \(confirm && !window\.confirm/);
+});
+
+
+test('assistant image markers are extracted even when they follow explanatory prose', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /text\.matchAll\(\/\\\[image:\(\[0-9a-f-\]\{36\}\)\\\]\/g\)/);
+  assert.match(app, /text\.replace\(\/\\s\*\\\[image:\[0-9a-f-\]\{36\}\\\]\\s\*\/g/);
+  assert.match(app, /Show generated images after the reply text/);
+  assert.match(app, /This picture is no longer available\./);
 });

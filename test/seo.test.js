@@ -74,3 +74,15 @@ test('public pages have a description, a canonical address and share tags', asyn
   const chat = await readFile(new URL('../public/chat.html', import.meta.url), 'utf8');
   assert.match(chat, /noindex/, 'shared chat links stay out of search');
 });
+
+test('FAQ and registry pages keep their styles in files, because the page policy blocks inline styles', async () => {
+  for (const [file, css] of [['faq.html', '/faq.css'], ['nasrinai-professional-workforce-registry.html', '/registry.css']]) {
+    const html = await readFile(new URL('../public/' + file, import.meta.url), 'utf8');
+    assert.doesNotMatch(html, /<style[\s>]/, file + ' has no inline <style>');
+    assert.doesNotMatch(html, /\sstyle="/, file + ' has no style attribute');
+    assert.ok(html.includes(`<link rel="stylesheet" href="${css}">`), file + ' links ' + css);
+    const r = await fetch(srv.url + css);
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type'), /text\/css/);
+  }
+});
