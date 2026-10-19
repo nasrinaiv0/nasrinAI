@@ -1,3 +1,12 @@
+## ElevenLabs Video Studio integration (2026-10-20)
+
+- Added the ElevenLabs Developer plugin for Video Studio voice discovery, narration generation, and sound-effect generation, with server-side credentials and Max/Ultra authorization/rate checks.
+- Added private, owner-scoped persistent MP3 assets, preview/download/delete endpoints, project timeline placement/edit/remove APIs, and a dedicated responsive `/studio/` workspace with email-code sign-in.
+- Added FFmpeg-based MP4 export that mixes project timeline audio with source video audio, plus output/input limits, bounded runtime, temporary-file cleanup, and ownership checks.
+- Added migration `030_video_studio_audio_assets.sql`, Supabase Storage upload/remove handling, route/store/UI regression tests, an FFmpeg render integration test, and a CI workflow for tests and secret scanning.
+- Security/product notes: the ElevenLabs key stays server-side; Studio subdomain redirects to the primary host so existing HttpOnly refresh cookies remain same-origin. Dubbing, cloning, music generation, and other ElevenLabs capabilities are not included.
+- **Validation:** local sandbox run: 805 passed, 0 failed, 1 skipped; secret scan found no secrets in 572 files; JavaScript syntax checks passed. GitHub “Tests and security checks” passed. A separate Documentation Gate initially failed because this changelog entry was missing; rerun the gate after this update. Supabase migration application and live deployed Studio/export smoke tests are still pending.
+
 
 ## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
 
