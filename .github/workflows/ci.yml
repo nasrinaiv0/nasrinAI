@@ -31,6 +31,10 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      # ffmpeg-static is a pinned, explicit runtime dependency. Rebuild it here
+      # so the integration test exercises a real FFmpeg binary without enabling
+      # lifecycle scripts for every installed dependency.
+      - run: npm rebuild ffmpeg-static --no-audit --no-fund
       - run: npm test
       - name: Check JavaScript syntax
         run: |
