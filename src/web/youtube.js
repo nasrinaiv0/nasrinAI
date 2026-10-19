@@ -72,14 +72,21 @@ export function createYouTubeSearch({ apiKey = '', fetchImpl = fetch, timeoutMs 
         const statusUrl = new URL(YOUTUBE_VIDEOS_URL);
         statusUrl.search = new URLSearchParams({
           key,
-          part: 'status',
+          part: 'status,contentDetails',
           id: candidates.map((video) => video.id).join(',')
         }).toString();
         const statusResponse = await fetchImpl(statusUrl, { method: 'GET', signal: controller.signal, headers: { Accept: 'application/json' } });
         if (!statusResponse.ok) return { available: true, videos: [] };
         const statusData = await statusResponse.json();
         const embeddable = new Set((Array.isArray(statusData?.items) ? statusData.items : [])
-          .filter((item) => item?.status?.embeddable === true && item?.status?.privacyStatus !== 'private')
+          .filter((item) => {
+            if (item?.status?.embeddable !== true) return false;
+            if (!['public', 'unlisted'].includes(String(item?.status?.privacyStatus || ''))) return false;
+            const restriction = item?.contentDetails?.regionRestriction;
+            if (Array.isArray(restriction?.blocked) && restriction.blocked.includes('PH')) return false;
+            if (Array.isArray(restriction?.allowed) && !restriction.allowed.includes('PH')) return false;
+            return true;
+          })
           .map((item) => String(item.id || ''))
           .filter((id) => VIDEO_ID.test(id)));
         return { available: true, videos: candidates.filter((video) => embeddable.has(video.id)) };

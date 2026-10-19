@@ -214,9 +214,33 @@ test('YouTube search returns only valid embeddable video IDs and keeps the API k
   assert.equal(searchRequest.url.searchParams.get('q'), 'how to configure an app');
   assert.equal(searchRequest.url.searchParams.get('key'), 'test-secret-key');
   assert.equal(searchRequest.options.method, 'GET');
-  assert.equal(statusRequest.url.searchParams.get('part'), 'status');
+  assert.equal(statusRequest.url.searchParams.get('part'), 'status,contentDetails');
   assert.equal(statusRequest.url.searchParams.get('id'), 'abcdefghijk,lmnopqrstuv');
   assert.equal(statusRequest.url.searchParams.get('key'), 'test-secret-key');
+});
+
+test('YouTube search excludes videos blocked in the viewer region', async () => {
+  let calls = 0;
+  const youtube = createYouTubeSearch({
+    apiKey: 'test-key',
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) return Response.json({ items: [
+        { id: { videoId: 'abcdefghijk' }, snippet: { title: 'Blocked in PH', channelTitle: 'Channel' } },
+        { id: { videoId: 'lmnopqrstuv' }, snippet: { title: 'Allowed only elsewhere', channelTitle: 'Channel' } },
+        { id: { videoId: 'zyxwvutsrqp' }, snippet: { title: 'Available in PH', channelTitle: 'Channel' } }
+      ] });
+      return Response.json({ items: [
+        { id: 'abcdefghijk', status: { embeddable: true, privacyStatus: 'public' }, contentDetails: { regionRestriction: { blocked: ['PH'] } } },
+        { id: 'lmnopqrstuv', status: { embeddable: true, privacyStatus: 'public' }, contentDetails: { regionRestriction: { allowed: ['US', 'CA'] } } },
+        { id: 'zyxwvutsrqp', status: { embeddable: true, privacyStatus: 'public' }, contentDetails: {} }
+      ] });
+    }
+  });
+  const result = await youtube.search('trending videos');
+  assert.deepEqual(result.videos.map((video) => video.id), ['zyxwvutsrqp']);
+  const statusRequest = calls > 0;
+  assert.equal(statusRequest, true);
 });
 
 test('YouTube search returns no embeds if embed permission cannot be verified', async () => {
