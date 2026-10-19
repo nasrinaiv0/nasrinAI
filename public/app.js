@@ -1467,7 +1467,7 @@
       }
       const actions = replyActions(text, id, full);
       el.appendChild(actions);
-      if (cited.links.length) sourcesToggle(actions, cited.links);
+      sourcesToggle(actions, cited.links);
       const disclaimer = document.createElement('p');
       disclaimer.className = 'reply-disclaimer';
       disclaimer.setAttribute('role', 'note');
@@ -4060,9 +4060,13 @@
       li.append(a, cite);
       list.appendChild(li);
     }
-    // Credit: the logos and names belong to the sites.
-    const credit = mk('li', 'reply-sources-credit', 'Logos and names belong to their sites and are shown to credit each source.');
-    list.appendChild(credit);
+    // Never imply sources were consulted when none were available.
+    if (links.length) {
+      const credit = mk('li', 'reply-sources-credit', 'Logos and names belong to their sites and are shown to credit each source.');
+      list.appendChild(credit);
+    } else {
+      list.appendChild(mk('li', 'reply-sources-empty', 'No external sources were consulted for this reply.'));
+    }
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'act sources-toggle';
@@ -4081,6 +4085,7 @@
       siteLogo(f, h);
       faces.appendChild(f);
     });
+    b.title = 'Sources & Resources';
     b.append(faces, mk('span', 'src-word', 'Sources'));
     b.addEventListener('click', () => {
       const open = list.hidden;
