@@ -9,7 +9,7 @@ test('ElevenLabs appears once in the Developer plugin catalog and is not falsely
   assert.equal((app.match(/\['ElevenLabs', 'cloud', 'https:\/\/elevenlabs\.io'\]/g) || []).length, 1);
   assert.match(app, /ElevenLabs: \['Video Studio voiceover', 'Sound-effect generation', 'Voice selection', 'MP3 preview and download'/);
   assert.match(app, /: 'Not connected'/);
-  assert.ok(plugins.includes('Video Studio voiceover and sound-effect generation'));
+  assert.ok(plugins.includes('Video Studio voiceover/effects, persistent audio assets, and project timeline controls'));
   assert.match(spec, /server-side `ELEVENLABS_API_KEY`/);
   assert.match(spec, /Phase 1 API/);
 });
