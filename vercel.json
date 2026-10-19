@@ -33,6 +33,16 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "studio.nasrinai.com"
+        }
+      ],
+      "destination": "/video-studio.html"
+    },
+    {
       "source": "/chat/:code",
       "destination": "/chat.html"
     },
