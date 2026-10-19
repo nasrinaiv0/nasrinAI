@@ -6247,14 +6247,43 @@
         return true;
       }
       if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) return false;
-      const pc = new RTCPeerConnection();
+      // STUN is required for reliable candidate discovery across common NATs.
+      // Configure a TURN relay for restrictive networks in production.
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      vc.realtimePc = pc;
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed') {
+          closeVoice('Realtime voice lost its network connection. Please reconnect.');
+        } else if (pc.connectionState === 'disconnected' && vc.realtime) {
+          voiceState('thinking', 'Restoring voice connection…');
+        }
+      };
       const events = pc.createDataChannel('oai-events');
       const audio = vc.audioEl || document.createElement('audio');
       vc.audioEl = null;
       audio.autoplay = true; audio.playsInline = true; audio.setAttribute('aria-hidden', 'true'); audio.style.display = 'none';
       if (!audio.isConnected) document.body.appendChild(audio);
-      pc.ontrack = (e) => { audio.srcObject = e.streams[0]; audio.play().catch(() => {}); };
+      pc.ontrack = (e) => {
+        audio.srcObject = e.streams[0];
+        audio.play().catch(() => {
+          // Never swallow autoplay failures: the session may be connected but
+          // silent until the user performs a playback-enabling gesture.
+          voiceState('paused', 'Audio playback is blocked. Tap to enable sound.');
+          const resume = () => {
+            audio.play().then(() => {
+              document.removeEventListener('pointerdown', resume);
+              document.removeEventListener('keydown', resume);
+              if (vc.realtime) voiceState('listening', 'Listening…');
+            }).catch(() => {});
+          };
+          document.addEventListener('pointerdown', resume, { once: true });
+          document.addEventListener('keydown', resume, { once: true });
+        });
+      };
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      vc.realtimeStream = stream;
       stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
       window.NasrinVoiceWave?.attach(stream);   // the wave follows your voice level
       events.addEventListener('message', (ev) => {
@@ -6272,9 +6301,32 @@
           voiceState('listening', 'Listening…'); Nasrin.talk(0);
         } else if (msg.type === 'error') closeVoice(msg.error?.message || 'Realtime voice stopped. Please try again.');
       });
-      const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      // The SDP endpoint needs the gathered ICE candidates. Posting the initial
+      // offer immediately can produce a connection that never establishes.
+      if (pc.iceGatheringState !== 'complete') {
+        await new Promise((resolve) => {
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            pc.removeEventListener('icegatheringstatechange', onGathering);
+            resolve();
+          };
+          const onGathering = () => {
+            if (pc.iceGatheringState === 'complete') finish();
+          };
+          const timeout = setTimeout(finish, 5000);
+          pc.addEventListener('icegatheringstatechange', onGathering);
+          onGathering();
+        });
+      }
+      const localSdp = pc.localDescription?.sdp;
+      if (!localSdp) throw new Error('Realtime offer could not be created.');
       const answer = await fetch('https://api.openai.com/v1/realtime/calls', {
-        method: 'POST', headers: { Authorization: 'Bearer ' + session.value, 'Content-Type': 'application/sdp' }, body: offer.sdp
+        method: 'POST', headers: { Authorization: 'Bearer ' + session.value, 'Content-Type': 'application/sdp' }, body: localSdp
       });
       if (!answer.ok) throw new Error('Realtime connection could not be established.');
       await pc.setRemoteDescription({ type: 'answer', sdp: await answer.text() });
