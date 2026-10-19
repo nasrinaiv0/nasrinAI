@@ -46,6 +46,12 @@ Configure these server-side environment variables in Vercel/Render:
 
 Add `https://<your-app-domain>/v1/linkedin/callback` to the LinkedIn app's authorized redirect URLs. Run `db/migrations/043_linkedin_connections.sql` in Supabase after verifying the current production schema. Tokens are encrypted with the existing connector secret key; the table denies browser-role access. Do not expose tokens to the browser or logs.
 
+## Official LinkedIn references
+
+- [Getting access to LinkedIn APIs](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access)
+- [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api)
+- [LinkedIn API Terms of Use](https://www.linkedin.com/legal/l/api-terms-of-use)
+
 ## Important API limitation
 
 LinkedIn's official APIs are product- and permission-gated; OAuth sign-in is not a general-purpose LinkedIn search API. This integration can retrieve authorized organization posts only if LinkedIn approves the relevant scope and the connected member has the required organization role. It does **not** implement global search over every member's posts, jobs, salary discussions, workplace reviews, opportunities, or terms. Those five categories (and global posts) must not be represented as LinkedIn API results without a supported approved endpoint. Use the existing public-web research pipeline for other accessible sources and label those sources separately.
