@@ -31,45 +31,58 @@
     card.append(header);
 
     const visual = el('div', 'genui-visual');
-    if (payload.type === 'architecture') {
-      const nodes = Array.isArray(payload.nodes) ? payload.nodes.slice(0, MAX_NODES) : [];
-      if (!nodes.length) return null;
+    const suppliedNodes = Array.isArray(payload.nodes) ? payload.nodes.slice(0, MAX_NODES) : [];
+    // A metrics-only payload still gets a useful illustrative topology, rather than a row of buttons and cards.
+    const nodes = payload.type === 'architecture' || suppliedNodes.length
+      ? suppliedNodes
+      : [
+          { label: 'Clients', detail: 'Web and mobile requests' },
+          { label: 'Cloud CDN', detail: 'Edge cache and delivery' },
+          { label: 'Load Balancer', detail: 'Routes requests to healthy instances' },
+          { label: 'Application Servers', detail: 'Processes requests and scales with demand' },
+          { label: 'Database', detail: 'Persists application data' }
+        ];
+    if (nodes.length) {
+      const diagram = el('div', 'genui-diagram');
+      diagram.setAttribute('role', 'group');
+      diagram.setAttribute('aria-label', 'Illustrative system architecture diagram');
+      const legend = el('div', 'genui-diagram-legend');
+      legend.append(el('span', 'genui-live-dot'));
+      legend.append(el('span', 'genui-diagram-legend-text', 'REQUEST FLOW'));
+      legend.append(el('span', 'genui-diagram-caption', 'Illustrative topology'));
+      diagram.append(legend);
       const flow = el('div', 'genui-flow');
       flow.setAttribute('role', 'list');
-      flow.setAttribute('aria-label', 'Architecture flow');
+      flow.setAttribute('aria-label', 'Architecture components');
       nodes.forEach((item, index) => {
         if (index) {
           const connector = el('div', 'genui-connector');
           connector.setAttribute('aria-hidden', 'true');
           connector.append(el('span', 'genui-connector-line'));
+          connector.append(el('span', 'genui-connector-arrow', '›'));
           flow.append(connector);
         }
-        const node = el('div', 'genui-node');
-        node.setAttribute('role', 'button');
-        node.setAttribute('tabindex', '0');
+        const node = el('button', 'genui-node', undefined);
+        node.type = 'button';
         node.setAttribute('aria-expanded', 'false');
         node.setAttribute('aria-label', text(item?.label, 60) || 'Component');
         node.style.setProperty('--genui-index', String(index));
         const detailText = text(item?.detail, 110);
-        const toggleNode = () => {
-          const expanded = node.getAttribute('aria-expanded') === 'true';
-          node.setAttribute('aria-expanded', String(!expanded));
-          const detail = node.querySelector('.genui-node-detail');
-          if (detail) detail.hidden = expanded;
-        };
-        node.addEventListener('click', toggleNode);
-        node.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleNode(); }
-        });
         node.append(el('span', 'genui-node-index', String(index + 1).padStart(2, '0')));
         node.append(el('strong', 'genui-node-label', text(item?.label, 60) || 'Component'));
+        node.append(el('span', 'genui-node-hint', 'SYSTEM COMPONENT'));
         const detail = el('span', 'genui-node-detail', detailText);
         detail.hidden = true;
         if (detail.textContent) node.append(detail);
-        node.setAttribute('title', 'Select to show or hide details');
+        node.addEventListener('click', () => {
+          const expanded = node.getAttribute('aria-expanded') === 'true';
+          node.setAttribute('aria-expanded', String(!expanded));
+          detail.hidden = expanded;
+        });
         flow.append(node);
       });
-      visual.append(flow);
+      diagram.append(flow);
+      visual.append(diagram);
     }
 
     const metricWrap = el('div', 'genui-metrics');
