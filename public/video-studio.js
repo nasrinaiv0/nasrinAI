@@ -194,7 +194,7 @@
   let renderObjectUrl=null;
   function waitForMedia(media,event,timeout=15000){
     return new Promise((resolve,reject)=>{
-      if(event==='loadedmetadata'&&media.readyState>=1)return resolve();
+      if((event==='loadedmetadata'&&media.readyState>=1)||(event==='load'&&media.complete&&media.naturalWidth>0))return resolve();
       const timer=setTimeout(()=>{cleanup();reject(new Error('Timed out loading timeline media.'));},timeout);
       const ok=()=>{cleanup();resolve();},bad=()=>{cleanup();reject(new Error('A timeline clip could not be loaded in this browser.'));};
       function cleanup(){clearTimeout(timer);media.removeEventListener(event,ok);media.removeEventListener('error',bad);}
@@ -230,14 +230,14 @@
     const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
     const ctx=canvas.getContext('2d',{alpha:false});
     const canvasStream=canvas.captureStream(fps);
-    let audioContext=null,recorder=null,raf=0,blobParts=[];
+    let audioContext=null,audioDestination=null,recorder=null,raf=0,blobParts=[];
     const temporaryUrls=[];
     button.disabled=true;button.textContent='Preparing renderer…';progress.hidden=false;progress.value=0;link.hidden=true;status.textContent='Preparing timeline media…';
     try{
       const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(type=>MediaRecorder.isTypeSupported(type));
       if(!mime)throw new Error('This browser does not expose a supported recording format for timeline export.');
       audioContext=window.AudioContext?new AudioContext():null;
-      const output=new MediaStream([...canvasStream.getVideoTracks(),...(audioContext?audioContext.createMediaStreamDestination().stream.getAudioTracks():[])]);
+      audioDestination=audioContext?audioContext.createMediaStreamDestination():null;\n      const output=new MediaStream([...canvasStream.getVideoTracks(),...(audioDestination?audioDestination.stream.getAudioTracks():[])]);
       if(audioContext)await audioContext.resume();
       recorder=new MediaRecorder(output,{mimeType:mime,videoBitsPerSecond:5000000});
       const recorded=new Promise((resolve,reject)=>{
@@ -245,11 +245,11 @@
         recorder.onerror=()=>reject(new Error('The browser stopped recording unexpectedly.'));
         recorder.onstop=()=>resolve(new Blob(blobParts,{type:mime}));
       });
-      const drawFrame=source=>{
+      const drawFrame=(source,clip)=>{
         ctx.fillStyle='#101014';ctx.fillRect(0,0,width,height);
         if(source&&source.tagName!=='AUDIO')drawCover(ctx,source,width,height);
         const selected=state.clips.find(c=>c.id===state.selected);
-        if(selected?.title){ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(selected.title).slice(0,90),width*.08,height*.84,width*.84);}
+        if(selected?.title){ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(clip.title).slice(0,90),width*.08,height*.84,width*.84);}
       };
       let elapsed=0;
       recorder.start(500);
@@ -259,10 +259,10 @@
         let media;
         if(clip.kind==='image'||(clip.file?.type||'').startsWith('image/')){
           media=new Image();media.src=sourceUrl;await waitForMedia(media,'load');
-          drawFrame(media);const start=performance.now();
-          await new Promise(resolve=>{const tick=now=>{drawFrame(media);const pct=Math.min(1,(now-start)/(duration*1000));progress.value=Math.round(((elapsed+duration*pct)/total)*100);if(pct>=1)resolve();else raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);});
+          drawFrame(media,clip);const start=performance.now();
+          await new Promise(resolve=>{const tick=now=>{drawFrame(media,clip);const pct=Math.min(1,(now-start)/(duration*1000));progress.value=Math.round(((elapsed+duration*pct)/total)*100);if(pct>=1)resolve();else raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);});
         }else{
-          media=document.createElement('video');media.muted=false;media.playsInline=true;media.preload='auto';media.src=sourceUrl;
+          const audioOnly=clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
           await waitForMedia(media,'loadedmetadata');
           if(clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/')){media.style.display='none';document.body.append(media);}
           if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioContext.destination);}
@@ -270,7 +270,7 @@
           await waitForMedia(media,'seeked').catch(()=>{});
           const started=performance.now();await media.play();
           await new Promise((resolve,reject)=>{
-            const tick=now=>{drawFrame(media);const played=(now-started)/1000;progress.value=Math.round(((elapsed+Math.min(duration,played))/total)*100);if(played>=duration||media.ended){media.pause();resolve();}else raf=requestAnimationFrame(tick);};
+            const tick=now=>{drawFrame(media,clip);const played=(now-started)/1000;progress.value=Math.round(((elapsed+Math.min(duration,played))/total)*100);if(played>=duration||media.ended){media.pause();resolve();}else raf=requestAnimationFrame(tick);};
             media.addEventListener('error',()=>reject(new Error('A clip failed during rendering.')), {once:true});raf=requestAnimationFrame(tick);
           });
           media.pause();media.remove();media.src='';
