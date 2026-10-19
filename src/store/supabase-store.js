@@ -1104,6 +1104,53 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       return n;
     },
 
+    async listVideoStudioProjects({ tenantId, userId }) {
+      if (!UUID.test(String(tenantId))) return [];
+      assertOwner('user', userId);
+      const rows = await request('GET', `video_studio_projects?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=100&select=id,name,document,version,created_at,updated_at`);
+      return (rows || []).map((r) => ({ id:r.id, name:r.name, document:r.document, version:r.version, createdAt:r.created_at, updatedAt:r.updated_at }));
+    },
+
+    async getVideoStudioProject({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !UUID.test(String(id))) return null;
+      assertOwner('user', userId);
+      const rows = await request('GET', `video_studio_projects?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id,name,document,version,created_at,updated_at&limit=1`);
+      const r = rows && rows[0];
+      return r ? { id:r.id, name:r.name, document:r.document, version:r.version, createdAt:r.created_at, updatedAt:r.updated_at } : null;
+    },
+
+    async createVideoStudioProject({ tenantId, userId, name, document }) {
+      if (!UUID.test(String(tenantId))) throw new Error('invalid Video Studio tenant');
+      assertOwner('user', userId);
+      const rows = await request('POST', 'video_studio_projects?select=id,name,document,version,created_at,updated_at', {
+        prefer: 'return=representation',
+        body: { tenant_id:tenantId, user_id:userId, name, document, version:1 }
+      });
+      const r = rows && rows[0];
+      if (!r) throw new UpstreamError('Video Studio project insert returned no row');
+      return { id:r.id, name:r.name, document:r.document, version:r.version, createdAt:r.created_at, updatedAt:r.updated_at };
+    },
+
+    async updateVideoStudioProject({ tenantId, userId, id, name, document, expectedVersion }) {
+      if (!UUID.test(String(tenantId)) || !UUID.test(String(id))) return null;
+      assertOwner('user', userId);
+      const filters = `tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}`;
+      const versionFilter = Number.isInteger(expectedVersion) && expectedVersion > 0 ? `&version=eq.${expectedVersion}` : '';
+      const rows = await request('PATCH', `video_studio_projects?${filters}${versionFilter}&select=id,name,document,version,created_at,updated_at`, {
+        prefer: 'return=representation',
+        body: { name, document, version: Number.isInteger(expectedVersion) && expectedVersion > 0 ? expectedVersion + 1 : undefined, updated_at:new Date().toISOString() }
+      });
+      const r = rows && rows[0];
+      return r ? { id:r.id, name:r.name, document:r.document, version:r.version, createdAt:r.created_at, updatedAt:r.updated_at } : null;
+    },
+
+    async deleteVideoStudioProject({ tenantId, userId, id }) {
+      if (!UUID.test(String(tenantId)) || !UUID.test(String(id))) return false;
+      assertOwner('user', userId);
+      const rows = await request('DELETE', `video_studio_projects?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}&id=eq.${id}&select=id`, { prefer:'return=representation' });
+      return Array.isArray(rows) && rows.length > 0;
+    },
+
     async costSince(since) {
       const n = Number(await request('POST', 'rpc/usage_cost_since', { body: { p_since: since.toISOString() } }));
       if (!Number.isFinite(n)) throw new UpstreamError('usage_cost_since returned an unexpected shape');
