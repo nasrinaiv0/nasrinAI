@@ -77,7 +77,9 @@
       prompt:safe($('prompt').value).slice(0,1800),
       clips:state.clips.slice(0,30).map((c,i)=>({order:i+1,name:safe(c.name).slice(0,100),kind:c.kind,duration:Number(c.duration)||0,title:safe(c.title||'').slice(0,140),video_id:c.videoId||null})),
       generated:state.generated.slice(0,20).map(c=>({name:safe(c.name).slice(0,100),video_id:c.videoId||null,duration:Number(c.duration)||0})),
-      note:'This is a project brief shared from the current Studio browser draft. Media files themselves are not attached. Help me continue planning or editing this video in chat.'
+      audio_assets:(state.audioAssets||[]).slice(0,20).map(a=>({id:a.id,label:safe(a.label).slice(0,120),kind:a.kind,voice_id:a.voice_id||null,model_id:a.model_id||null,content_url:a.content_url})),
+      audio_timeline:(state.audioTimeline||[]).slice(0,20).map(item=>({asset_id:item.audioAssetId, label:safe(item.asset?.label||'Audio clip').slice(0,120),kind:item.asset?.kind||'audio',start_seconds:item.startSeconds,trim_start_seconds:item.trimStartSeconds,trim_end_seconds:item.trimEndSeconds,gain:item.gain,lane:item.lane})),
+      note:'This project brief includes metadata for saved audio assets and the selected project audio timeline. Audio/video bytes are not attached to chat; NasrinAI can help plan or troubleshoot the project and refer to the provided asset IDs.'
     };
     const encoded=encodeURIComponent(JSON.stringify(project));
     if(encoded.length>7000){notice('This project brief is too large to transfer at once. Remove some timeline clips and try again.',true);return;}
@@ -120,7 +122,9 @@
   }
   function currentProjectContext(){
     const clips=state.clips.slice(0,20).map((c,i)=>`${i+1}. ${safe(c.name)||'Untitled clip'} (${c.kind}, ${Number(c.duration)||0}s)`).join('\n');
-    return ['Current NasrinAI Video Studio project:',`Name: ${safe($('projectName').value)||'Untitled video'}`,`Template: ${state.template}`,`Aspect ratio: ${$('aspect').value}`,`Generation prompt: ${safe($('prompt').value).slice(0,1200)||'(not set)'}`,`Timeline clips:\n${clips||'(none yet)'}`].join('\n');
+    const audio=(state.audioTimeline||[]).slice(0,20).map((item,i)=>`${i+1}. ${safe(item.asset?.label||'Audio clip')} (${item.asset?.kind||'audio'}, start ${item.startSeconds}s, trim ${item.trimStartSeconds}s–${item.trimEndSeconds??'end'}s, gain ${item.gain}, lane ${item.lane}, asset ${item.audioAssetId})`).join('\n');
+    const assets=(state.audioAssets||[]).slice(0,20).map(a=>`${safe(a.label||'Audio asset')} (${a.kind}, id ${a.id})`).join('\n');
+    return ['Current NasrinAI Video Studio project:',`Name: ${safe($('projectName').value)||'Untitled video'}`,`Template: ${state.template}`,`Aspect ratio: ${$('aspect').value}`,`Generation prompt: ${safe($('prompt').value).slice(0,1200)||'(not set)'}`,`Visual timeline clips:\n${clips||'(none yet)'}`,`Saved audio assets:\n${assets||'(none yet)'}`,`Project audio timeline:\n${audio||'(none yet)'}`].join('\n');
   }
   async function sendStudioChat(message){
     const textValue=safe(message).slice(0,6000);if(!textValue||studioChat.busy)return;
