@@ -163,6 +163,14 @@ test('same-site links stay inline, code URLs are not misclassified, and duplicat
   assert.equal(result.links[0].url, 'https://example.com/docs');
 });
 
+test('a reply made only of an external URL leaves an empty body and a resource', async () => {
+  const F = await format();
+  const result = F.sources('https://example.com/only-resource');
+  assert.equal(result.text, '');
+  assert.equal(result.links.length, 1);
+  assert.equal(result.links[0].url, 'https://example.com/only-resource');
+});
+
 test('unsafe source URLs are not treated as trusted citations', async () => {
   const F = await format();
   const reply = 'Answer.\n\n**Sources**\n- [unsafe](<javascript:alert(1)>)';
