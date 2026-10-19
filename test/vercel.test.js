@@ -50,7 +50,10 @@ test('API paths are sent to the function, with the original path passed along', 
   assert.equal(dest('/v1'), '/api/index?__path=/v1');
   assert.equal(dest('/healthz'), '/api/index?__path=/healthz');
   assert.equal(dest('/'), null, 'the main site page stays on the CDN');
-  assert.equal(dest('/', 'studio.nasrinai.com'), '/video-studio.html', 'Studio host serves its dedicated workspace');
+  assert.equal(dest('/', 'studio.nasrinai.com'), null, 'Studio host is redirected before rewrites to preserve same-origin session cookies');
+  const studioRedirect = config.redirects.find(rule => rule.has?.some(host => host.value === 'studio.nasrinai.com'));
+  assert.equal(studioRedirect?.destination, 'https://nasrinai.com/video-studio.html');
+  assert.equal(config.rewrites.some(rule => rule.has?.some(host => host.value === 'studio.nasrinai.com')), false);
   assert.equal(config.functions['api/index.js'].maxDuration, 120);
 });
 
