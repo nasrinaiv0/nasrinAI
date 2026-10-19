@@ -1254,3 +1254,40 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Extended the existing server-side account deletion flow to delete the account's Video Studio cloud projects after the established user-data RPC succeeds.
 - If migration 051 has not yet been applied, only a confirmed missing-table error is tolerated; other deletion errors still propagate rather than being silently ignored.
 - **Validation:** code committed; account deletion tests and CI must verify behavior with and without migration 051.
+
+
+### Video Studio browser-render controls (2026-10-20)
+
+- **Commit:** `cc934aa1647bcdce7f9748b2fdcdae97daed41a1` — `feat: add browser timeline render controls`.
+- Added timeline render action, progress indicator, output link, and clearer browser-rendering copy in the export panel.
+- **Validation:** markup committed; CI pending.
+
+### Video Studio browser renderer (2026-10-20)
+
+- **Commit:** `5625287ddaa1451b5499c1954e8843b7a7fe8faa` — `feat: render timeline video in browser`.
+- Added canvas-based sequential rendering, authenticated retrieval of generated clips, local media support, clip title overlays, progress, and capability-detected MediaRecorder output.
+- **Validation:** implementation committed; browser/device playback and audio checks pending.
+
+### Video Studio browser-render audio and overlay correction (2026-10-20)
+
+- **Commit:** `28cf92c0e7033b2c47076d985fe3d4611d47c416` — `fix: preserve clip audio and titles during browser render`.
+- Route available audio into the recorder output stream, select an audio element for audio-only clips, and render the current clip's title instead of relying on the selected inspector clip.
+- **Validation:** code committed; CI and real-browser render test pending.
+
+### Video Studio renderer responsive styles (2026-10-20)
+
+- **Commit:** `ac0ada62fcf68a4525ee0cd764590bde5adc3349` — `style: add responsive timeline render progress controls`.
+- Styled the render action, progress indicator, and download link for the export panel.
+- **Validation:** CSS committed; visual QA pending.
+
+### Video Studio renderer regression coverage (2026-10-20)
+
+- **Commit:** `2cbf7c7966dd45d0d02eca00e547c549a1a31c33` — `test: cover browser timeline rendering controls`.
+- Added static assertions for renderer controls, browser format detection, duration/clip bounds, audio stream wiring, and error messaging.
+- **Validation:** test added; CI pending.
+
+### Video Studio renderer architecture and limits (2026-10-20)
+
+- **Commit:** `cd61f9d2883cae1ff69761657f0feab0445c10ee` — `docs: document browser timeline renderer limits`.
+- Documented browser rendering behavior, capability-based formats, clip/duration limits, local-media persistence constraints, and remaining cloud-renderer requirements.
+- **Validation:** documentation-only change; CI pending.
