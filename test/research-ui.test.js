@@ -43,11 +43,14 @@ test('Research workspace has responsive mobile and visible keyboard focus styles
   assert.match(styles, /\.research-overlay\[hidden\]\{display:none\}/);
 });
 
-test('professional intelligence remains backend-only with no new UI controls', () => {
-  for (const id of ['professionalSearchForm', 'professionalSearchQuery', 'professionalSearchCategory', 'professionalSearchSource', 'professionalSearchDate', 'professionalSearchLocation', 'professionalSearchOrganization', 'professionalSearchResult', 'professionalSearchGroups', 'linkedinConnect', 'linkedinStatus']) {
-    assert.doesNotMatch(html, new RegExp('id="' + id + '"'));
-  }
-  assert.doesNotMatch(script, /api\('\/v1\/professional-search'/);
-  assert.doesNotMatch(script, /api\('\/v1\/linkedin\/connect'/);
-  assert.doesNotMatch(styles, /professional-search-grid/);
+test('professional job discovery is wired to the public-web endpoint and renders detailed scrollable cards', () => {
+  for (const id of ['professionalSearchForm', 'professionalSearchQuery', 'professionalSearchLocation', 'professionalSearchDate', 'professionalSearchResult', 'professionalSearchCards', 'professionalSearchMore', 'professionalSearchStatus']) assert.match(html, new RegExp('id="' + id + '"'));
+  assert.ok(script.includes("api('/v1/professional-search'"));
+  assert.match(script, /category: 'jobs_hiring', source: 'public_web'/);
+  assert.match(script, /View original listing/);
+  assert.match(script, /Not disclosed/);
+  assert.match(script, /professionalSearchMore/);
+  assert.match(styles, /\.professional-search-cards[^}]*overflow-y:auto/);
+  assert.match(styles, /\.professional-job-card/);
+  assert.match(script, /noopener noreferrer/);
 });
