@@ -114,6 +114,13 @@ test('a status emoji at the start of a heading, item or paragraph becomes an ico
   assert.match(h.className, /st-line/);
 });
 
+test('every assistant reply wires Sources & Resources even when no links were found', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(js, /sourcesToggle\(actions, cited\.links\);/);
+  assert.doesNotMatch(js, /if \(cited\.links\.length\) sourcesToggle/);
+  assert.match(js, /No external sources were consulted for this reply\./);
+});
+
 test('web sources are taken out of the reply text and listed separately (only http links)', async () => {
   const F = await format();
   const reply = 'It is sunny in Cebu.\n\n**Sources**\n- [Cebu weather](<https://weather.example.com/cebu>)\n- [PAGASA](<https://www.pagasa.dost.gov.ph/x?y=1>)';
@@ -133,19 +140,41 @@ test('web sources are taken out of the reply text and listed separately (only ht
   assert.equal(F.sources(mid).links[0].title, 'a');
 });
 
-test('inline links remain in reply prose and are also collected as Sources resources', async () => {
+test('external links are collected into Sources & Resources instead of shown inline', async () => {
   const F = await format();
   const reply = 'Watch [How to do a PERFECT Push Up](https://www.youtube.com/watch?v=IODxDxX7oi4) or visit https://example.com/guide for details.';
   const result = F.sources(reply);
-  assert.equal(result.text, reply, 'do not strip link labels or destinations from the reply');
+  assert.equal(result.text, 'Watch How to do a PERFECT Push Up or visit for details.');
   assert.deepEqual(JSON.parse(JSON.stringify(result.links.map((l) => [l.title, l.url, l.host]))), [
     ['How to do a PERFECT Push Up', 'https://www.youtube.com/watch?v=IODxDxX7oi4', 'youtube.com'],
     ['example.com', 'https://example.com/guide', 'example.com']
   ]);
   const rendered = F.render(result.text).node;
-  const anchors = rendered.all('A');
-  assert.equal(anchors.length, 2, 'both Markdown and bare URLs render as clickable links');
-  assert.equal(anchors[0].textContent, 'How to do a PERFECT Push Up');
-  assert.equal(anchors[0].href, 'https://www.youtube.com/watch?v=IODxDxX7oi4');
-  assert.equal(anchors[1].href, 'https://example.com/guide');
+  assert.equal(rendered.all('A').length, 0, 'external destinations are not left inline');
+});
+
+test('same-site links stay inline, code URLs are not misclassified, and duplicate sources are removed', async () => {
+  const F = await format();
+  const reply = 'See [FAQ](https://nasrinai.com/?faq=1).\n\n\x60\x60\x60js\nconst docs = "https://example.com/docs";\n\x60\x60\x60\n\nSource: [Docs](https://example.com/docs)';
+  const result = F.sources(reply);
+  assert.match(result.text, /\[FAQ\]\(https:\/\/nasrinai\.com\/\?faq=1\)/);
+  assert.match(result.text, /https:\/\/example\.com\/docs/);
+  assert.equal(result.links.length, 1);
+  assert.equal(result.links[0].url, 'https://example.com/docs');
+});
+
+test('a reply made only of an external URL leaves an empty body and a resource', async () => {
+  const F = await format();
+  const result = F.sources('https://example.com/only-resource');
+  assert.equal(result.text, '');
+  assert.equal(result.links.length, 1);
+  assert.equal(result.links[0].url, 'https://example.com/only-resource');
+});
+
+test('unsafe source URLs are not treated as trusted citations', async () => {
+  const F = await format();
+  const reply = 'Answer.\n\n**Sources**\n- [unsafe](<javascript:alert(1)>)';
+  const result = F.sources(reply);
+  assert.equal(result.links.length, 0);
+  assert.match(result.text, /javascript:alert/);
 });

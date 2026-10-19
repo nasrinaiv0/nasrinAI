@@ -289,44 +289,56 @@
       .trim();
   }
 
-  // A web answer ends with a "**Sources**" list of links (src/chat.js). The
-  // page shows them folded under a Sources button instead of in the text.
-  // Only http(s) links are kept; anything else stays in the text as written.
+  // External URLs are collected into the collapsed Sources & Resources control.
+  // Code is masked first so examples and snippets never become accidental citations.
   const SOURCES_BLOCK = /\n*\*\*Sources\*\*\n((?:- \[[^\]\n]*\]\(<[^>\s]+>\)[ \t]*(?:\n|$))+)\s*$/;
   function sources(text) {
     const raw = String(text || '');
-    const block = SOURCES_BLOCK.exec(raw);
-    let visible = block ? raw.slice(0, block.index).trim() : raw;
+    const code = [];
+    const mask = (value, pattern) => value.replace(pattern, (match) => {
+      const token = '\uE000NASRINCODE' + code.length + '\uE001';
+      code.push(match);
+      return token;
+    });
+    let visible = mask(raw, /\x60\x60\x60[\s\S]*?\x60\x60\x60|\x60[^\x60\n]*\x60/g);
+    const block = SOURCES_BLOCK.exec(visible);
+    if (block) visible = visible.slice(0, block.index).trim();
     const links = [];
     const addLink = (title, rawUrl) => {
       let u;
-      try { u = new URL(rawUrl); } catch { return false; }
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+      try { u = new URL(rawUrl, location.origin); } catch { return { ok: false, internal: false }; }
+      if (!['https:', 'http:'].includes(u.protocol) || !u.hostname || u.username || u.password) {
+        return { ok: false, internal: false };
+      }
+      const internal = u.hostname === 'nasrinai.com' || u.hostname.endsWith('.nasrinai.com')
+        || u.hostname === new URL(location.origin).hostname;
+      if (internal) return { ok: true, internal: true };
       const host = u.hostname.replace(/^www\./, '');
       if (!links.some((item) => item.url === u.href)) {
         links.push({ title: String(title || '').trim() || host, url: u.href, host });
       }
-      return true;
+      return { ok: true, internal: false };
     };
     if (block) {
       for (const [, title, url] of block[1].matchAll(/- \[([^\]\n]*)\]\(<([^>\s]+)>\)/g)) {
-        if (!addLink(title, url)) return { text: raw, links: [] };
+        const result = addLink(title, url);
+        if (!result.ok) return { text: raw, links: [] };
       }
     }
-    // Keep links visible and clickable in the reply. Also collect them for the
-    // Sources control so users can open a resource inline or from Sources.
-    visible.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (match, title, url) => {
-      addLink(title, url);
-      return match;
+    // Same-site navigation stays inline; external destinations move into Resources.
+    visible = visible.replace(/\[([^\]\n]+)\]\((?:<(https?:\/\/[^>\s]+)>|(https?:\/\/[^)\s]+))\)/g, (match, title, angled, plain) => {
+      const result = addLink(title, angled || plain);
+      return result.ok && !result.internal ? title : match;
     });
-    // Collect bare URLs too, but do not remove them from the visible reply.
-    visible.replace(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g, (url) => {
-      addLink('', url.replace(/[)\]}]+$/, ''));
-      return url;
+    // Bare external URLs move into Resources too. URLs inside code are masked.
+    visible = visible.replace(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g, (url) => {
+      const cleaned = url.replace(/[)\]}]+$/, '');
+      const result = addLink('', cleaned);
+      return result.ok && !result.internal ? '' : url;
     });
     visible = visible.replace(/[ \t]{2,}/g, ' ').replace(/ +([,.;:!?])/g, '$1').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    visible = visible.replace(/\uE000NASRINCODE(\d+)\uE001/g, (_, n) => code[Number(n)] || '');
     return { text: visible, links: links.slice(0, 20) };
   }
-
   window.NasrinFormat = { render, plain, sources };
 })();

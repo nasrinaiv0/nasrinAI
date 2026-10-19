@@ -8,8 +8,11 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
-      const queryText = (Array.isArray(messages) ? messages : []).map((m) => String(m?.content || '')).join('\n');
-      const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons)\b/i.test(queryText);
+      // Route by the latest user intent, not assistant prose or old unrelated turns.
+      // Keep the previous user turn only to resolve short follow-ups in context.
+      const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
+      const queryText = userMessages.slice(-2).map((m) => String(m?.content || '')).join('\n');
+      const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons|sources? and resources?|references?|bibliography|citations?|cite sources|provide sources|find sources)\b/i.test(queryText);
       const socialVideoIntent = /\b(?:trending|trend|viral|popular|top|latest|public)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos?|show|find|search|any videos?)\b/i.test(queryText);
       const searchContextSize = deepResearch || socialVideoIntent ? 'high' : 'medium';
       const researchInstructions = [
@@ -23,7 +26,7 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
           'Use multiple distinct videos and sources where available. Exclude search-result pages, generic trend reports, hashtag pages, unverifiable examples, and guessed URLs from the video list. Never fabricate creators, views, trend rank, dates, or URLs.',
           'If live search cannot verify individual video URLs, say that plainly, provide the official trend page as a separate fallback, and do not claim it is a list of trending videos. Do not end by asking whether the user wants the list; deliver the best verified list now.'
         ] : []),
-        'Cite sources that directly support the nearby claims. Do not invent sources, dates, statistics, quotations, or consensus.'
+        'Cite sources that directly support the nearby claims. Do not invent sources, dates, statistics, quotations, or consensus. For substantial research, aim for up to ten distinct credible source citations when available; do not pad with duplicates, search pages, or sources that do not support the answer.'
       ].join('\n');
       let resp;
       try {
@@ -68,7 +71,7 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
             }
           }
         }
-        return { text, citations: citations.slice(0, 6) };
+        return { text, citations: citations.slice(0, deepResearch ? 10 : 6) };
       };
 
       if (onText && resp.body) {

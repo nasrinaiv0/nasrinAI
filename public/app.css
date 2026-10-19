@@ -626,6 +626,7 @@ body:not(.has-chat) #newChat { display: none; }
 .reply-source-logo { position: relative; flex: none; width: 1.6rem; height: 1.6rem; border-radius: 0.45rem; display: grid; place-items: center; font: 600 0.7rem/1 var(--round); color: var(--on-ink); background: var(--ink); border: 1px solid var(--line); }
 .reply-source-logo.has-logo img { padding: 3px; box-sizing: border-box; }
 .reply-sources .reply-sources-credit { display: block; padding: 0.35rem 0.6rem 0.2rem; color: var(--ink-3); font-size: 0.72rem; }
+.reply-sources .reply-sources-empty { display: block; padding: 0.55rem 0.65rem; color: var(--ink-3); font-size: 0.82rem; line-height: 1.45; }
 .reply-source-words { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .src-face[data-n="1"] { z-index: 2; background: color-mix(in srgb, var(--ink) 70%, var(--paper)); }
 .src-face[data-n="2"] { z-index: 1; background: color-mix(in srgb, var(--ink) 45%, var(--paper)); }
