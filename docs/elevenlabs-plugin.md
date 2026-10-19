@@ -1,6 +1,6 @@
 # ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: Phase 1 implemented on the feature branch: server-side voice discovery, voiceover MP3 generation, sound-effect MP3 generation, authenticated routes, plan/rate checks, browser preview/download, and live configuration status. Persistent audio assets, timeline placement, and MP4 audio mixing/export are not implemented yet.
+Status: Phase 1 and Phase 2 are implemented on the feature branch: server-side voice discovery, voiceover/effect generation, private persistent audio assets, owner-scoped asset endpoints, project timeline records, preview/download/delete, and timeline placement/update/remove. MP4 audio mixing/export and the dedicated studio.nasrinai.com workspace remain incomplete.
 
 ## Product intent
 
@@ -44,6 +44,16 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 - Record provider action, latency, outcome, and available usage/cost metadata; never log API keys or full private scripts by default.
 - Handle 401/403, 429, 5xx, timeout, malformed responses, quota exhaustion, and storage failure with sanitized actionable errors.
 
+## Implemented APIs
+
+- `GET /v1/video-studio/audio-assets` — list the signed-in user's saved assets.
+- `GET /v1/video-studio/audio-assets/:id/content` — protected MP3 preview/download.
+- `DELETE /v1/video-studio/audio-assets/:id` — delete the asset and its timeline placements.
+- `GET /v1/video-studio/timeline?project_id=...` — list owner-scoped timeline items.
+- `POST /v1/video-studio/timeline` — place a saved asset on an owned project timeline.
+- `PATCH /v1/video-studio/timeline/:id` — update start, trims, gain, or lane.
+- `DELETE /v1/video-studio/timeline/:id?project_id=...` — remove a timeline placement.
+
 ## Implemented Phase 1 API
 
 - `GET /v1/video-studio/elevenlabs/status` — configuration state and enabled capabilities; never returns the key.
@@ -51,7 +61,7 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 - `POST /v1/video-studio/elevenlabs/voiceover` — accepts script text and optional voice/model IDs; returns an MP3 for browser preview/download.
 - `POST /v1/video-studio/elevenlabs/sound-effects` — accepts a prompt and optional duration; returns an MP3 for browser preview/download.
 - Set `ELEVENLABS_API_KEY` in the server/deployment environment only. Never use a `PUBLIC_*` variable for this secret.
-- Generated audio is currently a separate downloadable asset and is **not yet mixed into the final MP4**. Do not claim timeline integration until an editor/assembly pipeline exists and tests prove the exported video contains the selected audio.
+- Generated audio is now persisted in the private `media` Storage bucket with owner-scoped metadata, and timeline placement is saved in the database. It is **not yet mixed into the final MP4**. Apply `db/migrations/030_video_studio_audio_assets.sql` before deploying this branch. The migration expects the existing private `media` bucket and the `projects` table.
 
 ## Server API design (adapt to existing route conventions)
 
@@ -81,8 +91,8 @@ Long-running operations must use the existing durable job pattern if available. 
 
 ## Delivery checklist
 
-1. Inspect Video Studio UI, video/project/job storage, media assembly/export, connector secret storage, usage ledger, plan gates, and existing test helpers.
-2. Implement provider adapter, status, voiceover and sound-effect jobs, audio asset storage, and timeline/export integration.
-3. Add UI states for configuration, loading, preview, apply, progress, failure, retry, and remove.
-4. Update docs/plugins.md, deployment configuration docs, privacy/terms disclosures, and change log as required.
-5. Run full tests; do not merge with failing tests or unverified audio-in-export behavior.
+1. Build the dedicated `studio.nasrinai.com` workspace and ensure authentication works across the main and studio origins without copying bearer tokens into URLs or insecure storage.
+2. Implement MP4 audio mixing/export using a production-supported FFmpeg runtime and enforce output-size, duration, time, and spending limits.
+3. Add export tests that inspect the rendered MP4 and prove timeline audio is present at the intended offsets.
+4. Update privacy/terms disclosures, deployment configuration, and operational documentation.
+5. Run full tests, production build, secret scan, dependency audit, and deployment smoke tests before merge.
