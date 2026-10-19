@@ -182,7 +182,7 @@
   let aiAvailable = true;
   let listening = false;
   // Hands-free voice conversation (see "talking with Nasrin" below).
-  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, geminiState: null, audioCtx: null, audioEl: null };
+  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, realtimeReconnectTimer: null, realtimeRetryCount: 0, geminiState: null, audioCtx: null, audioEl: null };
 
   // ---------- the character ----------
 
@@ -6213,6 +6213,37 @@
     else if (vc.state === 'thinking' && turn) turn.ctrl.abort();
   }
 
+  function scheduleRealtimeReconnect(message = 'Realtime voice connection lost. Please try again.') {
+    if (!vc.on || vc.realtimeReconnectTimer) return;
+    if (vc.realtimeRetryCount >= 3) {
+      closeVoice(message);
+      return;
+    }
+    vc.realtimeRetryCount += 1;
+    const delay = Math.min(1000 * (2 ** (vc.realtimeRetryCount - 1)), 4000);
+    closeRealtimeVoice();
+    voiceState('thinking', 'Restoring voice connection…');
+    vc.realtimeReconnectTimer = setTimeout(async () => {
+      vc.realtimeReconnectTimer = null;
+      if (!vc.on) return;
+      const connected = await startRealtimeVoice();
+      if (connected) {
+        vc.realtimeRetryCount = 0;
+        return;
+      }
+      scheduleRealtimeReconnect(message);
+    }, delay);
+  }
+
+  window.addEventListener('offline', () => {
+    if (vc.on && vc.realtime) voiceState('paused', 'Network unavailable. Reconnecting when online…');
+  });
+  window.addEventListener('online', () => {
+    if (vc.on && vc.realtimeProvider === 'openai') {
+      scheduleRealtimeReconnect('Realtime voice could not reconnect. Please restart voice.');
+    }
+  });
+
   async function startRealtimeVoice() {
     const selected = currentVoice();
     if (!selected.startsWith('ai:')) return false;
@@ -6233,7 +6264,7 @@
           audioElement: vc.audioEl,
           state: (s) => { vc.geminiState = s; vc.realtimeStream = s.stream; window.NasrinVoiceWave?.attach(s.stream); },
           active: () => vc.realtime, muted: () => vc.muted,
-          open: () => { vc.realtimeProvider='gemini'; vc.realtime=true; voiceState('listening','Listening…'); Nasrin.mood('idle'); },
+          open: () => { vc.realtimeRetryCount=0; vc.realtimeProvider='gemini'; vc.realtime=true; voiceState('listening','Listening…'); Nasrin.mood('idle'); },
           input: (t) => { voiceSay('user',t); voiceState('thinking','Thinking…'); },
           output: (t) => { let x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(!x){x=voiceSay('assistant is-live','');x.classList.add('is-realtime');} x.textContent+=t; voiceState('speaking','Talking…'); Nasrin.talk(1); },
           interrupted: () => { voiceState('listening','Listening…'); Nasrin.talk(0); },
@@ -6255,9 +6286,15 @@
       vc.realtimePc = pc;
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'failed') {
-          closeVoice('Realtime voice lost its network connection. Please reconnect.');
+          scheduleRealtimeReconnect('Realtime voice could not reconnect. Please restart voice.');
         } else if (pc.connectionState === 'disconnected' && vc.realtime) {
           voiceState('thinking', 'Restoring voice connection…');
+          // Allow short mobile-network handoffs to recover before replacing the session.
+          setTimeout(() => {
+            if (vc.on && vc.realtimePc === pc && pc.connectionState === 'disconnected') {
+              scheduleRealtimeReconnect('Realtime voice could not reconnect. Please restart voice.');
+            }
+          }, 1800);
         }
       };
       const events = pc.createDataChannel('oai-events');
@@ -6330,7 +6367,7 @@
       });
       if (!answer.ok) throw new Error('Realtime connection could not be established.');
       await pc.setRemoteDescription({ type: 'answer', sdp: await answer.text() });
-      vc.realtimePc = pc; vc.realtimeEvents = events; vc.realtimeStream = stream; vc.realtimeAudio = audio; vc.realtimeProvider = 'openai'; vc.realtime = true;
+      vc.realtimePc = pc; vc.realtimeEvents = events; vc.realtimeStream = stream; vc.realtimeAudio = audio; vc.realtimeProvider = 'openai'; vc.realtime = true; vc.realtimeRetryCount = 0;
       vc.realtimeMaxSeconds = Number(session.max_seconds) || 900;
       clearTimeout(vc.realtimeTimer);
       vc.realtimeTimer = setTimeout(() => { if (vc.realtime) closeVoice('This realtime session reached its tier limit. Start a new session to continue.'); }, Math.max(60, vc.realtimeMaxSeconds) * 1000);
@@ -6368,6 +6405,7 @@
     stopSpeaking();
     closePlus();
     vc.on = true;
+    vc.realtimeRetryCount = 0;
     vc.muted = false;
     vc.quick = 0;
     // Phones (iOS above all) only let sound start from the tap itself: make
@@ -6401,6 +6439,9 @@
   function closeVoice(message) {
     if (!vc.on) return;
     vc.on = false;
+    clearTimeout(vc.realtimeReconnectTimer);
+    vc.realtimeReconnectTimer = null;
+    vc.realtimeRetryCount = 0;
     closeRealtimeVoice();
     vc.run += 1;
     clearTimeout(vc.silence);
