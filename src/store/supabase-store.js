@@ -74,16 +74,19 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
   }
 
   async function mediaRequest(method, path, { bytes, mime = 'application/octet-stream' } = {}) {
+    const deleting = method === 'DELETE';
     let resp;
     try {
-      resp = await fetchImpl(url + '/storage/v1/object/media/' + path, {
+      resp = await fetchImpl(url + (deleting ? '/storage/v1/object/media' : '/storage/v1/object/media/' + path), {
         method,
         headers: {
           apikey: serviceKey,
           Authorization: 'Bearer ' + serviceKey,
-          ...(bytes ? { 'Content-Type': mime, 'x-upsert': 'false' } : {})
+          ...(bytes ? { 'Content-Type': mime, 'x-upsert': 'false' } : {}),
+          ...(deleting ? { 'Content-Type': 'application/json' } : {})
         },
-        body: bytes || undefined,
+        ...(bytes ? { body: bytes } : {}),
+        ...(deleting ? { body: JSON.stringify({ prefixes: [path] }) } : {}),
         signal: AbortSignal.timeout(Math.max(timeoutMs, 60_000))
       });
     } catch (err) {
