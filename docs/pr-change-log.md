@@ -1282,3 +1282,13 @@ The original test used over-escaped regular expressions. The test is being simpl
   - `1930103026330ffec7e584baffa25262c7b124ec` — document conflict-safe integration and remaining browser/media limitations.
 - **Validation at this point:** files were transplanted by stable insertion points and current-main content was preserved; CI for this new branch has not yet completed. No browser/device playback test is claimed.
 - **Known limitations:** Browser-dependent MediaRecorder export; MP4 only where supported, otherwise WebM; maximum 30 clips / 180 seconds; local upload bytes are not durable cloud media; manual export playback/audio synchronization remains required.
+
+
+## 2026-10-20 — Video Studio renderer conflict resolved and merged
+
+- **PR:** #475 — https://github.com/primusco20/nasrinAI/pull/475 (merged by squash).
+- **Merge commit:** `a6584148ea78d34953494a661ca0c477de70b652`.
+- **Original PR:** #474 closed as superseded; its conflicting branch was not merged.
+- **CI evidence before merge:** [CI run 39331276914](https://github.com/primusco20/nasrinAI/actions/runs/39331276914) passed all jobs: test (798 passed, 0 failed, 1 skipped), database tests, and dependency audit. [Documentation gate 39331277058](https://github.com/primusco20/nasrinAI/actions/runs/39331277058) passed.
+- **Conflict resolution:** renderer-only controls/styles/functions were ported onto current `main`; current cloud-project prompt restoration was preserved. No whole-file replacement from the stale branch was used.
+- **Still not verified:** browser/device export playback, audio sync, mobile memory behavior, durable local-media cloud storage, and server-side rendering. The browser renderer is a limited client-side export feature, not a production render worker.
