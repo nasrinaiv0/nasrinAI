@@ -6,6 +6,7 @@ Plugins connect Nasrin to a person's other apps. They live in the menu →
 | Plugin | Status |
 |---|---|
 | GitHub | Built (`docs/github.md`) |
+| ElevenLabs | Developer catalog entry; API connection and TTS actions not yet implemented (`docs/elevenlabs-plugin.md`) |
 | Outlook, OneDrive, Teams, Excel, PowerPoint, Canva | Coming soon (listed only) |
 | Gmail, Google Calendar | Read plus confirmed write actions (when configured with the matching granted scopes) |
 | Google Cloud, Google Meet | Coming soon (listed only) |
