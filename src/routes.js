@@ -1647,7 +1647,7 @@ return { body: { sites: await connect.list(caller) } }; }
           });
           res.end(output);
         } catch (err) {
-          await usageLog?.record?.(caller, { provider: 'ffmpeg', model: 'video-studio-mix', outcome: 'error', task: 'video_studio_export', latencyMs: now() - started }).catch?.(() => {});
+          try { await usageLog?.record?.(caller, { provider: 'ffmpeg', model: 'video-studio-mix', outcome: 'error', task: 'video_studio_export', latencyMs: now() - started }); } catch {}
           throw err;
         }
       }
