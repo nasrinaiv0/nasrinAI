@@ -16,8 +16,11 @@ test('runs in Singapore', () => {
   assert.deepEqual(config.regions, ['sin1']);
 });
 
-test('hourly retention cron is configured', () => {
-  assert.deepEqual(config.crons, [{ path: '/v1/internal/retention', schedule: '0 * * * *' }]);
+test('hourly retention and core crawler crons are configured', () => {
+  assert.deepEqual(config.crons, [
+    { path: '/v1/internal/retention', schedule: '0 * * * *' },
+    { path: '/v1/internal/web-crawl', schedule: '15 * * * *' }
+  ]);
 });
 
 test('the page CSP on Vercel is exactly the one the server sends', () => {
