@@ -7471,6 +7471,10 @@
         label.textContent = 'LinkedIn connection is not configured on this deployment.';
         button.textContent = 'LinkedIn not configured';
         button.disabled = true;
+      } else if (!account || status.requires_sign_in) {
+        label.textContent = 'Sign in to NasrinAI before connecting a LinkedIn account.';
+        button.textContent = 'Sign in to connect LinkedIn';
+        button.disabled = true;
       } else if (status.connected) {
         const capability = status.capabilities?.organization_posts ? 'Organization posts are authorized where your member role permits.' : 'Connected; organization-post access still requires approved permissions.';
         label.textContent = 'Connected as ' + (status.email || 'LinkedIn member') + '. ' + capability;
