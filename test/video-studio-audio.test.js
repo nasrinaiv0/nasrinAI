@@ -152,3 +152,39 @@ test('memory store does not expose audio bytes in asset metadata', async () => {
     await a.close();
   }
 });
+
+test('export route combines only the caller-owned project timeline and returns an MP4 download', async () => {
+  let input;
+  const built = buildTestApp({
+    env: { PLANS_ENABLED: 'false' },
+    elevenlabs: fakeElevenLabs(),
+    videos: { async read(caller, id) { assert.equal(id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'); return { bytes: Buffer.from('source-video'), producedSeconds: 2, targetSeconds: 2 }; } },
+    videoStudioExporter: { available: true, async exportWithAudio(args) { input = args; return Buffer.from('rendered-mp4'); } },
+    verifyUser: async (token) => token === USER_TOKEN ? { id: 'user-1' } : token === OTHER_TOKEN ? { id: 'user-2' } : null
+  });
+  const a = await serve(built.app);
+  try {
+    const project = await built.store.createProject({ tenantId: PLATFORM_TENANT_ID, userId: 'user-1', name: 'Export project' });
+    const asset = await built.store.createVideoStudioAudioAsset({
+      tenantId: PLATFORM_TENANT_ID, ownerType: 'user', ownerId: 'user-1',
+      projectId: project.id, kind: 'voiceover', bytes: Buffer.from('audio')
+    });
+    await built.store.addVideoStudioTimelineItem({
+      tenantId: PLATFORM_TENANT_ID, ownerId: 'user-1', projectId: project.id,
+      audioAssetId: asset.id, startSeconds: 0.25, trimStartSeconds: 0, trimEndSeconds: null, gain: 1, lane: 1
+    });
+    const response = await postJson(a.url + '/v1/video-studio/export', {
+      video_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', project_id: project.id
+    }, bearer(USER_TOKEN));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'video/mp4');
+    assert.equal(response.headers.get('content-disposition'), 'attachment; filename="nasrinai-video-with-audio.mp4"');
+    assert.equal(Buffer.from(await response.arrayBuffer()).toString(), 'rendered-mp4');
+    assert.equal(input.timelineItems.length, 1);
+    assert.equal(input.timelineItems[0].startSeconds, 0.25);
+    assert.equal(input.audioAssets[0].bytes.toString(), 'audio');
+  } finally {
+    await a.close();
+  }
+});
+
