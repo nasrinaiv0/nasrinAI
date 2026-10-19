@@ -29,6 +29,17 @@
       ],
       "destination": "/ncc/",
       "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "studio.nasrinai.com"
+        }
+      ],
+      "destination": "/studio/",
+      "permanent": false
     }
   ],
   "rewrites": [
