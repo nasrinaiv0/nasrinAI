@@ -33,3 +33,17 @@ test('with web search on, the prompt never says NasrinAI cannot browse', () => {
   assert.doesNotMatch(buildSystemPrompt({ web: true }), /Without them you cannot browse/);
   assert.match(buildSystemPrompt(), /Without them you cannot browse/);
 });
+
+
+test('TikTok and social video discovery requests always trigger live web search', () => {
+  for (const q of [
+    'what is trending in tiktok now',
+    'public any videos from tiktok',
+    'show any videos from TikTok',
+    'TikTok public videos trending',
+    'what is viral on Facebook',
+    'show trending Instagram reels',
+    'top YouTube shorts right now'
+  ]) assert.equal(needsWeb(q), true, q);
+  for (const q of ['what is TikTok?', 'how do I upload a video?', 'explain social media']) assert.equal(needsWeb(q), false, q);
+});
