@@ -17,8 +17,69 @@
     value: text(metric?.value, 48),
     hint: text(metric?.hint, 90)
   });
+  function renderMermaid(payload) {
+    const source = text(payload.source, 6000);
+    if (!source || !/^\s*(flowchart|graph)\s+(TD|TB|LR|RL|BT)\b/m.test(source)) return null;
+    const direction = (source.match(/^\s*(?:flowchart|graph)\s+(TD|TB|LR|RL|BT)\b/m) || [])[2] || 'LR';
+    const nodes = [], edges = [], seen = new Set();
+    const addNode = (id, label) => {
+      id = text(id, 40); label = text(label || id, 90);
+      if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) return;
+      if (!seen.has(id) && nodes.length < 12) { seen.add(id); nodes.push({id,label}); }
+    };
+    for (const line of source.split(/\r?\n/).slice(1)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('%%') || /^(classDef|class|style|linkStyle|subgraph|end)\b/.test(trimmed)) continue;
+      const parts = trimmed.split(/\s*(?:-->|---|==>|-.->|--\s+[^-]+\s+-->|<--)\s*/);
+      if (parts.length < 2) {
+        const match = trimmed.match(/^([A-Za-z0-9_-]+)\s*[\[(\{]([\s\S]*?)[\])\}]$/);
+        if (match) addNode(match[1], match[2]);
+        continue;
+      }
+      const ids = [];
+      for (const part of parts) {
+        const m = part.match(/^\s*([A-Za-z0-9_-]+)(?:\s*[\[(\{]([\s\S]*?)[\])\}])?/);
+        if (m) { addNode(m[1], m[2] || m[1]); ids.push(m[1]); }
+      }
+      for (let i=0;i<ids.length-1;i++) if (edges.length<20) edges.push([ids[i],ids[i+1]]);
+    }
+    if (!nodes.length) return null;
+    const card=el('section','genui-card genui-mermaid-card'); card.classList.add('genui-enter');
+    const header=el('header','genui-header');
+    header.append(el('h3','genui-title',text(payload.title,100)||'Mermaid Architecture'));
+    header.append(el('p','genui-subtitle',text(payload.description,220)||'Rendered Mermaid flowchart'));
+    card.append(header);
+    const canvas=el('div','genui-mermaid-canvas');
+    const vertical=direction==='TD'||direction==='TB'||direction==='BT';
+    const width=vertical?320:Math.max(320,nodes.length*178), height=vertical?Math.max(160,nodes.length*76):190;
+    const positions=new Map();
+    nodes.forEach((node,i)=>positions.set(node.id,vertical?{x:width/2,y:32+i*76}:{x:85+i*178,y:76}));
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 '+width+' '+height); svg.setAttribute('role','img'); svg.setAttribute('aria-label','Mermaid architecture flowchart');
+    const defs=document.createElementNS(svg.namespaceURI,'defs'),marker=document.createElementNS(svg.namespaceURI,'marker');
+    marker.setAttribute('id','genui-mermaid-arrow'); marker.setAttribute('markerWidth','8'); marker.setAttribute('markerHeight','8'); marker.setAttribute('refX','6'); marker.setAttribute('refY','3'); marker.setAttribute('orient','auto');
+    const arrow=document.createElementNS(svg.namespaceURI,'path'); arrow.setAttribute('d','M0,0 L0,6 L6,3 z'); arrow.setAttribute('fill','currentColor'); marker.append(arrow); defs.append(marker); svg.append(defs);
+    edges.forEach(([from,to],i)=>{
+      const a=positions.get(from),b=positions.get(to); if(!a||!b)return;
+      const line=document.createElementNS(svg.namespaceURI,'path');
+      line.setAttribute('d',vertical?'M '+a.x+' '+(a.y+22)+' L '+b.x+' '+(b.y-22):'M '+(a.x+67)+' '+a.y+' L '+(b.x-67)+' '+b.y);
+      line.setAttribute('class','genui-mermaid-edge'); line.setAttribute('marker-end','url(#genui-mermaid-arrow)'); line.style.setProperty('--edge-index',String(i)); svg.append(line);
+    });
+    nodes.forEach(node=>{
+      const p=positions.get(node.id),g=document.createElementNS(svg.namespaceURI,'g'); g.setAttribute('class','genui-mermaid-node');
+      const rect=document.createElementNS(svg.namespaceURI,'rect'); rect.setAttribute('x',p.x-67); rect.setAttribute('y',p.y-22); rect.setAttribute('width','134'); rect.setAttribute('height','44'); rect.setAttribute('rx','12'); g.append(rect);
+      const label=document.createElementNS(svg.namespaceURI,'text'); label.setAttribute('x',p.x); label.setAttribute('y',p.y+4); label.setAttribute('text-anchor','middle'); label.textContent=node.label.slice(0,24); g.append(label); svg.append(g);
+    });
+    canvas.append(svg); card.append(canvas);
+    const details=document.createElement('details'); details.className='genui-mermaid-source';
+    const summary=document.createElement('summary'); summary.textContent='View Mermaid source'; details.append(summary);
+    const pre=document.createElement('pre'); pre.textContent=source; details.append(pre); card.append(details);
+    return card;
+  }
+
   function render(payload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    if (payload.type === 'mermaid') return renderMermaid(payload);
     if (payload.type !== 'architecture' && payload.type !== 'metrics') return null;
     const card = el('section', 'genui-card');
     card.setAttribute('aria-label', text(payload.title, 100) || 'Interactive visualization');
