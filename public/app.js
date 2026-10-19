@@ -1774,6 +1774,113 @@
     }
   }
 
+  // Decode audio into bounded, valid PCM WAV chunks. Check duration before
+  // AudioContext decoding because compressed media can expand dramatically in RAM.
+  async function transcribeAudioChunks(file, language, token) {
+    const MAX_SOURCE_BYTES = 100 * 1024 * 1024;
+    const MAX_DURATION_SECONDS = 5 * 60;
+    const SAMPLE_RATE = 16000;
+    const CHUNK_SECONDS = 120;
+    if (file.size > MAX_SOURCE_BYTES) throw new Error('This recording is over 100 MB. Please split it into smaller files before transcription.');
+    const objectUrl = URL.createObjectURL(file);
+    let duration;
+    try {
+      const audio = document.createElement('audio');
+      audio.preload = 'metadata';
+      audio.src = objectUrl;
+      duration = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Audio duration could not be checked safely. Try a shorter WAV, MP3 or M4A file.')), 15000);
+        const cleanup = () => { clearTimeout(timeout); audio.removeAttribute('src'); audio.load(); };
+        audio.onloadedmetadata = () => {
+          const value = audio.duration; cleanup();
+          if (!Number.isFinite(value) || value <= 0) reject(new Error('This recording has no readable duration.'));
+          else resolve(value);
+        };
+        audio.onerror = () => { cleanup(); reject(new Error('This audio format cannot be checked by this browser. Try WAV, MP3 or M4A.')); };
+      });
+      if (duration > MAX_DURATION_SECONDS) throw new Error('For safe mobile processing, transcribe recordings up to five minutes at a time. Split this recording into shorter clips and retry.');
+    } finally { URL.revokeObjectURL(objectUrl); }
+
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) throw new Error('Audio conversion is not supported by this browser.');
+    const context = new AudioContextCtor();
+    let decoded;
+    try { decoded = await context.decodeAudioData(await file.arrayBuffer()); }
+    catch { throw new Error('This audio format cannot be decoded by this browser. Try WAV, MP3 or M4A.'); }
+    finally { await context.close().catch(() => {}); }
+    if (!Number.isFinite(decoded.duration) || decoded.duration <= 0 || decoded.duration > MAX_DURATION_SECONDS) {
+      throw new Error('For safe mobile processing, transcribe recordings up to five minutes at a time.');
+    }
+    const channels = [];
+    for (let c = 0; c < decoded.numberOfChannels; c++) channels.push(decoded.getChannelData(c));
+    const ratio = decoded.sampleRate / SAMPLE_RATE;
+    const mono = new Float32Array(Math.ceil(decoded.length / ratio));
+    for (let i = 0; i < mono.length; i++) {
+      const start = Math.floor(i * ratio);
+      const end = Math.min(decoded.length, Math.max(start + 1, Math.floor((i + 1) * ratio)));
+      let sum = 0, count = 0;
+      for (let j = start; j < end; j++) {
+        let sample = 0;
+        for (const channel of channels) sample += channel[j] || 0;
+        sum += sample / channels.length; count++;
+      }
+      if (count) mono[i] = sum / count;
+    }
+    const samplesPerChunk = SAMPLE_RATE * CHUNK_SECONDS;
+    const transcripts = [];
+    for (let chunk = 0; chunk < Math.ceil(mono.length / samplesPerChunk); chunk++) {
+      const start = chunk * samplesPerChunk;
+      const count = Math.min(samplesPerChunk, mono.length - start);
+      const wav = new ArrayBuffer(44 + count * 2);
+      const view = new DataView(wav);
+      const write = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+      write(0, 'RIFF'); view.setUint32(4, 36 + count * 2, true); write(8, 'WAVE');
+      write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true); view.setUint32(24, SAMPLE_RATE, true);
+      view.setUint32(28, SAMPLE_RATE * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+      write(36, 'data'); view.setUint32(40, count * 2, true);
+      for (let i = 0; i < count; i++) {
+        const sample = Math.max(-1, Math.min(1, mono[start + i]));
+        view.setInt16(44 + i * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
+      }
+      const suffix = '-part-' + String(chunk + 1).padStart(3, '0') + '.wav';
+      const response = await net('/v1/transcriptions?name=' + encodeURIComponent((file.name.replace(/\\.[^.]+$/, '') || 'recording') + suffix) + (language ? '&language=' + encodeURIComponent(language) : ''), {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'audio/wav' },
+        body: new Blob([wav], { type: 'audio/wav' })
+      });
+      if (!response.ok) throw await errorFrom(response);
+      const result = await response.json();
+      if (!result || typeof result.text !== 'string') throw new Error('The transcription service returned an invalid result.');
+      transcripts.push(result.text.trim());
+    }
+    return transcripts.filter(Boolean).join('\\n\\n');
+  }
+
+  // Register seek handlers before changing currentTime so fast decoders cannot
+  // fire seeked between the assignment and listener registration.
+  async function seekVideoTo(video, time, timeoutMs = 10000) {
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onError);
+      };
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error); else resolve();
+      };
+      const onSeeked = () => finish();
+      const onError = () => finish(new Error('Could not seek to a video frame.'));
+      const timeout = setTimeout(() => finish(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), timeoutMs);
+      video.addEventListener('seeked', onSeeked);
+      video.addEventListener('error', onError);
+      try { video.currentTime = time; } catch (error) { finish(error); }
+    });
+  }
+
   function renderTray() {
     tray.replaceChildren(...pending.map((f, i) => {
       const chip = document.createElement('div');
@@ -1859,27 +1966,20 @@
         const transcribe = document.createElement('button');
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
-        transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Split audio first' : 'Transcribe';
-        transcribe.disabled = f.bytes > 4 * 1024 * 1024;
-        if (transcribe.disabled) transcribe.title = 'This upload is limited to 4 MB. Split the recording into shorter clips, then transcribe each clip.';
+        transcribe.textContent = 'Transcribe';
+        transcribe.title = 'Converts supported audio into ordered 2-minute chunks. For safe mobile processing, recordings are limited to five minutes.';
         transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
         transcribe.addEventListener('click', async () => {
           if (transcribe.disabled) return;
           transcribe.disabled = true;
           language.disabled = true;
-          transcribe.textContent = 'Transcribing…';
+          transcribe.textContent = 'Preparing audio…';
           try {
             const token = await credential();
-            const response = await net('/v1/transcriptions?name=' + encodeURIComponent(f.name) + (language.value ? '&language=' + encodeURIComponent(language.value) : ''), {
-              method: 'POST',
-              headers: { Authorization: 'Bearer ' + token, 'Content-Type': f.type || 'application/octet-stream' },
-              body: f.local
-            });
-            if (!response.ok) throw await errorFrom(response);
-            const result = await response.json();
-            if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('No speech was detected in this audio.');
+            const transcript = await transcribeAudioChunks(f.local, language.value, token);
+            if (!transcript) throw new Error('No speech was detected in this audio.');
             const existing = input.value.trim();
-            input.value = existing ? existing + '\n\n' + result.text.trim() : result.text.trim();
+            input.value = existing ? existing + '\\n\\n' + transcript : transcript;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus();
             notice.textContent = 'Transcript added to your message. Review it before sending.';
@@ -1956,18 +2056,46 @@
             // Sample across the clip rather than only its endpoints. Keep a hard
             // cap so large videos cannot create an unbounded number of images.
             const frameCount = duration < 6 ? 3 : 8;
-            const times = [...new Set(Array.from({ length: frameCount }, (_, i) => duration < 6
-              ? [Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))][i]
-              : duration * (i + 0.5) / frameCount))];
+            const times = duration < 6
+              ? [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])]
+              : await (async () => {
+                  const candidateCount = 24;
+                  const candidates = [];
+                  let previousPixels = null;
+                  const probe = document.createElement('canvas');
+                  probe.width = 32;
+                  probe.height = 18;
+                  const probeContext = probe.getContext('2d', { willReadFrequently: true });
+                  if (!probeContext) throw new Error('Frame analysis is not supported by this device.');
+                  for (let i = 0; i < candidateCount; i++) {
+                    const time = duration * (i + 0.5) / candidateCount;
+                    await seekVideoTo(video, time);
+                    probeContext.drawImage(video, 0, 0, probe.width, probe.height);
+                    const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+                    let score = 0;
+                    if (previousPixels) {
+                      for (let p = 0; p < pixels.length; p += 4) {
+                        score += Math.abs(pixels[p] - previousPixels[p]) +
+                          Math.abs(pixels[p + 1] - previousPixels[p + 1]) +
+                          Math.abs(pixels[p + 2] - previousPixels[p + 2]);
+                      }
+                      score /= (pixels.length / 4) * 3 * 255;
+                    }
+                    candidates.push({ time, score });
+                    previousPixels = new Uint8ClampedArray(pixels);
+                  }
+                  const selected = [candidates[0], candidates[7], candidates[15], candidates[23]];
+                  const minGap = duration / 16;
+                  for (const candidate of [...candidates].sort((a, b) => b.score - a.score)) {
+                    if (selected.length >= frameCount) break;
+                    if (selected.every((item) => Math.abs(item.time - candidate.time) >= minGap)) selected.push(candidate);
+                  }
+                  return selected.sort((a, b) => a.time - b.time).slice(0, frameCount).map((item) => item.time);
+                })();
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;
-              video.currentTime = times[index];
-              await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), 10000);
-                video.onseeked = () => { clearTimeout(timeout); resolve(); };
-                video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not seek to a video frame.')); };
-              });
+              await seekVideoTo(video, times[index]);
               const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
               const canvas = document.createElement('canvas');
               canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
