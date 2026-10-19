@@ -106,7 +106,7 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
     };
     for (const [field, [min, max]] of Object.entries(ranges)) {
       if (!(field in b) && !creating) continue;
-      if (field === 'trim_end_seconds' && b[field] == null) { out.trimEndSeconds = null; continue; }
+      if (field === 'trim_end_seconds' && (!(field in b) || b[field] == null)) { if (!creating) out.trimEndSeconds = null; continue; }
       const defaultValue = field === 'start_seconds' || field === 'trim_start_seconds' ? 0 : field === 'gain' ? 1 : 1;
       const value = field in b ? Number(b[field]) : defaultValue;
       if (!Number.isFinite(value) || value < min || value > max || (field === 'lane' && !Number.isInteger(value))) {
