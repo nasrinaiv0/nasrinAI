@@ -10,12 +10,19 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
     async search({ system, messages, maxTokens = 1200, onText = null }) {
       const queryText = (Array.isArray(messages) ? messages : []).map((m) => String(m?.content || '')).join('\n');
       const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons)\b/i.test(queryText);
-      const searchContextSize = deepResearch ? 'high' : 'medium';
+      const socialVideoIntent = /\b(?:trending|trend|viral|popular|top|latest|public)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos?|show|find|search|any videos?)\b/i.test(queryText);
+      const searchContextSize = deepResearch || socialVideoIntent ? 'high' : 'medium';
       const researchInstructions = [
         'Search for evidence that directly answers the user question, not just pages that repeat its wording.',
         'Prefer primary and authoritative sources when available: official documentation, government or institutional data, original research, and direct company announcements.',
         'For material factual claims, cross-check with more than one credible source when feasible. Distinguish independent corroboration from sources that repeat the same report.',
         'Check publication or update dates for time-sensitive claims. Clearly flag uncertainty, disagreement, and gaps instead of guessing.',
+        ...(socialVideoIntent ? [
+          'SOCIAL VIDEO DISCOVERY MODE: the user wants actual videos and a useful list, not merely advice about where to browse. Search for multiple individual public video posts, using targeted searches for direct TikTok video URLs (https://www.tiktok.com/@creator/video/...), Facebook videos/Reels, or other requested platforms. Also check official trend pages for context, but do not substitute a trends landing page for individual videos.',
+          'Return a numbered shortlist of up to five real, currently accessible individual videos. For each, include the post/video title or a brief accurate description, creator when verifiable, platform, region if the source specifies it, and direct canonical post URL. Include the post date only when verifiable. Put direct video links in the answer so the UI can embed supported TikTok and Facebook posts.',
+          'Use multiple distinct videos and sources where available. Exclude search-result pages, generic trend reports, hashtag pages, unverifiable examples, and guessed URLs from the video list. Never fabricate creators, views, trend rank, dates, or URLs.',
+          'If live search cannot verify individual video URLs, say that plainly, provide the official trend page as a separate fallback, and do not claim it is a list of trending videos. Do not end by asking whether the user wants the list; deliver the best verified list now.'
+        ] : []),
         'Cite sources that directly support the nearby claims. Do not invent sources, dates, statistics, quotations, or consensus.'
       ].join('\n');
       let resp;
