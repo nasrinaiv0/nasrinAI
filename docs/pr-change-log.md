@@ -1139,3 +1139,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Fix:** commit `a3d56e8e29bf546dc4aacea0483dcdc55512b83e` updates the test helper to respect host-specific rewrite conditions and adds explicit assertions for both the main site root and the Studio host.
 - **Production configuration:** unchanged. The Studio rewrite is intentional and remains scoped to `studio.nasrinai.com`; this was a test-model defect, not a routing change.
 - **Validation:** the failing assertion is addressed in the regression test. CI has not yet rerun on the fix, so the suite is not yet confirmed passing.
+
+
+### Follow-up correction to the Vercel test edit (2026-10-20)
+
+- **Commit:** `42f0f64c58ebc39e7231ff0fbb7c1b8c7675907e`.
+- The first test edit was malformed because the regular-expression line was truncated, causing a JavaScript `SyntaxError` before the test could execute. Replaced the complete `test/vercel.test.js` with a syntactically complete version, retaining all previous assertions and the new host-aware checks.
+- The earlier behavioral failure and root cause remain as recorded above; this follow-up fixes the edit itself.
+- **Validation:** new CI run is required to confirm the file parses and all tests pass; no pass is claimed yet.
