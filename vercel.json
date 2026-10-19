@@ -29,9 +29,7 @@
       ],
       "destination": "/ncc/",
       "permanent": false
-    }
-  ],
-  "rewrites": [
+    },
     {
       "source": "/",
       "has": [
@@ -40,8 +38,11 @@
           "value": "studio.nasrinai.com"
         }
       ],
-      "destination": "/video-studio.html"
-    },
+      "destination": "/video-studio.html",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
     {
       "source": "/chat/:code",
       "destination": "/chat.html"
