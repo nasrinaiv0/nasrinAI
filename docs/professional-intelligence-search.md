@@ -12,7 +12,8 @@ NasrinAI has a backend-only authenticated professional-intelligence search API f
   "category": "jobs_hiring",
   "location": "Philippines",
   "date_range": "month",
-  "source": "all"
+  "source": "all",
+  "urls": ["https://www.linkedin.com/posts/example-public-post"]
 }
 ```
 
@@ -20,6 +21,7 @@ NasrinAI has a backend-only authenticated professional-intelligence search API f
 - `location`: optional free-text location.
 - `date_range`: `any`, `day`, `week`, `month`, or `year`. Currently this guides public-web discovery; it is not a guarantee of strict date filtering.
 - `source`: `all`, `public_web`, or `linkedin_authorized`.
+- `urls`: optional list of up to five user-supplied public URLs. When provided for `all` or `public_web`, the endpoint hands them to the existing Research agent, which applies its SSRF-safe URL checks, robots.txt handling, and normal page extraction limits. Public LinkedIn pages may still require sign-in or block automated access; this does not bypass those restrictions. For `linkedin_authorized`, results come only from the approved LinkedIn API path.
 - Optional `organization_id` requests authorized LinkedIn organization-post results for the `posts_discussions` category. It is a numeric LinkedIn organization ID, not a member ID.
 - Public-web results and LinkedIn API records remain in separate `professional_search.source_groups`.
 
