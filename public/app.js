@@ -7498,6 +7498,95 @@
   researchOverlay.addEventListener('click', (event) => { if (event.target === researchOverlay) closeResearch(); });
   researchOverlay.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); closeResearch(); } });
   $('researchRefresh').addEventListener('click', refreshResearchHistory);
+  // Public-web professional search. Render every returned listing as a safe, scrollable card.
+  const professionalJobState = { query: '', location: '', date_range: 'any', seen: new Set(), count: 0, loading: false };
+  const professionalText = (value, fallback = 'Not disclosed') => {
+    const text = typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    return text || fallback;
+  };
+  const professionalSafeUrl = (value) => {
+    try { const url = new URL(String(value || '')); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; }
+  };
+  function professionalFactsFor(url, facts) {
+    return facts.filter((fact) => professionalSafeUrl(fact?.url) === url && typeof fact?.fact === 'string').map((fact) => fact.fact.trim()).filter(Boolean);
+  }
+  function professionalField(facts, pattern) {
+    const labeled = facts.find((fact) => pattern.test(fact));
+    if (!labeled) return 'Not disclosed';
+    const split = labeled.match(/^(?:salary|pay|compensation|benefits?|requirements?|qualifications?|responsibilities|duties|company|employer|location|work arrangement|schedule)\s*[:—-]\s*(.+)$/i);
+    return professionalText(split ? split[1] : labeled);
+  }
+  function renderProfessionalJob(source, facts) {
+    const url = professionalSafeUrl(source?.url);
+    if (!url || professionalJobState.seen.has(url)) return false;
+    professionalJobState.seen.add(url);
+    const details = professionalFactsFor(url, facts);
+    const card = document.createElement('article');
+    card.className = 'professional-job-card';
+    const head = document.createElement('div'); head.className = 'professional-job-card-head';
+    const title = document.createElement('h5'); title.textContent = professionalText(source?.title, 'Job opportunity');
+    const company = document.createElement('p'); company.className = 'professional-job-company'; company.textContent = professionalText(source?.company || source?.employer);
+    head.append(title, company);
+    const meta = document.createElement('div'); meta.className = 'professional-job-meta';
+    const addMeta = (label, value) => { const item = document.createElement('span'); item.textContent = label + ': ' + professionalText(value); meta.append(item); };
+    addMeta('Location', source?.location || professionalField(details, /\b(location|based in|remote|hybrid|onsite|on-site)\b/i));
+    addMeta('Salary', source?.salary || professionalField(details, /\b(salary|pay|compensation|hourly rate|per month|per year|\$|₱|PHP)\b/i));
+    const sections = [
+      ['Requirements', source?.requirements || professionalField(details, /\b(requirements?|qualifications?|experience required|must have|skills required|degree)\b/i)],
+      ['Benefits', source?.benefits || professionalField(details, /\b(benefits?|allowance|health insurance|paid leave|bonus|perks)\b/i)],
+      ['Responsibilities', source?.responsibilities || professionalField(details, /\b(responsibilities|duties|you will|role involves|responsible for)\b/i)]
+    ];
+    const body = document.createElement('div'); body.className = 'professional-job-fields';
+    for (const [label, value] of sections) { const section = document.createElement('section'); const h = document.createElement('h6'); h.textContent = label; const p = document.createElement('p'); p.textContent = professionalText(value); section.append(h, p); body.append(section); }
+    if (details.length) { const detail = document.createElement('details'); detail.className = 'professional-job-evidence'; const summary = document.createElement('summary'); summary.textContent = 'More details from the source (' + details.length + ')'; const list = document.createElement('ul'); for (const fact of details) { const li = document.createElement('li'); li.textContent = fact; list.append(li); } detail.append(summary, list); body.append(detail); }
+    const footer = document.createElement('div'); footer.className = 'professional-job-footer';
+    const sourceLabel = document.createElement('span'); sourceLabel.textContent = 'Source: ' + professionalText(source?.title, new URL(url).hostname);
+    const link = document.createElement('a'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer'; link.textContent = 'View original listing ↗';
+    footer.append(sourceLabel, link); card.append(head, meta, body, footer);
+    $('professionalSearchCards').append(card); professionalJobState.count += 1; return true;
+  }
+  function updateProfessionalJobCount() {
+    $('professionalSearchCount').textContent = professionalJobState.count + (professionalJobState.count === 1 ? ' opportunity found' : ' opportunities found');
+    $('professionalSearchResult').hidden = false;
+    $('professionalSearchMore').hidden = professionalJobState.count === 0 || professionalJobState.count >= 40;
+  }
+  async function runProfessionalJobSearch({ more = false } = {}) {
+    if (professionalJobState.loading || professionalJobState.count >= 40) return;
+    const status = $('professionalSearchStatus'); const run = $('professionalSearchRun'); const moreButton = $('professionalSearchMore');
+    professionalJobState.loading = true; run.disabled = true; moreButton.disabled = true;
+    status.textContent = more ? 'Searching for additional distinct listings…' : 'Searching public sources and extracting job details…';
+    try {
+      const query = [professionalJobState.query, 'Find up to 20 distinct publicly accessible job listings. For each listing, extract the exact job title, employer, location/work arrangement, salary or pay range, required qualifications and skills, benefits, responsibilities, and original application/source URL. Return separate source-backed facts for each listing. Explicitly say when a field is not disclosed; never infer or invent missing information. Prioritize variety and direct employer or reputable job-board pages.', more ? 'Find additional listings not already shown; exclude these URLs and titles: ' + Array.from(professionalJobState.seen).slice(0, 40).join(', ') : ''].filter(Boolean).join(' ');
+      const result = await api('/v1/professional-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, category: 'jobs_hiring', source: 'public_web', location: professionalJobState.location, date_range: professionalJobState.date_range }) });
+      const group = result?.professional_search?.source_groups?.find((item) => item.id === 'public_web');
+      const sources = Array.isArray(group?.sources) ? group.sources : (Array.isArray(result?.sources) ? result.sources : []);
+      const facts = Array.isArray(group?.facts) ? group.facts : (Array.isArray(result?.facts) ? result.facts : []);
+      let added = 0;
+      for (const source of sources) { if (renderProfessionalJob(source, facts)) added += 1; if (professionalJobState.count >= 40) break; }
+      for (const fact of facts) {
+        if (professionalJobState.count >= 40) break;
+        const url = professionalSafeUrl(fact?.url); if (!url || professionalJobState.seen.has(url)) continue;
+        const source = sources.find((item) => professionalSafeUrl(item?.url) === url) || { url, title: new URL(url).hostname };
+        if (renderProfessionalJob(source, facts)) added += 1;
+      }
+      updateProfessionalJobCount();
+      if (!added) status.textContent = more ? 'No additional distinct listings were found this time. Try broader keywords or another date range.' : 'No job listings were returned. Try broader keywords or a different location.';
+      else status.textContent = (more ? 'Added ' : 'Found ') + added + ' new listing' + (added === 1 ? '.' : 's. Scroll the results to explore them.');
+    } catch (error) { status.textContent = error.message || 'Job search failed. Please try again.'; }
+    finally { professionalJobState.loading = false; run.disabled = false; moreButton.disabled = false; }
+  }
+  $('professionalSearchForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    professionalJobState.query = $('professionalSearchQuery').value.trim();
+    professionalJobState.location = $('professionalSearchLocation').value.trim();
+    professionalJobState.date_range = $('professionalSearchDate').value || 'any';
+    professionalJobState.seen.clear(); professionalJobState.count = 0;
+    $('professionalSearchCards').replaceChildren();
+    $('professionalSearchResult').hidden = true;
+    await runProfessionalJobSearch();
+  });
+  $('professionalSearchMore').addEventListener('click', () => runProfessionalJobSearch({ more: true }));
+
   $('researchForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const query = $('researchQuery').value.trim();
