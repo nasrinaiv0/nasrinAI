@@ -2,6 +2,7 @@ import { HttpError } from './http/errors.js';
 
 const API_ORIGIN = 'https://api.elevenlabs.io';
 const DEFAULT_MODEL = 'eleven_multilingual_v2';
+const SUPPORTED_MODELS = new Set([DEFAULT_MODEL, 'eleven_turbo_v2_5', 'eleven_flash_v2_5', 'eleven_v3']);
 const MAX_SCRIPT_CHARS = 5_000;
 const MAX_EFFECT_PROMPT_CHARS = 500;
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
@@ -36,9 +37,22 @@ export function createElevenLabs({ apiKey = '', fetchImpl = globalThis.fetch, ti
         if (mime && !['audio/mpeg', 'audio/mp3', 'application/octet-stream'].includes(mime)) {
           throw new HttpError(502, 'elevenlabs_invalid_audio', 'The audio service returned an unsupported file type.');
         }
-        const bytes = Buffer.from(await response.arrayBuffer());
-        if (!bytes.length || bytes.length > MAX_AUDIO_BYTES) throw new HttpError(502, 'elevenlabs_audio_size', 'The generated audio is empty or exceeds the allowed file size.');
-        return bytes;
+        const reader = response.body?.getReader?.();
+        if (!reader) throw new HttpError(502, 'elevenlabs_invalid_audio', 'The audio service returned an unreadable audio stream.');
+        const chunks = [];
+        let total = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          total += value.byteLength;
+          if (total > MAX_AUDIO_BYTES) {
+            await reader.cancel().catch(() => {});
+            throw new HttpError(502, 'elevenlabs_audio_size', 'The generated audio exceeds the allowed file size.');
+          }
+          chunks.push(Buffer.from(value));
+        }
+        if (!total) throw new HttpError(502, 'elevenlabs_audio_size', 'The generated audio is empty.');
+        return Buffer.concat(chunks, total);
       }
       const result = await response.json();
       if (!result || typeof result !== 'object' || Array.isArray(result)) throw new HttpError(502, 'elevenlabs_invalid_response', 'The audio service returned an invalid response.');
@@ -63,7 +77,7 @@ export function createElevenLabs({ apiKey = '', fetchImpl = globalThis.fetch, ti
     const script = typeof text === 'string' ? text.trim() : '';
     if (!script || script.length > MAX_SCRIPT_CHARS) throw new HttpError(400, 'invalid_voiceover_text', 'Enter a voiceover script between 1 and 5,000 characters.');
     if (typeof voiceId !== 'string' || !VOICE_ID.test(voiceId)) throw new HttpError(400, 'invalid_voice_id', 'Choose a valid voice from the available voice list.');
-    if (typeof modelId !== 'string' || !MODEL_ID.test(modelId)) throw new HttpError(400, 'invalid_model_id', 'Choose a valid audio model.');
+    if (typeof modelId !== 'string' || !MODEL_ID.test(modelId) || !SUPPORTED_MODELS.has(modelId)) throw new HttpError(400, 'invalid_model_id', 'Choose a supported audio model.');
     return request('/v1/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=mp3_44100_128', {
       method: 'POST', audio: true, body: { text: script, model_id: modelId }
     });
