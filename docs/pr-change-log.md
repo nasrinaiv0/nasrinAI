@@ -1121,3 +1121,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added a GitHub Actions documentation gate that fails a PR when `docs/pr-change-log.md` is not changed. The template also requires commit-by-commit changelog coverage; reviewers must verify each implementation commit has a corresponding entry.
 - **Enforcement boundary:** the PR gate can verify the changelog is part of the PR, but does not independently prove every commit has its own matching entry. Commit-level coverage remains a review requirement unless a future commit-aware check is added.
 - **Validation:** files and workflow added to `feat/video-studio-mvp`; CI execution and workflow behavior have not yet been confirmed.
+
+
+## Documentation policy enforcement files (2026-10-20)
+
+- `docs/change-documentation-policy.md` defines mandatory commit/PR documentation, test evidence, deeper-document updates, and merge review requirements. The policy was clarified to account for GitHub's file-by-file commit workflow: record every generated commit SHA and purpose in the next changelog update before continuing.
+- `.github/pull_request_template.md` adds required purpose, changes, changelog-per-commit, tests, security/data, deployment, and limitations checklists.
+- `.github/workflows/documentation-gate.yml` checks that each PR changes `docs/pr-change-log.md`; it does not independently prove one-to-one commit coverage, so reviewers must check the PR's commit list against the log.
+- **Policy setup commits:** `808ecc3c27da6c0c62e42631cad8db1af14f7a0f` — policy requirement added to the changelog; `0be28e07a5857a36ae962d577e9e7652701b0000` — policy document created; `c84e65480fc76a57b7c16903be031aed6fc32bac` — PR template created; `f326b020df2bbee89d08865d2818015ae51affa8` — changelog gate workflow created.
+- **Validation:** source files committed to `feat/video-studio-mvp`. GitHub Actions execution and the full test suite are not yet confirmed.
+- This changelog update records the enforcement setup and its follow-up policy clarification; do not treat the documentation gate as proof that every individual commit has a matching entry.
