@@ -202,3 +202,16 @@ Known MVP boundaries:
 - Uploads and unsaved media blobs are browser-session only; local draft metadata does not upload assets.
 - Full composed MP4 export requires a server-side rendering adapter and provider credentials; this branch intentionally does not fake a successful export.
 - The initial templates are original UI concepts, not third-party provider templates.
+
+
+## 16. Main-chat continuity (cross-surface handoff)
+
+Video Studio is a separate workspace at `studio.nasrinai.com`, but it must not become a silo. Users should be able to continue in the main NasrinAI chat without reopening Studio.
+
+The current handoff adds **Continue in chat**:
+- It transfers a compact project brief (project name, template, aspect ratio, current prompt, ordered clip metadata, generated-video job IDs) from the active Studio draft to `nasrinai.com`.
+- The brief is placed in the URL fragment, not the query string, so it is not sent in the HTTP request. Main chat validates the payload, removes the fragment immediately, and pre-fills the composer without auto-sending.
+- The user reviews the brief and explicitly sends it; it then becomes part of that conversation's ordinary chat history.
+- It does not upload media files, grant access to a generated MP4 by ID alone, or synchronize the Studio draft across devices.
+
+**Next persistence milestone:** add owner-scoped cloud projects and asset records so Studio and chat can retrieve the same saved project through authenticated server APIs. The server must enforce the same account/tenant boundary for every read/write; job IDs must be re-authorized against the current caller; media access must use the existing owner-checked video content route or signed, short-lived storage URLs. Never expose provider keys or rely on client-supplied IDs as authorization. Chat should only retrieve a Studio project when the user explicitly selects/mentions it or shares it into the conversation, not inject every Studio project into unrelated chats.
