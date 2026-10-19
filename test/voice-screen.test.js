@@ -53,6 +53,11 @@ test('voice script: no speed control, orb stops talking, realtime lines join up'
   assert.match(js, /Audio playback is blocked\. Tap to enable sound\./);
   assert.match(js, /document\.addEventListener\('pointerdown', resume/);
   assert.doesNotMatch(js, /audio\.play\(\)\.catch\(\(\) => \{\}\)/);
+  assert.match(js, /function scheduleRealtimeReconnect\(/);
+  assert.match(js, /window\.addEventListener\('offline'/);
+  assert.match(js, /window\.addEventListener\('online'/);
+  assert.match(js, /vc\.realtimeRetryCount >= 3/);
+  assert.match(js, /pc\.connectionState === 'failed'/);
 });
 
 test('voice-wave.js draws the orb on the voice screen and keeps the dictation wave', async () => {
