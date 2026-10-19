@@ -2810,7 +2810,7 @@
     heading.textContent = 'Video Studio · Audio';
     const note = document.createElement('p');
     note.className = 'muted';
-    note.textContent = 'Generate previewable MP3 voiceovers and sound effects. Audio is provided as a separate asset and is not mixed into the MP4 yet.';
+    note.textContent = 'Generate and save MP3 voiceovers and sound effects, preview/download them later, and add them to a project timeline. Timeline audio is not yet mixed into the exported MP4.';
     const status = document.createElement('p');
     status.className = 'muted';
     panel.append(heading, note, status);
@@ -2855,6 +2855,7 @@
     effectButton.textContent = 'Generate sound effect';
     row.append(voiceSelect, modelSelect, voiceButton, effectButton);
     panel.appendChild(row);
+    await refreshSavedAssets();
 
     try {
       const result = await api('/v1/video-studio/elevenlabs/voices');
@@ -2880,35 +2881,144 @@
       status.textContent = err.message || 'Available voices could not be loaded.';
     }
 
+    async function addAssetToTimeline(asset, actionButton) {
+      actionButton.disabled = true;
+      try {
+        const result = await api('/v1/projects');
+        const available = Array.isArray(result?.projects) ? result.projects : [];
+        if (!available.length) {
+          status.textContent = 'Create a project first in NasrinAI Projects, then add this saved audio asset to its timeline.';
+          return;
+        }
+        const choices = available.slice(0, 50).map((p, i) => (i + 1) + '. ' + p.name).join('\\n');
+        const selected = window.prompt('Choose a project number for this audio asset:\\n' + choices, '1');
+        if (selected == null) return;
+        const index = Number(selected) - 1;
+        if (!Number.isInteger(index) || index < 0 || index >= Math.min(available.length, 50)) {
+          status.textContent = 'Choose a valid project number.';
+          return;
+        }
+        const project = available[index];
+        await api('/v1/video-studio/timeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id, audio_asset_id: asset.id, start_seconds: 0 })
+        });
+        status.textContent = 'Audio saved to the timeline for “' + project.name + '”. MP4 audio mixing is the next phase.';
+      } catch (err) {
+        status.textContent = err.message || 'Could not add this audio to the project timeline.';
+      } finally {
+        actionButton.disabled = false;
+      }
+    }
+
+    async function renderAudioAsset(asset, label) {
+      const token = await credential();
+      const response = await net(asset.content_url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!response.ok) throw await errorFrom(response);
+      const blob = await response.blob();
+      if (!blob.size || blob.size > 12 * 1024 * 1024) throw new Error('The stored audio file is empty or too large.');
+      const url = URL.createObjectURL(blob);
+      const result = document.createElement('div');
+      result.className = 'video-studio-audio-result';
+      const title = document.createElement('strong');
+      title.textContent = asset.label || label;
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'metadata';
+      audio.src = url;
+      audio.setAttribute('aria-label', (asset.label || label) + ' preview');
+      const download = document.createElement('a');
+      download.className = 'btn small';
+      download.href = url;
+      download.download = asset.kind === 'voiceover' ? 'nasrinai-voiceover.mp3' : 'nasrinai-sound-effect.mp3';
+      download.textContent = 'Download MP3';
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'btn outline small';
+      add.textContent = 'Add to project timeline';
+      add.addEventListener('click', () => addAssetToTimeline(asset, add));
+      result.append(title, audio, download, add);
+      panel.appendChild(result);
+    }
+
+    async function refreshSavedAssets() {
+      try {
+        const result = await api('/v1/video-studio/audio-assets');
+        const assets = Array.isArray(result?.assets) ? result.assets : [];
+        const saved = document.createElement('div');
+        saved.className = 'video-studio-saved-assets';
+        const title = document.createElement('strong');
+        title.textContent = 'Saved audio assets (' + assets.length + ')';
+        saved.appendChild(title);
+        if (!assets.length) {
+          const empty = document.createElement('p');
+          empty.className = 'muted';
+          empty.textContent = 'Your generated audio assets will appear here.';
+          saved.appendChild(empty);
+        } else {
+          for (const asset of assets.slice(0, 20)) {
+            const item = document.createElement('div');
+            item.className = 'video-studio-saved-asset';
+            const name = document.createElement('span');
+            name.textContent = asset.label || (asset.kind === 'voiceover' ? 'AI voiceover' : 'Sound effect');
+            const actions = document.createElement('div');
+            actions.className = 'video-studio-saved-asset-actions';
+            const preview = document.createElement('button');
+            preview.type = 'button';
+            preview.className = 'btn outline small';
+            preview.textContent = 'Preview';
+            preview.addEventListener('click', async () => {
+              preview.disabled = true;
+              try { await renderAudioAsset(asset, name.textContent); }
+              catch (err) { status.textContent = err.message || 'Could not load this saved asset.'; }
+              finally { preview.disabled = false; }
+            });
+            const add = document.createElement('button');
+            add.type = 'button';
+            add.className = 'btn outline small';
+            add.textContent = 'Add to timeline';
+            add.addEventListener('click', () => addAssetToTimeline(asset, add));
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn outline small';
+            remove.textContent = 'Delete';
+            remove.addEventListener('click', async () => {
+              if (!window.confirm('Delete this saved audio asset? It will also be removed from project timelines.')) return;
+              remove.disabled = true;
+              try {
+                await api('/v1/video-studio/audio-assets/' + encodeURIComponent(asset.id), { method: 'DELETE' });
+                item.remove();
+                status.textContent = 'Audio asset deleted.';
+              } catch (err) { status.textContent = err.message || 'Could not delete this audio asset.'; }
+              finally { remove.disabled = false; }
+            });
+            actions.append(preview, add, remove);
+            item.append(name, actions);
+            saved.appendChild(item);
+          }
+        }
+        const oldSaved = panel.querySelector('.video-studio-saved-assets');
+        if (oldSaved) oldSaved.replaceWith(saved); else panel.appendChild(saved);
+      } catch (err) {
+        status.textContent = err.message || 'Saved audio assets could not be loaded.';
+      }
+    }
+
     async function generateAudio(endpoint, payload, label, filename, button) {
       button.disabled = true;
       status.textContent = label + '…';
       try {
-        const token = await credential();
-        const response = await net(endpoint, {
+        const result = await api(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!response.ok) throw await errorFrom(response);
-        const blob = await response.blob();
-        if (!blob.size || blob.size > 12 * 1024 * 1024) throw new Error('The generated audio file is empty or too large.');
-        const url = URL.createObjectURL(blob);
-        const result = document.createElement('div');
-        result.className = 'video-studio-audio-result';
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.preload = 'metadata';
-        audio.src = url;
-        audio.setAttribute('aria-label', label + ' preview');
-        const download = document.createElement('a');
-        download.className = 'btn small';
-        download.href = url;
-        download.download = filename;
-        download.textContent = 'Download MP3';
-        result.append(audio, download);
-        panel.appendChild(result);
-        status.textContent = label + ' ready. Preview it or download the MP3.';
+        const asset = result?.asset;
+        if (!asset?.id || !asset?.content_url) throw new Error('The generated audio was not saved as a persistent asset.');
+        await renderAudioAsset(asset, label);
+        await refreshSavedAssets();
+        status.textContent = label + ' generated and saved. Preview, download, or add it to a project timeline.';
       } catch (err) {
         status.textContent = err.message || label + ' failed. Please try again.';
       } finally {
