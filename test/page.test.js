@@ -17,6 +17,8 @@ test('the chat page loads its script and styles as files that the strict CSP all
     assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /youtube-nocookie\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.tiktok\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.facebook\.com/);
     assert.match(html, /<script src="\/app\.js" defer><\/script>/);
 
     for (const [path, type] of [['/app.js', /javascript/], ['/character.js', /javascript/], ['/app.css', /text\/css/], ['/icon.svg', /image\/svg\+xml/], ['/apple-touch-icon.png', /image\/png/], ['/icon-512.png', /image\/png/], ['/logo.png', /image\/png/], ['/favicon.ico', /image\/x-icon/], ['/manifest.webmanifest', /application\/manifest\+json/]]) {
