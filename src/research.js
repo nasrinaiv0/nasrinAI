@@ -60,7 +60,7 @@ export function parseFacts(text) {
 
 export const factHash = (fact, url) => createHash('sha256').update(fact.toLowerCase() + '\n' + url).digest('hex');
 
-export function createResearch({ store, limiter, library = null, webAnswers = null, usageLog = null, provider = null, webSearch = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
+export function createResearch({ store, limiter, library = null, webAnswers = null, usageLog = null, provider = null, webSearch = null, crawler = null, config, logger = null, readLinkImpl = readLink, now = () => Date.now() }) {
   const { enabled, maxPages, perHour } = config.research;
   const who = (caller) => ({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id });
 
@@ -81,7 +81,11 @@ export function createResearch({ store, limiter, library = null, webAnswers = nu
       }
       return { candidates: [...new Set(body.urls.map((u) => checkUrl(u.trim())?.href).filter(Boolean))].map((url) => ({ url, title: '', adapter: 'user-url', source_type: 'user-supplied', metadata: {} })), adapters: [{ id: 'user-url', status: 'ok', candidates: body.urls.length }] };
     }
-    return sourceRegistry.discover({ query, plan });
+    const [discovery, indexed] = await Promise.all([sourceRegistry.discover({ query, plan }), crawler ? crawler.search(query, { limit: 5 }).catch(() => []) : Promise.resolve([])]);
+    const candidates = [...discovery.candidates];
+    const known = new Set(candidates.map((c) => c.url));
+    for (const page of indexed) if (!known.has(page.url)) { known.add(page.url); candidates.push({ url: page.url, title: page.title || '', adapter: 'crawl-index', source_type: 'indexed-public-web', metadata: { indexed_at: page.fetched_at } }); }
+    return { ...discovery, candidates };
   }
 
   async function extract(caller, query, page) {
@@ -113,6 +117,7 @@ export function createResearch({ store, limiter, library = null, webAnswers = nu
       const plan = planResearch(query);
       const discovery = await findSources(query, body || {}, plan);
       const candidates = discovery.candidates.slice(0, maxPages);
+      if (crawler) crawler.enqueue(candidates.map((c) => c.url), { source: 'research', priority: 10, depth: 0 }).catch(() => {});
       if (!candidates.length) throw new HttpError(422, 'no_sources', 'No public pages were found for this question.');
 
       const sources = [];
