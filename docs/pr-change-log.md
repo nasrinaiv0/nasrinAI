@@ -1254,3 +1254,17 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Extended the existing server-side account deletion flow to delete the account's Video Studio cloud projects after the established user-data RPC succeeds.
 - If migration 051 has not yet been applied, only a confirmed missing-table error is tolerated; other deletion errors still propagate rather than being silently ignored.
 - **Validation:** code committed; account deletion tests and CI must verify behavior with and without migration 051.
+
+
+### Video Studio cloud prompt round-trip correction (2026-10-20)
+
+- **Commit:** `f1bc5d7040b200cd6c8ff910f9b221adeb89962c` — `fix: restore prompt when opening cloud Studio project`.
+- Corrected the cloud-project hydration path so it restores the saved, bounded generation prompt into the Studio prompt field when a user opens a project.
+- **Validation:** source change committed; regression test and CI confirmation pending.
+
+
+### Video Studio cloud round-trip regression test (2026-10-20)
+
+- **Commit:** `c77cc8f325117222f13eaec65975a15e4ef25a70` — `test: cover cloud Studio prompt round trip`.
+- Added a regression test that asserts the bounded prompt is persisted in the cloud document and restored when opening a cloud project.
+- **Validation:** test added; CI pending.
