@@ -1333,3 +1333,16 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `6ed64cb3bc8fd8cd5b9ae14968bda6cad1be0d21` — `docs: correct Video Studio cloud API implementation status`.
 - Follow-up source inspection confirmed that cloud-project route handlers are in `src/routes.js` and CRUD methods are in `src/store/supabase-store.js`; they are not separate files. Corrected the previous checkpoint so it does not incorrectly claim the API is absent.
 - **Validation:** source inspection and documentation correction only. Live authenticated round-trip, deployed migration state, and cross-device media persistence remain unverified.
+
+
+### Video Studio renderer clip-limit correction (2026-10-20)
+
+- **Commit:** `4e59cdfabd7144dd63633d13a71c608085fb5a96` — `fix: reject oversized browser timeline instead of dropping clips`.
+- Changed browser export to reject timelines above 30 clips with a clear message instead of silently rendering only the first 30 clips.
+- **Validation:** source change committed; regression test and CI pending.
+
+### Video Studio renderer clip-limit regression test (2026-10-20)
+
+- **Commit:** `60f477a9ffd6d413111525894c3fc8044709901b` — `test: prevent silent clip loss in browser export`.
+- Added a regression assertion that the browser renderer refuses timelines above its documented clip limit.
+- **Validation:** test committed; full CI and real-browser verification pending.
