@@ -106,7 +106,8 @@ export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, pro
     // Projects (src/projects.js): the person's own project context, fenced.
     ...(project ? [project] : []),
     // NasrinAI page only: tappable questions, files, and spoken conversations.
-    ...(blocks && asks && !knowledgeOnly && !voice ? [ASK_RULE] : []),\n    ...(blocks && !voice && !knowledgeOnly ? [GENERATIVE_UI_RULE] : []),
+    ...(blocks && asks && !knowledgeOnly && !voice ? [ASK_RULE] : []),
+    ...(blocks && !voice && !knowledgeOnly ? [GENERATIVE_UI_RULE] : []),
     ...(blocks && !knowledgeOnly ? [FILE_RULE] : []),
     ...(voice ? [VOICE_RULE] : []),
     ...(compare && !voice ? [COMPARE_RULE] : [])
