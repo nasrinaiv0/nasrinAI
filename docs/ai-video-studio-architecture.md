@@ -206,7 +206,7 @@ Known MVP boundaries:
 
 ## 16. Main-chat continuity (cross-surface handoff)
 
-Video Studio is a separate workspace at `studio.nasrinai.com`, but it must not become a silo. Users should be able to continue in the main NasrinAI chat without reopening Studio.
+Video Studio is available at `/video-studio.html`; `studio.nasrinai.com` redirects to that primary-origin route so existing HttpOnly refresh cookies remain usable. It must not become a silo. Users should be able to continue in the main NasrinAI chat without reopening Studio.
 
 The current handoff adds **Continue in chat**:
 - It transfers a compact project brief (project name, template, aspect ratio, current prompt, ordered clip metadata, generated-video job IDs) from the active Studio draft to `nasrinai.com`.
