@@ -256,3 +256,13 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 - This is not yet a persistent shared project/chat workspace. Studio draft metadata remains browser-local, and uploads remain browser-session only.
 - The Studio panel is not yet guaranteed to show the user's existing main-chat history. It should be treated as a Studio conversation surface; durable cross-surface conversation continuity needs an explicit, authenticated conversation/project association.
 - Run the full `npm test` suite, inspect the Vercel preview, and manually verify guest and signed-in chat flows before merging. Do not claim validation passed until the CI result is green.
+
+
+## Browser timeline renderer checkpoint (2026-10-20)
+
+- Added an in-browser renderer that composes timeline clips sequentially on a canvas, draws title overlays, routes available media audio through Web Audio, records the canvas stream, and exposes a downloadable output.
+- Output format is capability-detected from the current browser. WebM is expected in most supported browsers; MP4 is offered only when `MediaRecorder.isTypeSupported('video/mp4')` reports support. This is not a server-side, deterministic MP4 rendering service.
+- Browser limits: maximum 30 clips and 180 seconds per render; actual resolution, encoding stability, audio behavior, and memory use depend on device/browser. Large projects can fail on mobile.
+- Cloud-saved metadata does not upload local file bytes. Local images/audio/video added from a device may need to be re-added after the browser session ends. Generated-video clips are fetched through the existing authenticated video-content route.
+- Review exported playback and audio before distribution. No browser/device end-to-end render has yet been validated by CI.
+- A production-grade cross-device MP4 export still requires a server-side rendering provider/worker, durable media storage, job state/progress, cancellation/retry, output retention policy, and spend/plan enforcement. Do not describe this browser renderer as equivalent to a cloud rendering service.
