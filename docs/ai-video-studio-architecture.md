@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Initial frontend MVP implemented; cloud project schema, authenticated CRUD API, and Save/Open controls are implemented on `feat/video-studio-cloud-projects`; migration execution, CI, live cloud-sync validation, and full timeline rendering/export remain pending  
+**Status:** Frontend MVP, authenticated cloud project CRUD, and browser-side timeline export are implemented. Cloud media-byte persistence and signed-in cross-device round-trip remain unverified; browser rendering is device/browser-dependent and is not a server render worker.  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -25,6 +25,13 @@ The first implementation slice adds a responsive standalone workspace, original 
 - Studio provides **Save to cloud** and **Open project** controls. A local draft remains available if cloud save fails.
 - Current limitations: migration 051 must be applied through the approved database migration process; this connector workflow does not apply production migrations. Local upload bytes are not cloud-synchronized. Generated media still uses the existing owner-checked video-content endpoint. Version conflicts need user-facing recovery verification.
 - Do not mark cloud persistence production-complete until CI, DB tests, migration staging, authorization tests, and a real signed-in save/reopen test across browsers/devices pass.
+
+
+## Browser renderer reliability follow-up (2026-10-20)
+
+- Fixed a seek-event race in browser timeline export: the `seeked` listener is registered before assigning `currentTime`, which avoids missing fast `seeked` events in Safari. The wait now has a bounded timeout and a clear failure if seeking errors.
+- Added a source-level regression test for the ordering guard.
+- Browser rendering still requires real playback tests on Safari/iOS and desktop browsers. MediaRecorder codec support varies; MP4 is offered only when the browser advertises support, otherwise WebM is used. Browser-local uploads are not persisted as cloud assets, and this is not a durable server-side rendering queue.
 
 ## 2. Provider recommendation
 

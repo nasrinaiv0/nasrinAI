@@ -16,6 +16,8 @@ test('Video Studio exposes bounded browser timeline rendering and honest format 
   assert.match(js, /video\/mp4/);
   assert.match(js, /audioDestination/);
   assert.match(js, /A timeline clip could not be loaded/);
+  assert.match(js, /Register before assigning currentTime: Safari may dispatch seeked immediately/);
+  assert.match(js, /media\.currentTime=startAt;await seeked/);
   assert.match(css, /\.timeline-render/);
 });
 

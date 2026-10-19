@@ -268,8 +268,11 @@
           await waitForMedia(media,'loadedmetadata');
           if(clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/')){media.style.display='none';document.body.append(media);}
           if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioDestination);}
-          const startAt=Math.max(0,Number(clip.start)||0);if(startAt<media.duration)media.currentTime=startAt;
-          await waitForMedia(media,'seeked').catch(()=>{});
+          const startAt=Math.max(0,Number(clip.start)||0);if(startAt<media.duration&&Math.abs(media.currentTime-startAt)>0.05){
+            // Register before assigning currentTime: Safari may dispatch seeked immediately.
+            const seeked=new Promise((resolve,reject)=>{const timer=setTimeout(()=>{cleanup();reject(new Error('Timed out seeking within a timeline clip.'));},5000);const done=()=>{cleanup();resolve();};function cleanup(){clearTimeout(timer);media.removeEventListener('seeked',done);media.removeEventListener('error',failed);}const failed=()=>{cleanup();reject(new Error('Could not seek within a timeline clip.'));};media.addEventListener('seeked',done,{once:true});media.addEventListener('error',failed,{once:true});});
+            media.currentTime=startAt;await seeked;
+          }
           const started=performance.now();await media.play();
           await new Promise((resolve,reject)=>{
             const tick=now=>{drawFrame(media,clip);const played=(now-started)/1000;progress.value=Math.round(((elapsed+Math.min(duration,played))/total)*100);if(played>=duration||media.ended){media.pause();resolve();}else raf=requestAnimationFrame(tick);};
