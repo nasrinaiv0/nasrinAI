@@ -1213,3 +1213,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `c458c2333372d22590da7b4cae91332a76835f97` — `docs: record cloud project persistence checkpoint`.
 - Updated the architecture document to describe the cloud schema/API/UI and explicitly list pending migration, CI, live save/reopen, cross-device, and rendering validation.
 - **Validation:** documentation update only; production database schema has not been changed.
+
+
+### Video Studio database permission test (2026-10-20)
+
+- **Commit:** `c7527c2897c2027536a5f1e195c52fd39b79f231` — `test: enforce Video Studio project database permissions`.
+- Added a migration-runner SQL test asserting RLS is enabled, anon/authenticated cannot directly access project records, and the server role has the CRUD grants required by the API.
+- **Validation:** test is committed; the database test runner must execute it on a scratch PostgreSQL database. Production schema is unchanged.
