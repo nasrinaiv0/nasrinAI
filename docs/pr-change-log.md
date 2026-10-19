@@ -1246,3 +1246,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `5553d653da6d6903ee2d27044549f2fc1b13d3b3` — `fix: preserve prompt when syncing Studio projects`.
 - Persist the current prompt in the cloud project document and restore it when opening a cloud project.
 - **Validation:** source edit committed; CI and live round-trip validation pending.
+
+
+### Video Studio account-deletion cleanup (2026-10-20)
+
+- **Commit:** `00ea728192d8b46a29be8e39e1b008d0a74d626a` — `fix: remove Studio cloud projects on account deletion`.
+- Extended the existing server-side account deletion flow to delete the account's Video Studio cloud projects after the established user-data RPC succeeds.
+- If migration 051 has not yet been applied, only a confirmed missing-table error is tolerated; other deletion errors still propagate rather than being silently ignored.
+- **Validation:** code committed; account deletion tests and CI must verify behavior with and without migration 051.
