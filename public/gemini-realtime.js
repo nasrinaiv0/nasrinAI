@@ -63,7 +63,7 @@
         const m=new Uint8Array(n);let o=0;for(const x of state.buffer){m.set(x,o);o+=x.length;}
         state.buffer=[];
         try{ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(m),mimeType:'audio/pcm;rate=16000'}}}));}
-        catch(e){hooks.error(e?.message||'Could not send microphone audio. Please try again.');}
+        catch(e){hooks.error('Could not send microphone audio. Please try again.');}
       };
       processor.onaudioprocess=e=>{
         if(!hooks.active()||hooks.muted()||state.stopping)return;
@@ -77,7 +77,7 @@
         try{
           ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:'Speak in a natural adult vocal register at a comfortable, moderate pitch and normal conversational speed. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Keep articulation clear and intonation relaxed. ' + (session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.')}]}}}));
           state.setupTimer=setTimeout(()=>{if(!state.ready&&!state.stopping)hooks.error('Voice setup timed out. Please try again.');},12000);
-        }catch(e){hooks.error(e?.message||'Could not initialize realtime voice. Please try again.');}
+        }catch(e){hooks.error('Could not initialize voice. Please try again.');}
       };
       ws.onmessage=async e=>{
         let raw=e.data;
@@ -98,7 +98,7 @@
           if(c.turnComplete)hooks.complete();
         }catch(err){
           // Ignore malformed frames only; report decoder/runtime failures for diagnostics.
-          if(!(err instanceof SyntaxError))hooks.error(err?.message||'Could not process voice audio. Please try again.');
+          if(!(err instanceof SyntaxError))hooks.error('Could not process voice audio. Please try again.');
         }
       };
       ws.onerror=()=>{if(!state.stopping)hooks.error('Voice connection failed. Please check your connection and try again.');};
