@@ -2808,12 +2808,16 @@
     panel.className = 'video-studio-audio';
     const heading = document.createElement('strong');
     heading.textContent = 'Video Studio · Audio';
+    const studioLink = document.createElement('a');
+    studioLink.href = '/studio/';
+    studioLink.className = 'btn outline small';
+    studioLink.textContent = 'Open full Video Studio';
     const note = document.createElement('p');
     note.className = 'muted';
     note.textContent = 'Generate and save MP3 voiceovers and sound effects, preview/download them later, and add them to a project timeline. Timeline audio is not yet mixed into the exported MP4.';
     const status = document.createElement('p');
     status.className = 'muted';
-    panel.append(heading, note, status);
+    panel.append(heading, studioLink, note, status);
     card.appendChild(panel);
     let capability;
     try { capability = await api('/v1/video-studio/elevenlabs/status'); }
