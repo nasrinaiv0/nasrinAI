@@ -1291,3 +1291,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `cd61f9d2883cae1ff69761657f0feab0445c10ee` — `docs: document browser timeline renderer limits`.
 - Documented browser rendering behavior, capability-based formats, clip/duration limits, local-media persistence constraints, and remaining cloud-renderer requirements.
 - **Validation:** documentation-only change; CI pending.
+
+
+### Video Studio renderer syntax repair (2026-10-20)
+
+- **Commit:** `f8cba0f04265d1939eef970bfbc767b68f1a5ee3` — `fix: repair browser renderer JavaScript syntax`.
+- Fixed an accidentally literal newline escape between the audio destination and output-stream declarations that caused the public-script parser test to fail.
+- **Validation:** CI had detected the syntax error; the corrected commit must rerun the complete test suite and JavaScript syntax checks.
