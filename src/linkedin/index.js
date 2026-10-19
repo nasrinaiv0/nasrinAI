@@ -121,6 +121,46 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
     return data || {};
   }
 
+  async function statusFor(caller) {
+    if (!available || caller?.actor?.type !== 'user') {
+      return { available, connected: false, scopes: [], capabilities: { profile: false, organization_posts: false } };
+    }
+    const w = who(caller);
+    const row = await connectionFor(w);
+    const scopes = Array.isArray(row?.scopes) ? row.scopes : [];
+    return {
+      available, connected: Boolean(row), email: row?.email || null, scopes,
+      connected_at: row?.connected_at || null,
+      capabilities: { profile: Boolean(row), organization_posts: scopes.includes('r_organization_social') }
+    };
+  }
+
+  async function searchOrganizationPosts(caller, { organizationId, query = '', count = 10 } = {}) {
+    const w = who(caller);
+    if (!available) throw new HttpError(503, 'linkedin_not_configured', 'LinkedIn integration is not configured.');
+    const id = String(organizationId || '').trim();
+    if (!/^\\d{1,30}$/.test(id)) throw new HttpError(400, 'invalid_organization_id', 'Enter a numeric LinkedIn organization ID.');
+    const searchTerm = String(query || '').trim().slice(0, 200);
+    const max = Math.max(1, Math.min(20, Number(count) || 10));
+    const { access, row } = await tokenFor(w);
+    if (!Array.isArray(row.scopes) || !row.scopes.includes('r_organization_social')) {
+      throw new HttpError(403, 'linkedin_permission_required', 'Your LinkedIn app must be approved for organization post read access and the connected member must have an eligible role on that organization.');
+    }
+    const author = encodeURIComponent('urn:li:organization:' + id);
+    const data = await linkedinApi('/rest/posts?q=author&author=' + author + '&count=' + max, access);
+    const elements = Array.isArray(data.elements) ? data.elements : [];
+    const posts = elements.map((post) => ({
+      id: String(post.id || ''),
+      author: String(post.author || ''),
+      text: String(post.commentary || '').slice(0, 5000),
+      created_at: Number.isFinite(Number(post.createdAt)) ? new Date(Number(post.createdAt)).toISOString() : null,
+      source_url: typeof post.id === 'string' && /^urn:li:(?:share|ugcPost):[A-Za-z0-9-]+$/.test(post.id)
+        ? 'https://www.linkedin.com/feed/update/' + encodeURIComponent(post.id) + '/' : null,
+      channel: 'linkedin_authorized'
+    })).filter((post) => !searchTerm || post.text.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, max);
+    return { source: 'LinkedIn authorized API', category: 'posts_discussions', organization_id: id, retrieved_at: new Date(now()).toISOString(), posts, note: 'Only posts returned by the approved organization API are included; this is not a global LinkedIn search.' };
+  }
+
   const redirectBack = (res, result) => { res.writeHead(302, { Location: '/?linkedin=' + encodeURIComponent(result), 'Cache-Control': 'no-store' }); res.end(); };
   const routes = [
     {
@@ -218,32 +258,14 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
     {
       method: 'GET', path: '/v1/linkedin/organization-posts', scope: 'chat',
       handler: async ({ caller, req }) => {
-        const w = who(caller);
-        if (!available) throw new HttpError(503, 'linkedin_not_configured', 'LinkedIn integration is not configured.');
         const query = new URL(req.url, 'https://nasrinai.com').searchParams;
-        const organizationId = String(query.get('organization_id') || '').trim();
-        if (!/^\\d{1,30}$/.test(organizationId)) throw new HttpError(400, 'invalid_organization_id', 'Enter a numeric LinkedIn organization ID.');
-        const searchTerm = String(query.get('query') || '').trim().slice(0, 200);
-        const max = Math.max(1, Math.min(20, Number(query.get('count') || 10)));
-        const { access, row } = await tokenFor(w);
-        if (!Array.isArray(row.scopes) || !row.scopes.includes('r_organization_social')) {
-          throw new HttpError(403, 'linkedin_permission_required', 'Your LinkedIn app must be approved for organization post read access and the connected member must have an eligible role on that organization.');
-        }
-        const author = encodeURIComponent('urn:li:organization:' + organizationId);
-        const data = await linkedinApi('/rest/posts?q=author&author=' + author + '&count=' + max, access);
-        const elements = Array.isArray(data.elements) ? data.elements : [];
-        const posts = elements.map((post) => ({
-          id: String(post.id || ''),
-          author: String(post.author || ''),
-          text: String(post.commentary || '').slice(0, 5000),
-          created_at: Number.isFinite(Number(post.createdAt)) ? new Date(Number(post.createdAt)).toISOString() : null,
-          source_url: typeof post.id === 'string' && /^urn:li:(?:share|ugcPost):[A-Za-z0-9-]+$/.test(post.id)
-            ? 'https://www.linkedin.com/feed/update/' + encodeURIComponent(post.id) + '/' : null,
-          channel: 'linkedin_authorized'
-        })).filter((post) => !searchTerm || post.text.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, max);
-        return { body: { source: 'LinkedIn authorized API', category: 'posts_discussions', organization_id: organizationId, retrieved_at: new Date(now()).toISOString(), posts, note: 'Only posts returned by the approved organization API are included; this is not a global LinkedIn search.' } };
+        return { body: await searchOrganizationPosts(caller, {
+          organizationId: query.get('organization_id'),
+          query: query.get('query') || '',
+          count: query.get('count') || 10
+        }) };
       }
     }
   ];
-  return { routes, available };
+  return { routes, available, statusFor, searchOrganizationPosts };
 }
