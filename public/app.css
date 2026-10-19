@@ -3778,3 +3778,7 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .video-studio-saved-asset>span{min-width:0;overflow-wrap:anywhere}
 .video-studio-saved-asset-actions{justify-content:flex-end}
 @media(max-width:560px){.video-studio-audio-controls{display:grid;grid-template-columns:1fr}.video-studio-audio-controls>*{width:100%;min-width:0}.video-studio-saved-asset{align-items:flex-start;flex-direction:column}.video-studio-saved-asset-actions{justify-content:flex-start}}
+
+
+.video-studio-export{display:grid;gap:8px;margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.video-studio-export .btn{justify-self:start}
