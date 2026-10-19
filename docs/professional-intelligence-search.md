@@ -42,6 +42,7 @@ Configure these server-side environment variables in Vercel/Render:
 - `LINKEDIN_OAUTH_SCOPES` — default `openid profile email`; include `r_organization_social` only after LinkedIn has approved the corresponding API product and the app has that permission.
 - `LINKEDIN_API_VERSION` — optional six-digit version; defaults to `202610`.
 - Existing `SITE_URL`/public URL, `CONNECTOR_SECRET_KEY`, `SUPABASE_URL`, and Supabase server secret must already be configured.
+- If `LEGAL_PRIVACY_VERSION` is explicitly set in the deployment environment, update it to `2026-10-19a` so signed-in users are shown the revised privacy notice before using the integration.
 
 Add `https://<your-app-domain>/v1/linkedin/callback` to the LinkedIn app's authorized redirect URLs. Run `db/migrations/043_linkedin_connections.sql` in Supabase after verifying the current production schema. Tokens are encrypted with the existing connector secret key; the table denies browser-role access. Do not expose tokens to the browser or logs.
 
