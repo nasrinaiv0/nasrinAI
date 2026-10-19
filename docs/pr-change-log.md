@@ -1,4 +1,10 @@
 
+## Proposed PR — Require optimistic versions for Video Studio cloud saves (`fix/video-studio-version-conflicts`)
+
+- **Change:** reject cloud project updates that omit a positive `expected_version`; this prevents a client from bypassing the optimistic concurrency guard and silently overwriting another edit. Existing stale-version updates continue to return a conflict response.
+- **Regression coverage:** assert the route rejects missing versions with a clear, actionable error.
+- **Validation:** CI must pass before merge. Real signed-in concurrent-save testing remains pending.
+
 ## Proposed PR — Video Studio Safari seek-event race guard (`fix/video-studio-renderer-media-races`)
 
 - **Change:** browser timeline export registers the media `seeked` listener before setting `currentTime`, avoiding a race where Safari can dispatch the event before the listener exists. Seek waits are bounded and return a clear error on timeout/failure.
