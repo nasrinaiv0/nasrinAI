@@ -4,7 +4,7 @@ import { HttpError } from '../http/errors.js';
 
 const TTL_SECONDS = 600;
 const COOKIE = 'nasrin_linkedin_oauth';
-const EMAIL = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_SCOPES = new Set(['openid', 'profile', 'email', 'r_organization_social', 'r_member_social']);
 const DEFAULT_SCOPES = ['openid', 'profile', 'email'];
 
@@ -29,8 +29,8 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
   const key = config.connectors?.key || null;
   const dbUrl = config.supabaseUrl;
   const dbKey = config.supabaseSecretKey;
-  const apiVersion = /^\\d{6}$/.test(String(env.LINKEDIN_API_VERSION || '')) ? String(env.LINKEDIN_API_VERSION) : '202610';
-  const requestedScopes = String(env.LINKEDIN_OAUTH_SCOPES || DEFAULT_SCOPES.join(' ')).split(/[\\s,]+/).filter(Boolean);
+  const apiVersion = /^\d{6}$/.test(String(env.LINKEDIN_API_VERSION || '')) ? String(env.LINKEDIN_API_VERSION) : '202610';
+  const requestedScopes = String(env.LINKEDIN_OAUTH_SCOPES || DEFAULT_SCOPES.join(' ')).split(/[\s,]+/).filter(Boolean);
   const scopesValid = requestedScopes.length > 0 && requestedScopes.every((scope) => ALLOWED_SCOPES.has(scope)) &&
     requestedScopes.includes('openid') && requestedScopes.includes('profile') && requestedScopes.includes('email');
   const available = Boolean(clientId && clientSecret && publicUrl && key && dbUrl && dbKey && scopesValid);
@@ -160,7 +160,7 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
     const w = who(caller);
     if (!available) throw new HttpError(503, 'linkedin_not_configured', 'LinkedIn integration is not configured.');
     const id = String(organizationId || '').trim();
-    if (!/^\\d{1,30}$/.test(id)) throw new HttpError(400, 'invalid_organization_id', 'Enter a numeric LinkedIn organization ID.');
+    if (!/^\d{1,30}$/.test(id)) throw new HttpError(400, 'invalid_organization_id', 'Enter a numeric LinkedIn organization ID.');
     const searchTerm = String(query || '').trim().slice(0, 200);
     const max = Math.max(1, Math.min(20, Number(count) || 10));
     const { access, row } = await tokenFor(w);
@@ -231,7 +231,7 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
         res.appendHeader('Set-Cookie', COOKIE + '=; Path=/v1/linkedin; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
         const state = readState(query.get('state'));
         if (!available || query.get('error') || !state || !nonce || nonceHash(key, nonce) !== state.n ||
-            !/^[\\w./~-]{8,2048}$/.test(query.get('code') || '')) return redirectBack(res, 'failed');
+            !/^[\w./~-]{8,2048}$/.test(query.get('code') || '')) return redirectBack(res, 'failed');
         try {
           const tokenResponse = await fetchImpl('https://www.linkedin.com/oauth/v2/accessToken', {
             method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -249,7 +249,7 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
           const w = { tenant_id: state.t, user_id: state.u };
           const previous = await connectionFor(w);
           const opts = sealOpts(w);
-          const grantedScopes = String(token.scope || requestedScopes.join(' ')).split(/[\\s,]+/).filter((scope) => ALLOWED_SCOPES.has(scope));
+          const grantedScopes = String(token.scope || requestedScopes.join(' ')).split(/[\s,]+/).filter((scope) => ALLOWED_SCOPES.has(scope));
           const row = {
             tenant_id: w.tenant_id, user_id: w.user_id, email: profile.email.toLowerCase(),
             linkedin_subject: profile.sub.slice(0, 200),
