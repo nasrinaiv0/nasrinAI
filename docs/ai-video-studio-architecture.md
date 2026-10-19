@@ -280,7 +280,7 @@ This section supersedes optimistic status wording elsewhere in this document whe
 
 ### Not verified / still a release blocker
 
-- The current `main` and renderer-branch recursive trees do not contain a dedicated Video Studio cloud-project API route or project-store module. Do not treat the presence of migration 051, UI buttons, or static tests as proof that authenticated cloud save/open works end-to-end. Reconcile this with PR history and add the server endpoints before claiming cloud persistence is usable.
+- The current route/store implementations do exist inside `src/routes.js` and `src/store/supabase-store.js`, with regression assertions in `test/video-studio-cloud-projects.test.js`. This is implementation evidence, not proof of a live signed-in save/open round trip. Verify migration execution, API integration behavior, ownership denial, version conflicts, and cross-session persistence before claiming cloud persistence is production-verified.
 - Do not claim migration 051 is deployed to production without a migration execution receipt and schema verification.
 - No durable asset upload path has been verified for local image/video/audio files. Browser-local blobs and object URLs are not cross-device storage.
 - The browser renderer is not a server-side render queue. It cannot promise deterministic MP4 output, background rendering after the page closes, or reliable rendering for large projects/mobile devices.
