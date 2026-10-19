@@ -1098,3 +1098,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added [October 2026 Implementation Ledger](2026-10-implementation-ledger.md), grouping the current merged work by area and linking the main PRs. It separates merged code from documentation-only specifications and flags migration, OAuth, provider and live-device verification still required.
 - Added [NasrinAI Video Studio Architecture](ai-video-studio-architecture.md), a proposal for a complete template-driven editor plus AI video generation. Proposed default: Shotstack Studio/Edit API, Runway generation adapter, provider-neutral project model and licensed provider templates plus NasrinAI originals; Creatomate remains a proof-of-concept comparator/optional adapter.
 - These documents do not implement the Video Studio or claim that any pending provider, migration, CI run or production deployment is complete.
+
+
+## NasrinAI Video Studio — initial frontend MVP (feature branch)
+
+- Added `public/video-studio.html`, `public/video-studio.css`, and `public/video-studio.js`: responsive template gallery, prompt-to-video creation through the existing authenticated video API, timeline clip management, browser-local draft metadata, generated MP4 preview/download, and a desktop navigation link.
+- Added `test/video-studio.test.js` to cover key UI controls, authenticated API wiring, strict-CSP external script use, and navigation preservation.
+- Updated `docs/ai-video-studio-architecture.md` to distinguish the working MVP slice from the still-pending composed timeline renderer, cloud asset/project persistence, and provider-template catalog.
+- **Not yet complete:** timeline edits do not re-render generated footage; uploads remain browser-session only; full MP4 timeline export and cross-device project sync are not implemented. Do not report the whole Video Studio as complete.
+- **Validation:** regression tests were added but have not been executed in this remote documentation/feature-authoring session. Run `npm test` and review the preview deployment before merging.
