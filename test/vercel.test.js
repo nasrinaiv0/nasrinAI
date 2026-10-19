@@ -16,10 +16,10 @@ test('runs in Singapore', () => {
   assert.deepEqual(config.regions, ['sin1']);
 });
 
-test('hourly retention and core crawler crons are configured', () => {
+test('retention stays hourly and the web crawler runs every five minutes', () => {
   assert.deepEqual(config.crons, [
     { path: '/v1/internal/retention', schedule: '0 * * * *' },
-    { path: '/v1/internal/web-crawl', schedule: '15 * * * *' }
+    { path: '/v1/internal/web-crawl', schedule: '*/5 * * * *' }
   ]);
 });
 

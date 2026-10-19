@@ -10,7 +10,7 @@
     },
     {
       "path": "/v1/internal/web-crawl",
-      "schedule": "15 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {
