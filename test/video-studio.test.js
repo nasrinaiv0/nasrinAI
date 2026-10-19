@@ -11,11 +11,18 @@ test('Video Studio ships a standalone responsive workspace with template and tim
   assert.match(html, /id="generate"/);
   assert.match(html, /id="exports"/);
   assert.match(html, /id="continueInChat"/);
+  assert.match(html, /id="studioChatPanel"/);
+  assert.match(html, /id="studioChatForm"/);
+  assert.match(html, /id="studioChatMessages"/);
   assert.match(css, /@media\s*\(max-width:\s*680px\)/);
   assert.match(js, /\/v1\/videos/);
   assert.match(js, /\/v1\/auth\/refresh/);
   assert.match(js, /nasrinai\.videoStudio\.draft\.v1/);
   assert.match(js, /studio_context/);
+  assert.match(js, /currentProjectContext/);
+  assert.match(js, /\/v1\/guest\/sessions/);
+  assert.match(js, /\/v1\/chat/);
+  assert.match(js, /data-chat-suggestion/);
   assert.match(js, /Authorization:\s*'Bearer '\s*\+/);
   assert.doesNotMatch(html, /<script\s*>/i, 'strict CSP requires external scripts');
   assert.doesNotMatch(js, /(?:sk-[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})/, 'no provider credentials in client code');
