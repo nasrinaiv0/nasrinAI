@@ -846,5 +846,31 @@ export function createConnect({ url, secretKey, createPublishableKey = null, rev
     return true;
   }
 
-  return { list, get, analyzeAndCreate, verify, getConfig, saveConfig, previewConfig, approveConfig, provisionKey, installSnippet, activate, hostedLink, hostedSite, install, remove, getKnowledge, crawlKnowledge, removeKnowledge };
+  // Refresh previously imported, owner-verified website knowledge in bounded batches.
+  // This is intentionally not a general-purpose internet-wide crawler.
+  async function refreshKnowledgeDue({ batchSize = 10, intervalMs = 24 * 60 * 60 * 1000 } = {}) {
+    const rows = await request('GET', 'connect_installations?status=in.(authorized,ready,active)&metadata->knowledge->>status=eq.ready&select=id,tenant_id,owner_user_id,metadata&order=updated_at.asc&limit=1000');
+    const now = Date.now();
+    const due = rows.filter((row) => {
+      const ownerId = String(row.owner_user_id || '');
+      const knowledge = row.metadata && row.metadata.knowledge;
+      if (!ownerId || !knowledge || !Array.isArray(knowledge.document_ids) || !knowledge.document_ids.length) return false;
+      const crawledAt = Date.parse(knowledge.crawled_at || '');
+      return !Number.isFinite(crawledAt) || now - crawledAt >= intervalMs;
+    }).slice(0, Math.max(1, Math.min(25, Number(batchSize) || 10)));
+    const results = [];
+    for (const row of due) {
+      const caller = { tenantId: row.tenant_id, actor: { type: 'user', id: String(row.owner_user_id) } };
+      try {
+        const knowledge = await crawlKnowledge(caller, row.id);
+        results.push({ site_id: row.id, status: 'refreshed', pages: knowledge.pages });
+      } catch (error) {
+        console.error('scheduled website knowledge refresh failed:', error && (error.code || error.message));
+        results.push({ site_id: row.id, status: 'failed' });
+      }
+    }
+    return { checked: rows.length, due: due.length, refreshed: results.filter((r) => r.status === 'refreshed').length, failed: results.filter((r) => r.status === 'failed').length, results };
+  }
+
+  return { list, get, analyzeAndCreate, verify, getConfig, saveConfig, previewConfig, approveConfig, provisionKey, installSnippet, activate, hostedLink, hostedSite, install, remove, getKnowledge, crawlKnowledge, removeKnowledge, refreshKnowledgeDue };
 }
