@@ -314,7 +314,9 @@ return { body: { sites: await connect.list(caller) } }; }
       scope: 'chat',
       body: true,
       handler: async ({ caller, body, ip }) => {
-        if (!realtime && !geminiRealtime) throw new HttpError(503, 'realtime_unavailable', 'Realtime voice is not available right now.');
+        if (config.ai.realtime?.enabled === false || (!realtime && !geminiRealtime)) {
+          throw new HttpError(503, 'realtime_unavailable', 'Gemini Live voice is not available right now. Check the server-side Gemini configuration.');
+        }
         const requested = body && typeof body.model === 'string' ? body.model : undefined;
         const plan = plans ? await plans.planFor(caller) : 'ultra';
         const choice = await models.resolve(caller, requested, { plan });
