@@ -26,7 +26,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -65,6 +65,14 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
     if (!['max', 'ultra'].includes(current.plan)) {
       throw new HttpError(403, 'connect_plan_required', 'NasrinAI Connect is available only on Max and Ultra plans.');
     }
+  }
+
+  async function requireVideoStudioAudio(caller) {
+    if (!elevenlabs?.available) throw new HttpError(503, 'elevenlabs_not_configured', 'Video Studio audio tools are not configured yet.');
+    if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to use Video Studio audio tools.');
+    if (!plans) throw new HttpError(503, 'plans_unavailable', 'Video Studio audio access cannot be verified right now.');
+    const current = await plans.current(caller);
+    if (!['max', 'ultra'].includes(current.plan)) throw new HttpError(403, 'video_plan_required', 'Video Studio audio tools are available on Max and Ultra plans.');
   }
 
   const connectRoutes = connect ? [
@@ -1390,6 +1398,53 @@ return { body: { sites: await connect.list(caller) } }; }
         const mime = v.mime === 'video/mp4' ? 'video/mp4' : 'video/webm';
         res.writeHead(200, { 'Content-Type': mime, 'Content-Length': v.bytes.length, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': `inline; filename="nasrin-recording-${v.id.slice(0, 8)}.${mime.split('/')[1]}"` });
         res.end(v.bytes);
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/elevenlabs/status',
+      scope: 'chat',
+      handler: async () => ({ body: elevenlabs ? elevenlabs.status() : { configured: false, capabilities: [] } })
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/elevenlabs/voices',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        await requireVideoStudioAudio(caller);
+        return { body: { voices: await elevenlabs.voices() } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/elevenlabs/voiceover',
+      scope: 'chat',
+      body: true,
+      maxBody: 32 * 1024,
+      handler: async ({ caller, body, res }) => {
+        await requireVideoStudioAudio(caller);
+        await limiter.signIn('elevenlabs-audio:' + caller.actor.id, config.video?.perHour || 10);
+        const started = now();
+        const bytes = await elevenlabs.voiceover({ text: body?.text, voiceId: body?.voice_id, modelId: body?.model_id });
+        await usageLog?.record?.(caller, { provider: 'elevenlabs', model: body?.model_id || 'eleven_multilingual_v2', outcome: 'ok', task: 'video_voiceover', latencyMs: now() - started });
+        res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': bytes.length, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'attachment; filename="nasrinai-voiceover.mp3"' });
+        res.end(bytes);
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/elevenlabs/sound-effects',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, body, res }) => {
+        await requireVideoStudioAudio(caller);
+        await limiter.signIn('elevenlabs-audio:' + caller.actor.id, config.video?.perHour || 10);
+        const started = now();
+        const bytes = await elevenlabs.soundEffect({ prompt: body?.prompt, durationSeconds: body?.duration_seconds });
+        await usageLog?.record?.(caller, { provider: 'elevenlabs', model: 'sound-generation', outcome: 'ok', task: 'video_sound_effect', latencyMs: now() - started });
+        res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': bytes.length, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'attachment; filename="nasrinai-sound-effect.mp3"' });
+        res.end(bytes);
       }
     },
     {
