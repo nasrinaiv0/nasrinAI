@@ -3039,6 +3039,71 @@
     });
   }
 
+  async function appendVideoStudioExport(card, videoId) {
+    const panel = document.createElement('section');
+    panel.className = 'video-studio-export';
+    const note = document.createElement('p');
+    note.className = 'muted';
+    note.textContent = 'Render the selected project timeline audio into this MP4. Exports are limited to 50 MB and eight audio clips.';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn small';
+    button.textContent = 'Export MP4 with timeline audio';
+    panel.append(note, button);
+    card.appendChild(panel);
+    try {
+      const state = await api('/v1/video-studio/elevenlabs/status');
+      if (!state?.video_export_available) {
+        button.disabled = true;
+        button.title = 'MP4 audio export is not available on this deployment.';
+        note.textContent = 'MP4 audio export is not available on this deployment yet.';
+        return;
+      }
+    } catch {
+      button.disabled = true;
+      note.textContent = 'Could not verify whether MP4 audio export is available.';
+      return;
+    }
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const oldText = button.textContent;
+      button.textContent = 'Preparing export…';
+      try {
+        const result = await api('/v1/projects');
+        const projects = Array.isArray(result?.projects) ? result.projects : [];
+        if (!projects.length) throw new Error('Create a project and add audio clips to its timeline before exporting.');
+        const options = projects.slice(0, 50).map((p, i) => (i + 1) + '. ' + p.name).join('\\n');
+        const selection = window.prompt('Choose the project timeline to render:\\n' + options, '1');
+        if (selection == null) return;
+        const index = Number(selection) - 1;
+        if (!Number.isInteger(index) || index < 0 || index >= Math.min(projects.length, 50)) throw new Error('Choose a valid project number.');
+        const project = projects[index];
+        button.textContent = 'Rendering MP4…';
+        const token = await credential();
+        const response = await net('/v1/video-studio/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ video_id: videoId, project_id: project.id })
+        });
+        if (!response.ok) throw await errorFrom(response);
+        const blob = await response.blob();
+        if (!blob.size || blob.size > 50 * 1024 * 1024) throw new Error('The exported MP4 is empty or exceeds the 50 MB download limit.');
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'nasrinai-video-with-audio.mp4';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        note.textContent = 'Export complete. Your MP4 includes the selected project timeline audio.';
+      } catch (err) {
+        note.textContent = err.message || 'The MP4 export failed. Review the timeline and try again.';
+      } finally {
+        button.disabled = false;
+        button.textContent = oldText;
+      }
+    });
+  }
+
   async function sendVideo(text) {
     if (!window.confirm('Create this video now? NasrinAI will send your prompt to the configured AI video service. Video generation may use your plan allowance. Choose Cancel to stop.')) return;
     noticesOnSend();
@@ -3072,6 +3137,7 @@
             a.textContent = 'Download MP4';
             card.appendChild(a);
             appendVideoStudioAudio(card, text);
+            appendVideoStudioExport(card, id);
             deviceNotify('NasrinAI video ready', 'Your Ultra video has finished rendering.', 'nasrinai-video-' + id);
             return;
           }
