@@ -1,4 +1,4 @@
--- NasrinAI migration 030: durable, owner-scoped Video Studio audio assets and timeline items.
+-- NasrinAI migration 046: durable, owner-scoped Video Studio audio assets and timeline items.
 -- Audio bytes live in the existing private Supabase Storage "media" bucket.
 -- The server uses service_role; direct browser access is not granted.
 
