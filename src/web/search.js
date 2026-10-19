@@ -8,7 +8,10 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
-      const queryText = (Array.isArray(messages) ? messages : []).map((m) => String(m?.content || '')).join('\n');
+      // Route by the latest user intent, not assistant prose or old unrelated turns.
+      // Keep the previous user turn only to resolve short follow-ups in context.
+      const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
+      const queryText = userMessages.slice(-2).map((m) => String(m?.content || '')).join('\n');
       const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons|sources? and resources?|references?|bibliography|citations?|cite sources|provide sources|find sources)\b/i.test(queryText);
       const socialVideoIntent = /\b(?:trending|trend|viral|popular|top|latest|public)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos?|show|find|search|any videos?)\b/i.test(queryText);
       const searchContextSize = deepResearch || socialVideoIntent ? 'high' : 'medium';
