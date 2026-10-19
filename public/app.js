@@ -3794,9 +3794,19 @@
   function needsYouTubeVideos(query) {
     const q = String(query || '').trim();
     if (q.length < 5 || q.length > 600) return false;
-    // Practical how-to questions should surface a video even when the user
-    // doesn't explicitly say "YouTube" or "tutorial" (e.g. "how to do push ups").
+    // Do not append unrelated YouTube results to a request about another platform.
+    const asksOtherPlatform = /\b(?:tiktok|tik tok|facebook|instagram)\b/i.test(q);
+    const explicitlyAsksYouTube = /\b(?:youtube|yt)\b/i.test(q);
+    if (asksOtherPlatform && !explicitlyAsksYouTube) return false;
     return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
+  }
+
+  function youtubeResultsHeading(query) {
+    const q = String(query || '');
+    if (/\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(q)) return 'Related video guides';
+    if (/\b(?:trending|trends|viral|popular|top|latest)\b/i.test(q)) return 'Trending videos';
+    if (/\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(q)) return 'Video tutorials';
+    return 'Videos';
   }
 
   const PERSISTENT_YOUTUBE_KEY = 'nasrin.persistentYoutubePlayer';
@@ -3808,7 +3818,7 @@
     const frameWrap = document.createElement('div');
     frameWrap.className = 'youtube-video-frame';
     const frame = document.createElement('iframe');
-    frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
+    frame.title = String(video.title || 'YouTube video').slice(0, 240);
     frame.loading = 'lazy';
     // Set playback permissions and referrer policy BEFORE src. Assigning src
     // first can start navigation immediately, before Safari applies the policy;
@@ -3896,7 +3906,8 @@
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
     if (message.querySelector('.youtube-results')) return;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
-    const query = (userQuery + (nav ? ' route directions travel guide' : ' tutorial walkthrough')).slice(0, 180);
+    const tutorialIntent = /\\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\\b/i.test(userQuery);
+    const query = (userQuery + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '')).slice(0, 180);
     try {
       let videos = [];
       try {
@@ -3935,7 +3946,7 @@
             }
             if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
             seen.add(id);
-            candidates.push({ id, title: String(link.title || 'YouTube video tutorial').trim().slice(0, 240) });
+            candidates.push({ id, title: String(link.title || 'YouTube video').trim().slice(0, 240) });
             if (candidates.length >= 3) break;
           } catch {
             // Ignore malformed or non-YouTube links.
@@ -3960,7 +3971,7 @@
       section.setAttribute('aria-label', 'Relevant YouTube videos');
       const heading = document.createElement('h3');
       heading.className = 'youtube-results-heading';
-      heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
+      heading.textContent = youtubeResultsHeading(userQuery);
       section.appendChild(heading);
       // Keep the primary player inline in the assistant answer. Moving it into
       // the persistent mini-player detaches it from the tutorial card.
@@ -3972,7 +3983,7 @@
         try {
           localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify({
             id: videos[0].id,
-            title: String(videos[0].title || 'YouTube video tutorial').slice(0, 240),
+            title: String(videos[0].title || 'YouTube video').slice(0, 240),
             channelTitle: String(videos[0].channelTitle || 'YouTube').slice(0, 120)
           }));
         } catch {}
