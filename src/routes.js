@@ -1538,8 +1538,8 @@ return { body: { sites: await connect.list(caller) } }; }
       scope: 'chat',
       body: true,
       handler: async ({ caller, body, ip }) => {
-        if (!research) throw new HttpError(404, 'not_found', 'Professional search is not available.');
         const plan = buildProfessionalSearch(body || {});
+        if (plan.source !== 'linkedin_authorized' && !research) throw new HttpError(404, 'not_found', 'Professional search is not available.');
         const linkedinStatus = await linkedin.statusFor(caller).catch(() => ({ available: linkedin.available, connected: false, scopes: [], capabilities: { organization_posts: false } }));
         const orgId = typeof body?.organization_id === 'string' ? body.organization_id : '';
         const linkedinGroup = { id: 'linkedin_authorized', label: 'LinkedIn authorized API', status: 'requires_organization_id', sources: [], facts: [], limitation: 'The official API does not provide unrestricted global search across all LinkedIn categories. Organization post retrieval requires an approved scope and an organization ID.' };
