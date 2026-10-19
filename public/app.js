@@ -8728,7 +8728,7 @@
     li.appendChild(stateLabel);
     if (name === 'ElevenLabs') {
       api('/v1/video-studio/elevenlabs/status').then((result) => {
-        stateLabel.textContent = result?.configured ? 'Available' : 'Not configured';
+        stateLabel.textContent = result?.configured ? 'Configured' : 'Not configured';
       }).catch(() => { stateLabel.textContent = 'Status unavailable'; });
     }
     const actions = mk('details', 'developer-tool-actions');
