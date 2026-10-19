@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildProfessionalSearch, presentProfessionalSearch, PROFESSIONAL_SEARCH_CATEGORIES } from '../src/professional-intelligence.js';
+import { buildProfessionalSearch, buildProfessionalResearchInput, presentProfessionalSearch, PROFESSIONAL_SEARCH_CATEGORIES } from '../src/professional-intelligence.js';
 
 test('supports every professional intelligence category', () => {
   assert.deepEqual(PROFESSIONAL_SEARCH_CATEGORIES, ['posts_discussions', 'jobs_hiring', 'pay_benefits', 'reviews_workplace', 'opportunities', 'terms_requirements']);
@@ -35,4 +35,20 @@ test('LinkedIn-only request does not mislabel public web sources as LinkedIn', (
   assert.equal(result.professional_search.source_groups[0].status, 'not_requested');
   assert.deepEqual(result.professional_search.source_groups[0].sources, []);
   assert.equal(result.professional_search.source_groups[1].status, 'not_configured');
+});
+
+test('professional search reuses the existing research pipeline for explicitly supplied public URLs', () => {
+  const input = { query: 'LinkedIn public hiring post', category: 'jobs_hiring', urls: ['https://www.linkedin.com/posts/example-public-post'] };
+  const plan = buildProfessionalSearch(input);
+  assert.deepEqual(buildProfessionalResearchInput(input, plan), {
+    query: plan.discovery_query,
+    urls: ['https://www.linkedin.com/posts/example-public-post']
+  });
+});
+
+test('professional search rejects malformed URL lists before handing off to research', () => {
+  const plan = buildProfessionalSearch({ query: 'public job post', category: 'jobs_hiring' });
+  assert.throws(() => buildProfessionalResearchInput({ urls: 'https://example.com' }, plan), { code: 'invalid_urls' });
+  assert.throws(() => buildProfessionalResearchInput({ urls: Array.from({ length: 6 }, (_, i) => 'https://example.com/' + i) }, plan), { code: 'invalid_urls' });
+  assert.throws(() => buildProfessionalResearchInput({ urls: ['https://example.com', 123] }, plan), { code: 'invalid_urls' });
 });
