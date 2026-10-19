@@ -6269,8 +6269,8 @@
           output: (t) => { let x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(!x){x=voiceSay('assistant is-live','');x.classList.add('is-realtime');} x.textContent+=t; voiceState('speaking','Talking…'); Nasrin.talk(1); },
           interrupted: () => { voiceState('listening','Listening…'); Nasrin.talk(0); },
           complete: () => { const x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(x)x.classList.remove('is-realtime','is-live'); voiceState('listening','Listening…'); Nasrin.talk(0); },
-          error: (message) => scheduleRealtimeReconnect(message || 'Gemini realtime voice stopped. Reconnecting…'),
-          close: () => { if(vc.on&&vc.realtimeProvider==='gemini') scheduleRealtimeReconnect('Gemini realtime connection ended. Reconnecting…'); }
+          error: (message) => scheduleRealtimeReconnect(message || 'Voice connection interrupted. Reconnecting…'),
+          close: () => { if(vc.on&&vc.realtimeProvider==='gemini') scheduleRealtimeReconnect('Voice connection ended. Reconnecting…'); }
         });
         vc.realtimeMaxSeconds = Number(session.max_seconds) || 300;
         clearTimeout(vc.realtimeTimer);
@@ -6435,7 +6435,7 @@
       if (currentVoice().startsWith('ai:')) {
         // Initial connection failures must use the same bounded retry path as
         // dropped sessions; do not close the voice UI after the first failure.
-        scheduleRealtimeReconnect('Gemini Live could not start. Retrying the connection…');
+        scheduleRealtimeReconnect('Voice could not start. Retrying the connection…');
         return;
       }
       voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
