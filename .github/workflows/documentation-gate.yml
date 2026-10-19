@@ -1,0 +1,33 @@
+name: Documentation Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changelog-required:
+    name: Require changelog entry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Require changelog update in this PR
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          printf '%s\n' "$changed_files"
+          if ! printf '%s\n' "$changed_files" | grep -Fxq 'docs/pr-change-log.md'; then
+            echo "::error::Every pull request must update docs/pr-change-log.md. See docs/change-documentation-policy.md."
+            exit 1
+          fi
+          echo "Changelog update detected. Commit-by-commit coverage still requires review as documented in the policy."
