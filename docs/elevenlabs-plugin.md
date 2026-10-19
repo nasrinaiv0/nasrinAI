@@ -35,7 +35,7 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 
 ## Credentials and architecture
 
-- Use the existing server-side secret-management pattern. The API key must never be exposed to the browser, stored in localStorage, sent in URLs, or logged.
+- Phase 1 uses the server-side `ELEVENLABS_API_KEY` deployment secret. Never expose it to the browser, store it in localStorage, send it in URLs, or log it. Future per-user BYOK must use tenant-bound encrypted connector secrets.
 - First inspect existing connector secret storage and account/tenant model. Prefer a user-owned encrypted connection if the product already supports secure per-user secrets; otherwise use a server-configured ElevenLabs key with explicit product-level usage attribution and plan quotas. Do not create a fake per-user connection UI if no secure storage exists.
 - Call only fixed official ElevenLabs API origins; do not accept arbitrary base URLs (SSRF prevention).
 - Add a dedicated server-side adapter and authenticated routes. Check ownership and authorization on every job, audio asset, scene, and project operation.
@@ -43,6 +43,15 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 - Integrate with existing usage logging, token/plan quotas where applicable, shared spend reservations, provider cost accounting, rate limits, and abuse controls. Fail closed if the cost cannot be estimated and production policy requires a known cost.
 - Record provider action, latency, outcome, and available usage/cost metadata; never log API keys or full private scripts by default.
 - Handle 401/403, 429, 5xx, timeout, malformed responses, quota exhaustion, and storage failure with sanitized actionable errors.
+
+## Implemented Phase 1 API
+
+- `GET /v1/video-studio/elevenlabs/status` — configuration state and enabled capabilities; never returns the key.
+- `GET /v1/video-studio/elevenlabs/voices` — validated voice IDs and names for signed-in Max/Ultra users.
+- `POST /v1/video-studio/elevenlabs/voiceover` — accepts script text and optional voice/model IDs; returns an MP3 for browser preview/download.
+- `POST /v1/video-studio/elevenlabs/sound-effects` — accepts a prompt and optional duration; returns an MP3 for browser preview/download.
+- Set `ELEVENLABS_API_KEY` in the server/deployment environment only. Never use a `PUBLIC_*` variable for this secret.
+- Generated audio is currently a separate downloadable asset and is **not yet mixed into the final MP4**. Do not claim timeline integration until an editor/assembly pipeline exists and tests prove the exported video contains the selected audio.
 
 ## Server API design (adapt to existing route conventions)
 
