@@ -446,6 +446,13 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     },
     async deleteUserData({ tenantId, userId }) {
       await request('POST', 'rpc/delete_user_data', { body: { p_tenant: tenantId, p_user: userId } });
+      // Migration 051 is additive; tolerate its absence so account deletion
+      // remains available before the Studio migration is applied.
+      try {
+        await request('DELETE', `video_studio_projects?tenant_id=eq.${tenantId}&user_id=eq.${encodeURIComponent(userId)}`, { prefer: 'return=minimal' });
+      } catch (err) {
+        if (!missingTable(err)) throw err;
+      }
       await this.deleteNccData({ tenantId, userId });
       await this.deleteGithubConnection({ tenantId, userId });
       await this.deleteResearchScansOf({ tenantId, ownerType: 'user', ownerId: userId });
