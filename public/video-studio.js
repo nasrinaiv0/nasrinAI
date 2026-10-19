@@ -77,6 +77,7 @@
     state.cloudProjectId=project.id;state.cloudVersion=project.version;
     $('projectName').value=safe(project.name).slice(0,80)||'Untitled video';
     if(d.aspect)$('aspect').value=d.aspect;
+    if(typeof d.prompt==='string')$('prompt').value=d.prompt.slice(0,1800);
     if(d.template&&templates[d.template])state.template=d.template;
     state.generated=Array.isArray(d.generated)?d.generated.filter(g=>g.videoId).map(g=>({...g,download:'/v1/videos/'+encodeURIComponent(g.videoId)+'/content'})):[];
     state.clips=Array.isArray(d.clips)?d.clips.map(c=>({...c,file:null,url:null,download:c.videoId&&c.kind==='generated'?'/v1/videos/'+encodeURIComponent(c.videoId)+'/content':null})): [];
