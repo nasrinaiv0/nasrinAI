@@ -1346,3 +1346,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `60f477a9ffd6d413111525894c3fc8044709901b` — `test: prevent silent clip loss in browser export`.
 - Added a regression assertion that the browser renderer refuses timelines above its documented clip limit.
 - **Validation:** test committed; full CI and real-browser verification pending.
+
+
+### Video Studio clip-limit test scope correction (2026-10-20)
+
+- **Commit:** `cb1cc5de6cf8e35e0a6a1dd8a565f91512d4147d` — `test: scope clip-limit assertion to renderer`.
+- The first regression assertion searched the entire Studio script for `state.clips.slice(0,30)`, unintentionally rejecting the separate cloud-project serialization cap even though the renderer itself now rejects projects over 30 clips. Scoped the no-truncation assertion to `renderTimelineVideo` and changed the general check to assert the renderer's explicit clip-count guard.
+- **Validation:** the previous CI run had 796 passing tests, 1 failing test, and 1 skipped test; the sole failure was this over-broad assertion. The corrected test is committed; a new CI run is required to confirm the fix.
