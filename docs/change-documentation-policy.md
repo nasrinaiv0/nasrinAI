@@ -6,7 +6,7 @@ Every commit and every pull request in NasrinAI must be documented. Documentatio
 
 ## For every commit
 
-Add or update an entry in `docs/pr-change-log.md` in the same commit. Keep the entry concise but specific:
+Add or update an entry in `docs/pr-change-log.md` in the same commit whenever the workflow supports an atomic change. If the GitHub contents workflow creates separate commits for separate files, immediately record each resulting commit SHA and its purpose in the next changelog update before continuing. No commit may remain undocumented at PR review/merge time. Keep the entry concise but specific:
 
 - What changed and why; identify affected components/files or the relevant feature.
 - User-visible behavior and operational impact.
@@ -42,4 +42,4 @@ Update the relevant technical document whenever a change alters architecture, AP
 - Required automated tests and checks must pass before merge. If CI or preview validation is unavailable, mark it pending and do not represent it as passed.
 - Never hide a failed check by deleting the evidence or rewriting the status as success.
 
-The GitHub Actions gate currently checks that the PR includes a changelog change. It does not independently prove that every commit has a distinct corresponding entry; that remains an explicit review requirement.
+The GitHub Actions gate currently checks that the PR includes a changelog change. It does not independently prove that every commit has a distinct corresponding entry; reviewers must inspect the commit list against the changelog before merge. If tooling creates multiple file commits, record each exact SHA in the changelog as soon as possible.
