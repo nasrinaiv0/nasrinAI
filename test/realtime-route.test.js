@@ -13,7 +13,7 @@ test('realtime session follows the selected NasrinAI tier and never accepts a ra
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-4o-mini', 'gpt-5-mini', 'gpt-5', 'gpt-5.4-nano', 'gpt-realtime-2.1-mini', 'gpt-realtime-2.1'], reply: () => 'ok' }),
     geminiRealtime,
-    env: { GEMINI_API_KEY: 'test-gemini-key', DAILY_BUDGET_USD: '1', WEEKLY_BUDGET_USD: '2', MONTHLY_BUDGET_USD: '4' }
+    env: { GEMINI_API_KEY: 'test-gemini-key', DAILY_BUDGET_USD: '3', WEEKLY_BUDGET_USD: '5', MONTHLY_BUDGET_USD: '10' }
   });
   const srv = await serve(built.app);
   try {
