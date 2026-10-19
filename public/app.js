@@ -6433,7 +6433,9 @@
       // When an AI realtime voice is selected, fail clearly rather than
       // silently switching to a separate STT/TTS cascade.
       if (currentVoice().startsWith('ai:')) {
-        closeVoice('Gemini Live could not start. Check your connection and try again.');
+        // Initial connection failures must use the same bounded retry path as
+        // dropped sessions; do not close the voice UI after the first failure.
+        scheduleRealtimeReconnect('Gemini Live could not start. Retrying the connection…');
         return;
       }
       voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
