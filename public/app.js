@@ -1732,7 +1732,7 @@
             'Note: ' + String(brief.note || 'Media files are not attached.').slice(0, 300),
             'Please help me continue from this project brief. Do not claim to modify or export the Studio project unless the relevant tools are available.'
           ];
-          input.value = lines.join('\\n').slice(0, 6000);
+          input.value = lines.join('\n').slice(0, 6000);
           autosize();
           notice.textContent = 'Video Studio project brief loaded. Review it and send when you are ready.';
         }
