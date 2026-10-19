@@ -1,6 +1,6 @@
 # ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: Phases 1–3 and the first dedicated Studio workspace are implemented on the feature branch: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, FFmpeg MP4 audio mixing/export, and a dedicated `studio.nasrinai.com` UI. Full CI, production storage/migration, authentication, and deployed FFmpeg smoke tests remain required before this is considered release-ready.
+Status: Phases 1–3 and the first dedicated Studio workspace are implemented on the feature branch: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, FFmpeg MP4 audio mixing/export, and a dedicated `/studio/` workspace (the studio subdomain redirects to the primary host to preserve the existing HttpOnly session cookie). Full CI, production storage/migration, authentication, and deployed FFmpeg smoke tests remain required before this is considered release-ready.
 
 ## Product intent
 
@@ -95,5 +95,5 @@ Long-running operations must use the existing durable job pattern if available. 
 1. Run the new GitHub Actions workflow and fix every failing test; verify the real FFmpeg render test rather than allowing it to skip on supported production platforms.
 2. Apply migration 030 and verify private Storage bucket upload/download/delete, metadata ownership, and timeline RLS/service-role access in Supabase.
 3. Complete an end-to-end deployed test: create a video, generate an audio asset, place it on a project timeline, export MP4, and inspect playback/audio timing.
-4. Verify the Studio sign-in flow, Turnstile, host redirect, responsive layout, and cross-origin account data on `studio.nasrinai.com`.
+4. Verify the Studio sign-in flow, Turnstile, same-origin session refresh, responsive layout, and the studio subdomain redirect.
 5. Update privacy/terms disclosures, dependency audit, and release notes before merge.
