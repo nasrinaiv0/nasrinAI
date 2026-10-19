@@ -84,6 +84,7 @@ test('audio assets can be placed, moved, and removed from an owned project timel
     assert.equal(item.startSeconds, 4.5);
     assert.equal(item.gain, 0.8);
     assert.equal(item.lane, 2);
+    assert.equal(item.trimEndSeconds, null, 'untrimmed clips should play to their full duration');
 
     const timeline = await fetch(a.url + '/v1/video-studio/timeline?project_id=' + project.id, { headers: bearer(USER_TOKEN) });
     assert.equal(timeline.status, 200);
