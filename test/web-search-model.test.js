@@ -84,3 +84,47 @@ test('social video search asks for a verified list of direct video URLs', async 
   assert.match(request.instructions, /do not end by asking whether the user wants the list/i);
   assert.equal(result.citations[0].url, 'https://www.tiktok.com/@creator/video/1234567890123456789');
 });
+
+test('research routing ignores old assistant prose and uses the latest user intent', async () => {
+  const requests = [];
+  const search = createWebSearch({
+    apiKey: 'sk-test-only',
+    model: 'gpt-5.4-mini',
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ output: [
+        { type: 'message', content: [{ type: 'output_text', text: 'Answer', annotations: [] }] },
+        { type: 'web_search_call' }
+      ], usage: { input_tokens: 10, output_tokens: 2 } }) };
+    }
+  });
+  await search.search({ system: 'test', messages: [
+    { role: 'user', content: 'Write a short thank-you message.' },
+    { role: 'assistant', content: 'Here is a bibliography with many references and sources.' },
+    { role: 'user', content: 'What is the capital of France?' }
+  ] });
+  assert.equal(requests[0].tools[0].search_context_size, 'medium');
+  await search.search({ system: 'test', messages: [
+    { role: 'user', content: 'Give me a comprehensive research report with sources and citations.' }
+  ] });
+  assert.equal(requests[1].tools[0].search_context_size, 'high');
+});
+
+test('substantial research returns up to ten unique citations; ordinary lookups stay concise', async () => {
+  const annotations = Array.from({ length: 12 }, (_, i) => ({
+    type: 'url_citation', url: 'https://example.com/source-' + (i + 1), title: 'Source ' + (i + 1)
+  }));
+  const search = createWebSearch({
+    apiKey: 'sk-test-only',
+    model: 'gpt-5.4-mini',
+    fetchImpl: async () => ({ ok: true, json: async () => ({
+      output: [{ type: 'message', content: [{ type: 'output_text', text: 'Research answer', annotations }] }],
+      usage: { input_tokens: 20, output_tokens: 10 }
+    }) })
+  });
+  const research = await search.search({ system: 'test', messages: [{ role: 'user', content: 'Comprehensive research report with sources' }] });
+  assert.equal(research.citations.length, 10);
+  assert.equal(new Set(research.citations.map((source) => source.url)).size, 10);
+  const ordinary = await search.search({ system: 'test', messages: [{ role: 'user', content: 'What is the capital of France?' }] });
+  assert.equal(ordinary.citations.length, 6);
+});
