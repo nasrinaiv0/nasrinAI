@@ -8664,7 +8664,7 @@
     Render: ['Connected accounts', 'Services', 'Projects', 'Deployments', 'Build status', 'Permissions', 'Integration information'],
     Supabase: ['Connected accounts', 'Projects', 'Database health', 'Migrations', 'Permissions', 'Integration information'],
     Cloudflare: ['Connected accounts', 'Domains', 'Add domain', 'Security status', 'DNS', 'Permissions', 'Integration information'],
-    ElevenLabs: ['API key verification', 'Available voices', 'Text-to-speech generation', 'Usage and quota', 'Audio output', 'Permissions', 'Integration information']
+    ElevenLabs: ['Video Studio voiceover', 'Sound-effect generation', 'Voice selection', 'MP3 preview and download', 'Server configuration status', 'Permissions', 'Integration information']
   };
   function openDeveloperToolSettings(name, website) {
     $('pluginsList').hidden = true;
@@ -8677,7 +8677,18 @@
     $('pluginCatalogDescription').textContent = (DEVELOPER_TOOL_DETAILS[name] || ['Connected accounts', 'Permissions', 'Integration information']).join(' · ');
     $('pluginCatalogStatus').textContent = name === 'GitHub'
       ? (github.connected ? 'Connected through NasrinAI GitHub' : 'GitHub connection status is managed in the coding settings.')
+      : name === 'ElevenLabs' ? 'Checking Video Studio audio configuration…'
       : 'API connection not configured yet. No account is connected through NasrinAI.';
+    if (name === 'ElevenLabs') {
+      api('/v1/video-studio/elevenlabs/status').then((state) => {
+        if ($('pluginCatalogTitle').textContent !== 'ElevenLabs settings') return;
+        $('pluginCatalogStatus').textContent = state?.configured
+          ? 'Configured for Video Studio: voiceover and sound effects are available to eligible plans.'
+          : 'Not configured on the server. Add ELEVENLABS_API_KEY to the deployment environment to enable Video Studio audio.';
+      }).catch(() => {
+        if ($('pluginCatalogTitle').textContent === 'ElevenLabs settings') $('pluginCatalogStatus').textContent = 'Could not verify Video Studio audio configuration. Try again later.';
+      });
+    }
     $('githubTitle').lastChild.textContent = name;
     $('pluginCatalogBack').focus();
   }
