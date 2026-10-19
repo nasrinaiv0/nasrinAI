@@ -1520,7 +1520,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/video-studio/audio-assets/:id/content',
       scope: 'chat',
       handler: async ({ caller, params, res }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         const asset = await store?.readVideoStudioAudioAsset?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: params.id });
         if (!asset) throw new HttpError(404, 'not_found', 'Audio asset not found.');
         res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': asset.bytes.length, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline; filename="nasrinai-audio.mp3"' });
@@ -1532,7 +1532,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/video-studio/audio-assets/:id',
       scope: 'chat',
       handler: async ({ caller, params }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         const removed = await store?.deleteVideoStudioAudioAsset?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: params.id });
         if (!removed) throw new HttpError(404, 'not_found', 'Audio asset not found.');
         return { body: { deleted: true, id: params.id } };
@@ -1562,7 +1562,7 @@ return { body: { sites: await connect.list(caller) } }; }
       body: true,
       maxBody: 8 * 1024,
       handler: async ({ caller, body }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         const projectId = body?.project_id;
         await requireVideoStudioProject(caller, projectId);
         const asset = await store?.getVideoStudioAudioAsset?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: body?.audio_asset_id });
@@ -1586,7 +1586,7 @@ return { body: { sites: await connect.list(caller) } }; }
       body: true,
       maxBody: 8 * 1024,
       handler: async ({ caller, params, body }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         const projectId = body?.project_id;
         await requireVideoStudioProject(caller, projectId);
         const patch = timelineInput(body, false);
@@ -1602,7 +1602,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/video-studio/timeline/:id',
       scope: 'chat',
       handler: async ({ caller, params, req }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         const projectId = new URL(req.url, 'http://local').searchParams.get('project_id');
         await requireVideoStudioProject(caller, projectId);
         const removed = await store?.deleteVideoStudioTimelineItem?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId, id: params.id });
