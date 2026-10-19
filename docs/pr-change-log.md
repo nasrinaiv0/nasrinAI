@@ -1131,3 +1131,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Policy setup commits:** `808ecc3c27da6c0c62e42631cad8db1af14f7a0f` — policy requirement added to the changelog; `0be28e07a5857a36ae962d577e9e7652701b0000` — policy document created; `c84e65480fc76a57b7c16903be031aed6fc32bac` — PR template created; `f326b020df2bbee89d08865d2818015ae51affa8` — changelog gate workflow created.
 - **Validation:** source files committed to `feat/video-studio-mvp`. GitHub Actions execution and the full test suite are not yet confirmed.
 - This changelog update records the enforcement setup and its follow-up policy clarification; do not treat the documentation gate as proof that every individual commit has a matching entry.
+
+
+## Fix Vercel routing regression test (2026-10-20)
+
+- **Failure found in CI:** `test/vercel.test.js`, test “API paths are sent to the function, with the original path passed along”. The test's rewrite helper ignored Vercel's host match condition and incorrectly treated the `studio.nasrinai.com` root rewrite as applying to the main `nasrinai.com` host. Actual failure: expected `null` for `/`, received `/video-studio.html`.
+- **Fix:** commit `a3d56e8e29bf546dc4aacea0483dcdc55512b83e` updates the test helper to respect host-specific rewrite conditions and adds explicit assertions for both the main site root and the Studio host.
+- **Production configuration:** unchanged. The Studio rewrite is intentional and remains scoped to `studio.nasrinai.com`; this was a test-model defect, not a routing change.
+- **Validation:** the failing assertion is addressed in the regression test. CI has not yet rerun on the fix, so the suite is not yet confirmed passing.
