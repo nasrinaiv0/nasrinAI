@@ -1227,3 +1227,22 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `00c07379396d624ab891e5c36f5c7daa3e2ea6ed` — `style: fit cloud project controls in Studio header`.
 - Added wrapping layout for the Save/Open controls to avoid forcing them into one fixed-width row on small screens.
 - **Validation:** CSS committed; responsive browser testing remains pending.
+
+
+### Video Studio cloud prompt preservation (2026-10-20)
+
+- **Commit:** `956e8f2ecd6c180cbe7e3a0958f52f4a04023cf5` — `fix: preserve Studio prompt in cloud project`.
+- Extended server-side document normalization to retain the bounded generation prompt, so the saved project model includes the scene brief as well as timeline metadata.
+- **Validation:** source edit committed; CI pending.
+
+### Video Studio prompt-sync follow-up (2026-10-20)
+
+- **Commit:** `d552e3090a7563a45a2c86c8b004293409ccefea` — `fix: restore Studio prompt from cloud projects`.
+- Follow-up attempt did not change the frontend file content (the content blob was unchanged); retained here for commit-level audit transparency. The actual frontend prompt save/restore change is in the next commit.
+- **Validation:** no functional code change in this commit.
+
+### Video Studio prompt save/restore fix (2026-10-20)
+
+- **Commit:** `5553d653da6d6903ee2d27044549f2fc1b13d3b3` — `fix: preserve prompt when syncing Studio projects`.
+- Persist the current prompt in the cloud project document and restore it when opening a cloud project.
+- **Validation:** source edit committed; CI and live round-trip validation pending.
