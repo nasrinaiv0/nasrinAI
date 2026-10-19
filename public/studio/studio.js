@@ -134,6 +134,7 @@
       if (!response.ok) return;
       const data = await response.json();
       captchaSiteKey = typeof data.turnstile?.site_key === 'string' ? data.turnstile.site_key : '';
+      if (captchaSiteKey) $('turnstileWidget').hidden = false;
       if (data.sign_in && data.sign_in.email === false) {
         $('emailForm').hidden = true;
         signinStatus.textContent = 'Email sign-in is not enabled for this deployment. Contact support for account access.';
@@ -186,7 +187,7 @@
   });
 
   $('signOut').addEventListener('click', async () => {
-    try { await raw('/v1/auth/signout', { method: 'POST' }); } catch {}
+    try { await raw('/v1/auth/sign-out', { method: 'POST' }); } catch {}
     accessToken = '';
     tokenExpiresAt = 0;
     projects = [];
