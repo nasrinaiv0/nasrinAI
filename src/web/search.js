@@ -146,7 +146,7 @@ const PUBLIC_ENTITY_QUESTION = /\b(?:[Ww]hat|[Ww]ho|[Ww]here|[Ww]hen)\s+(?:is|ar
 const WEB_RESEARCH_INTENT = /\b(?:who is|who was|reviews? of|user reviews|pros and cons of|alternatives to|official documentation for|official docs for|academic papers? on|peer[- ]reviewed|market research|industry report|statistics for|data on|compare .{1,100}\b(?:products?|models?|services?|tools?|providers?|platforms?|companies|options?|solutions?)\b|best .{1,80}\b(?:apps?|tools?|services?|products?|platforms?|models?|providers?|places?|restaurants?|laptops?|phones?|software)\b)\b/i;
 // Social trends/public-video requests need live retrieval even without "today",
 // "current", or "search the web", preventing generic invented trend lists.
-const SOCIAL_DISCOVERY_INTENT = /\b(?:trending|trend|viral|popular|top|public|latest|new)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos? now|what is happening)\b/i;
+const SOCIAL_DISCOVERY_INTENT = /\b(?:trending|trend|viral|popular|top|public|latest|new)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos? now|videos?|show|find|search|any videos?|what is happening)\b|\b(?:show|find|search|any|public)\b.{0,60}\bvideos?\b.{0,60}\b(?:from|on|in)\b.{0,30}\b(?:tiktok|tik tok|facebook|instagram|youtube)\b/i;
 export const needsWeb = (text) => {
   const value = String(text || '');
   return !CAPABILITY.test(value) && (FRESH.test(value) || WEB_RESEARCH_INTENT.test(value) || PUBLIC_ENTITY_QUESTION.test(value) || SOCIAL_DISCOVERY_INTENT.test(value));
