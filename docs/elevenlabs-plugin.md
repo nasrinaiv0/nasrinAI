@@ -1,6 +1,6 @@
 # ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: Phases 1–3 are implemented on the feature branch and integrated into the existing Video Studio workspace: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, FFmpeg MP4 audio mixing/export, and integrated into the existing `public/video-studio.html` workspace; the studio subdomain redirects to the primary host to preserve the existing HttpOnly session cookie. Full CI, production storage/migration, authentication, and deployed FFmpeg smoke tests remain required before this is considered release-ready.
+Status: Phases 1–3 are implemented on the feature branch and integrated into the existing `public/video-studio.html` workspace: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, and FFmpeg MP4 audio mixing/export. The studio subdomain redirects to `https://nasrinai.com/video-studio.html` to preserve the existing HttpOnly session cookie. Full CI, production storage/migration, and deployed FFmpeg smoke tests remain required before release.
 
 ## Product intent
 
