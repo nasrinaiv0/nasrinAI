@@ -1,0 +1,24 @@
+/* Generative UI: responsive, reduced-motion-aware, CSP-safe widgets. */
+.genui-card{margin:1rem 0;padding:clamp(14px,2.5vw,22px);border:1px solid var(--line,rgba(128,128,128,.22));border-radius:20px;background:var(--panel,rgba(128,128,128,.055));overflow:hidden;max-width:100%}
+.genui-header{margin:0 0 18px}
+.genui-title{margin:0;font-size:1.05rem;font-weight:650;letter-spacing:-.02em}
+.genui-subtitle{margin:6px 0 0;color:var(--muted,#777);font-size:.88rem;line-height:1.5}
+.genui-visual{min-width:0}
+.genui-flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:3px 2px 12px;scrollbar-width:thin}
+.genui-node{flex:1 0 145px;max-width:230px;min-width:130px;min-height:102px;padding:13px;border:1px solid var(--line,rgba(128,128,128,.25));border-radius:13px;background:var(--surface,rgba(128,128,128,.045));display:flex;flex-direction:column;gap:6px}
+.genui-node-index{font-size:.68rem;letter-spacing:.12em;color:var(--accent,#d97732);font-variant-numeric:tabular-nums}
+.genui-node-label{font-size:.88rem;line-height:1.25}
+.genui-node-detail{font-size:.76rem;line-height:1.4;color:var(--muted,#777)}
+.genui-connector{flex:0 0 28px;display:flex;align-items:center;justify-content:center}
+.genui-connector-line{width:100%;height:2px;background:repeating-linear-gradient(90deg,var(--accent,#d97732) 0 4px,transparent 4px 8px);background-size:16px 2px;animation:genui-flow 1.2s linear infinite;opacity:.8}
+.genui-scenarios{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.genui-scenario{font:inherit;font-size:.8rem;padding:8px 12px;border:1px solid var(--line,rgba(128,128,128,.25));border-radius:999px;background:transparent;color:inherit;cursor:pointer}
+.genui-scenario[aria-pressed=true]{background:var(--accent-soft,rgba(217,119,50,.13));border-color:var(--accent,#d97732)}
+.genui-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,135px),1fr));gap:9px;margin-top:12px}
+.genui-metric{min-width:0;padding:12px;border-radius:12px;background:var(--surface,rgba(128,128,128,.045));border:1px solid var(--line,rgba(128,128,128,.16));display:flex;flex-direction:column;gap:6px}
+.genui-metric-label{font-size:.75rem;color:var(--muted,#777)}
+.genui-metric-value{font-size:1.2rem;line-height:1.25;font-weight:650;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.genui-metric-hint{font-size:.72rem;line-height:1.4;color:var(--muted,#777)}
+@keyframes genui-flow{to{background-position:16px 0}}
+@media(max-width:520px){.genui-card{border-radius:16px}.genui-node{flex-basis:138px;min-width:125px}.genui-connector{flex-basis:20px}.genui-metric-value{font-size:1.08rem}}
+@media(prefers-reduced-motion:reduce){.genui-connector-line{animation:none}}

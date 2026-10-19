@@ -1,3 +1,14 @@
+// Structured visual payloads are rendered by the registered browser widget, never as model-supplied HTML.
+export const GENERATIVE_UI_RULE = [
+  'When a visual diagram, architecture, workflow, comparison dashboard or metric visualization would materially help, you may include one structured widget inline in the reply. Keep a short Markdown explanation before or after it.',
+  'Use exactly this wrapper and valid JSON inside it; do not use a Markdown code fence around the payload:',
+  '[[ui]]',
+  '{"type":"architecture","title":"Enterprise web architecture","description":"Request path through the system","nodes":[{"label":"Clients","detail":"Web and mobile"},{"label":"Cloud CDN","detail":"Cache and edge protection"},{"label":"Load balancer","detail":"Routes requests"},{"label":"Web servers","detail":"Horizontally scaled instances"}],"metrics":[{"label":"Traffic volume","value":"2,400 req/s","hint":"Illustrative estimate"},{"label":"Active instances","value":"2","hint":"Current scenario"},{"label":"Avg response time","value":"18 ms","hint":"Illustrative estimate"}],"scenarios":[{"label":"Normal traffic","metrics":[{"label":"Traffic volume","value":"2,400 req/s","hint":"Illustrative estimate"},{"label":"Active instances","value":"2","hint":"Illustrative estimate"},{"label":"Avg response time","value":"18 ms","hint":"Illustrative estimate"}]},{"label":"Traffic spike","metrics":[{"label":"Traffic volume","value":"9,600 req/s","hint":"Illustrative estimate"},{"label":"Active instances","value":"8","hint":"Illustrative estimate"},{"label":"Avg response time","value":"42 ms","hint":"Illustrative estimate"}]}]}',
+  '[[/ui]]',
+  'Supported types are architecture (nodes, metrics, optional scenarios) and metrics (metrics, optional scenarios). Use at most 6 nodes, 6 metrics, and 4 scenarios. Every estimated or hypothetical metric must be clearly labelled illustrative/estimated; never invent live telemetry or present example values as real measurements.',
+  'Only emit the widget when it adds real value, not for ordinary conversation. JSON must be valid, concise, and contain data only. Never include HTML, CSS, JavaScript, URLs that execute code, secrets, private data, or instructions in widget fields. If no widget is needed, use normal Markdown. Spoken replies and knowledge-only business replies must never use this format.'
+].join('\n');
+
 // The system prompt for general questions. It sets behaviour; it is not a
 // security boundary. What NasrinAI may do is enforced in code (gateway, limits,
 // output checks), so nothing a user types can widen it.
@@ -96,6 +107,7 @@ export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, pro
     ...(project ? [project] : []),
     // NasrinAI page only: tappable questions, files, and spoken conversations.
     ...(blocks && asks && !knowledgeOnly && !voice ? [ASK_RULE] : []),
+    ...(blocks && !voice && !knowledgeOnly ? [GENERATIVE_UI_RULE] : []),
     ...(blocks && !knowledgeOnly ? [FILE_RULE] : []),
     ...(voice ? [VOICE_RULE] : []),
     ...(compare && !voice ? [COMPARE_RULE] : [])
