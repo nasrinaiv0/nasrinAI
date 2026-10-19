@@ -1,75 +1,79 @@
-# ElevenLabs Developer Plugin — Implementation Specification
+# ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: implementation required; do not mark connected or operational until live provider checks and tests pass.
+Status: catalog entry and initial spec exist; Video Studio integration remains in implementation. Do not claim capabilities until their routes, UI, storage, and tests are wired.
 
-## Goal
+## Product intent
 
-Add **ElevenLabs** as a first-class item in NasrinAI's **Plugins → Developer** section. This is a developer integration, not a replacement for NasrinAI's existing speech/realtime providers. It must fit the existing plugin catalog, settings, status, authorization, audit, and capability-reporting patterns.
+ElevenLabs is a **user-facing developer plugin for NasrinAI Video Studio**. It lets users use supported ElevenLabs audio-generation and audio-processing features inside their video creation workflow. It is not a general NasrinAI chat/realtime voice provider, and must not replace or alter existing OpenAI/Gemini speech or realtime voice paths.
 
-Official provider documentation:
-- API overview: https://elevenlabs.io/docs/api-reference/introduction
-- Text-to-speech: https://elevenlabs.io/docs/api-reference/text-to-speech
-- Voices: https://elevenlabs.io/docs/api-reference/voices
-- Usage: https://elevenlabs.io/docs/api-reference/user/subscription
+Official docs:
+- API capabilities: https://elevenlabs.io/api
+- Text-to-speech: https://elevenlabs.io/docs/api-reference/text-to-speech/convert
+- Sound effects: https://elevenlabs.io/docs/eleven-api/guides/cookbooks/sound-effects
+- General documentation: https://elevenlabs.io/docs/overview/intro
 
-## User experience
+## Video Studio capabilities
 
-- Show an ElevenLabs card in the Developer group, with developer name **ElevenLabs** and official website https://elevenlabs.io/.
-- Follow the established one-expanded-plugin-at-a-time interaction and existing state-aware Connect / Disconnect pattern.
-- Until a valid credential is configured and verified, show **Not connected**. A catalog entry alone must never imply a working integration.
-- Connect flow accepts an ElevenLabs API key, explains required permissions, validates it server-side, and never echoes the key back to the browser after submission.
-- Store credentials only in the existing encrypted/server-side secret storage pattern. Never place provider keys in localStorage, browser config, logs, analytics, URLs, or client bundles. If the current architecture cannot securely store user-provided provider credentials, do not ship a fake connect flow; use an owner-configured server environment variable and label it accurately.
-- Disconnect revokes/deletes only this ElevenLabs connection and must not affect other integrations.
-- Show provider status, available actions, and actionable sanitized errors. Do not expose raw provider errors, credentials, or internal stack details.
+Implement these as distinct, clearly labeled actions. Every action must be enabled only when its server-side capability is configured and tested.
 
-## Initial supported capabilities
+1. **Voiceover / narration**: convert a user's video script or selected scene narration to speech, choose a permitted voice/model, preview it, and add the resulting audio asset to the current video project.
+2. **Scene-level narration**: generate/regenerate narration for an individual scene without overwriting unrelated clips. Retain the mapping between scene ID, script revision, audio asset, voice, duration, and status.
+3. **Sound effects**: generate sound effects from a prompt and let the user preview and place a chosen result on the timeline. Treat these as separate generated audio assets, not speech.
+4. **Voice and model selection**: list voices/models from the authenticated provider response, validate IDs server-side, and display only capabilities supported by the configured account.
+5. **Audio asset lifecycle**: persist job state and audio metadata, support preview/retry/remove, and keep generated audio scoped to its project owner/tenant.
+6. **Video assembly**: ensure generated audio is included in preview/export through the existing video assembly pipeline. Do not imply it is part of the final MP4 until integration tests prove that the exported video contains the selected audio.
+7. **Future optional capabilities**: dubbing, transcription, voice changer, music, dialogue, voice design/cloning, and forced alignment are separate capabilities. Add only after each has its own UI, route, cost guard, permissions, and tests. Voice cloning must require explicit informed consent and rights to the source voice.
 
-Implement only provider endpoints and actions that are actually wired and tested:
-1. Verify credentials and retrieve account/subscription usage metadata.
-2. List available voices for the authorized account.
-3. Generate text-to-speech audio from user-supplied text using a selected available voice and supported model.
-4. Return audio as a safe downloadable/playable artifact using existing storage and media policies; enforce size, duration, MIME, timeout, and quota limits.
-5. Optionally support voice metadata lookup if the API and authorization scope permit it.
+## UX
 
-Do not claim voice cloning, voice design, dubbing, speech-to-text, conversational agents, or realtime WebRTC support unless each feature is separately implemented and tested. Do not infer that ElevenLabs TTS is a realtime voice transport.
+- In Plugins → Developer, show ElevenLabs with a link to Video Studio capabilities and a real configured/available status.
+- Inside Video Studio, provide an **Audio / Voiceover** workflow with separate tabs or actions for Voiceover, Sound Effects, and (only when implemented) Dubbing.
+- Allow users to select script/scene, voice, supported model, and relevant generation settings; preview before applying to the timeline.
+- Show per-job progress, failures, retry, remove, estimated/actual usage when available, and clear cost/plan limits.
+- Do not silently switch to another provider if ElevenLabs is unavailable. Explain the failure and offer an explicit alternative only if supported.
+- The plugin card must not be treated as proof that the provider key, API routes, or media assembly is operational.
 
-## Backend and security
+## Credentials and architecture
 
-- Reuse the current plugin provider catalog and developer-plugin settings components; avoid duplicate catalog entries.
-- Add a dedicated server-side ElevenLabs adapter/service and explicit routes following existing route conventions.
-- Validate input schemas, maximum text length, voice IDs, model IDs, output format, rate limits, and per-user/tenant ownership.
-- Apply server-side authentication, tenant/account isolation, least privilege, CSRF/origin protections where applicable, and permission checks on every operation.
-- Use timeouts, bounded retries only for safe transient failures, cancellation where supported, and sanitized structured errors.
-- Prevent SSRF: only call fixed official ElevenLabs API origins; never accept an arbitrary base URL from the client.
-- Treat generated audio and provider-returned metadata as untrusted data. Store audio only in approved buckets with existing retention and access-control policies; use signed URLs where appropriate.
-- Apply usage/budget controls and record provider, action, latency, outcome, and cost/usage when available. Never log the API key or full sensitive text by default.
-- Keep the existing OpenAI/Gemini/realtime voice paths intact. No silent provider switch; any fallback must be explicit, policy-approved, and observable.
+- Use the existing server-side secret-management pattern. The API key must never be exposed to the browser, stored in localStorage, sent in URLs, or logged.
+- First inspect existing connector secret storage and account/tenant model. Prefer a user-owned encrypted connection if the product already supports secure per-user secrets; otherwise use a server-configured ElevenLabs key with explicit product-level usage attribution and plan quotas. Do not create a fake per-user connection UI if no secure storage exists.
+- Call only fixed official ElevenLabs API origins; do not accept arbitrary base URLs (SSRF prevention).
+- Add a dedicated server-side adapter and authenticated routes. Check ownership and authorization on every job, audio asset, scene, and project operation.
+- Use bounded timeouts, payload limits, retries only where safe, request cancellation where supported, MIME validation, audio byte/duration limits, and storage retention/access policies.
+- Integrate with existing usage logging, token/plan quotas where applicable, shared spend reservations, provider cost accounting, rate limits, and abuse controls. Fail closed if the cost cannot be estimated and production policy requires a known cost.
+- Record provider action, latency, outcome, and available usage/cost metadata; never log API keys or full private scripts by default.
+- Handle 401/403, 429, 5xx, timeout, malformed responses, quota exhaustion, and storage failure with sanitized actionable errors.
 
-## Configuration and capability reporting
+## Server API design (adapt to existing route conventions)
 
-- Add a server-side environment/config option only if required by the existing credential architecture. Document the exact variable name in deployment documentation; never expose its value in status responses.
-- The status API and plugin status must distinguish **not configured**, **configured but unverified**, **connected**, **temporarily unavailable**, and **permission denied** where supported.
-- Report each capability separately. A successful credential check must not imply that TTS generation or audio storage is operational.
-- Do not reveal secrets, internal routing, or environment variable values to end users.
+Use names consistent with existing project conventions; do not duplicate an existing route:
+- Capability/status: whether ElevenLabs is configured and which Video Studio actions are operational.
+- Voice/model discovery: provider-backed list with validated output.
+- Voiceover job: submit script/scene narration, return an owner-scoped job ID/status.
+- Sound-effect job: submit prompt and bounded duration/options, return an owner-scoped job ID/status.
+- Job status/result: report state and provide a protected preview/download URL.
+- Apply/remove timeline asset: bind an audio asset to a specific authorized project/scene; never accept an arbitrary project or asset owner from the client.
 
-## Tests required before merge
+Long-running operations must use the existing durable job pattern if available. Do not rely on an in-memory promise or a single serverless request for long audio generation.
 
-- Catalog shows ElevenLabs exactly once in Developer and uses the existing expanded-card behavior.
-- Unconfigured integration is shown as unavailable/not connected, not as working.
-- Credential validation succeeds with a mocked valid response and safely rejects invalid/revoked keys.
-- Key is not returned in API responses, browser HTML/JS, logs, or error text.
-- Voice list and TTS calls validate inputs and handle success, malformed provider responses, rate limits, timeout, provider outage, and permission errors.
-- User/tenant A cannot access user/tenant B's connection, generated audio, or usage.
-- Disconnecting ElevenLabs leaves all other provider connections unchanged.
-- Usage limits, text-size limits, audio MIME/size limits, and retention policies are enforced.
-- Existing voice/realtime provider tests continue to pass; no provider-name leakage in generic user notifications.
-- Run the full test suite and relevant security/dependency checks. Fix regressions before opening/merging the PR.
+## Tests required
+
+- Plugin appears exactly once and status never claims connected/available when the server key or relevant capability is missing.
+- Credential stays server-side and is absent from API responses, frontend assets, logs, and errors.
+- Voiceover and sound-effect generation handle success, malformed provider responses, timeout, 401/403, 429, 5xx, cancellation, and quota failures.
+- Enforce per-user/tenant project ownership for every job, preview, audio asset, apply, and delete operation.
+- Validate prompt/script length, voice/model IDs, MIME, audio size/duration, and output format.
+- One user's audio/project/job cannot be accessed or overwritten by another user.
+- Scene regeneration updates only the selected scene and leaves unrelated timeline assets intact.
+- Export/assembly integration proves selected voiceover and effects appear at the expected timestamps in the final MP4; failure leaves no false-success state.
+- Cost and usage accounting are recorded and existing budgets/rate limits are enforced.
+- Existing video generation, OpenAI/Gemini speech, and realtime voice tests remain green.
+- Run the full test suite and relevant security/dependency checks before merge; report exact results.
 
 ## Delivery checklist
 
-1. Inspect existing plugin catalog, connection storage, secret encryption, status routes, voice adapters, media storage, and tests before coding.
-2. Implement the provider adapter and settings/connection lifecycle using the established architecture.
-3. Add tests for all behaviors above, including negative and cross-tenant cases.
-4. Update docs/plugins.md, environment/deployment docs, and the change log.
-5. Run the full suite. Report exact test totals and any checks that could not be run.
-6. Do not merge or claim production readiness while tests are failing or the credential storage path is insecure.
+1. Inspect Video Studio UI, video/project/job storage, media assembly/export, connector secret storage, usage ledger, plan gates, and existing test helpers.
+2. Implement provider adapter, status, voiceover and sound-effect jobs, audio asset storage, and timeline/export integration.
+3. Add UI states for configuration, loading, preview, apply, progress, failure, retry, and remove.
+4. Update docs/plugins.md, deployment configuration docs, privacy/terms disclosures, and change log as required.
+5. Run full tests; do not merge with failing tests or unverified audio-in-export behavior.
