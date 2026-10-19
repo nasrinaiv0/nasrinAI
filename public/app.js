@@ -2803,6 +2803,118 @@
   }
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
+  async function appendVideoStudioAudio(card, sourceText) {
+    const panel = document.createElement('section');
+    panel.className = 'video-studio-audio';
+    const heading = document.createElement('strong');
+    heading.textContent = 'Video Studio · Audio';
+    const note = document.createElement('p');
+    note.className = 'muted';
+    note.textContent = 'Generate previewable MP3 voiceovers and sound effects. Audio is provided as a separate asset and is not mixed into the MP4 yet.';
+    const status = document.createElement('p');
+    status.className = 'muted';
+    panel.append(heading, note, status);
+    card.appendChild(panel);
+    let capability;
+    try { capability = await api('/v1/video-studio/elevenlabs/status'); }
+    catch (err) { status.textContent = err.message || 'Audio tools could not be checked.'; return; }
+    if (!capability?.configured) {
+      status.textContent = 'Audio generation is not configured on the server yet.';
+      return;
+    }
+    const row = document.createElement('div');
+    row.className = 'video-studio-audio-controls';
+    const voiceSelect = document.createElement('select');
+    voiceSelect.className = 'field';
+    voiceSelect.setAttribute('aria-label', 'Voiceover voice');
+    const voicePlaceholder = document.createElement('option');
+    voicePlaceholder.value = '';
+    voicePlaceholder.textContent = 'Loading voices…';
+    voiceSelect.appendChild(voicePlaceholder);
+    const voiceButton = document.createElement('button');
+    voiceButton.type = 'button';
+    voiceButton.className = 'btn small';
+    voiceButton.textContent = 'Generate voiceover';
+    const effectButton = document.createElement('button');
+    effectButton.type = 'button';
+    effectButton.className = 'btn outline small';
+    effectButton.textContent = 'Generate sound effect';
+    row.append(voiceSelect, voiceButton, effectButton);
+    panel.appendChild(row);
+
+    try {
+      const result = await api('/v1/video-studio/elevenlabs/voices');
+      voiceSelect.replaceChildren();
+      for (const voice of result.voices || []) {
+        const option = document.createElement('option');
+        option.value = voice.id;
+        option.textContent = voice.name;
+        voiceSelect.appendChild(option);
+      }
+      if (!voiceSelect.options.length) {
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = 'No voices available';
+        voiceSelect.appendChild(empty);
+      }
+    } catch (err) {
+      voiceSelect.replaceChildren();
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Voices unavailable';
+      voiceSelect.appendChild(option);
+      status.textContent = err.message || 'Available voices could not be loaded.';
+    }
+
+    async function generateAudio(endpoint, payload, label, filename, button) {
+      button.disabled = true;
+      status.textContent = label + '…';
+      try {
+        const token = await credential();
+        const response = await net(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw await errorFrom(response);
+        const blob = await response.blob();
+        if (!blob.size || blob.size > 12 * 1024 * 1024) throw new Error('The generated audio file is empty or too large.');
+        const url = URL.createObjectURL(blob);
+        const result = document.createElement('div');
+        result.className = 'video-studio-audio-result';
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.preload = 'metadata';
+        audio.src = url;
+        audio.setAttribute('aria-label', label + ' preview');
+        const download = document.createElement('a');
+        download.className = 'btn small';
+        download.href = url;
+        download.download = filename;
+        download.textContent = 'Download MP3';
+        result.append(audio, download);
+        panel.appendChild(result);
+        status.textContent = label + ' ready. Preview it or download the MP3.';
+      } catch (err) {
+        status.textContent = err.message || label + ' failed. Please try again.';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    voiceButton.addEventListener('click', () => {
+      if (!voiceSelect.value) { status.textContent = 'Choose an available voice first.'; return; }
+      const script = window.prompt('Voiceover script (up to 5,000 characters):', String(sourceText || '').slice(0, 5000));
+      if (script == null) return;
+      generateAudio('/v1/video-studio/elevenlabs/voiceover', { text: script, voice_id: voiceSelect.value }, 'Voiceover', 'nasrinai-voiceover.mp3', voiceButton);
+    });
+    effectButton.addEventListener('click', () => {
+      const prompt = window.prompt('Describe the sound effect (up to 500 characters):', 'Soft cinematic transition whoosh');
+      if (prompt == null) return;
+      generateAudio('/v1/video-studio/elevenlabs/sound-effects', { prompt }, 'Sound effect', 'nasrinai-sound-effect.mp3', effectButton);
+    });
+  }
+
   async function sendVideo(text) {
     if (!window.confirm('Create this video now? NasrinAI will send your prompt to the configured AI video service. Video generation may use your plan allowance. Choose Cancel to stop.')) return;
     noticesOnSend();
@@ -2835,6 +2947,7 @@
             a.download = '';
             a.textContent = 'Download MP4';
             card.appendChild(a);
+            appendVideoStudioAudio(card, text);
             deviceNotify('NasrinAI video ready', 'Your Ultra video has finished rendering.', 'nasrinai-video-' + id);
             return;
           }
