@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, gzipSync } from 'node:zlib';
 import { parseAttachments, cleanName, attachmentNote } from '../src/attachments.js';
 import { createOpenAIProvider } from '../src/ai/openai.js';
 import { createFakeProvider } from '../src/ai/fake.js';
@@ -23,6 +23,20 @@ test('types come from the bytes, not the name or claimed type', () => {
   ], limits);
   assert.deepEqual(out.map((f) => [f.kind, f.mime]), [['image', 'image/png'], ['image', 'image/jpeg'], ['pdf', 'application/pdf'], ['text', 'text/plain']]);
   assert.equal(out[3].text, 'name,qty\nrice,2\n');
+});
+
+test('audio and video formats are detected from signatures without pretending to transcribe them', () => {
+  const mp4 = Buffer.alloc(16); mp4.writeUInt32BE(16, 0); mp4.write('ftyp', 4, 'ascii'); mp4.write('isom', 8, 'ascii');
+  const wav = Buffer.alloc(16); wav.write('RIFF', 0, 'ascii'); wav.write('WAVE', 8, 'ascii');
+  const [video, audio] = parseAttachments([{ name: 'renamed.bin', data: b64(mp4) }, { name: 'sound.dat', data: b64(wav) }], { ...limits, maxCount: 10 });
+  assert.equal(video.detectedMime, 'video/mp4'); assert.equal(audio.detectedMime, 'audio/wav');
+  assert.equal(video.unreadable, true); assert.match(video.text, /does not yet transcribe audio or extract video frames/);
+});
+
+test('gzip-compressed text exports are decompressed within the output limit', () => {
+  const payload = gzipSync(Buffer.from('id,value\n1,Kumusta\n'));
+  const [file] = parseAttachments([{ name: 'export.csv.gz', data: b64(payload) }], limits);
+  assert.match(file.text, /1,Kumusta/); assert.match(file.text, /Gzip-compressed text/);
 });
 
 test('broken and oversized files are refused', () => {
@@ -49,7 +63,11 @@ test('any kind of file is accepted: text of every kind is read, the rest is mark
   assert.equal(html.text, '<p>Kumusta</p>');
   assert.equal(utf16.text, 'hello');
   for (const f of [exe, bin, ole]) { assert.equal(f.kind, 'text'); assert.equal(f.unreadable, true); assert.match(f.text, /could not read the contents/); }
-  assert.match(ole.text, /\.docx/);
+  assert.match(ole.text, /legacy Word binary document/);
+  const legacy = ['doc', 'xls', 'ppt'].map((ext) => parseAttachments([{ name: `old.${ext}`, data: b64([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0]) }], limits)[0]);
+  assert.match(legacy[0].text, /save.*\.docx or PDF/);
+  assert.match(legacy[1].text, /save.*\.xlsx or PDF/);
+  assert.match(legacy[2].text, /save.*\.pptx or PDF/);
 });
 
 // A tiny ZIP writer, so documents can be built here without any package.
@@ -101,6 +119,30 @@ test('Word, Excel, PowerPoint, OpenDocument and EPUB files are read as text', ()
     'OEBPS/a.xhtml': '<html><body><p>Chapter one</p></body></html>', 'OEBPS/b.xhtml': '<html><body><p>Chapter two</p></body></html>'
   }));
   assert.match(epub.text, /Chapter one\n\nChapter two/);
+});
+
+test('Office documents extract embedded raster images as separate image attachments', () => {
+  const logo = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+  const files = parseAttachments([{ name: 'brand.docx', data: zipOf({
+    'word/document.xml': '<w:document><w:body><w:p><w:r><w:t>Brand guidelines</w:t></w:r></w:p></w:body></w:document>',
+    'word/media/logo.png': logo
+  }).toString('base64') }], limits);
+  assert.equal(files.length, 2);
+  assert.equal(files[0].kind, 'text');
+  assert.match(files[0].text, /Brand guidelines/);
+  assert.match(files[0].text, /Extracted 1 embedded image/);
+  assert.equal(files[1].kind, 'image');
+  assert.equal(files[1].mime, 'image/png');
+  assert.equal(files[1].extractedFrom, 'brand.docx');
+  assert.deepEqual(Buffer.from(files[1].data, 'base64'), logo);
+});
+
+test('embedded document image extraction respects image count and size caps', () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+  const archive = { 'word/document.xml': '<w:document><w:body><w:p><w:r><w:t>Doc</w:t></w:r></w:p></w:body></w:document>' };
+  for (let i = 0; i < 8; i++) archive['word/media/image' + i + '.png'] = png;
+  const files = parseAttachments([{ name: 'many.docx', data: zipOf(archive).toString('base64') }], limits);
+  assert.equal(files.filter((file) => file.kind === 'image').length, 6);
 });
 
 test('malformed EPUB manifest URLs do not throw during file analysis', () => {

@@ -92,6 +92,21 @@ export function loadConfig(env = process.env) {
   const nodeEnv = env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
 
+  // Paid-plan quotas are deployment policy, not code defaults. In production,
+  // require explicit values so a missing Vercel variable cannot silently lower
+  // Ultra (or accidentally disable a paid-plan quota with zero).
+  if (isProduction && String(env.PLANS_ENABLED ?? 'true').toLowerCase() !== 'false') {
+    const quotaNames = ['PRO_WEEKLY_TOKEN_LIMIT', 'MAX_WEEKLY_TOKEN_LIMIT', 'ULTRA_WEEKLY_TOKEN_LIMIT'];
+    const missingQuotas = quotaNames.filter((name) => env[name] === undefined || String(env[name]).trim() === '');
+    if (missingQuotas.length) throw new ConfigError('missing required production quota settings: ' + missingQuotas.join(', '));
+    for (const name of quotaNames) {
+      const value = Number(env[name]);
+      if (!Number.isSafeInteger(value) || value < 1 || value > 100000000) {
+        throw new ConfigError(name + ': set a whole number from 1 to 100000000 in Vercel');
+      }
+    }
+  }
+
   const supabaseUrl = cleanOrigin('SUPABASE_URL', env.SUPABASE_URL);
   const supabasePublishableKey = String(env.SUPABASE_PUBLISHABLE_KEY || '').trim();
   const supabaseSecretKey = String(env.SUPABASE_SECRET_KEY || '').trim();
@@ -106,6 +121,10 @@ export function loadConfig(env = process.env) {
     throw new ConfigError('GUEST_SESSION_SECRET: use at least 32 random characters');
   }
   const retentionCronSecret = String(env.CRON_SECRET || '').trim();
+  const ownerDiagnosticsToken = String(env.OWNER_DIAGNOSTICS_TOKEN || '').trim();
+  if (ownerDiagnosticsToken && ownerDiagnosticsToken.length < 32) {
+    throw new ConfigError('OWNER_DIAGNOSTICS_TOKEN: use at least 32 random characters');
+  }
   if (isProduction && !retentionCronSecret) throw new ConfigError('CRON_SECRET is required in production for scheduled retention cleanup');
   if (retentionCronSecret && retentionCronSecret.length < 32) throw new ConfigError('CRON_SECRET: use at least 32 random characters');
   if (supabasePublishableKey && (supabasePublishableKey === supabaseSecretKey || supabaseKeyKind(supabasePublishableKey) === 'secret')) {
@@ -630,6 +649,8 @@ export function loadConfig(env = process.env) {
     supabaseSecretKey,
     guestSecret,
     retentionCronSecret,
+    ownerDiagnosticsToken,
+    deploymentEnvironment: String(env.VERCEL_ENV || (isProduction ? 'production' : nodeEnv)),
     publicUrl,
     auth: Object.freeze({ email: authEmail, google: authGoogle }),
     turnstile: Object.freeze({ siteKey: turnstileSiteKey, secretKey: turnstileSecretKey }),

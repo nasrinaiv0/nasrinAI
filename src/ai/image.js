@@ -18,6 +18,24 @@ const sniff = (b) => {
 };
 
 // Finds the image in a response, whatever the exact nesting.
+function hasExplicitImageRefusal(data) {
+  const stack = [data];
+  const seen = new Set();
+  while (stack.length) {
+    const value = stack.pop();
+    if (!value || typeof value !== 'object' || seen.has(value)) continue;
+    seen.add(value);
+    for (const [key, child] of Object.entries(value)) {
+      if (typeof child === 'string') {
+        if (/^(?:SAFETY|BLOCKLIST|PROHIBITED_CONTENT|IMAGE_SAFETY|RECITATION)$/i.test(child) &&
+            /(?:finishreason|finish_reason|blockreason|block_reason|category|reason|status)/i.test(key)) return true;
+        if (/(?:cannot|can't|unable to|not able to)\s+(?:help|assist|generate|create|make|provide)|request (?:was )?(?:blocked|rejected)|violat(?:es|ed|ion) (?:our|the) (?:safety|content) polic/i.test(child)) return true;
+      } else if (child && typeof child === 'object') stack.push(child);
+    }
+  }
+  return false;
+}
+
 function findImage(data) {
   const direct = data?.output_image?.data || data?.interaction?.output_image?.data;
   if (typeof direct === 'string') return direct;
@@ -88,8 +106,14 @@ export function createGeminiImage({ apiKey, model, fetchImpl = fetch, timeoutMs 
       const b64 = findImage(data);
       const bytes = b64 ? Buffer.from(b64, 'base64') : null;
       const mime = bytes && sniff(bytes);
-      // No image: most often the request was refused by the service's safety rules.
-      if (!mime) throw new ProviderError('refused', 'the image service returned no image', 200);
+      // Only treat an explicit safety signal/refusal as a refusal. Some image
+      // models return text or an incomplete payload for transient/model-output
+      // failures; classify those as unavailable so the configured fallback can
+      // recover. Never retry a clearly safety-blocked request with another provider.
+      if (!mime) {
+        if (hasExplicitImageRefusal(data)) throw new ProviderError('refused', 'the image service refused the request', 200);
+        throw Object.assign(new ProviderError('unavailable', 'the image service returned no image payload', 502), { retry: true });
+      }
       return { bytes, mime };
     }
   };

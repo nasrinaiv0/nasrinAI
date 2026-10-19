@@ -33,8 +33,8 @@ export function createVoice({ engine, engines = null, conversations, limiter, us
   const voiceMap = new Map(catalog.map((v) => [v.id, v]));
   const provider = engine?.provider || 'openai';
   const defaultVoice = multiProvider
-    ? (providerEngines.openai ? 'openai:coral' : providerEngines.gemini ? 'gemini:Kore' : 'openai:coral')
-    : (engine?.defaultVoice || 'coral');
+    ? (providerEngines.openai ? 'openai:cedar' : providerEngines.gemini ? 'gemini:Charon' : 'openai:cedar')
+    : (engine?.defaultVoice || 'cedar');
 
   function resolveVoice(value) {
     if (typeof value !== 'string') return null;

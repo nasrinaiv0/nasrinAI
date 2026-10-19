@@ -17,3 +17,22 @@ test('desktop navigation is accessible and delegates to existing controls', asyn
   assert.match(js, /desktopSettingsBtn'\)\?\.addEventListener\('click', \(\) => \$\('settingsBtn'\)\?\.click\(\)/);
   assert.doesNotMatch(html, /\son(?:click|load|error)\s*=/i);
 });
+
+
+
+test('desktop composer spacing and navigation are clean and non-duplicated', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const railStart = html.indexOf('<aside class="desktop-rail"');
+  const railEnd = html.indexOf('<header class="bar">');
+  assert.ok(railStart >= 0 && railEnd > railStart, 'desktop rail markup should exist');
+  const rail = html.slice(railStart, railEnd);
+  assert.equal(rail.split('id="desktopCodeBtn"').length - 1, 1);
+  assert.equal(rail.split('id="desktopResearchBtn"').length - 1, 1);
+  assert.ok(!rail.includes('<button type="button" class="desktop-rail-action" id="desktopCodeBtn">\n    <button'));
+  assert.ok(css.includes('body:not(.has-chat) .dock { bottom: 150px; }'));
+  assert.ok(css.includes('body.has-chat .dock { bottom: 50px; }'));
+  assert.ok(css.includes('.bar-actions > #historyBtn,'));
+  assert.ok(css.includes('.bar-actions > #settingsBtn,'));
+  assert.ok(css.includes('.bar-actions > #newChat { display: none !important; }'));
+});
