@@ -1164,3 +1164,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added a configuration regression test requiring an explicit temporary redirect from `/` to `/video-studio.html` only when the host is `studio.nasrinai.com`, and confirming the main root is not redirected to Studio.
 - Updated API rewrite tests to validate that API paths remain routed to the function independently of host routing.
 - **Validation:** test source updated; execution is pending CI because this connector session does not run the repository's Node test suite.
+
+
+### Video Studio cloud project persistence foundation (2026-10-20)
+
+- **Commit:** `743b1a6123b61150b80109b083fc1216afffc31f` — `feat: add server-only Video Studio project storage`.
+- Added additive migration `051_video_studio_projects.sql` with tenant/user ownership, JSON document size/type constraints, update version, and owner/update index.
+- RLS is enabled and browser roles have no table privileges; application access is intended through the server-side service role only.
+- **Status:** schema foundation only. Authenticated CRUD APIs, frontend sync, migration execution, database tests, and deployment are not yet complete. Do not describe cloud persistence as usable until all are verified.
