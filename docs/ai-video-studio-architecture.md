@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Proposed architecture; not implemented by this document  
+**Status:** Initial frontend MVP implemented on feature branch; full cloud timeline rendering and cloud project sync remain pending  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -15,7 +15,7 @@ Build a first-class Video Studio where a user can:
 - Preview, save versions, render/export MP4, track progress, and return to completed projects after refreshing or signing in on another device.
 - See clear errors, progress, duration/resolution limits, and estimated usage before expensive work.
 
-This is an implementation specification, not evidence that these features or provider connections already exist.
+The first implementation slice adds a responsive standalone workspace, original template cards, a prompt-to-video flow using the existing authenticated `/v1/videos` generation pipeline, an editable local timeline, generated-clip preview/download, and browser-local draft metadata. It does not yet render a composed multi-clip timeline, synchronize projects across devices, or connect Shotstack/Creatomate. Do not describe the full Video Studio as production-complete until those parts are implemented and tested.
 
 ## 2. Provider recommendation
 
@@ -182,6 +182,68 @@ Do not call Video Studio production-ready until:
 
 ## 14. Decision record
 
-**Proposed default:** Shotstack Studio SDK + Edit API for the editing/rendering foundation; Runway adapter for AI-generated footage; NasrinAI-owned canonical project model and original template library. Evaluate Creatomate as a comparator and optional adapter, not an automatic dependency.
+**Proposed renderer decision:** retain the existing Gemini Veo video-generation route for generated footage; evaluate Shotstack Studio/Edit API as the cloud timeline renderer and Creatomate as a template-rendering comparator. Do not introduce Runway by default when the repository already has an established Veo provider path. The first UI slice uses the existing Veo route and does not yet submit full timeline renders.
 
 **Not yet decided:** final provider contracts/pricing, editor SDK feature coverage, exact schema/routes, worker topology, storage retention, supported resolutions/frame rates, template licensing inventory, and plan-specific limits. Verify each before implementation.
+
+
+## 15. Implementation checkpoint — initial frontend MVP
+
+Added in the Video Studio feature branch:
+- `public/video-studio.html`, `public/video-studio.css`, `public/video-studio.js`.
+- Original template gallery for cinematic, social, product, and travel-story starting points.
+- Prompt-to-video generation via the existing authenticated `POST /v1/videos` endpoint; polls the existing video job status route and loads owned MP4s using bearer-authenticated fetches.
+- Timeline clip list with reorder, rename, title metadata, trim-start/duration fields, removal, uploaded media previews, and responsive layout.
+- Browser-local draft metadata and generated clip downloads; no claims of cloud sync.
+- Desktop navigation entry and a focused regression test file.
+
+Known MVP boundaries:
+- Timeline title/trim/reorder edits are currently project metadata and do not alter the generated MP4 file.
+- Uploads and unsaved media blobs are browser-session only; local draft metadata does not upload assets.
+- Full composed MP4 export requires a server-side rendering adapter and provider credentials; this branch intentionally does not fake a successful export.
+- The initial templates are original UI concepts, not third-party provider templates.
+
+
+## 16. Main-chat continuity (cross-surface handoff)
+
+Video Studio is a separate workspace at `studio.nasrinai.com`, but it must not become a silo. Users should be able to continue in the main NasrinAI chat without reopening Studio.
+
+The current handoff adds **Continue in chat**:
+- It transfers a compact project brief (project name, template, aspect ratio, current prompt, ordered clip metadata, generated-video job IDs) from the active Studio draft to `nasrinai.com`.
+- The brief is placed in the URL fragment, not the query string, so it is not sent in the HTTP request. Main chat validates the payload, removes the fragment immediately, and pre-fills the composer without auto-sending.
+- The user reviews the brief and explicitly sends it; it then becomes part of that conversation's ordinary chat history.
+- It does not upload media files, grant access to a generated MP4 by ID alone, or synchronize the Studio draft across devices.
+
+**Next persistence milestone:** add owner-scoped cloud projects and asset records so Studio and chat can retrieve the same saved project through authenticated server APIs. The server must enforce the same account/tenant boundary for every read/write; job IDs must be re-authorized against the current caller; media access must use the existing owner-checked video content route or signed, short-lived storage URLs. Never expose provider keys or rely on client-supplied IDs as authorization. Chat should only retrieve a Studio project when the user explicitly selects/mentions it or shares it into the conversation, not inject every Studio project into unrelated chats.
+
+
+## 17. Dedicated NasrinAI chat inside Video Studio
+
+**Implementation checkpoint — feature branch, validation pending.**
+
+Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so users can ask for creative help without switching to the main chat.
+
+### User experience
+- Responsive floating launcher and chat panel, with close/open state, a message log, composer, send control, and suggested prompts for prompt improvement, storyboards, and opening hooks.
+- Enter sends; Shift+Enter inserts a newline. The panel disables duplicate sends while a reply is in progress and displays readable errors in the conversation.
+- The panel is a dedicated Studio UI, but it calls the existing NasrinAI `POST /v1/chat` endpoint rather than introducing a separate model or provider integration.
+- Each turn includes a bounded summary of the current Studio project: project name, template, aspect ratio, generation prompt, and up to 20 timeline clip names/types/durations. This lets the assistant respond in context without uploading media binaries.
+- The client carries forward the returned conversation ID when provided by the chat API, to support follow-up turns in the same conversation.
+
+### Authentication and safety
+- First attempts to obtain an access token using the existing same-origin refresh endpoint; if that fails, requests the existing guest session and uses its token in memory for the current page session.
+- Does not store access tokens in localStorage and does not embed provider credentials in client code.
+- Displays chat content with DOM `textContent`; do not render untrusted replies as HTML.
+- The chat API remains responsible for its existing authorization, plan/quota, abuse-control and provider-routing rules. Verify guest-plan behavior and signed-in session behavior in preview before release.
+- The current implementation sends a concise project brief with each message, not uploaded media, full generated MP4s, or a durable cloud project reference.
+
+### Files and tests
+- `public/video-studio.html`: chat launcher, panel, message log, composer and suggested prompts.
+- `public/video-studio.css`: responsive floating panel and message styling.
+- `public/video-studio.js`: project-context construction, authenticated/guest token selection, chat request, reply display, and composer interactions.
+- `test/video-studio.test.js`: assertions for chat controls, project-context wiring, guest-session fallback, and the chat endpoint.
+
+### Limitations and release gate
+- This is not yet a persistent shared project/chat workspace. Studio draft metadata remains browser-local, and uploads remain browser-session only.
+- The Studio panel is not yet guaranteed to show the user's existing main-chat history. It should be treated as a Studio conversation surface; durable cross-surface conversation continuity needs an explicit, authenticated conversation/project association.
+- Run the full `npm test` suite, inspect the Vercel preview, and manually verify guest and signed-in chat flows before merging. Do not claim validation passed until the CI result is green.
