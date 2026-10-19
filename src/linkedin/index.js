@@ -24,7 +24,7 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
   const env = process.env;
   const clientId = String(env.LINKEDIN_CLIENT_ID || '').trim();
   const clientSecret = String(env.LINKEDIN_CLIENT_SECRET || '').trim();
-  const publicUrl = String(config.publicUrl || '').replace(/\\/$/, '');
+  const publicUrl = String(config.publicUrl || '').replace(/\/$/, '');
   const redirectUri = publicUrl + '/v1/linkedin/callback';
   const key = config.connectors?.key || null;
   const dbUrl = config.supabaseUrl;
