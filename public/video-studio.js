@@ -192,6 +192,105 @@
   $('studioChatInput').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('studioChatForm').requestSubmit();}});
   document.querySelectorAll('[data-chat-suggestion]').forEach(button=>button.addEventListener('click',()=>sendStudioChat(button.dataset.chatSuggestion)));
 
+  let renderObjectUrl=null;
+  function waitForMedia(media,event,timeout=15000){
+    return new Promise((resolve,reject)=>{
+      if((event==='loadedmetadata'&&media.readyState>=1)||(event==='load'&&media.complete&&media.naturalWidth>0))return resolve();
+      const timer=setTimeout(()=>{cleanup();reject(new Error('Timed out loading timeline media.'));},timeout);
+      const ok=()=>{cleanup();resolve();},bad=()=>{cleanup();reject(new Error('A timeline clip could not be loaded in this browser.'));};
+      function cleanup(){clearTimeout(timer);media.removeEventListener(event,ok);media.removeEventListener('error',bad);}
+      media.addEventListener(event,ok,{once:true});media.addEventListener('error',bad,{once:true});
+    });
+  }
+  async function resolveClipSource(clip){
+    if(clip.file instanceof Blob)return URL.createObjectURL(clip.file);
+    if(clip.url&&typeof clip.url==='string')return clip.url;
+    if(clip.download&&typeof clip.download==='string'){
+      const response=await fetch(clip.download,{headers:{Authorization:'Bearer '+await refreshToken()},credentials:'same-origin'});
+      if(!response.ok)throw new Error('Could not load a generated clip. Reopen the project while signed in and try again.');
+      return URL.createObjectURL(await response.blob());
+    }
+    throw new Error('One or more timeline clips contain browser-local media that is unavailable. Re-add those files before rendering.');
+  }
+  function drawCover(ctx,source,width,height){
+    const sw=source.videoWidth||source.naturalWidth||source.width||width;
+    const sh=source.videoHeight||source.naturalHeight||source.height||height;
+    if(!sw||!sh)return;
+    const scale=Math.max(width/sw,height/sh),dw=sw*scale,dh=sh*scale;
+    ctx.drawImage(source,(width-dw)/2,(height-dh)/2,dw,dh);
+  }
+  async function renderTimelineVideo(){
+    const button=$('renderTimeline'),status=$('renderStatus'),progress=$('renderProgress'),link=$('renderDownload');
+    if(!state.clips.length){notice('Add at least one clip to the timeline before rendering.',true);return;}
+    if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){notice('Timeline rendering is not supported by this browser. Try a recent desktop version of Chrome or Edge.',true);return;}
+    if(state.clips.length>30){notice('Browser export supports up to 30 clips per render. Split this project into shorter exports.',true);return;}
+    const clips=state.clips.slice();
+    const durations=clips.map(c=>Math.max(1,Math.min(60,Number(c.duration)||8)));
+    const total=durations.reduce((sum,n)=>sum+n,0);
+    if(total>180){notice('For browser stability, render up to 180 seconds at a time. Split this project into shorter exports.',true);return;}
+    const portrait=$('aspect').value==='9:16',width=portrait?720:1280,height=portrait?1280:720,fps=24;
+    const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+    const ctx=canvas.getContext('2d',{alpha:false});
+    const canvasStream=canvas.captureStream(fps);
+    let audioContext=null,audioDestination=null,recorder=null,raf=0,blobParts=[];
+    const temporaryUrls=[];
+    button.disabled=true;button.textContent='Preparing renderer…';progress.hidden=false;progress.value=0;link.hidden=true;status.textContent='Preparing timeline media…';
+    try{
+      const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(type=>MediaRecorder.isTypeSupported(type));
+      if(!mime)throw new Error('This browser does not expose a supported recording format for timeline export.');
+      audioContext=window.AudioContext?new AudioContext():null;
+      audioDestination=audioContext?audioContext.createMediaStreamDestination():null;
+      const output=new MediaStream([...canvasStream.getVideoTracks(),...(audioDestination?audioDestination.stream.getAudioTracks():[])]);
+      if(audioContext)await audioContext.resume();
+      recorder=new MediaRecorder(output,{mimeType:mime,videoBitsPerSecond:5000000});
+      const recorded=new Promise((resolve,reject)=>{
+        recorder.ondataavailable=e=>{if(e.data&&e.data.size)blobParts.push(e.data);};
+        recorder.onerror=()=>reject(new Error('The browser stopped recording unexpectedly.'));
+        recorder.onstop=()=>resolve(new Blob(blobParts,{type:mime}));
+      });
+      const drawFrame=(source,clip)=>{
+        ctx.fillStyle='#101014';ctx.fillRect(0,0,width,height);
+        if(source&&source.tagName!=='AUDIO')drawCover(ctx,source,width,height);
+        if(clip?.title){ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(clip.title).slice(0,90),width*.08,height*.84,width*.84);}
+      };
+      let elapsed=0;
+      recorder.start(500);
+      for(let index=0;index<clips.length;index++){
+        const clip=clips[index],duration=durations[index],sourceUrl=await resolveClipSource(clip);
+        if(sourceUrl.startsWith('blob:'))temporaryUrls.push(sourceUrl);
+        let media;
+        if(clip.kind==='image'||(clip.file?.type||'').startsWith('image/')){
+          media=new Image();media.src=sourceUrl;await waitForMedia(media,'load');
+          drawFrame(media,clip);const start=performance.now();
+          await new Promise(resolve=>{const tick=now=>{drawFrame(media,clip);const pct=Math.min(1,(now-start)/(duration*1000));progress.value=Math.round(((elapsed+duration*pct)/total)*100);if(pct>=1)resolve();else raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);});
+        }else{
+          const audioOnly=clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
+          await waitForMedia(media,'loadedmetadata');
+          if(clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/')){media.style.display='none';document.body.append(media);}
+          if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioDestination);}
+          const startAt=Math.max(0,Number(clip.start)||0);if(startAt<media.duration)media.currentTime=startAt;
+          await waitForMedia(media,'seeked').catch(()=>{});
+          const started=performance.now();await media.play();
+          await new Promise((resolve,reject)=>{
+            const tick=now=>{drawFrame(media,clip);const played=(now-started)/1000;progress.value=Math.round(((elapsed+Math.min(duration,played))/total)*100);if(played>=duration||media.ended){media.pause();resolve();}else raf=requestAnimationFrame(tick);};
+            media.addEventListener('error',()=>reject(new Error('A clip failed during rendering.')), {once:true});raf=requestAnimationFrame(tick);
+          });
+          media.pause();media.remove();media.src='';
+        }
+        elapsed+=duration;progress.value=Math.round(elapsed/total*100);status.textContent='Rendering clip '+(index+1)+' of '+clips.length+'…';
+      }
+      recorder.stop();const blob=await recorded;
+      if(!blob.size)throw new Error('The browser produced an empty video file.');
+      if(renderObjectUrl)URL.revokeObjectURL(renderObjectUrl);
+      renderObjectUrl=URL.createObjectURL(blob);link.href=renderObjectUrl;
+      const extension=mime.includes('mp4')?'mp4':'webm';link.download='nasrinai-timeline.'+extension;link.textContent='Download rendered '+extension.toUpperCase();link.hidden=false;
+      status.textContent='Render complete · '+Math.round(blob.size/1024/1024*10)/10+' MB · '+extension.toUpperCase()+'. Review playback before sharing.';
+      notice('Timeline render completed. Download and review the exported video.');
+    }catch(error){if(recorder&&recorder.state!=='inactive'){try{recorder.stop();}catch{}}status.textContent=error.message||'Timeline rendering failed.';notice(status.textContent,true);}
+    finally{cancelAnimationFrame(raf);temporaryUrls.forEach(url=>URL.revokeObjectURL(url));if(audioContext)await audioContext.close().catch(()=>{});button.disabled=false;button.textContent='Render timeline video';}
+  }
+  $('renderTimeline').addEventListener('click',renderTimelineVideo);
+
   loadDraft();selectTemplate(state.template,false);renderTimeline();renderExports();
   refreshToken().then(()=>{$('saveState').textContent='Signed in · local draft';}).catch(()=>{$('saveState').textContent='Sign in required for AI generation';notice('Sign in to NasrinAI in this browser to generate video. You can still explore the template gallery.',true);});
 })();

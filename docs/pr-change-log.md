@@ -1268,3 +1268,17 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `c77cc8f325117222f13eaec65975a15e4ef25a70` — `test: cover cloud Studio prompt round trip`.
 - Added a regression test that asserts the bounded prompt is persisted in the cloud document and restored when opening a cloud project.
 - **Validation:** test added; CI pending.
+
+
+## 2026-10-20 — PR #474 conflict-safe renderer port
+
+- **Branch:** `fix/video-studio-renderer-conflict` (based on current `main`, to avoid overwriting newer cloud-project prompt restoration changes).
+- **Reason:** PR #474 reported `mergeable_state=dirty`; its HTML, CSS, JS, and architecture document diverged from current `main`. The conflict was not resolved by taking either side wholesale.
+- **Commits:**
+  - `a088ceec15688581f13bc7e4e282e9aae801b32b` — port renderer controls into current HTML while preserving main content.
+  - `ba9512b1b719fb1965dbaaa6213e09b4e8196200` — add renderer styles.
+  - `9d89145fb5c882e969d0c896f799a17437db406b` — port browser renderer code while retaining current cloud prompt restoration.
+  - `4fccb9a6bf8e4c9e3deaf4a3cb3c45a8a19a9bc6` — add renderer regression tests from PR #474.
+  - `1930103026330ffec7e584baffa25262c7b124ec` — document conflict-safe integration and remaining browser/media limitations.
+- **Validation at this point:** files were transplanted by stable insertion points and current-main content was preserved; CI for this new branch has not yet completed. No browser/device playback test is claimed.
+- **Known limitations:** Browser-dependent MediaRecorder export; MP4 only where supported, otherwise WebM; maximum 30 clips / 180 seconds; local upload bytes are not durable cloud media; manual export playback/audio synchronization remains required.
