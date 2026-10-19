@@ -23,6 +23,7 @@ import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
 import { createVideos } from './videos.js';
+import { createElevenLabs } from './elevenlabs.js';
 import { createPayMongo } from './payments/paymongo.js';
 import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
