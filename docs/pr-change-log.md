@@ -1109,3 +1109,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** regression tests were added but have not been executed in this remote documentation/feature-authoring session. Run `npm test` and review the preview deployment before merging.
 
 - **Cross-surface handoff update:** added a Studio `Continue in chat` action and main-chat fragment handler. The project brief is validated, removed from the URL immediately, and prefilled for explicit user review/send. This shares project metadata and prompt context only; cloud project persistence and media transfer remain pending.
+
+- **Dedicated Studio chat:** documented the new responsive Ask NasrinAI panel, its use of the existing `/v1/chat` API, bounded project-context injection, in-memory authenticated/guest token handling, test coverage, and release limitations. This adds contextual creative chat inside Studio; it does not yet provide shared cloud project persistence or guarantee reuse of main-chat history.
