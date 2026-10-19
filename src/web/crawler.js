@@ -79,8 +79,13 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
         if (page.error) throw new Error(page.error);
         const assets = extractWebAssets(page.html || '', page.url || pageUrl);
         const contentHash = hash(page.text);
+        const pageHash = hash(pageUrl);
+        // Compare with the persisted page index, not the queue row (the queue
+        // intentionally stores scheduling state and has no content_hash).
+        const previousRows = await store.request('GET', 'web_crawl_pages?select=content_hash&url_hash=eq.' + pageHash + '&limit=1');
+        const previousHash = Array.isArray(previousRows) ? previousRows[0]?.content_hash : null;
         const doc = {
-          url: page.url || pageUrl, url_hash: hash(pageUrl), title: String(page.title || '').slice(0, 200),
+          url: page.url || pageUrl, url_hash: pageHash, title: String(page.title || '').slice(0, 200),
           text_content: String(page.text || '').slice(0, MAX_PAGE_CHARS), content_hash: contentHash,
           media: assets.media, fetched_at: nowIso(), updated_at: nowIso()
         };
@@ -91,7 +96,7 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           prefer: 'return=minimal'
         });
         if ((job.depth || 0) < 3) await enqueue(assets.links, { source: 'discovered', depth: (job.depth || 0) + 1 });
-        results.push({ url: doc.url, status: 'indexed', changed: job.content_hash !== contentHash, links_discovered: assets.links.length, media_indexed: assets.media.length });
+        results.push({ url: doc.url, status: 'indexed', changed: previousHash !== contentHash, links_discovered: assets.links.length, media_indexed: assets.media.length });
       } catch (err) {
         logger?.warn?.('web crawl page failed', { url: String(job.url).slice(0, 500), error: err?.message });
         try { await store.request('PATCH', 'web_crawl_queue?id=eq.' + encodeURIComponent(job.id), { body: { status: 'retry', attempts: (job.attempts || 0) + 1, last_error: String(err?.message || 'crawl failed').slice(0, 160), next_crawl_at: new Date(now() + Math.min(86400000, 60000 * (2 ** Math.min(10, job.attempts || 0)))).toISOString() } }); } catch {}
