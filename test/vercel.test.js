@@ -36,10 +36,21 @@ test('page headers apply to the page files, not to the API or health check', () 
   for (const p of ['/v1', '/v1/', '/v1/chat', '/v1/conversations/abc/messages', '/healthz']) assert.ok(!matches(p), p);
 });
 
+test('Studio root redirects only on the Studio hostname', () => {
+  const studioRedirect = config.redirects.find((r) =>
+    r.source === '/' &&
+    r.destination === '/video-studio.html' &&
+    r.has?.some((condition) => condition.type === 'host' && condition.value === 'studio.nasrinai.com')
+  );
+  assert.ok(studioRedirect, 'Studio host has an explicit root redirect');
+  assert.equal(studioRedirect.permanent, false, 'use a temporary redirect while validating routing');
+  assert.equal(config.redirects.some((r) => r.source === '/' && r.destination === '/video-studio.html' && !r.has), false,
+    'do not redirect the main site root to Video Studio');
+});
+
 test('API paths are sent to the function, with the original path passed along', () => {
-  const dest = (p, host = 'nasrinai.com') => {
+  const dest = (p) => {
     for (const r of config.rewrites) {
-      if (r.has?.some((condition) => condition.type === 'host' && condition.value !== host)) continue;
       const re = new RegExp('^' + r.source.replace(':path*', '(.*)') + '$');
       const m = re.exec(p);
       if (m) return r.destination.replace(':path*', m[1] ?? '');
@@ -49,8 +60,7 @@ test('API paths are sent to the function, with the original path passed along', 
   assert.equal(dest('/v1/chat'), '/api/index?__path=/v1/chat');
   assert.equal(dest('/v1'), '/api/index?__path=/v1');
   assert.equal(dest('/healthz'), '/api/index?__path=/healthz');
-  assert.equal(dest('/'), null, 'the main site page stays on the CDN');
-  assert.equal(dest('/', 'studio.nasrinai.com'), '/video-studio.html', 'Studio host serves its dedicated workspace');
+  assert.equal(dest('/'), null, 'page root is handled by CDN/host redirects, not API rewrites');
   assert.equal(config.functions['api/index.js'].maxDuration, 120);
 });
 
