@@ -2864,10 +2864,73 @@
     return 'Create an image' + (shortcut.args ? ': ' + shortcut.args : ' inspired by NasrinAI’s minimal monochrome visual identity.');
   }
 
+  // Route explicit job-search requests into public research rather than generic advice.
+  const isJobSearchRequest = (value) => {
+    const q = String(value || '').trim();
+    const topic = /\b(jobs?|job openings?|vacancies|career opportunities|hiring|recruitment|positions?|employment|work opportunities)\b/i.test(q);
+    const action = /\b(search|find|look(?:ing)? for|show|list|discover|get me|browse|fetch)\b/i.test(q);
+    const platform = /\b(linkedin|indeed|glassdoor|jobstreet|seek)\b/i.test(q);
+    return q.length <= 500 && topic && (action || platform);
+  };
+  async function runChatJobSearch(originalMessage) {
+    const query = String(originalMessage || '').trim()
+      .replace(/^(?:please\s+)?(?:search|find|look\s+for|show(?:\s+me)?|list|discover|get\s+me|browse|fetch)\s+(?:for\s+)?/i, '')
+      .replace(/\b(on|in|from)\s+(?:linkedin|indeed|glassdoor|jobstreet|seek)\b/ig, '')
+      .replace(/\b(jobs?|job openings?|vacancies|career opportunities|hiring|recruitment|positions?|employment|work opportunities)\b/ig, ' ')
+      .replace(/\s+/g, ' ').trim() || 'job opportunities';
+    show('user', originalMessage);
+    const pendingReply = show('thinking', 'Searching public job listings and extracting available details…');
+    busy = true; refreshSendButton();
+    try {
+      const result = await api('/v1/professional-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        query: query + '. Find up to 20 distinct publicly accessible job listings. Extract exact title, employer, location/work arrangement, salary, requirements, benefits, responsibilities and original source URL. Use only retrieved evidence, mark missing fields Not disclosed, and do not tell the user to search manually.',
+        category: 'jobs_hiring', source: 'public_web', location: '', date_range: 'any'
+      }) });
+      const group = result?.professional_search?.source_groups?.find((item) => item.id === 'public_web');
+      const sources = Array.isArray(group?.sources) ? group.sources : (Array.isArray(result?.sources) ? result.sources : []);
+      const facts = Array.isArray(group?.facts) ? group.facts : (Array.isArray(result?.facts) ? result.facts : []);
+      const records = new Map();
+      for (const item of sources) {
+        try { const url = new URL(String(item?.url || '')); if (['http:', 'https:'].includes(url.protocol)) records.set(url.href, item); } catch {}
+      }
+      for (const fact of facts) {
+        try { const url = new URL(String(fact?.url || '')); if (['http:', 'https:'].includes(url.protocol) && !records.has(url.href)) records.set(url.href, { url: url.href, title: url.hostname }); } catch {}
+      }
+      const output = ['## Job opportunities', '', 'Search: ' + query, ''];
+      let n = 0;
+      for (const [url, item] of records) {
+        if (n >= 20) break;
+        const related = facts.filter((f) => { try { return new URL(String(f?.url || '')).href === url; } catch { return false; } }).map((f) => String(f?.fact || '').trim()).filter(Boolean);
+        const field = (label, pattern, direct) => {
+          if (typeof direct === 'string' && direct.trim()) return direct.trim();
+          const fact = related.find((value) => pattern.test(value));
+          if (!fact) return 'Not disclosed';
+          const match = fact.match(/^[^:—-]{2,32}\s*[:—-]\s*(.+)$/);
+          return match ? match[1] : fact;
+        };
+        output.push('### ' + (n + 1) + '. ' + String(item?.title || 'Job opportunity').replace(/[\r\n]+/g, ' ').trim());
+        output.push('- **Company:** ' + field('company', /\b(company|employer|hiring organization|posted by)\b/i, item?.company || item?.employer));
+        output.push('- **Location:** ' + field('location', /\b(location|remote|hybrid|on.?site|based in)\b/i, item?.location));
+        output.push('- **Salary:** ' + field('salary', /\b(salary|pay|compensation|hourly rate|per month|per year|₱|PHP|\$)\b/i, item?.salary));
+        output.push('- **Requirements:** ' + field('requirements', /\b(requirements?|qualifications?|experience required|must have|skills required|degree)\b/i, item?.requirements));
+        output.push('- **Benefits:** ' + field('benefits', /\b(benefits?|allowance|health insurance|paid leave|bonus|perks)\b/i, item?.benefits));
+        output.push('- **Responsibilities:** ' + field('responsibilities', /\b(responsibilities|duties|you will|role involves|responsible for)\b/i, item?.responsibilities));
+        output.push('- **Source:** ' + url, '');
+        n++;
+      }
+      pendingReply.remove();
+      show('assistant', n ? output.join('\n') + '\nFound ' + n + ' distinct public source(s). Verify details on the original listing.' : 'I couldn’t retrieve job listings for **' + query + '** from the public sources available. I have not fabricated results. Try broader keywords or another location.');
+    } catch (error) {
+      pendingReply.remove();
+      show('assistant', 'I couldn’t complete the job search because the search service returned an error: ' + (error.message || 'Unknown error') + '. No results were fabricated. Please try again.');
+    } finally { busy = false; refreshSendButton(); }
+  }
+
   async function send(raw) {
     const text = String(raw || '').trim();
     if (turn) return;
     if ((!text && !pending.length) || busy || preparing || !aiAvailable) return;
+    if (!imageMode && !editing && !pending.length && isJobSearchRequest(text)) return runChatJobSearch(text);
     const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
     const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
     if (shortcut && shortcut.requiresPhoto && !pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) {
