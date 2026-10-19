@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-13g** · Effective: 22 September 2026 · Last updated: 13 October 2026
+**Version 2026-10-19a** · Effective: 19 October 2026 · Last updated: 19 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
@@ -118,6 +118,7 @@ NasrinAI uses third-party service providers for AI processing, hosting, authenti
 - **Supabase** (sign-in code emails)
 - **Google** (only if you choose Google sign-in)
 - **GitHub** (only if you ask about a GitHub repository or connect your GitHub account): the repositories you ask about, and, when you confirm one, the pull request with its files
+- **LinkedIn** (only if you choose Connect LinkedIn): the account email and member identifier returned by LinkedIn's official sign-in API, the OAuth scopes granted to NasrinAI, encrypted access/refresh tokens, and professional posts returned by an approved LinkedIn API request. The current integration can request organization posts only when LinkedIn has approved the relevant permission and the connected member has the required role. It does not provide global search across member profiles, all posts, jobs, salary discussions or reviews. Connecting is optional; you can disconnect from the Research workspace. LinkedIn content is labelled separately from public-web research and is not saved as a separate persistent collection by the professional-search endpoint.
 - **Meta** (only when you message a business's Facebook Page)
 - **The business you are chatting with**, for requests to its own systems (see section 2)
 - **NasrinAI's own model server** — if NasrinAI's own model server is switched on in the future, messages may be sent to that server and this notice will be updated before the feature is used in production.
@@ -140,6 +141,7 @@ Most of these providers process data outside the Philippines (for example in the
 - Coding render-and-test (your own repository's app): the screenshot is kept like a picture (30 days, or your keep-time); the short screen recording is kept with that chat until you delete it or your account
 - NCC contacts, deals, tasks, timelines, automations, connected channels and the record of posts and messages kept by a business: until the business deletes them or deletes its NasrinAI account
 - GitHub connections (user names, main account, encrypted tokens): until you remove that account, disconnect GitHub or delete your account; GitHub's own tokens also expire on their own if unused
+- LinkedIn connection (account email, member identifier, granted scopes and encrypted tokens): until you disconnect LinkedIn or delete your account; tokens may expire earlier under LinkedIn's rules
 - Proposed actions waiting for Confirm: **10 minutes**
 - Events sent by businesses' systems: **30 days**
 - Businesses' documents: until the business deletes them
@@ -181,6 +183,7 @@ NasrinAI uses only what it needs to work:
 - **nasrin_rt** (cookie): keeps you signed in until you sign out, up to 1 year (renewed each time you open the app). HTTP-only, so page scripts cannot read it.
 - **nasrin_pkce** (cookie): used during Google sign-in, 10 minutes.
 - **nasrin_gh** (cookie): used while you connect GitHub, 10 minutes. HTTP-only.
+- **nasrin_linkedin_oauth** (cookie): temporary, HTTP-only OAuth state protection while connecting LinkedIn, up to 10 minutes.
 - **nasrin_acc** (cookie): only when you add more than one account on a device (up to 3). It keeps the other accounts signed in on that device (their email address and sign-in token), up to 1 year. HTTP-only, so page scripts cannot read it. Each account keeps its own chats, plan and data; switching does not share them. Logging out of an account removes it from the device.
 - **Browser storage**: your guest session, the open chat's ID, when you last left the app (to start a new chat after 5 minutes away), the email shown in Settings, whether you have seen the first-visit notice, your choices (appearance, theme, reduce motion, voice, read aloud, model, Professional AI, notifications) and which in-app notices you closed. Settings → Data controls → Clear cache removes the open chat's ID and the voice, read-aloud and model choices from the device; it does not sign you out or delete anything on your account.
 

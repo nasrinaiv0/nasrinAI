@@ -1,5 +1,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { REALTIME_VOICES_LIST } from './realtime.js';
+import { buildProfessionalSearch, buildProfessionalResearchInput, presentProfessionalSearch } from './professional-intelligence.js';
+import { createLinkedInIntegration } from './linkedin/index.js';
 import { GEMINI_REALTIME_VOICES } from './gemini-realtime.js';
 import { issueGuestToken, newGuestId } from './auth/guest.js';
 import { publicConversation, publicMessage } from './conversations.js';
@@ -33,6 +35,7 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
   }
 
   notices = notices || createNotices({ plans, store, config, now });
+  const linkedin = createLinkedInIntegration({ config, logger });
   // Files sent inside a request (base64) stay within this; larger ones are direct uploads.
   const inlineBytes = config.ai.attachments.maxInlineBytes ?? config.ai.attachments.maxTotalBytes;
   // Which moment the page asks about: ?when=open (default) or ?when=new_chat.
@@ -1528,6 +1531,69 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Unified professional intelligence search, backed by the existing public-web research pipeline.
+      // LinkedIn results remain separate and are available only through approved API scopes and supported endpoints.
+      method: 'POST',
+      path: '/v1/professional-search',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body, ip }) => {
+        const plan = buildProfessionalSearch(body || {});
+        if (plan.source !== 'linkedin_authorized' && !research) throw new HttpError(404, 'not_found', 'Professional search is not available.');
+        const linkedinStatus = plan.source === 'public_web' ? ({ available: linkedin.available, connected: false, scopes: [], capabilities: { organization_posts: false } }) : await linkedin.statusFor(caller).catch(() => ({ available: linkedin.available, connected: false, scopes: [], capabilities: { organization_posts: false } }));
+        const orgId = typeof body?.organization_id === 'string' ? body.organization_id : '';
+        const linkedinGroup = { id: 'linkedin_authorized', label: 'LinkedIn authorized API', status: 'requires_organization_id', sources: [], facts: [], limitation: 'The official API does not provide unrestricted global search across all LinkedIn categories. Organization post retrieval requires an approved scope and an organization ID.' };
+        if (plan.source === 'public_web') {
+          linkedinGroup.status = 'not_requested';
+          linkedinGroup.limitation = '';
+        } else if (!linkedin.available) {
+          linkedinGroup.status = 'not_configured';
+          linkedinGroup.limitation = 'Configure LinkedIn OAuth credentials and run migration 043 before connecting an account.';
+        } else if (!linkedinStatus.connected) {
+          linkedinGroup.status = 'not_connected';
+        } else if (plan.category !== 'posts_discussions') {
+          linkedinGroup.status = 'unsupported_category';
+          linkedinGroup.limitation = 'This authorized LinkedIn integration can retrieve approved organization posts only. Use public-web research for other categories.';
+        } else if (!linkedinStatus.capabilities?.organization_posts) {
+          linkedinGroup.status = 'missing_permission';
+          linkedinGroup.limitation = 'The connected account does not have the approved r_organization_social scope.';
+        } else if (!orgId) {
+          linkedinGroup.status = 'requires_organization_id';
+        } else {
+          try {
+            const linked = await linkedin.searchOrganizationPosts(caller, { organizationId: orgId, query: plan.query, count: body?.count });
+            linkedinGroup.status = 'available';
+            linkedinGroup.sources = linked.posts.map((post) => ({ url: post.source_url, title: post.id || 'LinkedIn organization post', retrieved_at: linked.retrieved_at, channel: 'linkedin_authorized', id: post.id, author: post.author, created_at: post.created_at })).filter((source) => source.url);
+            linkedinGroup.facts = linked.posts.map((post) => ({ fact: post.text, url: post.source_url, created_at: post.created_at, channel: 'linkedin_authorized' })).filter((fact) => fact.fact);
+            linkedinGroup.retrieved_at = linked.retrieved_at;
+            linkedinGroup.note = linked.note;
+          } catch (error) {
+            if (!['linkedin_permission_required', 'linkedin_not_connected', 'linkedin_reconnect_required'].includes(error?.code)) throw error;
+            linkedinGroup.status = error.code === 'linkedin_permission_required' ? 'missing_permission' : 'not_connected';
+            linkedinGroup.limitation = error.message;
+          }
+        }
+        if (plan.source === 'linkedin_authorized') {
+          return { body: {
+            query: plan.query, facts: linkedinGroup.facts, sources: linkedinGroup.sources, report: '',
+            professional_search: {
+              category: plan.category,
+              filters: { location: plan.location, date_range: plan.date_range, source: plan.source },
+              source_groups: [
+                { id: 'public_web', label: 'Public web research', status: 'not_requested', sources: [], facts: [] },
+                linkedinGroup
+              ],
+              analysis_note: 'Only records returned by the authorized LinkedIn API are included. Organization post search is not a global LinkedIn search.'
+            }
+          } };
+        }
+        const scan = await research.scan(caller, buildProfessionalResearchInput(body || {}, plan), ip);
+        const result = presentProfessionalSearch(scan, plan);
+        result.professional_search.source_groups[1] = linkedinGroup;
+        return { body: result };
+      }
+    },
+    {
       // Open Graph / Twitter card raster image for a cited web page. The
       // server fetches and validates the image so the browser stays same-origin.
       method: 'GET',
@@ -1907,5 +1973,5 @@ return { body: { sites: await connect.list(caller) } }; }
         body: { actor_type: caller.actor.type, tenant_id: caller.tenantId, scopes: caller.scopes }
       })
     }
-  ].concat(authRoutes({ config, auth, limiter, logger }), paymentRoutes({ config, payments, plans, store, limiter, legal, logger }), facebook ? facebook.routes : [], hooks);
+  ].concat(authRoutes({ config, auth, limiter, logger }), paymentRoutes({ config, payments, plans, store, limiter, legal, logger }), facebook ? facebook.routes : [], hooks, linkedin.routes);
 }

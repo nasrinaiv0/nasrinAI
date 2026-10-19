@@ -14,7 +14,7 @@ test('Research workspace is reachable from mobile and desktop navigation', () =>
   assert.match(html, /id="researchOverlay"[^>]*role="dialog"/);
 });
 
-test('Research workspace exposes query, URL, report, history and export controls', () => {
+test('Research workspace exposes its existing query, URL, report, history and export controls', () => {
   for (const id of ['researchForm', 'researchQuery', 'researchUrls', 'researchResult', 'researchFindings', 'researchSources', 'researchHistory', 'researchSave']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
@@ -41,4 +41,16 @@ test('Research workspace has responsive mobile and visible keyboard focus styles
   assert.match(styles, /@media\(max-width:38rem\)/);
   assert.match(styles, /research-overlay button:focus-visible/);
   assert.match(styles, /\.research-overlay\[hidden\]\{display:none\}/);
+});
+
+test('professional job discovery is wired to the public-web endpoint and renders detailed scrollable cards', () => {
+  for (const id of ['professionalSearchForm', 'professionalSearchQuery', 'professionalSearchLocation', 'professionalSearchDate', 'professionalSearchResult', 'professionalSearchCards', 'professionalSearchMore', 'professionalSearchStatus']) assert.match(html, new RegExp('id="' + id + '"'));
+  assert.ok(script.includes("api('/v1/professional-search'"));
+  assert.match(script, /category: 'jobs_hiring', source: 'public_web'/);
+  assert.match(script, /View original listing/);
+  assert.match(script, /Not disclosed/);
+  assert.match(script, /professionalSearchMore/);
+  assert.match(styles, /\.professional-search-cards[^}]*overflow-y:auto/);
+  assert.match(styles, /\.professional-job-card/);
+  assert.match(script, /noopener noreferrer/);
 });
