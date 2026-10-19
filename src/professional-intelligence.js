@@ -79,3 +79,17 @@ export function presentProfessionalSearch(scan, plan) {
     }
   };
 }
+
+// Preserve the existing Research agent's explicit-URL workflow when professional
+// intelligence is used against user-supplied public pages. The Research agent
+// remains responsible for URL safety, robots.txt, page limits, and extraction.
+export function buildProfessionalResearchInput(input = {}, plan = buildProfessionalSearch(input)) {
+  const result = { query: plan.discovery_query };
+  if (input.urls !== undefined) {
+    if (!Array.isArray(input.urls) || input.urls.length > 5 || input.urls.some((url) => typeof url !== 'string')) {
+      throw new HttpError(400, 'invalid_urls', 'Give up to 5 web addresses.');
+    }
+    result.urls = input.urls;
+  }
+  return result;
+}
