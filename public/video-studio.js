@@ -222,7 +222,8 @@
     const button=$('renderTimeline'),status=$('renderStatus'),progress=$('renderProgress'),link=$('renderDownload');
     if(!state.clips.length){notice('Add at least one clip to the timeline before rendering.',true);return;}
     if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){notice('Timeline rendering is not supported by this browser. Try a recent desktop version of Chrome or Edge.',true);return;}
-    const clips=state.clips.slice(0,30);
+    if(state.clips.length>30){notice('Browser export supports up to 30 clips per render. Split this project into shorter exports.',true);return;}
+    const clips=state.clips.slice();
     const durations=clips.map(c=>Math.max(1,Math.min(60,Number(c.duration)||8)));
     const total=durations.reduce((sum,n)=>sum+n,0);
     if(total>180){notice('For browser stability, render up to 180 seconds at a time. Split this project into shorter exports.',true);return;}
