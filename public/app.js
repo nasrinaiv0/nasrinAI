@@ -7396,6 +7396,98 @@
     if (text !== undefined) node.textContent = String(text);
     return node;
   }
+  let linkedinStatusSnapshot = null;
+  function safeResearchLink(rawUrl, label) {
+    let url;
+    try { url = new URL(rawUrl); } catch { return null; }
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    const link = researchNode('a', '', label || url.hostname);
+    link.href = url.href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.referrerPolicy = 'no-referrer';
+    return link;
+  }
+  function renderProfessionalSearch(data) {
+    const result = $('professionalSearchResult');
+    const groupsBox = $('professionalSearchGroups');
+    groupsBox.replaceChildren();
+    const groups = data?.professional_search?.source_groups;
+    if (!Array.isArray(groups) || !groups.length) {
+      groupsBox.append(researchNode('p', 'research-empty', 'No source groups were returned. Try a different query.'));
+      result.hidden = false;
+      return;
+    }
+    for (const group of groups) {
+      const card = researchNode('article', 'professional-source-group');
+      const head = researchNode('div', 'professional-source-head');
+      head.append(researchNode('h5', '', group.label || group.id || 'Source'));
+      head.append(researchNode('span', 'research-source-status', group.status || 'unknown'));
+      card.append(head);
+      if (group.limitation) card.append(researchNode('p', 'professional-source-note', group.limitation));
+      if (group.note) card.append(researchNode('p', 'professional-source-note', group.note));
+      const facts = Array.isArray(group.facts) ? group.facts : [];
+      for (const item of facts.slice(0, 30)) {
+        const text = typeof item === 'string' ? item : String(item?.fact || item?.text || item?.finding || '');
+        if (!text) continue;
+        const finding = researchNode('div', 'professional-source-fact');
+        finding.append(researchNode('p', '', text));
+        const url = typeof item?.url === 'string' ? item.url : (typeof item?.source_url === 'string' ? item.source_url : '');
+        if (url) {
+          const link = safeResearchLink(url, 'Open source');
+          if (link) finding.append(link);
+        }
+        const date = item?.created_at || item?.published_at || item?.retrieved_at;
+        if (date) finding.append(researchNode('time', 'research-muted', String(date)));
+        card.append(finding);
+      }
+      const sources = Array.isArray(group.sources) ? group.sources : [];
+      if (sources.length) {
+        const list = researchNode('div', 'professional-source-links');
+        for (const source of sources.slice(0, 20)) {
+          const url = typeof source?.url === 'string' ? source.url : '';
+          const link = url && safeResearchLink(url, source.title || source.id || 'Open source');
+          if (!link) continue;
+          const row = researchNode('div', 'research-source');
+          row.append(link, researchNode('span', 'research-source-status', source.channel || source.status || 'source'));
+          list.append(row);
+        }
+        if (list.childElementCount) card.append(list);
+      }
+      if (!facts.length && !sources.length && !group.limitation) {
+        card.append(researchNode('p', 'research-empty', 'No results were returned from this source.'));
+      }
+      groupsBox.append(card);
+    }
+    result.hidden = false;
+  }
+  async function refreshLinkedInStatus() {
+    const label = $('linkedinStatus');
+    const button = $('linkedinConnect');
+    try {
+      const status = await api('/v1/linkedin/status');
+      linkedinStatusSnapshot = status;
+      if (!status.available) {
+        label.textContent = 'LinkedIn connection is not configured on this deployment.';
+        button.textContent = 'LinkedIn not configured';
+        button.disabled = true;
+      } else if (status.connected) {
+        const capability = status.capabilities?.organization_posts ? 'Organization posts are authorized where your member role permits.' : 'Connected; organization-post access still requires approved permissions.';
+        label.textContent = 'Connected as ' + (status.email || 'LinkedIn member') + '. ' + capability;
+        button.textContent = 'Disconnect LinkedIn';
+        button.disabled = false;
+      } else {
+        label.textContent = 'Connect LinkedIn to use only the official APIs your app is approved to access.';
+        button.textContent = 'Connect LinkedIn';
+        button.disabled = false;
+      }
+    } catch (error) {
+      linkedinStatusSnapshot = null;
+      label.textContent = error.message || 'LinkedIn connection status could not be checked.';
+      button.textContent = 'Connect LinkedIn';
+      button.disabled = false;
+    }
+  }
   function renderResearchReport(data) {
     activeResearch = data;
     activeResearchId = data.id;
@@ -7486,7 +7578,7 @@
     researchOverlay.hidden = false;
     document.body.classList.add('research-open');
     $('researchQuery').focus();
-    await refreshResearchHistory();
+    await Promise.all([refreshResearchHistory(), refreshLinkedInStatus()]);
   }
   function closeResearch() {
     researchOverlay.hidden = true;
@@ -7514,6 +7606,51 @@
     } catch (err) {
       $('researchStatus').textContent = err.message || 'Research could not be completed. Please try again.';
     } finally { button.disabled = false; }
+  });
+  $('professionalSearchForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const query = $('professionalSearchQuery').value.trim();
+    const button = $('professionalSearchRun');
+    const payload = {
+      query,
+      category: $('professionalSearchCategory').value,
+      source: $('professionalSearchSource').value,
+      date_range: $('professionalSearchDate').value,
+      location: $('professionalSearchLocation').value.trim()
+    };
+    const organizationId = $('professionalSearchOrganization').value.trim();
+    if (organizationId) payload.organization_id = organizationId;
+    button.disabled = true;
+    $('professionalSearchStatus').textContent = 'Searching sources and separating results by origin…';
+    $('professionalSearchResult').hidden = true;
+    try {
+      const data = await api('/v1/professional-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      renderProfessionalSearch(data);
+      $('professionalSearchStatus').textContent = 'Search complete. Review source labels, dates, and limitations before relying on the findings.';
+    } catch (error) {
+      $('professionalSearchStatus').textContent = error.message || 'Professional intelligence search could not be completed.';
+    } finally { button.disabled = false; }
+  });
+  $('linkedinConnect').addEventListener('click', async () => {
+    const button = $('linkedinConnect');
+    button.disabled = true;
+    try {
+      if (linkedinStatusSnapshot?.connected) {
+        if (!window.confirm('Disconnect this LinkedIn account from NasrinAI?')) return;
+        await api('/v1/linkedin', { method: 'DELETE' });
+        $('linkedinStatus').textContent = 'LinkedIn disconnected.';
+        await refreshLinkedInStatus();
+        return;
+      }
+      const response = await api('/v1/linkedin/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      if (typeof response.url !== 'string' || !response.url.startsWith('https://www.linkedin.com/oauth/v2/authorization?')) {
+        throw new Error('LinkedIn did not return a valid authorization link.');
+      }
+      window.location.assign(response.url);
+    } catch (error) {
+      $('linkedinStatus').textContent = error.message || 'LinkedIn could not be connected.';
+      button.disabled = false;
+    }
   });
   document.querySelectorAll('[data-research-export]').forEach((button) => button.addEventListener('click', async () => {
     if (!activeResearchId) return;
