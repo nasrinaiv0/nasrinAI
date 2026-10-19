@@ -33,3 +33,20 @@ test('with web search on, the prompt never says NasrinAI cannot browse', () => {
   assert.doesNotMatch(buildSystemPrompt({ web: true }), /Without them you cannot browse/);
   assert.match(buildSystemPrompt(), /Without them you cannot browse/);
 });
+
+
+test('TikTok and social video discovery requests always trigger live web search', () => {
+  for (const q of [
+    'what is trending in tiktok now',
+    'public any videos from tiktok',
+    'show any videos from TikTok',
+    'TikTok public videos trending',
+    'what is viral on Facebook',
+    'show trending Instagram reels',
+    'top YouTube shorts right now'
+  ]) assert.equal(needsWeb(q), true, q);
+  // General public-entity questions may already trigger web search through
+  // PUBLIC_ENTITY_QUESTION; keep them separate from non-search capability queries.
+  assert.equal(needsWeb('what is TikTok?'), true);
+  for (const q of ['how do I upload a video?', 'explain social media']) assert.equal(needsWeb(q), false, q);
+});
