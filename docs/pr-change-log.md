@@ -1086,3 +1086,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Finding:** `docs/seo.md` (PR #405) — inline styles are blocked by the page policy, so both pages rendered unstyled.
 - **Change:** styles moved unchanged into `public/faq.css` and `public/registry.css`; the registry's `style=` attribute became the class `main-flush`. The security policy is unchanged.
 - **Validation:** `npm test` 726 pass, 0 fail, 1 skipped; before/after screenshots of `/faq.html` rendered locally under the real policy in headless Chromium. Not checked on a real phone or on the live site.
+
+## PR #435 merge note — conflict resolution (2026-10-19)
+
+- `main` had already received newer versions of the audio-chunk and video-scene code and a stricter PDF page-count check, so on conflict `main`'s versions were kept. What this PR still adds: the clearer scene-selection comment, a test that OCR rejects missing page numbers, and a fix for two over-escaped line breaks (`'\\n\\n'`) that would have put the characters `\n\n` between transcript parts instead of a blank line (test added).
+- Not run locally: the test suite (a half-installed package in this session); GitHub CI is the check of record.

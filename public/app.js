@@ -1854,7 +1854,7 @@
       if (!result || typeof result.text !== 'string') throw new Error('The transcription service returned an invalid result.');
       transcripts.push(result.text.trim());
     }
-    return transcripts.filter(Boolean).join('\\n\\n');
+    return transcripts.filter(Boolean).join('\n\n');
   }
 
   // Register seek handlers before changing currentTime so fast decoders cannot
@@ -1980,7 +1980,7 @@
             const transcript = await transcribeAudioChunks(f.local, language.value, token);
             if (!transcript) throw new Error('No speech was detected in this audio.');
             const existing = input.value.trim();
-            input.value = existing ? existing + '\\n\\n' + transcript : transcript;
+            input.value = existing ? existing + '\n\n' + transcript : transcript;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.focus();
             notice.textContent = 'Transcript added to your message. Review it before sending.';
@@ -2054,8 +2054,10 @@
             if (!Number.isFinite(video.duration) || video.duration <= 0) throw new Error('The video has no readable duration.');
             const duration = video.duration;
             if (duration > 15 * 60) throw new Error('This video is longer than 15 minutes. Choose a shorter clip to extract frames safely.');
-            // Sample across the clip rather than only its endpoints. Keep a hard
-            // cap so large videos cannot create an unbounded number of images.
+            // Short clips get three representative frames. For longer clips, inspect
+            // low-resolution candidates and prefer timestamps with the largest visual
+            // changes, while enforcing temporal spacing and a hard eight-frame cap.
+            // This is a lightweight scene-change heuristic, not semantic recognition.
             const frameCount = duration < 6 ? 3 : 8;
             const times = duration < 6
               ? [...new Set([Math.min(0.05, duration / 4), duration * 0.5, Math.max(0, duration - Math.min(0.15, duration / 4))])]

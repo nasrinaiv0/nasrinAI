@@ -426,3 +426,10 @@ test('audio attachment MIME and extension checks use valid regex literals', asyn
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.ok(app.includes(String.raw`(/^audio\//i.test(f.type || '') || /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name))`));
 });
+
+test('transcript text is joined with real blank lines, not the characters backslash-n', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(app, /'\\\\n\\\\n'/, 'no over-escaped line breaks in app.js');
+  assert.match(app, /transcripts\.filter\(Boolean\)\.join\('\\n\\n'\)/);
+  assert.match(app, /existing \+ '\\n\\n' \+ transcript/);
+});

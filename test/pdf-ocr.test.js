@@ -47,6 +47,15 @@ test('PDF OCR rejects responses without page markers or with pages out of order'
   }
 });
 
+test('PDF OCR rejects missing page numbers instead of returning a partial extraction', async () => {
+  const service = createOpenAIPdfOcr({
+    apiKey: 'test-key',
+    getPageCount: async () => 3,
+    fetchImpl: async () => new Response(JSON.stringify({ output_text: '[Page 1]\\nfirst page\\n[Page 3]\\nthird page' }), { status: 200 })
+  });
+  await assert.rejects(() => service.extract({ bytes: blankPdf(3), name: 'invoice.pdf' }), (e) => e.code === 'invalid_ocr_order');
+});
+
 test('PDF OCR rejects a PDF signature embedded after a non-PDF prefix', async () => {
   const service = createOpenAIPdfOcr({ apiKey: 'test-key', fetchImpl: async () => { throw new Error('must not call upstream'); } });
   const prefixed = Buffer.concat([Buffer.from('not-a-pdf\n'), pdf]);
