@@ -299,9 +299,23 @@
       const title = document.createElement('strong'); title.textContent = asset.label || (asset.kind === 'voiceover' ? 'AI voiceover' : 'Sound effect');
       const kind = document.createElement('span'); kind.className = 'pill'; kind.textContent = asset.kind === 'voiceover' ? 'Voiceover' : 'Sound effect';
       head.append(title, kind);
-      const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'none'; audio.src = asset.content_url;
-      audio.addEventListener('error', () => { audio.removeAttribute('src'); setStatus('Sign in again to preview this audio asset.', true); });
+      const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'none';
       const actions = document.createElement('div'); actions.className = 'asset-actions';
+      const preview = document.createElement('button'); preview.className = 'button quiet'; preview.type = 'button'; preview.textContent = 'Load preview';
+      preview.addEventListener('click', async () => {
+        preview.disabled = true;
+        try {
+          if (!audio.dataset.loaded) {
+            const response = await raw(asset.content_url);
+            const blob = await response.blob();
+            audio.src = URL.createObjectURL(blob);
+            audio.dataset.loaded = 'true';
+            preview.textContent = 'Preview loaded';
+          }
+          audio.focus();
+        } catch (error) { setStatus(error.message || 'Could not load this audio preview.', true); }
+        finally { preview.disabled = false; }
+      });
       const download = document.createElement('button'); download.className = 'button quiet'; download.type = 'button'; download.textContent = 'Download MP3';
       download.addEventListener('click', async () => {
         download.disabled = true;
@@ -339,7 +353,7 @@
         } catch (error) { setStatus(error.message, true); }
         finally { remove.disabled = false; }
       });
-      actions.append(download, add, remove);
+      actions.append(preview, download, add, remove);
       card.append(head, audio, actions);
       target.appendChild(card);
     }
