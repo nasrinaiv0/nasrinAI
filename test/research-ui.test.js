@@ -54,3 +54,13 @@ test('professional job discovery is wired to the public-web endpoint and renders
   assert.match(styles, /\.professional-job-card/);
   assert.match(script, /noopener noreferrer/);
 });
+
+test('chat job-search requests use the professional search workflow instead of generic advice', () => {
+  assert.match(script, /const isJobSearchRequest =/);
+  assert.match(script, /jobTopic && \(searchIntent \|\| platform\)/);
+  assert.match(script, /if \(!imageMode && !editing && !pending\.length && isJobSearchRequest\(text\)\) return runChatJobSearch\(text\)/);
+  assert.match(script, /api\('\/v1\/professional-search'/);
+  assert.match(script, /Do not respond with instructions telling the user to search manually/);
+  assert.match(script, /No results were fabricated/);
+  assert.match(script, /Not disclosed/);
+});
