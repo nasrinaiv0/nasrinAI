@@ -94,7 +94,7 @@
     if (!window.NasrinFormat || window.NasrinFormat.__generativeUI) return false;
     const original = window.NasrinFormat.render;
     window.NasrinFormat.render = function (source) {
-      const raw = String(source ?? '');
+      const raw = String(source ?? '').replace(/\\n[ \\t]*\\n/g, '\\n\\n');
       const pattern = /\[\[ui\]\]([\s\S]{1,12000}?)\[\[\/ui\]\]/gi;
       const matches = [...raw.matchAll(pattern)].slice(0, 3);
       if (!matches.length) return original(raw);
