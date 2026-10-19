@@ -5,7 +5,7 @@ import { HttpError } from '../http/errors.js';
 const TTL_SECONDS = 600;
 const COOKIE = 'nasrin_linkedin_oauth';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_SCOPES = new Set(['openid', 'profile', 'email', 'r_organization_social', 'r_member_social']);
+const ALLOWED_SCOPES = new Set(['openid', 'profile', 'email', 'r_organization_social']);
 const DEFAULT_SCOPES = ['openid', 'profile', 'email'];
 
 function cookies(req) {
@@ -59,7 +59,7 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
   }
 
   function readState(value) {
-    if (!value || value.length > 1500) return null;
+    if (!stateKey || !value || value.length > 1500) return null;
     const [body, mac, extra] = value.split('.');
     if (!body || !mac || extra) return null;
     const expected = createHmac('sha256', stateKey).update(body).digest();
