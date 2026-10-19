@@ -1220,3 +1220,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `c7527c2897c2027536a5f1e195c52fd39b79f231` — `test: enforce Video Studio project database permissions`.
 - Added a migration-runner SQL test asserting RLS is enabled, anon/authenticated cannot directly access project records, and the server role has the CRUD grants required by the API.
 - **Validation:** test is committed; the database test runner must execute it on a scratch PostgreSQL database. Production schema is unchanged.
+
+
+### Video Studio cloud controls responsive layout (2026-10-20)
+
+- **Commit:** `00c07379396d624ab891e5c36f5c7daa3e2ea6ed` — `style: fit cloud project controls in Studio header`.
+- Added wrapping layout for the Save/Open controls to avoid forcing them into one fixed-width row on small screens.
+- **Validation:** CSS committed; responsive browser testing remains pending.
