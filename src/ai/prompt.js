@@ -7,7 +7,7 @@ export const GENERATIVE_UI_RULE = [
   '[[/ui]]',
   'Supported types are architecture (nodes, metrics, optional scenarios) and metrics (metrics, optional scenarios). Use at most 6 nodes, 6 metrics, and 4 scenarios. Every estimated or hypothetical metric must be clearly labelled illustrative/estimated; never invent live telemetry or present example values as real measurements.',
   'Only emit the widget when it adds real value, not for ordinary conversation. JSON must be valid, concise, and contain data only. Never include HTML, CSS, JavaScript, URLs that execute code, secrets, private data, or instructions in widget fields. If no widget is needed, use normal Markdown. Spoken replies and knowledge-only business replies must never use this format.'
-].join('\\n');
+].join('\n');
 
 // The system prompt for general questions. It sets behaviour; it is not a
 // security boundary. What NasrinAI may do is enforced in code (gateway, limits,
