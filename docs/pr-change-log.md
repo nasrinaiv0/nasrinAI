@@ -1156,3 +1156,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** replace the host-specific root rewrite with an explicit temporary redirect to `/video-studio.html` for `studio.nasrinai.com`; keep the rule host-scoped so the main `nasrinai.com` root is unchanged. NCC routing remains intact.
 - **Validation:** live pre-fix checks reproduced the issue; this branch change has not yet been deployed or tested in CI. Verify Vercel build/production routing and run the regression suite before considering complete.
 - **Security/data impact:** no database, auth, secret, storage, or API behavior changed.
+
+
+### Studio root redirect regression coverage (2026-10-20)
+
+- **Commit:** `03c4f44399b98cc1bb1985b6ffc4d9106ba1e83d` — `test: cover Studio root redirect`.
+- Added a configuration regression test requiring an explicit temporary redirect from `/` to `/video-studio.html` only when the host is `studio.nasrinai.com`, and confirming the main root is not redirected to Studio.
+- Updated API rewrite tests to validate that API paths remain routed to the function independently of host routing.
+- **Validation:** test source updated; execution is pending CI because this connector session does not run the repository's Node test suite.
