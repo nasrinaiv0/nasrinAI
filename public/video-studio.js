@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const state = { template:'cinematic', clips:[], selected:null, generated:[], token:'', tokenUntil:0, refreshing:null, objectUrls:new Map() };
+  const state = { template:'cinematic', clips:[], selected:null, generated:[], cloudProjectId:null, cloudVersion:null, token:'', tokenUntil:0, refreshing:null, objectUrls:new Map() };
   const templates = {
     cinematic:{title:'Cinematic opener',sub:'Atmospheric · Story-led',prompt:'A cinematic, atmospheric opening shot with elegant camera movement, rich natural textures, soft directional light, subtle film grain, premium color grading, no text or logos.',ratio:'16:9'},
     social:{title:'Social launch',sub:'Bold · Fast-paced',prompt:'A bold vertical social media launch video, energetic camera movement, vibrant editorial lighting, crisp detail, fast visual rhythm, polished commercial style, no text or logos.',ratio:'9:16'},
@@ -25,10 +25,10 @@
     return data;
   }
   function saveDraft(){
-    try{const payload={name:safe($('projectName').value).slice(0,80)||'Untitled video',template:state.template,aspect:$('aspect').value,clips:state.clips.map(c=>({id:c.id,name:c.name,title:c.title||'',kind:c.kind,duration:c.duration,videoId:c.videoId||null,download:c.download||null,createdAt:c.createdAt||null})),generated:state.generated};localStorage.setItem('nasrinai.videoStudio.draft.v1',JSON.stringify(payload));$('saveState').textContent='Draft saved locally';$('checkDraft').textContent='✓';}catch{$('saveState').textContent='Draft could not be saved';}
+    try{const payload={name:safe($('projectName').value).slice(0,80)||'Untitled video',template:state.template,aspect:$('aspect').value,cloudProjectId:state.cloudProjectId,cloudVersion:state.cloudVersion,clips:state.clips.map(c=>({id:c.id,name:c.name,title:c.title||'',kind:c.kind,duration:c.duration,videoId:c.videoId||null,download:c.download||null,createdAt:c.createdAt||null})),generated:state.generated};localStorage.setItem('nasrinai.videoStudio.draft.v1',JSON.stringify(payload));$('saveState').textContent='Draft saved locally';$('checkDraft').textContent='✓';}catch{$('saveState').textContent='Draft could not be saved';}
     updateStats();
   }
-  function loadDraft(){try{const d=JSON.parse(localStorage.getItem('nasrinai.videoStudio.draft.v1')||'null');if(!d)return;if(d.name)$('projectName').value=d.name;if(d.aspect)$('aspect').value=d.aspect;if(d.template&&templates[d.template])selectTemplate(d.template,false);state.generated=Array.isArray(d.generated)?d.generated:[];state.clips=Array.isArray(d.clips)?d.clips.filter(c=>c&&typeof c.id==='string').map(c=>({...c,file:null,url:c.kind==='generated'?null:(c.download||null)})):[];renderTimeline();renderExports();}catch{}}
+  function loadDraft(){try{const d=JSON.parse(localStorage.getItem('nasrinai.videoStudio.draft.v1')||'null');if(!d)return;if(d.name)$('projectName').value=d.name;if(d.aspect)$('aspect').value=d.aspect;if(typeof d.prompt==='string')$('prompt').value=d.prompt.slice(0,1800);state.cloudProjectId=typeof d.cloudProjectId==='string'?d.cloudProjectId:null;state.cloudVersion=Number.isInteger(d.cloudVersion)?d.cloudVersion:null;if(d.template&&templates[d.template])selectTemplate(d.template,false);state.generated=Array.isArray(d.generated)?d.generated:[];state.clips=Array.isArray(d.clips)?d.clips.filter(c=>c&&typeof c.id==='string').map(c=>({...c,file:null,url:c.kind==='generated'?null:(c.download||null)})):[];renderTimeline();renderExports();}catch{}}
   function selectTemplate(key,fill=true){if(!templates[key])return;state.template=key;document.querySelectorAll('.template-card').forEach(b=>b.classList.toggle('selected',b.dataset.template===key));const t=templates[key];$('previewTitle').textContent=t.title;$('previewSub').textContent=t.sub;$('previewPlaceholder').hidden=false;$('previewVideo').hidden=true;$('previewVideo').removeAttribute('src');$('previewFormat').textContent=$('aspect').value+' · '+($('aspect').value==='9:16'?'PORTRAIT':'LANDSCAPE');if(fill&&!$('prompt').value.trim())$('prompt').value=t.prompt;if(fill)$('aspect').value=t.ratio;$('previewFrame').classList.toggle('portrait',$('aspect').value==='9:16');$('statStatus').textContent='Draft';$('checkTemplate').textContent='✓';saveDraft();}
   function updateStats(){$('clipCount').textContent=String(state.clips.length);$('statClips').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s');$('statRatio').textContent=$('aspect').value;$('checkClips').textContent=state.clips.length?'✓':'○';$('timelineSummary').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s')+' · '+state.clips.reduce((n,c)=>n+(Number(c.duration)||0),0).toFixed(1)+' seconds';}
   async function showClip(c){if(!c)return;state.selected=c.id;const video=$('previewVideo');let clipUrl=c.url;if(c.kind==='generated'&&!clipUrl&&c.download){try{const r=await fetch(c.download,{headers:{Authorization:'Bearer '+await refreshToken()},credentials:'same-origin'});if(!r.ok)throw new Error('Please sign in again to preview this clip.');clipUrl=URL.createObjectURL(await r.blob());c.url=clipUrl;state.objectUrls.set(clipUrl,true);}catch(err){notice(err.message||'Could not load this video preview.',true);}}if(clipUrl){video.src=clipUrl;video.hidden=false;$('previewPlaceholder').hidden=true;}else{video.hidden=false;video.removeAttribute('src');$('previewPlaceholder').hidden=false;}$('previewTitle').textContent=c.title||c.name;$('previewSub').textContent=(c.kind==='generated'?'AI-generated clip':c.kind==='upload'?'Uploaded media':'Template card')+' · '+Number(c.duration||0)+'s';$('statStatus').textContent=c.kind==='generated'?'Generated':'Editing';$('inspectorEmpty').hidden=true;$('inspectorContent').hidden=false;$('clipName').value=c.name||'';$('clipTitle').value=c.title||'';$('clipStart').value=c.start||0;$('clipDuration').value=c.duration||8;renderTimeline();}
@@ -67,7 +67,54 @@
   $('generate').addEventListener('click',generate);
   $('addTemplate').addEventListener('click',()=>addClip({id:crypto.randomUUID(),name:templates[state.template].title,kind:'template',duration:8,title:'',start:0,url:null}));
   $('aspect').addEventListener('change',()=>{$('previewFormat').textContent=$('aspect').value+' · '+($('aspect').value==='9:16'?'PORTRAIT':'LANDSCAPE');$('previewFrame').classList.toggle('portrait',$('aspect').value==='9:16');saveDraft();});
-  $('saveProject').addEventListener('click',()=>{saveDraft();notice('Draft saved in this browser. Cloud sync is not enabled yet.');});
+  function cloudDocument(){
+    return {template:state.template,aspect:$('aspect').value,prompt:safe($('prompt').value).slice(0,1800),
+      clips:state.clips.map(c=>({id:c.id,name:safe(c.name).slice(0,120),title:safe(c.title||'').slice(0,200),kind:c.kind,duration:Number(c.duration)||0,start:Number(c.start)||0,videoId:c.videoId||null,download:c.download||null,createdAt:c.createdAt||null})),
+      generated:state.generated.map(c=>({id:c.id||c.videoId,name:safe(c.name).slice(0,120),videoId:c.videoId||null,status:'completed'}))};
+  }
+  function applyCloudProject(project){
+    const d=project.document||{};
+    state.cloudProjectId=project.id;state.cloudVersion=project.version;
+    $('projectName').value=safe(project.name).slice(0,80)||'Untitled video';
+    if(d.aspect)$('aspect').value=d.aspect;
+    if(d.template&&templates[d.template])state.template=d.template;
+    state.generated=Array.isArray(d.generated)?d.generated.filter(g=>g.videoId).map(g=>({...g,download:'/v1/videos/'+encodeURIComponent(g.videoId)+'/content'})):[];
+    state.clips=Array.isArray(d.clips)?d.clips.map(c=>({...c,file:null,url:null,download:c.videoId&&c.kind==='generated'?'/v1/videos/'+encodeURIComponent(c.videoId)+'/content':null})): [];
+    state.selected=null;$('inspectorContent').hidden=true;$('inspectorEmpty').hidden=false;
+    selectTemplate(state.template,false);renderTimeline();renderExports();saveDraft();
+    $('saveState').textContent='Cloud project saved';notice('Cloud project opened.');
+  }
+  async function saveCloudProject(){
+    const button=$('saveProject');button.disabled=true;button.textContent='Saving…';
+    try{
+      const name=safe($('projectName').value).slice(0,80)||'Untitled video';
+      const body={name,document:cloudDocument(),...(state.cloudVersion?{expected_version:state.cloudVersion}:{})};
+      const response=state.cloudProjectId
+        ? await api('/v1/video-studio/projects/'+encodeURIComponent(state.cloudProjectId),{method:'PUT',body:JSON.stringify(body)})
+        : await api('/v1/video-studio/projects',{method:'POST',body:JSON.stringify(body)});
+      const project=response.project;if(!project?.id)throw new Error('The cloud save did not return a project.');
+      state.cloudProjectId=project.id;state.cloudVersion=project.version;saveDraft();
+      $('saveState').textContent='Saved to cloud';notice('Project saved to your NasrinAI account.');
+    }catch(error){saveDraft();$('saveState').textContent='Local draft saved';notice((error.message||'Cloud save failed.')+' Your local draft is still available.',true);}
+    finally{button.disabled=false;button.textContent='Save to cloud';}
+  }
+  async function openCloudProject(){
+    const button=$('openCloudProject');button.disabled=true;
+    try{
+      const response=await api('/v1/video-studio/projects');
+      const items=Array.isArray(response.projects)?response.projects:[];
+      if(!items.length){notice('No cloud projects found for this account.');return;}
+      const menu=items.map((p,i)=>(i+1)+'. '+p.name+' · '+new Date(p.updatedAt).toLocaleDateString()).join('\\n');
+      const answer=prompt('Choose a cloud project number to open:\\n'+menu,'1');
+      if(answer===null)return;
+      const index=Number(answer)-1;if(!Number.isInteger(index)||index<0||index>=items.length)throw new Error('Choose a number from the list.');
+      const result=await api('/v1/video-studio/projects/'+encodeURIComponent(items[index].id));
+      applyCloudProject(result.project);
+    }catch(error){notice(error.message||'Could not open cloud projects.',true);}
+    finally{button.disabled=false;}
+  }
+  $('saveProject').addEventListener('click',saveCloudProject);
+  $('openCloudProject').addEventListener('click',openCloudProject);
   $('continueInChat').addEventListener('click',()=>{
     const project={
       source:'NasrinAI Video Studio',

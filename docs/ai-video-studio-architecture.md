@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Initial frontend MVP implemented on feature branch; full cloud timeline rendering and cloud project sync remain pending  
+**Status:** Initial frontend MVP implemented; cloud project schema, authenticated CRUD API, and Save/Open controls are implemented on `feat/video-studio-cloud-projects`; migration execution, CI, live cloud-sync validation, and full timeline rendering/export remain pending  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -16,6 +16,15 @@ Build a first-class Video Studio where a user can:
 - See clear errors, progress, duration/resolution limits, and estimated usage before expensive work.
 
 The first implementation slice adds a responsive standalone workspace, original template cards, a prompt-to-video flow using the existing authenticated `/v1/videos` generation pipeline, an editable local timeline, generated-clip preview/download, and browser-local draft metadata. It does not yet render a composed multi-clip timeline, synchronize projects across devices, or connect Shotstack/Creatomate. Do not describe the full Video Studio as production-complete until those parts are implemented and tested.
+
+## Cloud project persistence checkpoint (2026-10-20)
+
+- Additive migration: `db/migrations/051_video_studio_projects.sql`, with tenant/user ownership, a 1 MB JSON-document limit, RLS enabled, and browser-role privileges revoked.
+- Server API: `GET/POST /v1/video-studio/projects` and `GET/PUT/DELETE /v1/video-studio/projects/:id`. All operations require a signed-in user and filter by verified tenant and user ID.
+- The API normalizes project fields and validates generated-video IDs; it does not trust client-supplied arbitrary download URLs.
+- Studio provides **Save to cloud** and **Open project** controls. A local draft remains available if cloud save fails.
+- Current limitations: migration 051 must be applied through the approved database migration process; this connector workflow does not apply production migrations. Local upload bytes are not cloud-synchronized. Generated media still uses the existing owner-checked video-content endpoint. Version conflicts need user-facing recovery verification.
+- Do not mark cloud persistence production-complete until CI, DB tests, migration staging, authorization tests, and a real signed-in save/reopen test across browsers/devices pass.
 
 ## 2. Provider recommendation
 

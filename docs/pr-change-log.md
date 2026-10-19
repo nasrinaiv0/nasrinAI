@@ -1164,3 +1164,93 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added a configuration regression test requiring an explicit temporary redirect from `/` to `/video-studio.html` only when the host is `studio.nasrinai.com`, and confirming the main root is not redirected to Studio.
 - Updated API rewrite tests to validate that API paths remain routed to the function independently of host routing.
 - **Validation:** test source updated; execution is pending CI because this connector session does not run the repository's Node test suite.
+
+
+### Video Studio cloud project persistence foundation (2026-10-20)
+
+- **Commit:** `743b1a6123b61150b80109b083fc1216afffc31f` — `feat: add server-only Video Studio project storage`.
+- Added additive migration `051_video_studio_projects.sql` with tenant/user ownership, JSON document size/type constraints, update version, and owner/update index.
+- RLS is enabled and browser roles have no table privileges; application access is intended through the server-side service role only.
+- **Status:** schema foundation only. Authenticated CRUD APIs, frontend sync, migration execution, database tests, and deployment are not yet complete. Do not describe cloud persistence as usable until all are verified.
+
+
+### Video Studio owner-scoped store operations (2026-10-20)
+
+- **Commit:** `3990e67752ceb5feaceba9d9b25ec512e3a89c5f` — `feat: add owner-scoped Video Studio project store methods`.
+- Added list/get/create/update/delete methods filtered by tenant and authenticated user; project document and metadata are returned as a bounded, server-owned record.
+- Updates support an optional expected-version filter to detect stale writes.
+- **Validation:** source edit is committed; CI and store tests are pending. No production migration was run.
+
+
+### Video Studio cloud project API (2026-10-20)
+
+- **Commit:** `95ad0ce427b75907da47b7959936df6c87494f46` — `feat: add authenticated Video Studio project API`.
+- Added signed-in-user endpoints to list, create, read, update and delete Studio project documents. Each operation scopes by the verified caller's tenant and user; foreign/missing project IDs return not found.
+- Server normalization restricts the persisted document to known fields, bounds clip counts and payload size, and rebuilds generated-video download paths from validated video IDs rather than trusting client URLs.
+- **Validation:** route code committed; CI, authorization tests, migration execution, and deployment remain pending.
+
+### Video Studio cloud project controls (2026-10-20)
+
+- **Commit:** `20585ecef98e2f85aabb8ca138e399cf7ab9adaa` — `feat: add cloud project controls to Studio`.
+- Added Save to cloud and Open project controls to the Studio project header.
+- **Validation:** markup committed; mobile layout and end-to-end behavior need tests.
+
+### Video Studio cloud sync frontend (2026-10-20)
+
+- **Commit:** `7590f02514e4aa3ebaec5ded9573161467061a66` — `feat: sync Video Studio drafts with cloud projects`.
+- Added authenticated cloud save/open flows, local draft fallback on cloud-save failure, and saved project ID/version tracking for subsequent updates.
+- **Limitations:** uploaded local file bytes are not uploaded or synchronized; generated MP4 access remains subject to the existing owner-checked video route. Full end-to-end verification is pending.
+
+
+### Video Studio cloud project regression coverage (2026-10-20)
+
+- **Commit:** `642ef0c734a0e1a70c6e357ddb566e172eb2c604` — `test: cover Video Studio cloud project persistence`.
+- Added static regression checks for cloud CRUD endpoints, ownership scoping, version handling, local fallback, and database security constraints.
+- **Validation:** test file added; CI must execute it. These checks do not replace authenticated integration tests or a live database migration test.
+
+### Video Studio persistence architecture checkpoint (2026-10-20)
+
+- **Commit:** `c458c2333372d22590da7b4cae91332a76835f97` — `docs: record cloud project persistence checkpoint`.
+- Updated the architecture document to describe the cloud schema/API/UI and explicitly list pending migration, CI, live save/reopen, cross-device, and rendering validation.
+- **Validation:** documentation update only; production database schema has not been changed.
+
+
+### Video Studio database permission test (2026-10-20)
+
+- **Commit:** `c7527c2897c2027536a5f1e195c52fd39b79f231` — `test: enforce Video Studio project database permissions`.
+- Added a migration-runner SQL test asserting RLS is enabled, anon/authenticated cannot directly access project records, and the server role has the CRUD grants required by the API.
+- **Validation:** test is committed; the database test runner must execute it on a scratch PostgreSQL database. Production schema is unchanged.
+
+
+### Video Studio cloud controls responsive layout (2026-10-20)
+
+- **Commit:** `00c07379396d624ab891e5c36f5c7daa3e2ea6ed` — `style: fit cloud project controls in Studio header`.
+- Added wrapping layout for the Save/Open controls to avoid forcing them into one fixed-width row on small screens.
+- **Validation:** CSS committed; responsive browser testing remains pending.
+
+
+### Video Studio cloud prompt preservation (2026-10-20)
+
+- **Commit:** `956e8f2ecd6c180cbe7e3a0958f52f4a04023cf5` — `fix: preserve Studio prompt in cloud project`.
+- Extended server-side document normalization to retain the bounded generation prompt, so the saved project model includes the scene brief as well as timeline metadata.
+- **Validation:** source edit committed; CI pending.
+
+### Video Studio prompt-sync follow-up (2026-10-20)
+
+- **Commit:** `d552e3090a7563a45a2c86c8b004293409ccefea` — `fix: restore Studio prompt from cloud projects`.
+- Follow-up attempt did not change the frontend file content (the content blob was unchanged); retained here for commit-level audit transparency. The actual frontend prompt save/restore change is in the next commit.
+- **Validation:** no functional code change in this commit.
+
+### Video Studio prompt save/restore fix (2026-10-20)
+
+- **Commit:** `5553d653da6d6903ee2d27044549f2fc1b13d3b3` — `fix: preserve prompt when syncing Studio projects`.
+- Persist the current prompt in the cloud project document and restore it when opening a cloud project.
+- **Validation:** source edit committed; CI and live round-trip validation pending.
+
+
+### Video Studio account-deletion cleanup (2026-10-20)
+
+- **Commit:** `00ea728192d8b46a29be8e39e1b008d0a74d626a` — `fix: remove Studio cloud projects on account deletion`.
+- Extended the existing server-side account deletion flow to delete the account's Video Studio cloud projects after the established user-data RPC succeeds.
+- If migration 051 has not yet been applied, only a confirmed missing-table error is tolerated; other deletion errors still propagate rather than being silently ignored.
+- **Validation:** code committed; account deletion tests and CI must verify behavior with and without migration 051.
