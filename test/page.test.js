@@ -234,7 +234,7 @@ test('replies fade in and the chat stays where the person is reading (owner, 202
 test('web sources stay behind an accessible Sources and Resources toggle by default (owner, 2026-10-18)', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
-  assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
+  assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text;/);
   assert.match(js, /sourcesToggle\(actions, cited\.links\);/);
   assert.doesNotMatch(js, /if \(cited\.links\.length\) sourcesToggle/);
   assert.match(js, /No external sources were consulted for this reply\./);
