@@ -102,7 +102,7 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
     };
     for (const [field, [min, max]] of Object.entries(ranges)) {
       if (!(field in b) && !creating) continue;
-      if (field === 'trim_end_seconds' && b[field] == null && !creating) { out.trimEndSeconds = null; continue; }
+      if (field === 'trim_end_seconds' && b[field] == null) { out.trimEndSeconds = null; continue; }
       const defaultValue = field === 'start_seconds' || field === 'trim_start_seconds' ? 0 : field === 'gain' ? 1 : 1;
       const value = field in b ? Number(b[field]) : defaultValue;
       if (!Number.isFinite(value) || value < min || value > max || (field === 'lane' && !Number.isInteger(value))) {
@@ -1542,11 +1542,12 @@ return { body: { sites: await connect.list(caller) } }; }
         await requireVideoStudioAudio(caller);
         const projectId = new URL(req.url, 'http://local').searchParams.get('project_id');
         await requireVideoStudioProject(caller, projectId);
+        if (!store?.listVideoStudioTimelineItems || !store?.getVideoStudioAudioAsset) throw new HttpError(503, 'audio_storage_unavailable', 'Video Studio timeline storage is not available yet.');
         const items = await store.listVideoStudioTimelineItems({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId });
-        const enriched = await Promise.all(items.map(async item => ({
-          ...item,
-          asset: publicAudioAsset(await store.getVideoStudioAudioAsset({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId }))
-        })));
+        const enriched = await Promise.all(items.map(async item => {
+          const asset = await store.getVideoStudioAudioAsset({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId });
+          return { ...item, asset: asset ? publicAudioAsset(asset) : null };
+        }));
         return { body: { project_id: projectId, items: enriched } };
       }
     },
