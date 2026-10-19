@@ -188,7 +188,7 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
       method: 'GET', path: '/v1/linkedin/status', scope: 'chat',
       handler: async ({ caller }) => {
         if (!available || caller?.actor?.type !== 'user') {
-          return { body: { available, connected: false, scopes: [], capabilities: { profile: false, organization_posts: false }, note: 'Requires LinkedIn developer credentials, secure token storage, and approved product permissions.' } };
+          return { body: { available, connected: false, requires_sign_in: caller?.actor?.type !== 'user', scopes: [], capabilities: { profile: false, organization_posts: false }, note: 'Requires a signed-in user, LinkedIn developer credentials, secure token storage, and approved product permissions.' } };
         }
         const w = who(caller);
         const row = await connectionFor(w);
