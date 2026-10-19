@@ -267,6 +267,18 @@ return { body: { sites: await connect.list(caller) } }; }
 
   return [...connectRoutes,
     {
+      // Vercel Cron: refresh previously imported, owner-verified website knowledge.
+      // Protected by the same high-entropy CRON_SECRET as retention cleanup.
+      method: 'GET',
+      path: '/v1/internal/knowledge-refresh',
+      public: true,
+      handler: async ({ req }) => {
+        if (!retentionAuthorized(req)) throw new HttpError(401, 'unauthorized', 'Unauthorized.');
+        if (!connect?.refreshKnowledgeDue) throw new HttpError(503, 'knowledge_refresh_unavailable', 'Website refresh is not configured.');
+        return { body: await connect.refreshKnowledgeDue({ batchSize: 10, intervalMs: 24 * 60 * 60 * 1000 }) };
+      }
+    },
+    {
       // Vercel Cron: automatic retention enforcement for inactive users.
       // This route is public at the HTTP layer but protected by CRON_SECRET.
       method: 'GET',
