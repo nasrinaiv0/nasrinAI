@@ -1707,6 +1707,41 @@
     refreshSendButton();
   }
 
+  // Video Studio handoff: the Studio sends a compact project brief in the URL
+  // fragment (never to the server). Remove it immediately, validate the shape,
+  // and prefill the composer without sending anything until the user chooses.
+  {
+    const hash = location.hash;
+    const prefix = '#studio_context=';
+    if (hash.startsWith(prefix) && hash.length <= 12000) {
+      history.replaceState(null, '', location.pathname + location.search);
+      try {
+        const brief = JSON.parse(decodeURIComponent(hash.slice(prefix.length)));
+        if (brief && brief.source === 'NasrinAI Video Studio' && typeof brief.name === 'string') {
+          const clips = Array.isArray(brief.clips) ? brief.clips.slice(0, 30) : [];
+          const generated = Array.isArray(brief.generated) ? brief.generated.slice(0, 20) : [];
+          const lines = [
+            'Continue helping me with this NasrinAI Video Studio project.',
+            'Project: ' + brief.name.slice(0, 80),
+            'Template: ' + String(brief.template || 'custom').slice(0, 40),
+            'Aspect ratio: ' + String(brief.aspect || 'not specified').slice(0, 10),
+            'Current generation prompt: ' + String(brief.prompt || '(none)').slice(0, 1800),
+            'Timeline clips:',
+            ...(clips.length ? clips.map((clip, i) => (i + 1) + '. ' + String(clip.name || 'Untitled clip').slice(0, 100) + ' [' + String(clip.kind || 'clip').slice(0, 20) + ', ' + (Number(clip.duration) || 0) + ' sec]' + (clip.title ? ', title: ' + String(clip.title).slice(0, 140) : '') + (clip.video_id ? ', video job ID: ' + String(clip.video_id).slice(0, 100) : '')) : ['(empty timeline)']),
+            ...(generated.length ? ['Generated scenes:', ...generated.map(item => '- ' + String(item.name || 'Generated scene').slice(0, 100) + (item.video_id ? ' (video job ID: ' + String(item.video_id).slice(0, 100) + ')' : ''))] : []),
+            'Note: ' + String(brief.note || 'Media files are not attached.').slice(0, 300),
+            'Please help me continue from this project brief. Do not claim to modify or export the Studio project unless the relevant tools are available.'
+          ];
+          input.value = lines.join('\\n').slice(0, 6000);
+          autosize();
+          notice.textContent = 'Video Studio project brief loaded. Review it and send when you are ready.';
+        }
+      } catch {
+        notice.textContent = 'The Video Studio project brief could not be loaded. Please return to Studio and try again.';
+      }
+    }
+  }
+
   // ---------- photos and files ----------
 
   // Files wait in the tray until sent: { name, type, bytes, thumb?, and either
