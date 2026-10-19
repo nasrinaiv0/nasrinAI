@@ -2831,6 +2831,20 @@
     voicePlaceholder.value = '';
     voicePlaceholder.textContent = 'Loading voices…';
     voiceSelect.appendChild(voicePlaceholder);
+    const modelSelect = document.createElement('select');
+    modelSelect.className = 'field';
+    modelSelect.setAttribute('aria-label', 'Voiceover model');
+    for (const [id, label] of [
+      ['eleven_multilingual_v2', 'Multilingual'],
+      ['eleven_turbo_v2_5', 'Turbo'],
+      ['eleven_flash_v2_5', 'Flash'],
+      ['eleven_v3', 'Expressive']
+    ]) {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = label;
+      modelSelect.appendChild(option);
+    }
     const voiceButton = document.createElement('button');
     voiceButton.type = 'button';
     voiceButton.className = 'btn small';
@@ -2839,7 +2853,7 @@
     effectButton.type = 'button';
     effectButton.className = 'btn outline small';
     effectButton.textContent = 'Generate sound effect';
-    row.append(voiceSelect, voiceButton, effectButton);
+    row.append(voiceSelect, modelSelect, voiceButton, effectButton);
     panel.appendChild(row);
 
     try {
@@ -2906,7 +2920,7 @@
       if (!voiceSelect.value) { status.textContent = 'Choose an available voice first.'; return; }
       const script = window.prompt('Voiceover script (up to 5,000 characters):', String(sourceText || '').slice(0, 5000));
       if (script == null) return;
-      generateAudio('/v1/video-studio/elevenlabs/voiceover', { text: script, voice_id: voiceSelect.value }, 'Voiceover', 'nasrinai-voiceover.mp3', voiceButton);
+      generateAudio('/v1/video-studio/elevenlabs/voiceover', { text: script, voice_id: voiceSelect.value, model_id: modelSelect.value }, 'Voiceover', 'nasrinai-voiceover.mp3', voiceButton);
     });
     effectButton.addEventListener('click', () => {
       const prompt = window.prompt('Describe the sound effect (up to 500 characters):', 'Soft cinematic transition whoosh');
