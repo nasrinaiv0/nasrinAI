@@ -235,7 +235,9 @@ test('web sources stay behind an accessible Sources and Resources toggle by defa
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /const cited = window\.NasrinFormat\.sources\(text\);\s*text = cited\.text \|\| text;/);
-  assert.match(js, /if \(cited\.links\.length\) sourcesToggle\(actions, cited\.links\);/);
+  assert.match(js, /sourcesToggle\(actions, cited\.links\);/);
+  assert.doesNotMatch(js, /if \(cited\.links\.length\) sourcesToggle/);
+  assert.match(js, /No external sources were consulted for this reply\./);
   const toggle = js.slice(js.indexOf('function sourcesToggle('), js.indexOf('function replyActions('));
   assert.match(toggle, /list\.hidden = true;/);
   assert.match(toggle, /const heading = mk\('p', 'reply-sources-heading', 'Sources & Resources'\);/);
