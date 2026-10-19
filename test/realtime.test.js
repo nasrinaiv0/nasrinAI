@@ -16,9 +16,15 @@ test('realtime creates a short-lived client secret without exposing the API key'
   const body = JSON.parse(sent.init.body);
   assert.equal(body.session.model, 'gpt-realtime-2.1');
   assert.equal(body.session.audio.output.voice, 'coral');
+  assert.equal(body.session.audio.input.noise_reduction.type, 'near_field');
+  assert.equal(body.session.audio.input.turn_detection.type, 'semantic_vad');
+  assert.equal(body.session.audio.input.turn_detection.eagerness, 'high');
+  assert.equal(body.session.audio.input.turn_detection.create_response, true);
+  assert.equal(body.session.audio.input.turn_detection.interrupt_response, true);
   assert.equal(body.session.reasoning.effort, 'high');
   assert.equal(body.session.max_output_tokens, 1800);
   assert.equal(body.session.type, 'realtime');
+  assert.equal(sent.init.signal instanceof AbortSignal, true);
 });
 
 test('realtime defaults to a bounded output-token allowance', async () => {
