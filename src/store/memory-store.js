@@ -22,6 +22,8 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const planPeriods = [];
   const images = new Map();
   const videos = new Map();
+  const videoStudioAudioAssets = new Map();
+  const videoStudioTimelineItems = new Map();
   const marketingCache = new Map();
   const sentFiles = new Map();   // photos and files sent in chat (migration 014)
   const acceptances = [];
@@ -528,6 +530,78 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       const id = randomUUID();
       images.set(id, { ...row, id, createdAt: iso() });
       return id;
+    },
+
+    async createVideoStudioAudioAsset(row) {
+      if (!Buffer.isBuffer(row.bytes) || row.bytes.length < 1 || row.bytes.length > 12 * 1024 * 1024 ||
+          row.ownerType !== 'user' || !['voiceover', 'sound_effect'].includes(row.kind)) throw new Error('invalid Video Studio audio asset');
+      const id = randomUUID();
+      const asset = { id, tenantId: row.tenantId, ownerType: 'user', ownerId: row.ownerId,
+        projectId: row.projectId || null, kind: row.kind, mime: 'audio/mpeg', sizeBytes: row.bytes.length,
+        bytes: Buffer.from(row.bytes), voiceId: row.voiceId || null, modelId: row.modelId || null,
+        durationSeconds: row.durationSeconds ?? null, label: String(row.label || (row.kind === 'voiceover' ? 'AI voiceover' : 'Sound effect')).slice(0, 120),
+        createdAt: iso(), updatedAt: iso() };
+      videoStudioAudioAssets.set(id, asset);
+      return this.publicVideoStudioAudioAsset(asset);
+    },
+    publicVideoStudioAudioAsset(row) {
+      const { bytes, ...publicRow } = row;
+      return { ...publicRow };
+    },
+    async listVideoStudioAudioAssets({ tenantId, ownerId, projectId = null }) {
+      return [...videoStudioAudioAssets.values()]
+        .filter(a => a.tenantId === tenantId && a.ownerId === ownerId && (!projectId || a.projectId === projectId))
+        .sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(a => this.publicVideoStudioAudioAsset(a));
+    },
+    async getVideoStudioAudioAsset({ tenantId, ownerId, id }) {
+      const a = videoStudioAudioAssets.get(id);
+      return a && a.tenantId === tenantId && a.ownerId === ownerId ? this.publicVideoStudioAudioAsset(a) : null;
+    },
+    async readVideoStudioAudioAsset({ tenantId, ownerId, id }) {
+      const a = videoStudioAudioAssets.get(id);
+      return a && a.tenantId === tenantId && a.ownerId === ownerId
+        ? { ...this.publicVideoStudioAudioAsset(a), bytes: Buffer.from(a.bytes) } : null;
+    },
+    async deleteVideoStudioAudioAsset({ tenantId, ownerId, id }) {
+      const a = videoStudioAudioAssets.get(id);
+      if (!a || a.tenantId !== tenantId || a.ownerId !== ownerId) return false;
+      for (const [key, item] of videoStudioTimelineItems) if (item.audioAssetId === id) videoStudioTimelineItems.delete(key);
+      return videoStudioAudioAssets.delete(id);
+    },
+    async addVideoStudioTimelineItem(row) {
+      const asset = videoStudioAudioAssets.get(row.audioAssetId);
+      const project = projects.get(row.projectId);
+      if (!asset || asset.tenantId !== row.tenantId || asset.ownerId !== row.ownerId ||
+          !project || project.tenantId !== row.tenantId || project.userId !== row.ownerId) throw new Error('Video Studio asset or project not owned');
+      if ([...videoStudioTimelineItems.values()].some(i => i.projectId === row.projectId && i.audioAssetId === row.audioAssetId)) {
+        throw new Error('audio asset already on this timeline');
+      }
+      const item = { id: randomUUID(), tenantId: row.tenantId, ownerId: row.ownerId, projectId: row.projectId,
+        audioAssetId: row.audioAssetId, startSeconds: row.startSeconds, trimStartSeconds: row.trimStartSeconds || 0,
+        trimEndSeconds: row.trimEndSeconds ?? null, gain: row.gain ?? 1, lane: row.lane ?? 1, createdAt: iso(), updatedAt: iso() };
+      videoStudioTimelineItems.set(item.id, item);
+      return { ...item };
+    },
+    mapVideoStudioTimelineItem(row) { return { ...row }; },
+    async listVideoStudioTimelineItems({ tenantId, ownerId, projectId }) {
+      return [...videoStudioTimelineItems.values()].filter(i => i.tenantId === tenantId && i.ownerId === ownerId && i.projectId === projectId)
+        .sort((a,b) => a.startSeconds - b.startSeconds).map(i => ({ ...i }));
+    },
+    async getVideoStudioTimelineItem({ tenantId, ownerId, projectId, id }) {
+      const i = videoStudioTimelineItems.get(id);
+      return i && i.tenantId === tenantId && i.ownerId === ownerId && i.projectId === projectId ? { ...i } : null;
+    },
+    async updateVideoStudioTimelineItem({ tenantId, ownerId, projectId, id, patch }) {
+      const i = videoStudioTimelineItems.get(id);
+      if (!i || i.tenantId !== tenantId || i.ownerId !== ownerId || i.projectId !== projectId) return null;
+      for (const k of ['startSeconds','trimStartSeconds','trimEndSeconds','gain','lane']) if (k in patch) i[k] = patch[k];
+      i.updatedAt = iso();
+      return { ...i };
+    },
+    async deleteVideoStudioTimelineItem({ tenantId, ownerId, projectId, id }) {
+      const i = videoStudioTimelineItems.get(id);
+      if (!i || i.tenantId !== tenantId || i.ownerId !== ownerId || i.projectId !== projectId) return false;
+      return videoStudioTimelineItems.delete(id);
     },
 
     async addVideo(row) {
