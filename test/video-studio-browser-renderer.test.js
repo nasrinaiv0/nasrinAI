@@ -11,7 +11,7 @@ test('Video Studio exposes bounded browser timeline rendering and honest format 
   assert.match(html, /id="renderDownload"/);
   assert.match(js, /MediaRecorder\.isTypeSupported/);
   assert.match(js, /total>180/);
-  assert.match(js, /state\.clips\.slice\(0,30\)/);
+  assert.match(js, /state\.clips\.length>30/);
   assert.match(js, /video\/webm/);
   assert.match(js, /video\/mp4/);
   assert.match(js, /audioDestination/);
@@ -39,5 +39,6 @@ test('browser renderer refuses more than 30 clips rather than silently omitting 
   const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
   assert.match(js, /state\.clips\.length>30/);
   assert.match(js, /Browser export supports up to 30 clips per render/);
-  assert.doesNotMatch(js, /state\.clips\.slice\(0,30\)/);
+  const renderer = js.slice(js.indexOf('async function renderTimelineVideo'), js.indexOf("$('renderTimeline').addEventListener"));
+  assert.doesNotMatch(renderer, /state\.clips\.slice\(0,30\)/);
 });
