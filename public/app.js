@@ -3906,7 +3906,7 @@
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
     if (message.querySelector('.youtube-results')) return;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
-    const tutorialIntent = /\\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\\b/i.test(userQuery);
+    const tutorialIntent = /\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '')).slice(0, 180);
     try {
       let videos = [];
