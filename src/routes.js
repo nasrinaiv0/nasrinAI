@@ -45,7 +45,7 @@ function cleanVideoStudioDocument(raw) {
     id:text(g.id, 100), name:text(g.name, 120), videoId:typeof g.videoId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(g.videoId) ? g.videoId : null,
     status:['queued','in_progress','completed','failed'].includes(g.status) ? g.status : 'unknown'
   })).filter((g) => g.id);
-  const document = { template:text(raw.template, 40, 'cinematic'), aspect:raw.aspect === '9:16' ? '9:16' : '16:9', clips, generated };
+  const document = { template:text(raw.template, 40, 'cinematic'), aspect:raw.aspect === '9:16' ? '9:16' : '16:9', prompt:text(raw.prompt, 1800), clips, generated };
   if (Buffer.byteLength(JSON.stringify(document), 'utf8') > 900000) throw new HttpError(413, 'video_project_too_large', 'This project is too large to save. Remove some clip metadata and try again.');
   return document;
 }
