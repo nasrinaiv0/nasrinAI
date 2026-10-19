@@ -1318,3 +1318,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `b0b0116dfc9c7e7781f347310f441711730fb227` — `test: cover timeline audio export and per-clip titles`.
 - Added source regression assertions for recorder audio routing and per-clip title behavior.
 - **Validation:** test committed; full CI and real-browser playback/audio verification remain pending.
+
+
+### Video Studio verified phase gates (2026-10-20)
+
+- **Commit:** `e23b342b25bd4021c5afa50e8f9a0d264a82ca41` — `docs: define verified Video Studio phase gates and release blockers`.
+- Reconciled the architecture status against the actual recursive repository tree. Migration 051 exists, but a dedicated cloud-project API/store module was not found on `main` or the renderer branch; cloud persistence is therefore not treated as operational without further evidence.
+- Added explicit phase gates for authenticated project APIs, durable private media storage, a real server-side render worker, and release validation.
+- **Validation:** documentation-only; CI status for the branch remains pending.
