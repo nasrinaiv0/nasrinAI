@@ -23,8 +23,9 @@ test('extracts bounded public links and multimodal metadata from HTML', () => {
   `;
   const found = extractWebAssets(html, 'https://example.com/');
   assert.deepEqual(found.links, ['https://example.com/article?utm_source=nav']);
-  assert.deepEqual(found.media.map((m) => m.kind), ['image', 'video', 'audio']);
+  assert.deepEqual(found.media.map((m) => m.kind), ['image', 'video', 'video', 'audio']);
   assert.equal(found.media[0].alt, 'Product hero');
   assert.equal(found.media[1].url, 'https://example.com/preview.jpg');
-  assert.equal(found.media[2].url, 'https://example.com/podcast.mp3');
+  assert.equal(found.media[2].url, 'https://example.com/demo.mp4');
+  assert.equal(found.media[3].url, 'https://example.com/podcast.mp3');
 });
