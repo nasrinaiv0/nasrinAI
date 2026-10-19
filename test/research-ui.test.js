@@ -15,7 +15,7 @@ test('Research workspace is reachable from mobile and desktop navigation', () =>
 });
 
 test('Research workspace exposes query, URL, report, history and export controls', () => {
-  for (const id of ['researchForm', 'researchQuery', 'researchUrls', 'researchResult', 'researchFindings', 'researchSources', 'researchHistory', 'researchSave']) {
+  for (const id of ['researchForm', 'researchQuery', 'researchUrls', 'researchResult', 'researchFindings', 'researchSources', 'researchHistory', 'researchSave', 'professionalSearchForm', 'professionalSearchQuery', 'professionalSearchCategory', 'professionalSearchSource', 'professionalSearchDate', 'professionalSearchLocation', 'professionalSearchOrganization', 'professionalSearchResult', 'professionalSearchGroups', 'linkedinConnect', 'linkedinStatus']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
   for (const format of ['markdown', 'html', 'json']) assert.ok(html.includes('data-research-export="' + format + '"'));
@@ -41,4 +41,17 @@ test('Research workspace has responsive mobile and visible keyboard focus styles
   assert.match(styles, /@media\(max-width:38rem\)/);
   assert.match(styles, /research-overlay button:focus-visible/);
   assert.match(styles, /\.research-overlay\[hidden\]\{display:none\}/);
+});
+
+test('Professional intelligence UI exposes all six categories, source filters, and the authorized LinkedIn connection', () => {
+  for (const value of ['posts_discussions', 'jobs_hiring', 'pay_benefits', 'reviews_workplace', 'opportunities', 'terms_requirements']) {
+    assert.ok(html.includes('value="' + value + '"'));
+  }
+  for (const value of ['all', 'public_web', 'linkedin_authorized']) assert.ok(html.includes('value="' + value + '"'));
+  assert.match(script, /api\('\/v1\/professional-search'/);
+  assert.match(script, /api\('\/v1\/linkedin\/status'/);
+  assert.match(script, /api\('\/v1\/linkedin\/connect'/);
+  assert.match(script, /api\('\/v1\/linkedin'/);
+  assert.match(script, /professionalSearchGroups/);
+  assert.match(styles, /professional-search-grid/);
 });
