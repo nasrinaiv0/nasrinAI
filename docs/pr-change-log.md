@@ -1111,3 +1111,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Cross-surface handoff update:** added a Studio `Continue in chat` action and main-chat fragment handler. The project brief is validated, removed from the URL immediately, and prefilled for explicit user review/send. This shares project metadata and prompt context only; cloud project persistence and media transfer remain pending.
 
 - **Dedicated Studio chat:** documented the new responsive Ask NasrinAI panel, its use of the existing `/v1/chat` API, bounded project-context injection, in-memory authenticated/guest token handling, test coverage, and release limitations. This adds contextual creative chat inside Studio; it does not yet provide shared cloud project persistence or guarantee reuse of main-chat history.
+
+
+## Repository-wide change documentation policy (2026-10-20)
+
+- **Owner requirement:** every commit and every pull request must be documented; documentation is part of the change, not optional follow-up work.
+- Added `docs/change-documentation-policy.md` defining commit-level records, PR requirements, architecture/API/database/security documentation, test evidence, and honest reporting of incomplete checks.
+- Added a pull request template with required change, risk, documentation, and validation sections.
+- Added a GitHub Actions documentation gate that fails a PR when `docs/pr-change-log.md` is not changed. The template also requires commit-by-commit changelog coverage; reviewers must verify each implementation commit has a corresponding entry.
+- **Enforcement boundary:** the PR gate can verify the changelog is part of the PR, but does not independently prove every commit has its own matching entry. Commit-level coverage remains a review requirement unless a future commit-aware check is added.
+- **Validation:** files and workflow added to `feat/video-studio-mvp`; CI execution and workflow behavior have not yet been confirmed.
