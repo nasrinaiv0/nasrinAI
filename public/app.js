@@ -8633,9 +8633,18 @@
     li.appendChild(mk('span', 'plugins-name', name));
     const state = name === 'GitHub'
       ? (github.connected ? 'Connected' : github.available ? 'Available' : 'Not configured')
-      : name === 'ElevenLabs' ? 'Video Studio'
+      : name === 'ElevenLabs' ? 'Checking…'
         : 'Not connected';
-    li.appendChild(mk('span', 'plugins-soon', state));
+    const stateLabel = mk('span', 'plugins-soon', state);
+    li.appendChild(stateLabel);
+    if (name === 'ElevenLabs') {
+      fetch('/v1/video-studio/elevenlabs/status', { credentials: 'same-origin' }).then(async response => {
+        if (!response.ok) throw new Error('status unavailable');
+        return response.json();
+      }).then(status => {
+        stateLabel.textContent = status.configured ? 'Configured' : 'Not configured';
+      }).catch(() => { stateLabel.textContent = 'Status unavailable'; });
+    }
     const actions = mk('details', 'developer-tool-actions');
     const summary = mk('summary', 'plugins-settings-btn', 'Actions');
     summary.setAttribute('aria-label', name + ' integration actions');
