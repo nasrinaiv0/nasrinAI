@@ -90,10 +90,10 @@ export function createVideoStudioExporter({
       }
 
       const probe = await run(['-hide_banner', '-i', sourcePath], { allowFailure: true, timeout: Math.min(timeoutMs, 20_000) });
-      if (!/Stream #\\d+:\\d+[^\\n]*Video:/i.test(probe.stderr)) {
+      if (!/Stream #\d+:\d+[^\n]*Video:/i.test(probe.stderr)) {
         throw new HttpError(400, 'video_export_invalid_source', 'The source file does not contain a readable video stream.');
       }
-      const hasSourceAudio = /Stream #\\d+:\\d+[^\\n]*Audio:/i.test(probe.stderr);
+      const hasSourceAudio = /Stream #\d+:\d+[^\n]*Audio:/i.test(probe.stderr);
 
       const args = ['-nostdin', '-y', '-hide_banner', '-loglevel', 'error', '-i', sourcePath];
       for (let i = 0; i < audioAssets.length; i++) args.push('-i', path.join(dir, 'audio-' + i + '.mp3'));
