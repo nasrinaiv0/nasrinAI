@@ -3754,3 +3754,4 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .professional-source-fact time{display:block;font-size:.72rem;margin-top:.3rem}
 .professional-source-links{margin-top:.6rem}
 @media(max-width:38rem){.professional-intelligence{padding:.75rem}.professional-search-grid{grid-template-columns:minmax(0,1fr)}.linkedin-connection{align-items:flex-start;flex-direction:column}.professional-search-form .research-form-actions{align-items:stretch;flex-direction:column}.professional-search-form .research-form-actions .btn{width:100%}}
+.professional-consent-note{margin:.45rem 0 .9rem;font-size:.76rem;line-height:1.5;opacity:.68}
