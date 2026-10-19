@@ -184,7 +184,7 @@
   }
 
   function parseWidgetPayload(raw) {
-    let candidate = String(raw || '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');
+    let candidate = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     for (let attempt = 0; attempt < 3; attempt++) {
       try { const parsed = JSON.parse(candidate); if (typeof parsed === 'string') { candidate = parsed.trim(); continue; } return parsed; }
       catch {
