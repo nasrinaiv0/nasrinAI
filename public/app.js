@@ -3922,49 +3922,10 @@
       } catch {
         // Fall back to researched YouTube links when live search is unavailable.
       }
-      // If live search is unavailable or returns no playable results, recover
-      // YouTube links already present in the assistant answer or its citations.
-      // Verify every candidate server-side before creating an iframe.
-      if (!videos.length) {
-        const candidates = [];
-        const seen = new Set();
-        const links = [
-          ...(Array.isArray(sourceLinks) ? sourceLinks : []).map((link) => ({ href: link?.url || link?.href || '', title: link?.title || '' })),
-          ...Array.from(message.querySelectorAll('a[href]')).map((anchor) => ({ href: anchor.href, title: anchor.textContent || '' }))
-        ];
-        for (const link of links) {
-          try {
-            const url = new URL(link.href);
-            const host = url.hostname.toLowerCase().replace(/^www\./, '');
-            if (!['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) continue;
-            let id = '';
-            if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
-            else if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
-            else {
-              const match = url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})(?:$|\/)/);
-              if (match) id = match[1];
-            }
-            if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
-            seen.add(id);
-            candidates.push({ id, title: String(link.title || 'YouTube video').trim().slice(0, 240) });
-            if (candidates.length >= 3) break;
-          } catch {
-            // Ignore malformed or non-YouTube links.
-          }
-        }
-        // These candidates came from an explicit YouTube link already shown
-        // in the assistant answer or its citations. Do not make rendering depend
-        // on the optional YouTube Data API key: the API may be unavailable even
-        // when a valid watch URL is present. YouTube itself determines whether
-        // playback is permitted; keep the watch link available as a fallback.
-        if (candidates.length) {
-          videos = candidates.map((candidate) => ({
-            ...candidate,
-            channelTitle: 'YouTube',
-            watchUrl: 'https://www.youtube.com/watch?v=' + candidate.id
-          }));
-        }
-      }
+      // Never turn arbitrary assistant citations into embedded videos. Only
+      // render results returned by the server-side YouTube Data API after its
+      // embeddability and regional-availability checks. If verification fails,
+      // show no video card rather than a broken/random player.
       if (!videos.length || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
