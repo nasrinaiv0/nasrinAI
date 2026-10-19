@@ -1298,3 +1298,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `f8cba0f04265d1939eef970bfbc767b68f1a5ee3` — `fix: repair browser renderer JavaScript syntax`.
 - Fixed an accidentally literal newline escape between the audio destination and output-stream declarations that caused the public-script parser test to fail.
 - **Validation:** CI had detected the syntax error; the corrected commit must rerun the complete test suite and JavaScript syntax checks.
+
+
+### Video Studio renderer source-syntax regression guard (2026-10-20)
+
+- **Commit:** `654296874e942b91684ede3f7fe5c8ab2456daa0` — `test: guard renderer audio stream source syntax`.
+- Added a regression assertion for the audio-destination/output-stream declaration that previously caused the public script parser test to fail.
+- **Validation:** regression guard committed; full CI rerun pending.
