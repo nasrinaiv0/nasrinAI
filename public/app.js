@@ -7525,7 +7525,7 @@
     card.className = 'professional-job-card';
     const head = document.createElement('div'); head.className = 'professional-job-card-head';
     const title = document.createElement('h5'); title.textContent = professionalText(source?.title, 'Job opportunity');
-    const company = document.createElement('p'); company.className = 'professional-job-company'; company.textContent = professionalText(source?.company || source?.employer);
+    const company = document.createElement('p'); company.className = 'professional-job-company'; company.textContent = professionalText(source?.company || source?.employer || professionalField(details, /\\b(company|employer|hiring organization|posted by)\\b/i));
     head.append(title, company);
     const meta = document.createElement('div'); meta.className = 'professional-job-meta';
     const addMeta = (label, value) => { const item = document.createElement('span'); item.textContent = label + ': ' + professionalText(value); meta.append(item); };
