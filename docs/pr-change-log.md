@@ -1305,3 +1305,16 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `654296874e942b91684ede3f7fe5c8ab2456daa0` — `test: guard renderer audio stream source syntax`.
 - Added a regression assertion for the audio-destination/output-stream declaration that previously caused the public script parser test to fail.
 - **Validation:** regression guard committed; full CI rerun pending.
+
+
+### Video Studio renderer audio/title correction (2026-10-20)
+
+- **Commit:** `070114830dd64f4778cad74cd1f2e89960096882` — `fix: route timeline audio into export and render each clip title`.
+- Fixed the browser renderer to connect media audio to the MediaRecorder output stream and to decide title overlays from the clip currently being rendered, not the inspector selection.
+- **Validation:** implementation committed; regression coverage and CI are pending.
+
+### Video Studio renderer audio/title regression tests (2026-10-20)
+
+- **Commit:** `b0b0116dfc9c7e7781f347310f441711730fb227` — `test: cover timeline audio export and per-clip titles`.
+- Added source regression assertions for recorder audio routing and per-clip title behavior.
+- **Validation:** test committed; full CI and real-browser playback/audio verification remain pending.
