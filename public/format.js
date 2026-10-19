@@ -137,13 +137,13 @@
   // Returns { node, blocks } where blocks are the top-level elements (for the
   // reveal animation) and steps are numbered items people can tick off.
   function render(text) {
-    // Normalize literal escaped line breaks from provider/API responses before Markdown parsing.
-    // Handle CRLF, LF and CR spellings, including spaces between paragraph separators.
+    // Normalize provider-escaped line breaks, even when JSON/provider layers double-escape them.
+    // This runs at the final UI rendering boundary, before paragraph/list parsing.
     const normalized = String(text ?? '')
-      .replace(/\\r\\n/g, '\n')
-      .replace(/\\n[ \t]*\\n/g, '\n\n')
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '\n');
+      .replace(/\\{1,}r\\{1,}n/g, '\n')
+      .replace(/\\{1,}n[ \t]*\\{1,}n/g, '\n\n')
+      .replace(/\\{1,}n/g, '\n')
+      .replace(/\\{1,}r/g, '\n');
     text = normalized;
     const frag = document.createDocumentFragment();
     const blocks = [];
