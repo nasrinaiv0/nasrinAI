@@ -25,6 +25,10 @@ export function createRealtime({ apiKey, fetchImpl = fetch }) {
         audio: {
           output: { voice },
           input: {
+            // Browser-side echo cancellation remains enabled as well. Near-field
+            // server reduction is useful for a phone or headset microphone and
+            // keeps noisy input from degrading the direct audio-to-audio turn.
+            noise_reduction: { type: 'near_field' },
             turn_detection: {
               type: 'semantic_vad',
               eagerness: 'high',
@@ -44,7 +48,8 @@ export function createRealtime({ apiKey, fetchImpl = fetch }) {
       const response = await fetchImpl(OPENAI_REALTIME_URL, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session })
+        body: JSON.stringify({ session }),
+        signal: AbortSignal.timeout(10_000)
       });
       const raw = await response.text();
       if (!response.ok) {
