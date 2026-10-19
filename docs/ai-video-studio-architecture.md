@@ -256,3 +256,10 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 - This is not yet a persistent shared project/chat workspace. Studio draft metadata remains browser-local, and uploads remain browser-session only.
 - The Studio panel is not yet guaranteed to show the user's existing main-chat history. It should be treated as a Studio conversation surface; durable cross-surface conversation continuity needs an explicit, authenticated conversation/project association.
 - Run the full `npm test` suite, inspect the Vercel preview, and manually verify guest and signed-in chat flows before merging. Do not claim validation passed until the CI result is green.
+
+
+## Conflict-safe renderer integration (2026-10-20)
+
+- PR #474 had a merge conflict because its branch predates newer `main` changes, including the cloud-project prompt restoration fix. Rather than resolving by taking either entire file, renderer-only controls, styles, and renderer functions are being transplanted onto a fresh branch based on current `main`.
+- The integration preserves the current `loadDraft()` implementation on `main`, including prompt restoration, and adds the browser renderer separately.
+- Renderer limitations remain: browser-dependent WebM/optional MP4, 30 clips / 180 seconds, local asset bytes are not uploaded to cloud storage, and manual playback/audio-sync verification is still required.
