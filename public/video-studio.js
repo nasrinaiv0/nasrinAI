@@ -119,8 +119,8 @@
     }
   }
   function currentProjectContext(){
-    const clips=state.clips.slice(0,20).map((c,i)=>`${i+1}. ${safe(c.name)||'Untitled clip'} (${c.kind}, ${Number(c.duration)||0}s)`).join('\\n');
-    return ['Current NasrinAI Video Studio project:',`Name: ${safe($('projectName').value)||'Untitled video'}`,`Template: ${state.template}`,`Aspect ratio: ${$('aspect').value}`,`Generation prompt: ${safe($('prompt').value).slice(0,1200)||'(not set)'}`,`Timeline clips:\\n${clips||'(none yet)'}`].join('\\n');
+    const clips=state.clips.slice(0,20).map((c,i)=>`${i+1}. ${safe(c.name)||'Untitled clip'} (${c.kind}, ${Number(c.duration)||0}s)`).join('\n');
+    return ['Current NasrinAI Video Studio project:',`Name: ${safe($('projectName').value)||'Untitled video'}`,`Template: ${state.template}`,`Aspect ratio: ${$('aspect').value}`,`Generation prompt: ${safe($('prompt').value).slice(0,1200)||'(not set)'}`,`Timeline clips:\n${clips||'(none yet)'}`].join('\n');
   }
   async function sendStudioChat(message){
     const textValue=safe(message).slice(0,6000);if(!textValue||studioChat.busy)return;
@@ -128,7 +128,7 @@
     const reply=chatBubble('assistant','Thinking…');
     try{
       const token=await chatAccessToken();
-      const body={message:currentProjectContext()+'\\n\\nUser request: '+textValue,stream:false};
+      const body={message:currentProjectContext()+'\n\nUser request: '+textValue,stream:false};
       if(studioChat.conversationId)body.conversation_id=studioChat.conversationId;
       const response=await fetch('/v1/chat',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body)});
       const data=await response.json().catch(()=>({}));
