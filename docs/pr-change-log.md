@@ -1200,3 +1200,16 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `7590f02514e4aa3ebaec5ded9573161467061a66` — `feat: sync Video Studio drafts with cloud projects`.
 - Added authenticated cloud save/open flows, local draft fallback on cloud-save failure, and saved project ID/version tracking for subsequent updates.
 - **Limitations:** uploaded local file bytes are not uploaded or synchronized; generated MP4 access remains subject to the existing owner-checked video route. Full end-to-end verification is pending.
+
+
+### Video Studio cloud project regression coverage (2026-10-20)
+
+- **Commit:** `642ef0c734a0e1a70c6e357ddb566e172eb2c604` — `test: cover Video Studio cloud project persistence`.
+- Added static regression checks for cloud CRUD endpoints, ownership scoping, version handling, local fallback, and database security constraints.
+- **Validation:** test file added; CI must execute it. These checks do not replace authenticated integration tests or a live database migration test.
+
+### Video Studio persistence architecture checkpoint (2026-10-20)
+
+- **Commit:** `c458c2333372d22590da7b4cae91332a76835f97` — `docs: record cloud project persistence checkpoint`.
+- Updated the architecture document to describe the cloud schema/API/UI and explicitly list pending migration, CI, live save/reopen, cross-device, and rendering validation.
+- **Validation:** documentation update only; production database schema has not been changed.
