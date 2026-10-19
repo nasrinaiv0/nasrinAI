@@ -1,4 +1,10 @@
 
+## Proposed PR — Video Studio Safari seek-event race guard (`fix/video-studio-renderer-media-races`)
+
+- **Change:** browser timeline export registers the media `seeked` listener before setting `currentTime`, avoiding a race where Safari can dispatch the event before the listener exists. Seek waits are bounded and return a clear error on timeout/failure.
+- **Regression coverage:** added a source-level test for the listener-ordering guard.
+- **Validation:** GitHub Actions must pass before merge. Actual export playback still needs manual Safari/iOS and desktop-browser verification; codec support varies by browser. This change does not add durable cloud asset storage or server-side rendering.
+
 ## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
 
 - Added an assistant-reply **Enable location** action for replies that indicate GPS/current location is needed. It requests browser geolocation only after an explicit tap, shows permission/timeout/unsupported states, and provides manual-location fallback.
