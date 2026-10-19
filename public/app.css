@@ -3720,3 +3720,10 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
   .social-embed-tiktok iframe { min-height: 400px; }
   .social-embed-facebook iframe { min-height: 260px; }
 }
+
+
+/* Keep the chat composer 10px above the viewport edge on phones and tablets.
+   Preserve the device safe area so the composer clears the home indicator. */
+@media (max-width: 69.99rem) {
+  .dock { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
