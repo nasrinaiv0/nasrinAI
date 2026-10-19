@@ -45,5 +45,8 @@ test('TikTok and social video discovery requests always trigger live web search'
     'show trending Instagram reels',
     'top YouTube shorts right now'
   ]) assert.equal(needsWeb(q), true, q);
-  for (const q of ['what is TikTok?', 'how do I upload a video?', 'explain social media']) assert.equal(needsWeb(q), false, q);
+  // General public-entity questions may already trigger web search through
+  // PUBLIC_ENTITY_QUESTION; keep them separate from non-search capability queries.
+  assert.equal(needsWeb('what is TikTok?'), true);
+  for (const q of ['how do I upload a video?', 'explain social media']) assert.equal(needsWeb(q), false, q);
 });
