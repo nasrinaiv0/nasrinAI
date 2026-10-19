@@ -92,8 +92,8 @@ Long-running operations must use the existing durable job pattern if available. 
 
 ## Delivery checklist
 
-1. Run the new GitHub Actions workflow and fix every failing test; verify the real FFmpeg render test rather than allowing it to skip on supported production platforms.
-2. Apply migration 046 and verify private Storage bucket upload/download/delete, metadata ownership, and timeline RLS/service-role access in Supabase.
-3. Complete an end-to-end deployed test: create a video, generate an audio asset, place it on a project timeline, export MP4, and inspect playback/audio timing.
-4. Verify the Studio sign-in flow, Turnstile, same-origin session refresh, responsive layout, and the studio subdomain redirect.
-5. Update privacy/terms disclosures, dependency audit, and release notes before merge.
+1. **Complete:** GitHub CI passed the full test suite, syntax, secret scan, dependency audit, and database checks. The FFmpeg render integration test ran in CI rather than skipping.
+2. **Complete:** migration 046 is applied to the connected Supabase project; both tables exist, RLS is enabled, direct anon/authenticated access is revoked, service_role access is granted, and the media bucket is private. Upload/download/delete still needs a live API smoke test.
+3. **Pending:** complete a deployed end-to-end test: create a video, generate an audio asset, place it on a project timeline, export MP4, and inspect playback/audio timing. The latest Vercel preview deployment was canceled by the project's ignored-build-step configuration.
+4. **Pending:** verify the Studio sign-in flow, Turnstile, same-origin session refresh, responsive layout, and the studio subdomain redirect on a ready deployment.
+5. **Partially complete:** dependency audit and release notes are updated. Review privacy/terms disclosures and add verified provider-cost accounting before merge; do not invent an estimated USD cost when account pricing is unknown.
