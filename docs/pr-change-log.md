@@ -1180,3 +1180,23 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added list/get/create/update/delete methods filtered by tenant and authenticated user; project document and metadata are returned as a bounded, server-owned record.
 - Updates support an optional expected-version filter to detect stale writes.
 - **Validation:** source edit is committed; CI and store tests are pending. No production migration was run.
+
+
+### Video Studio cloud project API (2026-10-20)
+
+- **Commit:** `95ad0ce427b75907da47b7959936df6c87494f46` — `feat: add authenticated Video Studio project API`.
+- Added signed-in-user endpoints to list, create, read, update and delete Studio project documents. Each operation scopes by the verified caller's tenant and user; foreign/missing project IDs return not found.
+- Server normalization restricts the persisted document to known fields, bounds clip counts and payload size, and rebuilds generated-video download paths from validated video IDs rather than trusting client URLs.
+- **Validation:** route code committed; CI, authorization tests, migration execution, and deployment remain pending.
+
+### Video Studio cloud project controls (2026-10-20)
+
+- **Commit:** `20585ecef98e2f85aabb8ca138e399cf7ab9adaa` — `feat: add cloud project controls to Studio`.
+- Added Save to cloud and Open project controls to the Studio project header.
+- **Validation:** markup committed; mobile layout and end-to-end behavior need tests.
+
+### Video Studio cloud sync frontend (2026-10-20)
+
+- **Commit:** `7590f02514e4aa3ebaec5ded9573161467061a66` — `feat: sync Video Studio drafts with cloud projects`.
+- Added authenticated cloud save/open flows, local draft fallback on cloud-save failure, and saved project ID/version tracking for subsequent updates.
+- **Limitations:** uploaded local file bytes are not uploaded or synchronized; generated MP4 access remains subject to the existing owner-checked video route. Full end-to-end verification is pending.
