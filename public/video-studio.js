@@ -237,7 +237,8 @@
       const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(type=>MediaRecorder.isTypeSupported(type));
       if(!mime)throw new Error('This browser does not expose a supported recording format for timeline export.');
       audioContext=window.AudioContext?new AudioContext():null;
-      audioDestination=audioContext?audioContext.createMediaStreamDestination():null;\n      const output=new MediaStream([...canvasStream.getVideoTracks(),...(audioDestination?audioDestination.stream.getAudioTracks():[])]);
+      audioDestination=audioContext?audioContext.createMediaStreamDestination():null;
+      const output=new MediaStream([...canvasStream.getVideoTracks(),...(audioDestination?audioDestination.stream.getAudioTracks():[])]);
       if(audioContext)await audioContext.resume();
       recorder=new MediaRecorder(output,{mimeType:mime,videoBitsPerSecond:5000000});
       const recorded=new Promise((resolve,reject)=>{
