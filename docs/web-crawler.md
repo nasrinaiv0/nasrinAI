@@ -4,7 +4,7 @@ This is the **main NasrinAI research/retrieval crawler**, not NasrinAI Connect. 
 
 ## Deployment
 
-1. Apply `db/migrations/037_core_web_crawler.sql` in Supabase after migrations 001–036.
+1. Apply `db/migrations/044_core_web_crawler.sql` in Supabase after migrations 001–036.
 2. Deploy the branch/PR with the existing `CRON_SECRET` set (the existing secret is reused; do not create a second one).
 3. Vercel invokes `/v1/internal/web-crawl` hourly. Each invocation is bounded to a small batch.
 4. Research-discovered URLs seed the frontier. The crawler follows at most three discovery levels and limits links/media per page.
