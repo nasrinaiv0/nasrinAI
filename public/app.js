@@ -6430,6 +6430,12 @@
     // Say which mode is on only once it is known.
     if (realtime) voiceSay('hint', 'Realtime voice is on. Just talk naturally — you can interrupt Nasrin at any time.');
     if (!realtime) {
+      // When an AI realtime voice is selected, fail clearly rather than
+      // silently switching to a separate STT/TTS cascade.
+      if (currentVoice().startsWith('ai:')) {
+        closeVoice('Gemini Live could not start. Check your connection and try again.');
+        return;
+      }
       voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
       if (Recognition) listenVoice();
       else closeVoice('Realtime voice could not start, and this browser has no voice fallback.');
