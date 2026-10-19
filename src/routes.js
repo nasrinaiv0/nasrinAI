@@ -25,6 +25,31 @@ function appOriginOf(req) {
 
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
+// Keep the Studio cloud document provider-neutral and prevent arbitrary URLs or
+// local blob URLs from being persisted as shared assets.
+function cleanVideoStudioDocument(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new HttpError(400, 'invalid_video_project', 'The video project is not valid.');
+  const text = (v, max, fallback = '') => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max) : fallback;
+  const arr = (v) => Array.isArray(v) ? v.slice(0, 200) : [];
+  const clips = arr(raw.clips).filter((c) => c && typeof c === 'object' && !Array.isArray(c)).map((c) => {
+    const id = text(c.id, 100);
+    const kind = ['generated', 'upload', 'template'].includes(c.kind) ? c.kind : 'template';
+    const videoId = typeof c.videoId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.videoId) ? c.videoId : null;
+    return { id, name:text(c.name, 120, 'Clip'), title:text(c.title, 200), kind,
+      duration:Math.max(0, Math.min(3600, Number(c.duration) || 0)),
+      start:Math.max(0, Math.min(3600, Number(c.start) || 0)),
+      videoId, download:videoId && kind === 'generated' ? '/v1/videos/' + videoId + '/content' : null,
+      createdAt:text(c.createdAt, 40) };
+  }).filter((c) => c.id);
+  const generated = arr(raw.generated).filter((g) => g && typeof g === 'object' && !Array.isArray(g)).map((g) => ({
+    id:text(g.id, 100), name:text(g.name, 120), videoId:typeof g.videoId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(g.videoId) ? g.videoId : null,
+    status:['queued','in_progress','completed','failed'].includes(g.status) ? g.status : 'unknown'
+  })).filter((g) => g.id);
+  const document = { template:text(raw.template, 40, 'cinematic'), aspect:raw.aspect === '9:16' ? '9:16' : '16:9', clips, generated };
+  if (Buffer.byteLength(JSON.stringify(document), 'utf8') > 900000) throw new HttpError(413, 'video_project_too_large', 'This project is too large to save. Remove some clip metadata and try again.');
+  return document;
+}
+
 
 export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
@@ -817,6 +842,73 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params }) => {
         if (!ncc) throw new HttpError(404, 'not_found', 'Not found.');
         return { body: await ncc.removeDeal(caller, params.id) };
+      }
+    },
+    {
+      // Video Studio projects are server-owned, tenant/user-scoped documents.
+      method: 'GET',
+      path: '/v1/video-studio/projects',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to use cloud Video Studio projects.');
+        if (!store?.listVideoStudioProjects) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        return { body: { projects: await store.listVideoStudioProjects({ tenantId: caller.tenantId, userId: caller.actor.id }) } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/projects',
+      scope: 'chat',
+      body: true,
+      maxBody: 1100000,
+      handler: async ({ caller, body }) => {
+        if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to save cloud Video Studio projects.');
+        if (!store?.createVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        const name = typeof body?.name === 'string' ? body.name.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 80) : '';
+        if (!name) throw new HttpError(400, 'invalid_video_project', 'Enter a project name before saving.');
+        const project = await store.createVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, name, document: cleanVideoStudioDocument(body.document) });
+        return { status: 201, body: { project } };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/projects/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to open cloud Video Studio projects.');
+        if (!store?.getVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        const project = await store.getVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
+        if (!project) throw new HttpError(404, 'not_found', 'That video project was not found.');
+        return { body: { project } };
+      }
+    },
+    {
+      method: 'PUT',
+      path: '/v1/video-studio/projects/:id',
+      scope: 'chat',
+      body: true,
+      maxBody: 1100000,
+      handler: async ({ caller, params, body }) => {
+        if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to save cloud Video Studio projects.');
+        if (!store?.updateVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        const name = typeof body?.name === 'string' ? body.name.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 80) : '';
+        if (!name) throw new HttpError(400, 'invalid_video_project', 'Enter a project name before saving.');
+        const expectedVersion = Number.isInteger(body?.expected_version) && body.expected_version > 0 ? body.expected_version : undefined;
+        const project = await store.updateVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id, name, document: cleanVideoStudioDocument(body.document), expectedVersion });
+        if (!project) throw new HttpError(409, 'video_project_conflict', 'This project changed or is no longer available. Reload it before saving again.');
+        return { body: { project } };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/video-studio/projects/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to delete cloud Video Studio projects.');
+        if (!store?.deleteVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        const deleted = await store.deleteVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
+        if (!deleted) throw new HttpError(404, 'not_found', 'That video project was not found.');
+        return { body: { deleted: true } };
       }
     },
     {
