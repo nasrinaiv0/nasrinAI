@@ -1604,13 +1604,21 @@ return { body: { sites: await connect.list(caller) } }; }
         } else {
           throw new HttpError(400, 'unsupported_provider', 'Only TikTok and Facebook URLs are supported.');
         }
-        let response;
-        try { response = await fetch(upstream, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000) }); }
-        catch { throw new HttpError(502, 'oembed_unavailable', 'This provider is temporarily unavailable.'); }
-        if (!response.ok) throw new HttpError(422, 'embed_unavailable', 'This post may be private, removed, or unavailable for embedding.');
-        let data;
-        try { data = await response.json(); } catch { throw new HttpError(502, 'invalid_oembed_response', 'The provider returned an invalid response.'); }
-        return { provider, type: String(data.type || 'rich').slice(0, 32), title: String(data.title || (provider === 'tiktok' ? 'TikTok video' : 'Facebook post')).slice(0, 240), embedUrl, sourceUrl: url.href };
+        // oEmbed metadata is helpful, but it is not the player. In particular,
+        // Meta's Graph oEmbed endpoint can reject requests without an app token
+        // even when the public video plugin can still render the post. Keep the
+        // validated, provider-specific player URL usable when metadata lookup
+        // fails; the provider itself remains responsible for privacy/playback.
+        let data = {};
+        try {
+          const response = await fetch(upstream, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
+          if (response.ok) {
+            try { data = await response.json(); } catch { data = {}; }
+          }
+        } catch {
+          // A metadata outage must not prevent the public embed from loading.
+        }
+        return { provider, type: String(data.type || (provider === 'tiktok' ? 'video' : 'rich')).slice(0, 32), title: String(data.title || (provider === 'tiktok' ? 'TikTok video' : 'Facebook video/post')).slice(0, 240), embedUrl, sourceUrl: url.href };
       }
     },
     {

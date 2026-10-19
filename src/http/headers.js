@@ -8,7 +8,7 @@ export const PAGE_CSP = [
   "img-src 'self' data: blob: https://i.ytimg.com https://upload.wikimedia.org",
   // *.supabase.co: direct uploads to the project's private bucket (docs/uploads.md).
   "connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co",
-  "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
+  "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://www.tiktok.com https://www.facebook.com",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'none'",
