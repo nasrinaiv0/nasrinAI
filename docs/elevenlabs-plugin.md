@@ -1,6 +1,6 @@
 # ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: catalog entry and initial spec exist; Video Studio integration remains in implementation. Do not claim capabilities until their routes, UI, storage, and tests are wired.
+Status: Phase 1 implemented on the feature branch: server-side voice discovery, voiceover MP3 generation, sound-effect MP3 generation, authenticated routes, plan/rate checks, browser preview/download, and live configuration status. Persistent audio assets, timeline placement, and MP4 audio mixing/export are not implemented yet.
 
 ## Product intent
 
