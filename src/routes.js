@@ -67,12 +67,16 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
     }
   }
 
-  async function requireVideoStudioAudio(caller) {
-    if (!elevenlabs?.available) throw new HttpError(503, 'elevenlabs_not_configured', 'Video Studio audio tools are not configured yet.');
-    if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to use Video Studio audio tools.');
-    if (!plans) throw new HttpError(503, 'plans_unavailable', 'Video Studio audio access cannot be verified right now.');
+  async function requireVideoStudioAccess(caller) {
+    if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to use Video Studio.');
+    if (!plans) throw new HttpError(503, 'plans_unavailable', 'Video Studio access cannot be verified right now.');
     const current = await plans.current(caller);
-    if (!['max', 'ultra'].includes(current.plan)) throw new HttpError(403, 'video_plan_required', 'Video Studio audio tools are available on Max and Ultra plans.');
+    if (!['max', 'ultra'].includes(current.plan)) throw new HttpError(403, 'video_plan_required', 'Video Studio is available on Max and Ultra plans.');
+  }
+
+  async function requireVideoStudioAudio(caller) {
+    await requireVideoStudioAccess(caller);
+    if (!elevenlabs?.available) throw new HttpError(503, 'elevenlabs_not_configured', 'Audio generation is not configured on this deployment yet.');
   }
 
   async function requireVideoStudioProject(caller, projectId) {
@@ -1505,7 +1509,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/video-studio/audio-assets',
       scope: 'chat',
       handler: async ({ caller }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         if (!store?.listVideoStudioAudioAssets) throw new HttpError(503, 'audio_storage_unavailable', 'Video Studio audio storage is not available yet.');
         const assets = await store.listVideoStudioAudioAssets({ tenantId: caller.tenantId, ownerId: caller.actor.id });
         return { body: { assets: assets.map(publicAudioAsset) } };
@@ -1539,7 +1543,7 @@ return { body: { sites: await connect.list(caller) } }; }
       path: '/v1/video-studio/timeline',
       scope: 'chat',
       handler: async ({ caller, req }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         const projectId = new URL(req.url, 'http://local').searchParams.get('project_id');
         await requireVideoStudioProject(caller, projectId);
         if (!store?.listVideoStudioTimelineItems || !store?.getVideoStudioAudioAsset) throw new HttpError(503, 'audio_storage_unavailable', 'Video Studio timeline storage is not available yet.');
@@ -1613,7 +1617,7 @@ return { body: { sites: await connect.list(caller) } }; }
       body: true,
       maxBody: 8 * 1024,
       handler: async ({ caller, body, res }) => {
-        await requireVideoStudioAudio(caller);
+        await requireVideoStudioAccess(caller);
         if (!videoStudioExporter?.available) throw new HttpError(503, 'video_export_unavailable', 'Video export is not available on this server yet.');
         if (!videos?.read || !store?.listVideoStudioTimelineItems || !store?.readVideoStudioAudioAsset) {
           throw new HttpError(503, 'video_export_unavailable', 'Video Studio export storage is not ready yet.');
