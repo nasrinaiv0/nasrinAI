@@ -38,7 +38,7 @@
           "value": "studio.nasrinai.com"
         }
       ],
-      "destination": "/studio/",
+      "destination": "https://nasrinai.com/studio/",
       "permanent": false
     }
   ],
