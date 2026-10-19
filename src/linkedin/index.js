@@ -89,13 +89,34 @@ export function createLinkedInIntegration({ config, logger = null, fetchImpl = (
   async function tokenFor(w) {
     const row = await connectionFor(w);
     if (!row) throw new HttpError(409, 'linkedin_not_connected', 'Connect LinkedIn first.');
-    if (Date.parse(row.expires_at || '') <= now() + 30000) {
+    const opts = sealOpts(w);
+    let access;
+    try { access = open(key, row.access_token_enc, opts); }
+    catch { throw new HttpError(409, 'linkedin_reconnect_required', 'Please disconnect and reconnect LinkedIn.'); }
+    if (Date.parse(row.expires_at || '') > now() + 60000) return { access, row };
+    if (!row.refresh_token_enc) throw new HttpError(409, 'linkedin_reconnect_required', 'LinkedIn authorization expired. Please reconnect LinkedIn.');
+    let refresh;
+    try { refresh = open(key, row.refresh_token_enc, opts); }
+    catch { throw new HttpError(409, 'linkedin_reconnect_required', 'Please disconnect and reconnect LinkedIn.'); }
+    const response = await fetchImpl('https://www.linkedin.com/oauth/v2/accessToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refresh, client_id: clientId, client_secret: clientSecret }),
+      redirect: 'error',
+      signal: AbortSignal.timeout(10000)
+    });
+    const token = await response.json().catch(() => null);
+    if (!response.ok || typeof token?.access_token !== 'string' || !Number.isFinite(Number(token.expires_in))) {
       throw new HttpError(409, 'linkedin_reconnect_required', 'LinkedIn authorization expired. Please reconnect LinkedIn.');
     }
-    let access;
-    try { access = open(key, row.access_token_enc, sealOpts(w)); }
-    catch { throw new HttpError(409, 'linkedin_reconnect_required', 'Please disconnect and reconnect LinkedIn.'); }
-    return { access, row };
+    const updated = {
+      access_token_enc: seal(key, token.access_token, opts),
+      ...(typeof token.refresh_token === 'string' ? { refresh_token_enc: seal(key, token.refresh_token, opts) } : {}),
+      expires_at: new Date(now() + Number(token.expires_in) * 1000).toISOString(),
+      updated_at: new Date(now()).toISOString()
+    };
+    await db('PATCH', 'linkedin_connections?tenant_id=eq.' + encodeURIComponent(w.tenant_id) + '&user_id=eq.' + encodeURIComponent(w.user_id), updated);
+    return { access: token.access_token, row: { ...row, ...updated } };
   }
 
   async function linkedinApi(path, token) {
