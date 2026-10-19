@@ -1281,46 +1281,14 @@
       if (chosenRepo) saved.set(KEYS.coding + ':repo:' + codingProject.id, chosenRepo);
       made = window.NasrinFiles.parse(text);
       text = made.text || (made.files.length ? 'Here is your file.' : '');
-      // Render one or more retained pictures returned by a history-recall request.
-      // Each image is fetched through the existing owner-checked image endpoint.
-      const pics = [...text.matchAll(/^\[image:([0-9a-f-]{36})\]\s*$/gm)];
-      if (pics.length && pics[0].index === 0) {
-        const ids = pics.map((pic) => pic[1]);
-        text = text.slice(pics[pics.length - 1].index + pics[pics.length - 1][0].length).trim()
-          || (ids.length === 1 ? 'Here is your picture.' : 'Here are your pictures.');
-        if (ids.length > 10) {
-          const grid = document.createElement('div');
-          grid.className = 'image-gallery-grid';
-          grid.setAttribute('aria-label', 'Generated pictures');
-          let shown = 0;
-          const pageSize = 8; // eight images + the Show more tile make a 3×3 grid
-          const renderNext = () => {
-            const next = ids.slice(shown, shown + pageSize);
-            for (const imageId of next) grid.appendChild(imageFigure(imageId, regenerate, true));
-            shown += next.length;
-            const more = grid.querySelector('.image-gallery-more');
-            if (more) more.remove();
-            if (shown < ids.length) {
-              const button = document.createElement('button');
-              button.type = 'button';
-              button.className = 'image-gallery-more';
-              button.textContent = 'Show more';
-              button.setAttribute('aria-label', 'Show more generated pictures');
-              button.addEventListener('click', renderNext);
-              grid.appendChild(button);
-            }
-          };
-          renderNext();
-          el.appendChild(grid);
-        } else {
-          for (const imageId of ids) el.appendChild(imageFigure(imageId, regenerate));
-        }
-      } else {
-        const pic = /^\[image:([0-9a-f-]{36})\]\s*/.exec(text);
-        if (pic) {
-          el.appendChild(imageFigure(pic[1], regenerate));
-          text = text.slice(pic[0].length) || 'Here is your picture.';
-        }
+      // Image markers can appear after explanatory prose, not only at the start
+      // of a reply. Extract every valid marker before formatting text so internal
+      // storage IDs are never shown as raw assistant content.
+      const pics = [...text.matchAll(/\[image:([0-9a-f-]{36})\]/g)];
+      const generatedImageIds = pics.map((pic) => pic[1]);
+      if (generatedImageIds.length) {
+        text = text.replace(/\s*\[image:[0-9a-f-]{36}\]\s*/g, '\n\n').trim();
+        if (!text) text = generatedImageIds.length === 1 ? 'Here is your picture.' : 'Here are your pictures.';
       }
       // Screen recordings from render-and-test, right under the screenshot.
       for (let vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text); vid; vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text)) {
@@ -1343,6 +1311,36 @@
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
+      // Show generated images after the reply text, preserving the natural reading order.
+      if (generatedImageIds?.length) {
+        if (generatedImageIds.length > 10) {
+          const grid = document.createElement('div');
+          grid.className = 'image-gallery-grid';
+          grid.setAttribute('aria-label', 'Generated pictures');
+          let shown = 0;
+          const pageSize = 8;
+          const renderNext = () => {
+            for (const imageId of generatedImageIds.slice(shown, shown + pageSize)) {
+              grid.appendChild(imageFigure(imageId, regenerate, true));
+            }
+            shown = Math.min(shown + pageSize, generatedImageIds.length);
+            grid.querySelector('.image-gallery-more')?.remove();
+            if (shown < generatedImageIds.length) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'image-gallery-more';
+              button.textContent = 'Show more';
+              button.setAttribute('aria-label', 'Show more generated pictures');
+              button.addEventListener('click', renderNext);
+              grid.appendChild(button);
+            }
+          };
+          renderNext();
+          el.appendChild(grid);
+        } else {
+          for (const imageId of generatedImageIds) el.appendChild(imageFigure(imageId, regenerate));
+        }
+      }
       // Consent-based location CTA, rendered inside a location-related assistant reply.
       if (/(?:cannot|can't|unable to|do not|don't)[\\s\\S]{0,140}(?:gps|current|device)?\\s*location|provide (?:your )?(?:current )?(?:location|street|address|landmark)/i.test(full)) {
         hasLocationCta = true;
@@ -1455,8 +1453,12 @@
       }
       if (!made.files.length && text.length > LONG_REPLY) el.appendChild(saveAsFileCard(text));
       // The location card already has a place field; don't show a duplicate follow-up card.
-      if (asks && made.asks.length && !hasLocationCta) el.appendChild(askCard(made.asks));
+      const priorUserMessages = log.querySelectorAll('.msg.user');
+      const latestUserMessage = priorUserMessages[priorUserMessages.length - 1] || null;
+      const latestUserQuery = latestUserMessage ? String(latestUserMessage.dataset.text || latestUserMessage.textContent || '').trim() : '';
+      if (asks && made.asks.length && !hasLocationCta && !needsYouTubeVideos(latestUserQuery)) el.appendChild(askCard(made.asks.slice(0, 1)));
       if (cited.links.length) renderWebPreviews(el, cited.links);
+      if (cited.links.length) renderSocialEmbeds(el, cited.links);
       if (fresh && role === 'assistant') {
         const userMessages = log.querySelectorAll('.msg.user');
         const lastUser = userMessages[userMessages.length - 1] || null;
@@ -1667,6 +1669,16 @@
   }
 
   function clearScreen() {
+    // Keep the most recently surfaced tutorial available when starting a new
+    // conversation. The persistent player owns a separate iframe/card, so the
+    // old message can be cleared without stopping the user's video.
+    try {
+      const state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
+      if (state && /^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) {
+        const existing = document.querySelector('#persistent-youtube-player .youtube-video-card');
+        if (!existing) mountPersistentYouTubePlayer(state);
+      }
+    } catch {}
     // Leaving this chat: a reply still being written is stopped, an edit dropped.
     if (turn) turn.ctrl.abort();
     if (editing) cancelEdit();
@@ -1763,51 +1775,63 @@
     }
   }
 
-  // Decode supported browser audio and create valid PCM WAV chunks. Never split
-  // compressed audio at arbitrary byte offsets: those fragments are not valid media.
+  // Decode audio into bounded, valid PCM WAV chunks. Check duration before
+  // AudioContext decoding because compressed media can expand dramatically in RAM.
   async function transcribeAudioChunks(file, language, token) {
     const MAX_SOURCE_BYTES = 100 * 1024 * 1024;
+    const MAX_DURATION_SECONDS = 5 * 60;
     const SAMPLE_RATE = 16000;
     const CHUNK_SECONDS = 120;
     if (file.size > MAX_SOURCE_BYTES) throw new Error('This recording is over 100 MB. Please split it into smaller files before transcription.');
+    const objectUrl = URL.createObjectURL(file);
+    let duration;
+    try {
+      const audio = document.createElement('audio');
+      audio.preload = 'metadata';
+      audio.src = objectUrl;
+      duration = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Audio duration could not be checked safely. Try a shorter WAV, MP3 or M4A file.')), 15000);
+        const cleanup = () => { clearTimeout(timeout); audio.removeAttribute('src'); audio.load(); };
+        audio.onloadedmetadata = () => {
+          const value = audio.duration; cleanup();
+          if (!Number.isFinite(value) || value <= 0) reject(new Error('This recording has no readable duration.'));
+          else resolve(value);
+        };
+        audio.onerror = () => { cleanup(); reject(new Error('This audio format cannot be checked by this browser. Try WAV, MP3 or M4A.')); };
+      });
+      if (duration > MAX_DURATION_SECONDS) throw new Error('For safe mobile processing, transcribe recordings up to five minutes at a time. Split this recording into shorter clips and retry.');
+    } finally { URL.revokeObjectURL(objectUrl); }
+
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextCtor) throw new Error('Audio conversion is not supported by this browser. Please split the recording into shorter clips.');
+    if (!AudioContextCtor) throw new Error('Audio conversion is not supported by this browser.');
     const context = new AudioContextCtor();
     let decoded;
-    try {
-      decoded = await context.decodeAudioData(await file.arrayBuffer());
-    } catch {
-      throw new Error('This audio format cannot be decoded by this browser. Try exporting it as WAV, MP3 or M4A.');
-    } finally {
-      await context.close().catch(() => {});
-    }
-    if (!Number.isFinite(decoded.duration) || decoded.duration <= 0 || decoded.duration > 3 * 60 * 60) {
-      throw new Error('Choose a recording that is shorter than three hours.');
+    try { decoded = await context.decodeAudioData(await file.arrayBuffer()); }
+    catch { throw new Error('This audio format cannot be decoded by this browser. Try WAV, MP3 or M4A.'); }
+    finally { await context.close().catch(() => {}); }
+    if (!Number.isFinite(decoded.duration) || decoded.duration <= 0 || decoded.duration > MAX_DURATION_SECONDS) {
+      throw new Error('For safe mobile processing, transcribe recordings up to five minutes at a time.');
     }
     const channels = [];
     for (let c = 0; c < decoded.numberOfChannels; c++) channels.push(decoded.getChannelData(c));
     const ratio = decoded.sampleRate / SAMPLE_RATE;
-    const outputLength = Math.ceil(decoded.length / ratio);
-    const mono = new Float32Array(outputLength);
-    for (let i = 0; i < outputLength; i++) {
+    const mono = new Float32Array(Math.ceil(decoded.length / ratio));
+    for (let i = 0; i < mono.length; i++) {
       const start = Math.floor(i * ratio);
       const end = Math.min(decoded.length, Math.max(start + 1, Math.floor((i + 1) * ratio)));
       let sum = 0, count = 0;
       for (let j = start; j < end; j++) {
         let sample = 0;
         for (const channel of channels) sample += channel[j] || 0;
-        mono[i] += sample / channels.length;
-        count++;
+        sum += sample / channels.length; count++;
       }
-      if (count) mono[i] /= count;
+      if (count) mono[i] = sum / count;
     }
     const samplesPerChunk = SAMPLE_RATE * CHUNK_SECONDS;
-    const totalChunks = Math.ceil(mono.length / samplesPerChunk);
     const transcripts = [];
-    for (let chunk = 0; chunk < totalChunks; chunk++) {
+    for (let chunk = 0; chunk < Math.ceil(mono.length / samplesPerChunk); chunk++) {
       const start = chunk * samplesPerChunk;
-      const end = Math.min(mono.length, start + samplesPerChunk);
-      const count = end - start;
+      const count = Math.min(samplesPerChunk, mono.length - start);
       const wav = new ArrayBuffer(44 + count * 2);
       const view = new DataView(wav);
       const write = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
@@ -1820,12 +1844,10 @@
         const sample = Math.max(-1, Math.min(1, mono[start + i]));
         view.setInt16(44 + i * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
       }
-      const chunkFile = new Blob([wav], { type: 'audio/wav' });
       const suffix = '-part-' + String(chunk + 1).padStart(3, '0') + '.wav';
-      const response = await net('/v1/transcriptions?name=' + encodeURIComponent((file.name.replace(/\.[^.]+$/, '') || 'recording') + suffix) + (language ? '&language=' + encodeURIComponent(language) : ''), {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'audio/wav' },
-        body: chunkFile
+      const response = await net('/v1/transcriptions?name=' + encodeURIComponent((file.name.replace(/\\.[^.]+$/, '') || 'recording') + suffix) + (language ? '&language=' + encodeURIComponent(language) : ''), {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'audio/wav' },
+        body: new Blob([wav], { type: 'audio/wav' })
       });
       if (!response.ok) throw await errorFrom(response);
       const result = await response.json();
@@ -1833,6 +1855,31 @@
       transcripts.push(result.text.trim());
     }
     return transcripts.filter(Boolean).join('\n\n');
+  }
+
+  // Register seek handlers before changing currentTime so fast decoders cannot
+  // fire seeked between the assignment and listener registration.
+  async function seekVideoTo(video, time, timeoutMs = 10000) {
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onError);
+      };
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error); else resolve();
+      };
+      const onSeeked = () => finish();
+      const onError = () => finish(new Error('Could not seek to a video frame.'));
+      const timeout = setTimeout(() => finish(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), timeoutMs);
+      video.addEventListener('seeked', onSeeked);
+      video.addEventListener('error', onError);
+      try { video.currentTime = time; } catch (error) { finish(error); }
+    });
   }
 
   function renderTray() {
@@ -1844,6 +1891,63 @@
         img.src = f.thumb;
         img.alt = f.name;
         chip.appendChild(img);
+        const crop = document.createElement('button');
+        crop.type = 'button';
+        crop.className = 'chip-crop';
+        crop.textContent = 'Crop';
+        crop.setAttribute('aria-label', 'Crop ' + f.name);
+        crop.addEventListener('click', async () => {
+          if (!window.NasrinImageCrop?.cropImage) {
+            notice.textContent = 'Image cropping is unavailable. Reload the page and try again.';
+            return;
+          }
+          crop.disabled = true;
+          try {
+            const blob = await window.NasrinImageCrop.cropImage({ src: f.thumb, name: f.name });
+            if (!blob) { crop.disabled = false; return; }
+            // Keep cropped attachments comfortably below request-body limits.
+            // Prefer lossless PNG, but fall back to JPEG when a screenshot crop is large.
+            let croppedBlob = blob;
+            if (croppedBlob.size > 3 * 1024 * 1024) {
+              const imageUrl = URL.createObjectURL(croppedBlob);
+              try {
+                const image = new Image();
+                image.src = imageUrl;
+                await image.decode();
+                const canvas = document.createElement('canvas');
+                canvas.width = image.naturalWidth;
+                canvas.height = image.naturalHeight;
+                const context = canvas.getContext('2d');
+                if (!context) throw new Error('Canvas is unavailable');
+                context.drawImage(image, 0, 0);
+                croppedBlob = await new Promise((resolve, reject) => canvas.toBlob(
+                  (value) => value ? resolve(value) : reject(new Error('Could not compress crop')),
+                  'image/jpeg', 0.84
+                ));
+              } finally { URL.revokeObjectURL(imageUrl); }
+            }
+            if (croppedBlob.size > 4 * 1024 * 1024) {
+              notice.textContent = 'That crop is too large to send. Select a smaller area and try again.';
+              crop.disabled = false;
+              return;
+            }
+            const oldThumb = f.thumb;
+            f.name = f.name.replace(/\.[^.]+$/, '') + (croppedBlob.type === 'image/jpeg' ? '-crop.jpg' : '-crop.png');
+            f.type = croppedBlob.type || 'image/png';
+            f.bytes = croppedBlob.size;
+            f.data = await toBase64(croppedBlob);
+            f.upload = undefined;
+            f.local = undefined;
+            f.thumb = URL.createObjectURL(croppedBlob);
+            URL.revokeObjectURL(oldThumb);
+            notice.textContent = 'Cropped image added to your message.';
+            renderTray();
+          } catch {
+            notice.textContent = 'Could not prepare the cropped image. Please try again.';
+            crop.disabled = false;
+          }
+        });
+        chip.appendChild(crop);
       } else {
         const icon = document.createElement('span');
         icon.className = 'doc-icon';
@@ -1853,7 +1957,7 @@
         name.textContent = f.name;
         chip.append(icon, name);
       }
-      if ((/^audio\\//i.test(f.type || '') || /\\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
+      if ((/^audio\//i.test(f.type || '') || /\.(?:mp3|mpga|m4a|mp4|mpeg|mpg|mp2|wav|webm|ogg|oga|flac)$/i.test(f.name)) && f.local instanceof File) {
         const language = document.createElement('select');
         language.className = 'chip-transcribe-language';
         language.setAttribute('aria-label', 'Transcription language');
@@ -1864,16 +1968,15 @@
         transcribe.type = 'button';
         transcribe.className = 'chip-transcribe';
         transcribe.textContent = 'Transcribe';
-        transcribe.title = 'Long recordings are decoded into valid audio chunks and transcribed in order. Browser codec support may vary.';
+        transcribe.title = 'Converts supported audio into ordered 2-minute chunks. For safe mobile processing, recordings are limited to five minutes.';
         transcribe.setAttribute('aria-label', 'Transcribe ' + f.name);
         transcribe.addEventListener('click', async () => {
           if (transcribe.disabled) return;
           transcribe.disabled = true;
           language.disabled = true;
-          transcribe.textContent = 'Transcribing…';
+          transcribe.textContent = 'Preparing audio…';
           try {
             const token = await credential();
-            transcribe.textContent = f.bytes > 4 * 1024 * 1024 ? 'Preparing audio…' : 'Transcribing…';
             const transcript = await transcribeAudioChunks(f.local, language.value, token);
             if (!transcript) throw new Error('No speech was detected in this audio.');
             const existing = input.value.trim();
@@ -1969,12 +2072,7 @@
                   if (!probeContext) throw new Error('Frame analysis is not supported by this device.');
                   for (let i = 0; i < candidateCount; i++) {
                     const time = duration * (i + 0.5) / candidateCount;
-                    video.currentTime = time;
-                    await new Promise((resolve, reject) => {
-                      const timeout = setTimeout(() => reject(new Error('Video scene analysis timed out. Try a shorter video.')), 10000);
-                      video.onseeked = () => { clearTimeout(timeout); resolve(); };
-                      video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not analyze a video scene.')); };
-                    });
+                    await seekVideoTo(video, time);
                     probeContext.drawImage(video, 0, 0, probe.width, probe.height);
                     const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
                     let score = 0;
@@ -1989,11 +2087,8 @@
                     candidates.push({ time, score });
                     previousPixels = new Uint8ClampedArray(pixels);
                   }
+                  const selected = [candidates[0], candidates[7], candidates[15], candidates[23]];
                   const minGap = duration / 16;
-                  const selected = [];
-                  // Reserve temporal coverage first, then fill remaining slots with
-                  // the strongest visual transitions so a single cut cannot dominate.
-                  for (const index of [0, 7, 15, 23]) selected.push(candidates[index]);
                   for (const candidate of [...candidates].sort((a, b) => b.score - a.score)) {
                     if (selected.length >= frameCount) break;
                     if (selected.every((item) => Math.abs(item.time - candidate.time) >= minGap)) selected.push(candidate);
@@ -2003,12 +2098,7 @@
             const extracted = [];
             for (let index = 0; index < times.length; index++) {
               if (pending.length + extracted.length >= MAX_FILES) break;
-              video.currentTime = times[index];
-              await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('Seeking to a video frame timed out. Try a shorter video or another format.')), 10000);
-                video.onseeked = () => { clearTimeout(timeout); resolve(); };
-                video.onerror = () => { clearTimeout(timeout); reject(new Error('Could not seek to a video frame.')); };
-              });
+              await seekVideoTo(video, times[index]);
               const scale = Math.min(1, MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
               const canvas = document.createElement('canvas');
               canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
@@ -2784,6 +2874,10 @@
       notice.textContent = 'Attach the image for /' + shortcut.name + ', then run the shortcut again.';
       return;
     }
+    if (!shortcut && window.NasrinCreativeIntent.isImageEnhancement(text) && !pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) {
+      notice.textContent = 'Attach the photo you want enhanced, then send your request again.';
+      return;
+    }
     if (!imageMode && intent === 'video') {
       const prompt = shortcut ? shortcutImagePrompt(shortcut) : text;
       return sendVideo(prompt);
@@ -2792,7 +2886,8 @@
       const files = pending;
       pending = [];
       renderTray();
-      return sendImage(text, files, shortcut ? { executeFirst: true, prompt: shortcutImagePrompt(shortcut) } : {});
+      const directEdit = Boolean(shortcut || window.NasrinCreativeIntent.isImageEnhancement(text));
+      return sendImage(text, files, directEdit ? { executeFirst: true, prompt: shortcut ? shortcutImagePrompt(shortcut) : text } : {});
     }
     if (imageMode) {
       if (!text) { notice.textContent = 'Describe the picture you want.'; return; }
@@ -3234,6 +3329,12 @@
   let speech = { available: false, voices: [], default: null };
   let speakOn = saved.get(KEYS.speak) === true;
   let voiceChoice = saved.get(KEYS.voice);
+  // Coral can sound unusually bright on some devices. Migrate the previous default
+  // to Cedar once so existing users receive the more grounded voice by default.
+  if (voiceChoice === 'ai:coral' || voiceChoice === 'ai:openai:coral') {
+    voiceChoice = 'ai:openai:cedar';
+    saved.set(KEYS.voice, voiceChoice);
+  }
   // Reading speed comes from the server's setting (the voice screen no longer
   // has a speed button); an old per-device choice is cleared.
   let speechRate = 1;
@@ -3252,7 +3353,7 @@
     );
     if (ok(voiceChoice)) return voiceChoice;
     if (speech.available && AudioCtx) {
-      const v = speech.voices.find((x) => x.available !== false);
+      const v = speech.voices.find((x) => x.id === 'openai:cedar' && x.available !== false) || speech.voices.find((x) => x.id === 'gemini:Charon' && x.available !== false) || speech.voices.find((x) => x.available !== false);
       if (v) return 'ai:' + v.id;
     }
     return 'device:default';
@@ -3628,6 +3729,68 @@
     message.appendChild(section);
   }
 
+  async function renderSocialEmbeds(message, links = []) {
+    if (message.querySelector('.social-embed-results')) return;
+    const candidates = [];
+    const seen = new Set();
+    for (const link of Array.isArray(links) ? links : []) {
+      try {
+        const url = new URL(link?.url || link?.href || '');
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        const supported = host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch';
+        if (url.protocol !== 'https:' || !supported || seen.has(url.href)) continue;
+        if (host.includes('tiktok') && !/^\/@[A-Za-z0-9._-]+\/video\/\d+/.test(url.pathname)) continue;
+        if ((host === 'facebook.com' || host === 'm.facebook.com') && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) continue;
+        seen.add(url.href);
+        candidates.push({ url: url.href, title: String(link.title || '').slice(0, 240) });
+        if (candidates.length >= 3) break;
+      } catch {}
+    }
+    if (!candidates.length) return;
+    const token = account?.token || await guestToken(false);
+    const section = document.createElement('section');
+    section.className = 'social-embed-results';
+    section.setAttribute('aria-label', 'Embedded social media');
+    for (const candidate of candidates) {
+      try {
+        const response = await net('/v1/social/oembed?url=' + encodeURIComponent(candidate.url), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        const embedUrl = new URL(data.embedUrl || '');
+        const allowed = data.provider === 'tiktok'
+          ? embedUrl.origin === 'https://www.tiktok.com' && /^\/player\/v1\/\d+$/.test(embedUrl.pathname)
+          : data.provider === 'facebook'
+            ? embedUrl.origin === 'https://www.facebook.com' && /^\/plugins\/(?:video|post)\.php$/.test(embedUrl.pathname)
+            : false;
+        if (!allowed) continue;
+        const card = document.createElement('article');
+        card.className = 'social-embed-card social-embed-' + data.provider;
+        const heading = document.createElement('p');
+        heading.className = 'social-embed-title';
+        heading.textContent = String(data.title || candidate.title || (data.provider === 'tiktok' ? 'TikTok video' : 'Facebook post')).slice(0, 240);
+        const frame = document.createElement('iframe');
+        frame.loading = 'lazy';
+        frame.referrerPolicy = 'strict-origin-when-cross-origin';
+        frame.title = heading.textContent;
+        frame.src = embedUrl.href;
+        frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+        frame.allowFullscreen = true;
+        const source = document.createElement('a');
+        source.href = candidate.url;
+        source.target = '_blank';
+        source.rel = 'noopener noreferrer';
+        source.textContent = data.provider === 'tiktok' ? 'Open on TikTok' : 'Open on Facebook';
+        card.append(heading, frame, source);
+        section.appendChild(card);
+      } catch {
+        // A blocked/private post should not break the answer or other embeds.
+      }
+    }
+    if (section.children.length) (message.querySelector('.msg-body') || message).appendChild(section);
+  }
+
   function needsYouTubeVideos(query) {
     const q = String(query || '').trim();
     if (q.length < 5 || q.length > 600) return false;
@@ -3645,34 +3808,18 @@
     const frameWrap = document.createElement('div');
     frameWrap.className = 'youtube-video-frame';
     const frame = document.createElement('iframe');
-    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id;
     frame.title = String(video.title || 'YouTube video tutorial').slice(0, 240);
     frame.loading = 'lazy';
+    // Set playback permissions and referrer policy BEFORE src. Assigning src
+    // first can start navigation immediately, before Safari applies the policy;
+    // YouTube may then reject the embed when it receives no usable referrer.
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.allow = 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
     frame.allowFullscreen = true;
-    frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; fullscreen');
+    frame.setAttribute('loading', 'lazy');
+    frame.setAttribute('playsinline', '');
+    frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
     frameWrap.appendChild(frame);
-    const fullscreen = document.createElement('button');
-    fullscreen.type = 'button';
-    fullscreen.className = 'youtube-fullscreen-button';
-    fullscreen.setAttribute('aria-label', 'Play video fullscreen');
-    fullscreen.title = 'Play video fullscreen';
-    fullscreen.textContent = '⛶ Fullscreen';
-    fullscreen.addEventListener('click', async () => {
-      try {
-        if (document.fullscreenElement === frameWrap && document.exitFullscreen) {
-          await document.exitFullscreen();
-          return;
-        }
-        if (typeof frameWrap.requestFullscreen === 'function') await frameWrap.requestFullscreen();
-        else if (typeof frame.requestFullscreen === 'function') await frame.requestFullscreen();
-        else window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-      } catch {
-        window.open('https://www.youtube.com/watch?v=' + video.id, '_blank', 'noopener,noreferrer');
-      }
-    });
-    frameWrap.appendChild(fullscreen);
     const details = document.createElement('div');
     details.className = 'youtube-video-details';
     const title = document.createElement('p');
@@ -3733,32 +3880,16 @@
   let persistentYouTubeRestore = null;
   function restorePersistentYouTubePlayer() {
     if (persistentYouTubeRestore) return persistentYouTubeRestore;
-    persistentYouTubeRestore = (async () => {
+    persistentYouTubeRestore = Promise.resolve().then(() => {
       let state;
       try { state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null'); } catch { return; }
       if (!state || !/^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) return;
       const mounted = document.getElementById('persistent-youtube-player');
       if (mounted?.dataset.videoId === state.id) return;
-      try {
-        const token = account?.token || await guestToken(false);
-        const response = await net('/v1/youtube/verify?id=' + encodeURIComponent(state.id), {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        const result = response.ok ? await response.json() : { valid: false };
-        // A stored player can outlive a video or its embed permission. Never
-        // restore a known-unavailable iframe after refresh or account changes.
-        if (result.valid !== true) {
-          const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
-          if (latest?.id === state.id) localStorage.removeItem(PERSISTENT_YOUTUBE_KEY);
-          if (mounted?.dataset.videoId === state.id) mounted.remove();
-          return;
-        }
-        const latest = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null');
-        if (latest?.id === state.id) mountPersistentYouTubePlayer(state);
-      } catch {
-        // Keep the saved state for a later retry, but don't show an unverified iframe.
-      }
-    })().finally(() => { persistentYouTubeRestore = null; });
+      // Do not delete a saved player because a verification/search API is
+      // temporarily unavailable. YouTube's own embed handles playback status.
+      mountPersistentYouTubePlayer(state);
+    }).finally(() => { persistentYouTubeRestore = null; });
     return persistentYouTubeRestore;
   }
 
@@ -3780,7 +3911,50 @@
       } catch {
         // Fall back to researched YouTube links when live search is unavailable.
       }
-      if (!videos.length || !message.isConnected || message.querySelector('.youtube-results')) return;
+      // If live search is unavailable or returns no playable results, recover
+      // YouTube links already present in the assistant answer or its citations.
+      // Verify every candidate server-side before creating an iframe.
+      if (!videos.length) {
+        const candidates = [];
+        const seen = new Set();
+        const links = [
+          ...(Array.isArray(sourceLinks) ? sourceLinks : []).map((link) => ({ href: link?.url || link?.href || '', title: link?.title || '' })),
+          ...Array.from(message.querySelectorAll('a[href]')).map((anchor) => ({ href: anchor.href, title: anchor.textContent || '' }))
+        ];
+        for (const link of links) {
+          try {
+            const url = new URL(link.href);
+            const host = url.hostname.toLowerCase().replace(/^www\./, '');
+            if (!['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host)) continue;
+            let id = '';
+            if (host === 'youtu.be') id = url.pathname.split('/').filter(Boolean)[0] || '';
+            else if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
+            else {
+              const match = url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})(?:$|\/)/);
+              if (match) id = match[1];
+            }
+            if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen.has(id)) continue;
+            seen.add(id);
+            candidates.push({ id, title: String(link.title || 'YouTube video tutorial').trim().slice(0, 240) });
+            if (candidates.length >= 3) break;
+          } catch {
+            // Ignore malformed or non-YouTube links.
+          }
+        }
+        // These candidates came from an explicit YouTube link already shown
+        // in the assistant answer or its citations. Do not make rendering depend
+        // on the optional YouTube Data API key: the API may be unavailable even
+        // when a valid watch URL is present. YouTube itself determines whether
+        // playback is permitted; keep the watch link available as a fallback.
+        if (candidates.length) {
+          videos = candidates.map((candidate) => ({
+            ...candidate,
+            channelTitle: 'YouTube',
+            watchUrl: 'https://www.youtube.com/watch?v=' + candidate.id
+          }));
+        }
+      }
+      if (!videos.length || message.querySelector('.youtube-results')) return;
       const section = document.createElement('section');
       section.className = 'youtube-results';
       section.setAttribute('aria-label', 'Relevant YouTube videos');
@@ -3788,8 +3962,21 @@
       heading.className = 'youtube-results-heading';
       heading.textContent = nav ? 'Related video guides' : 'Video tutorials';
       section.appendChild(heading);
+      // Keep the primary player inline in the assistant answer. Moving it into
+      // the persistent mini-player detaches it from the tutorial card.
       const firstCard = createYouTubeVideoCard(videos[0]);
-      if (firstCard) mountPersistentYouTubePlayer(videos[0], firstCard);
+      if (firstCard) {
+        section.appendChild(firstCard);
+        // Persist metadata as soon as an inline video is shown. Never store
+        // tokens or private conversation text—only the validated video ID/title.
+        try {
+          localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify({
+            id: videos[0].id,
+            title: String(videos[0].title || 'YouTube video tutorial').slice(0, 240),
+            channelTitle: String(videos[0].channelTitle || 'YouTube').slice(0, 120)
+          }));
+        } catch {}
+      }
       for (const video of videos.slice(1)) {
         const card = createYouTubeVideoCard(video);
         if (card) section.appendChild(card);

@@ -1,9 +1,33 @@
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { HttpError } from '../http/errors.js';
 
 export const MAX_OCR_PDF_BYTES = 6 * 1024 * 1024;
+export const MAX_OCR_PDF_PAGES = 100;
 const PDF_SIGNATURE = Buffer.from('%PDF-');
 
-export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = fetch, timeoutMs = 120_000 }) {
+// Count pages from the actual PDF structure, not model-generated markers.
+// Disable JavaScript evaluation and font rendering; this service needs structure,
+// not an interactive PDF viewer. Always destroy the loading task after inspection.
+export async function countPdfPages(bytes) {
+  let loadingTask;
+  try {
+    loadingTask = getDocument({
+      data: new Uint8Array(bytes),
+      isEvalSupported: false,
+      useSystemFonts: false,
+      disableFontFace: true,
+      stopAtErrors: true
+    });
+    const document = await loadingTask.promise;
+    return document.numPages;
+  } catch {
+    throw new HttpError(415, 'invalid_pdf_structure', 'This PDF is damaged, encrypted, or not supported for text extraction.');
+  } finally {
+    if (loadingTask) await loadingTask.destroy().catch(() => {});
+  }
+}
+
+export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = fetch, timeoutMs = 120_000, getPageCount = countPdfPages }) {
   return {
     available: Boolean(apiKey),
     async extract({ bytes, name = 'scanned-document.pdf' }) {
@@ -12,6 +36,13 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
       if (bytes.length > MAX_OCR_PDF_BYTES) throw new HttpError(413, 'pdf_too_large', 'Choose a PDF smaller than 6 MB for text extraction.');
       if (bytes.subarray(0, PDF_SIGNATURE.length).compare(PDF_SIGNATURE) !== 0 || !/\.pdf$/i.test(String(name))) {
         throw new HttpError(415, 'unsupported_document', 'Choose a valid PDF document.');
+      }
+      const pageCount = await getPageCount(bytes);
+      if (!Number.isInteger(pageCount) || pageCount < 1) {
+        throw new HttpError(415, 'invalid_pdf_structure', 'This PDF does not contain any readable pages.');
+      }
+      if (pageCount > MAX_OCR_PDF_PAGES) {
+        throw new HttpError(413, 'pdf_too_many_pages', 'Choose a PDF with ' + MAX_OCR_PDF_PAGES + ' pages or fewer for text extraction.');
       }
       const fileName = String(name).split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 120) || 'scanned-document.pdf';
       const payload = {
@@ -51,15 +82,13 @@ export function createOpenAIPdfOcr({ apiKey, model = 'gpt-4o-mini', fetchImpl = 
         ? result.output_text.trim()
         : (Array.isArray(result.output) ? result.output.flatMap((item) => Array.isArray(item.content) ? item.content : []).map((part) => part.text || '').join('\n').trim() : '');
       if (!text) throw new HttpError(422, 'empty_ocr', 'No readable text was found in this PDF.');
-      // Avoid silently returning an obviously incomplete extraction: the prompt
-      // requests page markers, so require at least the first marker when present
-      // markers are used. We cannot verify total page coverage without a PDF parser.
+      // Require an exact, contiguous marker for every page verified by PDF.js.
+      // This prevents a plausible-looking partial extraction from being returned as complete.
       const pageMarkers = [...text.matchAll(/\[Page\s+(\d+)\]/gi)].map((match) => Number(match[1]));
-      if (!pageMarkers.length || pageMarkers[0] !== 1 ||
-          pageMarkers.some((page, index) => index > 0 && page !== pageMarkers[index - 1] + 1)) {
-        throw new HttpError(502, 'invalid_ocr_order', 'The extracted pages were missing, duplicated, or not returned in document order. Please retry extraction.');
+      if (pageMarkers.length !== pageCount || pageMarkers.some((page, index) => page !== index + 1)) {
+        throw new HttpError(502, 'invalid_ocr_order', 'The extracted pages were not returned in document order. Please retry extraction.');
       }
-      return { text, characters: text.length, model };
+      return { text, characters: text.length, model, pages: pageCount };
     }
   };
 }

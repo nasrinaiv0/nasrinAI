@@ -1015,6 +1015,15 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
 - **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.
 
+
+
+## Proposed PR — NasrinAI production quality and anti-vibe-coding audit (`docs/production-quality-anti-vibe-coding`)
+
+- **Owner request (2026-10-17):** Make NasrinAI look professionally designed rather than vibe-coded; address custom/canonical domain, URLs per page, unique titles, 404, meta descriptions, canonical tags, sitemap, headings, robots, SSR, internal links, favicon, breadcrumbs, business schema, alt text, social share images, console errors, source-map exposure, oversized JavaScript, generic purple gradients, em-dash overuse, and Lorem ipsum.
+- **Change:** Add `docs/nasrinai-production-quality-anti-vibe-coding-upgrade.md` with the full implementation and acceptance checklist; add `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` as the concise Claude progress index; link the work from `docs/claude-code-handoff.md`.
+- **Safety:** Documentation-only. No app code, environment variables, database, or production deployment changed. Claude must audit before implementation, preserve security/accessibility, use Vercel-managed configuration, and verify every result instead of claiming untested completion.
+- **Validation:** Documentation diff review and CI pending. Do not merge until the repository's required checks pass.
+
 ## Proposed PR — Owner Command Center implementation (PR #353, `feature/owner-command-center`)
 
 - **Owner request (2026-10-14):** build the complete owner-only operations dashboard in one PR, with a premium restrained appearance, System/Light/Dark modes, iPhone support, shared day/week/month/year and custom date filtering, sorting, comparisons, security, verified operational data, alerts, and reporting.
@@ -1043,6 +1052,7 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Dependency:** provider catalog/adapters and exact free-model allowlists are being tracked in [PR #361](https://github.com/primusco20/nasrinAI/pull/361). Provider quota reset/failover, live billing/usage sources, credit balances, and dashboard runtime remain unimplemented/unverified until code and tests prove them.
 - **Validation:** documentation-only. No runtime tests, provider API calls, account credits, secrets, schema changes, production environment changes, merge, or deployment performed by this entry. CI must rerun on new commits.
 - **Next:** inspect actual usage writers, spend reservations, provider pricing/billing APIs, and migration definitions; implement server-side accounting and owner-secured endpoints with regression tests. Never fabricate balances or stop the whole eligible pool because one provider quota is exhausted.
+
 
 ## Proposed PR — Upgrade docs status cleanup (`docs/status-cleanup`)
 
@@ -1076,3 +1086,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Finding:** `docs/seo.md` (PR #405) — inline styles are blocked by the page policy, so both pages rendered unstyled.
 - **Change:** styles moved unchanged into `public/faq.css` and `public/registry.css`; the registry's `style=` attribute became the class `main-flush`. The security policy is unchanged.
 - **Validation:** `npm test` 726 pass, 0 fail, 1 skipped; before/after screenshots of `/faq.html` rendered locally under the real policy in headless Chromium. Not checked on a real phone or on the live site.
+
+## PR #435 merge note — conflict resolution (2026-10-19)
+
+- `main` had already received newer versions of the audio-chunk and video-scene code and a stricter PDF page-count check, so on conflict `main`'s versions were kept. What this PR still adds: the clearer scene-selection comment, a test that OCR rejects missing page numbers, and a fix for two over-escaped line breaks (`'\\n\\n'`) that would have put the characters `\n\n` between transcript parts instead of a blank line (test added).
+- Not run locally: the test suite (a half-installed package in this session); GitHub CI is the check of record.

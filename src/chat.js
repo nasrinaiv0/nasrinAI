@@ -4,7 +4,8 @@ import { ProviderError } from './ai/provider.js';
 import { buildSystemPrompt, fitHistory, isComparison } from './ai/prompt.js';
 import { cleanReply, cleanUserText, keepIdentity, cleanPiece } from './ai/output.js';
 import { publicMessage, isPastIntent, isConversationMeta } from './conversations.js';
-import { parseAttachments, attachmentNote } from './attachments.js';
+import { attachmentNote } from './attachments.js';
+import { parseAttachmentsWithOfficeParser } from './ai/document-parser.js';
 import { answerWithLogic } from './ai/logic.js';
 import { readLink, linksIn } from './web/read-link.js';
 import { needsWeb, GAP } from './web/search.js';
@@ -170,7 +171,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Files uploaded straight to storage (docs/uploads.md) are read back here,
     // then checked exactly like files sent inside the request.
     const sent = !regenerate && uploads ? await uploads.resolve(caller, body.attachments) : body.attachments;
-    const files = regenerate ? [] : parseAttachments(sent, config.ai.attachments);
+    const files = regenerate ? [] : await parseAttachmentsWithOfficeParser(sent, config.ai.attachments);
     let typed = regenerate || body.message === undefined || body.message === '' ? '' : cleanUserText(body.message, config.ai.maxMessageChars);
     // Explicitly shared location is transient request context, never message content.
     const location = !regenerate && body.location_context && typeof body.location_context === 'object' ? body.location_context : null;

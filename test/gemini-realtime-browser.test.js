@@ -9,6 +9,7 @@ async function load() {
   const code = await readFile(new URL('../public/gemini-realtime.js', import.meta.url), 'utf8');
   const started = [];
   const sources = [];
+  const bufferRates = [];
   let socket = null;
   class FakeWS {
     static OPEN = 1;
@@ -22,7 +23,7 @@ async function load() {
     async resume() {}
     createScriptProcessor() { return node(); }
     createMediaStreamSource() { return node(); }
-    createBuffer(ch, n, rate) { return { duration: n / rate, copyToChannel() {} }; }
+    createBuffer(ch, n, rate) { bufferRates.push(rate); return { duration: n / rate, copyToChannel() {} }; }
     createBufferSource() { const n = { ...node(), start(t) { started.push(t); }, stop() {}, connect(to) { n.to = to; } }; sources.push(n); return n; }
     createMediaStreamDestination() { return { stream: { kind: 'reply-stream' } }; }
   }
@@ -35,11 +36,11 @@ async function load() {
     navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } }
   });
   vm.runInContext(code, ctx);
-  return { api: window.NasrinGeminiRealtime, started, sources, socket: () => socket, FakeCtx };
+  return { api: window.NasrinGeminiRealtime, started, sources, bufferRates, socket: () => socket, FakeCtx };
 }
 
 test('binary Gemini frames are read: audio plays and words show', async () => {
-  const { api, started, socket, FakeCtx } = await load();
+  const { api, started, socket, FakeCtx, bufferRates } = await load();
   const said = [];
   const tapCtx = new FakeCtx();
   let opened = false;
@@ -61,8 +62,10 @@ test('binary Gemini frames are read: audio plays and words show', async () => {
   const pcm = Buffer.alloc(4800).toString('base64');   // 0.1 s of 24 kHz PCM16
   const frame = new TextEncoder().encode(JSON.stringify({ serverContent: { outputTranscription: { text: 'Hello' }, modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: pcm } }] } } }));
   ws.onmessage({ data: frame.buffer });
+  ws.onmessage({ data: JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=16000', data: pcm } }] } } }) });
   ws.onmessage({ data: JSON.stringify({ serverContent: { turnComplete: true } }) });
-  assert.equal(started.length, 1, 'the reply audio was scheduled');
+  assert.equal(started.length, 2, 'both reply audio chunks were scheduled');
+  assert.deepEqual(bufferRates, [24000, 16000], 'each chunk uses its declared PCM rate');
   assert.deepEqual(said, [['out', 'Hello'], ['done']]);
   assert.deepEqual(errors, [], 'no errors during a normal turn');
 });

@@ -9,13 +9,17 @@
     for(let i=0;i<n;i++){const v=Math.max(-1,Math.min(1,input[Math.min(input.length-1,Math.floor(i*ratio))]));out[i]=v<0?v*32768:v*32767;}
     return new Uint8Array(out.buffer);
   };
-  const play = (state, data) => {
+  const play = (state, data, mimeType = '') => {
     if(!state.ctx||!data)return;
     const bytes=b64bytes(data), n=Math.floor(bytes.byteLength/2);
     if(!n)return;
     const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength), f=new Float32Array(n);
     for(let i=0;i<n;i++)f[i]=view.getInt16(i*2,true)/32768;
-    const buf=state.ctx.createBuffer(1,n,24000);
+    // Gemini audio frames declare their PCM sample rate in inlineData.mimeType.
+    // Using a guessed rate changes both duration and pitch (the classic chipmunk effect).
+    const declaredRate = Number(/(?:^|;)\s*rate=(\d+)/i.exec(String(mimeType))?.[1]);
+    const sampleRate = Number.isFinite(declaredRate) && declaredRate >= 8000 && declaredRate <= 96000 ? declaredRate : 24000;
+    const buf=state.ctx.createBuffer(1,n,sampleRate);
     if(typeof buf.copyToChannel==='function')buf.copyToChannel(f,0);
     else buf.getChannelData(0).set(f);
     // Out through the page's <audio> element when there is one (state.out):
@@ -71,7 +75,7 @@
       source.connect(processor);processor.connect(ctx.destination);
       ws.onopen=()=>{
         try{
-          ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Kore'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.'}]}}}));
+          ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:'Speak in a natural adult vocal register at a comfortable, moderate pitch and normal conversational speed. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Keep articulation clear and intonation relaxed. ' + (session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.')}]}}}));
           state.setupTimer=setTimeout(()=>{if(!state.ready&&!state.stopping)hooks.error('Gemini did not confirm the realtime audio setup. Please try again.');},12000);
         }catch(e){hooks.error(e?.message||'Could not initialize Gemini realtime voice.');}
       };
@@ -90,7 +94,7 @@
           const c=msg.serverContent;if(!c)return;
           if(c.inputTranscription?.text)hooks.input(c.inputTranscription.text);
           if(c.outputTranscription?.text)hooks.output(c.outputTranscription.text);
-          if(c.modelTurn?.parts)for(const p of c.modelTurn.parts)if(p.inlineData?.data)play(state,p.inlineData.data);
+          if(c.modelTurn?.parts)for(const p of c.modelTurn.parts)if(p.inlineData?.data)play(state,p.inlineData.data,p.inlineData.mimeType||'');
           if(c.interrupted){stop(state);hooks.interrupted();}
           if(c.turnComplete)hooks.complete();
         }catch(err){

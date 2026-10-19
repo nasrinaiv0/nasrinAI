@@ -143,3 +143,12 @@ Changes in this follow-up:
 - Added regression coverage for tool registration, Gmail send payloads, denied scopes, Calendar deletion, and incomplete event-time validation.
 - Catalog-only providers remain clearly marked as unsupported/coming soon until provider-specific functionality is implemented.
 - Local validation: `npm test` passed 687 tests with 1 skipped. CI must also pass before merge; production OAuth verification and configuration remain separate requirements.
+
+
+## Production quality and anti-vibe-coding upgrade (PR #366)
+
+- **Specification:** [NasrinAI Production Quality & Anti-Vibe-Coding Upgrade](nasrinai-production-quality-anti-vibe-coding-upgrade.md).
+- **Goal:** make NasrinAI look intentionally designed and professionally engineered: routing, SEO, metadata, 404 handling, favicon and share images, performance, console and source-map hygiene, copy integrity.
+- **Status (2026-10-19):** partly implemented. Done: 404 page, `robots.txt`, `sitemap.xml`, page descriptions, canonical and share tags (#405, see [seo.md](seo.md)); unstyled FAQ and registry pages fixed (#431); performance measured (#432, see [performance-baseline.md](performance-baseline.md)). Not done: route inventory, structured data, source-map and console review, live verification of the 404 page and the `www` redirect.
+- **Constraints:** audit before changing architecture; preserve behaviour and security; no hardcoded production configuration; use Vercel environment variables.
+- **Acceptance:** section 13 of the specification. Record evidence, tests, remaining risks and deployment verification before marking anything complete.

@@ -42,6 +42,7 @@ Reply with JSON only, no other words, in one of two shapes:
 1. When something that would materially change the image is unknown, and no answers were given yet:
 {"questions":[{"question":"...","choices":["...","..."]}]}
 At most ${MAX_QUESTIONS} questions, fewer when the idea is detailed. Never ask what the idea or photo already answers.
+IMPORTANT: If the person uploaded a photo and asks to make it clearer, HD, sharper, less blurry, restore it, improve quality, remove noise, or correct exposure/contrast, this is a sufficiently specified photo-restoration task. Return a brief immediately; do not ask follow-up questions about purpose, audience, mood, or output size. Preserve the original people, identities, age, clothing, pose, relationships, objects, framing, and scene. Improve technical image quality only, without inventing details or changing the scene. Treat ordinary family/personal photos as restoration requests, not as requests to create a new scene.
 Possible areas: purpose, target audience, visual style, mood, background, environment, composition, lighting, product preservation, branding, text in the image, aspect ratio.
 Each question is short and plain, with 2 to 4 short quick answers (a few words each).
 
@@ -50,6 +51,7 @@ Each question is short and plain, with 2 to 4 short quick answers (a few words e
 Each value is one short phrase; leave a value empty when it does not apply.
 aspect_ratio is one of ${ASPECT_RATIOS.join(', ')}.
 If a photo shows a product, "preserve" lists its shape, colors, label, logo and proportions unless the person asked to change them.
+For a photo-restoration request, set objective to photo restoration / clarity enhancement; preserve the entire original scene and all visible subjects; set may_change to image sharpness, resolution/detail recovery where possible, noise, blur, exposure, and contrast only. Do not imply true lost detail can always be recovered.
 "typography" is empty unless the person asked for words in the image.`;
 
 // The user turn for the planning model.
@@ -158,6 +160,15 @@ export function promptFromBrief(brief, { quality }) {
   for (const [k, label] of BRIEF_FIELDS) if (brief[k]) lines.push(`${label}: ${brief[k]}`);
   lines.push(`Aspect ratio: ${brief.aspect_ratio}`);
   if (!brief.typography) lines.push('Do not add any text or lettering.');
+  const restorationText = [brief.subject, brief.objective, brief.style, brief.may_change].join(' ');
+  if (/\b(clear|clarity|hd|high[- ]?definition|sharpen|sharpness|blurry|blur|restore|restoration|enhance|noise reduction|denoise|photo quality|upscale)\b/i.test(restorationText)) {
+    lines.push(
+      'PHOTO RESTORATION MODE: Edit the supplied original photo; do not generate a replacement scene.',
+      'Preserve every person’s identity and appearance, age, clothing, pose, relationship, all objects, and the original composition and background.',
+      'Make conservative technical improvements only: reduce blur/noise, improve sharpness and contrast, balance exposure, and upscale only when supported.',
+      'Do not beautify, sexualize, add/remove people or objects, change poses, infer unseen details, or add content. Keep the result faithful to the source.'
+    );
+  }
   return lines.join('\n');
 }
 
