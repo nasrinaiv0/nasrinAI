@@ -249,8 +249,7 @@
       const drawFrame=(source,clip)=>{
         ctx.fillStyle='#101014';ctx.fillRect(0,0,width,height);
         if(source&&source.tagName!=='AUDIO')drawCover(ctx,source,width,height);
-        const selected=state.clips.find(c=>c.id===state.selected);
-        if(selected?.title){ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(clip.title).slice(0,90),width*.08,height*.84,width*.84);}
+        if(clip?.title){ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(clip.title).slice(0,90),width*.08,height*.84,width*.84);}
       };
       let elapsed=0;
       recorder.start(500);
@@ -266,7 +265,7 @@
           const audioOnly=clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
           await waitForMedia(media,'loadedmetadata');
           if(clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/')){media.style.display='none';document.body.append(media);}
-          if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioContext.destination);}
+          if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioDestination);}
           const startAt=Math.max(0,Number(clip.start)||0);if(startAt<media.duration)media.currentTime=startAt;
           await waitForMedia(media,'seeked').catch(()=>{});
           const started=performance.now();await media.play();
