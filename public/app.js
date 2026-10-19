@@ -3743,7 +3743,7 @@
         if ((host === 'facebook.com' || host === 'm.facebook.com') && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) continue;
         seen.add(url.href);
         candidates.push({ url: url.href, title: String(link.title || '').slice(0, 240) });
-        if (candidates.length >= 3) break;
+        if (candidates.length >= 5) break;
       } catch {}
     }
     if (!candidates.length) return;
