@@ -6239,7 +6239,7 @@
     if (vc.on && vc.realtime) voiceState('paused', 'Network unavailable. Reconnecting when online…');
   });
   window.addEventListener('online', () => {
-    if (vc.on && vc.realtimeProvider === 'openai') {
+    if (vc.on && (vc.realtimeProvider === 'gemini' || vc.realtimeProvider === 'openai')) {
       scheduleRealtimeReconnect('Realtime voice could not reconnect. Please restart voice.');
     }
   });
@@ -6269,8 +6269,8 @@
           output: (t) => { let x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(!x){x=voiceSay('assistant is-live','');x.classList.add('is-realtime');} x.textContent+=t; voiceState('speaking','Talking…'); Nasrin.talk(1); },
           interrupted: () => { voiceState('listening','Listening…'); Nasrin.talk(0); },
           complete: () => { const x=voiceLog.querySelector('.vmsg.assistant.is-realtime'); if(x)x.classList.remove('is-realtime','is-live'); voiceState('listening','Listening…'); Nasrin.talk(0); },
-          error: (message) => closeVoice(message || 'Gemini realtime voice stopped. Please try again.'),
-          close: () => { if(vc.on&&vc.realtimeProvider==='gemini') closeVoice('Realtime voice connection ended. Please try again.'); }
+          error: (message) => scheduleRealtimeReconnect(message || 'Gemini realtime voice stopped. Reconnecting…'),
+          close: () => { if(vc.on&&vc.realtimeProvider==='gemini') scheduleRealtimeReconnect('Gemini realtime connection ended. Reconnecting…'); }
         });
         vc.realtimeMaxSeconds = Number(session.max_seconds) || 300;
         clearTimeout(vc.realtimeTimer);
