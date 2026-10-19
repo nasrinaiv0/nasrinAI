@@ -183,6 +183,24 @@
     return card;
   }
 
+  function parseWidgetPayload(raw) {
+    let candidate = String(raw || '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { const parsed = JSON.parse(candidate); if (typeof parsed === 'string') { candidate = parsed.trim(); continue; } return parsed; }
+      catch {
+        let fixed = '', inString = false, escaped = false;
+        for (const ch of candidate) {
+          if (inString && ch === '\n') { fixed += '\\n'; escaped = false; continue; }
+          if (inString && ch === '\r') continue;
+          fixed += ch;
+          if (escaped) escaped = false; else if (ch === '\\\\' && inString) escaped = true; else if (ch === '"') inString = !inString;
+        }
+        if (fixed === candidate) break; candidate = fixed;
+      }
+    }
+    return null;
+  }
+
   function install() {
     if (!window.NasrinFormat || window.NasrinFormat.__generativeUI) return false;
     const original = window.NasrinFormat.render;
@@ -203,7 +221,7 @@
       for (const match of matches) {
         addText(raw.slice(cursor, match.index));
         let widget = null;
-        try { widget = render(JSON.parse(match[1])); } catch { /* malformed payload stays visible below */ }
+        try { widget = render(parseWidgetPayload(match[1])); } catch { /* malformed payload stays visible below */ }
         if (widget) {
           fragment.appendChild(widget);
           blocks.push(widget);
