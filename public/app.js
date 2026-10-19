@@ -1303,7 +1303,7 @@
       // Web sources fold away under a Sources button beside the reply actions.
       const full = text;
       const cited = window.NasrinFormat.sources(text);
-      text = cited.text || text;
+      text = cited.text;
       const body = document.createElement('div');
       body.className = 'msg-body rich';
       const { node, blocks } = window.NasrinFormat.render(text);
