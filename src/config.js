@@ -744,17 +744,17 @@ export function loadConfig(env = process.env) {
       // Thinking allowance for reasoning models (o-series, GPT-5), and effort.
       reasoningMaxTokens: toInt('OPENAI_REASONING_MAX_TOKENS', env.OPENAI_REASONING_MAX_TOKENS, 4000, 500, 32000),
       reasoningEffort: effort,
-      // Tier-aware realtime routing. Quick/Pro prefer Gemini Live when configured;
-      // Max/Ultra stay on OpenAI Realtime. Normal tier authorization remains mandatory.
+      // All realtime voice tiers use Gemini Live. Never silently route voice
+      // sessions to another provider if Gemini credentials are unavailable.
       realtime: Object.freeze({
         tokensPerMinute: toInt('REALTIME_TOKEN_RESERVE_PER_MINUTE', env.REALTIME_TOKEN_RESERVE_PER_MINUTE, 10000, 1, 1000000),
         enabled: String(env.REALTIME_VOICE_ENABLED ?? 'true').toLowerCase() !== 'false'
-          && (Boolean(env.OPENAI_API_KEY) || Boolean(geminiKey)),
+          && Boolean(geminiKey),
         tiers: Object.freeze({
-          nasrinai: Object.freeze({ dailySeconds: 300, provider: geminiKey ? 'gemini' : 'openai', model: geminiKey ? ((String(env.REALTIME_QUICK_MODEL || '').trim().startsWith('gpt-')) ? 'gemini-3.8-live' : String(env.REALTIME_QUICK_MODEL || 'gemini-3.8-live').trim()) : String(env.REALTIME_QUICK_MODEL || 'gpt-realtime-2.1-mini').trim(), effort: 'low', maxSeconds: toInt('REALTIME_QUICK_MAX_SECONDS', env.REALTIME_QUICK_MAX_SECONDS, 300, 60, 3600) }),
-          pro: Object.freeze({ dailySeconds: 900, provider: geminiKey ? 'gemini' : 'openai', model: geminiKey ? ((String(env.REALTIME_PRO_MODEL || '').trim().startsWith('gpt-')) ? 'gemini-3.8-live' : String(env.REALTIME_PRO_MODEL || 'gemini-3.8-live').trim()) : String(env.REALTIME_PRO_MODEL || 'gpt-realtime-2.1').trim(), effort: 'low', maxSeconds: toInt('REALTIME_PRO_MAX_SECONDS', env.REALTIME_PRO_MAX_SECONDS, 900, 60, 3600) }),
-          max: Object.freeze({ dailySeconds: 1200, provider: 'openai', model: String(env.REALTIME_MAX_MODEL || 'gpt-realtime-2.1').trim(), effort: 'medium', maxSeconds: toInt('REALTIME_MAX_MAX_SECONDS', env.REALTIME_MAX_MAX_SECONDS, 1800, 60, 3600) }),
-          ultra: Object.freeze({ dailySeconds: 1800, provider: 'openai', model: String(env.REALTIME_ULTRA_MODEL || 'gpt-realtime-2.1').trim(), effort: 'high', maxSeconds: toInt('REALTIME_ULTRA_MAX_SECONDS', env.REALTIME_ULTRA_MAX_SECONDS, 3600, 60, 3600) })
+          nasrinai: Object.freeze({ dailySeconds: 300, provider: 'gemini', model: 'gemini-3.8-live', effort: 'low', maxSeconds: toInt('REALTIME_QUICK_MAX_SECONDS', env.REALTIME_QUICK_MAX_SECONDS, 300, 60, 3600) }),
+          pro: Object.freeze({ dailySeconds: 900, provider: 'gemini', model: 'gemini-3.8-live', effort: 'low', maxSeconds: toInt('REALTIME_PRO_MAX_SECONDS', env.REALTIME_PRO_MAX_SECONDS, 900, 60, 3600) }),
+          max: Object.freeze({ dailySeconds: 1200, provider: 'gemini', model: 'gemini-3.8-live', effort: 'medium', maxSeconds: toInt('REALTIME_MAX_MAX_SECONDS', env.REALTIME_MAX_MAX_SECONDS, 1800, 60, 3600) }),
+          ultra: Object.freeze({ dailySeconds: 1800, provider: 'gemini', model: 'gemini-3.8-live', effort: 'high', maxSeconds: toInt('REALTIME_ULTRA_MAX_SECONDS', env.REALTIME_ULTRA_MAX_SECONDS, 3600, 60, 3600) })
         })
       }),
       // Natural voices. SPEECH_PROVIDER: auto (OpenAI when it is used, else

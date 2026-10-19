@@ -45,6 +45,19 @@ test('voice script: no speed control, orb stops talking, realtime lines join up'
   assert.match(js, /last\.classList\.remove\('is-realtime', 'is-live'\)/);
   // The "Realtime voice is on" line only appears once realtime has started.
   assert.match(js, /if \(realtime\) voiceSay\('hint', 'Realtime voice is on/);
+  // WebRTC must gather ICE candidates before posting SDP to the Realtime API.
+  assert.match(js, /iceServers:\s*\[\{\s*urls:\s*'stun:stun\.l\.google\.com:19302'/);
+  assert.match(js, /pc\.iceGatheringState !== 'complete'/);
+  assert.match(js, /body: localSdp/);
+  // Autoplay failures must be recoverable and must never be silently swallowed.
+  assert.match(js, /Audio playback is blocked\. Tap to enable sound\./);
+  assert.match(js, /document\.addEventListener\('pointerdown', resume/);
+  assert.doesNotMatch(js, /audio\.play\(\)\.catch\(\(\) => \{\}\)/);
+  assert.match(js, /function scheduleRealtimeReconnect\(/);
+  assert.match(js, /window\.addEventListener\('offline'/);
+  assert.match(js, /window\.addEventListener\('online'/);
+  assert.match(js, /vc\.realtimeRetryCount >= 3/);
+  assert.match(js, /pc\.connectionState === 'failed'/);
 });
 
 test('voice-wave.js draws the orb on the voice screen and keeps the dictation wave', async () => {

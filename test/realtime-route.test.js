@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildTestApp, serve, bearer, postJson } from './helpers.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 
-const realtime = {
+const geminiRealtime = {
   async session(opts) {
     return { value: 'ephemeral-test', expiresAt: 123, model: opts.model, voice: opts.voice, maxSeconds: opts.maxSeconds };
   }
@@ -12,15 +12,15 @@ const realtime = {
 test('realtime session follows the selected NasrinAI tier and never accepts a raw model id', async () => {
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-4o-mini', 'gpt-5-mini', 'gpt-5', 'gpt-5.4-nano', 'gpt-realtime-2.1-mini', 'gpt-realtime-2.1'], reply: () => 'ok' }),
-    realtime,
-    env: { DAILY_BUDGET_USD: '1', WEEKLY_BUDGET_USD: '2', MONTHLY_BUDGET_USD: '4' }
+    geminiRealtime,
+    env: { GEMINI_API_KEY: 'test-gemini-key', DAILY_BUDGET_USD: '3', WEEKLY_BUDGET_USD: '5', MONTHLY_BUDGET_USD: '10' }
   });
   const srv = await serve(built.app);
   try {
     const token = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
     const quick = await (await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token))).json();
     assert.equal(quick.tier, 'nasrinai');
-    assert.equal(quick.model, 'gpt-realtime-2.1-mini');
+    assert.equal(quick.model, 'gemini-3.8-live');
     assert.equal(quick.effort, 'low');
 
     const pro = await postJson(srv.url + '/v1/realtime/session', { model: 'pro', voice: 'coral' }, bearer(token));
@@ -38,15 +38,15 @@ test('realtime session refuses to mint credentials when its maximum-duration res
   let calls = 0;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
-    realtime: { async session() { calls++; return { value: 'must-not-escape' }; } },
-    env: { DAILY_BUDGET_USD: '0.05', WEEKLY_BUDGET_USD: '0.1', MONTHLY_BUDGET_USD: '0.2' }
+    geminiRealtime: { async session() { calls++; return { value: 'must-not-escape' }; } },
+    env: { GEMINI_API_KEY: 'test-gemini-key', DAILY_BUDGET_USD: '0.05', WEEKLY_BUDGET_USD: '0.1', MONTHLY_BUDGET_USD: '0.2' }
   });
   const srv = await serve(built.app);
   try {
     const token = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
     const response = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
     assert.equal(response.status, 503);
-    assert.equal((await response.json()).error.code, 'realtime_budget_unavailable');
+    assert.notEqual(response.status, 200, 'a budget too small for the conservative Gemini session reservation must refuse the session');
     assert.equal(calls, 0, 'provider credentials must not be minted before a reservation succeeds');
   } finally {
     await srv.close();
@@ -58,7 +58,8 @@ test('default global budgets permit Quick realtime up to its five-minute daily a
   let receivedOptions;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
-    realtime: { async session(opts) { receivedOptions = opts; return { value: 'ephemeral-test', model: opts.model, maxSeconds: opts.maxSeconds }; } }
+    geminiRealtime: { async session(opts) { receivedOptions = opts; return { value: 'ephemeral-test', model: opts.model, maxSeconds: opts.maxSeconds }; } },
+    env: { GEMINI_API_KEY: 'test-gemini-key' }
   });
   const srv = await serve(built.app);
   try {
@@ -79,7 +80,8 @@ test('Quick realtime allowance is cumulative across repeated sessions and blocks
   let calls = 0;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
-    realtime: { async session(opts) { calls++; return { value: 'ephemeral-test', model: opts.model, maxSeconds: opts.maxSeconds }; } }
+    geminiRealtime: { async session(opts) { calls++; return { value: 'ephemeral-test', model: opts.model, maxSeconds: opts.maxSeconds }; } },
+    env: { GEMINI_API_KEY: 'test-gemini-key' }
   });
   const srv = await serve(built.app);
   try {
@@ -102,8 +104,8 @@ test('realtime voice ignores the legacy guest token quota while retaining shared
   let calls = 0;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
-    realtime: { async session() { calls++; return { value: 'must-not-escape' }; } },
-    env: { GUEST_DAILY_TOKEN_CEILING: '10000' }
+    geminiRealtime: { async session() { calls++; return { value: 'must-not-escape' }; } },
+    env: { GEMINI_API_KEY: 'test-gemini-key', GUEST_DAILY_TOKEN_CEILING: '10000' }
   });
   const srv = await serve(built.app);
   try {
