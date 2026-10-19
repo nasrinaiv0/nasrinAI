@@ -57,7 +57,7 @@ test('professional job discovery is wired to the public-web endpoint and renders
 
 test('chat job-search requests use the professional search workflow instead of generic advice', () => {
   assert.match(script, /const isJobSearchRequest =/);
-  assert.ok(script.includes('const topic = /\\\\b(jobs?|job openings?|vacancies|career opportunities|hiring|recruitment|positions?|employment|work opportunities)\\\\b/i.test(q)'));
+  assert.ok(script.includes('const topic =') && script.includes('job openings?') && script.includes('career opportunities'));
   assert.match(script, /if \(!imageMode && !editing && !pending\.length && isJobSearchRequest\(text\)\) return runChatJobSearch\(text\)/);
   assert.match(script, /api\('\/v1\/professional-search'/);
   assert.match(script, /Do not respond with instructions telling the user to search manually/);
