@@ -8382,7 +8382,8 @@
     ['Vercel', 'cloud', 'https://vercel.com'],
     ['Render', 'cloud', 'https://render.com'],
     ['Supabase', 'cloud', 'https://supabase.com'],
-    ['Cloudflare', 'cloud', 'https://cloudflare.com']
+    ['Cloudflare', 'cloud', 'https://cloudflare.com'],
+    ['ElevenLabs', 'cloud', 'https://elevenlabs.io']
   ];
   // Each catalog entry has a Settings action. Pins are a local, account-scoped
   // display preference only; they never imply a connection or grant permissions.
@@ -8549,7 +8550,8 @@
     Vercel: ['Connected accounts', 'Projects', 'Deployments', 'Build status', 'Permissions', 'Integration information'],
     Render: ['Connected accounts', 'Services', 'Projects', 'Deployments', 'Build status', 'Permissions', 'Integration information'],
     Supabase: ['Connected accounts', 'Projects', 'Database health', 'Migrations', 'Permissions', 'Integration information'],
-    Cloudflare: ['Connected accounts', 'Domains', 'Add domain', 'Security status', 'DNS', 'Permissions', 'Integration information']
+    Cloudflare: ['Connected accounts', 'Domains', 'Add domain', 'Security status', 'DNS', 'Permissions', 'Integration information'],
+    ElevenLabs: ['API key verification', 'Available voices', 'Text-to-speech generation', 'Usage and quota', 'Audio output', 'Permissions', 'Integration information']
   };
   function openDeveloperToolSettings(name, website) {
     $('pluginsList').hidden = true;
