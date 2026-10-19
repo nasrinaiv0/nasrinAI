@@ -1107,3 +1107,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Updated `docs/ai-video-studio-architecture.md` to distinguish the working MVP slice from the still-pending composed timeline renderer, cloud asset/project persistence, and provider-template catalog.
 - **Not yet complete:** timeline edits do not re-render generated footage; uploads remain browser-session only; full MP4 timeline export and cross-device project sync are not implemented. Do not report the whole Video Studio as complete.
 - **Validation:** regression tests were added but have not been executed in this remote documentation/feature-authoring session. Run `npm test` and review the preview deployment before merging.
+
+- **Cross-surface handoff update:** added a Studio `Continue in chat` action and main-chat fragment handler. The project brief is validated, removed from the URL immediately, and prefilled for explicit user review/send. This shares project metadata and prompt context only; cloud project persistence and media transfer remain pending.
