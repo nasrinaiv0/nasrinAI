@@ -33,3 +33,11 @@ test('browser renderer records clip audio and draws the current clip title', asy
   assert.match(js, /if\(clip\?\.title\)/);
   assert.doesNotMatch(js, /const selected=state\.clips\.find\(c=>c\.id===state\.selected\);\s*if\(selected\?\.title\)/);
 });
+
+
+test('browser renderer refuses more than 30 clips rather than silently omitting the rest', async () => {
+  const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
+  assert.match(js, /state\.clips\.length>30/);
+  assert.match(js, /Browser export supports up to 30 clips per render/);
+  assert.doesNotMatch(js, /state\.clips\.slice\(0,30\)/);
+});
