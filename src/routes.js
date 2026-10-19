@@ -1,5 +1,6 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { REALTIME_VOICES_LIST } from './realtime.js';
+import { buildProfessionalSearch, presentProfessionalSearch } from './professional-intelligence.js';
 import { GEMINI_REALTIME_VOICES } from './gemini-realtime.js';
 import { issueGuestToken, newGuestId } from './auth/guest.js';
 import { publicConversation, publicMessage } from './conversations.js';
@@ -1525,6 +1526,38 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, body, ip }) => {
         if (!research) throw new HttpError(404, 'not_found', 'Research is not available.');
         return { body: await research.scan(caller, body, ip) };
+      }
+    },
+    {
+      // Unified professional intelligence search, backed by the existing public-web research pipeline.
+      // LinkedIn results remain a separate, explicitly unavailable channel until an approved API adapter is configured.
+      method: 'POST',
+      path: '/v1/professional-search',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body, ip }) => {
+        if (!research) throw new HttpError(404, 'not_found', 'Professional search is not available.');
+        const plan = buildProfessionalSearch(body || {});
+        if (plan.source === 'linkedin_authorized') {
+          // Do not fall back to public-web results and misrepresent them as LinkedIn API results.
+          const empty = {
+            query: plan.query,
+            facts: [],
+            sources: [],
+            report: '',
+            professional_search: {
+              category: plan.category,
+              filters: { location: plan.location, date_range: plan.date_range, source: plan.source },
+              source_groups: [
+                { id: 'public_web', label: 'Public web research', status: 'not_requested', sources: [], facts: [] },
+                { id: 'linkedin_authorized', label: 'LinkedIn authorized API', status: 'not_configured', sources: [], facts: [], limitation: 'Configure a LinkedIn developer app, approved permissions, OAuth, and a supported API endpoint first.' }
+              ]
+            }
+          };
+          return { body: empty };
+        }
+        const scan = await research.scan(caller, { query: plan.discovery_query }, ip);
+        return { body: presentProfessionalSearch(scan, plan) };
       }
     },
     {
