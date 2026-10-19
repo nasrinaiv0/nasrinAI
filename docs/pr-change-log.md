@@ -1091,3 +1091,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - `main` had already received newer versions of the audio-chunk and video-scene code and a stricter PDF page-count check, so on conflict `main`'s versions were kept. What this PR still adds: the clearer scene-selection comment, a test that OCR rejects missing page numbers, and a fix for two over-escaped line breaks (`'\\n\\n'`) that would have put the characters `\n\n` between transcript parts instead of a blank line (test added).
 - Not run locally: the test suite (a half-installed package in this session); GitHub CI is the check of record.
+
+
+## October 2026 documentation reconciliation (2026-10-20)
+
+- Added [October 2026 Implementation Ledger](2026-10-implementation-ledger.md), grouping the current merged work by area and linking the main PRs. It separates merged code from documentation-only specifications and flags migration, OAuth, provider and live-device verification still required.
+- Added [NasrinAI Video Studio Architecture](ai-video-studio-architecture.md), a proposal for a complete template-driven editor plus AI video generation. Proposed default: Shotstack Studio/Edit API, Runway generation adapter, provider-neutral project model and licensed provider templates plus NasrinAI originals; Creatomate remains a proof-of-concept comparator/optional adapter.
+- These documents do not implement the Video Studio or claim that any pending provider, migration, CI run or production deployment is complete.
