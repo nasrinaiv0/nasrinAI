@@ -193,7 +193,7 @@
           if (inString && ch === '\n') { fixed += '\\n'; escaped = false; continue; }
           if (inString && ch === '\r') continue;
           fixed += ch;
-          if (escaped) escaped = false; else if (ch === '\\\\' && inString) escaped = true; else if (ch === '"') inString = !inString;
+          if (escaped) escaped = false; else if (ch === '\\' && inString) escaped = true; else if (ch === '"') inString = !inString;
         }
         if (fixed === candidate) break; candidate = fixed;
       }
