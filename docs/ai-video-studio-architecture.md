@@ -215,3 +215,35 @@ The current handoff adds **Continue in chat**:
 - It does not upload media files, grant access to a generated MP4 by ID alone, or synchronize the Studio draft across devices.
 
 **Next persistence milestone:** add owner-scoped cloud projects and asset records so Studio and chat can retrieve the same saved project through authenticated server APIs. The server must enforce the same account/tenant boundary for every read/write; job IDs must be re-authorized against the current caller; media access must use the existing owner-checked video content route or signed, short-lived storage URLs. Never expose provider keys or rely on client-supplied IDs as authorization. Chat should only retrieve a Studio project when the user explicitly selects/mentions it or shares it into the conversation, not inject every Studio project into unrelated chats.
+
+
+## 17. Dedicated NasrinAI chat inside Video Studio
+
+**Implementation checkpoint — feature branch, validation pending.**
+
+Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so users can ask for creative help without switching to the main chat.
+
+### User experience
+- Responsive floating launcher and chat panel, with close/open state, a message log, composer, send control, and suggested prompts for prompt improvement, storyboards, and opening hooks.
+- Enter sends; Shift+Enter inserts a newline. The panel disables duplicate sends while a reply is in progress and displays readable errors in the conversation.
+- The panel is a dedicated Studio UI, but it calls the existing NasrinAI `POST /v1/chat` endpoint rather than introducing a separate model or provider integration.
+- Each turn includes a bounded summary of the current Studio project: project name, template, aspect ratio, generation prompt, and up to 20 timeline clip names/types/durations. This lets the assistant respond in context without uploading media binaries.
+- The client carries forward the returned conversation ID when provided by the chat API, to support follow-up turns in the same conversation.
+
+### Authentication and safety
+- First attempts to obtain an access token using the existing same-origin refresh endpoint; if that fails, requests the existing guest session and uses its token in memory for the current page session.
+- Does not store access tokens in localStorage and does not embed provider credentials in client code.
+- Displays chat content with DOM `textContent`; do not render untrusted replies as HTML.
+- The chat API remains responsible for its existing authorization, plan/quota, abuse-control and provider-routing rules. Verify guest-plan behavior and signed-in session behavior in preview before release.
+- The current implementation sends a concise project brief with each message, not uploaded media, full generated MP4s, or a durable cloud project reference.
+
+### Files and tests
+- `public/video-studio.html`: chat launcher, panel, message log, composer and suggested prompts.
+- `public/video-studio.css`: responsive floating panel and message styling.
+- `public/video-studio.js`: project-context construction, authenticated/guest token selection, chat request, reply display, and composer interactions.
+- `test/video-studio.test.js`: assertions for chat controls, project-context wiring, guest-session fallback, and the chat endpoint.
+
+### Limitations and release gate
+- This is not yet a persistent shared project/chat workspace. Studio draft metadata remains browser-local, and uploads remain browser-session only.
+- The Studio panel is not yet guaranteed to show the user's existing main-chat history. It should be treated as a Studio conversation surface; durable cross-surface conversation continuity needs an explicit, authenticated conversation/project association.
+- Run the full `npm test` suite, inspect the Vercel preview, and manually verify guest and signed-in chat flows before merging. Do not claim validation passed until the CI result is green.
