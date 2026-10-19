@@ -1,6 +1,6 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { REALTIME_VOICES_LIST } from './realtime.js';
-import { buildProfessionalSearch, presentProfessionalSearch } from './professional-intelligence.js';
+import { buildProfessionalSearch, buildProfessionalResearchInput, presentProfessionalSearch } from './professional-intelligence.js';
 import { createLinkedInIntegration } from './linkedin/index.js';
 import { GEMINI_REALTIME_VOICES } from './gemini-realtime.js';
 import { issueGuestToken, newGuestId } from './auth/guest.js';
@@ -1587,7 +1587,7 @@ return { body: { sites: await connect.list(caller) } }; }
             }
           } };
         }
-        const scan = await research.scan(caller, { query: plan.discovery_query }, ip);
+        const scan = await research.scan(caller, buildProfessionalResearchInput(body || {}, plan), ip);
         const result = presentProfessionalSearch(scan, plan);
         result.professional_search.source_groups[1] = linkedinGroup;
         return { body: result };
