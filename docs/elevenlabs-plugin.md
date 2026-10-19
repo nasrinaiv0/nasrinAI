@@ -1,6 +1,6 @@
 # ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: Phases 1–3 and the first dedicated Studio workspace are implemented on the feature branch: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, FFmpeg MP4 audio mixing/export, and a dedicated `/studio/` workspace (the studio subdomain redirects to the primary host to preserve the existing HttpOnly session cookie). Full CI, production storage/migration, authentication, and deployed FFmpeg smoke tests remain required before this is considered release-ready.
+Status: Phases 1–3 are implemented on the feature branch and integrated into the existing Video Studio workspace: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, FFmpeg MP4 audio mixing/export, and a existing `public/video-studio.html` workspace; the studio subdomain redirects to the primary host to preserve the existing HttpOnly session cookie. Full CI, production storage/migration, authentication, and deployed FFmpeg smoke tests remain required before this is considered release-ready.
 
 ## Product intent
 
@@ -62,7 +62,7 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 - `POST /v1/video-studio/elevenlabs/voiceover` — accepts script text and optional voice/model IDs; returns an MP3 for browser preview/download.
 - `POST /v1/video-studio/elevenlabs/sound-effects` — accepts a prompt and optional duration; returns an MP3 for browser preview/download.
 - Set `ELEVENLABS_API_KEY` in the server/deployment environment only. Never use a `PUBLIC_*` variable for this secret.
-- Generated audio is persisted in the private `media` Storage bucket with owner-scoped metadata, and timeline placement is saved in the database. The export route now uses `ffmpeg-static` to mix selected timeline clips with source audio and return an MP4. Apply `db/migrations/030_video_studio_audio_assets.sql` before deploying this branch. The migration expects the existing private `media` bucket and the `projects` table. Export is currently limited to 50 MB input/output and eight audio clips; verify FFmpeg binary inclusion, function memory, timeout, and actual output on the deployed Vercel runtime.
+- Generated audio is persisted in the private `media` Storage bucket with owner-scoped metadata, and timeline placement is saved in the database. The export route now uses `ffmpeg-static` to mix selected timeline clips with source audio and return an MP4. Apply `db/migrations/046_video_studio_audio_assets.sql` before deploying this branch. The migration expects the existing private `media` bucket and the `projects` table. Export is currently limited to 50 MB input/output and eight audio clips; verify FFmpeg binary inclusion, function memory, timeout, and actual output on the deployed Vercel runtime.
 
 ## Server API design (adapt to existing route conventions)
 

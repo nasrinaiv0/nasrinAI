@@ -37,8 +37,9 @@ test('page headers apply to the page files, not to the API or health check', () 
 });
 
 test('API paths are sent to the function, with the original path passed along', () => {
-  const dest = (p) => {
+  const dest = (p, host = 'nasrinai.com') => {
     for (const r of config.rewrites) {
+      if (r.has?.some((condition) => condition.type === 'host' && condition.value !== host)) continue;
       const re = new RegExp('^' + r.source.replace(':path*', '(.*)') + '$');
       const m = re.exec(p);
       if (m) return r.destination.replace(':path*', m[1] ?? '');
@@ -48,7 +49,8 @@ test('API paths are sent to the function, with the original path passed along', 
   assert.equal(dest('/v1/chat'), '/api/index?__path=/v1/chat');
   assert.equal(dest('/v1'), '/api/index?__path=/v1');
   assert.equal(dest('/healthz'), '/api/index?__path=/healthz');
-  assert.equal(dest('/'), null, 'the page stays on the CDN');
+  assert.equal(dest('/'), null, 'the main site page stays on the CDN');
+  assert.equal(dest('/', 'studio.nasrinai.com'), '/video-studio.html', 'Studio host serves its dedicated workspace');
   assert.equal(config.functions['api/index.js'].maxDuration, 120);
 });
 

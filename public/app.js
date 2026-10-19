@@ -1707,6 +1707,41 @@
     refreshSendButton();
   }
 
+  // Video Studio handoff: the Studio sends a compact project brief in the URL
+  // fragment (never to the server). Remove it immediately, validate the shape,
+  // and prefill the composer without sending anything until the user chooses.
+  {
+    const hash = location.hash;
+    const prefix = '#studio_context=';
+    if (hash.startsWith(prefix) && hash.length <= 12000) {
+      history.replaceState(null, '', location.pathname + location.search);
+      try {
+        const brief = JSON.parse(decodeURIComponent(hash.slice(prefix.length)));
+        if (brief && brief.source === 'NasrinAI Video Studio' && typeof brief.name === 'string') {
+          const clips = Array.isArray(brief.clips) ? brief.clips.slice(0, 30) : [];
+          const generated = Array.isArray(brief.generated) ? brief.generated.slice(0, 20) : [];
+          const lines = [
+            'Continue helping me with this NasrinAI Video Studio project.',
+            'Project: ' + brief.name.slice(0, 80),
+            'Template: ' + String(brief.template || 'custom').slice(0, 40),
+            'Aspect ratio: ' + String(brief.aspect || 'not specified').slice(0, 10),
+            'Current generation prompt: ' + String(brief.prompt || '(none)').slice(0, 1800),
+            'Timeline clips:',
+            ...(clips.length ? clips.map((clip, i) => (i + 1) + '. ' + String(clip.name || 'Untitled clip').slice(0, 100) + ' [' + String(clip.kind || 'clip').slice(0, 20) + ', ' + (Number(clip.duration) || 0) + ' sec]' + (clip.title ? ', title: ' + String(clip.title).slice(0, 140) : '') + (clip.video_id ? ', video job ID: ' + String(clip.video_id).slice(0, 100) : '')) : ['(empty timeline)']),
+            ...(generated.length ? ['Generated scenes:', ...generated.map(item => '- ' + String(item.name || 'Generated scene').slice(0, 100) + (item.video_id ? ' (video job ID: ' + String(item.video_id).slice(0, 100) + ')' : ''))] : []),
+            'Note: ' + String(brief.note || 'Media files are not attached.').slice(0, 300),
+            'Please help me continue from this project brief. Do not claim to modify or export the Studio project unless the relevant tools are available.'
+          ];
+          input.value = lines.join('\n').slice(0, 6000);
+          autosize();
+          notice.textContent = 'Video Studio project brief loaded. Review it and send when you are ready.';
+        }
+      } catch {
+        notice.textContent = 'The Video Studio project brief could not be loaded. Please return to Studio and try again.';
+      }
+    }
+  }
+
   // ---------- photos and files ----------
 
   // Files wait in the tray until sent: { name, type, bytes, thumb?, and either
@@ -2803,311 +2838,6 @@
   }
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
-  async function appendVideoStudioAudio(card, sourceText) {
-    const panel = document.createElement('section');
-    panel.className = 'video-studio-audio';
-    const heading = document.createElement('strong');
-    heading.textContent = 'Video Studio · Audio';
-    const studioLink = document.createElement('a');
-    studioLink.href = '/studio/';
-    studioLink.className = 'btn outline small';
-    studioLink.textContent = 'Open full Video Studio';
-    const note = document.createElement('p');
-    note.className = 'muted';
-    note.textContent = 'Generate and save MP3 voiceovers and sound effects, preview/download them later, and add them to a project timeline. Timeline audio is not yet mixed into the exported MP4.';
-    const status = document.createElement('p');
-    status.className = 'muted';
-    panel.append(heading, studioLink, note, status);
-    card.appendChild(panel);
-    let capability;
-    try { capability = await api('/v1/video-studio/elevenlabs/status'); }
-    catch (err) { status.textContent = err.message || 'Audio tools could not be checked.'; return; }
-    if (!capability?.configured) {
-      status.textContent = 'Audio generation is not configured on the server yet.';
-      return;
-    }
-    const row = document.createElement('div');
-    row.className = 'video-studio-audio-controls';
-    const voiceSelect = document.createElement('select');
-    voiceSelect.className = 'field';
-    voiceSelect.setAttribute('aria-label', 'Voiceover voice');
-    const voicePlaceholder = document.createElement('option');
-    voicePlaceholder.value = '';
-    voicePlaceholder.textContent = 'Loading voices…';
-    voiceSelect.appendChild(voicePlaceholder);
-    const modelSelect = document.createElement('select');
-    modelSelect.className = 'field';
-    modelSelect.setAttribute('aria-label', 'Voiceover model');
-    for (const [id, label] of [
-      ['eleven_multilingual_v2', 'Multilingual'],
-      ['eleven_turbo_v2_5', 'Turbo'],
-      ['eleven_flash_v2_5', 'Flash'],
-      ['eleven_v3', 'Expressive']
-    ]) {
-      const option = document.createElement('option');
-      option.value = id;
-      option.textContent = label;
-      modelSelect.appendChild(option);
-    }
-    const voiceButton = document.createElement('button');
-    voiceButton.type = 'button';
-    voiceButton.className = 'btn small';
-    voiceButton.textContent = 'Generate voiceover';
-    const effectButton = document.createElement('button');
-    effectButton.type = 'button';
-    effectButton.className = 'btn outline small';
-    effectButton.textContent = 'Generate sound effect';
-    row.append(voiceSelect, modelSelect, voiceButton, effectButton);
-    panel.appendChild(row);
-    await refreshSavedAssets();
-
-    try {
-      const result = await api('/v1/video-studio/elevenlabs/voices');
-      voiceSelect.replaceChildren();
-      for (const voice of result.voices || []) {
-        const option = document.createElement('option');
-        option.value = voice.id;
-        option.textContent = voice.name;
-        voiceSelect.appendChild(option);
-      }
-      if (!voiceSelect.options.length) {
-        const empty = document.createElement('option');
-        empty.value = '';
-        empty.textContent = 'No voices available';
-        voiceSelect.appendChild(empty);
-      }
-    } catch (err) {
-      voiceSelect.replaceChildren();
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'Voices unavailable';
-      voiceSelect.appendChild(option);
-      status.textContent = err.message || 'Available voices could not be loaded.';
-    }
-
-    async function addAssetToTimeline(asset, actionButton) {
-      actionButton.disabled = true;
-      try {
-        const result = await api('/v1/projects');
-        const available = Array.isArray(result?.projects) ? result.projects : [];
-        if (!available.length) {
-          status.textContent = 'Create a project first in NasrinAI Projects, then add this saved audio asset to its timeline.';
-          return;
-        }
-        const choices = available.slice(0, 50).map((p, i) => (i + 1) + '. ' + p.name).join('\\n');
-        const selected = window.prompt('Choose a project number for this audio asset:\\n' + choices, '1');
-        if (selected == null) return;
-        const index = Number(selected) - 1;
-        if (!Number.isInteger(index) || index < 0 || index >= Math.min(available.length, 50)) {
-          status.textContent = 'Choose a valid project number.';
-          return;
-        }
-        const project = available[index];
-        await api('/v1/video-studio/timeline', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id: project.id, audio_asset_id: asset.id, start_seconds: 0 })
-        });
-        status.textContent = 'Audio saved to the timeline for “' + project.name + '”. MP4 audio mixing is the next phase.';
-      } catch (err) {
-        status.textContent = err.message || 'Could not add this audio to the project timeline.';
-      } finally {
-        actionButton.disabled = false;
-      }
-    }
-
-    async function renderAudioAsset(asset, label) {
-      const token = await credential();
-      const response = await net(asset.content_url, { headers: { Authorization: 'Bearer ' + token } });
-      if (!response.ok) throw await errorFrom(response);
-      const blob = await response.blob();
-      if (!blob.size || blob.size > 12 * 1024 * 1024) throw new Error('The stored audio file is empty or too large.');
-      const url = URL.createObjectURL(blob);
-      const result = document.createElement('div');
-      result.className = 'video-studio-audio-result';
-      const title = document.createElement('strong');
-      title.textContent = asset.label || label;
-      const audio = document.createElement('audio');
-      audio.controls = true;
-      audio.preload = 'metadata';
-      audio.src = url;
-      audio.setAttribute('aria-label', (asset.label || label) + ' preview');
-      const download = document.createElement('a');
-      download.className = 'btn small';
-      download.href = url;
-      download.download = asset.kind === 'voiceover' ? 'nasrinai-voiceover.mp3' : 'nasrinai-sound-effect.mp3';
-      download.textContent = 'Download MP3';
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'btn outline small';
-      add.textContent = 'Add to project timeline';
-      add.addEventListener('click', () => addAssetToTimeline(asset, add));
-      result.append(title, audio, download, add);
-      panel.appendChild(result);
-    }
-
-    async function refreshSavedAssets() {
-      try {
-        const result = await api('/v1/video-studio/audio-assets');
-        const assets = Array.isArray(result?.assets) ? result.assets : [];
-        const saved = document.createElement('div');
-        saved.className = 'video-studio-saved-assets';
-        const title = document.createElement('strong');
-        title.textContent = 'Saved audio assets (' + assets.length + ')';
-        saved.appendChild(title);
-        if (!assets.length) {
-          const empty = document.createElement('p');
-          empty.className = 'muted';
-          empty.textContent = 'Your generated audio assets will appear here.';
-          saved.appendChild(empty);
-        } else {
-          for (const asset of assets.slice(0, 20)) {
-            const item = document.createElement('div');
-            item.className = 'video-studio-saved-asset';
-            const name = document.createElement('span');
-            name.textContent = asset.label || (asset.kind === 'voiceover' ? 'AI voiceover' : 'Sound effect');
-            const actions = document.createElement('div');
-            actions.className = 'video-studio-saved-asset-actions';
-            const preview = document.createElement('button');
-            preview.type = 'button';
-            preview.className = 'btn outline small';
-            preview.textContent = 'Preview';
-            preview.addEventListener('click', async () => {
-              preview.disabled = true;
-              try { await renderAudioAsset(asset, name.textContent); }
-              catch (err) { status.textContent = err.message || 'Could not load this saved asset.'; }
-              finally { preview.disabled = false; }
-            });
-            const add = document.createElement('button');
-            add.type = 'button';
-            add.className = 'btn outline small';
-            add.textContent = 'Add to timeline';
-            add.addEventListener('click', () => addAssetToTimeline(asset, add));
-            const remove = document.createElement('button');
-            remove.type = 'button';
-            remove.className = 'btn outline small';
-            remove.textContent = 'Delete';
-            remove.addEventListener('click', async () => {
-              if (!window.confirm('Delete this saved audio asset? It will also be removed from project timelines.')) return;
-              remove.disabled = true;
-              try {
-                await api('/v1/video-studio/audio-assets/' + encodeURIComponent(asset.id), { method: 'DELETE' });
-                item.remove();
-                status.textContent = 'Audio asset deleted.';
-              } catch (err) { status.textContent = err.message || 'Could not delete this audio asset.'; }
-              finally { remove.disabled = false; }
-            });
-            actions.append(preview, add, remove);
-            item.append(name, actions);
-            saved.appendChild(item);
-          }
-        }
-        const oldSaved = panel.querySelector('.video-studio-saved-assets');
-        if (oldSaved) oldSaved.replaceWith(saved); else panel.appendChild(saved);
-      } catch (err) {
-        status.textContent = err.message || 'Saved audio assets could not be loaded.';
-      }
-    }
-
-    async function generateAudio(endpoint, payload, label, filename, button) {
-      button.disabled = true;
-      status.textContent = label + '…';
-      try {
-        const result = await api(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const asset = result?.asset;
-        if (!asset?.id || !asset?.content_url) throw new Error('The generated audio was not saved as a persistent asset.');
-        await renderAudioAsset(asset, label);
-        await refreshSavedAssets();
-        status.textContent = label + ' generated and saved. Preview, download, or add it to a project timeline.';
-      } catch (err) {
-        status.textContent = err.message || label + ' failed. Please try again.';
-      } finally {
-        button.disabled = false;
-      }
-    }
-
-    voiceButton.addEventListener('click', () => {
-      if (!voiceSelect.value) { status.textContent = 'Choose an available voice first.'; return; }
-      const script = window.prompt('Voiceover script (up to 5,000 characters):', String(sourceText || '').slice(0, 5000));
-      if (script == null) return;
-      generateAudio('/v1/video-studio/elevenlabs/voiceover', { text: script, voice_id: voiceSelect.value, model_id: modelSelect.value }, 'Voiceover', 'nasrinai-voiceover.mp3', voiceButton);
-    });
-    effectButton.addEventListener('click', () => {
-      const prompt = window.prompt('Describe the sound effect (up to 500 characters):', 'Soft cinematic transition whoosh');
-      if (prompt == null) return;
-      generateAudio('/v1/video-studio/elevenlabs/sound-effects', { prompt }, 'Sound effect', 'nasrinai-sound-effect.mp3', effectButton);
-    });
-  }
-
-  async function appendVideoStudioExport(card, videoId) {
-    const panel = document.createElement('section');
-    panel.className = 'video-studio-export';
-    const note = document.createElement('p');
-    note.className = 'muted';
-    note.textContent = 'Render the selected project timeline audio into this MP4. Exports are limited to 50 MB and eight audio clips.';
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn small';
-    button.textContent = 'Export MP4 with timeline audio';
-    panel.append(note, button);
-    card.appendChild(panel);
-    try {
-      const state = await api('/v1/video-studio/elevenlabs/status');
-      if (!state?.video_export_available) {
-        button.disabled = true;
-        button.title = 'MP4 audio export is not available on this deployment.';
-        note.textContent = 'MP4 audio export is not available on this deployment yet.';
-        return;
-      }
-    } catch {
-      button.disabled = true;
-      note.textContent = 'Could not verify whether MP4 audio export is available.';
-      return;
-    }
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      const oldText = button.textContent;
-      button.textContent = 'Preparing export…';
-      try {
-        const result = await api('/v1/projects');
-        const projects = Array.isArray(result?.projects) ? result.projects : [];
-        if (!projects.length) throw new Error('Create a project and add audio clips to its timeline before exporting.');
-        const options = projects.slice(0, 50).map((p, i) => (i + 1) + '. ' + p.name).join('\\n');
-        const selection = window.prompt('Choose the project timeline to render:\\n' + options, '1');
-        if (selection == null) return;
-        const index = Number(selection) - 1;
-        if (!Number.isInteger(index) || index < 0 || index >= Math.min(projects.length, 50)) throw new Error('Choose a valid project number.');
-        const project = projects[index];
-        button.textContent = 'Rendering MP4…';
-        const token = await credential();
-        const response = await net('/v1/video-studio/export', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ video_id: videoId, project_id: project.id })
-        });
-        if (!response.ok) throw await errorFrom(response);
-        const blob = await response.blob();
-        if (!blob.size || blob.size > 50 * 1024 * 1024) throw new Error('The exported MP4 is empty or exceeds the 50 MB download limit.');
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'nasrinai-video-with-audio.mp4';
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        note.textContent = 'Export complete. Your MP4 includes the selected project timeline audio.';
-      } catch (err) {
-        note.textContent = err.message || 'The MP4 export failed. Review the timeline and try again.';
-      } finally {
-        button.disabled = false;
-        button.textContent = oldText;
-      }
-    });
-  }
-
   async function sendVideo(text) {
     if (!window.confirm('Create this video now? NasrinAI will send your prompt to the configured AI video service. Video generation may use your plan allowance. Choose Cancel to stop.')) return;
     noticesOnSend();
@@ -3140,8 +2870,6 @@
             a.download = '';
             a.textContent = 'Download MP4';
             card.appendChild(a);
-            appendVideoStudioAudio(card, text);
-            appendVideoStudioExport(card, id);
             deviceNotify('NasrinAI video ready', 'Your Ultra video has finished rendering.', 'nasrinai-video-' + id);
             return;
           }
@@ -8858,7 +8586,7 @@
     Render: ['Connected accounts', 'Services', 'Projects', 'Deployments', 'Build status', 'Permissions', 'Integration information'],
     Supabase: ['Connected accounts', 'Projects', 'Database health', 'Migrations', 'Permissions', 'Integration information'],
     Cloudflare: ['Connected accounts', 'Domains', 'Add domain', 'Security status', 'DNS', 'Permissions', 'Integration information'],
-    ElevenLabs: ['Video Studio voiceover', 'Sound-effect generation', 'Voice selection', 'MP3 preview and download', 'Server configuration status', 'Permissions', 'Integration information']
+    ElevenLabs: ['Video Studio voiceover', 'Sound-effect generation', 'Voice selection', 'MP3 preview and download']
   };
   function openDeveloperToolSettings(name, website) {
     $('pluginsList').hidden = true;
@@ -8871,16 +8599,18 @@
     $('pluginCatalogDescription').textContent = (DEVELOPER_TOOL_DETAILS[name] || ['Connected accounts', 'Permissions', 'Integration information']).join(' · ');
     $('pluginCatalogStatus').textContent = name === 'GitHub'
       ? (github.connected ? 'Connected through NasrinAI GitHub' : 'GitHub connection status is managed in the coding settings.')
-      : name === 'ElevenLabs' ? 'Checking Video Studio audio configuration…'
-      : 'API connection not configured yet. No account is connected through NasrinAI.';
+      : name === 'ElevenLabs' ? 'Checking Video Studio configuration…'
+        : 'API connection not configured yet. No account is connected through NasrinAI.';
     if (name === 'ElevenLabs') {
-      api('/v1/video-studio/elevenlabs/status').then((state) => {
-        if ($('pluginCatalogTitle').textContent !== 'ElevenLabs settings') return;
-        $('pluginCatalogStatus').textContent = state?.configured
-          ? 'Configured for Video Studio: voiceover and sound effects are available to eligible plans.'
-          : 'Not configured on the server. Add ELEVENLABS_API_KEY to the deployment environment to enable Video Studio audio.';
+      fetch('/v1/video-studio/elevenlabs/status', { credentials: 'same-origin' }).then(async response => {
+        if (!response.ok) throw new Error('status unavailable');
+        return response.json();
+      }).then(status => {
+        if ($('pluginCatalogTitle').textContent === 'ElevenLabs settings') $('pluginCatalogStatus').textContent = status.configured
+          ? 'Configured for Video Studio voiceover and sound effects'
+          : 'Not configured on this deployment';
       }).catch(() => {
-        if ($('pluginCatalogTitle').textContent === 'ElevenLabs settings') $('pluginCatalogStatus').textContent = 'Could not verify Video Studio audio configuration. Try again later.';
+        if ($('pluginCatalogTitle').textContent === 'ElevenLabs settings') $('pluginCatalogStatus').textContent = 'Could not verify Video Studio configuration.';
       });
     }
     $('githubTitle').lastChild.textContent = name;
@@ -8903,14 +8633,9 @@
     li.appendChild(mk('span', 'plugins-name', name));
     const state = name === 'GitHub'
       ? (github.connected ? 'Connected' : github.available ? 'Available' : 'Not configured')
-      : name === 'ElevenLabs' ? 'Checking…' : 'Not connected';
-    const stateLabel = mk('span', 'plugins-soon', state);
-    li.appendChild(stateLabel);
-    if (name === 'ElevenLabs') {
-      api('/v1/video-studio/elevenlabs/status').then((result) => {
-        stateLabel.textContent = result?.configured ? 'Configured' : 'Not configured';
-      }).catch(() => { stateLabel.textContent = 'Status unavailable'; });
-    }
+      : name === 'ElevenLabs' ? 'Video Studio'
+        : 'Not connected';
+    li.appendChild(mk('span', 'plugins-soon', state));
     const actions = mk('details', 'developer-tool-actions');
     const summary = mk('summary', 'plugins-settings-btn', 'Actions');
     summary.setAttribute('aria-label', name + ' integration actions');
@@ -8922,9 +8647,11 @@
       actions.open = false;
       openDeveloperToolSettings(name, website);
     });
-    const connect = mk('button', 'btn small', name === 'GitHub' && github.connected ? 'Disconnect' : 'Connect');
+    const connect = mk('button', 'btn small', name === 'ElevenLabs' ? 'Open Video Studio' : name === 'GitHub' && github.connected ? 'Disconnect' : 'Connect');
     connect.type = 'button';
-    if (name === 'GitHub') {
+    if (name === 'ElevenLabs') {
+      connect.addEventListener('click', () => { actions.open = false; window.location.href = '/video-studio.html'; });
+    } else if (name === 'GitHub') {
       connect.addEventListener('click', async () => {
         actions.open = false;
         if (github.connected) {

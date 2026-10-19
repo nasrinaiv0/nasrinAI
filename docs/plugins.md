@@ -6,7 +6,7 @@ Plugins connect Nasrin to a person's other apps. They live in the menu →
 | Plugin | Status |
 |---|---|
 | GitHub | Built (`docs/github.md`) |
-| ElevenLabs | Video Studio voiceover/effects, persistent audio assets, and project timeline controls; MP4 mixing/export pending (`docs/elevenlabs-plugin.md`) |
+| ElevenLabs | Video Studio voiceover/effects, persistent audio assets, and project timeline controls, plus MP4 audio mixing/export (`docs/elevenlabs-plugin.md`) |
 | Outlook, OneDrive, Teams, Excel, PowerPoint, Canva | Coming soon (listed only) |
 | Gmail, Google Calendar | Read plus confirmed write actions (when configured with the matching granted scopes) |
 | Google Cloud, Google Meet | Coming soon (listed only) |

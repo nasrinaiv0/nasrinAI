@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#111113">
+<title>Video Studio — NasrinAI</title>
+<meta name="description" content="Create AI video clips and assemble a video project in NasrinAI Video Studio.">
+<link rel="icon" href="/logo.png">
+<link rel="stylesheet" href="/video-studio.css">
+<script src="/video-studio.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="Back to NasrinAI"><span class="brand-mark">N</span><span>NasrinAI <i>/</i> Video Studio</span></a>
+  <div class="top-actions"><span class="save-state" id="saveState">Draft saved locally</span><button id="continueInChat" class="quiet-button" type="button">Continue in chat ↗</button><a class="back-link" href="/">Back to chat</a></div>
+</header>
+<main class="studio">
+  <section class="intro">
+    <div><p class="eyebrow">CREATIVE WORKSPACE</p><h1>Make something <span>moving.</span></h1><p class="subhead">Start with a template, generate a scene, then shape your project.</p></div>
+    <div class="project-control"><label for="projectName">PROJECT NAME</label><input id="projectName" maxlength="80" value="Untitled video"><button id="saveProject" class="quiet-button" type="button">Save draft</button></div>
+  </section>
+  <nav class="tabs" aria-label="Video Studio sections">
+    <button class="tab active" data-tab="create" type="button">01 <span>Create</span></button>
+    <button class="tab" data-tab="edit" type="button">02 <span>Timeline</span><b id="clipCount">0</b></button>
+    <button class="tab" data-tab="export" type="button">03 <span>Export</span></button>
+  </nav>
+  <section class="workspace" id="createPanel">
+    <div class="main-column">
+      <div class="section-heading"><div><p class="eyebrow">01 / STARTING POINT</p><h2>Choose a direction</h2></div><span class="small-note">NasrinAI Originals</span></div>
+      <div class="template-grid" id="templateGrid">
+        <button class="template-card selected" data-template="cinematic" type="button"><span class="template-art art-cinema"><i>FRAME 01</i><b>Beyond<br>the ordinary.</b><small>WIDE · CINEMATIC</small></span><span class="template-meta"><b>Cinematic opener</b><small>Atmospheric · Story-led</small></span></button>
+        <button class="template-card" data-template="social" type="button"><span class="template-art art-social"><i>YOUR NEXT BIG THING</i><b>Make it<br>impossible<br>to scroll past.</b><small>VERTICAL · SOCIAL</small></span><span class="template-meta"><b>Social launch</b><small>Bold · Fast-paced</small></span></button>
+        <button class="template-card" data-template="product" type="button"><span class="template-art art-product"><i>FORM / FUNCTION</i><b>Designed<br>to stand out.</b><small>PRODUCT · BRAND</small></span><span class="template-meta"><b>Product spotlight</b><small>Minimal · Premium</small></span></button>
+        <button class="template-card" data-template="story" type="button"><span class="template-art art-story"><i>FIELD NOTES</i><b>A little<br>closer to<br>the world.</b><small>TRAVEL · STORY</small></span><span class="template-meta"><b>Travel story</b><small>Warm · Documentary</small></span></button>
+      </div>
+      <div class="section-heading prompt-heading"><div><p class="eyebrow">02 / AI GENERATION</p><h2>Describe the scene</h2></div><span class="small-note">Text to video</span></div>
+      <label class="sr-only" for="prompt">Describe your video scene</label>
+      <textarea id="prompt" maxlength="2000" rows="4" placeholder="A cinematic close-up of sunlight moving across a sculptural glass perfume bottle, soft shadows, slow camera movement…"></textarea>
+      <div class="generation-options"><label>FORMAT<select id="aspect"><option value="16:9">Landscape · 16:9</option><option value="9:16">Portrait · 9:16</option></select></label><label>CLIP LENGTH<select id="duration"><option value="8">8 seconds</option><option value="16">16 seconds</option><option value="24">24 seconds</option><option value="32">32 seconds</option><option value="40">40 seconds</option><option value="48">48 seconds</option><option value="56">56 seconds</option><option value="60">60 seconds</option></select></label><button id="generate" class="primary-button" type="button"><span>✦</span> Generate scene</button></div>
+      <p class="helper">AI generation uses your account's existing video access, usage limits and spending safeguards. Generated clips can be added to your project timeline.</p>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    </div>
+    <aside class="preview-column">
+      <div class="preview-top"><span>PREVIEW</span><span id="previewFormat">16:9 · LANDSCAPE</span></div>
+      <div class="preview-frame landscape" id="previewFrame"><div class="preview-placeholder" id="previewPlaceholder"><div class="play-mark">▶</div><b>Your next scene starts here.</b><span>Choose a template or generate a clip</span></div><video id="previewVideo" controls playsinline hidden></video></div>
+      <div class="preview-caption"><div><b id="previewTitle">Cinematic opener</b><span id="previewSub">Atmospheric · Story-led</span></div><button id="addTemplate" class="icon-button" type="button" aria-label="Add template to timeline" title="Add template to timeline">＋</button></div>
+      <div class="preview-stats"><div><span>PROJECT</span><b id="statClips">0 clips</b></div><div><span>RATIO</span><b id="statRatio">16:9</b></div><div><span>STATUS</span><b id="statStatus">Draft</b></div></div>
+    </aside>
+  </section>
+  <section class="workspace secondary-panel" id="editPanel" hidden>
+    <div class="timeline-column">
+      <div class="section-heading"><div><p class="eyebrow">EDIT / SEQUENCE</p><h2>Your timeline</h2></div><button id="addMedia" class="quiet-button" type="button">＋ Add media</button><input id="mediaInput" type="file" accept="video/*,image/*,audio/*" multiple hidden></div>
+      <p class="helper">Reorder clips, preview generated footage, and save your project draft. Uploaded media stays in this browser session; cloud project sync and rendered timeline export are the next integration step.</p>
+      <div id="timeline" class="timeline"><div class="empty-timeline"><span>▤</span><b>Your timeline is waiting</b><p>Generate a scene or add media to begin.</p></div></div>
+      <div class="timeline-tools"><button id="clearTimeline" class="quiet-button" type="button">Clear timeline</button><span id="timelineSummary">No clips yet</span></div>
+    </div>
+    <aside class="inspector">
+      <p class="eyebrow">CLIP INSPECTOR</p><h2>Selected clip</h2>
+      <div id="inspectorEmpty" class="inspector-empty">Select a timeline clip to view its details.</div>
+      <div id="inspectorContent" hidden><label>CLIP NAME<input id="clipName" maxlength="100"></label><label>ON-SCREEN TITLE<input id="clipTitle" maxlength="140" placeholder="Add a title overlay"></label><label>TRIM START (SECONDS)<input id="clipStart" type="number" min="0" step="0.5" value="0"></label><label>CLIP DURATION (SECONDS)<input id="clipDuration" type="number" min="0.5" max="60" step="0.5" value="8"></label><button id="removeClip" class="danger-button" type="button">Remove clip</button></div>
+    </aside>
+  </section>
+    <section class="audio-studio-panel" id="audioStudioPanel">
+      <div class="section-heading"><div><p class="eyebrow">AUDIO / ELEVENLABS</p><h2>Voiceover & sound effects</h2></div><span id="audioProviderStatus" class="small-note">Checking configuration…</span></div>
+      <p id="audioNotice" class="notice" role="status" aria-live="polite" hidden></p>
+      <div class="audio-project-row">
+        <label for="audioProjectSelect">PROJECT TIMELINE<select id="audioProjectSelect"></select></label>
+        <button id="refreshAudioStudio" class="quiet-button" type="button">Refresh audio</button>
+      </div>
+      <div class="audio-generation-grid">
+        <form id="voiceoverForm" class="audio-form">
+          <h3>Generate voiceover</h3>
+          <label for="voiceoverScript">NARRATION SCRIPT</label>
+          <textarea id="voiceoverScript" rows="4" maxlength="5000" placeholder="Write the narration for your video…"></textarea>
+          <div class="audio-form-row"><label for="voiceSelect">VOICE<select id="voiceSelect"><option value="">Load voices first</option></select></label><label for="voiceModel">MODEL<select id="voiceModel"><option value="eleven_multilingual_v2">Multilingual</option><option value="eleven_turbo_v2_5">Turbo</option><option value="eleven_flash_v2_5">Flash</option><option value="eleven_v3">Expressive</option></select></label></div>
+          <button id="generateVoiceover" class="primary-button" type="submit">Generate & save voiceover</button>
+        </form>
+        <form id="soundEffectForm" class="audio-form">
+          <h3>Generate sound effect</h3>
+          <label for="soundEffectPrompt">DESCRIBE THE SOUND</label>
+          <textarea id="soundEffectPrompt" rows="4" maxlength="500" placeholder="A soft cinematic transition whoosh…"></textarea>
+          <div class="audio-form-row"><label for="soundEffectDuration">DURATION<select id="soundEffectDuration"><option value="1">1 second</option><option value="2" selected>2 seconds</option><option value="4">4 seconds</option><option value="8">8 seconds</option></select></label></div>
+          <button id="generateSoundEffect" class="primary-button" type="submit">Generate & save effect</button>
+        </form>
+      </div>
+      <div class="audio-assets-grid">
+        <section><div class="section-heading"><h3>Saved audio assets</h3><span id="audioAssetCount" class="small-note">0 assets</span></div><div id="audioAssets" class="audio-assets"><p class="empty-copy">Your generated audio will appear here.</p></div></section>
+        <section><div class="section-heading"><h3>Project audio timeline</h3><span id="audioTimelineCount" class="small-note">0 clips</span></div><div id="audioTimeline" class="audio-timeline"><p class="empty-copy">Add a saved asset to your project timeline.</p></div></section>
+      </div>
+      <div class="audio-export-row"><label for="audioExportVideo">SOURCE VIDEO<select id="audioExportVideo"><option value="">Generate a video clip first</option></select></label><button id="exportAudioVideo" class="primary-button" type="button">Export MP4 with timeline audio</button></div>
+      <p class="helper">Export mixes up to eight saved audio clips with a completed video job. The current source and output limit is 50 MB; your local visual timeline is not yet a multi-clip render timeline.</p>
+    </section>
+  <section class="workspace secondary-panel export-panel" id="exportPanel" hidden>
+    <div><p class="eyebrow">EXPORT / DELIVERY</p><h2>Ready when you are.</h2><p class="subhead">Your generated video clips are available to preview and download. Full timeline rendering will be enabled when the rendering provider is configured and connected.</p><div class="export-card"><div class="export-icon">↗</div><div><b>Generated clips</b><p>Download completed AI-generated scenes individually in MP4 format.</p></div></div><div id="exports" class="exports"><p class="empty-copy">No generated clips yet. Create a scene to see it here.</p></div><button id="backToEdit" class="quiet-button" type="button">← Back to timeline</button></div>
+    <aside class="export-aside"><p class="eyebrow">PROJECT CHECKLIST</p><div class="check-row"><span id="checkTemplate">○</span>Starting point selected</div><div class="check-row"><span id="checkClips">○</span>Clips in timeline</div><div class="check-row"><span id="checkDraft">✓</span>Draft saved in this browser</div><div class="provider-note"><b>Next integration</b><p>Connect a cloud timeline renderer to export your complete edit as one MP4.</p></div></aside>
+  </section>
+  <section class="studio-chat" aria-label="NasrinAI Studio chat">
+    <button id="studioChatToggle" class="studio-chat-toggle" type="button" aria-expanded="false" aria-controls="studioChatPanel"><span class="chat-orb" aria-hidden="true">N</span><span><b>Ask NasrinAI</b><small>Creative partner · Video-aware chat</small></span><span class="chat-toggle-mark">↗</span></button>
+    <aside id="studioChatPanel" class="studio-chat-panel" hidden aria-label="Chat with NasrinAI">
+      <header class="studio-chat-header"><div><p class="eyebrow">NASRINAI / STUDIO</p><h2>Let’s shape your video.</h2><p>Ask for ideas, scripts, shot lists, or help improving this project.</p></div><button id="studioChatClose" class="quiet-button" type="button" aria-label="Close chat">×</button></header>
+      <div id="studioChatMessages" class="studio-chat-messages" role="log" aria-live="polite" aria-label="Chat messages"><div class="studio-chat-welcome"><span class="chat-orb" aria-hidden="true">N</span><b>Your creative partner is here.</b><p>I can help with your current video brief, prompts, scenes, pacing, and story.</p><div class="chat-suggestions"><button type="button" data-chat-suggestion="Improve the prompt for my current video project.">Improve my prompt</button><button type="button" data-chat-suggestion="Create a shot-by-shot storyboard for this project.">Build a storyboard</button><button type="button" data-chat-suggestion="Suggest a stronger opening hook for this video.">Find a stronger hook</button></div></div></div>
+      <form id="studioChatForm" class="studio-chat-composer"><textarea id="studioChatInput" rows="2" maxlength="6000" placeholder="Ask NasrinAI about your video…" aria-label="Message NasrinAI"></textarea><div class="studio-chat-composer-bottom"><span>Project-aware · Enter to send</span><button id="studioChatSend" class="primary-button" type="submit">Send ↗</button></div></form>
+    </aside>
+  </section>
+  <footer><span>NASRINAI VIDEO STUDIO <span class="dot">•</span> EARLY ACCESS</span><span>Built for ideas in motion.</span></footer>
+</main>
+</body>
+</html>

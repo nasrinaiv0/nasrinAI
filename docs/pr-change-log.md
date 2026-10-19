@@ -1,11 +1,10 @@
 ## ElevenLabs Video Studio integration (2026-10-20)
 
-- Added the ElevenLabs Developer plugin for Video Studio voice discovery, narration generation, and sound-effect generation, with server-side credentials and Max/Ultra authorization/rate checks.
-- Added private, owner-scoped persistent MP3 assets, preview/download/delete endpoints, project timeline placement/edit/remove APIs, and a dedicated responsive `/studio/` workspace with email-code sign-in.
-- Added FFmpeg-based MP4 export that mixes project timeline audio with source video audio, plus output/input limits, bounded runtime, temporary-file cleanup, and ownership checks.
-- Added migration `030_video_studio_audio_assets.sql`, Supabase Storage upload/remove handling, route/store/UI regression tests, an FFmpeg render integration test, and a CI workflow for tests and secret scanning.
-- Security/product notes: the ElevenLabs key stays server-side; Studio subdomain redirects to the primary host so existing HttpOnly refresh cookies remain same-origin. Dubbing, cloning, music generation, and other ElevenLabs capabilities are not included.
-- **Validation:** local sandbox run: 805 passed, 0 failed, 1 skipped; secret scan found no secrets in 572 files; JavaScript syntax checks passed. GitHub “Tests and security checks” passed. A separate Documentation Gate initially failed because this changelog entry was missing; rerun the gate after this update. Supabase migration application and live deployed Studio/export smoke tests are still pending.
+- Added ElevenLabs as a Developer plugin that opens the existing Video Studio workspace. The plugin supports server-side voice discovery, narration generation, and sound-effect generation; it does not claim unsupported ElevenLabs capabilities.
+- Added owner-scoped private MP3 assets, protected preview/download/delete endpoints, project timeline placement/edit/remove APIs, and FFmpeg-based MP4 export with source audio mixing.
+- Extended the existing `public/video-studio.html` workspace with voiceover/effect controls, saved assets, a persistent project audio timeline, and MP4 export. The Studio subdomain redirects to the primary site origin so the existing HttpOnly refresh cookie remains same-origin.
+- Added migration `030_video_studio_audio_assets.sql`, server-side provider adapter, bounded render limits and cleanup, regression tests, and a real FFmpeg render integration test.
+- **Validation:** sandbox full suite: 805 passed, 0 failed, 1 skipped; secret scan found no secrets in 572 files; JavaScript syntax checks passed. GitHub Tests and security checks passed. Live Supabase migration and deployed end-to-end smoke tests remain pending.
 
 
 ## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
@@ -1100,3 +1099,59 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - `main` had already received newer versions of the audio-chunk and video-scene code and a stricter PDF page-count check, so on conflict `main`'s versions were kept. What this PR still adds: the clearer scene-selection comment, a test that OCR rejects missing page numbers, and a fix for two over-escaped line breaks (`'\\n\\n'`) that would have put the characters `\n\n` between transcript parts instead of a blank line (test added).
 - Not run locally: the test suite (a half-installed package in this session); GitHub CI is the check of record.
+
+
+## October 2026 documentation reconciliation (2026-10-20)
+
+- Added [October 2026 Implementation Ledger](2026-10-implementation-ledger.md), grouping the current merged work by area and linking the main PRs. It separates merged code from documentation-only specifications and flags migration, OAuth, provider and live-device verification still required.
+- Added [NasrinAI Video Studio Architecture](ai-video-studio-architecture.md), a proposal for a complete template-driven editor plus AI video generation. Proposed default: Shotstack Studio/Edit API, Runway generation adapter, provider-neutral project model and licensed provider templates plus NasrinAI originals; Creatomate remains a proof-of-concept comparator/optional adapter.
+- These documents do not implement the Video Studio or claim that any pending provider, migration, CI run or production deployment is complete.
+
+
+## NasrinAI Video Studio — initial frontend MVP (feature branch)
+
+- Added `public/video-studio.html`, `public/video-studio.css`, and `public/video-studio.js`: responsive template gallery, prompt-to-video creation through the existing authenticated video API, timeline clip management, browser-local draft metadata, generated MP4 preview/download, and a desktop navigation link.
+- Added `test/video-studio.test.js` to cover key UI controls, authenticated API wiring, strict-CSP external script use, and navigation preservation.
+- Updated `docs/ai-video-studio-architecture.md` to distinguish the working MVP slice from the still-pending composed timeline renderer, cloud asset/project persistence, and provider-template catalog.
+- **Not yet complete:** timeline edits do not re-render generated footage; uploads remain browser-session only; full MP4 timeline export and cross-device project sync are not implemented. Do not report the whole Video Studio as complete.
+- **Validation:** regression tests were added but have not been executed in this remote documentation/feature-authoring session. Run `npm test` and review the preview deployment before merging.
+
+- **Cross-surface handoff update:** added a Studio `Continue in chat` action and main-chat fragment handler. The project brief is validated, removed from the URL immediately, and prefilled for explicit user review/send. This shares project metadata and prompt context only; cloud project persistence and media transfer remain pending.
+
+- **Dedicated Studio chat:** documented the new responsive Ask NasrinAI panel, its use of the existing `/v1/chat` API, bounded project-context injection, in-memory authenticated/guest token handling, test coverage, and release limitations. This adds contextual creative chat inside Studio; it does not yet provide shared cloud project persistence or guarantee reuse of main-chat history.
+
+
+## Repository-wide change documentation policy (2026-10-20)
+
+- **Owner requirement:** every commit and every pull request must be documented; documentation is part of the change, not optional follow-up work.
+- Added `docs/change-documentation-policy.md` defining commit-level records, PR requirements, architecture/API/database/security documentation, test evidence, and honest reporting of incomplete checks.
+- Added a pull request template with required change, risk, documentation, and validation sections.
+- Added a GitHub Actions documentation gate that fails a PR when `docs/pr-change-log.md` is not changed. The template also requires commit-by-commit changelog coverage; reviewers must verify each implementation commit has a corresponding entry.
+- **Enforcement boundary:** the PR gate can verify the changelog is part of the PR, but does not independently prove every commit has its own matching entry. Commit-level coverage remains a review requirement unless a future commit-aware check is added.
+- **Validation:** files and workflow added to `feat/video-studio-mvp`; CI execution and workflow behavior have not yet been confirmed.
+
+
+## Documentation policy enforcement files (2026-10-20)
+
+- `docs/change-documentation-policy.md` defines mandatory commit/PR documentation, test evidence, deeper-document updates, and merge review requirements. The policy was clarified to account for GitHub's file-by-file commit workflow: record every generated commit SHA and purpose in the next changelog update before continuing.
+- `.github/pull_request_template.md` adds required purpose, changes, changelog-per-commit, tests, security/data, deployment, and limitations checklists.
+- `.github/workflows/documentation-gate.yml` checks that each PR changes `docs/pr-change-log.md`; it does not independently prove one-to-one commit coverage, so reviewers must check the PR's commit list against the log.
+- **Policy setup commits:** `808ecc3c27da6c0c62e42631cad8db1af14f7a0f` — policy requirement added to the changelog; `0be28e07a5857a36ae962d577e9e7652701b0000` — policy document created; `c84e65480fc76a57b7c16903be031aed6fc32bac` — PR template created; `f326b020df2bbee89d08865d2818015ae51affa8` — changelog gate workflow created.
+- **Validation:** source files committed to `feat/video-studio-mvp`. GitHub Actions execution and the full test suite are not yet confirmed.
+- This changelog update records the enforcement setup and its follow-up policy clarification; do not treat the documentation gate as proof that every individual commit has a matching entry.
+
+
+## Fix Vercel routing regression test (2026-10-20)
+
+- **Failure found in CI:** `test/vercel.test.js`, test “API paths are sent to the function, with the original path passed along”. The test's rewrite helper ignored Vercel's host match condition and incorrectly treated the `studio.nasrinai.com` root rewrite as applying to the main `nasrinai.com` host. Actual failure: expected `null` for `/`, received `/video-studio.html`.
+- **Fix:** commit `a3d56e8e29bf546dc4aacea0483dcdc55512b83e` updates the test helper to respect host-specific rewrite conditions and adds explicit assertions for both the main site root and the Studio host.
+- **Production configuration:** unchanged. The Studio rewrite is intentional and remains scoped to `studio.nasrinai.com`; this was a test-model defect, not a routing change.
+- **Validation:** the failing assertion is addressed in the regression test. CI has not yet rerun on the fix, so the suite is not yet confirmed passing.
+
+
+### Follow-up correction to the Vercel test edit (2026-10-20)
+
+- **Commit:** `42f0f64c58ebc39e7231ff0fbb7c1b8c7675907e`.
+- The first test edit was malformed because the regular-expression line was truncated, causing a JavaScript `SyntaxError` before the test could execute. Replaced the complete `test/vercel.test.js` with a syntactically complete version, retaining all previous assertions and the new host-aware checks.
+- The earlier behavioral failure and root cause remain as recorded above; this follow-up fixes the edit itself.
+- **Validation:** new CI run is required to confirm the file parses and all tests pass; no pass is claimed yet.

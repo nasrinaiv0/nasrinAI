@@ -3765,20 +3765,3 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .professional-job-footer a:hover{text-decoration:underline}
 .professional-search-footnote{margin:.75rem .1rem 0;font-size:.76rem;line-height:1.5;opacity:.62}
 @media(max-width:38rem){.professional-jobs{padding:.75rem}.professional-search-form{padding:.75rem}.professional-search-filters{grid-template-columns:1fr}.professional-job-fields{grid-template-columns:1fr}.professional-job-evidence{grid-column:auto}.professional-search-actions{align-items:flex-start;flex-direction:column}.professional-search-actions .btn{width:100%}.professional-search-results-head{align-items:flex-start}.professional-search-cards{max-height:62vh}}
-
-
-/* Video Studio generated audio assets and timeline controls */
-.video-studio-audio{display:grid;gap:12px;margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
-.video-studio-audio-controls,.video-studio-saved-asset-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.video-studio-audio-controls .field{min-width:140px;max-width:100%;flex:1}
-.video-studio-audio-result{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2,var(--surface))}
-.video-studio-audio-result audio{width:100%;max-width:100%}
-.video-studio-saved-assets{display:grid;gap:10px;margin-top:6px}
-.video-studio-saved-asset{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--border)}
-.video-studio-saved-asset>span{min-width:0;overflow-wrap:anywhere}
-.video-studio-saved-asset-actions{justify-content:flex-end}
-@media(max-width:560px){.video-studio-audio-controls{display:grid;grid-template-columns:1fr}.video-studio-audio-controls>*{width:100%;min-width:0}.video-studio-saved-asset{align-items:flex-start;flex-direction:column}.video-studio-saved-asset-actions{justify-content:flex-start}}
-
-
-.video-studio-export{display:grid;gap:8px;margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
-.video-studio-export .btn{justify-self:start}
