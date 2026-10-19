@@ -14,7 +14,7 @@ export const PROFESSIONAL_SEARCH_CATEGORIES = Object.freeze([
 
 const CATEGORY_GUIDANCE = Object.freeze({
   posts_discussions: 'public professional posts discussions opinions trends',
-  jobs_hiring: 'jobs hiring vacancies recruitment careers openings',
+  jobs_hiring: 'jobs hiring vacancies recruitment careers openings. Find up to 20 distinct publicly accessible job listings across relevant employers and reputable job boards; include exact title, company, location or remote status, pay range, required qualifications, benefits, responsibilities, and direct source URL when available. Keep each listing separate and source-backed. Explicitly mark missing fields as Not disclosed and never invent salary, employer details, or requirements.',
   pay_benefits: 'salary compensation pay benefits bonus equity',
   reviews_workplace: 'public company reviews workplace culture employee experience',
   opportunities: 'freelance contracts consulting partnerships business opportunities',
