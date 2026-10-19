@@ -95,6 +95,55 @@
   $('removeClip').addEventListener('click',()=>{state.clips=state.clips.filter(c=>c.id!==state.selected);state.selected=null;$('inspectorContent').hidden=true;$('inspectorEmpty').hidden=false;renderTimeline();saveDraft();notice('Clip removed from the timeline.');});
   $('clearTimeline').addEventListener('click',()=>{state.clips=[];state.selected=null;$('inspectorContent').hidden=true;$('inspectorEmpty').hidden=false;renderTimeline();saveDraft();});
   $('backToEdit').addEventListener('click',()=>switchTab('edit'));
+
+  // Dedicated project-aware chat. Uses the same /v1/chat service as the main app;
+  // guests receive a scoped guest session and signed-in users use the existing
+  // in-memory access token. No API keys or tokens are stored in localStorage.
+  const studioChat = { conversationId:null, guestToken:null, busy:false };
+  function chatBubble(role, text) {
+    const welcome=$('studioChatMessages').querySelector('.studio-chat-welcome');
+    if(welcome)welcome.remove();
+    const item=document.createElement('div');item.className='studio-chat-message '+role;
+    const label=document.createElement('span');label.className='chat-role';label.textContent=role==='user'?'YOU':'NASRINAI';
+    const bubble=document.createElement('div');bubble.className='chat-bubble';bubble.textContent=text;
+    item.append(label,bubble);$('studioChatMessages').append(item);$('studioChatMessages').scrollTop=$('studioChatMessages').scrollHeight;return bubble;
+  }
+  async function chatAccessToken(){
+    try{return await refreshToken();}
+    catch{
+      if(studioChat.guestToken)return studioChat.guestToken;
+      const response=await fetch('/v1/guest/sessions',{method:'POST',headers:{Accept:'application/json'},credentials:'same-origin'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||typeof data.token!=='string')throw new Error(data.error?.message||'Could not start a chat session. Please sign in and try again.');
+      studioChat.guestToken=data.token;return data.token;
+    }
+  }
+  function currentProjectContext(){
+    const clips=state.clips.slice(0,20).map((c,i)=>`${i+1}. ${safe(c.name)||'Untitled clip'} (${c.kind}, ${Number(c.duration)||0}s)`).join('\\n');
+    return ['Current NasrinAI Video Studio project:',`Name: ${safe($('projectName').value)||'Untitled video'}`,`Template: ${state.template}`,`Aspect ratio: ${$('aspect').value}`,`Generation prompt: ${safe($('prompt').value).slice(0,1200)||'(not set)'}`,`Timeline clips:\\n${clips||'(none yet)'}`].join('\\n');
+  }
+  async function sendStudioChat(message){
+    const textValue=safe(message).slice(0,6000);if(!textValue||studioChat.busy)return;
+    $('studioChatInput').value='';chatBubble('user',textValue);studioChat.busy=true;$('studioChatSend').disabled=true;$('studioChatSend').textContent='Thinking…';
+    const reply=chatBubble('assistant','Thinking…');
+    try{
+      const token=await chatAccessToken();
+      const body={message:currentProjectContext()+'\\n\\nUser request: '+textValue,stream:false};
+      if(studioChat.conversationId)body.conversation_id=studioChat.conversationId;
+      const response=await fetch('/v1/chat',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body)});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error?.message||'NasrinAI could not answer right now. Please try again.');
+      if(typeof data.conversation_id==='string')studioChat.conversationId=data.conversation_id;
+      reply.textContent=String(data.message?.content||data.reply||'I could not create a reply for that message.');
+    }catch(error){reply.textContent=error.message||'Chat is temporarily unavailable.';}
+    finally{studioChat.busy=false;$('studioChatSend').disabled=false;$('studioChatSend').textContent='Send ↗';$('studioChatMessages').scrollTop=$('studioChatMessages').scrollHeight;$('studioChatInput').focus();}
+  }
+  $('studioChatToggle').addEventListener('click',()=>{const panel=$('studioChatPanel');const open=panel.hidden;panel.hidden=!open;$('studioChatToggle').setAttribute('aria-expanded',String(open));if(open)$('studioChatInput').focus();});
+  $('studioChatClose').addEventListener('click',()=>{$('studioChatPanel').hidden=true;$('studioChatToggle').setAttribute('aria-expanded','false');});
+  $('studioChatForm').addEventListener('submit',event=>{event.preventDefault();sendStudioChat($('studioChatInput').value);});
+  $('studioChatInput').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('studioChatForm').requestSubmit();}});
+  document.querySelectorAll('[data-chat-suggestion]').forEach(button=>button.addEventListener('click',()=>sendStudioChat(button.dataset.chatSuggestion)));
+
   loadDraft();selectTemplate(state.template,false);renderTimeline();renderExports();
   refreshToken().then(()=>{$('saveState').textContent='Signed in · local draft';}).catch(()=>{$('saveState').textContent='Sign in required for AI generation';notice('Sign in to NasrinAI in this browser to generate video. You can still explore the template gallery.',true);});
 })();
