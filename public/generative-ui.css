@@ -22,3 +22,22 @@
 @keyframes genui-flow{to{background-position:16px 0}}
 @media(max-width:520px){.genui-card{border-radius:16px}.genui-node{flex-basis:138px;min-width:125px}.genui-connector{flex-basis:20px}.genui-metric-value{font-size:1.08rem}}
 @media(prefers-reduced-motion:reduce){.genui-connector-line{animation:none}}
+
+
+/* Interactive output: animated entrance, focusable components and metric transitions. */
+.genui-enter{animation:genui-enter .42s cubic-bezier(.2,.75,.25,1) both}
+.genui-node{cursor:pointer;transition:border-color .18s ease,background .18s ease,transform .18s ease;animation:genui-node-in .38s both;animation-delay:calc(var(--genui-index,0)*55ms)}
+.genui-node:hover{border-color:var(--accent,#d97732);transform:translateY(-2px)}
+.genui-node:focus-visible,.genui-scenario:focus-visible{outline:2px solid var(--accent,#d97732);outline-offset:3px}
+.genui-node[aria-expanded=true]{border-color:var(--accent,#d97732);background:var(--accent-soft,rgba(217,119,50,.1))}
+.genui-node-detail[hidden]{display:none}
+.genui-scenario{transition:background .18s ease,border-color .18s ease,transform .18s ease}
+.genui-scenario:hover{transform:translateY(-1px)}
+.genui-metrics-refresh .genui-metric{animation:genui-metric-in .28s ease both}
+.genui-metrics-refresh .genui-metric:nth-child(2){animation-delay:35ms}
+.genui-metrics-refresh .genui-metric:nth-child(3){animation-delay:70ms}
+.genui-metrics-refresh .genui-metric:nth-child(4){animation-delay:105ms}
+@keyframes genui-enter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@keyframes genui-node-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes genui-metric-in{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.genui-enter,.genui-node,.genui-metrics-refresh .genui-metric{animation:none!important;transition:none!important}}
