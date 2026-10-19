@@ -1261,3 +1261,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit:** `f1bc5d7040b200cd6c8ff910f9b221adeb89962c` — `fix: restore prompt when opening cloud Studio project`.
 - Corrected the cloud-project hydration path so it restores the saved, bounded generation prompt into the Studio prompt field when a user opens a project.
 - **Validation:** source change committed; regression test and CI confirmation pending.
+
+
+### Video Studio cloud round-trip regression test (2026-10-20)
+
+- **Commit:** `c77cc8f325117222f13eaec65975a15e4ef25a70` — `test: cover cloud Studio prompt round trip`.
+- Added a regression test that asserts the bounded prompt is persisted in the cloud document and restored when opening a cloud project.
+- **Validation:** test added; CI pending.
