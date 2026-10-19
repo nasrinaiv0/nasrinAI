@@ -2,9 +2,9 @@
 
 - Added ElevenLabs as a Developer plugin that opens the existing Video Studio workspace. The plugin supports server-side voice discovery, narration generation, and sound-effect generation; it does not claim unsupported ElevenLabs capabilities.
 - Added owner-scoped private MP3 assets, protected preview/download/delete endpoints, project timeline placement/edit/remove APIs, and FFmpeg-based MP4 export with source audio mixing.
-- Extended the existing `public/video-studio.html` workspace with voiceover/effect controls, saved assets, a persistent project audio timeline, and MP4 export. The Studio subdomain redirects to the primary site origin so the existing HttpOnly refresh cookie remains same-origin.
+- Extended the existing `public/video-studio.html` workspace with voiceover/effect controls, saved assets, a persistent project audio timeline, and MP4 export. Studio-to-chat handoff now includes saved audio asset IDs and timeline metadata. The Studio subdomain redirects to the primary site origin so the existing HttpOnly refresh cookie remains same-origin.
 - Added migration `046_video_studio_audio_assets.sql`, server-side provider adapter, bounded render limits and cleanup, regression tests, and a real FFmpeg render integration test.
-- **Validation:** sandbox full suite: 807 passed, 0 failed, 1 skipped; secret scan found no secrets in 572 files; JavaScript syntax checks passed. GitHub Tests and security checks passed. Live Supabase migration and deployed end-to-end smoke tests remain pending.
+- **Validation:** latest sandbox full suite: 807 passed, 0 failed, 1 skipped; secret scan and JavaScript syntax checks passed; `npm audit --audit-level=high` reported 0 vulnerabilities. GitHub CI run 39318253221 passed test, syntax, secret scan, dependency audit, and database jobs; Documentation Gate passed. Migration 046 was applied to the connected Supabase project and verified: both tables exist, RLS is enabled, anon/authenticated table access is revoked, service_role access is granted, and the existing media bucket remains private. Deployed Studio/provider/export smoke tests remain pending because the Vercel preview build was canceled by the project's ignored-build-step configuration.
 
 
 ## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
