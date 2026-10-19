@@ -1172,3 +1172,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added additive migration `051_video_studio_projects.sql` with tenant/user ownership, JSON document size/type constraints, update version, and owner/update index.
 - RLS is enabled and browser roles have no table privileges; application access is intended through the server-side service role only.
 - **Status:** schema foundation only. Authenticated CRUD APIs, frontend sync, migration execution, database tests, and deployment are not yet complete. Do not describe cloud persistence as usable until all are verified.
+
+
+### Video Studio owner-scoped store operations (2026-10-20)
+
+- **Commit:** `3990e67752ceb5feaceba9d9b25ec512e3a89c5f` — `feat: add owner-scoped Video Studio project store methods`.
+- Added list/get/create/update/delete methods filtered by tenant and authenticated user; project document and metadata are returned as a bounded, server-owned record.
+- Updates support an optional expected-version filter to detect stale writes.
+- **Validation:** source edit is committed; CI and store tests are pending. No production migration was run.
