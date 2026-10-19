@@ -7,13 +7,13 @@ import path from 'node:path';
 import ffmpegStatic from 'ffmpeg-static';
 import { createVideoStudioExporter } from '../src/video-studio-export.js';
 
-function run(binary, args) {
+function run(binary, args, { allowFailure = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
     child.stderr.on('data', chunk => { stderr += chunk.toString(); });
     child.on('error', reject);
-    child.on('close', code => code === 0 ? resolve(stderr) : reject(new Error(stderr || 'ffmpeg failed')));
+    child.on('close', code => code === 0 || allowFailure ? resolve(stderr) : reject(new Error(stderr || 'ffmpeg failed')));
   });
 }
 
@@ -44,7 +44,7 @@ test('FFmpeg export mixes project timeline audio into an MP4 that contains video
     assert.ok(output.length > 1000);
     const outputPath = path.join(dir, 'output.mp4');
     await writeFile(outputPath, output);
-    const probe = await run(ffmpegStatic, ['-hide_banner', '-i', outputPath]);
+    const probe = await run(ffmpegStatic, ['-hide_banner', '-i', outputPath], { allowFailure: true });
     assert.match(probe, /Video:/i);
     assert.match(probe, /Audio:/i);
   } finally {
