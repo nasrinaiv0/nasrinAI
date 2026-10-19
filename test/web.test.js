@@ -214,7 +214,7 @@ test('YouTube search returns only valid embeddable video IDs and keeps the API k
   assert.equal(searchRequest.url.searchParams.get('q'), 'how to configure an app');
   assert.equal(searchRequest.url.searchParams.get('key'), 'test-secret-key');
   assert.equal(searchRequest.options.method, 'GET');
-  assert.equal(statusRequest.url.searchParams.get('part'), 'status');
+  assert.equal(statusRequest.url.searchParams.get('part'), 'status,contentDetails');
   assert.equal(statusRequest.url.searchParams.get('id'), 'abcdefghijk,lmnopqrstuv');
   assert.equal(statusRequest.url.searchParams.get('key'), 'test-secret-key');
 });
