@@ -3,7 +3,7 @@
 - Added ElevenLabs as a Developer plugin that opens the existing Video Studio workspace. The plugin supports server-side voice discovery, narration generation, and sound-effect generation; it does not claim unsupported ElevenLabs capabilities.
 - Added owner-scoped private MP3 assets, protected preview/download/delete endpoints, project timeline placement/edit/remove APIs, and FFmpeg-based MP4 export with source audio mixing.
 - Extended the existing `public/video-studio.html` workspace with voiceover/effect controls, saved assets, a persistent project audio timeline, and MP4 export. The Studio subdomain redirects to the primary site origin so the existing HttpOnly refresh cookie remains same-origin.
-- Added migration `030_video_studio_audio_assets.sql`, server-side provider adapter, bounded render limits and cleanup, regression tests, and a real FFmpeg render integration test.
+- Added migration `046_video_studio_audio_assets.sql`, server-side provider adapter, bounded render limits and cleanup, regression tests, and a real FFmpeg render integration test.
 - **Validation:** sandbox full suite: 805 passed, 0 failed, 1 skipped; secret scan found no secrets in 572 files; JavaScript syntax checks passed. GitHub Tests and security checks passed. Live Supabase migration and deployed end-to-end smoke tests remain pending.
 
 
