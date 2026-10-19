@@ -1,6 +1,6 @@
 # Professional intelligence search
 
-NasrinAI has an authenticated professional-intelligence search API and a responsive section inside the existing Research workspace for six categories: Posts & discussions, Jobs & hiring, Pay & benefits, Reviews & workplace, Opportunities, and Terms & requirements. The UI includes source/date/location filters, LinkedIn connection status, connect/disconnect, and source-separated results.
+NasrinAI has a backend-only authenticated professional-intelligence search API for six categories: Posts & discussions, Jobs & hiring, Pay & benefits, Reviews & workplace, Opportunities, and Terms & requirements. This change adds no interface, buttons, or browser-side LinkedIn controls. Results keep public-web research and authorized LinkedIn API records in separate source groups.
 
 ## Search API
 
@@ -60,7 +60,7 @@ Do not use scraping, session cookies, fake accounts, or access-control workaroun
 
 ## Current limitations
 
-- The UI is implemented, but needs end-to-end browser testing against a deployment with the feature enabled and approved LinkedIn credentials.
+- No UI is included by design. Validate the API through authenticated integration tests and a deployment configured with approved LinkedIn credentials.
 - Search result date ranges currently guide public-web discovery but do not guarantee strict date filtering.
 - Pay and workplace claims can be anecdotal or non-representative; preserve source attribution and timestamps when available.
 - API credentials and LinkedIn product approval must be supplied by the owner; this repository change does not grant approval.
