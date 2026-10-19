@@ -1326,3 +1326,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reconciled the architecture status against the actual recursive repository tree. Migration 051 exists, but a dedicated cloud-project API/store module was not found on `main` or the renderer branch; cloud persistence is therefore not treated as operational without further evidence.
 - Added explicit phase gates for authenticated project APIs, durable private media storage, a real server-side render worker, and release validation.
 - **Validation:** documentation-only; CI status for the branch remains pending.
+
+
+### Video Studio cloud API status correction (2026-10-20)
+
+- **Commit:** `6ed64cb3bc8fd8cd5b9ae14968bda6cad1be0d21` — `docs: correct Video Studio cloud API implementation status`.
+- Follow-up source inspection confirmed that cloud-project route handlers are in `src/routes.js` and CRUD methods are in `src/store/supabase-store.js`; they are not separate files. Corrected the previous checkpoint so it does not incorrectly claim the API is absent.
+- **Validation:** source inspection and documentation correction only. Live authenticated round-trip, deployed migration state, and cross-device media persistence remain unverified.
