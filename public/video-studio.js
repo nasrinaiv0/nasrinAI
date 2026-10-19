@@ -68,6 +68,22 @@
   $('addTemplate').addEventListener('click',()=>addClip({id:crypto.randomUUID(),name:templates[state.template].title,kind:'template',duration:8,title:'',start:0,url:null}));
   $('aspect').addEventListener('change',()=>{$('previewFormat').textContent=$('aspect').value+' · '+($('aspect').value==='9:16'?'PORTRAIT':'LANDSCAPE');$('previewFrame').classList.toggle('portrait',$('aspect').value==='9:16');saveDraft();});
   $('saveProject').addEventListener('click',()=>{saveDraft();notice('Draft saved in this browser. Cloud sync is not enabled yet.');});
+  $('continueInChat').addEventListener('click',()=>{
+    const project={
+      source:'NasrinAI Video Studio',
+      name:safe($('projectName').value).slice(0,80)||'Untitled video',
+      template:state.template,
+      aspect:$('aspect').value,
+      prompt:safe($('prompt').value).slice(0,1800),
+      clips:state.clips.slice(0,30).map((c,i)=>({order:i+1,name:safe(c.name).slice(0,100),kind:c.kind,duration:Number(c.duration)||0,title:safe(c.title||'').slice(0,140),video_id:c.videoId||null})),
+      generated:state.generated.slice(0,20).map(c=>({name:safe(c.name).slice(0,100),video_id:c.videoId||null,duration:Number(c.duration)||0})),
+      note:'This is a project brief shared from the current Studio browser draft. Media files themselves are not attached. Help me continue planning or editing this video in chat.'
+    };
+    const encoded=encodeURIComponent(JSON.stringify(project));
+    if(encoded.length>7000){notice('This project brief is too large to transfer at once. Remove some timeline clips and try again.',true);return;}
+    saveDraft();
+    window.open('https://nasrinai.com/#studio_context='+encoded,'_blank','noopener,noreferrer');
+  });
   $('projectName').addEventListener('change',saveDraft);
   $('addMedia').addEventListener('click',()=>$('mediaInput').click());
   $('mediaInput').addEventListener('change',()=>{for(const file of Array.from($('mediaInput').files||[])){if(file.size>100*1024*1024){notice(file.name+' is larger than the 100 MB browser upload limit.',true);continue;}const url=URL.createObjectURL(file);state.objectUrls.set(url,true);addClip({id:crypto.randomUUID(),name:file.name,kind:'upload',duration:file.type.startsWith('audio/')?30:8,title:'',start:0,url,file});} $('mediaInput').value='';});
