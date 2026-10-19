@@ -26,7 +26,7 @@ function appOriginOf(req) {
 // Words the chat stream may send to say what Nasrin is doing (no free text).
 const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -1444,7 +1444,7 @@ return { body: { sites: await connect.list(caller) } }; }
       method: 'GET',
       path: '/v1/video-studio/elevenlabs/status',
       scope: 'chat',
-      handler: async () => ({ body: elevenlabs ? elevenlabs.status() : { configured: false, capabilities: [] } })
+      handler: async () => ({ body: { ...(elevenlabs ? elevenlabs.status() : { configured: false, capabilities: [] }), video_export_available: Boolean(videoStudioExporter?.available) } })
     },
     {
       method: 'GET',
@@ -1604,6 +1604,52 @@ return { body: { sites: await connect.list(caller) } }; }
         const removed = await store?.deleteVideoStudioTimelineItem?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId, id: params.id });
         if (!removed) throw new HttpError(404, 'not_found', 'Timeline item not found.');
         return { body: { deleted: true, id: params.id } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/export',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, body, res }) => {
+        await requireVideoStudioAudio(caller);
+        if (!videoStudioExporter?.available) throw new HttpError(503, 'video_export_unavailable', 'Video export is not available on this server yet.');
+        if (!videos?.read || !store?.listVideoStudioTimelineItems || !store?.readVideoStudioAudioAsset) {
+          throw new HttpError(503, 'video_export_unavailable', 'Video Studio export storage is not ready yet.');
+        }
+        const projectId = body?.project_id;
+        await requireVideoStudioProject(caller, projectId);
+        await limiter.signIn('video-studio-export:' + caller.actor.id, config.video?.perHour || 10);
+        const video = await videos.read(caller, body?.video_id);
+        const items = await store.listVideoStudioTimelineItems({
+          tenantId: caller.tenantId, ownerId: caller.actor.id, projectId
+        });
+        if (!items.length) throw new HttpError(400, 'video_timeline_empty', 'Add at least one audio clip to this project timeline before exporting.');
+        if (items.length > 8) throw new HttpError(400, 'video_timeline_limit', 'Export supports up to eight audio clips at a time.');
+        const audioAssets = await Promise.all(items.map(item => store.readVideoStudioAudioAsset({
+          tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId
+        })));
+        if (audioAssets.some(asset => !asset)) throw new HttpError(404, 'audio_asset_missing', 'A timeline audio asset could not be found. Remove the missing clip and try again.');
+        const started = now();
+        try {
+          const output = await videoStudioExporter.exportWithAudio({
+            videoBytes: video.bytes,
+            durationSeconds: video.producedSeconds || video.targetSeconds,
+            timelineItems: items,
+            audioAssets
+          });
+          await usageLog?.record?.(caller, { provider: 'ffmpeg', model: 'video-studio-mix', outcome: 'ok', task: 'video_studio_export', latencyMs: now() - started });
+          res.writeHead(200, {
+            'Content-Type': 'video/mp4', 'Content-Length': output.length,
+            'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'attachment; filename="nasrinai-video-with-audio.mp4"'
+          });
+          res.end(output);
+        } catch (err) {
+          await usageLog?.record?.(caller, { provider: 'ffmpeg', model: 'video-studio-mix', outcome: 'error', task: 'video_studio_export', latencyMs: now() - started }).catch?.(() => {});
+          throw err;
+        }
       }
     },
     {
