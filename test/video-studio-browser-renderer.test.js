@@ -18,3 +18,9 @@ test('Video Studio exposes bounded browser timeline rendering and honest format 
   assert.match(js, /A timeline clip could not be loaded/);
   assert.match(css, /\.timeline-render/);
 });
+
+test('browser renderer audio stream declarations remain valid source lines', async () => {
+  const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
+  assert.match(js, /audioDestination=audioContext\?audioContext\.createMediaStreamDestination\(\):null;\s+const output=new MediaStream/);
+  assert.doesNotMatch(js, /null;\\\\n\s*const output=new MediaStream/);
+});
