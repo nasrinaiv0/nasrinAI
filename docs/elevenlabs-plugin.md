@@ -1,6 +1,6 @@
 # ElevenLabs Developer Plugin — Video Studio Integration
 
-Status: Phase 1 and Phase 2 are implemented on the feature branch: server-side voice discovery, voiceover/effect generation, private persistent audio assets, owner-scoped asset endpoints, project timeline records, preview/download/delete, and timeline placement/update/remove. MP4 audio mixing/export and the dedicated studio.nasrinai.com workspace remain incomplete.
+Status: Phases 1–3 and the first dedicated Studio workspace are implemented on the feature branch: server-side voice discovery, persistent audio assets, owner-scoped timeline CRUD, FFmpeg MP4 audio mixing/export, and a dedicated `studio.nasrinai.com` UI. Full CI, production storage/migration, authentication, and deployed FFmpeg smoke tests remain required before this is considered release-ready.
 
 ## Product intent
 
@@ -53,6 +53,7 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 - `POST /v1/video-studio/timeline` — place a saved asset on an owned project timeline.
 - `PATCH /v1/video-studio/timeline/:id` — update start, trims, gain, or lane.
 - `DELETE /v1/video-studio/timeline/:id?project_id=...` — remove a timeline placement.
+- `POST /v1/video-studio/export` — render a completed, caller-owned source video with up to eight clips from an owned project timeline and return an MP4 download.
 
 ## Implemented Phase 1 API
 
@@ -61,7 +62,7 @@ Implement these as distinct, clearly labeled actions. Every action must be enabl
 - `POST /v1/video-studio/elevenlabs/voiceover` — accepts script text and optional voice/model IDs; returns an MP3 for browser preview/download.
 - `POST /v1/video-studio/elevenlabs/sound-effects` — accepts a prompt and optional duration; returns an MP3 for browser preview/download.
 - Set `ELEVENLABS_API_KEY` in the server/deployment environment only. Never use a `PUBLIC_*` variable for this secret.
-- Generated audio is now persisted in the private `media` Storage bucket with owner-scoped metadata, and timeline placement is saved in the database. It is **not yet mixed into the final MP4**. Apply `db/migrations/030_video_studio_audio_assets.sql` before deploying this branch. The migration expects the existing private `media` bucket and the `projects` table.
+- Generated audio is persisted in the private `media` Storage bucket with owner-scoped metadata, and timeline placement is saved in the database. The export route now uses `ffmpeg-static` to mix selected timeline clips with source audio and return an MP4. Apply `db/migrations/030_video_studio_audio_assets.sql` before deploying this branch. The migration expects the existing private `media` bucket and the `projects` table. Export is currently limited to 50 MB input/output and eight audio clips; verify FFmpeg binary inclusion, function memory, timeout, and actual output on the deployed Vercel runtime.
 
 ## Server API design (adapt to existing route conventions)
 
@@ -91,8 +92,8 @@ Long-running operations must use the existing durable job pattern if available. 
 
 ## Delivery checklist
 
-1. Build the dedicated `studio.nasrinai.com` workspace and ensure authentication works across the main and studio origins without copying bearer tokens into URLs or insecure storage.
-2. Implement MP4 audio mixing/export using a production-supported FFmpeg runtime and enforce output-size, duration, time, and spending limits.
-3. Add export tests that inspect the rendered MP4 and prove timeline audio is present at the intended offsets.
-4. Update privacy/terms disclosures, deployment configuration, and operational documentation.
-5. Run full tests, production build, secret scan, dependency audit, and deployment smoke tests before merge.
+1. Run the new GitHub Actions workflow and fix every failing test; verify the real FFmpeg render test rather than allowing it to skip on supported production platforms.
+2. Apply migration 030 and verify private Storage bucket upload/download/delete, metadata ownership, and timeline RLS/service-role access in Supabase.
+3. Complete an end-to-end deployed test: create a video, generate an audio asset, place it on a project timeline, export MP4, and inspect playback/audio timing.
+4. Verify the Studio sign-in flow, Turnstile, host redirect, responsive layout, and cross-origin account data on `studio.nasrinai.com`.
+5. Update privacy/terms disclosures, dependency audit, and release notes before merge.
