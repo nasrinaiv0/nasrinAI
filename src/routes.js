@@ -1532,7 +1532,7 @@ return { body: { sites: await connect.list(caller) } }; }
     },
     {
       // Unified professional intelligence search, backed by the existing public-web research pipeline.
-      // LinkedIn results remain a separate, explicitly unavailable channel until an approved API adapter is configured.
+      // LinkedIn results remain separate and are available only through approved API scopes and supported endpoints.
       method: 'POST',
       path: '/v1/professional-search',
       scope: 'chat',
