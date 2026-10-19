@@ -42,7 +42,7 @@
   };
   window.NasrinGeminiRealtime = {
     async start(session, hooks) {
-      if(!window.WebSocket||!window.AudioContext||!navigator.mediaDevices?.getUserMedia) throw new Error('Gemini realtime voice is not supported in this browser.');
+      if(!window.WebSocket||!window.AudioContext||!navigator.mediaDevices?.getUserMedia) throw new Error('Realtime voice is not supported in this browser.');
       const state={ws:null,ctx:null,processor:null,stream:null,sources:[],next:0,buffer:[],ready:false,stopping:false,setupTimer:null};
       const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(session.value));
       ws.binaryType='arraybuffer';
@@ -63,7 +63,7 @@
         const m=new Uint8Array(n);let o=0;for(const x of state.buffer){m.set(x,o);o+=x.length;}
         state.buffer=[];
         try{ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(m),mimeType:'audio/pcm;rate=16000'}}}));}
-        catch(e){hooks.error(e?.message||'Could not send microphone audio to Gemini.');}
+        catch(e){hooks.error('Could not send microphone audio. Please try again.');}
       };
       processor.onaudioprocess=e=>{
         if(!hooks.active()||hooks.muted()||state.stopping)return;
@@ -76,8 +76,8 @@
       ws.onopen=()=>{
         try{
           ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:'Speak in a natural adult vocal register at a comfortable, moderate pitch and normal conversational speed. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Keep articulation clear and intonation relaxed. ' + (session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.')}]}}}));
-          state.setupTimer=setTimeout(()=>{if(!state.ready&&!state.stopping)hooks.error('Gemini did not confirm the realtime audio setup. Please try again.');},12000);
-        }catch(e){hooks.error(e?.message||'Could not initialize Gemini realtime voice.');}
+          state.setupTimer=setTimeout(()=>{if(!state.ready&&!state.stopping)hooks.error('Voice setup timed out. Please try again.');},12000);
+        }catch(e){hooks.error('Could not initialize voice. Please try again.');}
       };
       ws.onmessage=async e=>{
         let raw=e.data;
@@ -85,8 +85,7 @@
           if(typeof Blob!=='undefined'&&raw instanceof Blob)raw=await raw.arrayBuffer();
           const msg=JSON.parse(typeof raw==='string'?raw:decoder.decode(raw));
           if(msg.error){
-            const detail=msg.error.message||msg.error.status||'Gemini rejected the realtime voice session.';
-            hooks.error(detail);return;
+            hooks.error('Voice connection failed. Please try again.');return;
           }
           if(msg.setupComplete){
             clearTimeout(state.setupTimer);state.ready=true;hooks.open();return;
@@ -99,10 +98,10 @@
           if(c.turnComplete)hooks.complete();
         }catch(err){
           // Ignore malformed frames only; report decoder/runtime failures for diagnostics.
-          if(!(err instanceof SyntaxError))hooks.error(err?.message||'Could not process Gemini realtime audio.');
+          if(!(err instanceof SyntaxError))hooks.error('Could not process voice audio. Please try again.');
         }
       };
-      ws.onerror=()=>{if(!state.stopping)hooks.error('Gemini realtime connection failed.');};
+      ws.onerror=()=>{if(!state.stopping)hooks.error('Voice connection failed. Please check your connection and try again.');};
       ws.onclose=()=>{clearTimeout(state.setupTimer);if(!state.stopping)hooks.close();};
       return state;
     },
