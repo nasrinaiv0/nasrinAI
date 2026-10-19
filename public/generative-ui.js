@@ -22,6 +22,7 @@
     if (payload.type !== 'architecture' && payload.type !== 'metrics') return null;
     const card = el('section', 'genui-card');
     card.setAttribute('aria-label', text(payload.title, 100) || 'Interactive visualization');
+    card.classList.add('genui-enter');
     const header = el('header', 'genui-header');
     const heading = el('h3', 'genui-title', text(payload.title, 100) || 'Interactive visualization');
     const subtitle = el('p', 'genui-subtitle', text(payload.description, 220));
@@ -44,11 +45,27 @@
           flow.append(connector);
         }
         const node = el('div', 'genui-node');
-        node.setAttribute('role', 'listitem');
+        node.setAttribute('role', 'button');
+        node.setAttribute('tabindex', '0');
+        node.setAttribute('aria-expanded', 'false');
+        node.setAttribute('aria-label', text(item?.label, 60) || 'Component');
+        node.style.setProperty('--genui-index', String(index));
+        const detailText = text(item?.detail, 110);
+        const toggleNode = () => {
+          const expanded = node.getAttribute('aria-expanded') === 'true';
+          node.setAttribute('aria-expanded', String(!expanded));
+          let detail = node.querySelector('.genui-node-detail');
+          if (!detail && detailText) { detail = el('span', 'genui-node-detail', detailText); node.append(detail); }
+          if (detail) detail.hidden = expanded;
+        };
+        node.addEventListener('click', toggleNode);
+        node.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleNode(); } });
         node.append(el('span', 'genui-node-index', String(index + 1).padStart(2, '0')));
         node.append(el('strong', 'genui-node-label', text(item?.label, 60) || 'Component'));
-        const detail = el('span', 'genui-node-detail', text(item?.detail, 110));
+        const detail = el('span', 'genui-node-detail', detailText);
+        detail.hidden = true;
         if (detail.textContent) node.append(detail);
+        node.setAttribute('title', 'Select to show or hide details');
         flow.append(node);
       });
       visual.append(flow);
@@ -64,7 +81,9 @@
         if (!metric.label || !metric.value) continue;
         const tile = el('div', 'genui-metric');
         tile.append(el('span', 'genui-metric-label', metric.label));
-        tile.append(el('strong', 'genui-metric-value', metric.value));
+        const value = el('strong', 'genui-metric-value', metric.value);
+        value.setAttribute('aria-live', 'polite');
+        tile.append(value);
         if (metric.hint) tile.append(el('span', 'genui-metric-hint', metric.hint));
         metricWrap.append(tile);
       }
@@ -80,6 +99,9 @@
         button.addEventListener('click', () => {
           controls.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === button ? 'true' : 'false'));
           showMetrics(Array.isArray(scenario?.metrics) ? scenario.metrics : baseMetrics);
+          metricWrap.classList.remove('genui-metrics-refresh');
+          void metricWrap.offsetWidth;
+          metricWrap.classList.add('genui-metrics-refresh');
         });
         controls.append(button);
       });
