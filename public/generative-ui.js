@@ -198,6 +198,20 @@
         if (fixed === candidate) break; candidate = fixed;
       }
     }
+    // Last-resort extraction for model JSON that is almost valid. Keep this
+    // constrained to known text fields; never evaluate model-supplied code.
+    const typeMatch = candidate.match(/"type"\s*:\s*"(mermaid|architecture|metrics)"/i);
+    if (typeMatch) {
+      const field = (name) => {
+        const match = candidate.match(new RegExp('"' + name + '"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"', 'i'));
+        if (!match) return '';
+        try { return JSON.parse('"' + match[1] + '"'); } catch { return match[1].replace(/\\\\"/g, '"').replace(/\\\\n/g, '\n').replace(/\\\\\\\\/g, '\\'); }
+      };
+      if (typeMatch[1].toLowerCase() === 'mermaid') {
+        const source = field('source');
+        if (source) return { type: 'mermaid', title: field('title'), description: field('description'), source };
+      }
+    }
     return null;
   }
 
