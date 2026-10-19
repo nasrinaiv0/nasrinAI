@@ -1458,6 +1458,7 @@
       const latestUserQuery = latestUserMessage ? String(latestUserMessage.dataset.text || latestUserMessage.textContent || '').trim() : '';
       if (asks && made.asks.length && !hasLocationCta && !needsYouTubeVideos(latestUserQuery)) el.appendChild(askCard(made.asks.slice(0, 1)));
       if (cited.links.length) renderWebPreviews(el, cited.links);
+      if (cited.links.length) renderSocialEmbeds(el, cited.links);
       if (fresh && role === 'assistant') {
         const userMessages = log.querySelectorAll('.msg.user');
         const lastUser = userMessages[userMessages.length - 1] || null;
@@ -3724,6 +3725,68 @@
       section.appendChild(card);
     }
     message.appendChild(section);
+  }
+
+  async function renderSocialEmbeds(message, links = []) {
+    if (message.querySelector('.social-embed-results')) return;
+    const candidates = [];
+    const seen = new Set();
+    for (const link of Array.isArray(links) ? links : []) {
+      try {
+        const url = new URL(link?.url || link?.href || '');
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        const supported = host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch';
+        if (url.protocol !== 'https:' || !supported || seen.has(url.href)) continue;
+        if (host.includes('tiktok') && !/^\/@[A-Za-z0-9._-]+\/video\/\d+/.test(url.pathname)) continue;
+        if ((host === 'facebook.com' || host === 'm.facebook.com') && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) continue;
+        seen.add(url.href);
+        candidates.push({ url: url.href, title: String(link.title || '').slice(0, 240) });
+        if (candidates.length >= 3) break;
+      } catch {}
+    }
+    if (!candidates.length) return;
+    const token = account?.token || await guestToken(false);
+    const section = document.createElement('section');
+    section.className = 'social-embed-results';
+    section.setAttribute('aria-label', 'Embedded social media');
+    for (const candidate of candidates) {
+      try {
+        const response = await net('/v1/social/oembed?url=' + encodeURIComponent(candidate.url), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        const embedUrl = new URL(data.embedUrl || '');
+        const allowed = data.provider === 'tiktok'
+          ? embedUrl.origin === 'https://www.tiktok.com' && /^\/player\/v1\/\d+$/.test(embedUrl.pathname)
+          : data.provider === 'facebook'
+            ? embedUrl.origin === 'https://www.facebook.com' && /^\/plugins\/(?:video|post)\.php$/.test(embedUrl.pathname)
+            : false;
+        if (!allowed) continue;
+        const card = document.createElement('article');
+        card.className = 'social-embed-card social-embed-' + data.provider;
+        const heading = document.createElement('p');
+        heading.className = 'social-embed-title';
+        heading.textContent = String(data.title || candidate.title || (data.provider === 'tiktok' ? 'TikTok video' : 'Facebook post')).slice(0, 240);
+        const frame = document.createElement('iframe');
+        frame.loading = 'lazy';
+        frame.referrerPolicy = 'strict-origin-when-cross-origin';
+        frame.title = heading.textContent;
+        frame.src = embedUrl.href;
+        frame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+        frame.allowFullscreen = true;
+        const source = document.createElement('a');
+        source.href = candidate.url;
+        source.target = '_blank';
+        source.rel = 'noopener noreferrer';
+        source.textContent = data.provider === 'tiktok' ? 'Open on TikTok' : 'Open on Facebook';
+        card.append(heading, frame, source);
+        section.appendChild(card);
+      } catch {
+        // A blocked/private post should not break the answer or other embeds.
+      }
+    }
+    if (section.children.length) (message.querySelector('.msg-body') || message).appendChild(section);
   }
 
   function needsYouTubeVideos(query) {

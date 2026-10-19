@@ -381,6 +381,14 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /localStorage\.removeItem\(PERSISTENT_YOUTUBE_KEY\)/);
   assert.match(css, /\.persistent-youtube-player/);
   assert.match(css, /bottom: calc\(var\(--dock-h/);
+  assert.match(js, /function renderSocialEmbeds\(message, links = \[\]\)/);
+  assert.match(js, /renderSocialEmbeds\(el, cited\.links\)/);
+  assert.match(js, /\/v1\/social\/oembed\?url=/);
+  assert.match(js, /embedUrl\.origin === 'https:\/\/www\.tiktok\.com'/);
+  assert.match(js, /embedUrl\.origin === 'https:\/\/www\.facebook\.com'/);
+  assert.match(routes, /path: '\/v1\/social\/oembed'/);
+  assert.match(routes, /https:\/\/www\.tiktok\.com\/oembed\?url=/);
+  assert.match(routes, /https:\/\/graph\.facebook\.com\/v26\.0\//);
   assert.match(routes, /path: '\/v1\/youtube\/search'/);
   assert.ok(routes.includes("path: '/v1/youtube/verify'"));
   assert.match(youtube, /safeSearch: 'moderate'/);
