@@ -291,7 +291,7 @@
 
   // External URLs are collected into the collapsed Sources & Resources control.
   // Code is masked first so examples and snippets never become accidental citations.
-  const SOURCES_BLOCK = /\n*\*\*Sources\*\*\n((?:- \[[^\]\n]*\]\(<[^>\s]+>\)[ \t]*(?:\n|$))+\s*$/;
+  const SOURCES_BLOCK = /\n*\*\*Sources\*\*\n((?:- \[[^\]\n]*\]\(<[^>\s]+>\)[ \t]*(?:\n|$))+)\s*$/;
   function sources(text) {
     const raw = String(text || '');
     const code = [];
