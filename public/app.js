@@ -7636,7 +7636,7 @@
     button.disabled = true;
     try {
       if (linkedinStatusSnapshot?.connected) {
-        if (!window.confirm('Disconnect this LinkedIn account from NasrinAI?')) return;
+        if (!window.confirm('Disconnect this LinkedIn account from NasrinAI?')) { button.disabled = false; return; }
         await api('/v1/linkedin', { method: 'DELETE' });
         $('linkedinStatus').textContent = 'LinkedIn disconnected.';
         await refreshLinkedInStatus();
