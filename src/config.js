@@ -783,9 +783,9 @@ export function loadConfig(env = process.env) {
       ipMessagesHour: toInt('LIMIT_IP_MESSAGES_HOUR', env.LIMIT_IP_MESSAGES_HOUR, 120, 1, 10000),
       // Weekly paid-plan allowances; 0 means no per-user token ceiling (Quick remains available).
       userDailyTokens: toInt('USER_DAILY_TOKEN_LIMIT', env.USER_DAILY_TOKEN_LIMIT, 100000, 0, 100000000),
-      proWeeklyTokens: requiredToInt('PRO_WEEKLY_TOKENS', weeklyTokenEnv.PRO_WEEKLY_TOKENS, 0, 100000000),
-      maxWeeklyTokens: requiredToInt('MAX_WEEKLY_TOKENS', weeklyTokenEnv.MAX_WEEKLY_TOKENS, 0, 100000000),
-      ultraWeeklyTokens: requiredToInt('ULTRA_WEEKLY_TOKENS', weeklyTokenEnv.ULTRA_WEEKLY_TOKENS, 0, 100000000),
+      proWeeklyTokens: isProduction ? requiredToInt('PRO_WEEKLY_TOKENS', weeklyTokenEnv.PRO_WEEKLY_TOKENS, 0, 100000000) : toInt('PRO_WEEKLY_TOKENS', weeklyTokenEnv.PRO_WEEKLY_TOKENS, 1000000, 0, 100000000),
+      maxWeeklyTokens: isProduction ? requiredToInt('MAX_WEEKLY_TOKENS', weeklyTokenEnv.MAX_WEEKLY_TOKENS, 0, 100000000) : toInt('MAX_WEEKLY_TOKENS', weeklyTokenEnv.MAX_WEEKLY_TOKENS, 5000000, 0, 100000000),
+      ultraWeeklyTokens: isProduction ? requiredToInt('ULTRA_WEEKLY_TOKENS', weeklyTokenEnv.ULTRA_WEEKLY_TOKENS, 0, 100000000) : toInt('ULTRA_WEEKLY_TOKENS', weeklyTokenEnv.ULTRA_WEEKLY_TOKENS, 10000000, 0, 100000000),
       maxDailyTokens: toInt('MAX_DAILY_TOKEN_LIMIT', env.MAX_DAILY_TOKEN_LIMIT, 500000, 0, 100000000),
       ultraDailyTokens: toInt('ULTRA_DAILY_TOKEN_LIMIT', env.ULTRA_DAILY_TOKEN_LIMIT, 2000000, 0, 100000000),
       guestSpeechHour: toInt('LIMIT_GUEST_SPEECH_HOUR', env.LIMIT_GUEST_SPEECH_HOUR, 20, 0, 1000),
