@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Initial frontend MVP implemented; cloud project schema, authenticated CRUD API, and Save/Open controls are implemented on `feat/video-studio-cloud-projects`; migration execution, CI, live cloud-sync validation, and full timeline rendering/export remain pending  
+**Status:** Browser timeline renderer is under review in PR #474; project-table migration exists, but production cloud project API and durable media synchronization are not verified in the current branch treenitial frontend MVP implemented; cloud project schema, authenticated CRUD API, and Save/Open controls are implemented on `feat/video-studio-cloud-projects`; migration execution, CI, live cloud-sync validation, and full timeline rendering/export remain pending  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -266,3 +266,32 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 - Cloud-saved metadata does not upload local file bytes. Local images/audio/video added from a device may need to be re-added after the browser session ends. Generated-video clips are fetched through the existing authenticated video-content route.
 - Review exported playback and audio before distribution. No browser/device end-to-end render has yet been validated by CI.
 - A production-grade cross-device MP4 export still requires a server-side rendering provider/worker, durable media storage, job state/progress, cancellation/retry, output retention policy, and spend/plan enforcement. Do not describe this browser renderer as equivalent to a cloud rendering service.
+
+
+## 18. Phase gate and verified repository status (2026-10-20)
+
+This section supersedes optimistic status wording elsewhere in this document when it conflicts with repository evidence. A migration or UI control alone does not make a feature operational.
+
+### Verified in the current repository tree
+
+- The Video Studio UI and browser-side renderer are present.
+- Migration `db/migrations/051_video_studio_projects.sql` and its database test are present on `main`.
+- The renderer PR adds a browser-local export path with device/browser-dependent MediaRecorder support and documented limits.
+
+### Not verified / still a release blocker
+
+- The current `main` and renderer-branch recursive trees do not contain a dedicated Video Studio cloud-project API route or project-store module. Do not treat the presence of migration 051, UI buttons, or static tests as proof that authenticated cloud save/open works end-to-end. Reconcile this with PR history and add the server endpoints before claiming cloud persistence is usable.
+- Do not claim migration 051 is deployed to production without a migration execution receipt and schema verification.
+- No durable asset upload path has been verified for local image/video/audio files. Browser-local blobs and object URLs are not cross-device storage.
+- The browser renderer is not a server-side render queue. It cannot promise deterministic MP4 output, background rendering after the page closes, or reliable rendering for large projects/mobile devices.
+- No live signed-in save/reopen, cross-device asset restore, export playback/audio sync, cancellation, retry, retention, or production spend/quota test has been evidenced in this checkpoint.
+
+### Required remaining phases
+
+1. **PR #474 renderer repair:** verify the renderer audio stream receives clip audio, title overlays apply to the active render clip, cleanup runs on success and failure, and the full CI suite is green. Manually test output in supported desktop browsers before treating export as released.
+2. **Cloud project API:** implement and test authenticated list/create/read/update/delete endpoints backed by migration 051. Every request must derive user and tenant from the verified session, use service-role access only server-side, enforce ownership on every operation, bound payloads, and handle optimistic-version conflicts. Add API integration tests; static source assertions alone are insufficient.
+3. **Durable asset storage:** create a private bucket and server-mediated upload/download paths; enforce user/tenant ownership, MIME allowlists, file-size limits, quotas, signed short-lived access, cleanup on project/account deletion, and retention policy. Save asset references in project documents rather than browser object URLs.
+4. **Production render worker:** choose and document an actual provider/worker adapter; persist render jobs and states; validate plan/quota/cost before submission; support progress, timeout, cancel/retry, idempotency, failure cleanup, output storage and signed delivery. Never fake a successful cloud render if credentials or provider setup are absent.
+5. **Release validation:** run full tests, dependency/secret checks, database tests and migration verification; verify authenticated/guest boundaries, cross-user denial, upload abuse limits, real save/reopen across sessions/devices, and downloaded output playback/audio. Record each implementation/test commit in `docs/pr-change-log.md` and report exact pass/fail evidence.
+
+**Release rule:** leave the feature marked partial until every required phase has implementation evidence and the relevant checks pass. Browser export can be shipped as a limited feature independently, but it must not be presented as the production cloud renderer.
