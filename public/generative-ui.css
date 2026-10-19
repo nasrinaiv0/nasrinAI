@@ -69,3 +69,16 @@
 .genui-metric-hint{font-size:.69rem;line-height:1.4;color:var(--muted,#777)}
 @media(max-width:520px){.genui-diagram{padding:10px}.genui-node{flex-basis:132px;min-width:122px;min-height:104px;padding:11px}.genui-connector{flex-basis:19px}.genui-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.genui-metric{padding:11px}}
 @media(prefers-reduced-motion:reduce){.genui-connector-line{animation:none!important}}
+
+
+/* Mermaid architecture renderer */
+.genui-mermaid-canvas{width:100%;overflow-x:auto;border:1px solid var(--line,rgba(128,128,128,.18));border-radius:15px;background:var(--surface,rgba(128,128,128,.035));padding:12px;scrollbar-width:thin}
+.genui-mermaid-canvas svg{display:block;width:100%;min-width:320px;height:auto;color:var(--muted,#888)}
+.genui-mermaid-edge{fill:none;stroke:var(--accent,#d97732);stroke-width:1.8;stroke-dasharray:5 5;animation:genui-mermaid-flow 1.5s linear infinite}
+.genui-mermaid-node rect{fill:var(--panel,rgba(128,128,128,.08));stroke:var(--line,rgba(128,128,128,.38));stroke-width:1.3}
+.genui-mermaid-node text{fill:var(--text,currentColor);font-size:11px;font-weight:600}
+.genui-mermaid-source{margin-top:12px;border-top:1px solid var(--line,rgba(128,128,128,.18));padding-top:10px}
+.genui-mermaid-source summary{cursor:pointer;font-size:.82rem;color:var(--muted,#888)}
+.genui-mermaid-source pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.75rem;line-height:1.5;padding:12px;border-radius:10px;background:var(--surface,rgba(128,128,128,.06));overflow:auto}
+@keyframes genui-mermaid-flow{to{stroke-dashoffset:-20}}
+@media(prefers-reduced-motion:reduce){.genui-mermaid-edge{animation:none!important}}
