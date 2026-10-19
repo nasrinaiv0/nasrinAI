@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Proposed architecture; not implemented by this document  
+**Status:** Initial frontend MVP implemented on feature branch; full cloud timeline rendering and cloud project sync remain pending  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -15,7 +15,7 @@ Build a first-class Video Studio where a user can:
 - Preview, save versions, render/export MP4, track progress, and return to completed projects after refreshing or signing in on another device.
 - See clear errors, progress, duration/resolution limits, and estimated usage before expensive work.
 
-This is an implementation specification, not evidence that these features or provider connections already exist.
+The first implementation slice adds a responsive standalone workspace, original template cards, a prompt-to-video flow using the existing authenticated `/v1/videos` generation pipeline, an editable local timeline, generated-clip preview/download, and browser-local draft metadata. It does not yet render a composed multi-clip timeline, synchronize projects across devices, or connect Shotstack/Creatomate. Do not describe the full Video Studio as production-complete until those parts are implemented and tested.
 
 ## 2. Provider recommendation
 
@@ -182,6 +182,23 @@ Do not call Video Studio production-ready until:
 
 ## 14. Decision record
 
-**Proposed default:** Shotstack Studio SDK + Edit API for the editing/rendering foundation; Runway adapter for AI-generated footage; NasrinAI-owned canonical project model and original template library. Evaluate Creatomate as a comparator and optional adapter, not an automatic dependency.
+**Proposed renderer decision:** retain the existing Gemini Veo video-generation route for generated footage; evaluate Shotstack Studio/Edit API as the cloud timeline renderer and Creatomate as a template-rendering comparator. Do not introduce Runway by default when the repository already has an established Veo provider path. The first UI slice uses the existing Veo route and does not yet submit full timeline renders.
 
 **Not yet decided:** final provider contracts/pricing, editor SDK feature coverage, exact schema/routes, worker topology, storage retention, supported resolutions/frame rates, template licensing inventory, and plan-specific limits. Verify each before implementation.
+
+
+## 15. Implementation checkpoint — initial frontend MVP
+
+Added in the Video Studio feature branch:
+- `public/video-studio.html`, `public/video-studio.css`, `public/video-studio.js`.
+- Original template gallery for cinematic, social, product, and travel-story starting points.
+- Prompt-to-video generation via the existing authenticated `POST /v1/videos` endpoint; polls the existing video job status route and loads owned MP4s using bearer-authenticated fetches.
+- Timeline clip list with reorder, rename, title metadata, trim-start/duration fields, removal, uploaded media previews, and responsive layout.
+- Browser-local draft metadata and generated clip downloads; no claims of cloud sync.
+- Desktop navigation entry and a focused regression test file.
+
+Known MVP boundaries:
+- Timeline title/trim/reorder edits are currently project metadata and do not alter the generated MP4 file.
+- Uploads and unsaved media blobs are browser-session only; local draft metadata does not upload assets.
+- Full composed MP4 export requires a server-side rendering adapter and provider credentials; this branch intentionally does not fake a successful export.
+- The initial templates are original UI concepts, not third-party provider templates.
