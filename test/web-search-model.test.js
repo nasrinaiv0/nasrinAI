@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadConfig } from '../src/config.js';
-import { needsWeb } from '../src/web/search.js';
+import { createWebSearch, needsWeb } from '../src/web/search.js';
 import { buildSystemPrompt } from '../src/ai/prompt.js';
 
 // 2026-10-12: news questions got "I can't check live news". The web search
@@ -49,4 +49,38 @@ test('TikTok and social video discovery requests always trigger live web search'
   // PUBLIC_ENTITY_QUESTION; keep them separate from non-search capability queries.
   assert.equal(needsWeb('what is TikTok?'), true);
   for (const q of ['how do I upload a video?', 'explain social media']) assert.equal(needsWeb(q), false, q);
+});
+
+
+test('social video search asks for a verified list of direct video URLs', async () => {
+  let request;
+  const search = createWebSearch({
+    apiKey: 'sk-test-only',
+    model: 'gpt-5.4-mini',
+    fetchImpl: async (_url, options) => {
+      request = JSON.parse(options.body);
+      return {
+        ok: true,
+        json: async () => ({
+          output: [
+            { type: 'message', content: [{ type: 'output_text', text: 'Verified video list', annotations: [
+              { type: 'url_citation', url: 'https://www.tiktok.com/@creator/video/1234567890123456789', title: 'Example public video' }
+            ] }] },
+            { type: 'web_search_call' }
+          ],
+          usage: { input_tokens: 20, output_tokens: 10 }
+        })
+      };
+    }
+  });
+  const result = await search.search({
+    system: 'Test system prompt',
+    messages: [{ role: 'user', content: 'trending videos in tiktok' }]
+  });
+  assert.equal(result.text, 'Verified video list');
+  assert.match(request.instructions, /SOCIAL VIDEO DISCOVERY MODE/);
+  assert.match(request.instructions, /numbered shortlist of up to five/);
+  assert.match(request.instructions, /direct canonical post URL/);
+  assert.match(request.instructions, /do not end by asking whether the user wants the list/i);
+  assert.equal(result.citations[0].url, 'https://www.tiktok.com/@creator/video/1234567890123456789');
 });
