@@ -1540,10 +1540,13 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, body, ip }) => {
         const plan = buildProfessionalSearch(body || {});
         if (plan.source !== 'linkedin_authorized' && !research) throw new HttpError(404, 'not_found', 'Professional search is not available.');
-        const linkedinStatus = await linkedin.statusFor(caller).catch(() => ({ available: linkedin.available, connected: false, scopes: [], capabilities: { organization_posts: false } }));
+        const linkedinStatus = plan.source === 'public_web' ? ({ available: linkedin.available, connected: false, scopes: [], capabilities: { organization_posts: false } }) : await linkedin.statusFor(caller).catch(() => ({ available: linkedin.available, connected: false, scopes: [], capabilities: { organization_posts: false } }));
         const orgId = typeof body?.organization_id === 'string' ? body.organization_id : '';
         const linkedinGroup = { id: 'linkedin_authorized', label: 'LinkedIn authorized API', status: 'requires_organization_id', sources: [], facts: [], limitation: 'The official API does not provide unrestricted global search across all LinkedIn categories. Organization post retrieval requires an approved scope and an organization ID.' };
-        if (!linkedin.available) {
+        if (plan.source === 'public_web') {
+          linkedinGroup.status = 'not_requested';
+          linkedinGroup.limitation = '';
+        } else if (!linkedin.available) {
           linkedinGroup.status = 'not_configured';
           linkedinGroup.limitation = 'Configure LinkedIn OAuth credentials and run migration 043 before connecting an account.';
         } else if (!linkedinStatus.connected) {
