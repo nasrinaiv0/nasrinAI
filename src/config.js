@@ -245,9 +245,17 @@ export function loadConfig(env = process.env) {
   if (!['auto', 'free', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, free, openai, gemini, claude, anthropic or none');
   }
-  const freeFallbackProviders = freeProviderSettings
+  // Prefer independent free inference capacity first; keep OpenRouter as
+  // the aggregator safety net, after direct providers. Remaining catalogued
+  // providers follow in stable catalog order.
+  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'z-ai', 'openrouter'];
+  const eligibleFreeProviderIds = freeProviderSettings
     .filter((p) => p.freeModels.includes(p.model))
     .map((p) => p.id);
+  const freeFallbackProviders = [
+    ...freeFallbackPriority.filter((id) => eligibleFreeProviderIds.includes(id)),
+    ...eligibleFreeProviderIds.filter((id) => !freeFallbackPriority.includes(id))
+  ];
   const fallbackProviders = fallbackMode === 'auto'
     ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders].filter((p) => providerKeys.includes(p))
     : fallbackMode === 'free'
