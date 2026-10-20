@@ -622,6 +622,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // Every specialist call uses the same policy, token reservation and usage log.
       try {
         if (config.ai.routing.planningCouncilEnabled === true) {
+          const usedCouncilModels = new Set();
           const council = await runPlanningCouncil({
             enabled: true,
             tier: plan.tier,
@@ -636,10 +637,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             maxTokensPerCall: 450,
             maxInputChars: 9000,
             runCandidate: async ({ role, system, messages, maxTokens }) => {
-              const councilPlan = { ...plan, task: plan.task, level: plan.floor, floor: plan.floor, ceiling: plan.floor };
+              const roleTask = role === 'brainstorm' ? 'creative' : role === 'architect' ? 'design' : 'analysis';
+              const councilPlan = { ...plan, task: roleTask, level: plan.floor, floor: plan.floor, ceiling: plan.floor };
               let specialist;
               try {
-                specialist = await policy.run(councilPlan, { system, messages, attachments: [], maxTokens }, {
+                specialist = await policy.run(councilPlan, { system, messages, attachments: [], maxTokens,
+                  excludeModels: [...usedCouncilModels] }, {
                   caller,
                   reserveTokens: async ({ inputTokens, maxTokens: outputTokens }) => limiter.reserveTokens(caller, Math.ceil((inputTokens * 2 + outputTokens) * 2)),
                   settleTokens: (reservation, actualTokens) => limiter.settleTokens(reservation, actualTokens),
@@ -658,6 +661,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                 });
                 throw err;
               }
+              usedCouncilModels.add(`${specialist.spec.provider}:${specialist.spec.model}`);
               await usageLog.record(caller, {
                 provider: specialist.result.provider || specialist.spec.provider,
                 model: specialist.result.model || specialist.spec.model,
