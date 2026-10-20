@@ -20,7 +20,7 @@ test('editor exposes dedicated video, overlay, text, and audio tracks', () => {
 });
 
 test('trim, split, captions, effects, and keyframe controls are wired', () => {
-  for (const id of ['clipStart', 'clipDuration', 'clipPosition', 'splitClip', 'addCaption', 'clipFilter', 'clipTransition', 'clipOpacity', 'clipGain', 'addKeyframe', 'keyframeTime', 'keyframeScale']) {
+  for (const id of ['clipStart', 'clipDuration', 'clipPosition', 'splitClip', 'addCaption', 'clipFilter', 'clipTransition', 'clipOpacity', 'clipGain', 'previewTimeline', 'addKeyframe', 'keyframeTime', 'keyframeScale']) {
     assert.ok(html.includes('id="' + id + '"'), 'missing control ' + id);
     assert.ok(js.includes("$('" + id + "')"), 'control not wired: ' + id);
   }
@@ -38,6 +38,7 @@ test('project drafts and cloud documents persist multitrack edit properties', ()
 
 test('export composites concurrent tracks and mixes audio with bounded browser workload', () => {
   assert.match(js, /Rendering multitrack timeline/);
+  assert.match(js, /function startTimelinePreview/);\n  assert.match(js, /studio-composite-preview/);
   assert.match(js, /createMediaElementSource/);
   assert.match(js, /createMediaStreamDestination/);
   assert.match(js, /state\.clips\.length>40/);
