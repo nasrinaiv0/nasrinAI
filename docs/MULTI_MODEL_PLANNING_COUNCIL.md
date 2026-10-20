@@ -126,3 +126,24 @@ The following general text models have conservative rates in `config/model-price
 The coding routes are configured as tier-scoped allowlists: Max → `openai/gpt-6-sol`; Ultra → `openai/gpt-6.1-sol`; Ultra deep coding → `openai/gpt-6.1-sol`. The listed OpenRouter rates are $2/M input and $10/M output for both models. This routing does not let the low-cost planning council override the tier's coding model.
 
 TTS is configured for `google/gemini-3.8-flash-lite-tts` through OpenRouter, pinned to provider `Google Vertex`. Listed rates are $0.50/M text input and $6/M audio output. Voice catalog support was extended so OpenRouter TTS exposes the Google Gemini voice IDs rather than OpenAI-specific voices, and voice selection remains namespaced by provider. See `docs/voice-screen.md` and `docs/coding-chat.md` for setup and release gates.
+
+
+## Tier coding models and speech output update — 2026-10-21
+
+### Coding routes
+- **Max coding:** `openrouter:openai/gpt-6-sol`
+- **Ultra coding:** `openrouter:openai/gpt-6.1-sol`
+- **Ultra deep coding:** `openrouter:openai/gpt-6.1-sol`
+- Price baseline for both models: $2 per 1M input tokens and $10 per 1M output tokens. Cache-read rates are separate and recorded in `config/model-prices.json`.
+- Configuration already enforces an explicit allowlist for Max and Ultra coding model IDs. Set `CODING_MAX_MODEL`, `CODING_ULTRA_MODEL`, and `CODING_ULTRA_DEEP_MODEL` in Vercel Preview/Production only after validating the OpenRouter key and running live coding smoke tests. The feature does not silently route Max to the Ultra model.
+
+### Text-to-speech route
+- Requested model ID: `google/gemini-3.8-flash-lite-tts`
+- OpenRouter list price: $0.50 per 1M text input tokens and $6 per 1M audio output tokens. The matching price entry is present in `config/model-prices.json`.
+- The application already has an OpenRouter speech adapter and supports `OPENROUTER_TTS_MODEL` and `OPENROUTER_TTS_PROVIDER`.
+- **Provider pin remains unverified:** the current OpenRouter model page lists Google AI Studio as the available provider, not Google Vertex. Therefore `.env.example` now leaves `OPENROUTER_TTS_PROVIDER` blank rather than hard-pinning a provider that the listing does not currently confirm. OpenRouter's model router can select an available provider. If the owner specifically requires Google Vertex, first confirm that the endpoint exists for this exact model and use the provider identifier returned by OpenRouter's endpoints API. Do not assume the display name `Google Vertex` is a valid provider-routing value.
+- Current public listing: https://openrouter.ai/openai/gpt-6-sol, https://openrouter.ai/openai/gpt-6.1-sol, https://openrouter.ai/google/gemini-3.8-flash-lite-tts/
+
+### Release gates
+- No production environment variables were changed and no production deployment was performed in this documentation/configuration update.
+- Required before enabling: configure server-only OpenRouter credentials, verify provider availability, test TTS audio format/voice compatibility and browser playback, test Max/Ultra coding routing and tier boundaries, and inspect actual provider usage/cost records.
