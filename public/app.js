@@ -8417,7 +8417,8 @@
     ['Vercel', 'cloud', 'https://vercel.com'],
     ['Render', 'cloud', 'https://render.com'],
     ['Supabase', 'cloud', 'https://supabase.com'],
-    ['Cloudflare', 'cloud', 'https://cloudflare.com']
+    ['Cloudflare', 'cloud', 'https://cloudflare.com'],
+    ['ElevenLabs', 'cloud', 'https://elevenlabs.io']
   ];
   // Each catalog entry has a Settings action. Pins are a local, account-scoped
   // display preference only; they never imply a connection or grant permissions.
@@ -8584,7 +8585,8 @@
     Vercel: ['Connected accounts', 'Projects', 'Deployments', 'Build status', 'Permissions', 'Integration information'],
     Render: ['Connected accounts', 'Services', 'Projects', 'Deployments', 'Build status', 'Permissions', 'Integration information'],
     Supabase: ['Connected accounts', 'Projects', 'Database health', 'Migrations', 'Permissions', 'Integration information'],
-    Cloudflare: ['Connected accounts', 'Domains', 'Add domain', 'Security status', 'DNS', 'Permissions', 'Integration information']
+    Cloudflare: ['Connected accounts', 'Domains', 'Add domain', 'Security status', 'DNS', 'Permissions', 'Integration information'],
+    ElevenLabs: ['Video Studio voiceover', 'Sound-effect generation', 'Voice selection', 'MP3 preview and download']
   };
   function openDeveloperToolSettings(name, website) {
     $('pluginsList').hidden = true;
@@ -8597,7 +8599,20 @@
     $('pluginCatalogDescription').textContent = (DEVELOPER_TOOL_DETAILS[name] || ['Connected accounts', 'Permissions', 'Integration information']).join(' · ');
     $('pluginCatalogStatus').textContent = name === 'GitHub'
       ? (github.connected ? 'Connected through NasrinAI GitHub' : 'GitHub connection status is managed in the coding settings.')
-      : 'API connection not configured yet. No account is connected through NasrinAI.';
+      : name === 'ElevenLabs' ? 'Checking Video Studio configuration…'
+        : 'API connection not configured yet. No account is connected through NasrinAI.';
+    if (name === 'ElevenLabs') {
+      fetch('/v1/video-studio/elevenlabs/status', { credentials: 'same-origin' }).then(async response => {
+        if (!response.ok) throw new Error('status unavailable');
+        return response.json();
+      }).then(status => {
+        if ($('pluginCatalogTitle').textContent === 'ElevenLabs settings') $('pluginCatalogStatus').textContent = status.configured
+          ? 'Configured for Video Studio voiceover and sound effects'
+          : 'Not configured on this deployment';
+      }).catch(() => {
+        if ($('pluginCatalogTitle').textContent === 'ElevenLabs settings') $('pluginCatalogStatus').textContent = 'Could not verify Video Studio configuration.';
+      });
+    }
     $('githubTitle').lastChild.textContent = name;
     $('pluginCatalogBack').focus();
   }
@@ -8618,8 +8633,18 @@
     li.appendChild(mk('span', 'plugins-name', name));
     const state = name === 'GitHub'
       ? (github.connected ? 'Connected' : github.available ? 'Available' : 'Not configured')
-      : 'Not connected';
-    li.appendChild(mk('span', 'plugins-soon', state));
+      : name === 'ElevenLabs' ? 'Checking…'
+        : 'Not connected';
+    const stateLabel = mk('span', 'plugins-soon', state);
+    li.appendChild(stateLabel);
+    if (name === 'ElevenLabs') {
+      fetch('/v1/video-studio/elevenlabs/status', { credentials: 'same-origin' }).then(async response => {
+        if (!response.ok) throw new Error('status unavailable');
+        return response.json();
+      }).then(status => {
+        stateLabel.textContent = status.configured ? 'Configured' : 'Not configured';
+      }).catch(() => { stateLabel.textContent = 'Status unavailable'; });
+    }
     const actions = mk('details', 'developer-tool-actions');
     const summary = mk('summary', 'plugins-settings-btn', 'Actions');
     summary.setAttribute('aria-label', name + ' integration actions');
@@ -8631,9 +8656,11 @@
       actions.open = false;
       openDeveloperToolSettings(name, website);
     });
-    const connect = mk('button', 'btn small', name === 'GitHub' && github.connected ? 'Disconnect' : 'Connect');
+    const connect = mk('button', 'btn small', name === 'ElevenLabs' ? 'Open Video Studio' : name === 'GitHub' && github.connected ? 'Disconnect' : 'Connect');
     connect.type = 'button';
-    if (name === 'GitHub') {
+    if (name === 'ElevenLabs') {
+      connect.addEventListener('click', () => { actions.open = false; window.location.href = '/video-studio.html'; });
+    } else if (name === 'GitHub') {
       connect.addEventListener('click', async () => {
         actions.open = false;
         if (github.connected) {

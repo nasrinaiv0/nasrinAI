@@ -39,12 +39,12 @@ test('page headers apply to the page files, not to the API or health check', () 
 test('Studio root redirects only on the Studio hostname', () => {
   const studioRedirect = config.redirects.find((r) =>
     r.source === '/' &&
-    r.destination === '/video-studio.html' &&
+    r.destination === 'https://nasrinai.com/video-studio.html' &&
     r.has?.some((condition) => condition.type === 'host' && condition.value === 'studio.nasrinai.com')
   );
   assert.ok(studioRedirect, 'Studio host has an explicit root redirect');
   assert.equal(studioRedirect.permanent, false, 'use a temporary redirect while validating routing');
-  assert.equal(config.redirects.some((r) => r.source === '/' && r.destination === '/video-studio.html' && !r.has), false,
+  assert.equal(config.redirects.some((r) => r.source === '/' && r.destination === 'https://nasrinai.com/video-studio.html' && !r.has), false,
     'do not redirect the main site root to Video Studio');
 });
 

@@ -116,3 +116,52 @@ test('Supabase store uses the atomic global USD reservation RPCs and validates t
   assert.equal(await store.imageCostSince(new Date('2026-01-01T00:00:00Z')), 0.02);
   assert.equal(await store.costSince(new Date('2026-01-01T00:00:00Z')), 0.12);
 });
+
+
+test('Video Studio audio assets use private Storage upload and the documented Storage remove request', async () => {
+  const tenantId = '11111111-1111-4111-8111-111111111111';
+  const projectId = '22222222-2222-4222-8222-222222222222';
+  let assetRow = null;
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method, headers: init.headers, body: init.body });
+    if (String(url).includes('/storage/v1/object/media/') && init.method === 'POST') {
+      return new Response(null, { status: 200 });
+    }
+    if (String(url).endsWith('/storage/v1/object/media') && init.method === 'DELETE') {
+      const body = JSON.parse(init.body);
+      assert.deepEqual(body.prefixes, [assetRow.storage_path]);
+      assert.equal(init.headers['Content-Type'], 'application/json');
+      return new Response(JSON.stringify({ message: 'Successfully deleted' }), { status: 200 });
+    }
+    if (String(url).includes('/video_studio_audio_assets') && init.method === 'POST') {
+      const body = JSON.parse(init.body);
+      assetRow = {
+        id: body.id, tenant_id: body.tenant_id, owner_id: body.owner_id,
+        project_id: body.project_id, kind: body.kind, storage_path: body.storage_path,
+        mime: body.mime, size_bytes: body.size_bytes, voice_id: body.voice_id,
+        model_id: body.model_id, duration_seconds: body.duration_seconds,
+        label: body.label, created_at: '2026-10-20T00:00:00.000Z', updated_at: '2026-10-20T00:00:00.000Z'
+      };
+      return new Response(JSON.stringify([assetRow]), { status: 201 });
+    }
+    if (String(url).includes('/video_studio_audio_assets') && init.method === 'GET') {
+      return new Response(JSON.stringify(assetRow ? [assetRow] : []), { status: 200 });
+    }
+    if (String(url).includes('/video_studio_timeline_items') && init.method === 'DELETE') return new Response(null, { status: 204 });
+    if (String(url).includes('/video_studio_audio_assets') && init.method === 'DELETE') return new Response(JSON.stringify([{ id: assetRow.id }]), { status: 200 });
+    throw new Error('Unexpected request: ' + init.method + ' ' + url);
+  };
+  const store = createSupabaseStore({ url: 'https://p.supabase.co', serviceKey: 'svc', fetchImpl });
+  const asset = await store.createVideoStudioAudioAsset({
+    tenantId, ownerType: 'user', ownerId: 'user_1', projectId,
+    kind: 'voiceover', bytes: Buffer.from('mp3 bytes'), label: 'Narration'
+  });
+  assert.equal(asset.sizeBytes, 9);
+  assert.equal(calls[0].url, 'https://p.supabase.co/storage/v1/object/media/' + tenantId + '/user_1/' + asset.id + '.mp3');
+  assert.equal(calls[0].headers.Authorization, 'Bearer svc');
+  assert.equal(await store.deleteVideoStudioAudioAsset({ tenantId, ownerId: 'user_1', id: asset.id }), true);
+  const deletion = calls.find(call => call.url === 'https://p.supabase.co/storage/v1/object/media' && call.method === 'DELETE');
+  assert.ok(deletion, 'uses the bucket-level object removal endpoint');
+  assert.deepEqual(JSON.parse(deletion.body), { prefixes: [assetRow.storage_path] });
+});

@@ -8,6 +8,11 @@ test('Video Studio ships a standalone responsive workspace with template and tim
   const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
   assert.match(html, /id="templateGrid"/);
   assert.match(html, /id="timeline"/);
+  assert.match(html, /id="toolAiTools"/);
+  assert.match(html, /id="audioStudioPanel"/);
+  assert.match(html, /id="voiceStability"/);
+  assert.match(html, /id="voiceStyle"/);
+  assert.match(html, /id="previewVoice"/);
   assert.match(html, /id="generate"/);
   assert.match(html, /id="exports"/);
   assert.match(html, /id="continueInChat"/);

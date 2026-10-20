@@ -31,6 +31,8 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      # Rebuild only the pinned FFmpeg dependency; keep other lifecycle scripts disabled.
+      - run: npm rebuild ffmpeg-static --no-audit --no-fund
       - run: npm test
       - name: Check JavaScript syntax
         run: |

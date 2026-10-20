@@ -289,3 +289,8 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 - The media bin reflects assets already in the current project and lets users select them for preview. The horizontal timeline retains existing selection and up/down reorder behavior.
 - Responsive layout collapses to a narrow media rail and stacked properties panel on mobile; no CapCut branding or third-party assets are copied.
 - This is a UI/editor-workflow upgrade, not feature parity with CapCut. Advanced multi-track audio, transitions, keyframes, captions, effects, and server-side rendering remain separate capabilities.
+
+
+## ElevenLabs audio integration
+
+Video Studio includes an authenticated developer-plugin integration for voice discovery, generated voiceovers and sound effects, private owner-scoped audio assets, project audio timeline placement, and MP4 export of one completed video with timeline audio. See [`docs/elevenlabs-plugin.md`](./elevenlabs-plugin.md) for API contracts, access checks, storage, limits, and validation details.

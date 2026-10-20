@@ -6,6 +6,8 @@ import { GEMINI_REALTIME_VOICES } from './gemini-realtime.js';
 import { issueGuestToken, newGuestId } from './auth/guest.js';
 import { publicConversation, publicMessage } from './conversations.js';
 import { HttpError } from './http/errors.js';
+import { createElevenLabs } from './elevenlabs.js';
+import { encryptElevenLabsCredential, decryptElevenLabsCredential } from './elevenlabs-credentials.js';
 import { authRoutes } from './auth/routes.js';
 import { paymentRoutes } from './payments/routes.js';
 import { manilaDayStart, manilaWeekStart, userWeeklyTokenLimit } from './limits.js';
@@ -54,7 +56,7 @@ function cleanVideoStudioDocument(raw) {
   return document;
 }
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -93,6 +95,73 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
     if (!['max', 'ultra'].includes(current.plan)) {
       throw new HttpError(403, 'connect_plan_required', 'NasrinAI Connect is available only on Max and Ultra plans.');
     }
+  }
+
+  async function requireVideoStudioAccess(caller) {
+    if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to use Video Studio.');
+    if (!plans) throw new HttpError(503, 'plans_unavailable', 'Video Studio access cannot be verified right now.');
+    const current = await plans.current(caller);
+    if (!['max', 'ultra'].includes(current.plan)) throw new HttpError(403, 'video_plan_required', 'Video Studio is available on Max and Ultra plans.');
+  }
+
+  async function requireVideoStudioAudio(caller) {
+    await requireVideoStudioAccess(caller);
+  }
+
+  async function requirePersonalElevenLabs(caller) {
+    await requireVideoStudioAccess(caller);
+    if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to connect your ElevenLabs account.');
+    if (!store?.getProviderCredential) throw new HttpError(503, 'provider_credentials_unavailable', 'Personal provider connections are not available yet.');
+    let saved;
+    try { saved = await store.getProviderCredential({ tenantId: caller.tenantId, ownerId: caller.actor.id, provider: 'elevenlabs' }); }
+    catch { throw new HttpError(503, 'provider_credentials_unavailable', 'Could not load your provider connection. Please try again.'); }
+    if (!saved) throw new HttpError(403, 'elevenlabs_connection_required', 'Connect your own ElevenLabs account to use audio generation.');
+    let apiKey;
+    try { apiKey = decryptElevenLabsCredential(saved); }
+    catch { throw new HttpError(503, 'provider_credentials_unavailable', 'Your provider connection cannot be decrypted. Reconnect your ElevenLabs account.'); }
+    const personal = elevenlabs?.forApiKey ? elevenlabs.forApiKey(apiKey) : createElevenLabs({ apiKey });
+    if (!personal.available) throw new HttpError(503, 'elevenlabs_unavailable', 'Your ElevenLabs connection is not available.');
+    return personal;
+  }
+
+  async function requireVideoStudioProject(caller, projectId) {
+    if (typeof projectId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)) {
+      throw new HttpError(400, 'invalid_project_id', 'Choose a valid Video Studio project.');
+    }
+    if (!projects) throw new HttpError(503, 'projects_unavailable', 'Video Studio projects are not available right now.');
+    return projects.get(caller, projectId);
+  }
+
+  function publicAudioAsset(asset) {
+    return {
+      id: asset.id, project_id: asset.projectId || null, kind: asset.kind,
+      mime: asset.mime, size_bytes: asset.sizeBytes, voice_id: asset.voiceId || null,
+      model_id: asset.modelId || null, duration_seconds: asset.durationSeconds ?? null,
+      label: asset.label, created_at: asset.createdAt,
+      content_url: '/v1/video-studio/audio-assets/' + asset.id + '/content'
+    };
+  }
+
+  function timelineInput(body, creating = true) {
+    const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+    const out = {};
+    const ranges = {
+      start_seconds: [0, 3600], trim_start_seconds: [0, 3600],
+      trim_end_seconds: [0.001, 3600], gain: [0, 2], lane: [1, 8]
+    };
+    for (const [field, [min, max]] of Object.entries(ranges)) {
+      if (!(field in b) && !creating) continue;
+      if (field === 'trim_end_seconds' && (!(field in b) || b[field] == null)) { if (!creating) out.trimEndSeconds = null; continue; }
+      const defaultValue = field === 'start_seconds' || field === 'trim_start_seconds' ? 0 : field === 'gain' ? 1 : 1;
+      const value = field in b ? Number(b[field]) : defaultValue;
+      if (!Number.isFinite(value) || value < min || value > max || (field === 'lane' && !Number.isInteger(value))) {
+        throw new HttpError(400, 'invalid_timeline_value', 'Timeline position, trim, gain, or lane is outside the allowed range.');
+      }
+      const key = ({ start_seconds: 'startSeconds', trim_start_seconds: 'trimStartSeconds', trim_end_seconds: 'trimEndSeconds', gain: 'gain', lane: 'lane' })[field];
+      out[key] = value;
+    }
+    if (creating && !('trimEndSeconds' in out)) out.trimEndSeconds = null;
+    return out;
   }
 
   const connectRoutes = connect ? [
@@ -1529,6 +1598,248 @@ return { body: { sites: await connect.list(caller) } }; }
         const mime = v.mime === 'video/mp4' ? 'video/mp4' : 'video/webm';
         res.writeHead(200, { 'Content-Type': mime, 'Content-Length': v.bytes.length, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': `inline; filename="nasrin-recording-${v.id.slice(0, 8)}.${mime.split('/')[1]}"` });
         res.end(v.bytes);
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/elevenlabs/status',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        let connected = false;
+        if (caller.actor?.type === 'user' && store?.getProviderCredential) {
+          try { connected = Boolean(await store.getProviderCredential({ tenantId: caller.tenantId, ownerId: caller.actor.id, provider: 'elevenlabs' })); } catch {}
+        }
+        return { body: { configured: connected, connected, provider: 'elevenlabs', capabilities: connected ? ['voices', 'voiceover', 'sound_effects'] : [], video_export_available: Boolean(videoStudioExporter?.available) } };
+      }
+    },
+    {
+      method: 'PUT', path: '/v1/video-studio/elevenlabs/connection', scope: 'chat', body: true, maxBody: 8 * 1024,
+      handler: async ({ caller, body }) => {
+        await requireVideoStudioAccess(caller);
+        if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to connect your ElevenLabs account.');
+        if (!store?.saveProviderCredential || !store?.getProviderCredential) throw new HttpError(503, 'provider_credentials_unavailable', 'Personal provider connections are not available yet.');
+        let encrypted; try { encrypted = encryptElevenLabsCredential(body?.api_key); } catch { throw new HttpError(400, 'invalid_elevenlabs_key', 'Enter a valid ElevenLabs API key.'); }
+        const candidate = elevenlabs?.forApiKey ? elevenlabs.forApiKey(body.api_key) : createElevenLabs({ apiKey: body.api_key });
+        try { await candidate.voices(); } catch { throw new HttpError(400, 'elevenlabs_key_validation_failed', 'ElevenLabs could not validate this key. Check the key and its permissions.'); }
+        try { await store.saveProviderCredential({ tenantId: caller.tenantId, ownerId: caller.actor.id, provider: 'elevenlabs', ...encrypted }); }
+        catch { throw new HttpError(503, 'provider_credentials_unavailable', 'Could not save your encrypted provider connection.'); }
+        return { body: { connected: true, provider: 'elevenlabs' } };
+      }
+    },
+    {
+      method: 'DELETE', path: '/v1/video-studio/elevenlabs/connection', scope: 'chat',
+      handler: async ({ caller }) => {
+        await requireVideoStudioAccess(caller);
+        if (caller.actor?.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to manage your ElevenLabs connection.');
+        if (!store?.deleteProviderCredential) throw new HttpError(503, 'provider_credentials_unavailable', 'Personal provider connections are not available yet.');
+        await store.deleteProviderCredential({ tenantId: caller.tenantId, ownerId: caller.actor.id, provider: 'elevenlabs' });
+        return { body: { connected: false } };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/elevenlabs/voices',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        const audio = await requirePersonalElevenLabs(caller);
+        return { body: { voices: await audio.voices() } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/elevenlabs/voiceover',
+      scope: 'chat',
+      body: true,
+      maxBody: 32 * 1024,
+      handler: async ({ caller, body }) => {
+        const audio = await requirePersonalElevenLabs(caller);
+        if (!store?.createVideoStudioAudioAsset) throw new HttpError(503, 'audio_storage_unavailable', 'Persistent audio storage is not available yet. Apply the Video Studio audio migration and verify private media storage.');
+        const projectId = body?.project_id || null;
+        if (projectId) await requireVideoStudioProject(caller, projectId);
+        await limiter.signIn('elevenlabs-audio:' + caller.actor.id, config.video?.perHour || 10);
+        const started = now();
+        const bytes = await audio.voiceover({ text: body?.text, voiceId: body?.voice_id, modelId: body?.model_id });
+        const asset = await store.createVideoStudioAudioAsset({
+          tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, projectId,
+          kind: 'voiceover', bytes, voiceId: body?.voice_id, modelId: body?.model_id || 'eleven_multilingual_v2',
+          label: typeof body?.label === 'string' ? body.label : 'AI voiceover'
+        });
+        await usageLog?.record?.(caller, { provider: 'elevenlabs', model: body?.model_id || 'eleven_multilingual_v2', outcome: 'ok', task: 'video_voiceover', latencyMs: now() - started });
+        return { status: 201, body: { asset: publicAudioAsset(asset) } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/elevenlabs/sound-effects',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, body }) => {
+        const audio = await requirePersonalElevenLabs(caller);
+        if (!store?.createVideoStudioAudioAsset) throw new HttpError(503, 'audio_storage_unavailable', 'Persistent audio storage is not available yet. Apply the Video Studio audio migration and verify private media storage.');
+        const projectId = body?.project_id || null;
+        if (projectId) await requireVideoStudioProject(caller, projectId);
+        await limiter.signIn('elevenlabs-audio:' + caller.actor.id, config.video?.perHour || 10);
+        const started = now();
+        const bytes = await audio.soundEffect({ prompt: body?.prompt, durationSeconds: body?.duration_seconds });
+        const asset = await store.createVideoStudioAudioAsset({
+          tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, projectId,
+          kind: 'sound_effect', bytes, label: typeof body?.label === 'string' ? body.label : 'Sound effect'
+        });
+        await usageLog?.record?.(caller, { provider: 'elevenlabs', model: 'sound-generation', outcome: 'ok', task: 'video_sound_effect', latencyMs: now() - started });
+        return { status: 201, body: { asset: publicAudioAsset(asset) } };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/audio-assets',
+      scope: 'chat',
+      handler: async ({ caller }) => {
+        await requireVideoStudioAccess(caller);
+        if (!store?.listVideoStudioAudioAssets) throw new HttpError(503, 'audio_storage_unavailable', 'Video Studio audio storage is not available yet.');
+        const assets = await store.listVideoStudioAudioAssets({ tenantId: caller.tenantId, ownerId: caller.actor.id });
+        return { body: { assets: assets.map(publicAudioAsset) } };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/audio-assets/:id/content',
+      scope: 'chat',
+      handler: async ({ caller, params, res }) => {
+        await requireVideoStudioAccess(caller);
+        const asset = await store?.readVideoStudioAudioAsset?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: params.id });
+        if (!asset) throw new HttpError(404, 'not_found', 'Audio asset not found.');
+        res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': asset.bytes.length, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline; filename="nasrinai-audio.mp3"' });
+        res.end(asset.bytes);
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/video-studio/audio-assets/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        await requireVideoStudioAccess(caller);
+        const removed = await store?.deleteVideoStudioAudioAsset?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: params.id });
+        if (!removed) throw new HttpError(404, 'not_found', 'Audio asset not found.');
+        return { body: { deleted: true, id: params.id } };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/timeline',
+      scope: 'chat',
+      handler: async ({ caller, req }) => {
+        await requireVideoStudioAccess(caller);
+        const projectId = new URL(req.url, 'http://local').searchParams.get('project_id');
+        await requireVideoStudioProject(caller, projectId);
+        if (!store?.listVideoStudioTimelineItems || !store?.getVideoStudioAudioAsset) throw new HttpError(503, 'audio_storage_unavailable', 'Video Studio timeline storage is not available yet.');
+        const items = await store.listVideoStudioTimelineItems({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId });
+        const enriched = await Promise.all(items.map(async item => {
+          const asset = await store.getVideoStudioAudioAsset({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId });
+          return { ...item, asset: asset ? publicAudioAsset(asset) : null };
+        }));
+        return { body: { project_id: projectId, items: enriched } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/timeline',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, body }) => {
+        await requireVideoStudioAccess(caller);
+        const projectId = body?.project_id;
+        await requireVideoStudioProject(caller, projectId);
+        const asset = await store?.getVideoStudioAudioAsset?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: body?.audio_asset_id });
+        if (!asset) throw new HttpError(404, 'not_found', 'Audio asset not found.');
+        const values = timelineInput(body, true);
+        try {
+          const item = await store.addVideoStudioTimelineItem({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId,
+            audioAssetId: asset.id, ...values });
+          return { status: 201, body: { item: { ...item, asset: publicAudioAsset(asset) } } };
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          if (/already on this timeline|duplicate key/i.test(String(err?.message))) throw new HttpError(409, 'audio_already_on_timeline', 'This audio asset is already on the selected timeline.');
+          throw err;
+        }
+      }
+    },
+    {
+      method: 'PATCH',
+      path: '/v1/video-studio/timeline/:id',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, params, body }) => {
+        await requireVideoStudioAccess(caller);
+        const projectId = body?.project_id;
+        await requireVideoStudioProject(caller, projectId);
+        const patch = timelineInput(body, false);
+        if (!Object.keys(patch).length) throw new HttpError(400, 'invalid_timeline_patch', 'Provide at least one timeline field to update.');
+        const item = await store?.updateVideoStudioTimelineItem?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId, id: params.id, patch });
+        if (!item) throw new HttpError(404, 'not_found', 'Timeline item not found.');
+        const asset = await store.getVideoStudioAudioAsset({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId });
+        return { body: { item: { ...item, asset: publicAudioAsset(asset) } } };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/video-studio/timeline/:id',
+      scope: 'chat',
+      handler: async ({ caller, params, req }) => {
+        await requireVideoStudioAccess(caller);
+        const projectId = new URL(req.url, 'http://local').searchParams.get('project_id');
+        await requireVideoStudioProject(caller, projectId);
+        const removed = await store?.deleteVideoStudioTimelineItem?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId, id: params.id });
+        if (!removed) throw new HttpError(404, 'not_found', 'Timeline item not found.');
+        return { body: { deleted: true, id: params.id } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/export',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, body, res }) => {
+        await requireVideoStudioAccess(caller);
+        if (!videoStudioExporter?.available) throw new HttpError(503, 'video_export_unavailable', 'Video export is not available on this server yet.');
+        if (!videos?.read || !store?.listVideoStudioTimelineItems || !store?.readVideoStudioAudioAsset) {
+          throw new HttpError(503, 'video_export_unavailable', 'Video Studio export storage is not ready yet.');
+        }
+        const projectId = body?.project_id;
+        await requireVideoStudioProject(caller, projectId);
+        await limiter.signIn('video-studio-export:' + caller.actor.id, config.video?.perHour || 10);
+        const video = await videos.read(caller, body?.video_id);
+        const items = await store.listVideoStudioTimelineItems({
+          tenantId: caller.tenantId, ownerId: caller.actor.id, projectId
+        });
+        if (!items.length) throw new HttpError(400, 'video_timeline_empty', 'Add at least one audio clip to this project timeline before exporting.');
+        if (items.length > 8) throw new HttpError(400, 'video_timeline_limit', 'Export supports up to eight audio clips at a time.');
+        const audioAssets = await Promise.all(items.map(item => store.readVideoStudioAudioAsset({
+          tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId
+        })));
+        if (audioAssets.some(asset => !asset)) throw new HttpError(404, 'audio_asset_missing', 'A timeline audio asset could not be found. Remove the missing clip and try again.');
+        const started = now();
+        try {
+          const output = await videoStudioExporter.exportWithAudio({
+            videoBytes: video.bytes,
+            durationSeconds: video.producedSeconds || video.targetSeconds,
+            timelineItems: items,
+            audioAssets
+          });
+          await usageLog?.record?.(caller, { provider: 'ffmpeg', model: 'video-studio-mix', outcome: 'ok', task: 'video_studio_export', latencyMs: now() - started });
+          res.writeHead(200, {
+            'Content-Type': 'video/mp4', 'Content-Length': output.length,
+            'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': 'attachment; filename="nasrinai-video-with-audio.mp4"'
+          });
+          res.end(output);
+        } catch (err) {
+          try { await usageLog?.record?.(caller, { provider: 'ffmpeg', model: 'video-studio-mix', outcome: 'error', task: 'video_studio_export', latencyMs: now() - started }); } catch {}
+          throw err;
+        }
       }
     },
     {

@@ -1343,3 +1343,31 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **CI evidence before merge:** [CI run 39331276914](https://github.com/primusco20/nasrinAI/actions/runs/39331276914) passed all jobs: test (798 passed, 0 failed, 1 skipped), database tests, and dependency audit. [Documentation gate 39331277058](https://github.com/primusco20/nasrinAI/actions/runs/39331277058) passed.
 - **Conflict resolution:** renderer-only controls/styles/functions were ported onto current `main`; current cloud-project prompt restoration was preserved. No whole-file replacement from the stale branch was used.
 - **Still not verified:** browser/device export playback, audio sync, mobile memory behavior, durable local-media cloud storage, and server-side rendering. The browser renderer is a limited client-side export feature, not a production render worker.
+
+
+## PR #468 — ElevenLabs Video Studio conflict resolution
+
+- Reconciled the ElevenLabs integration with the latest `main` branch (`aa27d8a9f8db5ea48262764c525a0b457d8f2b25`) while preserving the newer cloud-project editor and storage changes.
+- Restored the Video Studio audio generation handlers and audio-specific styles alongside the current editor UI.
+- Local validation: `npm test` — 822 passed, 0 failed, 1 skipped; `npm run check:secrets` — no secrets found in 587 files; JavaScript syntax checks passed; `git diff --check` passed.
+- Deployed Studio/provider/export smoke testing and remaining release gates are still pending.
+
+
+## PR #483 — Video Studio reference-matched workspace (2026-10-20)
+
+- Restyled the Video Studio toward the supplied dark professional editor reference, including compact top navigation, media library, preview stage, properties inspector, timeline, and export section.
+- Kept creation, timeline, and export sections available in one page; added responsive layouts, reduced-motion support, visible focus states, and corrected hidden-panel behavior.
+- Added drag-and-drop clip reordering alongside existing move up/down and edit controls.
+- Added Undo/Redo toolbar controls and Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, and Ctrl/Cmd+Y shortcuts for supported clip-list edits (add, reorder, property change, remove, clear). History is session-local and capped at 60 edits.
+- Retained truthful browser-renderer format detection; do not claim universal MP4 output.
+- **Not yet implemented:** a true multitrack timeline/compositor, clip-edge trim handles, transitions, keyframes, advanced effects, and dependable server-side MP4 rendering. These remain separate engineering phases.
+
+## PR #483 — Multitrack editing and composite preview (2026-10-20)
+
+- Added Video, Overlay, Text, and Audio timeline lanes with saved timeline positions and clip duration.
+- Added draggable trim edges, source in-point and timeline position fields, split clip, and Add caption.
+- Added per-clip filter, transition, opacity, audio gain, and opacity/scale keyframes; these properties persist in local drafts and cloud project documents.
+- Added synchronized canvas preview playback for overlapping visual clips and audio/video media.
+- Replaced sequential-only browser export with a timeline-clock compositor for overlapping visual tracks, caption overlays, basic transitions/filters, opacity/scale keyframes, and audio mixing.
+- Added test/video-studio-multitrack.test.js and updated renderer regression assertions to cover the new implementation and resource limits.
+- **Release gates:** guaranteed/server-side MP4 rendering is not implemented; browser export emits only the actual supported MIME type (MP4 or WebM). Real iOS Safari, tablet, and desktop end-to-end playback/export QA is still required. Browser export remains capped at 40 clips and 180 seconds.

@@ -73,6 +73,42 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     return text ? JSON.parse(text) : null;
   }
 
+  async function mediaRequest(method, path, { bytes, mime = 'application/octet-stream' } = {}) {
+    const deleting = method === 'DELETE';
+    let resp;
+    try {
+      resp = await fetchImpl(url + (deleting ? '/storage/v1/object/media' : '/storage/v1/object/media/' + path), {
+        method,
+        headers: {
+          apikey: serviceKey,
+          Authorization: 'Bearer ' + serviceKey,
+          ...(bytes ? { 'Content-Type': mime, 'x-upsert': 'false' } : {}),
+          ...(deleting ? { 'Content-Type': 'application/json' } : {})
+        },
+        ...(bytes ? { body: bytes } : {}),
+        ...(deleting ? { body: JSON.stringify({ prefixes: [path] }) } : {}),
+        signal: AbortSignal.timeout(Math.max(timeoutMs, 60_000))
+      });
+    } catch (err) {
+      throw new UpstreamError('media storage request failed: ' + (err?.name || 'error'));
+    }
+    if (!resp.ok) {
+      const status = resp.status;
+      await resp.text().catch(() => '');
+      throw new UpstreamError('media storage answered ' + status + ' for ' + method + ' object request');
+    }
+    return method === 'GET' ? Buffer.from(await resp.arrayBuffer()) : true;
+  }
+
+  const AUDIO_ASSET_COLUMNS = 'id,tenant_id,owner_id,project_id,kind,storage_path,mime,size_bytes,voice_id,model_id,duration_seconds,label,created_at,updated_at';
+  const mapAudioAsset = (r) => ({
+    id: r.id, tenantId: r.tenant_id, ownerId: r.owner_id, projectId: r.project_id || null,
+    kind: r.kind, storagePath: r.storage_path, mime: r.mime, sizeBytes: r.size_bytes,
+    voiceId: r.voice_id || null, modelId: r.model_id || null,
+    durationSeconds: r.duration_seconds == null ? null : Number(r.duration_seconds),
+    label: r.label, createdAt: r.created_at, updatedAt: r.updated_at
+  });
+
   return {
     kind: 'supabase',
     request,
@@ -751,6 +787,127 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!r) return null;
       return { id: r.id, tenantId: r.tenant_id, ownerType: r.owner_type, ownerId: r.owner_id, mime: r.mime,
         bytes: Buffer.from(String(r.bytes).replace(/^\\x/, ''), 'hex') };
+    },
+
+    async saveProviderCredential({ tenantId, ownerId, provider, ciphertext, iv, tag }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(ownerId)) || provider !== 'elevenlabs') throw new Error('invalid provider credential owner');
+      await request('POST', 'user_provider_credentials?on_conflict=tenant_id,owner_id,provider', { body: { tenant_id: tenantId, owner_id: ownerId, provider, ciphertext, iv, auth_tag: tag, updated_at: new Date().toISOString() }, prefer: 'resolution=merge-duplicates,return=minimal' });
+      return true;
+    },
+    async getProviderCredential({ tenantId, ownerId, provider }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(ownerId)) || provider !== 'elevenlabs') return null;
+      const rows = await request('GET', 'user_provider_credentials?tenant_id=eq.' + tenantId + '&owner_id=eq.' + encodeURIComponent(ownerId) + '&provider=eq.' + provider + '&select=ciphertext,iv,auth_tag&limit=1');
+      const row = rows?.[0]; return row ? { ciphertext: row.ciphertext, iv: row.iv, tag: row.auth_tag } : null;
+    },
+    async deleteProviderCredential({ tenantId, ownerId, provider }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(ownerId)) || provider !== 'elevenlabs') return false;
+      await request('DELETE', 'user_provider_credentials?tenant_id=eq.' + tenantId + '&owner_id=eq.' + encodeURIComponent(ownerId) + '&provider=eq.' + provider); return true;
+    },
+    async createVideoStudioAudioAsset(row) {
+      if (!UUID.test(String(row.tenantId)) || !OWNER_ID.test(String(row.ownerId)) || row.ownerType !== 'user' ||
+          !Buffer.isBuffer(row.bytes) || row.bytes.length < 1 || row.bytes.length > 12 * 1024 * 1024 ||
+          !['voiceover', 'sound_effect'].includes(row.kind)) throw new Error('invalid Video Studio audio asset');
+      if (row.projectId && !UUID.test(String(row.projectId))) throw new Error('invalid Video Studio project id');
+      const id = randomUUID();
+      const storagePath = row.tenantId + '/' + row.ownerId + '/' + id + '.mp3';
+      await mediaRequest('POST', storagePath, { bytes: row.bytes, mime: 'audio/mpeg' });
+      try {
+        const rows = await request('POST', 'video_studio_audio_assets?select=' + AUDIO_ASSET_COLUMNS, {
+          prefer: 'return=representation',
+          body: {
+            id, tenant_id: row.tenantId, owner_type: 'user', owner_id: row.ownerId,
+            project_id: row.projectId || null, kind: row.kind, storage_path: storagePath,
+            mime: 'audio/mpeg', size_bytes: row.bytes.length, voice_id: row.voiceId || null,
+            model_id: row.modelId || null, duration_seconds: row.durationSeconds ?? null,
+            label: String(row.label || (row.kind === 'voiceover' ? 'AI voiceover' : 'Sound effect')).slice(0, 120)
+          }
+        });
+        return mapAudioAsset(rows[0]);
+      } catch (err) {
+        await mediaRequest('DELETE', storagePath).catch(() => {});
+        throw err;
+      }
+    },
+    async listVideoStudioAudioAssets({ tenantId, ownerId, projectId = null }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(ownerId))) return [];
+      const filter = projectId ? '&project_id=eq.' + encodeURIComponent(projectId) : '';
+      const rows = await request('GET', 'video_studio_audio_assets?tenant_id=eq.' + tenantId +
+        '&owner_type=eq.user&owner_id=eq.' + encodeURIComponent(ownerId) + filter +
+        '&order=created_at.desc&limit=200&select=' + AUDIO_ASSET_COLUMNS);
+      return (rows || []).map(mapAudioAsset);
+    },
+    async getVideoStudioAudioAsset({ tenantId, ownerId, id }) {
+      if (!UUID.test(String(tenantId)) || !OWNER_ID.test(String(ownerId)) || !UUID.test(String(id))) return null;
+      const rows = await request('GET', 'video_studio_audio_assets?id=eq.' + id +
+        '&tenant_id=eq.' + tenantId + '&owner_type=eq.user&owner_id=eq.' + encodeURIComponent(ownerId) +
+        '&limit=1&select=' + AUDIO_ASSET_COLUMNS);
+      return rows?.[0] ? mapAudioAsset(rows[0]) : null;
+    },
+    async readVideoStudioAudioAsset({ tenantId, ownerId, id }) {
+      const asset = await this.getVideoStudioAudioAsset({ tenantId, ownerId, id });
+      if (!asset) return null;
+      const bytes = await mediaRequest('GET', asset.storagePath);
+      if (bytes.length !== asset.sizeBytes || bytes.length > 12 * 1024 * 1024) throw new UpstreamError('stored audio asset failed integrity checks');
+      return { ...asset, bytes };
+    },
+    async deleteVideoStudioAudioAsset({ tenantId, ownerId, id }) {
+      const asset = await this.getVideoStudioAudioAsset({ tenantId, ownerId, id });
+      if (!asset) return false;
+      await request('DELETE', 'video_studio_timeline_items?tenant_id=eq.' + tenantId +
+        '&owner_id=eq.' + encodeURIComponent(ownerId) + '&audio_asset_id=eq.' + id, { prefer: 'return=minimal' }).catch(() => {});
+      await mediaRequest('DELETE', asset.storagePath);
+      const rows = await request('DELETE', 'video_studio_audio_assets?id=eq.' + id +
+        '&tenant_id=eq.' + tenantId + '&owner_type=eq.user&owner_id=eq.' + encodeURIComponent(ownerId) + '&select=id',
+        { prefer: 'return=representation' });
+      return Array.isArray(rows) && rows.length > 0;
+    },
+    async addVideoStudioTimelineItem(row) {
+      if (!UUID.test(String(row.tenantId)) || !UUID.test(String(row.projectId)) ||
+          !UUID.test(String(row.audioAssetId)) || !OWNER_ID.test(String(row.ownerId))) throw new Error('invalid Video Studio timeline item');
+      const rows = await request('POST', 'video_studio_timeline_items?select=*', {
+        prefer: 'return=representation',
+        body: { tenant_id: row.tenantId, owner_id: row.ownerId, project_id: row.projectId,
+          audio_asset_id: row.audioAssetId, start_seconds: row.startSeconds, trim_start_seconds: row.trimStartSeconds || 0,
+          trim_end_seconds: row.trimEndSeconds ?? null, gain: row.gain ?? 1, lane: row.lane ?? 1 }
+      });
+      return this.mapVideoStudioTimelineItem(rows[0]);
+    },
+    mapVideoStudioTimelineItem(r) {
+      return { id: r.id, tenantId: r.tenant_id, ownerId: r.owner_id, projectId: r.project_id,
+        audioAssetId: r.audio_asset_id, startSeconds: Number(r.start_seconds),
+        trimStartSeconds: Number(r.trim_start_seconds), trimEndSeconds: r.trim_end_seconds == null ? null : Number(r.trim_end_seconds),
+        gain: Number(r.gain), lane: r.lane, createdAt: r.created_at, updatedAt: r.updated_at };
+    },
+    async listVideoStudioTimelineItems({ tenantId, ownerId, projectId }) {
+      if (!UUID.test(String(tenantId)) || !UUID.test(String(projectId)) || !OWNER_ID.test(String(ownerId))) return [];
+      const rows = await request('GET', 'video_studio_timeline_items?tenant_id=eq.' + tenantId +
+        '&owner_id=eq.' + encodeURIComponent(ownerId) + '&project_id=eq.' + projectId +
+        '&order=start_seconds.asc&select=*');
+      return (rows || []).map((r) => this.mapVideoStudioTimelineItem(r));
+    },
+    async getVideoStudioTimelineItem({ tenantId, ownerId, projectId, id }) {
+      if (![tenantId, projectId, id].every(v => UUID.test(String(v))) || !OWNER_ID.test(String(ownerId))) return null;
+      const rows = await request('GET', 'video_studio_timeline_items?id=eq.' + id +
+        '&tenant_id=eq.' + tenantId + '&owner_id=eq.' + encodeURIComponent(ownerId) +
+        '&project_id=eq.' + projectId + '&limit=1&select=*');
+      return rows?.[0] ? this.mapVideoStudioTimelineItem(rows[0]) : null;
+    },
+    async updateVideoStudioTimelineItem({ tenantId, ownerId, projectId, id, patch }) {
+      const current = await this.getVideoStudioTimelineItem({ tenantId, ownerId, projectId, id });
+      if (!current) return null;
+      const body = { updated_at: new Date().toISOString() };
+      const map = { startSeconds: 'start_seconds', trimStartSeconds: 'trim_start_seconds', trimEndSeconds: 'trim_end_seconds', gain: 'gain', lane: 'lane' };
+      for (const [key, col] of Object.entries(map)) if (key in patch) body[col] = patch[key];
+      const rows = await request('PATCH', 'video_studio_timeline_items?id=eq.' + id +
+        '&tenant_id=eq.' + tenantId + '&owner_id=eq.' + encodeURIComponent(ownerId) +
+        '&project_id=eq.' + projectId + '&select=*', { prefer: 'return=representation', body });
+      return rows?.[0] ? this.mapVideoStudioTimelineItem(rows[0]) : null;
+    },
+    async deleteVideoStudioTimelineItem({ tenantId, ownerId, projectId, id }) {
+      const rows = await request('DELETE', 'video_studio_timeline_items?id=eq.' + id +
+        '&tenant_id=eq.' + tenantId + '&owner_id=eq.' + encodeURIComponent(ownerId) +
+        '&project_id=eq.' + projectId + '&select=id', { prefer: 'return=representation' });
+      return Array.isArray(rows) && rows.length > 0;
     },
 
     async addVideo(row) {
