@@ -5,6 +5,13 @@ do $$
 declare
   b record;
 begin
+  -- Plain PostgreSQL CI does not install Supabase Storage; the migration
+  -- intentionally skips its bucket DDL there.
+  if to_regclass('storage.buckets') is null then
+    raise notice '052: Supabase Storage schema absent; bucket assertions skipped';
+    return;
+  end if;
+
   select id, public, file_size_limit, allowed_mime_types into b
   from storage.buckets where id = 'video-studio-assets';
 
