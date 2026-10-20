@@ -516,7 +516,7 @@ export function loadConfig(env = process.env) {
     if (!provider && !model) return null;
     const off = (why) => { warnings.push(`${prefix}: ${why} This picture route is off.`); return null; };
     if (!(provider in imageKeys)) return off('_PROVIDER must be google (gemini), openai or openrouter.');
-    if (!imageKeys[provider]) return off(`needs ${provider === 'gemini' ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY'}.`);
+    if (!imageKeys[provider]) return off(`needs ${provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'OPENAI_API_KEY'}.`);
     if (!(provider === 'openrouter' ? /^[a-z0-9][a-z0-9._-]{0,79}\\/[a-z0-9][a-z0-9._:/-]{0,99}$/i.test(model) : /^[a-z0-9][a-z0-9.-]{1,79}$/i.test(model))) return off('_MODEL: use the exact model ID from the provider catalog.');
     if (provider === 'openai' && !/^gpt-image/.test(model)) return off('_MODEL: use the GPT Image model name from OpenAI, for example gpt-image-….');
     let price = null;
