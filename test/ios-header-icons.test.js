@@ -8,13 +8,13 @@ const CLOCK = '<path d="M3.6 12.6A8.5 8.5 0 1 0 6 6"/><path d="M6.4 2.9 6 6l3.1.
 
 // Owner request (2026-10-12): iOS-like header icons. Settings is a gear,
 // history a clock with a back arrow, New chat the "compose" square and pencil.
-// The same icons are used in the header and the desktop rail.
+// The header retains chat history; the desktop rail intentionally omits a separate chats row.
 test('header uses iOS-style icons, the same everywhere', async () => {
   const html = await read('index.html');
   const header = /<header class="bar">([\s\S]*?)<\/header>/.exec(html)[1];
   const btn = (id) => new RegExp('<button[^>]*id="' + id + '"[^>]*>([\\s\\S]*?)</button>').exec(html)[1];
   assert.ok(btn('historyBtn').includes(CLOCK));
-  assert.ok(btn('desktopHistoryBtn').includes(CLOCK));
+  assert.doesNotMatch(html, /id="desktopHistoryBtn"/, 'desktop rail omits a separate chats row');
   assert.match(btn('settingsBtn'), GEAR);
   assert.match(btn('desktopSettingsBtn'), GEAR);
   assert.match(btn('newChat'), /<path d="M11\.5 4\.5H7a2\.5 2\.5[^"]*"\/><path d="M17\.8 3\.8a1\.85[^"]*"\/>/);
