@@ -281,7 +281,7 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
       if (requestedModel === 'openrouter/free' && fallbackProvider) {
         return fallbackProvider.generate({ system, messages, model: requestedModel, tools, maxTokens, signal, attachments });
       }
-      if (!supportedTasks.has(task) && task !== 'debugging') throw new ProviderError('config', 'Unsupported OpenRouter task route');
+      if (task === 'decisions') throw new ProviderError('config', 'Structured decisions require the dedicated decide({state, questions}) API');
       const result = await openrouter.chat({
         task: normalizeTask(task), model: requestedModel,
         messages: [{ role: 'system', content: system }, ...messages],
