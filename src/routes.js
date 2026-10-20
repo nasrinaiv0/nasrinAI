@@ -35,12 +35,14 @@ function cleanVideoStudioDocument(raw) {
     const id = text(c.id, 100);
     const kind = ['generated', 'upload', 'template'].includes(c.kind) ? c.kind : 'template';
     const videoId = typeof c.videoId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.videoId) ? c.videoId : null;
+    const assetId = typeof c.assetId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.assetId) ? c.assetId : null;
+    if (kind === 'upload' && !assetId) throw new HttpError(400, 'video_asset_required', 'Re-add this uploaded media and save again so its file is included in the cloud project.');
+    const mediaType = kind === 'upload' && typeof c.mediaType === 'string' && /^(video|image|audio)\//i.test(c.mediaType) ? c.mediaType.slice(0, 100) : null;
     return { id, name:text(c.name, 120, 'Clip'), title:text(c.title, 200), kind,
       duration:Math.max(0, Math.min(3600, Number(c.duration) || 0)),
       start:Math.max(0, Math.min(3600, Number(c.start) || 0)),
       videoId, download:videoId && kind === 'generated' ? '/v1/videos/' + videoId + '/content' : null,
-      assetId:kind === 'upload' && typeof c.assetId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.assetId) ? c.assetId : null,
-      mediaType:kind === 'upload' && typeof c.mediaType === 'string' && /^(video|image|audio)\\//i.test(c.mediaType) ? c.mediaType.slice(0, 100) : null,
+      assetId:kind === 'upload' ? assetId : null, mediaType,
       createdAt:text(c.createdAt, 40) };
   }).filter((c) => c.id);
   const generated = arr(raw.generated).filter((g) => g && typeof g === 'object' && !Array.isArray(g)).map((g) => ({
@@ -51,7 +53,6 @@ function cleanVideoStudioDocument(raw) {
   if (Buffer.byteLength(JSON.stringify(document), 'utf8') > 900000) throw new HttpError(413, 'video_project_too_large', 'This project is too large to save. Remove some clip metadata and try again.');
   return document;
 }
-
 
 export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
