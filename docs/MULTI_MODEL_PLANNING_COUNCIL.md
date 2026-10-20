@@ -17,14 +17,16 @@ Use inexpensive configured models to independently brainstorm, plan, and critiqu
 - Keep the current per-request and per-period spend budgets as the source of truth. Council costs count toward the same limits; no shadow budget or free model inference.
 
 ## Implemented so far
-1. Added `src/ai/planning-council.js`, a bounded orchestration primitive with three roles: brainstorm, architect, critic. It takes an injected `runCandidate` callback rather than calling providers itself, allowing the caller to use existing policy and accounting.
-2. Added eligibility guards for opt-in state, Max/Ultra tier, task class, sensitivity, attachments, tools, and current-fact requirements.
-3. Added limits for call count, per-call token cap, context size, and per-role output size; failed roles are represented without leaking exception messages.
-4. Added `test/planning-council.test.js` for eligibility, bounds, synthesis packet formation, empty goals, and safe failure behavior.
+1. Added `src/ai/planning-council.js`, a bounded orchestration primitive with three roles: brainstorm, architect, critic.
+2. Wired an OFF-by-default `PLANNING_COUNCIL_ENABLED` server configuration flag into the chat path for eligible Max/Ultra tasks. Each specialist uses the existing smart-routing policy, token reservations, spend reservations, and usage logging. The original user request remains present for final synthesis.
+3. Added an optional `maxTokens` request override to the routing policy; it is clamped to the configured level maximum and is used to keep council calls small. It takes an injected `runCandidate` callback rather than calling providers itself, allowing the caller to use existing policy and accounting.
+4. Added eligibility guards for opt-in state, Max/Ultra tier, task class, sensitivity, attachments, tools, and current-fact requirements.
+5. Added limits for call count, per-call token cap, context size, and per-role output size; failed roles are represented without leaking exception messages.
+6. Added `test/planning-council.test.js` for eligibility, bounds, synthesis packet formation, empty goals, and safe failure behavior.
 
 ## Not yet complete — required next
-- [ ] Wire the council into the actual chat path behind an explicit server-side feature flag; default must remain OFF.
-- [ ] Implement the policy-backed candidate callback. It must route every specialist call through the same existing policy and durable budget/token reservations as normal chat.
+- [x] Wire the council into the actual chat path behind an explicit server-side feature flag; default remains OFF.
+- [x] Implement the policy-backed candidate callback through the existing policy and durable budget/token reservations. Verify durable settlement behavior further in integration tests.
 - [ ] Ensure specialist calls are charged and logged individually, including failures and unknown provider usage. Never count a council response as free.
 - [ ] Feed the merged council packet into the selected Max/Ultra final-model request without replacing the user's actual request, system safety instructions, or existing conversation context.
 - [ ] Do not use council for sensitive requests, attachments, tool requests, current-fact/web-search tasks, unsupported task types, or any request that would exceed the remaining token/spend budget.
@@ -32,7 +34,8 @@ Use inexpensive configured models to independently brainstorm, plan, and critiqu
 - [ ] Add integration tests proving feature-flag-off is byte-for-byte normal behavior; feature-flag-on only runs for eligible Max/Ultra requests; token/spend reservations and usage logs account for every call; failures fall back safely; and user content cannot inject policy instructions into role prompts.
 - [ ] Benchmark against premium-only baseline using representative NasrinAI tasks. Record output quality, factuality, security regressions, latency, total tokens, and total cost. Do not claim savings until measured.
 - [ ] Verify all configured IDs, current price rates, capabilities, tool support, context sizes, and any provider-specific request parameters using live provider documentation and a controlled smoke test.
-- [ ] Run full `npm test`, syntax checks, secret scan, and `git diff --check`; review CI on PR #491.
+- [x] Run full `npm test` and syntax checks for changed JavaScript; `git diff --check` passed. Latest full suite: 864 tests, 863 passed, 0 failed, 1 skipped.
+- [ ] Run secret scan and review CI on PR #491.
 - [ ] Keep production disabled until all release gates pass and a separate release decision is made.
 
 ## Operator-supplied model rates (not independently verified)
@@ -66,3 +69,9 @@ Zero output prices are particularly high risk: confirm they are genuinely zero-c
 ## Progress log
 - 2026-10-21: Inspected current smart-routing policy, classifier, chat integration, model-price schema, and existing OpenRouter skill catalog.
 - 2026-10-21: Added bounded policy-injected council module and initial safety/bounds tests. Runtime integration, accounting integration, full-suite verification, and live-provider verification remain open.
+
+
+### Latest verification
+- 2026-10-21: Full local sandbox test suite passed: 864 tests, 863 pass, 0 fail, 1 skipped. Syntax checks for the council, chat, config, and policy modules passed; `git diff --check` passed.
+- 2026-10-21: The supplied model IDs and prices are recorded in the operator table; IDs have been added to the skill catalog as `operator_supplied_unverified` metadata only. They are deliberately excluded from runtime prioritization until model identity, price, capability, and endpoint behavior are independently verified. No unverified prices were added to `config/model-prices.json`.
+- Runtime council is disabled by default. No production deployment or live-provider smoke test was performed.
