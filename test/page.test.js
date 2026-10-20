@@ -107,7 +107,7 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
   assert.match(html, /id="spaceCoding">\s*<span class="space-app-icon" aria-hidden="true"><span class="space-app-logo code-logo"/);
   // Every app sits on the same tile (owner, 2026-10-13): light grey, lifted grey in dark mode.
-  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 7);
+  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 8, 'Video Studio adds one Space tile');
   assert.match(css, /#pageSpace \.space-app-icon \{[^}]*background: #ECEBE7;/);
   assert.match(css, /:root\[data-theme="dark"\] #pageSpace \.space-app-icon \{ background: #3A3A3C; \}/);
   // The robot has no tile of its own; while busy it breaks into pixels and comes back.
