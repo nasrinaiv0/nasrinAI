@@ -147,3 +147,15 @@ TTS is configured for `google/gemini-3.8-flash-lite-tts` through OpenRouter, pin
 ### Release gates
 - No production environment variables were changed and no production deployment was performed in this documentation/configuration update.
 - Required before enabling: configure server-only OpenRouter credentials, verify provider availability, test TTS audio format/voice compatibility and browser playback, test Max/Ultra coding routing and tier boundaries, and inspect actual provider usage/cost records.
+
+
+## 2026-10-21 — Premium coding routes and TTS provider
+
+- Max coding is explicitly routed to `openrouter:openai/gpt-6-sol`.
+- Ultra coding and Ultra deep coding are explicitly routed to `openrouter:openai/gpt-6.1-sol`.
+- These are fixed allow-listed model IDs, not user-selectable arbitrary endpoints. If OpenRouter is not configured, the existing approved Anthropic fallback remains; configuration must be checked in the target Vercel environment before release.
+- Price catalog: GPT-6 Sol input/output $2/$10 per million tokens, cache-read $0.20/M; GPT-6.1 Sol input/output $2/$10 per million tokens, cache-read $0.10/M. OpenRouter model pages: https://openrouter.ai/openai/gpt-6-sol/ and https://openrouter.ai/openai/gpt-6.1-sol/.
+- OpenRouter TTS model is `google/gemini-3.8-flash-lite-tts`, input $0.50/M text tokens and output $6/M audio tokens. The adapter supports explicit provider pinning and TTS output uses server-side OpenRouter credentials. Model page: https://openrouter.ai/google/gemini-3.8-flash-lite-tts/.
+- Provider mismatch: the currently listed provider for this TTS model is Google AI Studio, not Google Vertex. The default is therefore pinned to the provider actually shown by OpenRouter. Do not configure `Google Vertex` until the model's live OpenRouter endpoint list explicitly offers it; an unavailable provider pin would fail requests.
+- Cached token rates are explicit in the pricing file. The $2/$10 rates above are standard rates; cached input is set to the listed cache-read rates rather than the full input rate.
+- Validation/release gates: run the full suite and changed-module syntax checks; verify OpenRouter TTS capability and actual provider slug in the deployed Preview environment; confirm WAV/MP3 response format and voice mapping end-to-end; perform a bounded-cost coding smoke test for Max and Ultra. No production deployment or environment-secret changes are included in this commit.
