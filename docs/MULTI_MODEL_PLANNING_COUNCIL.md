@@ -247,3 +247,27 @@ The price catalog records conservative cache pricing as input rates for generic 
 - **Provider caveat / release gate:** the OpenRouter model listing currently displays Google AI Studio in its provider row, not Google Vertex. Because the requested pin is strict, do not enable this in production until an authenticated Preview smoke test confirms that `Google Vertex` is a valid provider identifier for this exact model. If OpenRouter does not list that provider, update the provider pin only after the owner confirms the intended provider. Do not silently route to a different provider.
 - Model prices in `config/model-prices.json` include these rates. Cached input values are conservative; TTS output is billed as audio tokens, so cost accounting must use actual usage fields returned by OpenRouter rather than assuming output text tokens.
 - **Release status:** configuration and documentation are on the feature branch only. No production deployment or live-provider test is claimed. Run syntax checks, full tests, config tests, and authenticated Preview smoke tests before merge/deployment.
+
+
+## Premium coding and Google Vertex TTS routes — 2026-10-21
+
+### Coding tier pins
+
+- **Max coding:** `openrouter:openai/gpt-6-sol` — $2/M input, $10/M output; cached reads $0.20/M on the standard OpenAI endpoint.
+- **Ultra coding:** `openrouter:openai/gpt-6.1-sol` — $2/M input, $10/M output; cached reads $0.10/M on the standard OpenAI endpoint.
+- **Ultra deep coding:** also uses GPT-6.1 Sol. It is not a separate model ID; use only for tasks whose complexity justifies the premium model.
+- The configuration rejects other OpenRouter model IDs for these tier-specific coding slots. If OpenRouter is not configured, the existing approved Anthropic fallback remains available. Pricing and model identity checked against [GPT-6 Sol](https://openrouter.ai/openai/gpt-6-sol) and [GPT-6.1 Sol](https://openrouter.ai/openai/gpt-6.1-sol).
+
+### TTS route
+
+- **Model:** `google/gemini-3.8-flash-lite-tts`
+- **Provider preference:** `Google Vertex` through OpenRouter, using `OPENROUTER_TTS_PROVIDER=Google Vertex` and `SPEECH_PROVIDER=openrouter`.
+- **Listed price:** $0.50 per million input text tokens and $6.00 per million output audio tokens. [OpenRouter model listing](https://openrouter.ai/google/gemini-3.8-flash-lite-tts/).
+- Runtime uses the OpenRouter speech adapter and provider pin. Provider availability and voice compatibility still require an authenticated Preview smoke test. The public model listing confirms the model and price but does not by itself certify that the requested Google Vertex endpoint is currently available to this account.
+
+### Cost and release safeguards
+
+- Do not treat TTS audio-output tokens as ordinary text output; use provider usage fields where exposed. Where usage is unavailable, preserve conservative character-based speech budgeting rather than inventing token counts.
+- Model price snapshots are estimates for budget control, not a billing guarantee. Endpoint/provider choice can change cached-input rates and availability.
+- Environment variables are documented in `.env.example`; no secret values are stored in source control.
+- Status: config/test wiring exists and tests cover model/provider selection. Live API smoke tests and measured cost/quality checks remain release gates. Keep production enablement off until those pass.
