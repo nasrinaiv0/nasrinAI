@@ -109,7 +109,7 @@ export function createOpenRouterClient({
     }
     if (preferred.length) throw new ProviderError('config', `Configured OpenRouter model is unavailable or lacks the required capability for task: ${task}`);
     // Never silently choose an arbitrary model for costly generation.
-    if (['image', 'video', 'speech', 'transcription', 'embeddings', 'rerank', 'decisions'].includes(task)) {
+    if (['image', 'video', 'rerank'].includes(task)) {
       throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
     }
     const affordable = eligible.filter((m) => Number.isFinite(Number(m.pricing?.prompt)) && Number.isFinite(Number(m.pricing?.completion)));
