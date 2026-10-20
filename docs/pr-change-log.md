@@ -1,4 +1,11 @@
 
+## Proposed PR — Video Studio button and padding normalization (`fix/video-studio-button-spacing`)
+
+- Normalize icon-only controls to fixed square dimensions with consistent borders, alignment, and line-height; prevent inherited button padding from inflating the media-bin plus button.
+- Standardize editor toolbar, save, canvas, timeline, and clip-action button heights/padding; ensure media import button fills its container without overflow.
+- Add responsive rules for narrow phones and regression checks for fixed icon dimensions, box sizing, and mobile breakpoints.
+
+
 ## Proposed PR — Video Studio button and padding consistency (`fix/video-studio-button-spacing`)
 
 - Normalize button hit areas, padding, gaps, and line-height across the create, project, timeline, inspector, and export controls.
