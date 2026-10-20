@@ -139,7 +139,7 @@ test('OpenRouter video adapter pins model, duration, and explicit cost; rejects 
 
 test('image catalog schema without chat architecture is accepted, but editing requires declared reference support', async () => {
   const calls = [];
-  const imageModel = { id: 'openai/gpt-image-2', name: 'GPT Image 2', supported_parameters: { quality: { type: 'enum', values: ['low', 'medium', 'high'] }, input_references: { type: 'range', min: 0, max: 4 } } };
+  const imageModel = { id: 'openai/gpt-image-2', name: 'GPT Image 2', supported_parameters: { quality: { type: 'enum', values: ['low', 'medium', 'high'] }, aspect_ratio: { type: 'enum', values: ['1:1', '16:9'] }, input_references: { type: 'range', min: 0, max: 4 } } };
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url, init) => {
     const path = new URL(url).pathname;
     calls.push({ path, body: init.body ? JSON.parse(init.body) : null });
@@ -157,6 +157,8 @@ test('image catalog schema without chat architecture is accepted, but editing re
   assert.equal(edited.body.input_references.length, 1);
   assert.ok(!('images' in edited.body));
   await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Underbudget', maxCostUsd: 0.01 }), /below the live catalog price/);
+  await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Unsupported quality', quality: 'xhigh', maxCostUsd: 0.05 }), /does not advertise the requested quality/);
+  await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Unsupported aspect ratio', aspect_ratio: '9:16', maxCostUsd: 0.05 }), /does not advertise the requested aspect_ratio/);
 });
 
 
