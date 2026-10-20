@@ -109,3 +109,128 @@ body.editor-mode .inspector{grid-column:3;grid-row:2/4;min-width:0;border:0;bord
 body.editor-mode .studio-chat{right:16px;bottom:16px}
 @media(max-width:1050px){body.editor-mode .capcut-editor{grid-template-columns:180px minmax(0,1fr) 220px;grid-template-rows:52px minmax(350px,calc(100dvh - 400px)) auto}.editor-tool{padding:7px 8px}.editor-project-label{display:none}}
 @media(max-width:760px){body.editor-mode .topbar{padding:0 11px;height:50px}.editor-mode .brand{font-size:11px;gap:7px}.editor-mode .top-actions{gap:8px}.editor-mode .top-actions .back-link{display:none}.editor-mode .save-state{display:none}body.editor-mode .capcut-editor{grid-template-columns:84px minmax(0,1fr);grid-template-rows:48px minmax(330px,auto) auto auto;min-height:calc(100dvh - 50px)}body.editor-mode .editor-toolbar{padding:0 8px;gap:5px}.editor-mode .editor-mode{font-size:0}.editor-mode .editor-live-dot{width:8px;height:8px}.editor-tools{gap:0}.editor-tool{flex-direction:column;gap:2px;padding:5px 6px;font-size:14px}.editor-tool span{font-size:8px}.editor-toolbar-actions{gap:4px}.editor-save{padding:7px 8px;font-size:9px}.media-bin{grid-column:1;grid-row:2/5;padding:9px 6px}.bin-heading{align-items:flex-start;flex-direction:column;margin-bottom:9px}.bin-heading h2{font-size:12px}.bin-add{width:25px;height:25px}.import-drop{min-height:64px;padding:4px 1px}.import-drop>span{width:20px;height:20px;font-size:15px}.import-drop b{font-size:8px}.import-drop small{display:none}.bin-filter{font-size:8px;margin:11px 0 6px}.media-bin-items{grid-template-columns:1fr;gap:6px}.bin-thumb{height:36px}.bin-media-item{padding:3px}.bin-media-item b{font-size:8px}.bin-media-item small{display:none}.bin-bottom{font-size:0;justify-content:center}.storage-dot{width:7px;height:7px}body.editor-mode .timeline-column{grid-column:2;grid-row:2;min-height:350px}.editor-preview-toolbar{padding:8px 10px;min-height:42px}.editor-stage{padding:12px 8px;min-height:230px}.editor-stage .preview-frame{min-height:150px;max-height:40dvh}.editor-stage .preview-frame.portrait{height:38dvh;max-height:38dvh;min-height:180px}.editor-stage .preview-caption{display:none}body.editor-mode .timeline-section{grid-column:2;grid-row:3;padding:9px 8px}.timeline-head h2{font-size:11px}.timeline-head-actions{gap:5px}.timeline-timecode{font-size:8px}.timeline-head-actions .quiet-button{font-size:8px;padding:5px}.timeline{min-height:100px!important}.clip-row{flex-basis:135px!important;min-width:135px!important}.clip-thumb{height:47px!important}.timeline-tools{font-size:8px!important}body.editor-mode .inspector{grid-column:2;grid-row:4;border-left:0;border-top:1px solid #2a2b32;padding:12px}.inspector-heading{margin-bottom:10px;padding-bottom:9px}.inspector-heading h2{font-size:13px}.editor-inspector label{display:inline-grid;vertical-align:top;width:48%;margin-right:1%;font-size:8px}.editor-inspector input{padding:8px;font-size:10px}.editor-inspector .danger-button{padding:8px;font-size:10px}}
+
+
+/* Button sizing and spacing pass: consistent hit areas, predictable wrapping, no cramped controls. */
+button{ -webkit-tap-highlight-color:transparent }
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+button:disabled{cursor:not-allowed}
+.quiet-button,.icon-button,.danger-button,.primary-button,.editor-save,.canvas-controls button,.editor-tool,.bin-add,.import-drop,.timeline-head-actions button,.clip-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.25}
+.quiet-button,.icon-button,.danger-button{min-height:38px;padding:9px 14px}
+.primary-button{min-height:42px;padding:11px 18px}
+.project-actions{gap:8px}
+.project-actions .quiet-button{min-width:0;flex:1 1 115px;white-space:nowrap}
+.project-control input,.inspector input,.generation-options select{min-height:42px;padding:10px 12px}
+.tabs{align-items:stretch;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{min-height:46px;padding:12px 17px;white-space:nowrap;border-radius:8px 8px 0 0}
+.template-grid{gap:12px}
+.template-card{padding:7px;border-radius:13px}
+.template-meta{padding:11px 6px 7px;gap:5px}
+.generation-options{gap:12px}
+.generation-options select{min-width:0}
+.preview-column,.timeline-column,.inspector,.export-aside{padding:clamp(12px,1.6vw,20px)}
+.preview-caption{gap:12px}
+.timeline-tools{gap:10px;flex-wrap:wrap}
+.clip-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.clip-actions button{min-width:34px;min-height:32px;padding:6px 9px}
+.export-card,.export-aside{min-width:0}
+.export-item{gap:12px;flex-wrap:wrap}
+.export-item a{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 11px;border:1px solid var(--line);border-radius:7px}
+.notice{line-height:1.55}
+body.editor-mode .editor-toolbar{gap:12px;padding-inline:clamp(10px,1.5vw,20px)}
+body.editor-mode .editor-tools{gap:6px}
+body.editor-mode .editor-tool{min-height:38px;padding:8px 11px;border-radius:8px;white-space:nowrap}
+body.editor-mode .editor-toolbar-actions{gap:10px}
+body.editor-mode .editor-save{min-height:36px;padding:9px 13px;border-radius:7px}
+body.editor-mode .media-bin{padding:16px 12px 12px}
+body.editor-mode .bin-heading{gap:8px}
+body.editor-mode .bin-add{flex:0 0 32px;min-width:32px;min-height:32px;padding:0}
+body.editor-mode .import-drop{gap:7px;padding:12px 8px;min-height:100px}
+body.editor-mode .editor-preview-toolbar{padding:11px 16px;gap:12px}
+body.editor-mode .canvas-controls{gap:8px;flex-wrap:wrap}
+body.editor-mode .canvas-controls button{min-height:32px;padding:7px 11px}
+body.editor-mode .editor-stage{padding:clamp(12px,2vw,22px)}
+body.editor-mode .timeline-section{padding:14px 16px 12px}
+body.editor-mode .timeline-head{gap:12px;flex-wrap:wrap}
+body.editor-mode .timeline-head-actions{gap:8px;flex-wrap:wrap}
+body.editor-mode .timeline-head-actions .quiet-button{min-height:32px;padding:7px 10px}
+body.editor-mode .timeline{gap:9px;padding:12px 3px 14px}
+body.editor-mode .clip-row{padding:7px;gap:6px 8px}
+body.editor-mode .clip-actions{gap:4px}
+body.editor-mode .clip-actions button{min-width:28px;min-height:28px;padding:5px 7px}
+body.editor-mode .timeline-tools{gap:10px;flex-wrap:wrap;padding-top:10px}
+body.editor-mode .timeline-tools .quiet-button{min-height:30px;padding:6px 9px}
+body.editor-mode .editor-inspector{padding:18px 15px}
+body.editor-mode .editor-inspector label{gap:7px;margin-bottom:16px}
+body.editor-mode .editor-inspector input{min-height:38px;padding:9px 10px}
+body.editor-mode .editor-inspector .danger-button{min-height:36px;padding:8px 11px}
+@media(max-width:1050px){
+ .project-control{max-width:100%}
+ .project-actions .quiet-button{flex:1 1 100px}
+ .workspace{gap:16px}
+ body.editor-mode .editor-toolbar{gap:8px}
+ body.editor-mode .editor-tool{padding-inline:8px}
+}
+@media(max-width:760px){
+ .top-actions{gap:8px}
+ .top-actions .quiet-button{min-height:34px;padding:7px 10px;font-size:10px}
+ .studio{padding-inline:12px}
+ .intro{gap:14px}
+ .project-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .project-actions .quiet-button{width:100%;min-width:0;min-height:40px;padding:9px 8px;white-space:normal;text-align:center}
+ .tabs{gap:5px;margin-inline:-2px;padding-inline:2px}
+ .tab{flex:0 0 auto;min-height:43px;padding:10px 12px;gap:7px}
+ .template-grid{gap:9px}
+ .template-card{padding:5px}
+ .template-art{padding:9px}
+ .template-meta{padding:9px 4px 5px}
+ .generation-options{gap:9px}
+ .generation-options select{padding:10px 9px}
+ .primary-button{min-height:44px;padding:12px 14px}
+ .preview-column,.timeline-column,.inspector,.export-aside{padding:12px}
+ .section-heading{align-items:flex-start;gap:8px;flex-wrap:wrap}
+ .timeline-tools{align-items:flex-start}
+ .clip-actions button{min-width:34px;min-height:34px}
+ body.editor-mode .capcut-editor{gap:0}
+ body.editor-mode .editor-toolbar{gap:5px;padding-inline:7px}
+ body.editor-mode .editor-tools{gap:1px}
+ body.editor-mode .editor-tool{min-width:35px;min-height:39px;padding:5px 4px;gap:3px}
+ body.editor-mode .editor-toolbar-actions{gap:4px}
+ body.editor-mode .editor-save{min-height:33px;padding:7px 8px;font-size:9px}
+ body.editor-mode .media-bin{padding:10px 6px}
+ body.editor-mode .bin-heading{gap:7px}
+ body.editor-mode .bin-add{min-width:27px;min-height:27px;flex-basis:27px}
+ body.editor-mode .import-drop{gap:5px;min-height:72px;padding:7px 3px}
+ body.editor-mode .editor-preview-toolbar{align-items:flex-start;padding:9px 9px;gap:7px}
+ body.editor-mode .canvas-controls{gap:5px}
+ body.editor-mode .canvas-controls button{min-height:30px;padding:6px 7px;font-size:9px}
+ body.editor-mode .editor-stage{padding:10px 7px}
+ body.editor-mode .timeline-section{padding:10px 7px}
+ body.editor-mode .timeline-head{align-items:flex-start;gap:7px}
+ body.editor-mode .timeline-head-actions{gap:5px}
+ body.editor-mode .timeline-head-actions .quiet-button{min-height:30px;padding:6px 7px}
+ body.editor-mode .clip-row{padding:5px;gap:5px}
+ body.editor-mode .timeline-tools{gap:8px}
+ body.editor-mode .timeline-tools .quiet-button{min-height:30px;padding:6px 7px}
+ body.editor-mode .editor-inspector{padding:12px 10px}
+ body.editor-mode .editor-inspector label{width:calc(50% - 5px);margin-right:5px;margin-bottom:12px}
+ body.editor-mode .editor-inspector input{min-height:38px;padding:8px}
+ body.editor-mode .editor-inspector .danger-button{min-height:36px;padding:8px 10px}
+}
+@media(max-width:390px){
+ .topbar{padding-inline:9px}
+ .brand{gap:6px;font-size:10px}
+ .brand-mark{width:25px;height:25px}
+ .top-actions .quiet-button{padding:6px 7px;font-size:9px}
+ .studio{padding-inline:9px}
+ .tab{padding-inline:9px;font-size:9px}
+ .template-art{height:112px;padding:7px}
+ .template-art b{font-size:15px}
+ body.editor-mode .editor-toolbar{padding-inline:4px}
+ body.editor-mode .editor-tool{min-width:30px;padding-inline:2px}
+ body.editor-mode .editor-save{padding-inline:6px}
+ body.editor-mode .editor-project-label{max-width:72px}
+ body.editor-mode .capcut-editor{grid-template-columns:72px minmax(0,1fr)}
+ body.editor-mode .timeline-head-actions{max-width:100%}
+}

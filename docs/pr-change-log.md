@@ -1,4 +1,12 @@
 
+## Proposed PR — Video Studio button and padding consistency (`fix/video-studio-button-spacing`)
+
+- Normalize button hit areas, padding, gaps, and line-height across the create, project, timeline, inspector, and export controls.
+- Prevent project action buttons from overflowing narrow layouts; make tabs horizontally scrollable and improve small-phone spacing.
+- Add visible keyboard focus rings and explicit disabled-button affordances.
+- Add regression assertions for consistent sizing and responsive breakpoints.
+
+
 ## Proposed PR — CapCut-inspired Video Studio workspace (`feat/capcut-style-video-studio`)
 
 - Replace the previous spacious template/timeline page with an editor-first, dark workspace inspired by familiar desktop video editors while retaining NasrinAI branding.
