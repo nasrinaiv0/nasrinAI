@@ -147,5 +147,33 @@
     "veo-3.1-fast-generate-preview": {
       "720p": 0.125
     }
+  },
+  "_openrouterCatalogNote": "OpenRouter prices are dynamic by model/provider route. Values below are snapshots verified 2026-10-21 and must be refreshed before budgeting changes.",
+  "openrouter": {
+    "deepseek/deepseek-v4.1-flash": {
+      "input": 0.13,
+      "cached_input": 0.0026,
+      "output": 0.52
+    },
+    "z-ai/glm-5.3-flash": {
+      "input": 0.075,
+      "cached_input": 0.015,
+      "output": 0.25
+    },
+    "xiaomi/mimo-v2.6-flash": {
+      "input": 0.14,
+      "cached_input": 0.0028,
+      "output": 0.28
+    },
+    "deepseek/deepseek-v4-flash-0731": {
+      "input": 0.0152,
+      "cached_input": 0.0152,
+      "output": 1.28
+    },
+    "deepseek/deepseek-v4-flash-vision-exp": {
+      "input": 0.2156,
+      "cached_input": 0.00686,
+      "output": 0.6468
+    }
   }
 }
