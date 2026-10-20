@@ -307,7 +307,13 @@ export function loadConfig(env = process.env) {
   for (let n = 1; n <= 5; n++) {
     const raw = env['ROUTE_LEVEL_' + n];
     const list = raw !== undefined && String(raw).trim() !== '' ? String(raw).split(',') : defaultsByLevel[n];
-    levels[n] = Object.freeze(list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x)));
+    const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
+    const normalCandidates = parsed.filter((spec) => {
+      if (!eligibleFreeProviderIds.includes(spec.provider)) return true;
+      warnings.push(`ROUTE_LEVEL_${n}: free-tier provider ${spec.provider} is emergency-fallback-only and was excluded from normal routing.`);
+      return false;
+    });
+    levels[n] = Object.freeze(normalCandidates);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
