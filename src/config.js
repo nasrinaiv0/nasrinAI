@@ -444,7 +444,7 @@ export function loadConfig(env = process.env) {
   if (wantSpeech === 'openai' && !openaiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openai needs AI_PROVIDER=openai or auto, and OPENAI_API_KEY');
   if (wantSpeech === 'openrouter' && !openrouterSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_API_KEY');
   if (wantSpeech === 'openrouter' && !String(env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-lite-tts').trim()) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_TTS_MODEL set to a verified speech-output model ID');
-  const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : openrouterSpeechOk ? 'openrouter' : 'none';
+  const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openrouterSpeechOk ? 'openrouter' : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : 'none';
 
   const SPEECH_RATE_DEFAULT = 1.15;
   let speechRate = SPEECH_RATE_DEFAULT;
@@ -841,7 +841,7 @@ export function loadConfig(env = process.env) {
         // (lower delay, a little less expressive). OPENAI_TTS_FAST_MODEL=off uses the normal one.
         fastModel: /^(off|none|false)$/i.test(String(env.OPENAI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.OPENAI_TTS_FAST_MODEL || 'tts-1').trim(),
         // Gemini speech. GEMINI_TTS_FAST_MODEL is optional (empty: same model).
-        openrouterModel: String(env.OPENROUTER_TTS_MODEL || (openrouterApiKey ? 'google/gemini-3.8-flash-lite-tts' : '')).trim(),
+        openrouterModel: String(env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-lite-tts').trim(),
         // Current OpenRouter model listing shows Google AI Studio, not Google Vertex.
         // Keep provider pinned to the listed endpoint until Vertex appears in the live endpoint catalog.
         openrouterProvider: String(env.OPENROUTER_TTS_PROVIDER || 'Google AI Studio').trim(),
