@@ -148,6 +148,7 @@ export function loadConfig(env = process.env) {
   const local = aiProvider === 'local' ? localSettings(env, isProduction, false) : (aiProvider === 'auto' && env.LOCAL_AI_URL && env.LOCAL_AI_MODEL ? localSettings(env, isProduction, true) : null);
   // Which providers tiers may name, and the one an unprefixed tier uses.
   const providerKeys = { openai: ['openai'], gemini: ['gemini'], claude: ['anthropic'], local: ['local'], auto: [], fake: ['fake'], none: ['openai'] }[aiProvider].slice();
+  if (local && aiProvider === 'auto' && !providerKeys.includes('local')) providerKeys.push('local');
   const anthropicKey = String(env.ANTHROPIC_API_KEY || '').trim();
   if (anthropicKey && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('anthropic')) providerKeys.push('anthropic');
   // Gemini (OpenAI-compatible endpoint) joins any mode when its key is set.
