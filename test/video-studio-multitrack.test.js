@@ -38,7 +38,8 @@ test('project drafts and cloud documents persist multitrack edit properties', ()
 
 test('export composites concurrent tracks and mixes audio with bounded browser workload', () => {
   assert.match(js, /Rendering multitrack timeline/);
-  assert.match(js, /function startTimelinePreview/);\n  assert.match(js, /studio-composite-preview/);
+  assert.match(js, /function startTimelinePreview/);
+  assert.match(js, /studio-composite-preview/);
   assert.match(js, /createMediaElementSource/);
   assert.match(js, /createMediaStreamDestination/);
   assert.match(js, /state\.clips\.length>40/);
