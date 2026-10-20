@@ -43,7 +43,6 @@ import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
 import { imagePrice } from './ai/pricing.js';
 import { createOpenAISpeech, createGeminiSpeech, createOpenRouterSpeech, createResponsiveSpeech } from './ai/speech.js';
-import { createOpenRouterClient } from './ai/openrouter.js';
 import { createVoice } from './voice.js';
 import { createStorage } from './storage.js';
 import { createUploads } from './uploads.js';
