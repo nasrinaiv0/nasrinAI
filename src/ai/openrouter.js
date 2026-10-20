@@ -172,11 +172,19 @@ export function createOpenRouterClient({
     return request('/alpha/decisions', { body: { model: selected.id, state, questions }, signal });
   }
 
-  async function generateImage({ model, preferred = [], prompt, images, signal, ...options }) {
+  async function generateImage({ model, preferred = [], prompt, images, signal, maxCostUsd, ...options }) {
     const selected = await selectModel('image', model ? [cleanModelId(model)] : preferred);
+    if (!Number.isFinite(Number(maxCostUsd)) || Number(maxCostUsd) <= 0) throw new ProviderError('config', 'A positive per-image spending ceiling is required');
+    const [author, ...slugParts] = selected.id.split('/');
+    const endpointCatalog = await request('/images/models/' + encodeURIComponent(author) + '/' + encodeURIComponent(slugParts.join('/')) + '/endpoints', { method: 'GET' });
+    const endpoints = Array.isArray(endpointCatalog.endpoints) ? endpointCatalog.endpoints : [];
+    const imagePrices = endpoints.flatMap((endpoint) => Array.isArray(endpoint.pricing) ? endpoint.pricing : [])
+      .filter((entry) => entry?.billable === 'output_image' && String(entry?.unit || '').toLowerCase().includes('image'))
+      .map((entry) => Number(entry.cost_usd)).filter((n) => Number.isFinite(n) && n > 0);
+    if (!imagePrices.length) throw new ProviderError('config', 'OpenRouter image model has no verifiable per-image price in its live endpoint catalog');
+    if (Number(maxCostUsd) < Math.max(...imagePrices)) throw new ProviderError('config', 'Configured per-image spending ceiling is below the live catalog price');
     if (Array.isArray(images) && images.length) {
-      const catalog = await request('/images/models', { method: 'GET' });
-      const capability = catalog.data?.find((m) => m.id === selected.id);
+      const capability = selected;
       const refLimit = capability?.supported_parameters?.input_references;
       const maxRefs = Number(refLimit?.max ?? refLimit?.maximum ?? 0);
       if (!capability || !Number.isFinite(maxRefs) || maxRefs < 1) throw new ProviderError('config', 'Selected image model does not advertise image-reference editing support');
