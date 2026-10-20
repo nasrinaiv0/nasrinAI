@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="81 80 160 160" role="img" aria-labelledby="nvs-title nvs-desc">
+  <title id="nvs-title">NasrinAI Video Studio</title>
+  <desc id="nvs-desc">A pause line and a pastel-orange play button on a transparent square. The line is dark on light backgrounds and white on dark backgrounds.</desc>
+  <style>@media (prefers-color-scheme: dark) {.nvs-line { fill: #FAFAF8; }}</style>
+  <rect class="nvs-line" x="102" y="124" width="30" height="72" rx="15" fill="#0B0B0C"/>
+  <path fill="#FFB27F" d="M177.92 136.15Q160.00 126.00 160.00 146.59L160.00 173.41Q160.00 194.00 177.92 183.85L201.58 170.44Q220.00 160.00 201.58 149.56Z"/>
+</svg>
