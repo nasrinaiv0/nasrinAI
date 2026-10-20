@@ -1352,3 +1352,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Tests:** `test/video-studio-unified-workspace.test.js` checks the single-page visibility contract and guards against claiming feature parity or guaranteed MP4 when the browser codec does not support it.
 - **Not included yet:** real multi-track composition, drag-and-drop editing, transitions/keyframes/effect stack, and reliable server-side MP4 rendering. This PR is the workspace foundation, not full CapCut parity.
 - **Validation:** dependency audit passed; CI test/database jobs and the Documentation Gate are running or require re-check after the changelog entry. Mobile Safari and desktop visual QA remain release gates.
+
+## PR #483 — Video Studio reference-matched workspace (2026-10-20)
+
+- Restyled the Video Studio toward the supplied dark professional editor reference, including compact top navigation, media library, preview stage, properties inspector, timeline, and export section.
+- Kept creation, timeline, and export sections available in one page; added responsive layouts, reduced-motion support, visible focus states, and corrected hidden-panel behavior.
+- Added drag-and-drop clip reordering alongside existing move up/down and edit controls.
+- Added Undo/Redo toolbar controls and Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, and Ctrl/Cmd+Y shortcuts for supported clip-list edits (add, reorder, property change, remove, clear). History is session-local and capped at 60 edits.
+- Retained truthful browser-renderer format detection; do not claim universal MP4 output.
+- **Not yet implemented:** a true multitrack timeline/compositor, clip-edge trim handles, transitions, keyframes, advanced effects, and dependable server-side MP4 rendering. These remain separate engineering phases.
