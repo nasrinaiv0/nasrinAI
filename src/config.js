@@ -289,11 +289,16 @@ export function loadConfig(env = process.env) {
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
   const defaultsByLevel = {
-    // Include every configured provider; model allowlists and price validation still apply.
-    // Free-model providers are emergency-only: they are deliberately excluded from
-    // normal cost-aware levels and are appended after configured paid providers
-    // in AI_FALLBACK=auto. Do not promote them to primary routing by default.
-    1: [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    // Level 1 is the zero-cost lane: explicitly allowlisted free models first,
+    // then configured low-cost general-purpose options. The policy layer still
+    // validates model capability, price, privacy, tier range and budget.
+    1: [
+      ...freeProviderSettings.filter((p) => p.freeModels.includes(p.model)).map((p) => p.id + ':' + p.model),
+      has('local') && local ? 'local:' + local.model : '',
+      has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
+      has('openai') ? 'openai:gpt-5.4-nano:none' : '',
+      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
+    ],
     2: [has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
     3: [has('openai') ? 'openai:gpt-5.4:medium' : ''],
     4: [has('openai') ? 'openai:gpt-5.4:high' : ''],
