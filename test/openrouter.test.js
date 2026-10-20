@@ -144,17 +144,19 @@ test('image catalog schema without chat architecture is accepted, but editing re
     const path = new URL(url).pathname;
     calls.push({ path, body: init.body ? JSON.parse(init.body) : null });
     if (path === '/api/v1/images/models') return response({ data: [imageModel] });
+    if (path === '/api/v1/images/models/openai/gpt-image-2/endpoints') return response({ endpoints: [{ pricing: [{ billable: 'output_image', cost_usd: 0.04, unit: 'image' }] }] });
     if (path === '/api/v1/images') return response({ data: [{ b64_json: Buffer.from('fake-image').toString('base64') }], usage: { cost: 0.04 } });
     throw new Error('unexpected endpoint');
   } });
-  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high' });
+  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high', maxCostUsd: 0.05 });
   assert.equal(result.data[0].b64_json, Buffer.from('fake-image').toString('base64'));
   const generated = calls.find((x) => x.path === '/api/v1/images');
   assert.equal(generated.body.quality, 'high');
-  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'] });
+  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'], maxCostUsd: 0.05 });
   const edited = calls.filter((x) => x.path === '/api/v1/images').at(-1);
   assert.equal(edited.body.input_references.length, 1);
   assert.ok(!('images' in edited.body));
+  await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Underbudget', maxCostUsd: 0.01 }), /below the live catalog price/);
 });
 
 
