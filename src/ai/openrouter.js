@@ -85,7 +85,7 @@ export function createOpenRouterClient({
     return modelCache.data;
   }
 
-  async function selectModel(task, preferred = []) {
+  async function selectModel(task, preferred = [], requirements = {}) {
     const modality = TASK_OUTPUT[task];
     if (!modality) throw new ProviderError('config', 'Unsupported OpenRouter task');
     let models;
@@ -96,14 +96,18 @@ export function createOpenRouterClient({
     } else {
       models = await listModels();
     }
-    const eligible = models.filter((m) => task === 'video'
+    let eligible = models.filter((m) => task === 'video'
       ? typeof m.id === 'string'
       : m.architecture?.output_modalities?.includes(modality));
+    if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
+    if (requirements.requiresTools) eligible = eligible.filter((m) => Array.isArray(m.supported_parameters) && m.supported_parameters.includes('tools'));
+    if (requirements.maxPromptUsdPerMillion != null) eligible = eligible.filter((m) => Number(m.pricing?.prompt) * 1_000_000 <= requirements.maxPromptUsdPerMillion);
     for (const id of preferred) {
       const safeId = cleanModelId(id);
       const match = eligible.find((m) => m.id === safeId);
       if (match) return match;
     }
+    if (preferred.length) throw new ProviderError('config', `Configured OpenRouter model is unavailable or lacks the required capability for task: ${task}`);
     // Never silently choose an arbitrary model for costly generation.
     if (['image', 'video', 'speech', 'transcription', 'embeddings', 'rerank', 'decisions'].includes(task)) {
       throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
@@ -117,7 +121,7 @@ export function createOpenRouterClient({
   async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, provider = {}, signal }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
-    const selected = model ? { id: cleanModelId(model) } : await selectModel(task, preferred);
+    const selected = await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0 });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { data_collection: 'deny', allow_fallbacks: true, ...provider } };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
@@ -126,7 +130,7 @@ export function createOpenRouterClient({
   }
 
   async function decide({ model, preferred = [], state, questions, signal }) {
-    const selected = model ? { id: cleanModelId(model) } : await selectModel('decisions', preferred);
+    const selected = await selectModel('decisions', model ? [cleanModelId(model)] : preferred);
     if (state === undefined || state === null || (typeof state === 'string' && !state.trim())) throw new ProviderError('config', 'Decision state is required');
     if (!questions || typeof questions !== 'object' || Array.isArray(questions) || !Object.keys(questions).length || Object.keys(questions).length > 100) {
       throw new ProviderError('config', 'Decision questions must be a non-empty object with at most 100 entries');
@@ -140,7 +144,7 @@ export function createOpenRouterClient({
   }
 
   async function generateImage({ model, preferred = [], prompt, images, signal, ...options }) {
-    const selected = model ? { id: cleanModelId(model) } : await selectModel('image', preferred);
+    const selected = await selectModel('image', model ? [cleanModelId(model)] : preferred);
     if (Array.isArray(images) && images.length) {
       const catalog = await request('/images/models', { method: 'GET' });
       const capability = catalog.data?.find((m) => m.id === selected.id);
@@ -156,7 +160,7 @@ export function createOpenRouterClient({
   }
 
   async function createVideo({ model, preferred = [], prompt, signal, ...options }) {
-    const selected = model ? { id: cleanModelId(model) } : await selectModel('video', preferred);
+    const selected = await selectModel('video', model ? [cleanModelId(model)] : preferred);
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Video prompt must be 1–8000 characters');
     const body = { ...options, model: selected.id, prompt: prompt.trim() };
     return request('/videos', { body, signal });
@@ -173,7 +177,7 @@ export function createOpenRouterClient({
   }
 
   async function speak({ model, preferred = [], input, voice = 'alloy', responseFormat = 'mp3', signal }) {
-    const selected = model ? { id: cleanModelId(model) } : await selectModel('speech', preferred);
+    const selected = await selectModel('speech', model ? [cleanModelId(model)] : preferred);
     if (typeof input !== 'string' || !input.trim() || input.length > 20_000) throw new ProviderError('config', 'Speech text must be 1–20000 characters');
     if (!/^(alloy|ash|ballad|coral|echo|fable|nova|onyx|sage|shimmer|verse|marin|cedar|[w-]{1,60})$/.test(voice)) throw new ProviderError('config', 'Invalid speech voice');
     if (!['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'].includes(responseFormat)) throw new ProviderError('config', 'Invalid speech output format');
@@ -181,7 +185,7 @@ export function createOpenRouterClient({
   }
 
   async function transcribe({ model, preferred = [], file, filename = 'audio.wav', language, signal }) {
-    const selected = model ? { id: cleanModelId(model) } : await selectModel('transcription', preferred);
+    const selected = await selectModel('transcription', model ? [cleanModelId(model)] : preferred);
     if (!(file instanceof Uint8Array) || !file.byteLength || file.byteLength > 25 * 1024 * 1024) throw new ProviderError('config', 'Audio file is empty or exceeds 25 MB');
     if (!/^[a-zA-Z0-9._ -]{1,120}$/.test(filename)) throw new ProviderError('config', 'Invalid audio filename');
     const form = new FormData();
@@ -192,7 +196,7 @@ export function createOpenRouterClient({
   }
 
   async function embeddings({ model, preferred = [], input, signal }) {
-    const selected = model ? { id: cleanModelId(model) } : await selectModel('embeddings', preferred);
+    const selected = await selectModel('embeddings', model ? [cleanModelId(model)] : preferred);
     if (!(typeof input === 'string' && input.length > 0) && !(Array.isArray(input) && input.length > 0)) throw new ProviderError('config', 'Embedding input is required');
     return request('/embeddings', { body: { model: selected.id, input }, signal });
   }
