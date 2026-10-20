@@ -289,11 +289,10 @@ export function loadConfig(env = process.env) {
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
   const defaultsByLevel = {
-    // Level 1 is the zero-cost lane: explicitly allowlisted free models first,
-    // then configured low-cost general-purpose options. The policy layer still
-    // validates model capability, price, privacy, tier range and budget.
+    // Free-tier providers are emergency-only fallback targets, never normal
+    // routing candidates. Level 1 uses configured general-purpose models; the
+    // fallback pool may still try allowlisted free models after paid providers fail.
     1: [
-      ...freeProviderSettings.filter((p) => p.freeModels.includes(p.model)).map((p) => p.id + ':' + p.model),
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
       has('openai') ? 'openai:gpt-5.4-nano:none' : '',
