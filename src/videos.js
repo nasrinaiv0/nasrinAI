@@ -48,7 +48,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id: cached.videoId
       });
       if (existing && existing.status === 'completed' && (existing.bytes || existing.providerVideoUri)) {
-        logger.info('marketing video cache hit', { id: existing.id, targetSeconds, provider: provider.id });
+        logger.info('marketing video cache hit', { id: existing.id, targetSeconds, provider: routeProvider.id });
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
     }
@@ -82,15 +82,15 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     // conservative full-duration estimate now; polling/extension cannot exceed
     // the reserved target duration.
     await budget.settleSpend(spendReservation, estimatedCost);
-    await usageLog?.record?.(caller, { provider: provider.id, model: provider.model, outcome: 'ok',
+    await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'ok',
       task: 'video', latencyMs: now() - started, costUsd: estimatedCost, spendReservationId: spendReservation.id });
     const id = await store.addVideo({
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
       targetSeconds, producedSeconds: 0, status: 'in_progress',
-      provider: provider.id, providerOperation: operation, cacheKey
+      provider: routeProvider.id, providerOperation: operation, cacheKey
     });
-    logger.info('video job created', { id, targetSeconds, provider: provider.id });
+    logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
     return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
   }
 
