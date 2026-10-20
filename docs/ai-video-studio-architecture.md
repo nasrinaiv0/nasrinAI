@@ -280,3 +280,12 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 - Cloud saves upload local media before saving metadata; project documents retain the validated asset ID and media type. Opening a project resolves the asset through a short-lived signed URL. The server rejects uploaded clips without a durable asset ID.
 - Replacing/removing cloud-project assets and deleting a project attempt best-effort cleanup after the metadata mutation succeeds. A cleanup failure can leave an orphaned object; it does not delete a different user's object.
 - Validation still required before production: apply migration 052 in the approved database migration process, run CI/database checks, and complete real signed-in upload/save/reopen/delete tests on staging. This feature is not yet a server-side rendering queue.
+
+
+## CapCut-inspired editing workspace (2026-10-20)
+
+- Reworked the timeline tab into a dark, editor-first workspace with a left media bin, center preview canvas, horizontal visual clip strip, and right-side properties inspector.
+- Added connected Media, Text, Audio, Export, Save project, Import media, and Create scene controls. Text focuses the selected clip's title field; Audio opens the media picker; Export routes to the existing export panel.
+- The media bin reflects assets already in the current project and lets users select them for preview. The horizontal timeline retains existing selection and up/down reorder behavior.
+- Responsive layout collapses to a narrow media rail and stacked properties panel on mobile; no CapCut branding or third-party assets are copied.
+- This is a UI/editor-workflow upgrade, not feature parity with CapCut. Advanced multi-track audio, transitions, keyframes, captions, effects, and server-side rendering remain separate capabilities.
