@@ -1,4 +1,5 @@
 import { HttpError } from './http/errors.js';
+import { resolveRequestTier, imageRouteCeiling } from './ai/request-tier.js';
 import { marketingCacheKey } from './marketing-cache.js';
 import { ProviderError } from './ai/provider.js';
 import { parseAttachments } from './attachments.js';
@@ -206,7 +207,15 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
 
     // Step 1 / 2b: one picture. Body: { prompt, photo?, brief?, conversation_id? }.
     async create(caller, body, ip) {
-      const { prompt, photos } = readRequest(body);
+      const requestBody = body && typeof body === 'object' ? body : {};
+      let selectedTier = 'nasrinai';
+      if (caller.actor.type === 'user' && plans) {
+        const account = await plans.current(caller);
+        selectedTier = resolveRequestTier(requestBody.tier ?? requestBody.model, account.plan, { open: Boolean(account.open) });
+      } else {
+        selectedTier = resolveRequestTier(requestBody.tier ?? requestBody.model, 'nasrinai', { guest: caller.actor.type === 'guest' });
+      }
+      const { prompt, photos } = readRequest(requestBody);
       maybePurge();
       const brief = body.brief === undefined ? null : cleanBrief(body.brief);
       if (body.brief !== undefined && !brief) throw new HttpError(400, 'invalid_brief', 'The brief needs at least a subject.');
@@ -218,13 +227,17 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
 
       // The tier and model route are part of the fingerprint: never serve a
       // cached image across model/quality changes or between different owners.
-      const tier = pickTier(imageTier({ prompt, photos, brief }));
+      const contentTier = imageTier({ prompt, photos, brief });
+      // Legacy callers without an explicit composer selection retain content-based routing.
+      const wantedTier = requestBody.tier == null ? contentTier : Math.min(contentTier, imageRouteCeiling(selectedTier));
+      const tier = pickTier(wantedTier);
+      if (tier == null || !routes[tier]) throw new HttpError(503, 'images_tier_unavailable', 'Image generation for the selected tier is not configured.');
       const route = routes[tier];
       const aspectRatio = brief ? brief.aspect_ratio : '1:1';
       const cacheKey = marketingCacheKey('image', {
         prompt: brief ? promptFromBrief(brief, { quality: QUALITY }) : `${QUALITY}\n\nRequest: ${prompt}`,
         photos: photos.map((p) => ({ mime: p.mime, digest: marketingCacheKey('photo', { mime: p.mime, data: p.data }) })),
-        aspectRatio, tier,
+        aspectRatio, tier, requestTier: selectedTier,
         primary: { provider: route.primary.p.id, model: route.primary.p.model },
         fallback: route.fallback ? { provider: route.fallback.p.id, model: route.fallback.p.model } : null
       });
@@ -242,7 +255,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
           if (!conv.title) await conversations.setTitle(conv, ('Image: ' + prompt).slice(0, 60)).catch(() => {});
           const assistant = await conversations.add(conv, 'assistant', `[image:${cached.imageId}]\nHere is your picture.`);
           await usageLog.record(caller, { provider: image.provider || route.primary.p.id, model: image.model || route.primary.p.model,
-            outcome: 'ok', task: 'marketing_cache_hit', level: tier, costUsd: 0, cacheHit: true });
+            outcome: 'ok', task: 'marketing_cache_hit', level: tier, requestTier: selectedTier, costUsd: 0, cacheHit: true });
           return { conversation_id: conv.id, user_message_id: userMessage.id, image_id: cached.imageId, message: publicMessage(assistant), cache_hit: true };
         }
       }
