@@ -70,6 +70,29 @@ export function createStorage({ store, config, conversations, library, logger, n
     }
   }
 
+  async function persistSentWithRefs(caller, conv, files) {
+    try {
+      if (caller.actor.type !== 'user' || caller.tenantId !== PLATFORM_TENANT_ID || !store.addSentFile || !files.length) return [];
+      const have = (await store.listSentFiles(who(caller))).reduce((n, f) => n + f.size, 0);
+      let total = have;
+      const saved = [];
+      for (const f of files) {
+        const bytes = Buffer.from(f.data, 'base64');
+        if (!bytes.length || bytes.length > limits.maxFileBytes || total + bytes.length > limits.maxBytes) continue;
+        const id = await store.addSentFile({
+          ...who(caller), conversationId: conv.id, kind: f.kind === 'image' ? 'photo' : 'file',
+          name: f.name, mime: f.mime || 'application/octet-stream', bytes
+        });
+        total += bytes.length;
+        saved.push({ id, name: f.name, mime: f.mime || 'application/octet-stream', kind: f.kind === 'image' ? 'photo' : 'file', size: bytes.length });
+      }
+      return saved;
+    } catch (err) {
+      logger.warn('could not keep sent files', { error: err?.message });
+      return [];
+    }
+  }
+
   return {
     sweep,
 
@@ -134,30 +157,14 @@ export function createStorage({ store, config, conversations, library, logger, n
       return { ...f, inline: f.kind === 'photo' && INLINE.has(f.mime) };
     },
 
-    // Keeps the photos and files sent with a message (already checked by
-    // parseAttachments). Never throws and never stops the answer; what does not
-    // fit (too big, or the person's space is full) is simply not kept.
+    // Persist sent files and return stable, owner-checked references for the chat transcript.
+    // The existing count-only API remains for callers/tests that rely on it.
+    async keepSentWithRefs(caller, conv, files) {
+      return persistSentWithRefs(caller, conv, files);
+    },
+
     async keepSent(caller, conv, files) {
-      try {
-        if (caller.actor.type !== 'user' || caller.tenantId !== PLATFORM_TENANT_ID || !store.addSentFile || !files.length) return 0;
-        const have = (await store.listSentFiles(who(caller))).reduce((n, f) => n + f.size, 0);
-        let total = have;
-        let kept = 0;
-        for (const f of files) {
-          const bytes = Buffer.from(f.data, 'base64');
-          if (!bytes.length || bytes.length > limits.maxFileBytes || total + bytes.length > limits.maxBytes) continue;
-          await store.addSentFile({
-            ...who(caller), conversationId: conv.id, kind: f.kind === 'image' ? 'photo' : 'file',
-            name: f.name, mime: f.mime || 'application/octet-stream', bytes
-          });
-          total += bytes.length;
-          kept += 1;
-        }
-        return kept;
-      } catch (err) {
-        logger.warn('could not keep sent files', { error: err?.message });
-        return 0;
-      }
+      return (await persistSentWithRefs(caller, conv, files)).length;
     }
   };
 }
