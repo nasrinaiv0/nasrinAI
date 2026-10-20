@@ -218,12 +218,12 @@
     },
     "openai/gpt-6-sol": {
       "input": 2,
-      "cached_input": 2,
+      "cached_input": 0.2,
       "output": 10
     },
     "openai/gpt-6.1-sol": {
       "input": 2,
-      "cached_input": 2,
+      "cached_input": 0.1,
       "output": 10
     },
     "google/gemini-3.8-flash-lite-tts": {
