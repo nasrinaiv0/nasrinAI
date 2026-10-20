@@ -218,3 +218,13 @@ Validation limitation: live provider calls cannot be asserted from repository ed
 - **TTS:** `google/gemini-3.8-flash-lite-tts`, $0.50/M text input and $6/M generated audio output. Pin the OpenRouter provider to `Google Vertex`; this is an OpenRouter model route hosted by Google Vertex, not a direct Gemini API request. The provider/model supports speech output, but runtime smoke tests and voice compatibility remain release gates.
 
 The price catalog records conservative cache pricing as input rates for generic accounting. Provider-specific cache-read rates above are documented separately because billing differs by provider and route. Source listings: https://openrouter.ai/openai/gpt-6-sol/ ; https://openrouter.ai/openai/gpt-6.1-sol ; https://openrouter.ai/google/gemini-3.8-flash-lite-tts/ .
+
+
+## Coding and TTS model assignments — 2026-10-21
+
+- **Max coding:** `openai/gpt-6-sol` through OpenRouter; operator-supplied $2/M input and $10/M output. Runtime cache-read rate is set to $0.20/M from the current listing.
+- **Ultra coding and Ultra deep coding:** `openai/gpt-6.1-sol` through OpenRouter; operator-supplied $2/M input and $10/M output. Runtime cache-read rate is set to $0.10/M from the current listing.
+- **TTS:** `google/gemini-3.8-flash-lite-tts` through OpenRouter, pinned to the Google Vertex provider with provider fallback disabled. Operator-supplied rates: $0.50/M text input and $6/M audio output. A conservative per-character reservation remains in place until real usage reporting is verified.
+- Model selection is explicit and tier-scoped: Max cannot use the Ultra coding model via these settings. OpenRouter API keys remain server-side. Preview configuration and real authenticated smoke tests are still required before production enablement.
+- A pricing-catalog cleanup removes duplicate root-level model IDs that were being interpreted as provider names; all three new model prices live under the `openrouter` provider namespace.
+- Regression coverage includes config validation for tier assignments and a request-level test that verifies the TTS provider is pinned to Google Vertex with `allow_fallbacks: false`.
