@@ -1437,3 +1437,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Routing policy:** paid/general-purpose providers remain the normal route. Configured free-tier providers such as Groq are excluded from default cost-aware routing levels and are only considered after configured paid fallback providers fail with eligible errors.
 - **Groq model:** keep `openai/gpt-oss-20b` explicitly allowlisted through `GROQ_FREE_MODELS`; this allowlist is a routing guard, not proof that the provider account is on a free billing plan.
 - **Validation:** regression tests assert Groq is registered for failover, ordered after paid providers, and absent from normal routing levels. CI must pass before merge; no live billing-plan guarantee is possible from the inference API alone.
+
+
+## PR #491 — OpenRouter multimodal quality and security (2026-10-21)
+
+- Add a dedicated OpenRouter video adapter for the existing video-job workflow.
+- Gate video activation on an API key, exact model ID, and explicit positive per-second cost estimate; cap unverified single-shot video generation at 8 seconds and reject unsupported extension.
+- Add regression coverage for video creation, duration enforcement, configured cost, and unsupported extension.
+- Add OpenRouter GPT Image 2 / GPT Image 2.5 Flare / Sunburst allowlisting and image quality propagation.
+- Release status: draft only. CI, provider-specific pricing and capability checks, task-policy routing, and end-to-end tests are required before merge or production enablement.
