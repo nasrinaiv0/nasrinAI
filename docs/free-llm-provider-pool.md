@@ -121,3 +121,11 @@ Do not enable this route until a real provider integration test confirms model-s
 When a route explicitly selects a priced OpenRouter text model, the policy now passes its classified task to the provider adapter. The adapter checks the exact model against the live text-capability catalog, requires tool-capable endpoints when tools are supplied, forces OpenRouter's data-collection policy to `deny`, and rejects attachments on this text-only adapter. Research, coding/debugging, scraping, extraction, editing, rendering and generation use their classified task labels for capability selection; a configured model that cannot satisfy the task fails closed rather than being silently replaced. Structured decisions remain on the dedicated `decide({ state, questions })` API and are not sent as ordinary chat requests.
 
 Pricing remains governed by NasrinAI's configured model price registry and spend reservations. Before routing a paid OpenRouter model in production, configure and verify its exact model ID and current input/output prices. Do not put an unpriced model into normal routing.
+
+
+### Live generation price and capability checks
+
+- OpenRouter image generation now checks the selected model's live per-endpoint pricing records before calling the generation endpoint. The configured per-image ceiling must cover the highest advertised per-image price across available endpoints; absent or malformed pricing disables the request.
+- OpenRouter video generation checks the live catalog's supported duration, resolution, and aspect ratio, and requires a parseable per-second SKU price. The configured per-second ceiling must be at least the highest advertised per-second SKU rate. Unsupported settings or missing pricing fail closed.
+- When OpenRouter returns `usage.cost` for an image, NasrinAI uses that provider-reported value for image spend settlement and logs a warning if it exceeds the configured estimate.
+- Video generation remains capped to single-shot clips while the existing video workflow cannot safely extend provider jobs. Production approval still requires durable actual-cost reconciliation for video jobs and a live provider integration test.
