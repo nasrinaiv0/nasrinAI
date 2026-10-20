@@ -225,9 +225,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (!regenerate && editId === null && storage && files.length && storage.keepSentWithRefs) {
       attachmentRefs = await storage.keepSentWithRefs(caller, conv, files);
       if (attachmentRefs.length) {
-        message += '\\n\\n' + attachmentRefs.map((f) =>
+        message += '\n\n' + attachmentRefs.map((f) =>
           '[attachment:' + f.id + '|' + encodeURIComponent(f.name) + '|' + encodeURIComponent(f.mime) + ']'
-        ).join('\\n');
+        ).join('\n');
       }
     }
 
@@ -267,7 +267,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const fullHistory = (await conversations.history(conv, 50)).map((m) => ({
       ...m,
       // Attachment IDs are presentation metadata, not model instructions/context.
-      content: String(m.content || '').replace(/\\[attachment:[0-9a-f-]{36}\\|[^|\\]]*\\|[^|\\]]*\\]/g, '').trim()
+      content: String(m.content || '').replace(/\[attachment:[0-9a-f-]{36}\|[^|\]]*\|[^|\]]*\]/g, '').trim()
     }));
     // A "knowledge only" business: only its own documents, nothing from outside.
     const only = caller.tenant?.knowledgeOnly === true;
