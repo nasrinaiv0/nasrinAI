@@ -172,7 +172,7 @@ export function createOpenAIImage({ apiKey, model, quality = null, fetchImpl = f
 
 // OpenRouter's dedicated Image API adapter. Model IDs and editing support are
 // checked against the live image-generation catalog before each request.
-export function createOpenRouterImage({ client, model, quality, timeoutMs = 100_000 }) {
+export function createOpenRouterImage({ client, model, quality, price, timeoutMs = 100_000 }) {
   if (!client || typeof client.generateImage !== 'function') throw new Error('OpenRouter client is required for images');
   return {
     id: 'openrouter',
@@ -185,6 +185,7 @@ export function createOpenRouterImage({ client, model, quality, timeoutMs = 100_
           model, prompt, images: refs,
           aspect_ratio: aspectRatio,
           ...(quality ? { quality } : {}),
+          maxCostUsd: price,
           n: 1
         });
       } catch (err) {
