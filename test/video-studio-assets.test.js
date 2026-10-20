@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { createVideoStudioAssets } from '../src/video-studio-assets.js';
 
 const caller = (id='user_123') => ({ tenantId:'11111111-1111-4111-8111-111111111111', actor:{ type:'user', id } });
@@ -49,4 +50,17 @@ test('Video Studio asset uploads reject guests, unsafe types, and oversized file
   await assert.rejects(service.sign(caller(), {name:'x.bin',type:'application/octet-stream',size:1}, '127.0.0.1'), { code:'unsupported_video_asset' });
   await assert.rejects(service.sign(caller(), {name:'huge.mp4',type:'video/mp4',size:60*1024*1024}, '127.0.0.1'), { code:'video_asset_too_large' });
   assert.equal(calls.length, 0);
+});
+
+test('Video Studio cloud saves persist uploaded media references and reload via signed URLs', async () => {
+  const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/video-studio.html', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  assert.match(js, /\/v1\/video-studio\/assets/);
+  assert.match(js, /clip\.assetId=signed\.id/);
+  assert.match(js, /assetId:c\.assetId\|\|null/);
+  assert.match(js, /if\(clip\.assetId&&typeof clip\.assetId==='string'\)/);
+  assert.match(routes, /video_asset_required/);
+  assert.match(html, /Sign in to keep uploaded media with your cloud project/);
+  assert.doesNotMatch(html, /Uploaded media stays in this browser session/);
 });
