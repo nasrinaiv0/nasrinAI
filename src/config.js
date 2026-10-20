@@ -211,6 +211,16 @@ export function loadConfig(env = process.env) {
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (env.OPENAI_API_KEY ? 'gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : 'anthropic:claude-haiku-5-5')),
     max: tierSpec('TIER_MAX', env.TIER_MAX ?? (env.OPENAI_API_KEY ? 'gpt-5' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : 'anthropic:claude-sonnet-5-5')),
     ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (env.OPENAI_API_KEY ? 'gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : 'anthropic:claude-sonnet-5-5'))
+  } : aiProvider === 'gemini' ? {
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? 'gemini:gemini-3.1-flash-lite'),
+    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'gemini:gemini-3.1-flash-lite'),
+    max: tierSpec('TIER_MAX', env.TIER_MAX ?? 'gemini:gemini-3.1-pro'),
+    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? 'gemini:gemini-3.1-pro')
+  } : aiProvider === 'claude' ? {
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? 'anthropic:claude-haiku-5-5'),
+    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'anthropic:claude-sonnet-5-5'),
+    max: tierSpec('TIER_MAX', env.TIER_MAX ?? 'anthropic:claude-sonnet-5-5'),
+    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? 'anthropic:claude-opus-5-5')
   } : {
     nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? env.OPENAI_MODEL ?? 'gpt-4o-mini'),
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'gpt-5-mini'),
@@ -250,7 +260,7 @@ export function loadConfig(env = process.env) {
   // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
   // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
-  const routingMode = String(env.ROUTING ?? (['openai', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || freeProviderSettings.some((p) => p.freeModels.includes(p.model)) ? 'smart' : 'fixed')).trim().toLowerCase();
+  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) || freeProviderSettings.some((p) => p.freeModels.includes(p.model)) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
   const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY));
   // Last-resort, explicitly priced model choices for when an operator's custom
