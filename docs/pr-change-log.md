@@ -1395,3 +1395,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Scope/impact:** documentation only; no application runtime code, database schema/data, credentials, environment settings, merge, or deployment changed by this commit.
 - **Validation:** GitHub Documentation Gate initially failed because this PR did not include `docs/pr-change-log.md`. This changelog entry is the corrective follow-up; the gate must rerun to confirm it passes. No other test results are claimed here.
 - **Limitations:** audit findings must be revalidated against current repository, CI, Supabase, and Vercel state before implementation. No vulnerabilities are represented as exploited without evidence.
+
+
+## PR #488 — Persistent chat attachments and previews (2026-10-20)
+
+- Persist stable attachment references with signed-in chat messages using the existing private sent-file storage and authenticated owner-checked read route.
+- Restore attachment cards from chat history, add tap-to-preview full-screen lightbox for images, and open/download controls for other supported files.
+- Add storage regression coverage for stable attachment IDs and cross-user denial.
+- **Validation:** CI is running; iPhone Safari end-to-end verification remains required before merge or deployment. Guest attachment persistence is not expanded in this change.
