@@ -42,6 +42,7 @@ test('model IDs and endpoint origins are strictly validated', async () => {
 test('chat requests enforce bounded token limits and privacy provider policy', async () => {
   let sent;
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
     sent = { url: String(url), body: JSON.parse(init.body), headers: init.headers };
     return response({ choices: [{ message: { content: 'ok' } }] });
   } });
@@ -63,6 +64,7 @@ test('video job IDs are encoded and bounded', async () => {
 test('speech and transcription use dedicated endpoints and bounded input', async () => {
   const seen = [];
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/speech', 'speech'), model('provider/stt', 'transcription')] });
     seen.push({ url: String(url), body: init.body });
     return String(url).endsWith('/audio/speech') ? response('mp3', 200, 'audio/mpeg') : response({ text: 'hello' });
   } });
@@ -77,6 +79,7 @@ test('speech and transcription use dedicated endpoints and bounded input', async
 test('decision models use the structured Decisions API, not chat completions', async () => {
   let sent;
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('typesafe/jev-1.13', 'decisions')] });
     sent = { url: String(url), body: JSON.parse(init.body) };
     return response({ answers: { route: { type: 'choice', choice: 'coding', confidence: 0.99 } } });
   } });
