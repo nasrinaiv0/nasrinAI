@@ -27,15 +27,15 @@ Use inexpensive configured models to independently brainstorm, plan, and critiqu
 ## Not yet complete — required next
 - [x] Wire the council into the actual chat path behind an explicit server-side feature flag; default remains OFF.
 - [x] Implement the policy-backed candidate callback through the existing policy and durable budget/token reservations. Verify durable settlement behavior further in integration tests.
-- [ ] Ensure specialist calls are charged and logged individually, including failures and unknown provider usage. Never count a council response as free.
-- [ ] Feed the merged council packet into the selected Max/Ultra final-model request without replacing the user's actual request, system safety instructions, or existing conversation context.
-- [ ] Do not use council for sensitive requests, attachments, tool requests, current-fact/web-search tasks, unsupported task types, or any request that would exceed the remaining token/spend budget.
+- [x] Specialist calls use the shared policy reservations and write per-role usage records, including provider failures and budget blocks. Unknown provider usage remains conservatively reserved by the policy.
+- [x] Feed the council packet and explicit synthesis instructions into the final model while preserving the original request, system safety instructions, and existing conversation context.
+- [x] Eligibility excludes sensitive requests, attachments, tool requests, current-fact/web-search tasks, and unsupported task types. Each model call still independently must pass the existing spend/token budget policy.
 - [ ] Verify user-selected tier and subscription entitlement on the server. Quick/Pro must not be escalated by council metadata or client payload.
 - [ ] Add integration tests proving feature-flag-off is byte-for-byte normal behavior; feature-flag-on only runs for eligible Max/Ultra requests; token/spend reservations and usage logs account for every call; failures fall back safely; and user content cannot inject policy instructions into role prompts.
 - [ ] Benchmark against premium-only baseline using representative NasrinAI tasks. Record output quality, factuality, security regressions, latency, total tokens, and total cost. Do not claim savings until measured.
 - [ ] Verify all configured IDs, current price rates, capabilities, tool support, context sizes, and any provider-specific request parameters using live provider documentation and a controlled smoke test.
-- [x] Run full `npm test` and syntax checks for changed JavaScript; `git diff --check` passed. Latest full suite: 864 tests, 863 passed, 0 failed, 1 skipped.
-- [ ] Run secret scan and review CI on PR #491.
+- [x] Run full `npm test` and syntax checks for changed JavaScript; `git diff --check` passed. Latest full suite: 865 tests, 864 passed, 0 failed, 1 skipped.
+- [x] Secret scan passed: no secrets found in 606 files. CI and Documentation Gate passed for the prior tested commit; recheck after the final integration edits.
 - [ ] Keep production disabled until all release gates pass and a separate release decision is made.
 
 ## Operator-supplied model rates (not independently verified)
@@ -75,3 +75,5 @@ Zero output prices are particularly high risk: confirm they are genuinely zero-c
 - 2026-10-21: Full local sandbox test suite passed: 864 tests, 863 pass, 0 fail, 1 skipped. Syntax checks for the council, chat, config, and policy modules passed; `git diff --check` passed.
 - 2026-10-21: The supplied model IDs and prices are recorded in the operator table; IDs have been added to the skill catalog as `operator_supplied_unverified` metadata only. They are deliberately excluded from runtime prioritization until model identity, price, capability, and endpoint behavior are independently verified. No unverified prices were added to `config/model-prices.json`.
 - Runtime council is disabled by default. No production deployment or live-provider smoke test was performed.
+
+- 2026-10-21 follow-up: Council specialist calls are constrained to the cheapest configured level and cannot escalate; final synthesis instructions are now applied to the final model prompt. Added regression coverage that operator-supplied model IDs remain unverified and are not promoted by task ranking.
