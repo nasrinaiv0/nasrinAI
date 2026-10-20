@@ -1361,3 +1361,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added Undo/Redo toolbar controls and Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, and Ctrl/Cmd+Y shortcuts for supported clip-list edits (add, reorder, property change, remove, clear). History is session-local and capped at 60 edits.
 - Retained truthful browser-renderer format detection; do not claim universal MP4 output.
 - **Not yet implemented:** a true multitrack timeline/compositor, clip-edge trim handles, transitions, keyframes, advanced effects, and dependable server-side MP4 rendering. These remain separate engineering phases.
+
+## PR #483 — Multitrack editing and composite preview (2026-10-20)
+
+- Added Video, Overlay, Text, and Audio timeline lanes with saved timeline positions and clip duration.
+- Added draggable trim edges, source in-point and timeline position fields, split clip, and Add caption.
+- Added per-clip filter, transition, opacity, audio gain, and opacity/scale keyframes; these properties persist in local drafts and cloud project documents.
+- Added synchronized canvas preview playback for overlapping visual clips and audio/video media.
+- Replaced sequential-only browser export with a timeline-clock compositor for overlapping visual tracks, caption overlays, basic transitions/filters, opacity/scale keyframes, and audio mixing.
+- Added test/video-studio-multitrack.test.js and updated renderer regression assertions to cover the new implementation and resource limits.
+- **Release gates:** guaranteed/server-side MP4 rendering is not implemented; browser export emits only the actual supported MIME type (MP4 or WebM). Real iOS Safari, tablet, and desktop end-to-end playback/export QA is still required. Browser export remains capped at 40 clips and 180 seconds.
