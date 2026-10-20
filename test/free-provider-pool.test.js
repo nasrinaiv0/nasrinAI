@@ -50,7 +50,7 @@ test('free model pricing requires an exact allowlist match', async () => {
 
   const paidModelConfig = loadConfig({
     AI_PROVIDER: 'none',
-    ROUTE_LEVEL_1: 'groq:llama-3.3-70b-versatile',
+    ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'another-model'
