@@ -39,22 +39,22 @@ Use inexpensive configured models to independently brainstorm, plan, and critiqu
 - [ ] Keep production disabled until all release gates pass and a separate release decision is made.
 
 ## Operator-supplied model rates (not independently verified)
-The user supplied these OpenRouter/provider rates in USD per 1M tokens. Treat them as proposed configuration values only; verify current exact model identity, provider route, pricing unit, cached-input rate, modality/tool support, and API schema before enabling them in any route.
+The user supplied these OpenRouter/provider rates in USD per 1M tokens. Current model pages were checked on 2026-10-21. Rates differ for some entries, so the runtime price file uses conservative current listing values for verified general text models; special decision endpoints and ambiguous provider aliases remain metadata-only. Prices are dynamic and must be refreshed before budget changes.
 
 | Model ID | Input | Output | Verification state |
 |---|---:|---:|---|
-| `deepseek/deepseek-v4.1-flash-1017` | 0.07 | 0.50 | Operator-supplied; verify |
-| `typesafe/jev-1.13` | 0.042 | 0 | Operator-supplied; verify exact listing and capabilities |
-| `openai/gpt-6-luna-pro` | 0.10 | 0.50 | Operator-supplied; verify ID and billing behavior |
-| `openai/gpt-6-luna` | 0.10 | 0.50 | Operator-supplied; verify ID and billing behavior |
-| `openai/gpt-6-luna-decisions` | 0.10 | 0 | Operator-supplied; verify API schema and billing |
-| `google-vertex/global` | 0.10 | 0.50 | Not a sufficiently specific model ID; verify endpoint and SKU |
-| `anthropic/claude-haiku-5.5` | 0.10 | 0.50 | Operator-supplied; verify ID and billing behavior |
-| `xiaomi/mimo-v2.6-pro` | 0.387 | 0.783 | Operator-supplied; verify |
-| `qwen/qwen3.8-flash` | 0.15 | 0.47 | Operator-supplied; verify |
-| `qwen/qwen3.8-27b` | 0.02 | 0.50 | Operator-supplied; verify |
-| `inclusionai/ling-3.1-flash` | 0.075 | 0.225 | Operator-supplied; verify |
-| `perplexity/pplx-decider-v1.2` | 0.02 | 0 | Operator-supplied; verify API shape and billing |
+| `deepseek/deepseek-v4.1-flash-1017` | 0.15 (conservative) | 0.60 | Verified ID; listing/provider prices vary; runtime uses conservative input rate. [OpenRouter](https://openrouter.ai/deepseek/deepseek-v4.1-flash-1017/) |
+| `typesafe/jev-1.13` | 0.042 | 0 | Verified structured-decision endpoint; not generic chat. [OpenRouter](https://openrouter.ai/typesafe/jev-1.13/) |
+| `openai/gpt-6-luna-pro` | 0.10 | 0.50 | Verified; premium reasoning mode can spend more reasoning tokens. [OpenRouter](https://openrouter.ai/openai/gpt-6-luna-pro/) |
+| `openai/gpt-6-luna` | 0.10 | 0.50 | Verified general text model. [OpenRouter](https://openrouter.ai/openai/gpt-6-luna/) |
+| `openai/gpt-6-luna-decisions` | 0.10 | 0 | Verified structured-decision endpoint; not generic chat. [OpenRouter](https://openrouter.ai/openai/gpt-6-luna-decisions/) |
+| `google-vertex/global` | 0.10 | 0.50 | Not a model ID; likely confused with a provider endpoint. Do not route by this value. |
+| `anthropic/claude-haiku-5.5` | 0.10 | 0.50 | Verified general text model. [OpenRouter](https://openrouter.ai/anthropic/claude-haiku-5.5/) |
+| `xiaomi/mimo-v2.6-pro` | 0.435 | 0.87 | Verified current listing; user-supplied rates were lower. [OpenRouter](https://openrouter.ai/xiaomi/mimo-v2.6-pro/) |
+| `qwen/qwen3.8-flash` | 0.15 | 0.47 | Verified general multimodal text model. [OpenRouter](https://openrouter.ai/qwen/qwen3.8-flash/) |
+| `qwen/qwen3.8-27b` | 0.0239 promo / 0.0248 listing | 4.35 | Verified model ID, but output is expensive and listing prices vary by provider; excluded from low-cost default. [OpenRouter](https://openrouter.ai/qwen/qwen3.8-27B) |
+| `inclusionai/ling-3.1-flash` | 0.075 | 0.225 | Verified; promotional pricing can change. [OpenRouter](https://openrouter.ai/inclusionai/ling-3.1-flash) |
+| `perplexity/pplx-decider-v1.2` | 0.02 | 0 | Verified structured-decision endpoint; not generic chat. [OpenRouter](https://openrouter.ai/perplexity/pplx-decider-v1.2/) |
 
 Zero output prices are particularly high risk: confirm they are genuinely zero-cost for the selected route, not a missing price, free trial, or non-generative scoring endpoint. Until then, do not treat them as free in production.
 
@@ -77,3 +77,10 @@ Zero output prices are particularly high risk: confirm they are genuinely zero-c
 - Runtime council is disabled by default. No production deployment or live-provider smoke test was performed.
 
 - 2026-10-21 follow-up: Council specialist calls are constrained to the cheapest configured level and cannot escalate; final synthesis instructions are now applied to the final model prompt. Added regression coverage that operator-supplied model IDs remain unverified and are not promoted by task ranking.
+
+
+### Runtime pricing and endpoint separation
+
+The following general text models have conservative rates in `config/model-prices.json`: DeepSeek V4.1 Flash 1017 ($0.15/$0.60 input/output per million; conservative input rate because the listing varies by endpoint), GPT-6 Luna ($0.10/$0.50), GPT-6 Luna Pro ($0.10/$0.50), Claude Haiku 5.5 ($0.10/$0.50), MiMo-V2.6-Pro ($0.435/$0.87), Qwen3.8 Flash ($0.15/$0.47), and Ling 3.1 Flash ($0.075/$0.225). Cached input is deliberately priced at the full input rate as a conservative bound until endpoint-specific cache rates are verified. These entries do not automatically activate a route; the operator must explicitly configure `ROUTE_LEVEL_1` and other level lists, and all existing policy checks still apply.
+
+`typesafe/jev-1.13`, `openai/gpt-6-luna-decisions`, and `perplexity/pplx-decider-v1.2` return structured decision outputs, not free-form assistant prose. They must not be used as the brainstorm/architect/critic chat adapter without a dedicated Decisions API integration. `google-vertex/global` is not accepted as a specific model ID. Qwen3.8 27B is not selected for the low-cost council because its output rate is high and listing prices vary.
