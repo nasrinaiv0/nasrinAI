@@ -215,7 +215,7 @@ export const OPENROUTER_TASK_INPUT_MODALITIES = TASK_INPUT;
 // Adapter for NasrinAI's existing video job lifecycle. OpenRouter video jobs
 // are single-shot: do not pretend that provider-side extension is supported.
 // The caller must enforce maxSeconds and use its existing spend reservation.
-export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, resolution = '720p' }) {
+export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, resolution = '720p', costPerSecondUsd }) {
   if (!client || typeof client.createVideo !== 'function') throw new ProviderError('config', 'OpenRouter video client is required');
   const safeMax = Math.max(1, Math.min(8, Number(maxSeconds) || 8));
   return {
@@ -223,6 +223,7 @@ export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, r
     model,
     maxSeconds: safeMax,
     resolution,
+    costPerSecondUsd: Number.isFinite(Number(costPerSecondUsd)) && Number(costPerSecondUsd) > 0 ? Number(costPerSecondUsd) : null,
     async create({ prompt, aspectRatio, seconds = safeMax }) {
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
       const result = await client.createVideo({
