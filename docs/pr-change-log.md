@@ -1,11 +1,54 @@
-## ElevenLabs Video Studio integration (2026-10-20)
 
-- Added ElevenLabs as a Developer plugin that opens the existing Video Studio workspace. The plugin supports server-side voice discovery, narration generation, and sound-effect generation; it does not claim unsupported ElevenLabs capabilities.
-- Added owner-scoped private MP3 assets, protected preview/download/delete endpoints, project timeline placement/edit/remove APIs, and FFmpeg-based MP4 export with source audio mixing.
-- Extended the existing `public/video-studio.html` workspace with voiceover/effect controls, saved assets, a persistent project audio timeline, and MP4 export. Studio-to-chat handoff now includes saved audio asset IDs and timeline metadata. The privacy notice now discloses that voiceover scripts/effect prompts are sent to ElevenLabs on user request and that generated MP3s are stored as private NasrinAI assets. The Studio subdomain redirects to the primary site origin so the existing HttpOnly refresh cookie remains same-origin.
-- Added migration `046_video_studio_audio_assets.sql`, server-side provider adapter, bounded render limits and cleanup, regression tests, and a real FFmpeg render integration test.
-- **Validation:** latest sandbox full suite: 807 passed, 0 failed, 1 skipped; secret scan and JavaScript syntax checks passed; `npm audit --audit-level=high` reported 0 vulnerabilities. GitHub CI run 39318253221 passed test, syntax, secret scan, dependency audit, and database jobs; Documentation Gate passed. Migration 046 was applied to the connected Supabase project and verified: both tables exist, RLS is enabled, anon/authenticated table access is revoked, service_role access is granted, and the existing media bucket remains private. Deployed Studio/provider/export smoke tests remain pending because the Vercel preview build was canceled by the project's ignored-build-step configuration.
+## Proposed PR — Video Studio button and padding normalization (`fix/video-studio-buttons-padding-v2`)
 
+- Normalize icon-only controls to fixed square dimensions with consistent borders, alignment, and line-height; prevent inherited button padding from inflating the media-bin plus button.
+- Standardize editor toolbar, save, canvas, timeline, and clip-action button heights/padding; ensure media import button fills its container without overflow.
+- Add responsive rules for narrow phones and regression checks for fixed icon dimensions, box sizing, and mobile breakpoints.
+
+
+## Proposed PR — Video Studio button and padding consistency (`fix/video-studio-button-spacing`)
+
+- Normalize button hit areas, padding, gaps, and line-height across the create, project, timeline, inspector, and export controls.
+- Prevent project action buttons from overflowing narrow layouts; make tabs horizontally scrollable and improve small-phone spacing.
+- Add visible keyboard focus rings and explicit disabled-button affordances.
+- Add regression assertions for consistent sizing and responsive breakpoints.
+
+
+## Proposed PR — CapCut-inspired Video Studio workspace (`feat/capcut-style-video-studio`)
+
+- Replace the previous spacious template/timeline page with an editor-first, dark workspace inspired by familiar desktop video editors while retaining NasrinAI branding.
+- Add a left media bin, centered preview canvas, horizontal clip cards/timeline, and right-side clip properties panel.
+- Wire Import media, Save project, Create scene, Text focus, Audio import, and Export navigation to existing functional flows.
+- Keep the layout responsive for tablet/mobile and add regression coverage for unique DOM IDs, core editor controls, media bin, and responsive styles.
+- Scope note: this improves the editing workspace and does not claim full CapCut parity; multi-track editing, transitions, keyframes, captions/effects, and a server render worker are not included by this change.
+
+
+## Post-merge Video Studio preview fix (2026-10-20)
+
+- Added image and audio preview rendering for uploaded cloud assets; previously the inspector attempted to show every media type in a video element.
+- Added matching preview styles and a regression test. Browser-based playback/export on real devices remains a manual verification gate.
+
+## Proposed PR — Durable Video Studio media assets (`feat/video-studio-persistent-assets`)
+
+- **Storage:** add migration 052 for a private `video-studio-assets` Supabase Storage bucket with a 50 MB object limit and video/image/audio MIME allowlist; no direct browser policies are granted.
+- **API:** add authenticated, owner-scoped one-time upload URLs, short-lived signed download URLs, and asset deletion. Object keys are derived server-side from the verified tenant/actor plus a UUID; the service key never reaches the browser.
+- **Studio:** cloud save uploads local media bytes before saving project metadata, persists validated asset IDs/MIME types, and resolves signed URLs when reopening a project. The server rejects cloud projects that claim an uploaded clip without a durable asset ID.
+- **Cleanup:** project updates/deletion attempt to remove no-longer-referenced assets after the project mutation succeeds. Storage cleanup is best-effort; failed cleanup can leave an orphan, but ownership scoping prevents cross-user deletion.
+- **Tests/docs:** add service-level tests for auth, size/type validation, owner scoping, private URL signing, and frontend/cloud-document integration; add database assertions for bucket privacy/limits; update architecture docs.
+- **CI follow-up:** the first database run showed that plain PostgreSQL CI does not create Supabase's `storage.buckets` schema. Migration 052 and its DB assertions now skip only the Storage-specific DDL/assertions when that schema is absent; on Supabase the bucket is still created and checked.
+- **Deployment gates:** CI and DB tests must pass. Migration 052 must be applied through the approved migration process, then verify real signed-in upload/save/reopen/delete on staging. Browser rendering remains client-side; this does not add a server-side render worker.
+
+## Proposed PR — Require optimistic versions for Video Studio cloud saves (`fix/video-studio-version-conflicts`)
+
+- **Change:** reject cloud project updates that omit a positive `expected_version`; this prevents a client from bypassing the optimistic concurrency guard and silently overwriting another edit. Existing stale-version updates continue to return a conflict response.
+- **Regression coverage:** assert the route rejects missing versions with a clear, actionable error.
+- **Validation:** CI must pass before merge. Real signed-in concurrent-save testing remains pending.
+
+## Proposed PR — Video Studio Safari seek-event race guard (`fix/video-studio-renderer-media-races`)
+
+- **Change:** browser timeline export registers the media `seeked` listener before setting `currentTime`, avoiding a race where Safari can dispatch the event before the listener exists. Seek waits are bounded and return a clear error on timeout/failure.
+- **Regression coverage:** added a source-level test for the listener-ordering guard.
+- **Validation:** GitHub Actions must pass before merge. Actual export playback still needs manual Safari/iOS and desktop-browser verification; codec support varies by browser. This change does not add durable cloud asset storage or server-side rendering.
 
 ## Customer location, internal Maps, and image understanding follow-up (2026-10-18)
 
@@ -1155,3 +1198,148 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The first test edit was malformed because the regular-expression line was truncated, causing a JavaScript `SyntaxError` before the test could execute. Replaced the complete `test/vercel.test.js` with a syntactically complete version, retaining all previous assertions and the new host-aware checks.
 - The earlier behavioral failure and root cause remain as recorded above; this follow-up fixes the edit itself.
 - **Validation:** new CI run is required to confirm the file parses and all tests pass; no pass is claimed yet.
+
+
+### Video Studio custom-domain root routing fix (2026-10-20)
+
+- **Commit:** `8ec576479be5c34f1281221854c1e9598fb46636` — `fix: redirect Studio host root to Video Studio`.
+- **Observed issue:** after PR #470 merged, `https://studio.nasrinai.com/` still served the standard NasrinAI chat homepage, even though `/video-studio.html` returned the Video Studio page with HTTP 200.
+- **Change:** replace the host-specific root rewrite with an explicit temporary redirect to `/video-studio.html` for `studio.nasrinai.com`; keep the rule host-scoped so the main `nasrinai.com` root is unchanged. NCC routing remains intact.
+- **Validation:** live pre-fix checks reproduced the issue; this branch change has not yet been deployed or tested in CI. Verify Vercel build/production routing and run the regression suite before considering complete.
+- **Security/data impact:** no database, auth, secret, storage, or API behavior changed.
+
+
+### Studio root redirect regression coverage (2026-10-20)
+
+- **Commit:** `03c4f44399b98cc1bb1985b6ffc4d9106ba1e83d` — `test: cover Studio root redirect`.
+- Added a configuration regression test requiring an explicit temporary redirect from `/` to `/video-studio.html` only when the host is `studio.nasrinai.com`, and confirming the main root is not redirected to Studio.
+- Updated API rewrite tests to validate that API paths remain routed to the function independently of host routing.
+- **Validation:** test source updated; execution is pending CI because this connector session does not run the repository's Node test suite.
+
+
+### Video Studio cloud project persistence foundation (2026-10-20)
+
+- **Commit:** `743b1a6123b61150b80109b083fc1216afffc31f` — `feat: add server-only Video Studio project storage`.
+- Added additive migration `051_video_studio_projects.sql` with tenant/user ownership, JSON document size/type constraints, update version, and owner/update index.
+- RLS is enabled and browser roles have no table privileges; application access is intended through the server-side service role only.
+- **Status:** schema foundation only. Authenticated CRUD APIs, frontend sync, migration execution, database tests, and deployment are not yet complete. Do not describe cloud persistence as usable until all are verified.
+
+
+### Video Studio owner-scoped store operations (2026-10-20)
+
+- **Commit:** `3990e67752ceb5feaceba9d9b25ec512e3a89c5f` — `feat: add owner-scoped Video Studio project store methods`.
+- Added list/get/create/update/delete methods filtered by tenant and authenticated user; project document and metadata are returned as a bounded, server-owned record.
+- Updates support an optional expected-version filter to detect stale writes.
+- **Validation:** source edit is committed; CI and store tests are pending. No production migration was run.
+
+
+### Video Studio cloud project API (2026-10-20)
+
+- **Commit:** `95ad0ce427b75907da47b7959936df6c87494f46` — `feat: add authenticated Video Studio project API`.
+- Added signed-in-user endpoints to list, create, read, update and delete Studio project documents. Each operation scopes by the verified caller's tenant and user; foreign/missing project IDs return not found.
+- Server normalization restricts the persisted document to known fields, bounds clip counts and payload size, and rebuilds generated-video download paths from validated video IDs rather than trusting client URLs.
+- **Validation:** route code committed; CI, authorization tests, migration execution, and deployment remain pending.
+
+### Video Studio cloud project controls (2026-10-20)
+
+- **Commit:** `20585ecef98e2f85aabb8ca138e399cf7ab9adaa` — `feat: add cloud project controls to Studio`.
+- Added Save to cloud and Open project controls to the Studio project header.
+- **Validation:** markup committed; mobile layout and end-to-end behavior need tests.
+
+### Video Studio cloud sync frontend (2026-10-20)
+
+- **Commit:** `7590f02514e4aa3ebaec5ded9573161467061a66` — `feat: sync Video Studio drafts with cloud projects`.
+- Added authenticated cloud save/open flows, local draft fallback on cloud-save failure, and saved project ID/version tracking for subsequent updates.
+- **Limitations:** uploaded local file bytes are not uploaded or synchronized; generated MP4 access remains subject to the existing owner-checked video route. Full end-to-end verification is pending.
+
+
+### Video Studio cloud project regression coverage (2026-10-20)
+
+- **Commit:** `642ef0c734a0e1a70c6e357ddb566e172eb2c604` — `test: cover Video Studio cloud project persistence`.
+- Added static regression checks for cloud CRUD endpoints, ownership scoping, version handling, local fallback, and database security constraints.
+- **Validation:** test file added; CI must execute it. These checks do not replace authenticated integration tests or a live database migration test.
+
+### Video Studio persistence architecture checkpoint (2026-10-20)
+
+- **Commit:** `c458c2333372d22590da7b4cae91332a76835f97` — `docs: record cloud project persistence checkpoint`.
+- Updated the architecture document to describe the cloud schema/API/UI and explicitly list pending migration, CI, live save/reopen, cross-device, and rendering validation.
+- **Validation:** documentation update only; production database schema has not been changed.
+
+
+### Video Studio database permission test (2026-10-20)
+
+- **Commit:** `c7527c2897c2027536a5f1e195c52fd39b79f231` — `test: enforce Video Studio project database permissions`.
+- Added a migration-runner SQL test asserting RLS is enabled, anon/authenticated cannot directly access project records, and the server role has the CRUD grants required by the API.
+- **Validation:** test is committed; the database test runner must execute it on a scratch PostgreSQL database. Production schema is unchanged.
+
+
+### Video Studio cloud controls responsive layout (2026-10-20)
+
+- **Commit:** `00c07379396d624ab891e5c36f5c7daa3e2ea6ed` — `style: fit cloud project controls in Studio header`.
+- Added wrapping layout for the Save/Open controls to avoid forcing them into one fixed-width row on small screens.
+- **Validation:** CSS committed; responsive browser testing remains pending.
+
+
+### Video Studio cloud prompt preservation (2026-10-20)
+
+- **Commit:** `956e8f2ecd6c180cbe7e3a0958f52f4a04023cf5` — `fix: preserve Studio prompt in cloud project`.
+- Extended server-side document normalization to retain the bounded generation prompt, so the saved project model includes the scene brief as well as timeline metadata.
+- **Validation:** source edit committed; CI pending.
+
+### Video Studio prompt-sync follow-up (2026-10-20)
+
+- **Commit:** `d552e3090a7563a45a2c86c8b004293409ccefea` — `fix: restore Studio prompt from cloud projects`.
+- Follow-up attempt did not change the frontend file content (the content blob was unchanged); retained here for commit-level audit transparency. The actual frontend prompt save/restore change is in the next commit.
+- **Validation:** no functional code change in this commit.
+
+### Video Studio prompt save/restore fix (2026-10-20)
+
+- **Commit:** `5553d653da6d6903ee2d27044549f2fc1b13d3b3` — `fix: preserve prompt when syncing Studio projects`.
+- Persist the current prompt in the cloud project document and restore it when opening a cloud project.
+- **Validation:** source edit committed; CI and live round-trip validation pending.
+
+
+### Video Studio account-deletion cleanup (2026-10-20)
+
+- **Commit:** `00ea728192d8b46a29be8e39e1b008d0a74d626a` — `fix: remove Studio cloud projects on account deletion`.
+- Extended the existing server-side account deletion flow to delete the account's Video Studio cloud projects after the established user-data RPC succeeds.
+- If migration 051 has not yet been applied, only a confirmed missing-table error is tolerated; other deletion errors still propagate rather than being silently ignored.
+- **Validation:** code committed; account deletion tests and CI must verify behavior with and without migration 051.
+
+
+### Video Studio cloud prompt round-trip correction (2026-10-20)
+
+- **Commit:** `f1bc5d7040b200cd6c8ff910f9b221adeb89962c` — `fix: restore prompt when opening cloud Studio project`.
+- Corrected the cloud-project hydration path so it restores the saved, bounded generation prompt into the Studio prompt field when a user opens a project.
+- **Validation:** source change committed; regression test and CI confirmation pending.
+
+
+### Video Studio cloud round-trip regression test (2026-10-20)
+
+- **Commit:** `c77cc8f325117222f13eaec65975a15e4ef25a70` — `test: cover cloud Studio prompt round trip`.
+- Added a regression test that asserts the bounded prompt is persisted in the cloud document and restored when opening a cloud project.
+- **Validation:** test added; CI pending.
+
+
+## 2026-10-20 — PR #474 conflict-safe renderer port
+
+- **Branch:** `fix/video-studio-renderer-conflict` (based on current `main`, to avoid overwriting newer cloud-project prompt restoration changes).
+- **Reason:** PR #474 reported `mergeable_state=dirty`; its HTML, CSS, JS, and architecture document diverged from current `main`. The conflict was not resolved by taking either side wholesale.
+- **Commits:**
+  - `a088ceec15688581f13bc7e4e282e9aae801b32b` — port renderer controls into current HTML while preserving main content.
+  - `ba9512b1b719fb1965dbaaa6213e09b4e8196200` — add renderer styles.
+  - `9d89145fb5c882e969d0c896f799a17437db406b` — port browser renderer code while retaining current cloud prompt restoration.
+  - `4fccb9a6bf8e4c9e3deaf4a3cb3c45a8a19a9bc6` — add renderer regression tests from PR #474.
+  - `1930103026330ffec7e584baffa25262c7b124ec` — document conflict-safe integration and remaining browser/media limitations.
+- **Validation at this point:** files were transplanted by stable insertion points and current-main content was preserved; CI for this new branch has not yet completed. No browser/device playback test is claimed.
+- **Known limitations:** Browser-dependent MediaRecorder export; MP4 only where supported, otherwise WebM; maximum 30 clips / 180 seconds; local upload bytes are not durable cloud media; manual export playback/audio synchronization remains required.
+
+
+## 2026-10-20 — Video Studio renderer conflict resolved and merged
+
+- **PR:** #475 — https://github.com/primusco20/nasrinAI/pull/475 (merged by squash).
+- **Merge commit:** `a6584148ea78d34953494a661ca0c477de70b652`.
+- **Original PR:** #474 closed as superseded; its conflicting branch was not merged.
+- **CI evidence before merge:** [CI run 39331276914](https://github.com/primusco20/nasrinAI/actions/runs/39331276914) passed all jobs: test (798 passed, 0 failed, 1 skipped), database tests, and dependency audit. [Documentation gate 39331277058](https://github.com/primusco20/nasrinAI/actions/runs/39331277058) passed.
+- **Conflict resolution:** renderer-only controls/styles/functions were ported onto current `main`; current cloud-project prompt restoration was preserved. No whole-file replacement from the stale branch was used.
+- **Still not verified:** browser/device export playback, audio sync, mobile memory behavior, durable local-media cloud storage, and server-side rendering. The browser renderer is a limited client-side export feature, not a production render worker.
