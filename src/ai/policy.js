@@ -5,6 +5,7 @@ import { priceOf, costOf, estimateTokens } from './pricing.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { createProviderSpendHooks } from './budget.js';
+import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 
 // The cost-aware routing policy (Phase 4.1), between the chat and the router:
 //
@@ -131,7 +132,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
               : r.coding?.[plan.tier];
             if (codingSpec) candidates.push(codingSpec);
           }
-          candidates.push(...r.levels[l]);
+          candidates.push(...prioritizeOpenRouterCandidates(plan.task, r.levels[l]));
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
