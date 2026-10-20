@@ -57,7 +57,7 @@ test('CapCut-style editor has unique IDs and working media, text, audio, save, a
   }
   assert.match(js, /data-editor-tool/);
   assert.match(js, /assetId:c\.assetId\|\|null/);
-  assert.match(js, /\$('mediaInput'\)\.click\(\)/);
+  assert.ok(js.includes("$('mediaInput').click()"), 'import actions must open the media picker');
   assert.match(css, /\.capcut-editor/);
   assert.match(css, /\.media-bin/);
   assert.match(css, /\.timeline-section/);
