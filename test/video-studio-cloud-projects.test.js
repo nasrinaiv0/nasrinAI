@@ -18,6 +18,8 @@ test('Video Studio cloud projects use authenticated CRUD APIs and preserve local
   assert.match(routes, /caller\.tenantId/);
   assert.match(routes, /caller\.actor\.id/);
   assert.match(routes, /cleanVideoStudioDocument/);
+  assert.match(routes, /expected_version_required/);
+  assert.match(routes, /Reload this project before saving so changes are not overwritten/);
   for (const method of ['listVideoStudioProjects', 'getVideoStudioProject', 'createVideoStudioProject', 'updateVideoStudioProject', 'deleteVideoStudioProject']) {
     assert.ok(store.includes(method), 'store implements ' + method);
   }

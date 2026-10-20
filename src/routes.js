@@ -893,7 +893,10 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!store?.updateVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
         const name = typeof body?.name === 'string' ? body.name.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 80) : '';
         if (!name) throw new HttpError(400, 'invalid_video_project', 'Enter a project name before saving.');
-        const expectedVersion = Number.isInteger(body?.expected_version) && body.expected_version > 0 ? body.expected_version : undefined;
+        if (!Number.isInteger(body?.expected_version) || body.expected_version < 1) {
+          throw new HttpError(400, 'expected_version_required', 'Reload this project before saving so changes are not overwritten.');
+        }
+        const expectedVersion = body.expected_version;
         const project = await store.updateVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id, name, document: cleanVideoStudioDocument(body.document), expectedVersion });
         if (!project) throw new HttpError(409, 'video_project_conflict', 'This project changed or is no longer available. Reload it before saving again.');
         return { body: { project } };
