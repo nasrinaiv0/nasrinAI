@@ -109,6 +109,19 @@ export function createOpenRouterClient({
     if (requirements.requiresTools) eligible = eligible.filter((m) => Array.isArray(m.supported_parameters) && m.supported_parameters.includes('tools'));
     if (requirements.maxPromptUsdPerMillion != null) eligible = eligible.filter((m) => Number(m.pricing?.prompt) * 1_000_000 <= requirements.maxPromptUsdPerMillion);
     const validateRequirements = (match) => {
+      if (task === 'image') {
+        const params = match.supported_parameters || {};
+        const supportsEnum = (name, value) => {
+          const values = params[name]?.values;
+          if (!Array.isArray(values) || !values.includes(value)) throw new ProviderError('config', `OpenRouter image model does not advertise the requested ${name}`);
+        };
+        if (requirements.quality) supportsEnum('quality', requirements.quality);
+        if (requirements.aspectRatio) supportsEnum('aspect_ratio', requirements.aspectRatio);
+        if (requirements.inputReferences > 0) {
+          const max = Number(params.input_references?.max ?? params.input_references?.maximum ?? 0);
+          if (!Number.isFinite(max) || max < requirements.inputReferences) throw new ProviderError('config', 'OpenRouter image model does not advertise support for the requested reference-image count');
+        }
+      }
       if (task === 'video') {
         const list = (key) => Array.isArray(match[key]) ? match[key] : null;
         const duration = requirements.duration;
@@ -173,7 +186,7 @@ export function createOpenRouterClient({
   }
 
   async function generateImage({ model, preferred = [], prompt, images, signal, maxCostUsd, ...options }) {
-    const selected = await selectModel('image', model ? [cleanModelId(model)] : preferred);
+    const selected = await selectModel('image', model ? [cleanModelId(model)] : preferred, { quality: options.quality, aspectRatio: options.aspect_ratio, inputReferences: Array.isArray(images) ? images.length : 0 });
     if (!Number.isFinite(Number(maxCostUsd)) || Number(maxCostUsd) <= 0) throw new ProviderError('config', 'A positive per-image spending ceiling is required');
     const [author, ...slugParts] = selected.id.split('/');
     const endpointCatalog = await request('/images/models/' + encodeURIComponent(author) + '/' + encodeURIComponent(slugParts.join('/')) + '/endpoints', { method: 'GET' });
