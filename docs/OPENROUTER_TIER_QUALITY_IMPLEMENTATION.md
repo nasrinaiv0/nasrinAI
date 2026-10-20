@@ -89,3 +89,8 @@ The catalog also records all 16 names supplied by the owner. Text-task prioritiz
 
 ### Enablement
 Use exact provider-qualified IDs in `ROUTE_LEVEL_1` through `ROUTE_LEVEL_5`, e.g. `openrouter:deepseek/deepseek-v4.1-flash`. Confirm the parser accepts the provider prefix and set the same exact IDs in the OpenRouter price registry. This catalog does not automatically enable unconfigured models or override account-tier policy. Add task-specific candidates only after validating tool/vision support and pricing in the live OpenRouter catalog.
+
+
+## Multi-model planning council (experimental, disabled by default)
+
+See [docs/MULTI_MODEL_PLANNING_COUNCIL.md](./MULTI_MODEL_PLANNING_COUNCIL.md) for the full architecture, operator-supplied price list, implementation progress, safety contract, and release gates. The server-side flag is `PLANNING_COUNCIL_ENABLED=false` by default. When enabled, only eligible non-sensitive Max/Ultra requests without attachments, tools, or current-fact requirements can use the council. Each specialist is routed through the existing policy and reservations. Do not enable in production until the documented integration, security, cost, and quality checks pass.
