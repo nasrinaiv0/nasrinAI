@@ -94,3 +94,12 @@ Use exact provider-qualified IDs in `ROUTE_LEVEL_1` through `ROUTE_LEVEL_5`, e.g
 ## Multi-model planning council (experimental, disabled by default)
 
 See [docs/MULTI_MODEL_PLANNING_COUNCIL.md](./MULTI_MODEL_PLANNING_COUNCIL.md) for the full architecture, operator-supplied price list, implementation progress, safety contract, and release gates. The server-side flag is `PLANNING_COUNCIL_ENABLED=false` by default. When enabled, only eligible non-sensitive Max/Ultra requests without attachments, tools, or current-fact requirements can use the council. Each specialist is routed through the existing policy and reservations. Do not enable in production until the documented integration, security, cost, and quality checks pass.
+
+
+## 2026-10-21 coding and speech route update
+
+- Max coding/debugging default: `openrouter:openai/gpt-6-sol`, listed at $2/M input and $10/M output.
+- Ultra coding/debugging and Ultra deep coding: `openrouter:openai/gpt-6.1-sol`, listed at $2/M input and $10/M output. These are tier-scoped coding specialists, not general chat overrides. They are used only when `OPENROUTER_API_KEY` is configured and the existing tier/usage policy permits the request; otherwise the approved Anthropic fallback remains.
+- TTS default when OpenRouter is configured: `google/gemini-3.8-flash-lite-tts` at $0.50/M text input and $6/M audio output. The OpenRouter speech request pins provider routing to `Google Vertex` with fallbacks disabled so it cannot silently switch provider. The OpenRouter model page currently lists Google AI Studio as the model's visible endpoint, while the Google Vertex provider page also lists the model; live provider pinning must be verified in Preview before release.
+- Runtime cached-input prices for the Sol models are conservatively set equal to standard input ($2/M) until billing telemetry is confirmed. TTS reservation cost remains a conservative per-character ceiling until actual usage data is verified.
+- Required release checks: configured provider key in Vercel Preview; verify a Max coding request selects GPT-6 Sol, an Ultra coding request selects GPT-6.1 Sol, and a speech request returns playable WAV from the pinned Google Vertex endpoint; confirm usage/cost settlement and fail-closed behavior.
