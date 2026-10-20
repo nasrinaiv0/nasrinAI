@@ -56,8 +56,8 @@ test('CapCut-style editor has unique IDs and working media, text, audio, save, a
     assert.ok(ids.includes(id), 'missing editor control: '+id);
   }
   assert.match(js, /data-editor-tool/);
-  assert.match(js, /clip\.assetId\|\|null/);
-  assert.match(js, /$('mediaInput')\.click\(\)/);
+  assert.match(js, /assetId:c\.assetId\|\|null/);
+  assert.match(js, /\$('mediaInput'\)\.click\(\)/);
   assert.match(css, /\.capcut-editor/);
   assert.match(css, /\.media-bin/);
   assert.match(css, /\.timeline-section/);
