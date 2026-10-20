@@ -131,14 +131,16 @@ export function createOpenRouterClient({
         if (resolution && (!list('supported_resolutions') || !list('supported_resolutions').includes(resolution))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested resolution');
         if (aspectRatio && (!list('supported_aspect_ratios') || !list('supported_aspect_ratios').includes(aspectRatio))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested aspect ratio');
         if (requirements.generateAudio === true && match.generate_audio !== true && match.supports_audio_generation !== true) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise generated audio support');
-        const skus = Array.isArray(match.pricing_skus) ? match.pricing_skus : match.pricing_skus && typeof match.pricing_skus === 'object' ? Object.values(match.pricing_skus) : [];
-        const perSecondPrices = skus.filter((sku) => {
-          const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || '').toLowerCase();
-          return /second|\/sec\b|per_sec/.test(unit);
-        }).map((sku) => Number(sku?.cost_usd ?? sku?.price_usd ?? sku?.price ?? sku?.cost ?? sku?.rate ?? sku?.amount)).filter((n) => Number.isFinite(n) && n > 0);
-        if (!perSecondPrices.length) throw new ProviderError('config', 'OpenRouter video model has no verifiable per-second pricing in its live catalog');
-        const conservativeCatalogRate = Math.max(...perSecondPrices);
-        if (!Number.isFinite(Number(requirements.maxCostPerSecondUsd)) || Number(requirements.maxCostPerSecondUsd) < conservativeCatalogRate) throw new ProviderError('config', 'Configured OpenRouter video cost estimate is below the live catalog rate');
+        if (requirements.requirePrice === true) {
+          const skus = Array.isArray(match.pricing_skus) ? match.pricing_skus : match.pricing_skus && typeof match.pricing_skus === 'object' ? Object.values(match.pricing_skus) : [];
+          const perSecondPrices = skus.filter((sku) => {
+            const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || '').toLowerCase();
+            return /second|\/sec\b|per_sec/.test(unit);
+          }).map((sku) => Number(sku?.cost_usd ?? sku?.price_usd ?? sku?.price ?? sku?.cost ?? sku?.rate ?? sku?.amount)).filter((n) => Number.isFinite(n) && n > 0);
+          if (!perSecondPrices.length) throw new ProviderError('config', 'OpenRouter video model has no verifiable per-second pricing in its live catalog');
+          const conservativeCatalogRate = Math.max(...perSecondPrices);
+          if (!Number.isFinite(Number(requirements.maxCostPerSecondUsd)) || Number(requirements.maxCostPerSecondUsd) < conservativeCatalogRate) throw new ProviderError('config', 'Configured OpenRouter video cost estimate is below the live catalog rate');
+        }
       }
       return match;
     };
@@ -214,7 +216,7 @@ export function createOpenRouterClient({
   async function createVideo({ model, preferred = [], prompt, signal, maxCostPerSecondUsd, ...options }) {
     const selected = await selectModel('video', model ? [cleanModelId(model)] : preferred, {
       duration: options.duration, resolution: options.resolution, aspectRatio: options.aspect_ratio,
-      generateAudio: options.generate_audio === true, maxCostPerSecondUsd
+      generateAudio: options.generate_audio === true, requirePrice: true, maxCostPerSecondUsd
     });
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Video prompt must be 1–8000 characters');
     const body = { ...options, model: selected.id, prompt: prompt.trim() };
