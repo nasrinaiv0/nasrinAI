@@ -85,3 +85,6 @@ the change to take effect.
 - **Your own model instead of OpenAI:** see [local-model.md](local-model.md).
 - **Turn the AI off:** set `AI_PROVIDER=none`. The page then says the chat is not switched on.
 - **Before charging businesses:** move the project to Vercel Pro. Hobby is for non-commercial use only.
+
+- **Coding model specialists (OpenRouter):** with `OPENROUTER_API_KEY` set, `CODING_MAX_MODEL=openrouter:openai/gpt-6-sol` and `CODING_ULTRA_MODEL=openrouter:openai/gpt-6.1-sol`; `CODING_ULTRA_DEEP_MODEL` also defaults to GPT-6.1 Sol. Rates are $2/M input and $10/M output for both. When OpenRouter is not configured, the previous Anthropic coding model fallback remains.
+- **TTS (OpenRouter):** when `OPENROUTER_API_KEY` is set and `SPEECH_PROVIDER` is unset, speech defaults to OpenRouter with `OPENROUTER_TTS_MODEL=google/gemini-3.8-flash-lite-tts` and `OPENROUTER_TTS_PROVIDER=Google Vertex`. This pins provider routing without fallback; verify Preview before production. Listed rates: $0.50/M input text and $6/M output audio tokens.
