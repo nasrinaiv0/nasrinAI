@@ -34,7 +34,7 @@ Use inexpensive configured models to independently brainstorm, plan, and critiqu
 - [ ] Add integration tests proving feature-flag-off is byte-for-byte normal behavior; feature-flag-on only runs for eligible Max/Ultra requests; token/spend reservations and usage logs account for every call; failures fall back safely; and user content cannot inject policy instructions into role prompts.
 - [ ] Benchmark against premium-only baseline using representative NasrinAI tasks. Record output quality, factuality, security regressions, latency, total tokens, and total cost. Do not claim savings until measured.
 - [ ] Verify all configured IDs, current price rates, capabilities, tool support, context sizes, and any provider-specific request parameters using live provider documentation and a controlled smoke test.
-- [x] Run full `npm test` and syntax checks for changed JavaScript; `git diff --check` passed. Latest full suite: 865 tests, 864 passed, 0 failed, 1 skipped.
+- [x] Run full `npm test` and syntax checks for changed JavaScript; `git diff --check` passed. Latest full suite: 866 tests, 865 passed, 0 failed, 1 skipped.
 - [x] Secret scan passed: no secrets found in 606 files. CI and Documentation Gate passed for the latest code-bearing commit (CI run 4463; Documentation Gate run 237). Re-run after any subsequent code changes.
 - [ ] Keep production disabled until all release gates pass and a separate release decision is made.
 
@@ -87,3 +87,5 @@ The following general text models have conservative rates in `config/model-price
 
 - 2026-10-21 model verification update: OpenRouter pages verified exact IDs/prices for DeepSeek V4.1 Flash 1017, GPT-6 Luna, GPT-6 Luna Pro, Claude Haiku 5.5, MiMo-V2.6-Pro, Qwen3.8 Flash, and Ling 3.1 Flash. Runtime prices are configured conservatively, with cached input priced at the full input rate. Jev and both Decider models are structured-decision endpoints and remain excluded from ordinary chat; Qwen3.8 27B remains excluded from low-cost defaults due to its $4.35/M output listing and price variability. Operator must still explicitly configure `ROUTE_LEVEL_n` and validate live adapter compatibility.
 - 2026-10-21 diversity update: specialist roles use role-specific task labels and exclude previously used provider/model pairs so the council seeks distinct configured models. If there are not enough eligible models, missing roles fail safely rather than repeatedly using the same model.
+
+- 2026-10-21 validation rerun after catalog/pricing/diversity changes: 866 tests, 865 passed, 0 failed, 1 skipped; syntax checks and JSON parse passed; `git diff --check` passed; secret scan found no secrets in 606 files.
