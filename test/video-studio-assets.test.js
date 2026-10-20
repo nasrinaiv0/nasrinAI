@@ -64,3 +64,14 @@ test('Video Studio cloud saves persist uploaded media references and reload via 
   assert.match(html, /Sign in to keep uploaded media with your cloud project/);
   assert.doesNotMatch(html, /Uploaded media stays in this browser session/);
 });
+
+test('Video Studio preview supports uploaded images and audio, not just video tags', async () => {
+  const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/video-studio.css', import.meta.url), 'utf8');
+  assert.match(js, /document\.createElement\('img'\)/);
+  assert.match(js, /document\.createElement\('audio'\)/);
+  assert.match(js, /mediaType\.startsWith\('image\/'\)/);
+  assert.match(js, /mediaType\.startsWith\('audio\/'\)/);
+  assert.match(css, /\.studio-media-preview/);
+  assert.match(css, /\.studio-audio-preview/);
+});
