@@ -637,17 +637,27 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             maxInputChars: 9000,
             runCandidate: async ({ role, system, messages, maxTokens }) => {
               const councilPlan = { ...plan, task: plan.task, level: plan.floor, floor: plan.floor, ceiling: plan.floor };
-              const specialist = await policy.run(councilPlan, { system, messages, attachments: [], maxTokens }, {
-                caller,
-                reserveTokens: async ({ inputTokens, maxTokens: outputTokens }) => limiter.reserveTokens(caller, Math.ceil((inputTokens * 2 + outputTokens) * 2)),
-                settleTokens: (reservation, actualTokens) => limiter.settleTokens(reservation, actualTokens),
-                onFailure: (f) => usageLog.record(caller, {
-                  provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
-                  inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
-                  outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd,
-                  reservationId: f.reservationId, spendReservationId: f.spendReservationId
-                })
-              });
+              let specialist;
+              try {
+                specialist = await policy.run(councilPlan, { system, messages, attachments: [], maxTokens }, {
+                  caller,
+                  reserveTokens: async ({ inputTokens, maxTokens: outputTokens }) => limiter.reserveTokens(caller, Math.ceil((inputTokens * 2 + outputTokens) * 2)),
+                  settleTokens: (reservation, actualTokens) => limiter.settleTokens(reservation, actualTokens),
+                  onFailure: (f) => usageLog.record(caller, {
+                    provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
+                    inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
+                    outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd,
+                    reservationId: f.reservationId, spendReservationId: f.spendReservationId
+                  })
+                });
+              } catch (err) {
+                await usageLog.record(caller, {
+                  provider: err?.provider || 'router', model: err?.model || 'unknown',
+                  outcome: err?.code === 'budget_reached' ? 'budget_blocked' : 'provider_error',
+                  task: `council_${role}`, level: councilPlan.level, costUsd: 0
+                });
+                throw err;
+              }
               await usageLog.record(caller, {
                 provider: specialist.result.provider || specialist.spec.provider,
                 model: specialist.result.model || specialist.spec.model,
