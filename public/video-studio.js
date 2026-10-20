@@ -179,7 +179,9 @@
       prompt:safe($('prompt').value).slice(0,1800),
       clips:state.clips.slice(0,30).map((c,i)=>({order:i+1,name:safe(c.name).slice(0,100),kind:c.kind,duration:Number(c.duration)||0,title:safe(c.title||'').slice(0,140),video_id:c.videoId||null})),
       generated:state.generated.slice(0,20).map(c=>({name:safe(c.name).slice(0,100),video_id:c.videoId||null,duration:Number(c.duration)||0})),
-      note:'This is a project brief shared from the current Studio browser draft. Media files themselves are not attached. Help me continue planning or editing this video in chat.'
+      audio_assets:(state.audioAssets||[]).slice(0,20).map(a=>({id:a.id,label:safe(a.label).slice(0,120),kind:a.kind,voice_id:a.voice_id||null,model_id:a.model_id||null,content_url:a.content_url})),
+      audio_timeline:(state.audioTimeline||[]).slice(0,20).map(item=>({asset_id:item.audioAssetId,label:safe(item.asset?.label||'Audio clip').slice(0,120),kind:item.asset?.kind||'audio',start_seconds:item.startSeconds,trim_start_seconds:item.trimStartSeconds,trim_end_seconds:item.trimEndSeconds,gain:item.gain,lane:item.lane})),
+      note:'This project brief includes metadata for saved audio assets and the selected project audio timeline. Audio/video bytes are not attached to chat; NasrinAI can help plan or troubleshoot the project and refer to the provided asset IDs.'
     };
     const encoded=encodeURIComponent(JSON.stringify(project));
     if(encoded.length>7000){notice('This project brief is too large to transfer at once. Remove some timeline clips and try again.',true);return;}
@@ -196,8 +198,9 @@
   document.querySelector('[data-editor-tool="media"]').addEventListener('click',()=>{setMediaBinMode('media');$('mediaBinItems').scrollIntoView({block:'nearest'});});
   $('toolExport').addEventListener('click',()=>{activateEditorTool('export');switchTab('export');});
   $('toolText').addEventListener('click',()=>{activateEditorTool('text');const clip=state.clips.find(x=>x.id===state.selected);if(!clip){notice('Select a timeline clip first to add a title.',true);return;}showClip(clip);$('clipTitle').focus();notice('Add your title in Clip details on the right.');});
-  function setMediaBinMode(mode){const bin=document.querySelector('.media-bin');const panel=$('audioStudioPanel');const audioMode=mode==='audio';bin.querySelectorAll(':scope > *').forEach(node=>{if(node!==panel)node.hidden=audioMode;});panel.hidden=!audioMode;activateEditorTool(audioMode?'audio':'media');if(audioMode)loadAudioTools().catch(error=>audioNotice(error.message,true));}
+  function setMediaBinMode(mode){const bin=document.querySelector('.media-bin');const panel=$('audioStudioPanel');const audioMode=mode==='audio'||mode==='ai-tools';bin.querySelectorAll(':scope > *').forEach(node=>{if(node!==panel)node.hidden=audioMode;});panel.hidden=!audioMode;activateEditorTool(mode==='ai-tools'?'ai-tools':audioMode?'audio':'media');if(audioMode)loadAudioTools().catch(error=>audioNotice(error.message,true));}
   $('toolAudio').addEventListener('click',()=>setMediaBinMode('audio'));
+  $('toolAiTools').addEventListener('click',()=>setMediaBinMode('ai-tools'));
   $('mediaInput').addEventListener('change',()=>{for(const file of Array.from($('mediaInput').files||[])){if(file.size>100*1024*1024){notice(file.name+' is larger than the 100 MB browser upload limit.',true);continue;}const url=URL.createObjectURL(file);state.objectUrls.set(url,true);addClip({id:crypto.randomUUID(),name:file.name,kind:'upload',mediaType:file.type||'application/octet-stream',duration:file.type.startsWith('audio/')?30:8,title:'',start:0,url,file});} $('mediaInput').value='';});
   $('addCaption').addEventListener('click',()=>{recordHistory();const clip={id:crypto.randomUUID(),name:'Caption',title:'Your caption',kind:'text',track:'text',mediaType:'text/plain',duration:3,start:0,position:state.clips.length?Math.max(...state.clips.map(c=>(Number(c.position)||0)+(Number(c.duration)||0))):0,transition:'fade',filter:'none',opacity:100,gain:100,url:null};state.clips.push(clip);state.selected=clip.id;renderTimeline();showClip(clip);saveDraft();notice('Caption added to the text track. Edit its wording and timing in Clip details.');});
   $('clipName').addEventListener('change',()=>updateSelected({name:safe($('clipName').value).slice(0,100)}));
