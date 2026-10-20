@@ -70,6 +70,21 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
 });
 
+test('Groq registers as an OpenAI-compatible provider and participates in allowlisted free-model failover', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'auto',
+    AI_FALLBACK: 'auto',
+    OPENAI_API_KEY: KEY,
+    GROQ_API_KEY: 'groq-test-key',
+    GROQ_MODEL: 'openai/gpt-oss-20b',
+    GROQ_FREE_MODELS: 'openai/gpt-oss-20b'
+  });
+  const provider = providerFromConfig(config);
+  assert.ok(provider.providerIds.includes('groq'));
+  assert.ok(config.ai.fallback.providers.includes('groq'));
+  assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'groq' && candidate.model === 'openai/gpt-oss-20b'));
+});
+
 test('explicit Gemini and Claude provider modes require their own key and use compatible defaults', () => {
   assert.throws(() => loadConfig({ AI_PROVIDER: 'gemini' }), ConfigError);
   assert.throws(() => loadConfig({ AI_PROVIDER: 'claude' }), ConfigError);
