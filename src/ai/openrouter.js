@@ -50,7 +50,7 @@ export function createOpenRouterClient({
 
   async function request(path, { method = 'POST', body, headers = {}, signal, raw = false } = {}) {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('..')) throw new ProviderError('config', 'Invalid OpenRouter endpoint');
-    const url = new URL(path, root);
+    const url = new URL(root.href.replace(/\/$/, '') + path);
     if (url.origin !== root.origin) throw new ProviderError('config', 'OpenRouter endpoint origin mismatch');
     let response;
     try {
