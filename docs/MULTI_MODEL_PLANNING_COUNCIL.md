@@ -209,3 +209,12 @@ OPENROUTER_TTS_PROVIDER=Google Vertex
 ```
 
 Validation limitation: live provider calls cannot be asserted from repository edits alone. Run tier-specific coding smoke tests (Max and Ultra), TTS synthesis for every supported voice group, audio MIME/playback checks, and spend/token reconciliation before production enablement.
+
+
+## Premium coding and TTS model pinning (2026-10-21)
+
+- **Max coding:** `openai/gpt-6-sol`, $2/M input and $10/M output. OpenRouter's current listing reports cache-read at $0.20/M.
+- **Ultra coding:** `openai/gpt-6.1-sol`, $2/M input and $10/M output. OpenRouter's current listing reports cache-read at $0.10/M.
+- **TTS:** `google/gemini-3.8-flash-lite-tts`, $0.50/M text input and $6/M generated audio output. Pin the OpenRouter provider to `Google Vertex`; this is an OpenRouter model route hosted by Google Vertex, not a direct Gemini API request. The provider/model supports speech output, but runtime smoke tests and voice compatibility remain release gates.
+
+The price catalog records conservative cache pricing as input rates for generic accounting. Provider-specific cache-read rates above are documented separately because billing differs by provider and route. Source listings: https://openrouter.ai/openai/gpt-6-sol/ ; https://openrouter.ai/openai/gpt-6.1-sol ; https://openrouter.ai/google/gemini-3.8-flash-lite-tts/ .
