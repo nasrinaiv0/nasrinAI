@@ -22,6 +22,7 @@ import { providerFromConfig } from './ai/registry.js';
 import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
+import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/openrouter.js';
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
@@ -181,7 +182,11 @@ export function buildApp({ config, logger }) {
   }
   const imageBudget = createBudget({ store, config: effective, logger, kind: 'image' });
   const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, budget: imageBudget, provider, policy, legal, config: effective, logger });
-  const videoProvider = effective.video?.enabled ? createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution }) : null;
+  const videoProvider = effective.video?.enabled
+    ? effective.video.provider === 'openrouter'
+      ? createOpenRouterVideoProvider({ client: createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }), model: effective.video.model, maxSeconds: 8, resolution: effective.video.resolution, costPerSecondUsd: effective.video.costPerSecondUsd })
+      : createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution })
+    : null;
   const videos = createVideos({ store, plans, provider: videoProvider, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
   const elevenlabs = createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY || '' });
   const videoStudioExporter = createVideoStudioExporter();
