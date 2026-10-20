@@ -12,6 +12,10 @@ test('menu button opens a drawer with the space, recent chats, New chat and Sett
   assert.match(html, /<header class="bar">\s*<button type="button" class="icon-btn menu-btn" id="menuBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="drawer"/);
   const d = /<aside class="drawer" id="drawer"[^>]*>([\s\S]*?)<\/aside>/.exec(html)[1];
   for (const id of ['drawerSearch', 'drawerLibrary', 'drawerProjects', 'drawerChats', 'drawerSeeAll', 'drawerNewChat', 'drawerSettings']) assert.match(d, new RegExp('id="' + id + '"'));
+  assert.doesNotMatch(d, /<button[^>]*(?:id="drawerResearch"|data-open="chats")/);
+  assert.doesNotMatch(d, /<span>Your chats<\/span>|<span>Research<\/span>/);
+  assert.match(d, /id="drawerSearch"/, 'chat search remains available');
+  assert.match(d, /id="drawerSeeAll"/, 'recent chats remain accessible');
   const js = await read('app.js');
   assert.match(js, /openHistory\(b\.dataset\.open\)/, 'drawer links reuse the existing screens');
   assert.match(js, /\.slice\(0, 8\)/, 'up to 8 recent chats');
