@@ -1343,3 +1343,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **CI evidence before merge:** [CI run 39331276914](https://github.com/primusco20/nasrinAI/actions/runs/39331276914) passed all jobs: test (798 passed, 0 failed, 1 skipped), database tests, and dependency audit. [Documentation gate 39331277058](https://github.com/primusco20/nasrinAI/actions/runs/39331277058) passed.
 - **Conflict resolution:** renderer-only controls/styles/functions were ported onto current `main`; current cloud-project prompt restoration was preserved. No whole-file replacement from the stale branch was used.
 - **Still not verified:** browser/device export playback, audio sync, mobile memory behavior, durable local-media cloud storage, and server-side rendering. The browser renderer is a limited client-side export feature, not a production render worker.
+
+
+## PR #468 — ElevenLabs Video Studio conflict resolution
+
+- Reconciled the ElevenLabs integration with the latest `main` branch (`aa27d8a9f8db5ea48262764c525a0b457d8f2b25`) while preserving the newer cloud-project editor and storage changes.
+- Restored the Video Studio audio generation handlers and audio-specific styles alongside the current editor UI.
+- Local validation: `npm test` — 822 passed, 0 failed, 1 skipped; `npm run check:secrets` — no secrets found in 587 files; JavaScript syntax checks passed; `git diff --check` passed.
+- Deployed Studio/provider/export smoke testing and remaining release gates are still pending.
