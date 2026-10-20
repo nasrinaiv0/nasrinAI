@@ -35,7 +35,7 @@ Use inexpensive configured models to independently brainstorm, plan, and critiqu
 - [ ] Benchmark against premium-only baseline using representative NasrinAI tasks. Record output quality, factuality, security regressions, latency, total tokens, and total cost. Do not claim savings until measured.
 - [ ] Verify all configured IDs, current price rates, capabilities, tool support, context sizes, and any provider-specific request parameters using live provider documentation and a controlled smoke test.
 - [x] Run full `npm test` and syntax checks for changed JavaScript; `git diff --check` passed. Latest full suite: 865 tests, 864 passed, 0 failed, 1 skipped.
-- [x] Secret scan passed: no secrets found in 606 files. CI and Documentation Gate passed for the prior tested commit; recheck after the final integration edits.
+- [x] Secret scan passed: no secrets found in 606 files. CI and Documentation Gate passed for the latest code-bearing commit (CI run 4463; Documentation Gate run 237). Re-run after any subsequent code changes.
 - [ ] Keep production disabled until all release gates pass and a separate release decision is made.
 
 ## Operator-supplied model rates (not independently verified)
