@@ -276,3 +276,11 @@ test('planning council is explicitly opt-in and output-token overrides are bound
   assert.equal(a.openai.calls[0].maxTokens, 128, 'policy respects the bounded specialist output cap');
   assert.equal(result.result.text.length > 0, true);
 });
+
+test('routing excludes models already used by the planning council', async () => {
+  const a = setup({ env: { GEMINI_API_KEY: '', ROUTE_LEVEL_1: 'openai:gpt-5.4-nano,openai:gpt-5.4-mini' } });
+  const plan = a.policy.plan({ tier: 'ultra', message: 'hello' });
+  const result = await a.policy.run(plan, { ...req('review'), excludeModels: ['openai:gpt-5.4-nano'] });
+  assert.equal(result.spec.provider, 'openai');
+  assert.equal(result.spec.model, 'gpt-5.4-mini');
+});
