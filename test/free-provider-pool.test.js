@@ -138,8 +138,9 @@ test('free-only fallback mode includes only configured, explicitly free-allowlis
   assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'groq', 'openrouter']);
   assert.ok(!config.ai.fallback.providers.includes('openai'));
   assert.ok(!config.ai.fallback.providers.includes('gemini'));
-  assert.equal(config.ai.freeProviders.find((p) => p.id === 'openrouter').model, 'meta-llama/llama-3.1-8b-instruct:free');
+  assert.equal(config.ai.freeProviders.find((p) => p.id === 'openrouter').model, 'openrouter/free');
   assert.ok(config.ai.freeProviders.find((p) => p.id === 'groq').freeModels.includes('openai/gpt-oss-20b'));
+  assert.ok(!config.ai.freeProviders.some((p) => p.id === 'z-ai'));
 });
 
 test('free provider catalog model defaults can be overridden with explicit environment values', () => {
@@ -170,5 +171,5 @@ test('free tier catalog enables Cerebras, Cloudflare, Z.ai and OpenRouter when c
   assert.equal(providers.find((p) => p.id === 'cloudflare-workers-ai').model, '@cf/meta/llama-3.1-8b-instruct');
   assert.equal(providers.find((p) => p.id === 'z-ai').model, 'glm-4.5-flash');
   assert.equal(providers.find((p) => p.id === 'openrouter').model, 'meta-llama/llama-3.1-8b-instruct:free');
-  assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'cloudflare-workers-ai', 'groq', 'z-ai', 'openrouter']);
+  assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'cloudflare-workers-ai', 'groq', 'openrouter']);
 });
