@@ -81,7 +81,7 @@ test('speech and transcription use dedicated endpoints and bounded input', async
 test('decision models use the structured Decisions API, not chat completions', async () => {
   let sent;
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
-    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('typesafe/jev-1.13', 'decisions')] });
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('typesafe/jev-1.13', 'text')] });
     sent = { url: String(url), body: JSON.parse(init.body) };
     return response({ answers: { route: { type: 'choice', choice: 'coding', confidence: 0.99 } } });
   } });
