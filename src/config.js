@@ -248,7 +248,7 @@ export function loadConfig(env = process.env) {
   // Prefer independent free inference capacity first; keep OpenRouter as
   // the aggregator safety net, after direct providers. Remaining catalogued
   // providers follow in stable catalog order.
-  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'z-ai', 'openrouter'];
+  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'openrouter'];
   const eligibleFreeProviderIds = freeProviderSettings
     .filter((p) => p.freeModels.includes(p.model))
     .map((p) => p.id);
