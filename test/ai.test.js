@@ -82,7 +82,8 @@ test('Groq registers as an OpenAI-compatible provider and participates in allowl
   const provider = providerFromConfig(config);
   assert.ok(provider.providerIds.includes('groq'));
   assert.ok(config.ai.fallback.providers.includes('groq'));
-  assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'groq' && candidate.model === 'openai/gpt-oss-20b'));
+  assert.equal(config.ai.fallback.providers.at(-1), 'groq', 'free-tier providers are last-resort after paid providers');
+  assert.ok(!Object.values(config.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'), 'free-tier providers must not be normal routing candidates');
 });
 
 test('explicit Gemini and Claude provider modes require their own key and use compatible defaults', () => {
