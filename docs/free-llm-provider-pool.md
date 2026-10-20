@@ -79,3 +79,13 @@ Cloudflare Workers AI additionally needs `CLOUDFLARE_ACCOUNT_ID`. Gemini continu
 - Provider list and key links: https://github.com/open-free-llm-api/awesome-freellm-apis
 - Live model directory: https://freellm.net/models/
 - Key directory: https://freellm.net/free-llm-api-keys/
+
+
+### OpenRouter image models
+
+NasrinAI can route image generation and editing through OpenRouter's dedicated Images API using these verified model IDs:
+- `openai/gpt-image-2` — general high-quality generation and editing.
+- `openai/gpt-image-2.5-flare` — speed-oriented generation and editing for higher-volume use.
+- `openai/gpt-image-2.5-sunburst` — precision-oriented generation and editing.
+
+Configure each image tier with `IMAGE_TIER_n_PRIMARY_PROVIDER=openrouter`, `IMAGE_TIER_n_PRIMARY_MODEL=openai/gpt-image-2` (or one of the other listed IDs), and an explicit `IMAGE_TIER_n_PRIMARY_PRICE` budget estimate in USD per image. Set the optional `IMAGE_TIER_n_PRIMARY_QUALITY` to a supported quality value only after confirming that the selected model's live Images API catalog accepts it. The adapter uses `POST /api/v1/images`, supports reference-image editing, and validates the model against the live catalog; it must not silently route these models through chat completions. Pricing varies with quality, image settings, and actual usage, so reconcile provider-reported usage cost when available.
