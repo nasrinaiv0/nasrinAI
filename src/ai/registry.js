@@ -43,7 +43,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
     const anthropicModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'anthropic')?.model || 'claude-haiku-5-5';
     providers.anthropic = assertProvider(createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: anthropicModel }));
   }
-  if (config.ai.geminiApiKey && mode !== 'fake' && mode !== 'none') {
+  if (config.ai.geminiApiKey && mode !== 'fake') {
     const geminiModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'gemini')?.model || 'gemini-3.1-flash-lite';
     providers.gemini = assertProvider(createGeminiProvider({ apiKey: config.ai.geminiApiKey, model: geminiModel, freeTier: config.ai.routing.geminiFreeTier }));
   }
