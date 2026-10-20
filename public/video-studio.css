@@ -338,3 +338,45 @@ body.editor-mode .clip-actions button{
   body.editor-mode .editor-tool span{font-size:7px}
   body.editor-mode .editor-save{padding-inline:5px;font-size:9px}
 }
+
+
+/* Unified workspace: create, edit, and export remain available in one document. */
+body.editor-mode .tabs{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:4px}
+body.editor-mode .workspace{scroll-margin-top:64px;margin-bottom:28px}
+body.editor-mode #createPanel{display:block;max-width:100%;padding:0 0 22px;border-bottom:1px solid var(--line)}
+body.editor-mode #createPanel .main-column{max-width:none}
+body.editor-mode #createPanel .template-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+body.editor-mode #editPanel{display:grid;grid-template-columns:minmax(180px,230px) minmax(0,1fr) minmax(190px,240px);gap:14px;align-items:stretch}
+body.editor-mode #exportPanel{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,.6fr);gap:22px;padding-top:24px;border-top:1px solid var(--line)}
+body.editor-mode #exportPanel>div{min-width:0}
+body.editor-mode .editor-toolbar{grid-column:1/-1}
+body.editor-mode .media-bin{grid-column:1;grid-row:2}
+body.editor-mode .timeline-column{grid-column:2;grid-row:2}
+body.editor-mode .editor-inspector{grid-column:3;grid-row:2}
+body.editor-mode .timeline{overflow-x:auto}
+body.editor-mode .editor-tools{flex-wrap:wrap}
+body.editor-mode .editor-tool{min-width:48px;min-height:44px}
+body.editor-mode .bin-add,.editor-mode .icon-button{width:40px;height:40px;min-width:40px;padding:0;display:inline-grid;place-items:center;line-height:1}
+body.editor-mode .tab{min-height:44px}
+body.editor-mode button:focus-visible,body.editor-mode a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:1000px){
+ body.editor-mode #editPanel{grid-template-columns:minmax(150px,200px) minmax(0,1fr)}
+ body.editor-mode .editor-inspector{grid-column:1/-1;grid-row:3}
+ body.editor-mode #exportPanel{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ body.editor-mode .tabs{overflow-x:auto}
+ body.editor-mode #createPanel .template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body.editor-mode #editPanel{grid-template-columns:minmax(0,1fr);gap:12px}
+ body.editor-mode .editor-toolbar{grid-column:1;display:flex;flex-wrap:wrap;gap:10px}
+ body.editor-mode .media-bin,body.editor-mode .timeline-column,body.editor-mode .editor-inspector{grid-column:1;grid-row:auto;min-width:0}
+ body.editor-mode .editor-tools{display:flex;overflow-x:auto;max-width:100%;gap:6px}
+ body.editor-mode .editor-tool{flex:0 0 auto}
+ body.editor-mode .editor-stage-inner{width:100%;min-width:0}
+ body.editor-mode .timeline{max-width:100%;overflow-x:auto}
+ body.editor-mode .generation-options{grid-template-columns:1fr 1fr}
+ body.editor-mode .generation-options .primary-button{grid-column:1/-1;width:100%}
+ body.editor-mode #exportPanel{grid-template-columns:minmax(0,1fr);gap:16px}
+ body.editor-mode .top-actions{gap:8px}
+ body.editor-mode .save-state{display:none}
+}
