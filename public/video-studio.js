@@ -351,6 +351,8 @@
   }
   $('renderTimeline').addEventListener('click',renderTimelineVideo);
 
+  // Keep the full project workspace mounted: creation, timeline, and export are sections of one page.
+  $('createPanel').hidden=false;$('editPanel').hidden=false;$('exportPanel').hidden=false;document.body.classList.add('editor-mode');
   loadDraft();selectTemplate(state.template,false);renderTimeline();renderExports();
   refreshToken().then(()=>{$('saveState').textContent='Signed in · local draft';}).catch(()=>{$('saveState').textContent='Sign in required for AI generation';notice('Sign in to NasrinAI in this browser to generate video. You can still explore the template gallery.',true);});
 })();
