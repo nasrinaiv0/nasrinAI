@@ -18,7 +18,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
   const mode = config.ai.provider;
   if (mode === 'none' && !(config.ai.freeProviders || []).length && !config.ai.geminiApiKey) return null;
   const providers = {};
-  if (mode === 'openai' || mode === 'auto') {
+  if (mode !== 'none' && mode !== 'fake' && config.ai.openaiApiKey) {
     providers.openai = assertProvider(createOpenAIProvider({
       apiKey: config.ai.openaiApiKey,
       model: config.ai.openaiModel,
@@ -27,7 +27,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
       reasoningEffort: config.ai.reasoningEffort
     }));
   }
-  if (mode === 'local' || mode === 'auto') {
+  if ((mode === 'local' || mode === 'auto') && config.ai.local) {
     const l = config.ai.local;
     providers.local = assertProvider(createLocalProvider({
       baseUrl: l.url,
@@ -39,7 +39,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
       timeoutMs: l.timeoutMs
     }));
   }
-  if (config.ai.anthropicApiKey && mode !== 'fake') {
+  if (config.ai.anthropicApiKey && mode !== 'fake' && mode !== 'none') {
     const anthropicModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'anthropic')?.model || 'claude-haiku-5-5';
     providers.anthropic = assertProvider(createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: anthropicModel }));
   }

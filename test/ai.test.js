@@ -53,6 +53,45 @@ test('OpenAI: failures become ProviderErrors that never contain the key', async 
   await assert.rejects(provider.generate({ system: 'S', messages: [] }), { kind: 'timeout' });
 });
 
+test('auto mode registers Gemini, OpenAI, and Claude together and includes them in fallback', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'auto',
+    AI_FALLBACK: 'auto',
+    OPENAI_API_KEY: KEY,
+    GEMINI_API_KEY: 'gemini-test-key',
+    ANTHROPIC_API_KEY: 'anthropic-test-key'
+  });
+  const provider = providerFromConfig(config);
+  assert.ok(provider.providerIds.includes('openai'));
+  assert.ok(provider.providerIds.includes('gemini'));
+  assert.ok(provider.providerIds.includes('anthropic'));
+  assert.ok(config.ai.fallback.providers.includes('openai'));
+  assert.ok(config.ai.fallback.providers.includes('gemini'));
+  assert.ok(config.ai.fallback.providers.includes('anthropic'));
+});
+
+test('Groq registers as an OpenAI-compatible provider and participates in allowlisted free-model failover', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'auto',
+    AI_FALLBACK: 'auto',
+    OPENAI_API_KEY: KEY,
+    GROQ_API_KEY: 'groq-test-key',
+    GROQ_MODEL: 'openai/gpt-oss-20b',
+    GROQ_FREE_MODELS: 'openai/gpt-oss-20b'
+  });
+  const provider = providerFromConfig(config);
+  assert.ok(provider.providerIds.includes('groq'));
+  assert.ok(config.ai.fallback.providers.includes('groq'));
+  assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'groq' && candidate.model === 'openai/gpt-oss-20b'));
+});
+
+test('explicit Gemini and Claude provider modes require their own key and use compatible defaults', () => {
+  assert.throws(() => loadConfig({ AI_PROVIDER: 'gemini' }), ConfigError);
+  assert.throws(() => loadConfig({ AI_PROVIDER: 'claude' }), ConfigError);
+  assert.equal(loadConfig({ AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'gemini-test-key' }).ai.tiers.nasrinai.provider, 'gemini');
+  assert.equal(loadConfig({ AI_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'anthropic-test-key' }).ai.tiers.nasrinai.provider, 'anthropic');
+});
+
 test('provider choice: none by default; openai needs a key; fake never in production', () => {
   assert.equal(providerFromConfig(loadConfig({})), null);
   assert.throws(() => loadConfig({ AI_PROVIDER: 'openai' }), ConfigError);

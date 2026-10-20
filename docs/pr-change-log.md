@@ -1403,3 +1403,28 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Restore attachment cards from chat history, add tap-to-preview full-screen lightbox for images, and open/download controls for other supported files.
 - Add storage regression coverage for stable attachment IDs and cross-user denial.
 - **Validation:** CI is running; iPhone Safari end-to-end verification remains required before merge or deployment. Guest attachment persistence is not expanded in this change.
+
+
+## PR #489 — Multi-provider AI routing and free-model failover (2026-10-20)
+
+- **Commits:** 
+  - `daca5842c66744d6ee804352096aee838ff410fe` — enable multi-provider AI routing and failover configuration.
+  - `0590635904b82f2a9c3ff939f73f93838f6f034a` — register configured provider adapters together.
+  - `f44bf9ed64e82854da14586c782891dc39278303` — document provider keys and fallback configuration.
+  - `d97dd9b073f771c40bd55fe12187b820b11a62b7` — select provider-compatible default models.
+  - `f2e191e70dbe48ffa5017b8e5606aef075b9af22` — add tests for multi-provider registration and fallback settings.
+  - `debeac934d432feafbc008dc9b8dba2f2426e9ad` — preserve Gemini-only operation when OpenAI is disabled.
+  - `da0a6c2cbbae6597df557e632e682492536ac514` — include optional local models in auto mode.
+- **Scope:** add `AI_PROVIDER=gemini` and `AI_PROVIDER=claude` options; make `AI_PROVIDER=auto` register every configured first-party provider (Gemini, OpenAI, Anthropic) with local models optional; include configured Anthropic and allowlisted free-model adapters in automatic failover; update `.env.example` and `test/ai.test.js`.
+- **Configuration:** set `AI_PROVIDER=auto`, `AI_FALLBACK=auto`, and add provider credentials as server-only Vercel environment variables. Free fallback requires configured free-provider adapters/models and explicit free-model allowlists; this PR does not grant free API quota or guarantee that a provider's free tier is available.
+- **Validation:** automated tests were added but have not been run locally. GitHub CI is pending; the documentation gate initially failed because this entry was missing and must rerun after this commit. Do not merge or deploy until CI and review pass.
+
+- **Follow-up commit:** `59d6143fc0b1323523bdd9f7e32e5899172aea02` — preserve the established rule that Claude is not a default general-routing candidate while keeping it in the automatic failover pool; require at least one external provider key for `AI_PROVIDER=auto` (local-only deployments should use `AI_PROVIDER=local`).
+
+- **Follow-up commit:** `7d4591015663f0fd6661867297468bef87e4121e` — ensure explicit `AI_PROVIDER=claude` has a compatible level-1 route while keeping Claude out of default general routing in `auto` mode.
+
+## PR #489 follow-up — Groq provider (2026-10-20)
+
+- **Commits:** `210970e48429c2e97c19e11136f0110162ae466a` (Groq server-only environment examples) and `79d530f18c157a41eff743321df09deec68af390` (registration and fallback regression test).
+- **Scope:** use the existing Groq OpenAI-compatible catalog adapter at `https://api.groq.com/openai/v1`. Configure `GROQ_API_KEY`, `GROQ_MODEL`, and `GROQ_FREE_MODELS` in Vercel. Groq participates in automatic fallback only for explicitly allowlisted free models; configured paid models must not be treated as free.
+- **Validation:** CI must pass after these commits before merging. Groq live API connectivity is not claimed without a real key and deployment smoke test.
