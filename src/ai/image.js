@@ -114,7 +114,8 @@ export function createGeminiImage({ apiKey, model, fetchImpl = fetch, timeoutMs 
         if (hasExplicitImageRefusal(data)) throw new ProviderError('refused', 'the image service refused the request', 200);
         throw Object.assign(new ProviderError('unavailable', 'the image service returned no image payload', 502), { retry: true });
       }
-      return { bytes, mime };
+      const actualCost = Number(result?.usage?.cost);
+      return { bytes, mime, ...(Number.isFinite(actualCost) && actualCost >= 0 ? { costUsd: actualCost } : {}) };
     }
   };
 }
