@@ -25,7 +25,7 @@ function setup({ response = {}, status = 200 } = {}) {
 test('Video Studio assets issue private owner-scoped upload links', async () => {
   const { service, calls } = setup();
   const signed = await service.sign(caller(), { name:'clip.mp4', type:'video/mp4', size:1024 }, '127.0.0.1');
-  assert.match(signed.upload_url, /video-studio-assets\\/.+\\?token=short-lived$/);
+  assert.ok(signed.upload_url.includes('/video-studio-assets/') && signed.upload_url.endsWith('?token=short-lived'));
   assert.match(calls[0].url, /\/object\/upload\/sign\/video-studio-assets\//);
   assert.equal(calls[0].init.headers.Authorization, 'Bearer server-only');
   assert.equal(calls[0].init.headers.apikey, 'server-only');
