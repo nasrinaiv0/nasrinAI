@@ -1250,6 +1250,14 @@
 
   function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false } = {}) {
     startChat();
+    const attachmentRefs = [...String(text || '').matchAll(/\\[attachment:([0-9a-f-]{36})\\|([^|\\]]*)\\|([^|\\]]*)\\]/g)].map((m) => {
+      let name = 'Attachment';
+      let mime = 'application/octet-stream';
+      try { name = decodeURIComponent(m[2]) || name; } catch {}
+      try { mime = decodeURIComponent(m[3]) || mime; } catch {}
+      return { id: m[1], name, mime };
+    });
+    text = String(text || '').replace(/\\[attachment:[0-9a-f-]{36}\\|[^|\\]]*\\|[^|\\]]*\\]/g, '').trim();
     const el = document.createElement('div');
     el.className = 'msg ' + role;
     if (files.length) {
@@ -1260,6 +1268,16 @@
           const img = document.createElement('img');
           img.src = f.thumb;
           img.alt = f.name;
+          img.tabIndex = 0;
+          img.setAttribute('role', 'button');
+          img.setAttribute('aria-label', 'Preview ' + f.name);
+          img.addEventListener('click', () => openAttachmentPreview(f.thumb, f.name, false));
+          img.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              openAttachmentPreview(f.thumb, f.name, false);
+            }
+          });
           row.appendChild(img);
         } else {
           const tag = document.createElement('span');
@@ -1268,6 +1286,13 @@
           row.appendChild(tag);
         }
       }
+      el.appendChild(row);
+    }
+    if (attachmentRefs.length) {
+      const row = document.createElement('div');
+      row.className = 'chat-attachments';
+      row.setAttribute('aria-label', 'Message attachments');
+      for (const ref of attachmentRefs) row.appendChild(attachmentFigure(ref));
       el.appendChild(row);
     }
     let made = { files: [], asks: [] };
@@ -2390,6 +2415,88 @@
       }
     })();
     return fig;
+  }
+
+  function openAttachmentPreview(url, name, revokeOnClose = false) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'attachment-lightbox';
+    dialog.setAttribute('aria-label', 'Image preview: ' + name);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'attachment-lightbox-close';
+    close.textContent = 'Close';
+    close.setAttribute('aria-label', 'Close image preview');
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = name;
+    dialog.append(close, image);
+    const cleanup = () => {
+      dialog.close();
+      dialog.remove();
+      if (revokeOnClose) URL.revokeObjectURL(url);
+    };
+    close.addEventListener('click', cleanup);
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) cleanup(); });
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    document.body.appendChild(dialog);
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else {
+      dialog.setAttribute('open', '');
+      dialog.classList.add('is-fallback-open');
+    }
+  }
+
+  function attachmentFigure(ref) {
+    const card = document.createElement('figure');
+    card.className = 'chat-attachment is-loading';
+    const preview = document.createElement('button');
+    preview.type = 'button';
+    preview.className = 'chat-attachment-open';
+    preview.setAttribute('aria-label', 'Open attachment ' + ref.name);
+    const label = document.createElement('span');
+    label.className = 'chat-attachment-name';
+    label.textContent = ref.name;
+    const status = document.createElement('span');
+    status.className = 'chat-attachment-status';
+    status.textContent = 'Loading attachment…';
+    preview.append(label);
+    card.append(preview, status);
+    (async () => {
+      try {
+        const token = await credential(false);
+        const response = await fetch('/v1/storage/sent/' + encodeURIComponent(ref.id), {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!response.ok) throw new Error('Attachment unavailable');
+        const blob = await response.blob();
+        const mime = response.headers.get('content-type') || ref.mime || blob.type || 'application/octet-stream';
+        const url = URL.createObjectURL(blob);
+        card.classList.remove('is-loading');
+        status.textContent = mime.startsWith('image/') ? 'Tap to preview' : 'Tap to open or download';
+        if (mime.startsWith('image/')) {
+          const image = document.createElement('img');
+          image.src = url;
+          image.alt = ref.name;
+          image.loading = 'lazy';
+          preview.prepend(image);
+          preview.addEventListener('click', () => openAttachmentPreview(url, ref.name));
+        } else {
+          preview.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = ref.name || 'attachment';
+            a.rel = 'noopener';
+            a.click();
+          });
+        }
+      } catch {
+        card.classList.remove('is-loading');
+        card.classList.add('is-unavailable');
+        status.textContent = 'This attachment is unavailable. It may have been deleted or reached its retention limit.';
+        preview.disabled = true;
+      }
+    })();
+    return card;
   }
 
   function imageFigure(imageId, regenerate = null, compact = false) {
