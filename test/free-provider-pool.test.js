@@ -135,7 +135,7 @@ test('free-only fallback mode includes only configured, explicitly free-allowlis
     GEMINI_API_KEY: 'test-gemini-key',
     OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30)
   });
-  assert.deepEqual(config.ai.fallback.providers, ['groq', 'openrouter', 'cerebras']);
+  assert.deepEqual(config.ai.fallback.providers, ['openrouter', 'groq', 'cerebras']);
   assert.ok(!config.ai.fallback.providers.includes('openai'));
   assert.ok(!config.ai.fallback.providers.includes('gemini'));
   assert.equal(config.ai.freeProviders.find((p) => p.id === 'openrouter').model, 'meta-llama/llama-3.1-8b-instruct:free');
