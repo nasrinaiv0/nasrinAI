@@ -114,3 +114,10 @@ Do not enable this route until a real provider integration test confirms model-s
 2. Provider-reported usage reconciliation and exact price/quality settings for image and video models.
 3. Tests for unauthorized access, privacy policy, budgets, retry/failover, malformed provider responses, timeouts, model catalog drift, and real provider sandbox behavior.
 4. CI green on the dedicated PR, then review; no merge/deploy before all gates pass.
+
+
+### Task-aware OpenRouter text routing
+
+When a route explicitly selects a priced OpenRouter text model, the policy now passes its classified task to the provider adapter. The adapter checks the exact model against the live text-capability catalog, requires tool-capable endpoints when tools are supplied, forces OpenRouter's data-collection policy to `deny`, and rejects attachments on this text-only adapter. Research, coding/debugging, scraping, extraction, editing, rendering and generation use their classified task labels for capability selection; a configured model that cannot satisfy the task fails closed rather than being silently replaced. Structured decisions remain on the dedicated `decide({ state, questions })` API and are not sent as ordinary chat requests.
+
+Pricing remains governed by NasrinAI's configured model price registry and spend reservations. Before routing a paid OpenRouter model in production, configure and verify its exact model ID and current input/output prices. Do not put an unpriced model into normal routing.
