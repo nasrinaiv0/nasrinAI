@@ -422,12 +422,14 @@ export function loadConfig(env = process.env) {
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
   const wantSpeech = String(env.SPEECH_PROVIDER || 'auto').trim().toLowerCase();
-  if (!['auto', 'openai', 'gemini'].includes(wantSpeech)) throw new ConfigError('SPEECH_PROVIDER: use auto, openai or gemini');
+  if (!['auto', 'openai', 'gemini', 'openrouter'].includes(wantSpeech)) throw new ConfigError('SPEECH_PROVIDER: use auto, openai, gemini or openrouter');
   const openaiSpeechOk = (aiProvider === 'openai' || aiProvider === 'auto') && Boolean(env.OPENAI_API_KEY);
   const geminiSpeechOk = Boolean(geminiKey) && aiProvider !== 'fake';
+  const openrouterSpeechOk = Boolean(env.OPENROUTER_API_KEY) && aiProvider !== 'fake';
   if (wantSpeech === 'gemini' && !geminiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=gemini needs GEMINI_API_KEY');
   if (wantSpeech === 'openai' && !openaiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openai needs AI_PROVIDER=openai or auto, and OPENAI_API_KEY');
-  const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : 'none';
+  if (wantSpeech === 'openrouter' && !openrouterSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_API_KEY');
+  const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : openrouterSpeechOk ? 'openrouter' : 'none';
 
   const SPEECH_RATE_DEFAULT = 1.15;
   let speechRate = SPEECH_RATE_DEFAULT;
@@ -762,6 +764,7 @@ export function loadConfig(env = process.env) {
     ai: Object.freeze({
       provider: aiProvider,
       openaiApiKey: String(env.OPENAI_API_KEY || ''),
+      openrouterApiKey: String(env.OPENROUTER_API_KEY || ''),
       // The OpenAI provider's default model (usage records, health check).
       openaiModel: tiers.nasrinai.provider === 'openai' ? tiers.nasrinai.model : (fallback ? fallback.model : 'gpt-4o-mini'),
       // NasrinAI's own model server (AI_PROVIDER=local or auto), or null.
@@ -805,6 +808,7 @@ export function loadConfig(env = process.env) {
         // (lower delay, a little less expressive). OPENAI_TTS_FAST_MODEL=off uses the normal one.
         fastModel: /^(off|none|false)$/i.test(String(env.OPENAI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.OPENAI_TTS_FAST_MODEL || 'tts-1').trim(),
         // Gemini speech. GEMINI_TTS_FAST_MODEL is optional (empty: same model).
+        openrouterModel: String(env.OPENROUTER_TTS_MODEL || '').trim(),
         geminiModel: String(env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts').trim(),
         geminiFastModel: /^(off|none|false)$/i.test(String(env.GEMINI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.GEMINI_TTS_FAST_MODEL || 'gemini-3.8-flash-lite-tts').trim(),
         responsive: String(env.SPEECH_RESPONSIVE ?? 'true').toLowerCase() !== 'false',
