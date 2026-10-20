@@ -92,3 +92,20 @@ The following general text models have conservative rates in `config/model-price
 - 2026-10-21 diversity gate: the council now requires at least two successful independent roles. If only one model can answer, the council falls back to the normal path instead of pretending one model is a committee.
 
 - 2026-10-21 environment gate: live-provider smoke tests could not be run in the available sandbox because `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, and `PLANNING_COUNCIL_ENABLED` are unset there. Only variable names/set-state were inspected; no secret values were read or exposed. Live smoke and production enablement remain blocked until the owner configures the appropriate Vercel environment and approves a low-cost test.
+
+
+## Tier-specific coding and TTS model update — 2026-10-21
+
+### Coding routes
+- **Max coding:** `openrouter:openai/gpt-6-sol` at $2/M input and $10/M output.
+- **Ultra coding:** `openrouter:openai/gpt-6.1-sol` at $2/M input and $10/M output.
+- **Ultra deep coding:** `openrouter:openai/gpt-6.1-sol` as the premium route for high-complexity coding.
+- Routing is tier-scoped and allowlisted in `src/config.js`. When `OPENROUTER_API_KEY` is present, these are the default coding routes; when it is absent, the approved Anthropic fallback is used. The Max coding route must not select the Ultra model.
+- Current OpenRouter pricing pages: [GPT-6 Sol](https://openrouter.ai/openai/gpt-6-sol/) and [GPT-6.1 Sol](https://openrouter.ai/openai/gpt-6.1-sol/). Cache-read rates are recorded separately ($0.20/M for GPT-6 Sol and $0.10/M for GPT-6.1 Sol).
+
+### Text-to-speech
+- **Model:** `google/gemini-3.8-flash-lite-tts` through OpenRouter.
+- **Provider pin:** `Google Vertex` via `OPENROUTER_TTS_PROVIDER`; do not silently fall back to Google AI Studio when the provider pin is active.
+- **Listed token rates:** $0.50/M text input and $6/M generated audio output. Audio output must be counted as output tokens, not text output.
+- `src/config.js` defaults speech to OpenRouter when `OPENROUTER_API_KEY` exists, and `src/main.js` builds the OpenRouter speech adapter from those settings. Live verification is still needed to confirm the provider filter accepts the exact label and the response audio format is handled correctly.
+- OpenRouter listing: [Gemini 3.8 Flash Lite TTS](https://openrouter.ai/google/gemini-3.8-flash-lite-tts/). Pricing and provider availability may change; run a low-cost Preview smoke test before production.
