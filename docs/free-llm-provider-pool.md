@@ -137,12 +137,12 @@ The video provider allowlist for this rollout is:
 
 - `google/veo-3.1-fast`
 - `google/veo-3.1-lite`
-- `heygen/video` (confirm the exact current catalog ID before configuring)
+- `heygen/heygen-video-1`
 - `alibaba/happyhorse-1.1`
 - `alibaba/wan-2.7`
 - `alibaba/wan-3.0`
 
-Use the exact IDs returned by `GET /api/v1/videos/models`; model names displayed in the UI are labels, not API identifiers. Do not infer the HeyGen or Wan 3.0 slug from the marketing name. For each model, read the live `supported_durations`, `supported_resolutions`, `supported_aspect_ratios`, and current pricing before enabling it. Veo 3.1 Fast advertises 4/6/8 second clips; Wan 2.7 advertises 2–10 seconds; HappyHorse 1.1 advertises 3–15 seconds. The current NasrinAI video workflow is intentionally capped at 8 seconds until durable extension and video spend reconciliation are complete.
+Use the exact IDs returned by `GET /api/v1/videos/models`; model names displayed in the UI are labels, not API identifiers. The HeyGen Video 1 and Wan 3.0 IDs above have been verified against OpenRouter's model listings; still use the live video catalog for capability and price checks at request time. For each model, read the live `supported_durations`, `supported_resolutions`, `supported_aspect_ratios`, and current pricing before enabling it. Veo 3.1 Fast advertises 4/6/8 second clips; Wan 2.7 advertises 2–10 seconds; HappyHorse 1.1 advertises 3–15 seconds. The current NasrinAI video workflow is intentionally capped at 8 seconds until durable extension and video spend reconciliation are complete.
 
 ### Provider failover policy
 
