@@ -93,3 +93,29 @@ test('provider failover: Anthropic configuration/quota failure falls through to 
   assert.equal(gemini.calls.length, 1);
   assert.equal(openai.calls.length, 0);
 });
+
+
+test('provider failover: continues to the next free provider when a fallback is rate-limited', async () => {
+  const env = {
+    AI_PROVIDER: 'openai',
+    OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30),
+    GEMINI_API_KEY: 'gemini-test',
+    GROQ_API_KEY: 'groq-test',
+    GROQ_MODEL: 'llama-3.3-70b-versatile',
+    GROQ_FREE_MODELS: 'llama-3.3-70b-versatile',
+    AI_FALLBACK: 'auto'
+  };
+  const primary = createFakeProvider({ models: ['gpt-4o-mini'], dataLeavesServer: true, failWith: 'config' });
+  primary.id = 'openai';
+  const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: 'busy' });
+  gemini.id = 'gemini';
+  const groq = createFakeProvider({ models: ['llama-3.3-70b-versatile'], dataLeavesServer: true });
+  groq.id = 'groq';
+  const r = createRouter({ providers: { openai: primary, gemini, groq }, config: loadConfig(env), logger: quiet });
+  const out = await ask(r, { provider: 'openai', model: 'gpt-4o-mini' });
+  assert.equal(out.provider, 'groq');
+  assert.equal(out.fallback, true);
+  assert.equal(primary.calls.length, 1);
+  assert.equal(gemini.calls.length, 1, 'the rate-limited fallback is attempted once');
+  assert.equal(groq.calls.length, 1, 'router continues to the next eligible provider');
+});
