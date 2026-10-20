@@ -218,6 +218,19 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       : await conversations.create(caller);
     if (startIn) await projects.linkChat(caller, startIn.id, conv.id);
 
+    // Persist sent-file references before saving the message. The marker stores
+    // only a stable ID and display metadata; bytes remain server-side and the
+    // authenticated /v1/storage/sent/:id route checks ownership on every read.
+    let attachmentRefs = [];
+    if (!regenerate && editId === null && storage && files.length && storage.keepSentWithRefs) {
+      attachmentRefs = await storage.keepSentWithRefs(caller, conv, files);
+      if (attachmentRefs.length) {
+        message += '\\n\\n' + attachmentRefs.map((f) =>
+          '[attachment:' + f.id + '|' + encodeURIComponent(f.name) + '|' + encodeURIComponent(f.mime) + ']'
+        ).join('\\n');
+      }
+    }
+
     // Regenerate / Retry / Edit work on the end of this (owner-checked)
     // conversation only, so nothing earlier can be rewritten.
     let userMessage;
@@ -240,8 +253,6 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     }
     if (!userMessage) {
       userMessage = await conversations.add(conv, 'user', message);
-      // Signed-in people keep the photos and files they send (Library); a failure here never stops the answer.
-      if (storage && files.length) await storage.keepSent(caller, conv, files);
     }
     if (!conv.title) {
       await conversations.setTitle(conv, message.split('\n')[0].slice(0, 60)).catch(() => {});
@@ -253,7 +264,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const stage = (name) => { try { opts.stream?.status?.(name); } catch { /* display only */ } };
     if (files.length) stage('files');
 
-    const fullHistory = await conversations.history(conv, 50);
+    const fullHistory = (await conversations.history(conv, 50)).map((m) => ({
+      ...m,
+      // Attachment IDs are presentation metadata, not model instructions/context.
+      content: String(m.content || '').replace(/\\[attachment:[0-9a-f-]{36}\\|[^|\\]]*\\|[^|\\]]*\\]/g, '').trim()
+    }));
     // A "knowledge only" business: only its own documents, nothing from outside.
     const only = caller.tenant?.knowledgeOnly === true;
     const metaQuestion = isPastIntent(typed) || isConversationMeta(typed);
