@@ -90,3 +90,5 @@ The following general text models have conservative rates in `config/model-price
 
 - 2026-10-21 validation rerun after catalog/pricing/diversity changes: 867 tests, 866 passed, 0 failed, 1 skipped; syntax checks and JSON parse passed; `git diff --check` passed; secret scan found no secrets in 606 files.
 - 2026-10-21 diversity gate: the council now requires at least two successful independent roles. If only one model can answer, the council falls back to the normal path instead of pretending one model is a committee.
+
+- 2026-10-21 environment gate: live-provider smoke tests could not be run in the available sandbox because `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, and `PLANNING_COUNCIL_ENABLED` are unset there. Only variable names/set-state were inspected; no secret values were read or exposed. Live smoke and production enablement remain blocked until the owner configures the appropriate Vercel environment and approves a low-cost test.
