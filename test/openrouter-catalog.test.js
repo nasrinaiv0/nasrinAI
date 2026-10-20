@@ -7,7 +7,8 @@ test('OpenRouter skill catalog records the requested model names and fails close
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'deepseek/deepseek-v4-flash-0731' && m.status === 'verified'));
   assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status === 'unverified_exact_id').every((m) => m.id === null));
   assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status === 'operator_supplied_unverified').every((m) => m.id && m.status !== 'verified'));
-  assert.ok(!OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.status === 'operator_supplied_unverified'), 'operator-supplied IDs must not become eligible before verification');
+  assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.status === 'operator_supplied_unverified'), 'high-output-cost model remains excluded from verified low-cost routes');
+  assert.ok(!OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.status === 'verified'), 'operator-supplied ID must not become eligible before verification');
 });
 
 test('task skills prioritize matching configured OpenRouter models without moving non-OpenRouter candidates', () => {
