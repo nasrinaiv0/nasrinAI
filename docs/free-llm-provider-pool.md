@@ -89,3 +89,28 @@ NasrinAI can route image generation and editing through OpenRouter's dedicated I
 - `openai/gpt-image-2.5-sunburst` — precision-oriented generation and editing.
 
 Configure each image tier with `IMAGE_TIER_n_PRIMARY_PROVIDER=openrouter`, `IMAGE_TIER_n_PRIMARY_MODEL=openai/gpt-image-2` (or one of the other listed IDs), and an explicit `IMAGE_TIER_n_PRIMARY_PRICE` budget estimate in USD per image. Set the optional `IMAGE_TIER_n_PRIMARY_QUALITY` to a supported quality value only after confirming that the selected model's live Images API catalog accepts it. The adapter uses `POST /api/v1/images`, supports reference-image editing, and validates the model against the live catalog; it must not silently route these models through chat completions. Pricing varies with quality, image settings, and actual usage, so reconcile provider-reported usage cost when available.
+
+
+## OpenRouter quality/security rollout (separate PR)
+
+The dedicated branch `feat/openrouter-multimodal-quality-security` builds on the provider-catalog PR and isolates multimodal lifecycle work. Current implementation:
+- OpenRouter video provider adapter for the existing video job interface.
+- Single-shot duration guard (maximum 8 seconds until a model-specific duration is verified); extension fails closed rather than faking unsupported continuation.
+- Explicit `OPENROUTER_VIDEO_COST_PER_SECOND_USD` is required to enable OpenRouter video, and the cost estimate is included in the existing spend reservation.
+- Video API key/model/provider selection is server-side only.
+- Regression test covers duration, cost and no-extension behavior.
+
+Required environment variables to enable the OpenRouter video route:
+- `VIDEO_PROVIDER=openrouter`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_VIDEO_MODEL` (exact model ID verified against the live video catalog)
+- `OPENROUTER_VIDEO_COST_PER_SECOND_USD` (positive USD/second estimate verified against current provider pricing)
+- `VIDEO_ENABLED=true`
+
+Do not enable this route until a real provider integration test confirms model-specific request parameters, output download format, and pricing. OpenRouter's video catalog and endpoint can change; fail closed on unsupported model parameters or missing price. A single-shot model cannot currently be used for longer clips requiring extensions.
+
+### Still required before production approval
+1. End-to-end task-policy integration for research, coding, scraping, extraction, editing, rendering, and structured decisions; capability checks must happen before dispatch.
+2. Provider-reported usage reconciliation and exact price/quality settings for image and video models.
+3. Tests for unauthorized access, privacy policy, budgets, retry/failover, malformed provider responses, timeouts, model catalog drift, and real provider sandbox behavior.
+4. CI green on the dedicated PR, then review; no merge/deploy before all gates pass.
