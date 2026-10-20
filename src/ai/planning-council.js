@@ -41,7 +41,8 @@ export async function runPlanningCouncil({
   runCandidate,
   maxCalls = 3,
   maxTokensPerCall = 700,
-  maxInputChars = 12000
+  maxInputChars = 12000,
+  minSuccessfulRoles = 2
 }) {
   if (!planningCouncilEligible({ enabled, tier, task, sensitive, attachments, tools, currentFactsRequired })) {
     return { used: false, reason: 'ineligible', findings: [], costUsd: 0 };
@@ -82,7 +83,8 @@ export async function runPlanningCouncil({
     }
   }
   const useful = findings.filter((f) => f.text);
-  if (!useful.length) return { used: false, reason: 'council_unavailable', findings, costUsd };
+  const minimum = Math.max(1, Math.min(count, Math.floor(Number(minSuccessfulRoles) || 2)));
+  if (useful.length < minimum) return { used: false, reason: 'insufficient_diversity', findings, costUsd };
   const synthesisContext = useful.map((f) => '## ' + f.role + '\n' + f.text).join('\n\n');
   return {
     used: true,
