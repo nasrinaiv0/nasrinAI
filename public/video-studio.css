@@ -394,7 +394,6 @@ html{scroll-behavior:smooth;background:var(--bg)}body{background:var(--bg);color
 .tabs{position:sticky;top:52px;z-index:30;display:flex;gap:5px;padding:6px;background:#171a1f;border:1px solid #2b3039;border-radius:12px;margin:0 0 14px;box-shadow:0 6px 20px #0003}
 .tab{border:1px solid transparent;background:transparent;color:#aab2be;border-radius:8px;padding:9px 16px;min-height:38px}.tab.active{background:#252c35;border-color:#3b4653;color:#fff}.tab b{background:#08bce9;color:#07151b}
 .workspace{scroll-margin-top:112px;background:#15181d;border:1px solid #303640;border-radius:14px;box-shadow:0 12px 32px #0002;margin:0 0 14px;min-width:0}
-# 【hidden】{display:none!important}
 body.editor-mode #createPanel{display:block;padding:14px 16px 16px;max-width:none;border-bottom:0}
 #createPanel .section-heading{align-items:center;margin-bottom:12px}#createPanel .section-heading h2{font-size:18px;margin:2px 0}
 #createPanel .section-heading .eyebrow{margin:0}
@@ -519,3 +518,9 @@ body.editor-mode .studio-chat-panel{background:#171b20;border:1px solid #303843;
  body.editor-mode #exportPanel h2{font-size:20px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* Keep the preview controls compact; the stage is the center-column anchor. */
+body.editor-mode .editor-preview-toolbar{display:none}
+body.editor-mode .editor-stage{grid-column:2;grid-row:2}
+@media(max-width:1050px){body.editor-mode .editor-stage{grid-column:2;grid-row:2}}
+@media(max-width:720px){body.editor-mode .editor-stage{grid-column:1;grid-row:3}}
