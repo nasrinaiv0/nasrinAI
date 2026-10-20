@@ -36,6 +36,7 @@
   function updateStats(){if($('clipCount'))$('clipCount').textContent=String(state.clips.length);if($('editorClipCount'))$('editorClipCount').textContent=String(state.clips.length);if($('binMediaCount'))$('binMediaCount').textContent=String(state.clips.length);if($('editorProjectLabel'))$('editorProjectLabel').textContent=safe($('projectName').value)||'Untitled video';if($('editorAspectLabel'))$('editorAspectLabel').textContent=$('aspect').value;if($('statClips'))$('statClips').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s');if($('statRatio'))$('statRatio').textContent=$('aspect').value;if($('checkClips'))$('checkClips').textContent=state.clips.length?'✓':'○';if($('timelineSummary'))$('timelineSummary').textContent='00:00 / '+formatTime(state.clips.reduce((end,c)=>Math.max(end,(Number(c.position)||0)+(Number(c.duration)||0)),0));}
   async function showClip(c){
     if(!c)return;
+    if(previewSession)stopTimelinePreview();
     state.selected=c.id;
     let clipUrl=c.url;
     if(!clipUrl&&((c.kind==='generated'&&c.download)||c.assetId)){
@@ -257,6 +258,59 @@
   $('studioChatInput').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('studioChatForm').requestSubmit();}});
   document.querySelectorAll('[data-chat-suggestion]').forEach(button=>button.addEventListener('click',()=>sendStudioChat(button.dataset.chatSuggestion)));
 
+  let previewSession=null;
+  function stopTimelinePreview(){
+    if(!previewSession)return;
+    cancelAnimationFrame(previewSession.raf);
+    previewSession.resources.forEach(r=>{try{if(r.media){r.media.pause();r.media.removeAttribute('src');r.media.load();r.media.remove();}}catch{}});
+    previewSession.urls.forEach(url=>URL.revokeObjectURL(url));
+    previewSession.canvas.remove();
+    previewSession.host.remove();
+    previewSession=null;
+    const button=$('previewTimeline');if(button){button.textContent='▶ Preview edit';button.setAttribute('aria-pressed','false');}
+  }
+  async function startTimelinePreview(){
+    if(previewSession){stopTimelinePreview();return;}
+    if(!state.clips.length){notice('Add clips to the timeline before previewing the edit.',true);return;}
+    const button=$('previewTimeline');button.disabled=true;
+    const portrait=$('aspect').value==='9:16',width=portrait?540:960,height=portrait?960:540;
+    const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;canvas.className='studio-composite-preview';canvas.dataset.studioMediaPreview='true';
+    const ctx=canvas.getContext('2d');if(!ctx){button.disabled=false;notice('Timeline preview could not initialize.',true);return;}
+    const host=document.createElement('div');host.className='studio-preview-media-host';host.setAttribute('aria-hidden','true');document.body.append(host);
+    const urls=[],resources=[];let raf=0;
+    try{
+      const clips=state.clips.map(c=>({...c,track:c.track||inferTrack(c),position:Math.max(0,Number(c.position)||0),duration:Math.max(.1,Number(c.duration)||8),start:Math.max(0,Number(c.start)||0)}));
+      const total=Math.max(...clips.map(c=>c.position+c.duration),0);
+      for(const clip of clips){
+        const type=String(clip.mediaType||clip.file?.type||'').toLowerCase(),isText=clip.kind==='text'||clip.track==='text',isImage=clip.kind==='image'||type.startsWith('image/'),isAudio=clip.track==='audio'||clip.kind==='audio'||type.startsWith('audio/');
+        let media=null;
+        if(!isText){const url=await resolveClipSource(clip);if(url.startsWith('blob:'))urls.push(url);if(isImage){media=new Image();media.src=url;await waitForMedia(media,'load');}else{media=document.createElement(isAudio?'audio':'video');media.src=url;media.preload='auto';media.playsInline=true;media.volume=Math.max(0,Math.min(1,Number(clip.gain??100)/100));media.style.cssText='position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';host.append(media);await waitForMedia(media,'loadedmetadata');}}
+        resources.push({clip,media,isImage,isAudio,active:false});
+      }
+      $('previewFrame').append(canvas);$('previewPlaceholder').hidden=true;$('previewVideo').hidden=true;
+      previewSession={canvas,host,resources,urls,raf:0};button.textContent='■ Stop preview';button.setAttribute('aria-pressed','true');
+      const drawCover=(source,opacity,filter,zoom)=>{const sw=source.videoWidth||source.naturalWidth,sh=source.videoHeight||source.naturalHeight;if(!sw||!sh)return;const scale=Math.max(width/sw,height/sh)*zoom,dw=sw*scale,dh=sh*scale;const filters={none:'none',cinematic:'contrast(1.12) saturate(.88)',warm:'sepia(.18) saturate(1.15)',cool:'saturate(.88) hue-rotate(8deg)',mono:'grayscale(1)',vivid:'saturate(1.35) contrast(1.05)'};ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,opacity/100));ctx.filter=filters[filter]||'none';ctx.drawImage(source,(width-dw)/2,(height-dh)/2,dw,dh);ctx.restore();};
+      const began=performance.now();
+      const tick=now=>{
+        if(!previewSession)return;
+        const time=Math.min(total,(now-began)/1000);ctx.fillStyle='#08090c';ctx.fillRect(0,0,width,height);
+        const active=resources.filter(r=>!r.isAudio&&time>=r.clip.position&&time<r.clip.position+r.clip.duration).sort((a,b)=>({video:0,overlay:1,text:2}[a.clip.track]??0)-({video:0,overlay:1,text:2}[b.clip.track]??0));
+        for(const r of resources){if(!r.media||r.isImage)continue;const local=time-r.clip.position,playing=time>=r.clip.position&&time<r.clip.position+r.clip.duration;if(playing){const target=Math.max(0,r.clip.start+local);if(!r.active||Math.abs((r.media.currentTime||0)-target)>.5){try{r.media.currentTime=target;}catch{}}if(!r.active){r.active=true;r.media.play().catch(()=>{});}}else if(r.active){r.active=false;r.media.pause();}}
+        for(const r of active){const local=time-r.clip.position;let opacity=Number(r.clip.opacity??100),zoom=1;const frames=Array.isArray(r.clip.keyframes)?r.clip.keyframes.slice().sort((a,b)=>a.time-b.time):[];if(frames.length){const before=[...frames].reverse().find(k=>k.time<=local),after=frames.find(k=>k.time>=local);if(before&&after&&after.time>before.time){const q=(local-before.time)/(after.time-before.time);opacity*=Number(before.opacity??100)/100+(Number(after.opacity??100)-Number(before.opacity??100))/100*q;zoom=Number(before.scale??1)+(Number(after.scale??1)-Number(before.scale??1))*q;}else{const k=before||after;opacity*=Number(k.opacity??100)/100;zoom=Number(k.scale??1);}}
+          const fade=Math.min(.6,r.clip.duration/2);if(r.clip.transition==='fade'||r.clip.transition==='dissolve')opacity*=Math.min(1,local/fade,(r.clip.duration-local)/fade);
+          if(r.clip.transition==='wipe'&&fade>0){ctx.save();ctx.beginPath();ctx.rect(0,0,width* Math.min(1,local/fade),height);ctx.clip();}
+          if(r.isImage)drawCover(r.media,opacity,r.clip.filter,zoom);else if(r.media&&r.media.tagName==='VIDEO'&&r.media.readyState>=2)drawCover(r.media,opacity,r.clip.filter,zoom);
+          if(r.clip.title){ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,opacity/100));ctx.fillStyle='#0009';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='600 '+Math.round(width*.032*zoom)+'px system-ui';ctx.fillText(String(r.clip.title).slice(0,90),width*.08,height*.84,width*.84);ctx.restore();}
+          if(r.clip.transition==='wipe'&&fade>0)ctx.restore();
+        }
+        if(time>=total){stopTimelinePreview();return;}
+        previewSession.raf=requestAnimationFrame(tick);
+      };
+      previewSession.raf=requestAnimationFrame(tick);
+    }catch(error){urls.forEach(url=>URL.revokeObjectURL(url));resources.forEach(r=>{try{r.media?.pause();r.media?.remove();}catch{}});host.remove();canvas.remove();button.textContent='▶ Preview edit';button.setAttribute('aria-pressed','false');notice(error.message||'Could not preview the timeline.',true);}
+    finally{button.disabled=false;}
+  }
+  $('previewTimeline').addEventListener('click',startTimelinePreview);
   let renderObjectUrl=null;
   function waitForMedia(media,event,timeout=15000){
     return new Promise((resolve,reject)=>{
