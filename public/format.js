@@ -22,7 +22,9 @@
   };
 
   function inline(parent, text) {
-    const re = /(\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*\n]+\*\*|\x60[^\x60\n]+\x60|https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?])/g;
+    // Match longer Markdown constructs first. Bold may contain italic text, e.g.
+    // **Action: *The Last Stand***, which older flat regexes left unrendered.
+    const re = /(\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\*\*(?:[^*\n]|\*(?!\*)[^*\n]*\*)+\*\*|\*[^*\n]+\*|_[^_\n]+_|\x60[^\x60\n]+\x60|https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?])/g;
     let last = 0; let m;
     while ((m = re.exec(text))) {
       if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
@@ -44,8 +46,15 @@
             parent.appendChild(a);
           } else parent.appendChild(document.createTextNode(label));
         }
-      } else if (t.startsWith('**')) parent.appendChild(el('strong', '', t.slice(2, -2)));
-      else if (t.startsWith('\x60')) parent.appendChild(el('code', '', t.slice(1, -1)));
+      } else if (t.startsWith('**')) {
+        const strong = el('strong');
+        inline(strong, t.slice(2, -2));
+        parent.appendChild(strong);
+      } else if ((t.startsWith('*') && !t.startsWith('**')) || t.startsWith('_')) {
+        const italic = el('em');
+        inline(italic, t.slice(1, -1));
+        parent.appendChild(italic);
+      } else if (t.startsWith('\x60')) parent.appendChild(el('code', '', t.slice(1, -1)));
       else {
         let valid = false;
         try { valid = ['http:', 'https:'].includes(new URL(t).protocol); } catch { valid = false; }
