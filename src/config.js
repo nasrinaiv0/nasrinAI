@@ -165,7 +165,7 @@ export function loadConfig(env = process.env) {
     // override them explicitly when a provider changes its free model lineup.
     const configuredFreeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
     const freeModels = configuredFreeModels.length ? configuredFreeModels : [...(p.freeModels || [])];
-    return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, trainsOnData: true, vision: false, tools: false };
+    return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, models: p.models || null, trainsOnData: true, vision: false, tools: false };
   }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
