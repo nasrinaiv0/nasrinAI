@@ -3,14 +3,15 @@ import { ProviderError } from './provider.js';
 const BASE_URL = 'https://openrouter.ai/api/v1';
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:/-]*$/i;
 const TASK_OUTPUT = Object.freeze({
-  chat: 'text', research: 'text', coding: 'text', scraping: 'text',
-  extraction: 'text', editing: 'text', decisions: 'decisions',
+  chat: 'text', research: 'text', coding: 'text', scraping: 'text', generation: 'text', rendering: 'text',
+  extraction: 'text', editing: 'text', vision: 'text', pdf: 'text', audio_understanding: 'text', video_understanding: 'text', decisions: 'decisions',
   image: 'image', video: 'video', speech: 'speech',
   transcription: 'transcription', audio: 'audio', embeddings: 'embeddings', rerank: 'rerank'
 });
+const TASK_INPUT = Object.freeze({ vision: 'image', pdf: 'file', audio_understanding: 'audio', video_understanding: 'video' });
 const ENDPOINT = Object.freeze({
-  chat: '/chat/completions', research: '/chat/completions', coding: '/chat/completions',
-  scraping: '/chat/completions', extraction: '/chat/completions', editing: '/chat/completions',
+  chat: '/chat/completions', research: '/chat/completions', coding: '/chat/completions', generation: '/chat/completions', rendering: '/chat/completions',
+  scraping: '/chat/completions', extraction: '/chat/completions', editing: '/chat/completions', vision: '/chat/completions', pdf: '/chat/completions', audio_understanding: '/chat/completions', video_understanding: '/chat/completions',
   decisions: '/alpha/decisions', image: '/images', video: '/videos',
   speech: '/audio/speech', transcription: '/audio/transcriptions',
   audio: '/chat/completions', embeddings: '/embeddings', rerank: '/rerank'
@@ -99,6 +100,8 @@ export function createOpenRouterClient({
     let eligible = models.filter((m) => task === 'video'
       ? typeof m.id === 'string'
       : m.architecture?.output_modalities?.includes(modality));
+    const inputModality = TASK_INPUT[task];
+    if (inputModality) eligible = eligible.filter((m) => Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes(inputModality));
     if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
     if (requirements.requiresTools) eligible = eligible.filter((m) => Array.isArray(m.supported_parameters) && m.supported_parameters.includes('tools'));
     if (requirements.maxPromptUsdPerMillion != null) eligible = eligible.filter((m) => Number(m.pricing?.prompt) * 1_000_000 <= requirements.maxPromptUsdPerMillion);
@@ -118,10 +121,10 @@ export function createOpenRouterClient({
     return affordable[0];
   }
 
-  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, provider = {}, signal }) {
+  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, provider = {}, signal }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
-    const selected = await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0 });
+    const selected = await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens, maxPromptUsdPerMillion });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: 'deny', allow_fallbacks: provider.allow_fallbacks !== false } };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
@@ -206,3 +209,4 @@ export function createOpenRouterClient({
 
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;
 export const OPENROUTER_TASK_MODALITIES = TASK_OUTPUT;
+export const OPENROUTER_TASK_INPUT_MODALITIES = TASK_INPUT;
