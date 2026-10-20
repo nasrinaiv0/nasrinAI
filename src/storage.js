@@ -70,7 +70,7 @@ export function createStorage({ store, config, conversations, library, logger, n
     }
   }
 
-  async function keepSentWithRefs(caller, conv, files) {
+  async function persistSentWithRefs(caller, conv, files) {
     try {
       if (caller.actor.type !== 'user' || caller.tenantId !== PLATFORM_TENANT_ID || !store.addSentFile || !files.length) return [];
       const have = (await store.listSentFiles(who(caller))).reduce((n, f) => n + f.size, 0);
@@ -160,11 +160,11 @@ export function createStorage({ store, config, conversations, library, logger, n
     // Persist sent files and return stable, owner-checked references for the chat transcript.
     // The existing count-only API remains for callers/tests that rely on it.
     async keepSentWithRefs(caller, conv, files) {
-      return keepSentWithRefs(caller, conv, files);
+      return persistSentWithRefs(caller, conv, files);
     },
 
     async keepSent(caller, conv, files) {
-      return (await keepSentWithRefs(caller, conv, files)).length;
+      return (await persistSentWithRefs(caller, conv, files)).length;
     }
   };
 }
