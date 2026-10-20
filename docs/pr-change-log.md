@@ -1,4 +1,9 @@
 
+## Post-merge Video Studio preview fix (2026-10-20)
+
+- Added image and audio preview rendering for uploaded cloud assets; previously the inspector attempted to show every media type in a video element.
+- Added matching preview styles and a regression test. Browser-based playback/export on real devices remains a manual verification gate.
+
 ## Proposed PR — Durable Video Studio media assets (`feat/video-studio-persistent-assets`)
 
 - **Storage:** add migration 052 for a private `video-studio-assets` Supabase Storage bucket with a 50 MB object limit and video/image/audio MIME allowlist; no direct browser policies are granted.
