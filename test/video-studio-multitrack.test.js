@@ -14,7 +14,7 @@ test('Video Studio browser script parses without syntax errors', () => {
 test('editor exposes dedicated video, overlay, text, and audio tracks', () => {
   for (const track of ['video', 'overlay', 'text', 'audio']) {
     assert.match(html, new RegExp('<option value="' + track + '">'));
-    assert.match(js, new RegExp("track-" + track));
+    assert.match(css, new RegExp("track-" + track));
   }
   assert.match(js, /timeline-track-clips/);
 });
