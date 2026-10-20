@@ -136,6 +136,12 @@
       "gemini-3.8-flash-lite-tts": {
         "worst_case_per_character": 0.00003
       }
+    },
+    "openrouter": {
+      "google/gemini-3.8-flash-lite-tts": {
+        "worst_case_per_character": 0.00003,
+        "_note": "Conservative reservation ceiling until provider usage confirms audio token billing."
+      }
     }
   },
   "video": {
@@ -148,7 +154,7 @@
       "720p": 0.125
     }
   },
-  "_openrouterCatalogNote": "OpenRouter prices are dynamic by model/provider route. Values below are snapshots verified 2026-10-21 and must be refreshed before budgeting changes.",
+  "_openrouterCatalogNote": "OpenRouter prices are dynamic snapshots checked 2026-10-21. Recheck model and provider-specific rates before changing budgets.",
   "openrouter": {
     "deepseek/deepseek-v4.1-flash": {
       "input": 0.13,
@@ -209,6 +215,21 @@
       "input": 0.075,
       "output": 0.225,
       "cached_input": 0.075
+    },
+    "openai/gpt-6-sol": {
+      "input": 2,
+      "cached_input": 2,
+      "output": 10
+    },
+    "openai/gpt-6.1-sol": {
+      "input": 2,
+      "cached_input": 2,
+      "output": 10
+    },
+    "google/gemini-3.8-flash-lite-tts": {
+      "input": 0.5,
+      "cached_input": 0.5,
+      "output": 6
     }
   }
 }
