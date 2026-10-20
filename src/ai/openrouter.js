@@ -123,7 +123,7 @@ export function createOpenRouterClient({
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
     const selected = await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0 });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
-      provider: { data_collection: 'deny', allow_fallbacks: true, ...provider } };
+      provider: { ...provider, data_collection: 'deny', allow_fallbacks: provider.allow_fallbacks !== false } };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
     if (Number.isFinite(temperature)) payload.temperature = Math.max(0, Math.min(2, temperature));
     return request(ENDPOINT[task] || ENDPOINT.chat, { body: payload, signal });
