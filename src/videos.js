@@ -19,6 +19,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
   async function create(caller, body) {
     await requireVideoPlan(caller);
     if (!provider) throw unavailable();
+    if (provider.maxSeconds && Number(b.seconds || MAX_SECONDS) > provider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${provider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
     await limiter.signIn('video:' + caller.actor.id, config.video.perHour);
     const b = body && typeof body === 'object' ? body : {};
     if (b.conversation_id != null) {
@@ -45,7 +46,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
     }
-    const perSecond = videoCostPerSecond(provider.model, provider.resolution);
+    const perSecond = videoCostPerSecond(provider.model, provider.resolution, provider.costPerSecondUsd ?? null);
     if (!budget || perSecond === null) {
       throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because a safe spending estimate is not configured for this model and resolution.');
     }
@@ -62,7 +63,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const started = now();
     let operation;
     try {
-      operation = await provider.create({ prompt, aspectRatio });
+      operation = await provider.create({ prompt, aspectRatio, seconds: targetSeconds });
     } catch (err) {
       // Provider failures can still incur charges; keep the maximum-duration
       // reservation rather than releasing budget on an uncertain outcome.
@@ -107,7 +108,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
 
     const bytes = await provider.download(state.uri);
-    const produced = v.producedSeconds ? v.producedSeconds + EXTEND_SECONDS : STEP_SECONDS;
+    const produced = provider.maxSeconds ? Math.min(v.targetSeconds, provider.maxSeconds) : v.producedSeconds ? v.producedSeconds + EXTEND_SECONDS : STEP_SECONDS;
     const reached = produced >= Math.min(v.targetSeconds, MAX_SECONDS);
     if (reached) {
       // Avoid oversized JSON/hex writes to PostgREST. Only cache a video when
@@ -124,6 +125,10 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         }).catch((err) => logger.warn('marketing video cache write failed', { error: err.message }));
       }
     } else {
+      if (provider.maxSeconds) {
+        await store.updateVideo(v.id, { status:'failed', errorCode:'duration_unsupported', errorMessage:'This provider cannot extend video jobs.' });
+        return await store.getVideo({ tenantId:v.tenantId, ownerType:v.ownerType, ownerId:v.ownerId, id:v.id });
+      }
       const nextOperation = await provider.extend({ prompt: v.prompt, videoBytes: bytes });
       await store.updateVideo(v.id, {
         status:'in_progress',
