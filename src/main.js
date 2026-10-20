@@ -230,7 +230,7 @@ export function buildApp({ config, logger }) {
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
   const openrouterSpeech = sp.enabled && sp.provider === 'openrouter' && openRouterClient
-    ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, rate: sp.rate, responseFormat: 'wav' })
+    ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, provider: sp.openrouterProvider, rate: sp.rate, responseFormat: 'wav' })
     : null;
   const openaiSpeech = sp.enabled && config.ai.openaiApiKey
     ? createOpenAISpeech({ apiKey: config.ai.openaiApiKey, model: sp.model, fastModel: sp.fastModel, rate: sp.rate, responseFormat: 'wav' })
