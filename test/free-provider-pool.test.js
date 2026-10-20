@@ -152,3 +152,23 @@ test('free provider catalog model defaults can be overridden with explicit envir
   assert.equal(config.ai.freeProviders[0].model, 'custom-free-model');
   assert.deepEqual(config.ai.freeProviders[0].freeModels, ['custom-free-model']);
 });
+
+
+test('free tier catalog enables Cerebras, Cloudflare, Z.ai and OpenRouter when credentials are configured', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'none',
+    AI_FALLBACK: 'free',
+    CEREBRAS_API_KEY: 'test-cerebras-key',
+    CLOUDFLARE_WORKERS_AI_API_KEY: 'test-cloudflare-key',
+    CLOUDFLARE_ACCOUNT_ID: 'test-account',
+    Z_AI_API_KEY: 'test-zai-key',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    GROQ_API_KEY: 'test-groq-key'
+  });
+  const providers = config.ai.freeProviders;
+  assert.equal(providers.find((p) => p.id === 'cerebras').model, 'gpt-oss-120b');
+  assert.equal(providers.find((p) => p.id === 'cloudflare-workers-ai').model, '@cf/meta/llama-3.1-8b-instruct');
+  assert.equal(providers.find((p) => p.id === 'z-ai').model, 'glm-4.5-flash');
+  assert.equal(providers.find((p) => p.id === 'openrouter').model, 'meta-llama/llama-3.1-8b-instruct:free');
+  assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'cloudflare-workers-ai', 'groq', 'z-ai', 'openrouter']);
+});
