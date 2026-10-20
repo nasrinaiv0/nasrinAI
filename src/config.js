@@ -308,10 +308,7 @@ export function loadConfig(env = process.env) {
     const raw = env['ROUTE_LEVEL_' + n];
     const list = raw !== undefined && String(raw).trim() !== '' ? String(raw).split(',') : defaultsByLevel[n];
     const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
-    const normalCandidates = parsed.filter((spec) => {
-      if (!eligibleFreeProviderIds.includes(spec.provider)) return true;
-      return false;
-    });
+    const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     levels[n] = Object.freeze(normalCandidates);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
