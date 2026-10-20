@@ -2953,7 +2953,7 @@
     autosize();
     setImageMode(false);
     try {
-      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 60, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) });
+      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 8, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) });
       const id = data.video_id;
       if (!id) throw new Error('The video job could not be started.');
       const card = document.createElement('div');
