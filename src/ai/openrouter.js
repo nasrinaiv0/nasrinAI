@@ -118,6 +118,14 @@ export function createOpenRouterClient({
         if (resolution && (!list('supported_resolutions') || !list('supported_resolutions').includes(resolution))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested resolution');
         if (aspectRatio && (!list('supported_aspect_ratios') || !list('supported_aspect_ratios').includes(aspectRatio))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested aspect ratio');
         if (requirements.generateAudio === true && match.generate_audio !== true && match.supports_audio_generation !== true) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise generated audio support');
+        const skus = Array.isArray(match.pricing_skus) ? match.pricing_skus : match.pricing_skus && typeof match.pricing_skus === 'object' ? Object.values(match.pricing_skus) : [];
+        const perSecondPrices = skus.filter((sku) => {
+          const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || '').toLowerCase();
+          return /second|\/sec\b|per_sec/.test(unit);
+        }).map((sku) => Number(sku?.cost_usd ?? sku?.price_usd ?? sku?.price ?? sku?.cost ?? sku?.rate ?? sku?.amount)).filter((n) => Number.isFinite(n) && n > 0);
+        if (!perSecondPrices.length) throw new ProviderError('config', 'OpenRouter video model has no verifiable per-second pricing in its live catalog');
+        const conservativeCatalogRate = Math.max(...perSecondPrices);
+        if (!Number.isFinite(Number(requirements.maxCostPerSecondUsd)) || Number(requirements.maxCostPerSecondUsd) < conservativeCatalogRate) throw new ProviderError('config', 'Configured OpenRouter video cost estimate is below the live catalog rate');
       }
       return match;
     };
@@ -254,7 +262,7 @@ export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, r
         duration: Math.floor(seconds),
         aspect_ratio: aspectRatio,
         resolution,
-        maxCostPerSecondUsd: this.costPerSecondUsd
+        maxCostPerSecondUsd: costPerSecondUsd
       });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
