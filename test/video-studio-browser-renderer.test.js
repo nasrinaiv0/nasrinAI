@@ -49,17 +49,17 @@ test('CapCut-style editor has unique IDs and working media, text, audio, save, a
   const html = await readFile(new URL('../public/video-studio.html', import.meta.url), 'utf8');
   const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/video-studio.css', import.meta.url), 'utf8');
-  const ids = [...html.matchAll(/\\bid="([^"]+)"/g)].map(match => match[1]);
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(ids.length, new Set(ids).size, 'HTML IDs must be unique for reliable editor controls');
   for (const id of ['editPanel','mediaBinItems','importMediaBin','binImportButton','previewFrame','timeline','editorInspector','toolText','toolAudio','toolExport','editorSave']) {
     if (id === 'editorInspector') continue; // Inspector is class-scoped rather than ID-scoped.
     assert.ok(ids.includes(id), 'missing editor control: '+id);
   }
   assert.match(js, /data-editor-tool/);
-  assert.match(js, /clip\\.assetId\\|\\|null/);
-  assert.match(js, /$('mediaInput')\\.click\\(\\)/);
+  assert.match(js, /clip\.assetId\|\|null/);
+  assert.match(js, /$('mediaInput')\.click\(\)/);
   assert.match(css, /\.capcut-editor/);
   assert.match(css, /\.media-bin/);
   assert.match(css, /\.timeline-section/);
-  assert.match(css, /@media\\(max-width:760px\\)/);
+  assert.match(css, /@media\(max-width:760px\)/);
 });
