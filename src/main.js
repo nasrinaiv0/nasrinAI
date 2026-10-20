@@ -30,7 +30,7 @@ import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
 import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
-import { createGeminiImage, createOpenAIImage } from './ai/image.js';
+import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
 import { createImages } from './images.js';
 import { basicTools } from './tools/basic.js';
 import { createConnectors } from './connectors/index.js';
@@ -121,6 +121,7 @@ export function buildApp({ config, logger }) {
   }
 
   const effective = { ...config, guestSecret };
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
@@ -168,7 +169,9 @@ export function buildApp({ config, logger }) {
       if (price === null) { logger.warn('picture route has no price; it is off', { tier: Number(n), provider: slot.provider, model: slot.model }); return null; }
       const p = slot.provider === 'gemini'
         ? createGeminiImage({ apiKey: config.ai.geminiApiKey, model: slot.model, totalMs: ms })
-        : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
+        : slot.provider === 'openrouter'
+          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, timeoutMs: ms })
+          : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
       return { p, price };
     };
     const primary = make(t.primary, t.fallback ? 45_000 : 105_000);
@@ -218,7 +221,6 @@ export function buildApp({ config, logger }) {
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
-  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
   const openrouterSpeech = sp.enabled && sp.provider === 'openrouter' && openRouterClient
     ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, rate: sp.rate, responseFormat: 'wav' })
     : null;
