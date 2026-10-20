@@ -108,10 +108,23 @@ export function createOpenRouterClient({
     if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
     if (requirements.requiresTools) eligible = eligible.filter((m) => Array.isArray(m.supported_parameters) && m.supported_parameters.includes('tools'));
     if (requirements.maxPromptUsdPerMillion != null) eligible = eligible.filter((m) => Number(m.pricing?.prompt) * 1_000_000 <= requirements.maxPromptUsdPerMillion);
+    const validateRequirements = (match) => {
+      if (task === 'video') {
+        const list = (key) => Array.isArray(match[key]) ? match[key] : null;
+        const duration = requirements.duration;
+        const resolution = requirements.resolution;
+        const aspectRatio = requirements.aspectRatio;
+        if (duration != null && (!list('supported_durations') || !list('supported_durations').includes(Number(duration)))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested duration');
+        if (resolution && (!list('supported_resolutions') || !list('supported_resolutions').includes(resolution))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested resolution');
+        if (aspectRatio && (!list('supported_aspect_ratios') || !list('supported_aspect_ratios').includes(aspectRatio))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested aspect ratio');
+        if (requirements.generateAudio === true && match.generate_audio !== true && match.supports_audio_generation !== true) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise generated audio support');
+      }
+      return match;
+    };
     for (const id of preferred) {
       const safeId = cleanModelId(id);
       const match = eligible.find((m) => m.id === safeId);
-      if (match) return match;
+      if (match) return validateRequirements(match);
     }
     if (preferred.length) throw new ProviderError('config', `Configured OpenRouter model is unavailable or lacks the required capability for task: ${task}`);
     // Never silently choose an arbitrary model for costly generation.
@@ -169,8 +182,11 @@ export function createOpenRouterClient({
     return request('/images', { body, signal });
   }
 
-  async function createVideo({ model, preferred = [], prompt, signal, ...options }) {
-    const selected = await selectModel('video', model ? [cleanModelId(model)] : preferred);
+  async function createVideo({ model, preferred = [], prompt, signal, maxCostPerSecondUsd, ...options }) {
+    const selected = await selectModel('video', model ? [cleanModelId(model)] : preferred, {
+      duration: options.duration, resolution: options.resolution, aspectRatio: options.aspect_ratio,
+      generateAudio: options.generate_audio === true, maxCostPerSecondUsd
+    });
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Video prompt must be 1–8000 characters');
     const body = { ...options, model: selected.id, prompt: prompt.trim() };
     return request('/videos', { body, signal });
@@ -237,7 +253,8 @@ export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, r
         model, prompt,
         duration: Math.floor(seconds),
         aspect_ratio: aspectRatio,
-        resolution
+        resolution,
+        maxCostPerSecondUsd: this.costPerSecondUsd
       });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
@@ -246,7 +263,7 @@ export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, r
     async status(id) { return client.videoStatus(id); },
     extract(result) {
       const state = String(result?.status || result?.data?.status || '').toLowerCase();
-      const failed = ['failed', 'error', 'cancelled', 'canceled'].includes(state);
+      const failed = ['failed', 'error', 'cancelled', 'canceled', 'expired'].includes(state);
       const done = ['completed', 'complete', 'succeeded', 'success', 'ready'].includes(state);
       return { done, failed, uri: done ? (result?.id || result?.job_id || result?.data?.id) : null,
         error: failed ? String(result?.error?.message || result?.message || 'Video generation failed').slice(0, 240) : null };
