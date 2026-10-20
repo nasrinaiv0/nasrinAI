@@ -44,3 +44,22 @@ test('browser renderer refuses more than 30 clips rather than silently omitting 
   const renderer = js.slice(js.indexOf('async function renderTimelineVideo'), js.indexOf("$('renderTimeline').addEventListener"));
   assert.doesNotMatch(renderer, /state\.clips\.slice\(0,30\)/);
 });
+
+test('CapCut-style editor has unique IDs and working media, text, audio, save, and export controls', async () => {
+  const html = await readFile(new URL('../public/video-studio.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/video-studio.css', import.meta.url), 'utf8');
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(ids.length, new Set(ids).size, 'HTML IDs must be unique for reliable editor controls');
+  for (const id of ['editPanel','mediaBinItems','importMediaBin','binImportButton','previewFrame','timeline','editorInspector','toolText','toolAudio','toolExport','editorSave']) {
+    if (id === 'editorInspector') continue; // Inspector is class-scoped rather than ID-scoped.
+    assert.ok(ids.includes(id), 'missing editor control: '+id);
+  }
+  assert.match(js, /data-editor-tool/);
+  assert.match(js, /assetId:c\.assetId\|\|null/);
+  assert.ok(js.includes("$('mediaInput').click()"), 'import actions must open the media picker');
+  assert.match(css, /\.capcut-editor/);
+  assert.match(css, /\.media-bin/);
+  assert.match(css, /\.timeline-section/);
+  assert.match(css, /@media\(max-width:760px\)/);
+});

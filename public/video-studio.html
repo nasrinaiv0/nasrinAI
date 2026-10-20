@@ -42,22 +42,24 @@
       <p class="helper">AI generation uses your account's existing video access, usage limits and spending safeguards. Generated clips can be added to your project timeline.</p>
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
     </div>
-    <aside class="preview-column">
-      <div class="preview-top"><span>PREVIEW</span><span id="previewFormat">16:9 · LANDSCAPE</span></div>
-      <div class="preview-frame landscape" id="previewFrame"><div class="preview-placeholder" id="previewPlaceholder"><div class="play-mark">▶</div><b>Your next scene starts here.</b><span>Choose a template or generate a clip</span></div><video id="previewVideo" controls playsinline hidden></video></div>
-      <div class="preview-caption"><div><b id="previewTitle">Cinematic opener</b><span id="previewSub">Atmospheric · Story-led</span></div><button id="addTemplate" class="icon-button" type="button" aria-label="Add template to timeline" title="Add template to timeline">＋</button></div>
-      <div class="preview-stats"><div><span>PROJECT</span><b id="statClips">0 clips</b></div><div><span>RATIO</span><b id="statRatio">16:9</b></div><div><span>STATUS</span><b id="statStatus">Draft</b></div></div>
-    </aside>
+
   </section>
-  <section class="workspace secondary-panel" id="editPanel" hidden>
+  <section class="workspace secondary-panel capcut-editor" id="editPanel" hidden>
+    <div class="editor-toolbar"><div class="editor-mode"><span class="editor-live-dot"></span> EDITOR</div><div class="editor-tools"><button class="editor-tool active" type="button" data-editor-tool="media">▧ <span>Media</span></button><button class="editor-tool" type="button" data-editor-tool="text" id="toolText">T <span>Text</span></button><button class="editor-tool" type="button" data-editor-tool="audio" id="toolAudio">♫ <span>Audio</span></button><button class="editor-tool" type="button" data-editor-tool="export" id="toolExport">↗ <span>Export</span></button></div><div class="editor-toolbar-actions"><span class="editor-project-label" id="editorProjectLabel">Untitled video</span><button id="editorSave" class="editor-save" type="button">Save project</button></div></div>
+    <aside class="media-bin"><div class="bin-heading"><div><span class="bin-kicker">PROJECT ASSETS</span><h2>Media</h2></div><button id="importMediaBin" class="bin-add" type="button" aria-label="Import media">＋</button></div><button id="binImportButton" class="import-drop" type="button"><span>＋</span><b>Import media</b><small>Video, image, or audio</small></button><div class="bin-filter"><span>All media</span><span id="binMediaCount">0</span></div><div id="mediaBinItems" class="media-bin-items"><p class="bin-empty">Your imported and generated assets will appear here.</p></div><div class="bin-bottom"><span class="storage-dot"></span> Local files + cloud assets</div></aside>
     <div class="timeline-column">
-      <div class="section-heading"><div><p class="eyebrow">EDIT / SEQUENCE</p><h2>Your timeline</h2></div><button id="addMedia" class="quiet-button" type="button">＋ Add media</button><input id="mediaInput" type="file" accept="video/*,image/*,audio/*" multiple hidden></div>
-      <p class="helper">Reorder clips, preview generated footage, and save your project. Sign in to keep uploaded media with your cloud project; browser-rendered export depends on device support.</p>
+      <div class="editor-preview-toolbar"><div><span class="bin-kicker">CANVAS</span><b id="editorCanvasTitle">Preview</b></div><div class="canvas-controls"><span id="editorAspectLabel">16:9</span><button id="editorCreate" type="button">＋ Create scene</button></div></div>
+      <div class="editor-stage">
+      <div class="editor-stage-inner"><div class="preview-top"><span>PREVIEW PLAYER</span><span id="previewFormat">16:9 · LANDSCAPE</span></div>
+      <div class="preview-frame landscape" id="previewFrame"><div class="preview-placeholder" id="previewPlaceholder"><div class="play-mark">▶</div><b>Your next scene starts here.</b><span>Choose a template or generate a clip</span></div><video id="previewVideo" controls playsinline hidden></video></div>
+      <div class="preview-caption"><div><b id="previewTitle">Cinematic opener</b><span id="previewSub">Atmospheric · Story-led</span></div><button id="addTemplate" class="icon-button" type="button" aria-label="Add template to timeline" title="Add template to timeline">＋</button></div></div>
+      </div>
+      <div class="timeline-section"><div class="timeline-head"><div><span class="bin-kicker">EDIT SEQUENCE</span><h2>Timeline <span id="editorClipCount">0</span></h2></div><div class="timeline-head-actions"><span class="timeline-timecode" id="timelineSummary">00:00 / 00:00</span><button id="addMedia" class="quiet-button" type="button">＋ Import</button><input id="mediaInput" type="file" accept="video/*,image/*,audio/*" multiple hidden></div></div>
       <div id="timeline" class="timeline"><div class="empty-timeline"><span>▤</span><b>Your timeline is waiting</b><p>Generate a scene or add media to begin.</p></div></div>
-      <div class="timeline-tools"><button id="clearTimeline" class="quiet-button" type="button">Clear timeline</button><span id="timelineSummary">No clips yet</span></div>
+      <div class="timeline-tools"><button id="clearTimeline" class="quiet-button" type="button">Clear timeline</button><span>Drag-free editing · Use arrows to reorder clips</span></div></div>
     </div>
-    <aside class="inspector">
-      <p class="eyebrow">CLIP INSPECTOR</p><h2>Selected clip</h2>
+    <aside class="inspector editor-inspector">
+      <div class="inspector-heading"><span class="bin-kicker">PROPERTIES</span><h2>Clip details</h2></div>
       <div id="inspectorEmpty" class="inspector-empty">Select a timeline clip to view its details.</div>
       <div id="inspectorContent" hidden><label>CLIP NAME<input id="clipName" maxlength="100"></label><label>ON-SCREEN TITLE<input id="clipTitle" maxlength="140" placeholder="Add a title overlay"></label><label>TRIM START (SECONDS)<input id="clipStart" type="number" min="0" step="0.5" value="0"></label><label>CLIP DURATION (SECONDS)<input id="clipDuration" type="number" min="0.5" max="60" step="0.5" value="8"></label><button id="removeClip" class="danger-button" type="button">Remove clip</button></div>
     </aside>

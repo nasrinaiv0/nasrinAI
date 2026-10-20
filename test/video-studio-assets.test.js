@@ -61,7 +61,7 @@ test('Video Studio cloud saves persist uploaded media references and reload via 
   assert.match(js, /assetId:c\.assetId\|\|null/);
   assert.match(js, /if\(clip\.assetId&&typeof clip\.assetId==='string'\)/);
   assert.match(routes, /video_asset_required/);
-  assert.match(html, /Sign in to keep uploaded media with your cloud project/);
+  assert.match(html, /Import media/);
   assert.doesNotMatch(html, /Uploaded media stays in this browser session/);
 });
 
