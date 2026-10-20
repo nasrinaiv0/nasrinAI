@@ -160,8 +160,11 @@ export function loadConfig(env = process.env) {
   // free-model allowlists are separate because a provider may also expose paid models.
   const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => ['openai-compatible', 'cloudflare-workers-ai', 'cohere-v2'].includes(p.adapter)).map((p) => {
     const apiKey = String(env[p.env + '_API_KEY'] || '').trim();
-    const model = String(env[p.env + '_MODEL'] || '').trim();
-    const freeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const model = String(env[p.env + '_MODEL'] || p.defaultModel || '').trim();
+    // Catalogued free models are defaults, not quota guarantees. Operators can
+    // override them explicitly when a provider changes its free model lineup.
+    const configuredFreeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const freeModels = configuredFreeModels.length ? configuredFreeModels : [...(p.freeModels || [])];
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, trainsOnData: true, vision: false, tools: false };
   }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
@@ -239,12 +242,17 @@ export function loadConfig(env = process.env) {
   // user's selected tier; the router picks the best available model for the same route level.
   const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai', 'anthropic'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.length > 0);
   const fallbackMode = String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
-  if (!['auto', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
-    throw new ConfigError('AI_FALLBACK: use auto, openai, gemini, claude, anthropic or none');
+  if (!['auto', 'free', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
+    throw new ConfigError('AI_FALLBACK: use auto, free, openai, gemini, claude, anthropic or none');
   }
+  const freeFallbackProviders = freeProviderSettings
+    .filter((p) => p.freeModels.includes(p.model))
+    .map((p) => p.id);
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['gemini', 'openai', 'anthropic', ...freeProviderSettings.filter((p) => p.freeModels.length > 0).map((p) => p.id)].filter((p) => providerKeys.includes(p))
-    : fallbackMode === 'none' ? [] : [fallbackMode === 'claude' ? 'anthropic' : fallbackMode];
+    ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders].filter((p) => providerKeys.includes(p))
+    : fallbackMode === 'free'
+      ? freeFallbackProviders.filter((p) => providerKeys.includes(p))
+      : fallbackMode === 'none' ? [] : [fallbackMode === 'claude' ? 'anthropic' : fallbackMode];
   for (const provider of fallbackProviders) {
     if (!providerKeys.includes(provider)) {
       throw new ConfigError('AI_FALLBACK=' + provider + ' needs its provider credentials/configuration');
