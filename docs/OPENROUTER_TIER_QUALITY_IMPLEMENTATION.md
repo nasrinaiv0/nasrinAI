@@ -65,3 +65,27 @@ For image generation, configure and verify `IMAGE_TIER_1_PRIMARY_*`, `IMAGE_TIER
 - [ ] Separate release decision before production deployment.
 
 Never log or expose API keys, internal provider exceptions, or secret environment values. Cache keys must include selected tier and route/model version. Keep rate limits independent of tier selection. Fail closed when entitlement, capability, price, or route cannot be verified.
+
+
+## OpenRouter model catalog and skills — 2026-10-21
+
+A new runtime skill catalog is added at `src/ai/openrouter-catalog.js`. It maps model IDs to verified task skills and reorders only explicitly configured OpenRouter candidates for a classified task. This does not bypass existing policy: a candidate must still be present in ROUTE_LEVEL_n, have a price, pass live model availability/capability checks, privacy checks, spend budget, tool/attachment checks, and tier limits.
+
+Verified IDs/prices recorded in `config/model-prices.json` from OpenRouter model pages:
+- `deepseek/deepseek-v4.1-flash`: $0.13 input / $0.52 output per 1M; cached input $0.0026.
+- `z-ai/glm-5.3-flash`: $0.075 input / $0.25 output per 1M; cached input $0.015 (page identifies a promotional rate; re-check before future pricing changes).
+- `xiaomi/mimo-v2.6-flash`: $0.14 input / $0.28 output per 1M; cached input $0.0028.
+- `deepseek/deepseek-v4-flash-0731`: $0.0152 input / $1.28 output per 1M.
+- `deepseek/deepseek-v4-flash-vision-exp`: $0.2156 input / $0.6468 output per 1M; cached input $0.00686.
+
+The catalog also records all 16 names supplied by the owner. Unverified model names (including the GPT-6 Luna labels, Claude Haiku 5.5, Qwen3.8, Ling 3.1 Flash, Jev1.13, Decider V1.2, and MiMo-V2.6-Pro) intentionally have no runtime model ID and cannot be selected until their exact OpenRouter ID, modality/capabilities, endpoint/tool support, and live price are confirmed. DeepSeek V4.1 Flash 1017 has a verified exact ID but price remains pending in this catalog; do not route it until a price entry is added.
+
+### Routing skill map
+- Fast chat / everyday requests: GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo-V2.6-Flash (among configured and affordable candidates).
+- Coding/debugging/agent workflows: DeepSeek V4.1 Flash, DeepSeek V4 Flash 0731, GLM 5.3 Flash.
+- Research and complex analysis: DeepSeek V4.1 Flash, MiMo-V2.6-Flash.
+- Image/chart/document understanding: DeepSeek V4 Flash Vision Exp, DeepSeek V4.1 Flash, MiMo-V2.6-Flash; the existing request attachment adapter must independently confirm it can pass image/file input for that route.
+- Structured decisions: do not route to a chat model via this skill map. The dedicated decisions API and exact model endpoint/capabilities must be verified before enabling any proposed decision model.
+
+### Enablement
+Use exact provider-qualified IDs in `ROUTE_LEVEL_1` through `ROUTE_LEVEL_5`, e.g. `openrouter:deepseek/deepseek-v4.1-flash`. Confirm the parser accepts the provider prefix and set the same exact IDs in the OpenRouter price registry. This catalog does not automatically enable unconfigured models or override account-tier policy. Add task-specific candidates only after validating tool/vision support and pricing in the live OpenRouter catalog.
