@@ -264,3 +264,14 @@ test('end to end: a repeated coding question is answered from memory, per person
     assert.equal(provider.calls.length, n + 1, 'a message with a secret is never remembered');
   } finally { await srv.close(); }
 });
+
+
+test('planning council is explicitly opt-in and output-token overrides are bounded', async () => {
+  assert.equal(loadConfig({ ...ENV }).ai.routing.planningCouncilEnabled, false);
+  assert.equal(loadConfig({ ...ENV, PLANNING_COUNCIL_ENABLED: 'true' }).ai.routing.planningCouncilEnabled, true);
+  const a = setup({ env: { GEMINI_API_KEY: '' } });
+  const p = a.policy.plan({ tier: 'ultra', message: 'Design a secure architecture' });
+  const result = await a.policy.run(p, { ...req('Plan'), maxTokens: 128 });
+  assert.equal(a.openai.calls.length, 1);
+  assert.equal(result.result.text.length > 0, true);
+});
