@@ -4,6 +4,7 @@ import { createLocalProvider } from './local.js';
 import { createRouter } from './router.js';
 import { createGeminiProvider } from './gemini.js';
 import { createAnthropicProvider } from './anthropic.js';
+import { createOpenRouterProvider } from './openrouter.js';
 import { createCloudflareWorkersAIProvider } from './cloudflare-workers-ai.js';
 import { createCohereProvider } from './cohere.js';
 import { assertProvider } from './provider.js';
@@ -49,7 +50,14 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
   }
   for (const p of config.ai.freeProviders || []) {
     if (providers[p.id]) continue;
-    if (p.adapter === 'openai-compatible') {
+    if (p.id === 'openrouter') {
+      const freeFallback = createLocalProvider({
+        baseUrl: p.baseUrl, model: p.model, apiKey: p.apiKey,
+        vision: false, timeoutMs: 60_000, id: p.id,
+        external: true, trainsOnData: false, tools: false
+      });
+      providers[p.id] = assertProvider(createOpenRouterProvider({ apiKey: p.apiKey, model: p.model, fallbackProvider: freeFallback }));
+    } else if (p.adapter === 'openai-compatible') {
       providers[p.id] = assertProvider(createLocalProvider({
         baseUrl: p.baseUrl, model: p.model, apiKey: p.apiKey,
         vision: p.vision === true, timeoutMs: 60_000, id: p.id,
