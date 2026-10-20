@@ -350,3 +350,28 @@ test('coding tiers pin Max to GPT-6 Sol and Ultra to GPT-6.1 Sol', async () => {
   assert.equal(cfg.ai.coding.ultra.model, 'openai/gpt-6.1-sol');
   assert.equal(cfg.ai.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
 });
+
+
+test('OpenRouter TTS exposes Google voice IDs and selects a provider-scoped default', async () => {
+  const { createVoice } = await import('../src/voice.js');
+  const openrouter = {
+    provider: 'openrouter',
+    model: 'google/gemini-3.8-flash-lite-tts',
+    mime: 'audio/wav',
+    voices: [{ id: 'cedar', name: 'Cedar' }],
+    defaultVoice: 'cedar',
+    async synthesize({ voice }) { return Buffer.from('wav:' + voice); }
+  };
+  const voice = createVoice({
+    engine: openrouter,
+    engines: { openai: null, gemini: null, openrouter },
+    conversations: {},
+    limiter: {},
+    usageLog: {},
+    config: { isProduction: false },
+    logger: { error() {}, warn() {} }
+  });
+  assert.equal(voice.defaultVoice, 'openrouter:Charon');
+  assert.equal(voice.voices.some((v) => v.id === 'openrouter:Charon' && v.available), true);
+  assert.equal(voice.voices.some((v) => v.id === 'openrouter:cedar' && v.available), false);
+});
