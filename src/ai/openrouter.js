@@ -88,8 +88,17 @@ export function createOpenRouterClient({
   async function selectModel(task, preferred = []) {
     const modality = TASK_OUTPUT[task];
     if (!modality) throw new ProviderError('config', 'Unsupported OpenRouter task');
-    const models = await listModels();
-    const eligible = models.filter((m) => m.architecture.output_modalities.includes(modality));
+    let models;
+    if (task === 'image' || task === 'video') {
+      const result = await request(task === 'image' ? '/images/models' : '/videos/models', { method: 'GET' });
+      if (!Array.isArray(result.data)) throw new ProviderError('unavailable', 'OpenRouter specialized model catalog response is invalid');
+      models = result.data;
+    } else {
+      models = await listModels();
+    }
+    const eligible = models.filter((m) => task === 'video'
+      ? typeof m.id === 'string'
+      : m.architecture?.output_modalities?.includes(modality));
     for (const id of preferred) {
       const safeId = cleanModelId(id);
       const match = eligible.find((m) => m.id === safeId);
@@ -132,6 +141,14 @@ export function createOpenRouterClient({
 
   async function generateImage({ model, preferred = [], prompt, images, signal, ...options }) {
     const selected = model ? { id: cleanModelId(model) } : await selectModel('image', preferred);
+    if (Array.isArray(images) && images.length) {
+      const catalog = await request('/images/models', { method: 'GET' });
+      const capability = catalog.data?.find((m) => m.id === selected.id);
+      if (!capability?.architecture?.input_modalities?.includes('image')) throw new ProviderError('config', 'Selected image model does not advertise image-reference editing support');
+      const refs = images.slice(0, 8);
+      if (refs.some((item) => typeof item !== 'string' || (!item.startsWith('https://') && !/^data:image\/(png|jpeg|webp);base64,/.test(item)))) throw new ProviderError('config', 'Image references must be HTTPS URLs or supported image data URLs');
+      options.input_references = refs.map((image_url) => ({ image_url }));
+    }
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Image prompt must be 1–8000 characters');
     const body = { ...options, model: selected.id, prompt: prompt.trim() };
     if (Array.isArray(images) && images.length) body.images = images;
