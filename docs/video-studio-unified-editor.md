@@ -72,3 +72,20 @@ Do not mark a phase complete because buttons exist. Each control must perform th
 - Export's displayed format matches the downloaded file's real container and codec.
 - No duplicate DOM IDs, oversized icon buttons, clipped controls, console errors, or regressions in existing authentication and project APIs.
 - Tests pass and the deployed mobile editor is manually verified before production release.
+
+## Implementation update — multitrack editing phase (2026-10-20)
+
+Implemented in the current PR branch:
+- A persisted timeline model with separate Video, Overlay, Text, and Audio lanes. Each clip stores its timeline position, source in-point, duration, transition, filter, opacity, gain, and keyframes.
+- Clip edge trim handles with pointer input, numeric position/source-in/duration controls, clip splitting, and caption creation.
+- Filter options (original, cinematic, warm, cool, monochrome, vivid), fade/dissolve/wipe transitions, opacity and scale keyframes, and per-clip audio gain.
+- A live canvas preview that composites overlapping visual lanes and synchronizes audio/video media on a project clock.
+- Browser timeline export that composites overlapping visual clips and captions and mixes audio tracks through Web Audio; it applies supported filters, opacity/scale keyframes, and transitions.
+- Local and cloud project serialization for timeline positions, track assignments, effects, gain, and keyframes.
+- Regression tests for the timeline controls, serialization, compositor/export boundaries, and responsive styles.
+
+### Important release gates still open
+- **No server-side, guaranteed MP4 renderer is implemented.** Browser export deliberately selects a MIME type supported by the current browser and labels the resulting file accordingly (MP4 or WebM). A dependable MP4 path needs a supported server rendering worker/service and storage strategy, or a separately validated client-side transcoding pipeline; do not rename WebM to MP4.
+- Mobile Safari, tablet Safari, and desktop end-to-end playback/export must be exercised on real target browsers before production release. Source-level tests are not a substitute for device QA.
+- The browser renderer is intentionally bounded to 40 clips and 180 seconds per render for resource safety. Larger projects need a server renderer.
+- A wipe/fade transition is supported in the canvas compositor; a production-grade transition library, transform/position keyframes, waveform rendering, and professional-grade color/effect stack remain future enhancements.
