@@ -19,3 +19,28 @@ test('a valid attachment limit is kept', () => {
   assert.equal(cfg.ai.attachments.maxTotalBytes, 2 * 1024 * 1024);
   assert.equal(cfg.ai.attachments.maxCount, 6);
 });
+
+test('Ultra and Max coding use their requested OpenRouter Sol models', () => {
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    CODING_MAX_MODEL: 'openrouter:openai/gpt-6-sol',
+    CODING_ULTRA_MODEL: 'openrouter:openai/gpt-6.1-sol',
+    CODING_ULTRA_DEEP_MODEL: 'openrouter:openai/gpt-6.1-sol'
+  });
+  assert.equal(cfg.ai.coding.max.model, 'openai/gpt-6-sol');
+  assert.equal(cfg.ai.coding.ultra.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
+});
+
+test('OpenRouter TTS pins the configured Google Vertex provider and requested model', () => {
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    SPEECH_PROVIDER: 'openrouter',
+    OPENROUTER_TTS_MODEL: 'google/gemini-3.8-flash-lite-tts'
+  });
+  assert.equal(cfg.ai.speech.provider, 'openrouter');
+  assert.equal(cfg.ai.speech.openrouterModel, 'google/gemini-3.8-flash-lite-tts');
+  assert.equal(cfg.ai.speech.openrouterProvider, 'Google Vertex');
+});
