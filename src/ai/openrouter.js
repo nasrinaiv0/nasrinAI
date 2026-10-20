@@ -99,7 +99,9 @@ export function createOpenRouterClient({
     }
     let eligible = models.filter((m) => task === 'video'
       ? typeof m.id === 'string'
-      : m.architecture?.output_modalities?.includes(modality));
+      : task === 'image'
+        ? typeof m.id === 'string' && (m.architecture?.output_modalities?.includes('image') || !m.architecture)
+        : m.architecture?.output_modalities?.includes(modality));
     const inputModality = TASK_INPUT[task];
     if (inputModality) eligible = eligible.filter((m) => Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes(inputModality));
     if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
@@ -151,14 +153,15 @@ export function createOpenRouterClient({
     if (Array.isArray(images) && images.length) {
       const catalog = await request('/images/models', { method: 'GET' });
       const capability = catalog.data?.find((m) => m.id === selected.id);
-      if (!capability?.architecture?.input_modalities?.includes('image')) throw new ProviderError('config', 'Selected image model does not advertise image-reference editing support');
-      const refs = images.slice(0, 8);
+      const refLimit = capability?.supported_parameters?.input_references;
+      const maxRefs = Number(refLimit?.max ?? refLimit?.maximum ?? 0);
+      if (!capability || !Number.isFinite(maxRefs) || maxRefs < 1) throw new ProviderError('config', 'Selected image model does not advertise image-reference editing support');
+      const refs = images.slice(0, Math.min(16, maxRefs));
       if (refs.some((item) => typeof item !== 'string' || (!item.startsWith('https://') && !/^data:image\/(png|jpeg|webp);base64,/.test(item)))) throw new ProviderError('config', 'Image references must be HTTPS URLs or supported image data URLs');
       options.input_references = refs.map((image_url) => ({ image_url }));
     }
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Image prompt must be 1–8000 characters');
     const body = { ...options, model: selected.id, prompt: prompt.trim() };
-    if (Array.isArray(images) && images.length) body.images = images;
     return request('/images', { body, signal });
   }
 
