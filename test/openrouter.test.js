@@ -46,7 +46,7 @@ test('chat requests enforce bounded token limits and privacy provider policy', a
     sent = { url: String(url), body: JSON.parse(init.body), headers: init.headers };
     return response({ choices: [{ message: { content: 'ok' } }] });
   } });
-  await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }], maxTokens: 999999 });
+  await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }], maxTokens: 999999, provider: { data_collection: 'allow' } });
   assert.match(sent.url, /chat\/completions$/);
   assert.equal(sent.body.max_tokens, 32768);
   assert.equal(sent.body.provider.data_collection, 'deny');
