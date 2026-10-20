@@ -1420,3 +1420,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** automated tests were added but have not been run locally. GitHub CI is pending; the documentation gate initially failed because this entry was missing and must rerun after this commit. Do not merge or deploy until CI and review pass.
 
 - **Follow-up commit:** `59d6143fc0b1323523bdd9f7e32e5899172aea02` — preserve the established rule that Claude is not a default general-routing candidate while keeping it in the automatic failover pool; require at least one external provider key for `AI_PROVIDER=auto` (local-only deployments should use `AI_PROVIDER=local`).
+
+- **Follow-up commit:** `7d4591015663f0fd6661867297468bef87e4121e` — ensure explicit `AI_PROVIDER=claude` has a compatible level-1 route while keeping Claude out of default general routing in `auto` mode.
