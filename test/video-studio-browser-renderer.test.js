@@ -75,3 +75,12 @@ test('Video Studio controls use consistent hit areas and responsive padding', as
   assert.match(css, /@media\(max-width:390px\)/);
   assert.match(css, /body\.editor-mode \.editor-inspector input\{min-height:38px/);
 });
+
+test('Video Studio icon buttons use fixed square sizing and responsive padding', async () => {
+  const css = await readFile(new URL('../public/video-studio.css', import.meta.url), 'utf8');
+  assert.match(css, /\.media-bin \.bin-add[\s\S]*?inline-size:40px/);
+  assert.match(css, /\.preview-caption \.icon-button[\s\S]*?inline-size:34px/);
+  assert.match(css, /\.import-drop[\s\S]*?inline-size:100%/);
+  assert.match(css, /box-sizing:border-box/);
+  assert.match(css, /@media\(max-width:360px\)/);
+});
