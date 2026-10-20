@@ -31,4 +31,54 @@ test('the page CSP on Vercel is exactly the one the server sends', () => {
   assert.match(header('Strict-Transport-Security'), /max-age=31536000/);
 });
 
-test('page headers apply to the page files, not to the API or health check'¶»§q«^
+test('page headers apply to the page files, not to the API or health check', () => {
+  for (const p of ['/', '/index.html', '/app.js', '/app.css', '/icon.svg', '/v1x', '/healthzz']) assert.ok(matches(p), p);
+  for (const p of ['/v1', '/v1/', '/v1/chat', '/v1/conversations/abc/messages', '/healthz']) assert.ok(!matches(p), p);
+});
+
+test('Studio root redirects only on the Studio hostname', () => {
+  const studioRedirect = config.redirects.find((r) =>
+    r.source === '/' &&
+    r.destination === 'https://nasrinai.com/video-studio.html' &&
+    r.has?.some((condition) => condition.type === 'host' && condition.value === 'studio.nasrinai.com')
+  );
+  assert.ok(studioRedirect, 'Studio host has an explicit root redirect');
+  assert.equal(studioRedirect.permanent, false, 'use a temporary redirect while validating routing');
+  assert.equal(config.redirects.some((r) => r.source === '/' && r.destination === 'https://nasrinai.com/video-studio.html' && !r.has), false,
+    'do not redirect the main site root to Video Studio');
+});
+
+test('API paths are sent to the function, with the original path passed along', () => {
+  const dest = (p) => {
+    for (const r of config.rewrites) {
+      const re = new RegExp('^' + r.source.replace(':path*', '(.*)') + '$');
+      const m = re.exec(p);
+      if (m) return r.destination.replace(':path*', m[1] ?? '');
+    }
+    return null;
+  };
+  assert.equal(dest('/v1/chat'), '/api/index?__path=/v1/chat');
+  assert.equal(dest('/v1'), '/api/index?__path=/v1');
+  assert.equal(dest('/healthz'), '/api/index?__path=/healthz');
+  assert.equal(dest('/'), null, 'page root is handled by CDN/host redirects, not API rewrites');
+  assert.equal(config.functions['api/index.js'].maxDuration, 120);
+});
+
+test('the function restores only API paths', async () => {
+  const { restorePath } = await import('../api/index.js');
+  assert.equal(restorePath('/api/index?__path=/v1/chat'), '/v1/chat');
+  assert.equal(restorePath('/v1/chat?__path=/v1/chat'), '/v1/chat');
+  assert.equal(restorePath('/api/index?__path=/healthz'), '/healthz');
+  assert.equal(restorePath('/api/index?__path=/v1/conversations/abc/messages&x=1'), '/v1/conversations/abc/messages?x=1');
+  for (const bad of ['//evil.com', '/v1/../etc', '/admin', 'http://x/v1']) {
+    assert.equal(restorePath('/api/index?__path=' + encodeURIComponent(bad)), '/api/index?__path=' + encodeURIComponent(bad));
+  }
+});
+
+test('on Vercel the script, styles and manifest are revalidated on every load', () => {
+  const fresh = config.headers.find((r) => r.headers.some((h) => h.key === 'Cache-Control' && h.value === 'no-cache'));
+  assert.ok(fresh, 'a no-cache rule exists');
+  const re = new RegExp('^' + fresh.source + '$');
+  for (const p of ['/app.js', '/app.css', '/format.js', '/connect/smartchat.js', '/manifest.webmanifest']) assert.ok(re.test(p), p);
+  for (const p of ['/icon.svg', '/v1/chat', '/']) assert.ok(!re.test(p), p);
+});
