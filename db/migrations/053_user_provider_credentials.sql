@@ -1,5 +1,4 @@
 -- BYO provider credentials are encrypted by the application before persistence.
--- Only the server's service role may access this table; never expose credentials through client RLS.
 CREATE TABLE IF NOT EXISTS public.user_provider_credentials (
   tenant_id uuid NOT NULL,
   owner_id text NOT NULL,
@@ -12,5 +11,5 @@ CREATE TABLE IF NOT EXISTS public.user_provider_credentials (
   PRIMARY KEY (tenant_id, owner_id, provider)
 );
 ALTER TABLE public.user_provider_credentials ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.user_provider_credentials FROM anon, authenticated;
+REVOKE ALL ON TABLE public.user_provider_credentials FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE public.user_provider_credentials TO service_role;
