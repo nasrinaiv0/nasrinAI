@@ -842,7 +842,9 @@ export function loadConfig(env = process.env) {
         fastModel: /^(off|none|false)$/i.test(String(env.OPENAI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.OPENAI_TTS_FAST_MODEL || 'tts-1').trim(),
         // Gemini speech. GEMINI_TTS_FAST_MODEL is optional (empty: same model).
         openrouterModel: String(env.OPENROUTER_TTS_MODEL || (openrouterApiKey ? 'google/gemini-3.8-flash-lite-tts' : '')).trim(),
-        openrouterProvider: String(env.OPENROUTER_TTS_PROVIDER || 'Google Vertex').trim(),
+        // Current OpenRouter model listing shows Google AI Studio, not Google Vertex.
+        // Keep provider pinned to the listed endpoint until Vertex appears in the live endpoint catalog.
+        openrouterProvider: String(env.OPENROUTER_TTS_PROVIDER || 'Google AI Studio').trim(),
         geminiModel: String(env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts').trim(),
         geminiFastModel: /^(off|none|false)$/i.test(String(env.GEMINI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.GEMINI_TTS_FAST_MODEL || 'gemini-3.8-flash-lite-tts').trim(),
         responsive: String(env.SPEECH_RESPONSIVE ?? 'true').toLowerCase() !== 'false',
