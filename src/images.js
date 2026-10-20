@@ -290,7 +290,8 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
       try {
         try {
           out = await used.p.generate(request);
-          actualSpend = used.price;
+          actualSpend = Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? out.costUsd : used.price;
+          if (Number.isFinite(out?.costUsd) && out.costUsd > used.price) logger.warn('image provider actual cost exceeded configured estimate', { provider: used.p.id, model: used.p.model, configuredEstimateUsd: used.price, actualCostUsd: out.costUsd });
         } catch (err) {
           // The fallback, once, when the primary is down, overloaded, out of
           // quota, timed out, or its model is unavailable. Never for a safety
@@ -301,7 +302,9 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
           used = route.fallback;
           started = now();
           out = await used.p.generate(request);
-          actualSpend = (['busy', 'unavailable', 'refused', 'config'].includes(err.kind) ? 0 : (route.primary.price || 0)) + (used.price || 0);
+          const fallbackCost = Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? out.costUsd : (used.price || 0);
+          actualSpend = (['busy', 'unavailable', 'refused', 'config'].includes(err.kind) ? 0 : (route.primary.price || 0)) + fallbackCost;
+          if (Number.isFinite(out?.costUsd) && out.costUsd > used.price) logger.warn('image provider actual cost exceeded configured estimate', { provider: used.p.id, model: used.p.model, configuredEstimateUsd: used.price, actualCostUsd: out.costUsd });
         }
       } catch (err) {
         if (spendReservation) await budget.settleSpend(spendReservation, spendReservation.reservedUsd).catch(() => {});
