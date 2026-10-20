@@ -25,7 +25,8 @@ test('catalog selection validates actual output modality and caches catalog', as
   } });
   assert.equal((await client.selectModel('image', ['provider/chat', 'provider/picture'])).id, 'provider/picture');
   assert.equal((await client.selectModel('video', ['provider/video'])).id, 'provider/video');
-  assert.equal(calls, 1);
+  // Image and video use their dedicated catalog endpoints; text-model catalog caching is separate.
+  assert.equal(calls, 2);
 });
 
 test('specialized tasks fail closed when no model is verified', async () => {
