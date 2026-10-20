@@ -13,7 +13,7 @@ test('desktop navigation is accessible and delegates to existing controls', asyn
   assert.match(css, /@media \(min-width: 70rem\)/);
   assert.match(css, /max-aspect-ratio: 4\/3/);
   assert.match(js, /desktopNewChat'\)\?\.addEventListener\('click', \(\) => \$\('newChat'\)\?\.click\(\)/);
-  assert.match(js, /desktopHistoryBtn'\)\?\.addEventListener\('click', \(\) => \$\('historyBtn'\)\?\.click\(\)/);
+  assert.doesNotMatch(js, /desktopHistoryBtn/, 'removed desktop chats control has no event binding');
   assert.match(js, /desktopSettingsBtn'\)\?\.addEventListener\('click', \(\) => \$\('settingsBtn'\)\?\.click\(\)/);
   assert.doesNotMatch(html, /\son(?:click|load|error)\s*=/i);
 });
