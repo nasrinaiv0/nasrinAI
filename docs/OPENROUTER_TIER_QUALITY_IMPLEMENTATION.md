@@ -25,12 +25,12 @@ Do not infer quality from model names. Verify live capability and SKU/endpoint p
 - Added regression tests for lower-tier selection, unauthorized escalation, invalid tier values, Quick-only guest behavior, and image quality ceilings.
 
 ## Still required before release (do not claim complete)
-1. Tier-specific OpenRouter video provider construction and environment parsing are now implemented. Configure `OPENROUTER_VIDEO_PRO_MODEL`, `OPENROUTER_VIDEO_PRO_COST_PER_SECOND_USD`, `OPENROUTER_VIDEO_MAX_MODEL`, `OPENROUTER_VIDEO_MAX_COST_PER_SECOND_USD`, `OPENROUTER_VIDEO_ULTRA_MODEL`, and `OPENROUTER_VIDEO_ULTRA_COST_PER_SECOND_USD`. Legacy `OPENROUTER_VIDEO_MODEL` plus its price is treated as Ultra-only; it is never silently reused for Pro or Max. Validate live capability and live SKU pricing for each configured route.
-2. Add explicit tier-to-image route config instead of relying only on legacy `IMAGE_TIER_n` slots. Verify selected Pro never routes to Max/Ultra model and Max never gets Ultra-only quality.
+1. Tier-specific OpenRouter video provider construction and environment parsing are now implemented. The UI sends the selected tier and requests 8-second clips, matching the adapter's verified single-shot limit. Configure `OPENROUTER_VIDEO_PRO_MODEL`, `OPENROUTER_VIDEO_PRO_COST_PER_SECOND_USD`, `OPENROUTER_VIDEO_MAX_MODEL`, `OPENROUTER_VIDEO_MAX_COST_PER_SECOND_USD`, `OPENROUTER_VIDEO_ULTRA_MODEL`, and `OPENROUTER_VIDEO_ULTRA_COST_PER_SECOND_USD`. Legacy `OPENROUTER_VIDEO_MODEL` plus its price is treated as Ultra-only; it is never silently reused for Pro or Max. Validate live capability and live SKU pricing for each configured route.
+2. Add explicit tier-to-image route config instead of relying only on legacy `IMAGE_TIER_n` slots. Verify selected Pro never routes to Max/Ultra model and Max never gets Ultra-only quality. Existing slots are currently capped by tier but must be mapped to verified per-tier models and prices.
 3. Confirm frontend sends selected `tier` for image and video. Do not infer from account subscription when a lower tier is selected.
 4. Audit brief/preview, retry, extension, status, and internal job paths. Maintain owner checks for all existing jobs.
 5. Ensure video spend reservations reconcile actual provider costs durably and idempotently across retries/failures.
-6. Update plan descriptions and all UI/API docs to reflect only enabled and verified routes.
+6. Update plan descriptions and all UI/API docs to reflect only enabled and verified routes. Keep video UI duration aligned with the provider's verified cap; do not advertise one-minute output until safe extension and final-cost reconciliation are implemented.
 7. Test model/price mismatch, cache separation by selected tier, reservations/settlement, and live provider behavior.
 
 ## Release gates
