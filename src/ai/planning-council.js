@@ -83,6 +83,7 @@ export async function runPlanningCouncil({
     }
   }
   const useful = findings.filter((f) => f.text);
+  if (!useful.length) return { used: false, reason: 'council_unavailable', findings, costUsd };
   const minimum = Math.max(1, Math.min(count, Math.floor(Number(minSuccessfulRoles) || 2)));
   if (useful.length < minimum) return { used: false, reason: 'insufficient_diversity', findings, costUsd };
   const synthesisContext = useful.map((f) => '## ' + f.role + '\n' + f.text).join('\n\n');
