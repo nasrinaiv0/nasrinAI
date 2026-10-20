@@ -4470,6 +4470,7 @@
   const spaceCoding = $('spaceCoding');
   const spaceProjects = $('spaceProjects');
   const spaceCloud = $('spaceCloud');
+  const spaceStudio = $('spaceStudio');
   const spaceFinance = $('spaceFinance');
   const spaceNcc = $('spaceNcc');
   const signinSheet = $('signin');
@@ -4641,6 +4642,7 @@
   if (spaceProjects) spaceProjects.addEventListener('click', () => account ? openHistory('projects') : openSignIn('Sign in to keep chats, files, tasks and instructions together in projects.'));
   // Coding (Space tile and the "Start coding" starter) opens the coding chat's project picker.
   if (spaceCoding) spaceCoding.addEventListener('click', () => { closeSettings(); openCodePicker(); });
+  if (spaceStudio) spaceStudio.addEventListener('click', () => { window.location.assign('/video-studio.html'); });
   if (spaceCloud) spaceCloud.addEventListener('click', () => {
     const status = $('spaceStatus');
     if (status) status.textContent = 'Cloud will appear here when its secure NasrinAI connection is ready.';

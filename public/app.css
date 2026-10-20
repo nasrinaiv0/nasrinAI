@@ -3765,3 +3765,15 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .professional-job-footer a:hover{text-decoration:underline}
 .professional-search-footnote{margin:.75rem .1rem 0;font-size:.76rem;line-height:1.5;opacity:.62}
 @media(max-width:38rem){.professional-jobs{padding:.75rem}.professional-search-form{padding:.75rem}.professional-search-filters{grid-template-columns:1fr}.professional-job-fields{grid-template-columns:1fr}.professional-job-evidence{grid-column:auto}.professional-search-actions{align-items:flex-start;flex-direction:column}.professional-search-actions .btn{width:100%}.professional-search-results-head{align-items:flex-start}.professional-search-cards{max-height:62vh}}
+
+
+/* Video Studio brand mark: keep the orange play accent while adapting the pause line to the selected app theme. */
+.nvs-studio-mark{display:block;width:1.35rem;height:1.35rem;flex:0 0 auto;overflow:visible}
+.nvs-studio-mark__line{fill:#0B0B0C}
+.nvs-studio-mark__play{fill:#FFB27F}
+:root[data-theme="dark"] .nvs-studio-mark__line{fill:#FAFAF8}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .nvs-studio-mark__line{fill:#FAFAF8}}
+.space-app-icon .nvs-studio-mark{width:2rem;height:2rem}
+.desktop-rail-studio .nvs-studio-mark{width:1.25rem;height:1.25rem}
+.drawer-studio-link{display:flex;align-items:center;gap:.75rem;color:inherit;text-decoration:none}
+.drawer-studio-link:hover{text-decoration:none}

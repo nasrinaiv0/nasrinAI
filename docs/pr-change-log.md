@@ -1371,3 +1371,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Replaced sequential-only browser export with a timeline-clock compositor for overlapping visual tracks, caption overlays, basic transitions/filters, opacity/scale keyframes, and audio mixing.
 - Added test/video-studio-multitrack.test.js and updated renderer regression assertions to cover the new implementation and resource limits.
 - **Release gates:** guaranteed/server-side MP4 rendering is not implemented; browser export emits only the actual supported MIME type (MP4 or WebM). Real iOS Safari, tablet, and desktop end-to-end playback/export QA is still required. Browser export remains capped at 40 clips and 180 seconds.
+
+
+## PR #484 — Video Studio in NasrinAI Space (2026-10-20)
+
+- Added a Video Studio tile to the NasrinAI Space app grid and wired it to open `/video-studio.html`.
+- Added a Studio shortcut to the navigation drawer and replaced the desktop rail's generic video icon/label with the supplied NasrinAI Video Studio logo and concise Studio label.
+- Added the supplied SVG under `public/space-logos/nasrinai-video-studio.svg` and made the inline navigation mark adapt its pause line to the selected light/dark theme while preserving the pastel-orange play mark.
+- Added regression assertions for Space navigation and the adaptive logo mark.
