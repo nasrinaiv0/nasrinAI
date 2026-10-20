@@ -63,3 +63,15 @@ test('CapCut-style editor has unique IDs and working media, text, audio, save, a
   assert.match(css, /\.timeline-section/);
   assert.match(css, /@media\(max-width:760px\)/);
 });
+
+
+test('Video Studio controls use consistent hit areas and responsive padding', async () => {
+  const css = await readFile(new URL('../public/video-studio.css', import.meta.url), 'utf8');
+  assert.match(css, /button:focus-visible,a:focus-visible/);
+  assert.match(css, /\.project-actions \.quiet-button\{[^}]*min-width:0/);
+  assert.match(css, /\.primary-button\{min-height:42px/);
+  assert.match(css, /\.tabs\{align-items:stretch/);
+  assert.match(css, /body\.editor-mode \.editor-tool\{min-height:38px/);
+  assert.match(css, /@media\(max-width:390px\)/);
+  assert.match(css, /body\.editor-mode \.editor-inspector input\{min-height:38px/);
+});
