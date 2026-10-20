@@ -109,3 +109,13 @@ The following general text models have conservative rates in `config/model-price
 - **Listed token rates:** $0.50/M text input and $6/M generated audio output. Audio output must be counted as output tokens, not text output.
 - `src/config.js` defaults speech to OpenRouter when `OPENROUTER_API_KEY` exists, and `src/main.js` builds the OpenRouter speech adapter from those settings. Live verification is still needed to confirm the provider filter accepts the exact label and the response audio format is handled correctly.
 - OpenRouter listing: [Gemini 3.8 Flash Lite TTS](https://openrouter.ai/google/gemini-3.8-flash-lite-tts/). Pricing and provider availability may change; run a low-cost Preview smoke test before production.
+
+
+## Coding and TTS model assignment — 2026-10-21
+
+- **Max coding:** `openai/gpt-6-sol` at $2/M input and $10/M output.
+- **Ultra coding:** `openai/gpt-6.1-sol` at $2/M input and $10/M output. Ultra deep coding uses the same GPT-6.1 Sol route.
+- **TTS:** `google/gemini-3.8-flash-lite-tts` at $0.50/M text input and $6/M generated audio output. Configuration pins the requested provider label `Google Vertex` and disables provider fallback when pinned.
+- OpenRouter lists GPT-6 Sol and GPT-6.1 Sol at $2/$10 per million input/output tokens. The Gemini 3.8 Flash Lite TTS listing confirms $0.50/$6 per million text-input/audio-output tokens. Sources: https://openrouter.ai/openai/gpt-6-sol/ ; https://openrouter.ai/openai/gpt-6.1-sol ; https://openrouter.ai/google/gemini-3.8-flash-lite-tts/ .
+- **Provider availability gate:** the current public Gemini Flash Lite TTS listing shows Google AI Studio as its provider, not Google Vertex. Because this configuration pins `Google Vertex` with no fallback, TTS will fail closed if OpenRouter does not expose that provider for this model. Before production, verify the exact provider ID/name in OpenRouter's live endpoint catalog. If Google Vertex is not offered for this model, choose explicitly between (a) switching the pin to the available Google AI Studio provider or (b) using a Vertex-native integration with the matching Vertex model and authentication. Do not silently fall back to a different provider.
+- Regression tests assert the configured model IDs and provider pin. They do not substitute for authenticated provider smoke tests.
