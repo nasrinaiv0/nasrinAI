@@ -93,19 +93,26 @@ test('decision models use the structured Decisions API, not chat completions', a
   await assert.rejects(client.chat({ task: 'decisions', model: 'typesafe/jev-1.13', messages: [{ role: 'user', content: 'x' }] }), /require decide/);
 });
 
-test('image and video model discovery use their dedicated capability catalogs', async () => {
+test('image and video model discovery use dedicated catalogs and reject unsupported video settings', async () => {
   const urls = [];
-  const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url) => {
+  const requests = [];
+  const videoModel = model('provider/video-maker', 'video');
+  const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
     urls.push(String(url));
     if (String(url).endsWith('/images/models')) return response({ data: [
       { id: 'provider/vision-only', architecture: { output_modalities: ['text'], input_modalities: ['image'] } },
       { id: 'provider/image-maker', architecture: { output_modalities: ['image'], input_modalities: ['text'] } }
     ] });
-    if (String(url).endsWith('/videos/models')) return response({ data: [{ id: 'provider/video-maker', supported_parameters: { duration: { min: 1, max: 8 } } }] });
+    if (String(url).endsWith('/videos/models')) return response({ data: [videoModel] });
+    if (String(url).endsWith('/videos')) { requests.push(JSON.parse(init.body)); return response({ id: 'job-abc123', status: 'pending' }, 202); }
     return response({ data: [] });
   } });
   assert.equal((await client.selectModel('image', ['provider/image-maker'])).id, 'provider/image-maker');
   assert.equal((await client.selectModel('video', ['provider/video-maker'])).id, 'provider/video-maker');
+  await client.createVideo({ model: 'provider/video-maker', prompt: 'A calm lake', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.12 });
+  assert.equal(requests[0].duration, 8);
+  await assert.rejects(client.createVideo({ model: 'provider/video-maker', prompt: 'Unsupported duration', duration: 5, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.12 }), /does not advertise the requested duration/);
+  await assert.rejects(client.createVideo({ model: 'provider/video-maker', prompt: 'Underbudget', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.01 }), /below the live catalog rate/);
   assert.ok(urls.some((url) => url.endsWith('/images/models')));
   assert.ok(urls.some((url) => url.endsWith('/videos/models')));
 });
