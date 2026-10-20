@@ -1,4 +1,14 @@
 
+## Proposed PR — Durable Video Studio media assets (`feat/video-studio-persistent-assets`)
+
+- **Storage:** add migration 052 for a private `video-studio-assets` Supabase Storage bucket with a 50 MB object limit and video/image/audio MIME allowlist; no direct browser policies are granted.
+- **API:** add authenticated, owner-scoped one-time upload URLs, short-lived signed download URLs, and asset deletion. Object keys are derived server-side from the verified tenant/actor plus a UUID; the service key never reaches the browser.
+- **Studio:** cloud save uploads local media bytes before saving project metadata, persists validated asset IDs/MIME types, and resolves signed URLs when reopening a project. The server rejects cloud projects that claim an uploaded clip without a durable asset ID.
+- **Cleanup:** project updates/deletion attempt to remove no-longer-referenced assets after the project mutation succeeds. Storage cleanup is best-effort; failed cleanup can leave an orphan, but ownership scoping prevents cross-user deletion.
+- **Tests/docs:** add service-level tests for auth, size/type validation, owner scoping, private URL signing, and frontend/cloud-document integration; add database assertions for bucket privacy/limits; update architecture docs.
+- **CI follow-up:** the first database run showed that plain PostgreSQL CI does not create Supabase's `storage.buckets` schema. Migration 052 and its DB assertions now skip only the Storage-specific DDL/assertions when that schema is absent; on Supabase the bucket is still created and checked.
+- **Deployment gates:** CI and DB tests must pass. Migration 052 must be applied through the approved migration process, then verify real signed-in upload/save/reopen/delete on staging. Browser rendering remains client-side; this does not add a server-side render worker.
+
 ## Proposed PR — Require optimistic versions for Video Studio cloud saves (`fix/video-studio-version-conflicts`)
 
 - **Change:** reject cloud project updates that omit a positive `expected_version`; this prevents a client from bypassing the optimistic concurrency guard and silently overwriting another edit. Existing stale-version updates continue to return a conflict response.

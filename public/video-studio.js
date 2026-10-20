@@ -25,13 +25,13 @@
     return data;
   }
   function saveDraft(){
-    try{const payload={name:safe($('projectName').value).slice(0,80)||'Untitled video',template:state.template,aspect:$('aspect').value,cloudProjectId:state.cloudProjectId,cloudVersion:state.cloudVersion,clips:state.clips.map(c=>({id:c.id,name:c.name,title:c.title||'',kind:c.kind,duration:c.duration,videoId:c.videoId||null,download:c.download||null,createdAt:c.createdAt||null})),generated:state.generated};localStorage.setItem('nasrinai.videoStudio.draft.v1',JSON.stringify(payload));$('saveState').textContent='Draft saved locally';$('checkDraft').textContent='✓';}catch{$('saveState').textContent='Draft could not be saved';}
+    try{const payload={name:safe($('projectName').value).slice(0,80)||'Untitled video',template:state.template,aspect:$('aspect').value,cloudProjectId:state.cloudProjectId,cloudVersion:state.cloudVersion,clips:state.clips.map(c=>({id:c.id,name:c.name,title:c.title||'',kind:c.kind,duration:c.duration,videoId:c.videoId||null,assetId:c.assetId||null,mediaType:c.mediaType||c.file?.type||null,download:c.download||null,createdAt:c.createdAt||null})),generated:state.generated};localStorage.setItem('nasrinai.videoStudio.draft.v1',JSON.stringify(payload));$('saveState').textContent='Draft saved locally';$('checkDraft').textContent='✓';}catch{$('saveState').textContent='Draft could not be saved';}
     updateStats();
   }
   function loadDraft(){try{const d=JSON.parse(localStorage.getItem('nasrinai.videoStudio.draft.v1')||'null');if(!d)return;if(d.name)$('projectName').value=d.name;if(d.aspect)$('aspect').value=d.aspect;if(typeof d.prompt==='string')$('prompt').value=d.prompt.slice(0,1800);state.cloudProjectId=typeof d.cloudProjectId==='string'?d.cloudProjectId:null;state.cloudVersion=Number.isInteger(d.cloudVersion)?d.cloudVersion:null;if(d.template&&templates[d.template])selectTemplate(d.template,false);state.generated=Array.isArray(d.generated)?d.generated:[];state.clips=Array.isArray(d.clips)?d.clips.filter(c=>c&&typeof c.id==='string').map(c=>({...c,file:null,url:c.kind==='generated'?null:(c.download||null)})):[];renderTimeline();renderExports();}catch{}}
   function selectTemplate(key,fill=true){if(!templates[key])return;state.template=key;document.querySelectorAll('.template-card').forEach(b=>b.classList.toggle('selected',b.dataset.template===key));const t=templates[key];$('previewTitle').textContent=t.title;$('previewSub').textContent=t.sub;$('previewPlaceholder').hidden=false;$('previewVideo').hidden=true;$('previewVideo').removeAttribute('src');$('previewFormat').textContent=$('aspect').value+' · '+($('aspect').value==='9:16'?'PORTRAIT':'LANDSCAPE');if(fill&&!$('prompt').value.trim())$('prompt').value=t.prompt;if(fill)$('aspect').value=t.ratio;$('previewFrame').classList.toggle('portrait',$('aspect').value==='9:16');$('statStatus').textContent='Draft';$('checkTemplate').textContent='✓';saveDraft();}
   function updateStats(){$('clipCount').textContent=String(state.clips.length);$('statClips').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s');$('statRatio').textContent=$('aspect').value;$('checkClips').textContent=state.clips.length?'✓':'○';$('timelineSummary').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s')+' · '+state.clips.reduce((n,c)=>n+(Number(c.duration)||0),0).toFixed(1)+' seconds';}
-  async function showClip(c){if(!c)return;state.selected=c.id;const video=$('previewVideo');let clipUrl=c.url;if(c.kind==='generated'&&!clipUrl&&c.download){try{const r=await fetch(c.download,{headers:{Authorization:'Bearer '+await refreshToken()},credentials:'same-origin'});if(!r.ok)throw new Error('Please sign in again to preview this clip.');clipUrl=URL.createObjectURL(await r.blob());c.url=clipUrl;state.objectUrls.set(clipUrl,true);}catch(err){notice(err.message||'Could not load this video preview.',true);}}if(clipUrl){video.src=clipUrl;video.hidden=false;$('previewPlaceholder').hidden=true;}else{video.hidden=false;video.removeAttribute('src');$('previewPlaceholder').hidden=false;}$('previewTitle').textContent=c.title||c.name;$('previewSub').textContent=(c.kind==='generated'?'AI-generated clip':c.kind==='upload'?'Uploaded media':'Template card')+' · '+Number(c.duration||0)+'s';$('statStatus').textContent=c.kind==='generated'?'Generated':'Editing';$('inspectorEmpty').hidden=true;$('inspectorContent').hidden=false;$('clipName').value=c.name||'';$('clipTitle').value=c.title||'';$('clipStart').value=c.start||0;$('clipDuration').value=c.duration||8;renderTimeline();}
+  async function showClip(c){if(!c)return;state.selected=c.id;const video=$('previewVideo');let clipUrl=c.url;if(!clipUrl&&(c.kind==='generated'&&c.download||c.assetId)){try{clipUrl=await resolveClipSource(c);c.url=clipUrl;state.objectUrls.set(clipUrl,true);}catch(err){notice(err.message||'Could not load this media preview.',true);}}if(clipUrl){video.src=clipUrl;video.hidden=false;$('previewPlaceholder').hidden=true;}else{video.hidden=false;video.removeAttribute('src');$('previewPlaceholder').hidden=false;}$('previewTitle').textContent=c.title||c.name;$('previewSub').textContent=(c.kind==='generated'?'AI-generated clip':c.kind==='upload'?'Uploaded media':'Template card')+' · '+Number(c.duration||0)+'s';$('statStatus').textContent=c.kind==='generated'?'Generated':'Editing';$('inspectorEmpty').hidden=true;$('inspectorContent').hidden=false;$('clipName').value=c.name||'';$('clipTitle').value=c.title||'';$('clipStart').value=c.start||0;$('clipDuration').value=c.duration||8;renderTimeline();}
   function renderTimeline(){
     const root=$('timeline');root.replaceChildren();
     if(!state.clips.length){const empty=document.createElement('div');empty.className='empty-timeline';const i=document.createElement('span');i.textContent='▤';const b=document.createElement('b');b.textContent='Your timeline is waiting';const p=document.createElement('p');p.textContent='Generate a scene or add media to begin.';empty.append(i,b,p);root.append(empty);}
@@ -89,6 +89,15 @@
     const button=$('saveProject');button.disabled=true;button.textContent='Saving…';
     try{
       const name=safe($('projectName').value).slice(0,80)||'Untitled video';
+      // Upload local media bytes first; only then save stable asset IDs in project metadata.
+      for(const clip of state.clips){
+        if(clip.kind!=='upload'||clip.assetId||!(clip.file instanceof Blob))continue;
+        const file=clip.file;
+        const signed=await api('/v1/video-studio/assets',{method:'POST',body:JSON.stringify({name:file.name||clip.name,type:file.type||clip.mediaType||'application/octet-stream',size:file.size})});
+        const uploaded=await fetch(signed.upload_url,{method:'PUT',headers:{'Content-Type':file.type||clip.mediaType||'application/octet-stream'},body:file,credentials:'omit'});
+        if(!uploaded.ok){try{await api('/v1/video-studio/assets/'+encodeURIComponent(signed.id),{method:'DELETE'});}catch{}throw new Error('Could not upload '+(file.name||clip.name)+' to cloud storage. Your local draft remains available.');}
+        clip.assetId=signed.id;clip.mediaType=file.type||clip.mediaType||'application/octet-stream';
+      }
       const body={name,document:cloudDocument(),...(state.cloudVersion?{expected_version:state.cloudVersion}:{})};
       const response=state.cloudProjectId
         ? await api('/v1/video-studio/projects/'+encodeURIComponent(state.cloudProjectId),{method:'PUT',body:JSON.stringify(body)})
@@ -205,6 +214,12 @@
   async function resolveClipSource(clip){
     if(clip.file instanceof Blob)return URL.createObjectURL(clip.file);
     if(clip.url&&typeof clip.url==='string')return clip.url;
+    if(clip.assetId&&typeof clip.assetId==='string'){
+      const asset=await api('/v1/video-studio/assets/'+encodeURIComponent(clip.assetId));
+      const response=await fetch(asset.url,{credentials:'omit'});
+      if(!response.ok)throw new Error('Could not load this saved media asset. Check your sign-in and try again.');
+      return URL.createObjectURL(await response.blob());
+    }
     if(clip.download&&typeof clip.download==='string'){
       const response=await fetch(clip.download,{headers:{Authorization:'Bearer '+await refreshToken()},credentials:'same-origin'});
       if(!response.ok)throw new Error('Could not load a generated clip. Reopen the project while signed in and try again.');
@@ -259,14 +274,14 @@
         const clip=clips[index],duration=durations[index],sourceUrl=await resolveClipSource(clip);
         if(sourceUrl.startsWith('blob:'))temporaryUrls.push(sourceUrl);
         let media;
-        if(clip.kind==='image'||(clip.file?.type||'').startsWith('image/')){
+        if(clip.kind==='image'||(clip.mediaType||clip.file?.type||'').startsWith('image/')){
           media=new Image();media.src=sourceUrl;await waitForMedia(media,'load');
           drawFrame(media,clip);const start=performance.now();
           await new Promise(resolve=>{const tick=now=>{drawFrame(media,clip);const pct=Math.min(1,(now-start)/(duration*1000));progress.value=Math.round(((elapsed+duration*pct)/total)*100);if(pct>=1)resolve();else raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);});
         }else{
-          const audioOnly=clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
+          const audioOnly=clip.kind==='audio'||(clip.mediaType||clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
           await waitForMedia(media,'loadedmetadata');
-          if(clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/')){media.style.display='none';document.body.append(media);}
+          if(audioOnly){media.style.display='none';document.body.append(media);}
           if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioDestination);}
           const startAt=Math.max(0,Number(clip.start)||0);if(startAt<media.duration&&Math.abs(media.currentTime-startAt)>0.05){
             // Register before assigning currentTime: Safari may dispatch seeked immediately.

@@ -35,10 +35,14 @@ function cleanVideoStudioDocument(raw) {
     const id = text(c.id, 100);
     const kind = ['generated', 'upload', 'template'].includes(c.kind) ? c.kind : 'template';
     const videoId = typeof c.videoId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.videoId) ? c.videoId : null;
+    const assetId = typeof c.assetId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.assetId) ? c.assetId : null;
+    if (kind === 'upload' && !assetId) throw new HttpError(400, 'video_asset_required', 'Re-add this uploaded media and save again so its file is included in the cloud project.');
+    const mediaType = kind === 'upload' && typeof c.mediaType === 'string' && /^(video|image|audio)\//i.test(c.mediaType) ? c.mediaType.slice(0, 100) : null;
     return { id, name:text(c.name, 120, 'Clip'), title:text(c.title, 200), kind,
       duration:Math.max(0, Math.min(3600, Number(c.duration) || 0)),
       start:Math.max(0, Math.min(3600, Number(c.start) || 0)),
       videoId, download:videoId && kind === 'generated' ? '/v1/videos/' + videoId + '/content' : null,
+      assetId:kind === 'upload' ? assetId : null, mediaType,
       createdAt:text(c.createdAt, 40) };
   }).filter((c) => c.id);
   const generated = arr(raw.generated).filter((g) => g && typeof g === 'object' && !Array.isArray(g)).map((g) => ({
@@ -50,8 +54,7 @@ function cleanVideoStudioDocument(raw) {
   return document;
 }
 
-
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -897,8 +900,15 @@ return { body: { sites: await connect.list(caller) } }; }
           throw new HttpError(400, 'expected_version_required', 'Reload this project before saving so changes are not overwritten.');
         }
         const expectedVersion = body.expected_version;
-        const project = await store.updateVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id, name, document: cleanVideoStudioDocument(body.document), expectedVersion });
+        const previous = await store.getVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
+        const document = cleanVideoStudioDocument(body.document);
+        const project = await store.updateVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id, name, document, expectedVersion });
         if (!project) throw new HttpError(409, 'video_project_conflict', 'This project changed or is no longer available. Reload it before saving again.');
+        if (videoStudioAssets && previous) {
+          const retained = new Set(document.clips.map((clip) => clip.assetId).filter(Boolean));
+          const obsolete = [...new Set((previous.document?.clips || []).map((clip) => clip?.assetId).filter((id) => typeof id === 'string'))].filter((id) => !retained.has(id));
+          for (const id of obsolete) await videoStudioAssets.remove(caller, id).catch(() => {});
+        }
         return { body: { project } };
       }
     },
@@ -909,9 +919,43 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params }) => {
         if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to delete cloud Video Studio projects.');
         if (!store?.deleteVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        const project = await store.getVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
+        if (!project) throw new HttpError(404, 'not_found', 'That video project was not found.');
         const deleted = await store.deleteVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
         if (!deleted) throw new HttpError(404, 'not_found', 'That video project was not found.');
+        if (videoStudioAssets) {
+          const ids = [...new Set((project.document?.clips || []).map((clip) => clip?.assetId).filter((id) => typeof id === 'string'))];
+          for (const id of ids) await videoStudioAssets.remove(caller, id).catch(() => {});
+        }
         return { body: { deleted: true } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/assets',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body, ip }) => {
+        if (!videoStudioAssets) throw new HttpError(503, 'video_assets_unavailable', 'Cloud media storage is not configured yet.');
+        return { status: 201, body: await videoStudioAssets.sign(caller, body, ip) };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/assets/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!videoStudioAssets) throw new HttpError(503, 'video_assets_unavailable', 'Cloud media storage is not configured yet.');
+        return { body: await videoStudioAssets.readUrl(caller, params.id) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/video-studio/assets/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!videoStudioAssets) throw new HttpError(503, 'video_assets_unavailable', 'Cloud media storage is not configured yet.');
+        return { body: await videoStudioAssets.remove(caller, params.id) };
       }
     },
     {
