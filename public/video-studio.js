@@ -29,9 +29,38 @@
     updateStats();
   }
   function loadDraft(){try{const d=JSON.parse(localStorage.getItem('nasrinai.videoStudio.draft.v1')||'null');if(!d)return;if(d.name)$('projectName').value=d.name;if(d.aspect)$('aspect').value=d.aspect;if(typeof d.prompt==='string')$('prompt').value=d.prompt.slice(0,1800);state.cloudProjectId=typeof d.cloudProjectId==='string'?d.cloudProjectId:null;state.cloudVersion=Number.isInteger(d.cloudVersion)?d.cloudVersion:null;if(d.template&&templates[d.template])selectTemplate(d.template,false);state.generated=Array.isArray(d.generated)?d.generated:[];state.clips=Array.isArray(d.clips)?d.clips.filter(c=>c&&typeof c.id==='string').map(c=>({...c,file:null,url:c.kind==='generated'?null:(c.download||null)})):[];renderTimeline();renderExports();}catch{}}
-  function selectTemplate(key,fill=true){if(!templates[key])return;state.template=key;document.querySelectorAll('.template-card').forEach(b=>b.classList.toggle('selected',b.dataset.template===key));const t=templates[key];$('previewTitle').textContent=t.title;$('previewSub').textContent=t.sub;$('previewPlaceholder').hidden=false;$('previewVideo').hidden=true;$('previewVideo').removeAttribute('src');$('previewFormat').textContent=$('aspect').value+' · '+($('aspect').value==='9:16'?'PORTRAIT':'LANDSCAPE');if(fill&&!$('prompt').value.trim())$('prompt').value=t.prompt;if(fill)$('aspect').value=t.ratio;$('previewFrame').classList.toggle('portrait',$('aspect').value==='9:16');$('statStatus').textContent='Draft';$('checkTemplate').textContent='✓';saveDraft();}
+  function clearAuxPreview(){document.querySelectorAll('[data-studio-media-preview]').forEach(node=>node.remove());$('previewVideo').hidden=true;$('previewVideo').removeAttribute('src');}
+  function selectTemplate(key,fill=true){if(!templates[key])return;clearAuxPreview();state.template=key;document.querySelectorAll('.template-card').forEach(b=>b.classList.toggle('selected',b.dataset.template===key));const t=templates[key];$('previewTitle').textContent=t.title;$('previewSub').textContent=t.sub;$('previewPlaceholder').hidden=false;$('previewVideo').hidden=true;$('previewVideo').removeAttribute('src');$('previewFormat').textContent=$('aspect').value+' · '+($('aspect').value==='9:16'?'PORTRAIT':'LANDSCAPE');if(fill&&!$('prompt').value.trim())$('prompt').value=t.prompt;if(fill)$('aspect').value=t.ratio;$('previewFrame').classList.toggle('portrait',$('aspect').value==='9:16');$('statStatus').textContent='Draft';$('checkTemplate').textContent='✓';saveDraft();}
   function updateStats(){$('clipCount').textContent=String(state.clips.length);$('statClips').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s');$('statRatio').textContent=$('aspect').value;$('checkClips').textContent=state.clips.length?'✓':'○';$('timelineSummary').textContent=state.clips.length+' clip'+(state.clips.length===1?'':'s')+' · '+state.clips.reduce((n,c)=>n+(Number(c.duration)||0),0).toFixed(1)+' seconds';}
-  async function showClip(c){if(!c)return;state.selected=c.id;const video=$('previewVideo');let clipUrl=c.url;if(!clipUrl&&(c.kind==='generated'&&c.download||c.assetId)){try{clipUrl=await resolveClipSource(c);c.url=clipUrl;state.objectUrls.set(clipUrl,true);}catch(err){notice(err.message||'Could not load this media preview.',true);}}if(clipUrl){video.src=clipUrl;video.hidden=false;$('previewPlaceholder').hidden=true;}else{video.hidden=false;video.removeAttribute('src');$('previewPlaceholder').hidden=false;}$('previewTitle').textContent=c.title||c.name;$('previewSub').textContent=(c.kind==='generated'?'AI-generated clip':c.kind==='upload'?'Uploaded media':'Template card')+' · '+Number(c.duration||0)+'s';$('statStatus').textContent=c.kind==='generated'?'Generated':'Editing';$('inspectorEmpty').hidden=true;$('inspectorContent').hidden=false;$('clipName').value=c.name||'';$('clipTitle').value=c.title||'';$('clipStart').value=c.start||0;$('clipDuration').value=c.duration||8;renderTimeline();}
+  async function showClip(c){
+    if(!c)return;
+    state.selected=c.id;
+    let clipUrl=c.url;
+    if(!clipUrl&&((c.kind==='generated'&&c.download)||c.assetId)){
+      try{clipUrl=await resolveClipSource(c);c.url=clipUrl;state.objectUrls.set(clipUrl,true);}
+      catch(err){notice(err.message||'Could not load this media preview.',true);}
+    }
+    clearAuxPreview();
+    const video=$('previewVideo');
+    const mediaType=String(c.mediaType||c.file?.type||'').toLowerCase();
+    const isImage=c.kind==='image'||mediaType.startsWith('image/');
+    const isAudio=c.kind==='audio'||mediaType.startsWith('audio/');
+    if(clipUrl&&isImage){
+      const img=document.createElement('img');img.dataset.studioMediaPreview='true';img.src=clipUrl;img.alt=c.name||'Uploaded image';img.className='studio-media-preview';$('previewFrame').append(img);$('previewPlaceholder').hidden=true;
+    }else if(clipUrl&&isAudio){
+      const audio=document.createElement('audio');audio.dataset.studioMediaPreview='true';audio.src=clipUrl;audio.controls=true;audio.preload='metadata';audio.className='studio-media-preview studio-audio-preview';$('previewFrame').append(audio);$('previewPlaceholder').hidden=false;
+    }else if(clipUrl){
+      video.src=clipUrl;video.hidden=false;$('previewPlaceholder').hidden=true;
+    }else{
+      video.hidden=true;video.removeAttribute('src');$('previewPlaceholder').hidden=false;
+    }
+    $('previewTitle').textContent=c.title||c.name;
+    $('previewSub').textContent=(c.kind==='generated'?'AI-generated clip':c.kind==='upload'?'Uploaded media':'Template card')+' · '+Number(c.duration||0)+'s';
+    $('statStatus').textContent=c.kind==='generated'?'Generated':'Editing';
+    $('inspectorEmpty').hidden=true;$('inspectorContent').hidden=false;
+    $('clipName').value=c.name||'';$('clipTitle').value=c.title||'';$('clipStart').value=c.start||0;$('clipDuration').value=c.duration||8;
+    renderTimeline();
+  }
   function renderTimeline(){
     const root=$('timeline');root.replaceChildren();
     if(!state.clips.length){const empty=document.createElement('div');empty.className='empty-timeline';const i=document.createElement('span');i.textContent='▤';const b=document.createElement('b');b.textContent='Your timeline is waiting';const p=document.createElement('p');p.textContent='Generate a scene or add media to begin.';empty.append(i,b,p);root.append(empty);}
