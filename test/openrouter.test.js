@@ -73,3 +73,34 @@ test('speech and transcription use dedicated endpoints and bounded input', async
   assert.match(seen[0].url, /audio\/speech$/);
   assert.match(seen[1].url, /audio\/transcriptions$/);
 });
+
+test('decision models use the structured Decisions API, not chat completions', async () => {
+  let sent;
+  const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
+    sent = { url: String(url), body: JSON.parse(init.body) };
+    return response({ answers: { route: { type: 'choice', choice: 'coding', confidence: 0.99 } } });
+  } });
+  const result = await client.decide({ model: 'typesafe/jev-1.13', state: { prompt: 'Fix a TypeScript bug' },
+    questions: { route: { type: 'choice', instructions: 'Choose a task', criteria: { coding: 'Code work', writing: 'Prose work' } } } });
+  assert.match(sent.url, /\/api\/alpha\/decisions$/);
+  assert.equal(sent.body.questions.route.type, 'choice');
+  assert.equal(result.answers.route.choice, 'coding');
+  await assert.rejects(client.chat({ task: 'decisions', model: 'typesafe/jev-1.13', messages: [{ role: 'user', content: 'x' }] }), /require decide/);
+});
+
+test('image and video model discovery use their dedicated capability catalogs', async () => {
+  const urls = [];
+  const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url) => {
+    urls.push(String(url));
+    if (String(url).endsWith('/images/models')) return response({ data: [
+      { id: 'provider/vision-only', architecture: { output_modalities: ['text'], input_modalities: ['image'] } },
+      { id: 'provider/image-maker', architecture: { output_modalities: ['image'], input_modalities: ['text'] } }
+    ] });
+    if (String(url).endsWith('/videos/models')) return response({ data: [{ id: 'provider/video-maker', supported_parameters: { duration: { min: 1, max: 8 } } }] });
+    return response({ data: [] });
+  } });
+  assert.equal((await client.selectModel('image', ['provider/image-maker'])).id, 'provider/image-maker');
+  assert.equal((await client.selectModel('video', ['provider/video-maker'])).id, 'provider/video-maker');
+  assert.ok(urls.some((url) => url.endsWith('/images/models')));
+  assert.ok(urls.some((url) => url.endsWith('/videos/models')));
+});
