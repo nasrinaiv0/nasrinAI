@@ -1449,3 +1449,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 
 - Follow-up: wired the policy's classified task into the OpenRouter text adapter; exact models are checked against live output modality and tool support, external data collection is denied, attachments fail closed on the text adapter, and structured decisions are kept separate from ordinary chat.
+
+- Further hardening: preflight OpenRouter image/video model capabilities and live pricing before paid generation; reconcile OpenRouter image spend with provider-reported `usage.cost`; video SKU pricing is checked against the configured conservative per-second estimate.
