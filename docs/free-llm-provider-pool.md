@@ -13,7 +13,7 @@ The upstream project is a frequently updated directory, not a single API key or 
 | ModelScope | `modelscope` | OpenAI-compatible |
 | Cloudflare Workers AI | `cloudflare-workers-ai` | Account-scoped Workers AI API |
 | OpenCode Zen | `opencode-zen` | OpenAI-compatible |
-| OpenRouter | `openrouter` | OpenAI-compatible; free model IDs often include a `:free` suffix |
+| OpenRouter | `openrouter` | OpenAI-compatible chat plus dedicated capability-aware multimodal client |
 | LLM7.io | `llm7` | OpenAI-compatible |
 | Kilo Code | `kilo-code` | OpenAI-compatible |
 | Google Gemini | `gemini` | Existing native Gemini adapter |
@@ -24,7 +24,6 @@ The upstream project is a frequently updated directory, not a single API key or 
 | Cohere | `cohere` | Dedicated v2 Chat adapter |
 | Aion Labs | `aion-labs` | OpenAI-compatible |
 | Hugging Face | `hugging-face` | OpenAI-compatible router |
-| Z AI (Zhipu AI) | `z-ai` | OpenAI-compatible |
 | Cerebras | `cerebras` | OpenAI-compatible |
 | Agnes AI | `agnes-ai` | OpenAI-compatible |
 | Alibaba Cloud Model Studio | `alibaba-cloud-model-studio` | OpenAI-compatible |
@@ -70,7 +69,8 @@ Cloudflare Workers AI additionally needs `CLOUDFLARE_ACCOUNT_ID`. Gemini continu
 3. Only exact allowlisted free model IDs receive zero estimated model cost. An unknown model is not assumed free.
 4. Free-provider requests are treated as external and potentially training/logging-enabled. Sensitive messages and attachments are not sent to these providers by default.
 5. The existing tier ceiling, per-user/hourly abuse controls, budget checks, response validation, retry bounds, and fallback policy remain in force.
-6. Image, video, realtime voice, and speech generation are separate capabilities; a text-chat API is not assumed to support them.
+6. Image generation/editing, video generation, speech, transcription, embeddings and typed decisions use separate OpenRouter endpoints where applicable; a text-chat model is never assumed to support those tasks. `src/ai/openrouter.js` checks live modality catalogs, validates model IDs, caps request sizes, and denies data collection for chat calls.
+9. OpenRouter speech can be selected with `SPEECH_PROVIDER=openrouter`; optional `OPENROUTER_TTS_MODEL` pins a model. OpenRouter image routes require `IMAGE_TIER_n_PRIMARY_PROVIDER=openrouter`, a verified `IMAGE_TIER_n_PRIMARY_MODEL`, and an explicit `IMAGE_TIER_n_PRIMARY_PRICE` estimate. OpenRouter transcription is used when OpenAI transcription is not configured; optional `OPENROUTER_STT_MODEL` pins a model. Never enable a costly generation route until its model ID, supported parameters and price have been verified.
 7. The catalog records endpoints and adapter types; it does not claim every model stays free. Free quotas, model IDs, and terms change upstream. Review the source before changing the free-model allowlist.
 8. Cline is retained as a directory entry but is not activated as an inference API until the source provides a public endpoint. Grok is an xAI alias, not an additional independent provider.
 
