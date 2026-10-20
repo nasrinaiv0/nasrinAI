@@ -355,7 +355,7 @@ export function loadConfig(env = process.env) {
   const routing = Object.freeze({
     mode: routingMode,
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
-    planningCouncilEnabled: softFlag('PLANNING_COUNCIL_ENABLED', env.PLANNING_COUNCIL_ENABLED, 'false'),
+    planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
     freeModels: Object.freeze(Object.fromEntries(freeProviderSettings.map((p) => [p.id, p.freeModels]))),
     coding,
