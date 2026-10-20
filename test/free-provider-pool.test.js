@@ -122,3 +122,33 @@ test('Cohere v2 adapter maps text and usage without leaking its key', async () =
   assert.equal(out.outputTokens, 5);
   assert.equal(out.finishReason, 'COMPLETE');
 });
+
+
+test('free-only fallback mode includes only configured, explicitly free-allowlisted providers', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'none',
+    AI_FALLBACK: 'free',
+    GROQ_API_KEY: 'test-groq-key',
+    CEREBRAS_API_KEY: 'test-cerebras-key',
+    CEREBRAS_MODEL: 'gpt-oss-120b',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    GEMINI_API_KEY: 'test-gemini-key',
+    OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30)
+  });
+  assert.deepEqual(config.ai.fallback.providers, ['groq', 'openrouter', 'cerebras']);
+  assert.ok(!config.ai.fallback.providers.includes('openai'));
+  assert.ok(!config.ai.fallback.providers.includes('gemini'));
+  assert.equal(config.ai.freeProviders.find((p) => p.id === 'openrouter').model, 'meta-llama/llama-3.1-8b-instruct:free');
+  assert.ok(config.ai.freeProviders.find((p) => p.id === 'groq').freeModels.includes('openai/gpt-oss-20b'));
+});
+
+test('free provider catalog model defaults can be overridden with explicit environment values', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'none',
+    GROQ_API_KEY: 'test-groq-key',
+    GROQ_MODEL: 'custom-free-model',
+    GROQ_FREE_MODELS: 'custom-free-model'
+  });
+  assert.equal(config.ai.freeProviders[0].model, 'custom-free-model');
+  assert.deepEqual(config.ai.freeProviders[0].freeModels, ['custom-free-model']);
+});
