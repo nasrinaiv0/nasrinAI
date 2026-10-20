@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Frontend MVP, authenticated cloud project CRUD, and browser-side timeline export are implemented. Cloud media-byte persistence and signed-in cross-device round-trip remain unverified; browser rendering is device/browser-dependent and is not a server render worker.  
+**Status:** Authenticated cloud project CRUD, private media asset upload/download, and browser-side timeline export are implemented in code. Production migration application and real signed-in cross-device/browser validation remain pending. Browser rendering is device/browser-dependent and is not a server render worker.  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -15,7 +15,7 @@ Build a first-class Video Studio where a user can:
 - Preview, save versions, render/export MP4, track progress, and return to completed projects after refreshing or signing in on another device.
 - See clear errors, progress, duration/resolution limits, and estimated usage before expensive work.
 
-The first implementation slice adds a responsive standalone workspace, original template cards, a prompt-to-video flow using the existing authenticated `/v1/videos` generation pipeline, an editable local timeline, generated-clip preview/download, and browser-local draft metadata. It does not yet render a composed multi-clip timeline, synchronize projects across devices, or connect Shotstack/Creatomate. Do not describe the full Video Studio as production-complete until those parts are implemented and tested.
+The current implementation adds a responsive standalone workspace, original template cards, prompt-to-video using the existing authenticated `/v1/videos` pipeline, an editable timeline, generated-clip preview/download, browser-local drafts, authenticated cloud project metadata, private cloud media assets, and browser-based multi-clip export. It does not yet include a durable server-side render worker or provider-backed editor. Do not describe those server-side/provider capabilities as implemented.
 
 ## Cloud project persistence checkpoint (2026-10-20)
 
@@ -23,8 +23,9 @@ The first implementation slice adds a responsive standalone workspace, original 
 - Server API: `GET/POST /v1/video-studio/projects` and `GET/PUT/DELETE /v1/video-studio/projects/:id`. All operations require a signed-in user and filter by verified tenant and user ID.
 - The API normalizes project fields and validates generated-video IDs; it does not trust client-supplied arbitrary download URLs.
 - Studio provides **Save to cloud** and **Open project** controls. A local draft remains available if cloud save fails.
-- Current limitations: migration 051 must be applied through the approved database migration process; this connector workflow does not apply production migrations. Local upload bytes are not cloud-synchronized. Generated media still uses the existing owner-checked video-content endpoint. Version conflicts need user-facing recovery verification.
-- Do not mark cloud persistence production-complete until CI, DB tests, migration staging, authorization tests, and a real signed-in save/reopen test across browsers/devices pass.
+- Migration 052 adds the private `video-studio-assets` Storage bucket, limited to 50 MB and approved video/image/audio MIME types. The server creates owner-scoped object names and returns one-time upload URLs plus 60-second signed download URLs; browser roles receive no direct bucket policies.
+- Cloud save uploads local file bytes first, then persists only the server-validated asset ID and MIME type in project metadata. Cloud project updates reject uploaded clips without an asset ID. Replacing/removing clips and deleting a project attempt to delete no-longer-referenced assets.
+- Generated media still uses the existing owner-checked video-content endpoint. Production migration application, real signed-in save/reopen across devices, and concurrent-edit conflict recovery remain to be verified.
 
 
 ## Browser renderer reliability follow-up (2026-10-20)
@@ -270,3 +271,12 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 - PR #474 had a merge conflict because its branch predates newer `main` changes, including the cloud-project prompt restoration fix. Rather than resolving by taking either entire file, renderer-only controls, styles, and renderer functions are being transplanted onto a fresh branch based on current `main`.
 - The integration preserves the current `loadDraft()` implementation on `main`, including prompt restoration, and adds the browser renderer separately.
 - Renderer limitations remain: browser-dependent WebM/optional MP4, 30 clips / 180 seconds, local asset bytes are not uploaded to cloud storage, and manual playback/audio-sync verification is still required.
+
+## Private cloud media assets (2026-10-20)
+
+- Added `src/video-studio-assets.js` for authenticated, tenant/user-scoped uploads using the existing private Supabase Storage service key. The key is never returned to the browser.
+- Added `db/migrations/052_video_studio_assets_bucket.sql`: private `video-studio-assets` bucket, 50 MB object limit, video/image/audio MIME allowlist, no direct browser policies.
+- Added `POST /v1/video-studio/assets` for a one-time upload URL, `GET /v1/video-studio/assets/:id` for a 60-second signed download URL, and `DELETE /v1/video-studio/assets/:id` for owner-scoped deletion. Uploads require sign-in and are rate-limited.
+- Cloud saves upload local media before saving metadata; project documents retain the validated asset ID and media type. Opening a project resolves the asset through a short-lived signed URL. The server rejects uploaded clips without a durable asset ID.
+- Replacing/removing cloud-project assets and deleting a project attempt best-effort cleanup after the metadata mutation succeeds. A cleanup failure can leave an orphaned object; it does not delete a different user's object.
+- Validation still required before production: apply migration 052 in the approved database migration process, run CI/database checks, and complete real signed-in upload/save/reopen/delete tests on staging. This feature is not yet a server-side rendering queue.
