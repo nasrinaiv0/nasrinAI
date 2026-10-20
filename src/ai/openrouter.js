@@ -1,4 +1,5 @@
 import { ProviderError } from './provider.js';
+import { readToolCalls } from './tool-format.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:/-]*$/i;
@@ -250,5 +251,57 @@ export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, r
     },
     async download(id) { return client.videoContent(id); },
     async extend() { throw new ProviderError('config', 'OpenRouter video extension is not supported; request a single clip within the model duration limit'); }
+  };
+}
+
+
+// Text-provider adapter for NasrinAI's policy/router contract. Exact model IDs
+// are capability-checked against OpenRouter's live catalog; the free pseudo
+// model is delegated to the existing OpenAI-compatible adapter and is kept
+// emergency-only by config.js.
+export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fallbackProvider = null, client = null }) {
+  const openrouter = client || createOpenRouterClient({ apiKey });
+  const supportedTasks = new Set(['chat', 'research', 'coding', 'debugging', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis']);
+  const normalizeTask = (task) => task === 'debugging' ? 'coding' : supportedTasks.has(task) ? task : 'chat';
+  return {
+    id: 'openrouter',
+    model,
+    capabilities() {
+      return { local: false, dataLeavesServer: true, vision: false, pdf: false, tools: true, trainsOnData: false };
+    },
+    async listModels() {
+      const models = await openrouter.listModels();
+      return [...new Set([...models.filter((m) => m.architecture?.output_modalities?.includes('text')).map((m) => m.id), ...(fallbackProvider ? ['openrouter/free'] : [])])];
+    },
+    async healthCheck() {
+      try { return (await openrouter.listModels()).length > 0; } catch { return false; }
+    },
+    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [] }) {
+      if (Array.isArray(attachments) && attachments.length) throw new ProviderError('config', 'OpenRouter text route does not accept attachments; choose a verified vision or file-capable route');
+      if (requestedModel === 'openrouter/free' && fallbackProvider) {
+        return fallbackProvider.generate({ system, messages, model: requestedModel, tools, maxTokens, signal, attachments });
+      }
+      if (!supportedTasks.has(task) && task !== 'debugging') throw new ProviderError('config', 'Unsupported OpenRouter task route');
+      const result = await openrouter.chat({
+        task: normalizeTask(task), model: requestedModel,
+        messages: [{ role: 'system', content: system }, ...messages],
+        tools, maxTokens, signal,
+        provider: { data_collection: 'deny', allow_fallbacks: true }
+      });
+      const choice = result.choices?.[0];
+      const message = choice?.message;
+      if (!message || (typeof message.content !== 'string' && !Array.isArray(message.tool_calls))) {
+        throw new ProviderError('unavailable', 'OpenRouter returned an invalid chat completion');
+      }
+      return {
+        text: typeof message.content === 'string' ? message.content : '',
+        toolCalls: tools.length ? readToolCalls(message) : [],
+        inputTokens: Number(result.usage?.prompt_tokens) || 0,
+        cachedTokens: Number(result.usage?.prompt_tokens_details?.cached_tokens) || 0,
+        outputTokens: Number(result.usage?.completion_tokens) || 0,
+        finishReason: choice.finish_reason || 'unknown',
+        model: result.model || requestedModel
+      };
+    }
   };
 }
