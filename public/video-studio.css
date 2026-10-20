@@ -234,3 +234,108 @@ body.editor-mode .editor-inspector .danger-button{min-height:36px;padding:8px 11
  body.editor-mode .capcut-editor{grid-template-columns:72px minmax(0,1fr)}
  body.editor-mode .timeline-head-actions{max-width:100%}
 }
+
+
+/* Button and icon sizing normalization: prevent inherited padding from inflating icon-only controls. */
+body.editor-mode .media-bin .bin-add,
+body.editor-mode .preview-caption .icon-button{
+  box-sizing:border-box;
+  inline-size:40px;
+  block-size:40px;
+  min-inline-size:40px;
+  min-block-size:40px;
+  flex:0 0 40px;
+  padding:0;
+  border:1px solid #41424a;
+  border-radius:12px;
+  display:inline-grid;
+  place-items:center;
+  line-height:1;
+  font-size:25px;
+  font-weight:400;
+  background:#24252b;
+  color:#f0f0f3;
+}
+body.editor-mode .media-bin .bin-add{border-radius:12px}
+body.editor-mode .preview-caption .icon-button{inline-size:34px;block-size:34px;min-inline-size:34px;min-block-size:34px;flex-basis:34px;font-size:21px;border-radius:9px}
+body.editor-mode .media-bin .bin-add:hover,
+body.editor-mode .preview-caption .icon-button:hover{background:#303139;border-color:#656671}
+body.editor-mode button,
+body.editor-mode a.quiet-button{
+  box-sizing:border-box;
+  max-inline-size:100%;
+}
+body.editor-mode .editor-tool{
+  min-inline-size:64px;
+  min-block-size:40px;
+  padding:7px 10px;
+  gap:6px;
+  border-radius:8px;
+  font-size:12px;
+}
+body.editor-mode .editor-save,
+body.editor-mode .canvas-controls button,
+body.editor-mode .timeline-head-actions .quiet-button,
+body.editor-mode .timeline-tools .quiet-button{
+  min-block-size:34px;
+  padding:7px 11px;
+  border-radius:7px;
+  line-height:1.2;
+  font-size:11px;
+}
+body.editor-mode .import-drop{
+  box-sizing:border-box;
+  inline-size:100%;
+  min-inline-size:0;
+  min-block-size:92px;
+  padding:12px 10px;
+  gap:7px;
+  border:1px dashed #4a4b55;
+  border-radius:10px;
+}
+body.editor-mode .import-drop>span{
+  box-sizing:border-box;
+  inline-size:30px;
+  block-size:30px;
+  flex:0 0 30px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:8px;
+  line-height:1;
+  font-size:20px;
+}
+body.editor-mode .bin-heading{align-items:center;gap:8px}
+body.editor-mode .bin-heading>div{min-width:0}
+body.editor-mode .bin-heading h2{margin:4px 0 0;line-height:1.15}
+body.editor-mode .editor-toolbar{min-width:0}
+body.editor-mode .editor-tools{min-width:0;align-items:center}
+body.editor-mode .editor-toolbar-actions{min-width:0}
+body.editor-mode .editor-project-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.editor-mode .timeline-head-actions{flex-wrap:wrap;justify-content:flex-end}
+body.editor-mode .clip-actions button{
+  box-sizing:border-box;
+  min-inline-size:30px;
+  min-block-size:30px;
+  padding:4px 7px;
+  border-radius:6px;
+  line-height:1;
+}
+@media(max-width:760px){
+  body.editor-mode .media-bin .bin-add{inline-size:32px;block-size:32px;min-inline-size:32px;min-block-size:32px;flex-basis:32px;font-size:22px}
+  body.editor-mode .editor-tool{min-inline-size:0;min-block-size:39px;padding:5px 6px;gap:3px}
+  body.editor-mode .editor-save{min-block-size:32px;padding:6px 8px;font-size:10px}
+  body.editor-mode .import-drop{min-block-size:72px;padding:8px 3px;gap:5px}
+  body.editor-mode .import-drop>span{inline-size:24px;block-size:24px;flex-basis:24px;font-size:17px}
+  body.editor-mode .canvas-controls button,
+  body.editor-mode .timeline-head-actions .quiet-button,
+  body.editor-mode .timeline-tools .quiet-button{min-block-size:30px;padding:6px 7px;font-size:10px}
+}
+@media(max-width:360px){
+  body.editor-mode .capcut-editor{grid-template-columns:68px minmax(0,1fr)}
+  body.editor-mode .media-bin{padding-inline:5px}
+  body.editor-mode .bin-add{inline-size:28px;block-size:28px;min-inline-size:28px;min-block-size:28px;flex-basis:28px}
+  body.editor-mode .editor-tool span{font-size:7px}
+  body.editor-mode .editor-save{padding-inline:5px;font-size:9px}
+}
