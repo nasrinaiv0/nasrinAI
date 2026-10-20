@@ -100,7 +100,8 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     // answer (for usage records). Resolves { result, spec, level, escalated, costUsd }.
     async run(plan, req, { onFailure = async () => {}, reserveTokens = null, settleTokens = null, caller = null } = {}) {
       // `minTokens`: a request for a file or long document may use more reply tokens than its level allows.
-      const { minTokens = 0, maxTokens: requestedMaxTokens = null, ...modelReq } = req;
+      const { minTokens = 0, maxTokens: requestedMaxTokens = null, excludeModels = [], ...modelReq } = req;
+      const excluded = new Set(Array.isArray(excludeModels) ? excludeModels.map((x) => String(x)) : []);
       req = modelReq;
       const attachments = req.attachments || [];
       const inputTokens = estimateTokens(req.system) + req.messages.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
@@ -136,6 +137,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
+            if (excluded.has(`${s.provider}:${s.model}`)) { why.push(`${s.provider}:${s.model} (already used in this planning council)`); continue; }
             const b = blocker(s, {
               sensitive: plan.sensitive, attachments, inputTokens, level: l, left, minOut: minTokens,
               reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
