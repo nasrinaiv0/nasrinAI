@@ -330,9 +330,9 @@
       const output=new MediaStream([...canvasStream.getVideoTracks(),...(audioDestination?audioDestination.stream.getAudioTracks():[])]);
       recorder=new MediaRecorder(output,{mimeType:mime,videoBitsPerSecond:6000000});
       const recorded=new Promise((resolve,reject)=>{recorder.ondataavailable=e=>{if(e.data&&e.data.size)blobParts.push(e.data);};recorder.onerror=()=>reject(new Error('The browser stopped recording unexpectedly.'));recorder.onstop=()=>resolve(new Blob(blobParts,{type:mime}));});
-      const drawCover=(source,opacity,filter)=>{
+      const drawCover=(source,opacity,filter,zoom=1)=>{
         const sw=source.videoWidth||source.naturalWidth||source.width,sh=source.videoHeight||source.naturalHeight||source.height;if(!sw||!sh)return;
-        const scale=Math.max(width/sw,height/sh),dw=sw*scale,dh=sh*scale;
+        const scale=Math.max(width/sw,height/sh)*Math.max(.5,Math.min(2,zoom)),dw=sw*scale,dh=sh*scale;
         const filters={none:'none',cinematic:'contrast(1.12) saturate(.88)',warm:'sepia(.18) saturate(1.15)',cool:'saturate(.88) hue-rotate(8deg)',mono:'grayscale(1)',vivid:'saturate(1.35) contrast(1.05)'};
         ctx.save();ctx.globalAlpha=Math.max(.0,Math.min(1,opacity/100));ctx.filter=filters[filter]||'none';ctx.drawImage(source,(width-dw)/2,(height-dh)/2,dw,dh);ctx.restore();
       };
@@ -342,12 +342,15 @@
           .sort((a,b)=>({video:0,overlay:1,text:2}[a.clip.track]??0)-({video:0,overlay:1,text:2}[b.clip.track]??0));
         for(const r of active){
           const local=time-r.clip.position,transition=r.clip.transition||'cut';
-          let opacity=Number(r.clip.opacity??100);
+          const keyframes=Array.isArray(r.clip.keyframes)?r.clip.keyframes.slice().sort((a,b)=>a.time-b.time):[];
+          let animatedOpacity=100,zoom=1;
+          if(keyframes.length){const before=[...keyframes].reverse().find(k=>Number(k.time)<=local),after=keyframes.find(k=>Number(k.time)>=local);if(before&&after&&after.time>before.time){const ratio=(local-before.time)/(after.time-before.time);animatedOpacity=Number(before.opacity??100)+(Number(after.opacity??100)-Number(before.opacity??100))*ratio;zoom=Number(before.scale??1)+(Number(after.scale??1)-Number(before.scale??1))*ratio;}else{const frame=before||after;animatedOpacity=Number(frame.opacity??100);zoom=Number(frame.scale??1);}}
+          let opacity=Number(r.clip.opacity??100)*animatedOpacity/100;
           if(transition==='fade'||transition==='dissolve'){const fade=Math.min(.6,r.clip.duration/2);if(fade>0)opacity*=Math.min(1,local/fade,(r.clip.duration-local)/fade);}
-          if(r.isImage)drawCover(r.media,opacity,r.clip.filter);
-          else if(r.media&&r.media.readyState>=2&&r.media.tagName==='VIDEO')drawCover(r.media,opacity,r.clip.filter);
+          if(r.isImage)drawCover(r.media,opacity,r.clip.filter,zoom);
+          else if(r.media&&r.media.readyState>=2&&r.media.tagName==='VIDEO')drawCover(r.media,opacity,r.clip.filter,zoom);
           if(r.clip.title&&r.clip.track!=='audio'){
-            ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,opacity/100));ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(r.clip.title).slice(0,90),width*.08,height*.84,width*.84);ctx.restore();
+            ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,opacity/100));ctx.fillStyle='rgba(0,0,0,.48)';ctx.fillRect(width*.05,height*.76,width*.9,height*.16);ctx.fillStyle='#fff';ctx.font='600 '+Math.round(width*.032*zoom)+'px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(r.clip.title).slice(0,90),width*.08,height*.84,width*.84);ctx.restore();
           }
         }
         if(!active.length){ctx.fillStyle='#aeb2bd';ctx.font='500 24px system-ui';ctx.textAlign='center';ctx.fillText(' ',width/2,height/2);}
