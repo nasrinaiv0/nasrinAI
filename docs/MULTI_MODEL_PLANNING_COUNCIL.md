@@ -228,3 +228,12 @@ The price catalog records conservative cache pricing as input rates for generic 
 - Model selection is explicit and tier-scoped: Max cannot use the Ultra coding model via these settings. OpenRouter API keys remain server-side. Preview configuration and real authenticated smoke tests are still required before production enablement.
 - A pricing-catalog cleanup removes duplicate root-level model IDs that were being interpreted as provider names; all three new model prices live under the `openrouter` provider namespace.
 - Regression coverage includes config validation for tier assignments and a request-level test that verifies the TTS provider is pinned to Google Vertex with `allow_fallbacks: false`.
+
+## Premium coding models and TTS (2026-10-21)
+
+- Max coding specialist: `openrouter:openai/gpt-6-sol`, configured through `CODING_MAX_MODEL`.
+- Ultra coding and Ultra deep coding: `openrouter:openai/gpt-6.1-sol`, configured through `CODING_ULTRA_MODEL` and `CODING_ULTRA_DEEP_MODEL`.
+- Both coding models use the requested $2 input / $10 output per 1M tokens. Cached input is conservatively priced at $2/1M.
+- OpenRouter TTS model: `google/gemini-3.8-flash-lite-tts`, provider preference `Google Vertex`, using the requested $0.50 input / $6 output per 1M billing units. Verify modality-specific billing units against the current provider invoice; audio tokens and text tokens are not necessarily comparable.
+- Config and env example default to OpenRouter TTS only when OpenRouter is available; explicit provider/model settings remain supported. Provider pinning must prevent fallback to another provider when Google Vertex is required.
+- Live coding and TTS smoke tests remain a release gate because provider credentials were not available in the sandbox. These settings do not imply production deployment.
