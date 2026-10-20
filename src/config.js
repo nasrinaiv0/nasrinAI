@@ -155,7 +155,7 @@ export function loadConfig(env = process.env) {
   const geminiKey = String(env.GEMINI_API_KEY || '').trim();
   if (geminiKey && aiProvider !== 'fake' && !providerKeys.includes('gemini')) providerKeys.push('gemini');
   if (env.OPENAI_API_KEY && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('openai')) providerKeys.push('openai');
-  if (aiProvider === 'auto' && !providerKeys.some((p) => ['openai', 'gemini', 'anthropic', 'local'].includes(p))) throw new ConfigError('AI_PROVIDER=auto needs at least one provider API key (OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY), or local model settings');
+  if (aiProvider === 'auto' && ![env.OPENAI_API_KEY, geminiKey, anthropicKey].some((key) => String(key || '').trim())) throw new ConfigError('AI_PROVIDER=auto needs at least one external provider key: OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY');
   // Optional APIs from awesome-freellm-apis. Model IDs are pinned explicitly;
   // free-model allowlists are separate because a provider may also expose paid models.
   const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => ['openai-compatible', 'cloudflare-workers-ai', 'cohere-v2'].includes(p.adapter)).map((p) => {
@@ -274,7 +274,7 @@ export function loadConfig(env = process.env) {
   ].map((s) => Object.freeze(s)));
   const defaultsByLevel = {
     // Include every configured provider; model allowlists and price validation still apply.
-    1: [...freeProviderSettings.flatMap((p) => p.freeModels.map((model) => p.id + ':' + model)), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : '', has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    1: [...freeProviderSettings.flatMap((p) => p.freeModels.map((model) => p.id + ':' + model)), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : ''],
     2: [has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
     3: [has('openai') ? 'openai:gpt-5.4:medium' : ''],
     4: [has('openai') ? 'openai:gpt-5.4:high' : ''],
