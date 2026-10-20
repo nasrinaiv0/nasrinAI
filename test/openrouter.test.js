@@ -127,3 +127,24 @@ test('OpenRouter video adapter pins model, duration, and explicit cost; rejects 
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
   assert.equal((await provider.download('job_123')).toString(), 'video');
 });
+
+
+test('image catalog schema without chat architecture is accepted, but editing requires declared reference support', async () => {
+  const calls = [];
+  const imageModel = { id: 'openai/gpt-image-2', name: 'GPT Image 2', supported_parameters: { quality: { type: 'enum', values: ['low', 'medium', 'high'] }, input_references: { type: 'range', min: 0, max: 4 } } };
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url, init) => {
+    const path = new URL(url).pathname;
+    calls.push({ path, body: init.body ? JSON.parse(init.body) : null });
+    if (path === '/api/v1/images/models') return response({ data: [imageModel] });
+    if (path === '/api/v1/images') return response({ data: [{ b64_json: Buffer.from('fake-image').toString('base64') }], usage: { cost: 0.04 } });
+    throw new Error('unexpected endpoint');
+  } });
+  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high' });
+  assert.equal(result.data[0].b64_json, Buffer.from('fake-image').toString('base64'));
+  const generated = calls.find((x) => x.path === '/api/v1/images');
+  assert.equal(generated.body.quality, 'high');
+  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'] });
+  const edited = calls.filter((x) => x.path === '/api/v1/images').at(-1);
+  assert.equal(edited.body.input_references.length, 1);
+  assert.ok(!('images' in edited.body));
+});
