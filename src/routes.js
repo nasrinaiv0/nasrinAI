@@ -39,6 +39,8 @@ function cleanVideoStudioDocument(raw) {
       duration:Math.max(0, Math.min(3600, Number(c.duration) || 0)),
       start:Math.max(0, Math.min(3600, Number(c.start) || 0)),
       videoId, download:videoId && kind === 'generated' ? '/v1/videos/' + videoId + '/content' : null,
+      assetId:kind === 'upload' && typeof c.assetId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.assetId) ? c.assetId : null,
+      mediaType:kind === 'upload' && typeof c.mediaType === 'string' && /^(video|image|audio)\\//i.test(c.mediaType) ? c.mediaType.slice(0, 100) : null,
       createdAt:text(c.createdAt, 40) };
   }).filter((c) => c.id);
   const generated = arr(raw.generated).filter((g) => g && typeof g === 'object' && !Array.isArray(g)).map((g) => ({
