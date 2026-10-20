@@ -41,7 +41,8 @@ import { createMemory, memoryTools } from './knowledge/memory.js';
 import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
 import { imagePrice } from './ai/pricing.js';
-import { createOpenAISpeech, createGeminiSpeech, createResponsiveSpeech } from './ai/speech.js';
+import { createOpenAISpeech, createGeminiSpeech, createOpenRouterSpeech, createResponsiveSpeech } from './ai/speech.js';
+import { createOpenRouterClient } from './ai/openrouter.js';
 import { createVoice } from './voice.js';
 import { createStorage } from './storage.js';
 import { createUploads } from './uploads.js';
@@ -217,6 +218,10 @@ export function buildApp({ config, logger }) {
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
+  const openrouterSpeech = sp.enabled && sp.provider === 'openrouter' && openRouterClient
+    ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, rate: sp.rate, responseFormat: 'wav' })
+    : null;
   const openaiSpeech = sp.enabled && config.ai.openaiApiKey
     ? createOpenAISpeech({ apiKey: config.ai.openaiApiKey, model: sp.model, fastModel: sp.fastModel, rate: sp.rate, responseFormat: 'wav' })
     : null;
@@ -224,12 +229,13 @@ export function buildApp({ config, logger }) {
     ? createGeminiSpeech({ apiKey: config.ai.geminiApiKey, model: sp.geminiModel, fastModel: sp.geminiFastModel, rate: sp.rate })
     : null;
   const engine = !sp.enabled ? null
+    : sp.provider === 'openrouter' ? openrouterSpeech
     : sp.responsive && sp.provider === 'openai' && openaiSpeech && geminiSpeech
       ? createResponsiveSpeech({ openai: openaiSpeech, gemini: geminiSpeech, timeoutMs: sp.responsiveTimeoutMs })
       : sp.provider === 'gemini'
         ? geminiSpeech
         : openaiSpeech;
-  const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech, openrouter: openrouterSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
   const transcription = config.ai.openaiApiKey ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey }) : null;
   const pdfOcr = config.ai.openaiApiKey ? createOpenAIPdfOcr({ apiKey: config.ai.openaiApiKey }) : null;
 
