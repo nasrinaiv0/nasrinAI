@@ -233,12 +233,13 @@ export function createOpenRouterClient({
     return request('/videos/' + encodeURIComponent(id) + '/content?index=' + index, { method: 'GET', raw: true, signal });
   }
 
-  async function speak({ model, preferred = [], input, voice = 'alloy', responseFormat = 'mp3', signal }) {
+  async function speak({ model, preferred = [], input, voice = 'alloy', responseFormat = 'mp3', provider = '', signal }) {
     const selected = await selectModel('speech', model ? [cleanModelId(model)] : preferred);
     if (typeof input !== 'string' || !input.trim() || input.length > 20_000) throw new ProviderError('config', 'Speech text must be 1–20000 characters');
     if (!/^(alloy|ash|ballad|coral|echo|fable|nova|onyx|sage|shimmer|verse|marin|cedar|[w-]{1,60})$/.test(voice)) throw new ProviderError('config', 'Invalid speech voice');
     if (!['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'].includes(responseFormat)) throw new ProviderError('config', 'Invalid speech output format');
-    return request('/audio/speech', { body: { model: selected.id, input, voice, response_format: responseFormat }, raw: true, signal });
+    const routing = provider ? { provider: { order: [provider], only: [provider], allow_fallbacks: false } } : {};
+    return request('/audio/speech', { body: { model: selected.id, input, voice, response_format: responseFormat, ...routing }, raw: true, signal });
   }
 
   async function transcribe({ model, preferred = [], file, filename = 'audio.wav', language, signal }) {
