@@ -274,7 +274,7 @@ export function loadConfig(env = process.env) {
   ].map((s) => Object.freeze(s)));
   const defaultsByLevel = {
     // Include every configured provider; model allowlists and price validation still apply.
-    1: [...freeProviderSettings.flatMap((p) => p.freeModels.map((model) => p.id + ':' + model)), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : ''],
+    1: [...freeProviderSettings.flatMap((p) => p.freeModels.map((model) => p.id + ':' + model)), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
     2: [has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
     3: [has('openai') ? 'openai:gpt-5.4:medium' : ''],
     4: [has('openai') ? 'openai:gpt-5.4:high' : ''],
