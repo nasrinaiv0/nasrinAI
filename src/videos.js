@@ -87,8 +87,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const id = await store.addVideo({
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
-      targetSeconds, producedSeconds: 0, status: 'in_progress',
-      provider: routeProvider.id, providerOperation: operation, cacheKey
+      targetSeconds, producedSeconds: 0, status: 'in_progress', requestTier: selected,
+      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey
     });
     logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
     return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
@@ -101,8 +101,12 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!v) throw new HttpError(404, 'not_found', 'Video not found.');
     if (v.status === 'completed' || v.status === 'failed') return v;
 
+    const jobProvider = provider && typeof provider.create !== 'function'
+      ? provider[v.requestTier] || provider[v.providerTier] || provider.ultra || provider.max
+      : provider;
+    if (!jobProvider) throw unavailable();
     let state;
-    try { state = provider.extract(await provider.status(v.providerOperation)); }
+    try { state = jobProvider.extract(await jobProvider.status(v.providerOperation));
     catch (err) {
       logger.warn('video provider poll failed', { id, error: err.message });
       return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
@@ -113,8 +117,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       return await store.getVideo({ tenantId:v.tenantId, ownerType:v.ownerType, ownerId:v.ownerId, id:v.id });
     }
 
-    const bytes = await provider.download(state.uri);
-    const produced = provider.maxSeconds ? Math.min(v.targetSeconds, provider.maxSeconds) : v.producedSeconds ? v.producedSeconds + EXTEND_SECONDS : STEP_SECONDS;
+    const bytes = await jobProvider.download(state.uri);
+    const produced = jobProvider.maxSeconds ? Math.min(v.targetSeconds, jobProvider.maxSeconds) : v.producedSeconds ? v.producedSeconds + EXTEND_SECONDS : STEP_SECONDS;
     const reached = produced >= Math.min(v.targetSeconds, MAX_SECONDS);
     if (reached) {
       // Avoid oversized JSON/hex writes to PostgREST. Only cache a video when
