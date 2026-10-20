@@ -7,7 +7,7 @@ test('OpenRouter skill catalog records the requested model names and fails close
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'deepseek/deepseek-v4-flash-0731' && m.status === 'verified'));
   assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status === 'unverified_exact_id').every((m) => m.id === null));
   assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status === 'operator_supplied_unverified').every((m) => m.id && m.status !== 'verified'));
-  assert.ok(!OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'openai/gpt-6-luna' && m.status === 'verified'), 'operator-supplied IDs must not become eligible before verification');
+  assert.ok(!OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.status === 'operator_supplied_unverified'), 'operator-supplied IDs must not become eligible before verification');
 });
 
 test('task skills prioritize matching configured OpenRouter models without moving non-OpenRouter candidates', () => {
@@ -28,10 +28,10 @@ test('task skills prioritize matching configured OpenRouter models without movin
 
 test('operator-supplied unverified models are recorded but never promoted by the skill router', () => {
   const candidates = [
-    { provider: 'openrouter', model: 'openai/gpt-6-luna' },
+    { provider: 'openrouter', model: 'qwen/qwen3.8-27b' },
     { provider: 'openrouter', model: 'deepseek/deepseek-v4-flash-0731' }
   ];
   const routed = prioritizeOpenRouterCandidates('coding', candidates);
-  assert.equal(routed[0].model, 'openai/gpt-6-luna', 'unverified candidate keeps its configured slot');
+  assert.equal(routed[0].model, 'qwen/qwen3.8-27b', 'unverified candidate keeps its configured slot');
   assert.equal(routed[1].model, 'deepseek/deepseek-v4-flash-0731');
 });
