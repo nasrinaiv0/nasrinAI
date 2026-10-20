@@ -1430,3 +1430,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** CI must pass after these commits before merging. Groq live API connectivity is not claimed without a real key and deployment smoke test.
 
 - **Free-tier-only decision:** keep the example Groq model and `GROQ_FREE_MODELS` allowlist pinned to `openai/gpt-oss-20b`; do not select Llama models unless Groq later lists them in the Free Plan Limits for this account. Free-plan limits are enforced by Groq and may produce rate-limit errors; NasrinAI must not automatically upgrade to paid usage.
+
+
+## PR #489 follow-up — Emergency-only free-tier fallback (2026-10-20)
+
+- **Routing policy:** paid/general-purpose providers remain the normal route. Configured free-tier providers such as Groq are excluded from default cost-aware routing levels and are only considered after configured paid fallback providers fail with eligible errors.
+- **Groq model:** keep `openai/gpt-oss-20b` explicitly allowlisted through `GROQ_FREE_MODELS`; this allowlist is a routing guard, not proof that the provider account is on a free billing plan.
+- **Validation:** regression tests assert Groq is registered for failover, ordered after paid providers, and absent from normal routing levels. CI must pass before merge; no live billing-plan guarantee is possible from the inference API alone.
