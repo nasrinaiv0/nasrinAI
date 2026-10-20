@@ -79,7 +79,7 @@ export function createOpenRouterClient({
 
   async function listModels({ refresh = false } = {}) {
     if (!refresh && modelCache && now() - modelCache.at < cacheMs) return modelCache.data;
-    const result = await request('/models', { method: 'GET' });
+    const result = await request('/models?output_modalities=all', { method: 'GET' });
     if (!Array.isArray(result.data)) throw new ProviderError('unavailable', 'OpenRouter model catalog response is invalid');
     modelCache = { at: now(), data: result.data.filter((m) => typeof m.id === 'string' && m.architecture && Array.isArray(m.architecture.output_modalities)) };
     return modelCache.data;
@@ -118,7 +118,7 @@ export function createOpenRouterClient({
   async function generateImage({ model, preferred = [], prompt, images, signal, ...options }) {
     const selected = model ? { id: cleanModelId(model) } : await selectModel('image', preferred);
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Image prompt must be 1–8000 characters');
-    const body = { model: selected.id, prompt: prompt.trim(), ...options };
+    const body = { ...options, model: selected.id, prompt: prompt.trim() };
     if (Array.isArray(images) && images.length) body.images = images;
     return request('/images', { body, signal });
   }
@@ -126,7 +126,7 @@ export function createOpenRouterClient({
   async function createVideo({ model, preferred = [], prompt, signal, ...options }) {
     const selected = model ? { id: cleanModelId(model) } : await selectModel('video', preferred);
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Video prompt must be 1–8000 characters');
-    const body = { model: selected.id, prompt: prompt.trim(), ...options };
+    const body = { ...options, model: selected.id, prompt: prompt.trim() };
     return request('/videos', { body, signal });
   }
   async function videoStatus(id, signal) {
