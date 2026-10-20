@@ -1422,3 +1422,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Follow-up commit:** `59d6143fc0b1323523bdd9f7e32e5899172aea02` — preserve the established rule that Claude is not a default general-routing candidate while keeping it in the automatic failover pool; require at least one external provider key for `AI_PROVIDER=auto` (local-only deployments should use `AI_PROVIDER=local`).
 
 - **Follow-up commit:** `7d4591015663f0fd6661867297468bef87e4121e` — ensure explicit `AI_PROVIDER=claude` has a compatible level-1 route while keeping Claude out of default general routing in `auto` mode.
+
+## PR #489 follow-up — Groq provider (2026-10-20)
+
+- **Commits:** `210970e48429c2e97c19e11136f0110162ae466a` (Groq server-only environment examples) and `79d530f18c157a41eff743321df09deec68af390` (registration and fallback regression test).
+- **Scope:** use the existing Groq OpenAI-compatible catalog adapter at `https://api.groq.com/openai/v1`. Configure `GROQ_API_KEY`, `GROQ_MODEL`, and `GROQ_FREE_MODELS` in Vercel. Groq participates in automatic fallback only for explicitly allowlisted free models; configured paid models must not be treated as free.
+- **Validation:** CI must pass after these commits before merging. Groq live API connectivity is not claimed without a real key and deployment smoke test.
