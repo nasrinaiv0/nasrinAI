@@ -1343,3 +1343,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **CI evidence before merge:** [CI run 39331276914](https://github.com/primusco20/nasrinAI/actions/runs/39331276914) passed all jobs: test (798 passed, 0 failed, 1 skipped), database tests, and dependency audit. [Documentation gate 39331277058](https://github.com/primusco20/nasrinAI/actions/runs/39331277058) passed.
 - **Conflict resolution:** renderer-only controls/styles/functions were ported onto current `main`; current cloud-project prompt restoration was preserved. No whole-file replacement from the stale branch was used.
 - **Still not verified:** browser/device export playback, audio sync, mobile memory behavior, durable local-media cloud storage, and server-side rendering. The browser renderer is a limited client-side export feature, not a production render worker.
+
+## Proposed PR — Unified single-page Video Studio workspace (`feat/video-studio-unified-workspace`)
+
+- **Owner request (2026-10-20):** keep creating, timeline editing, and exporting together on one page, and evolve Video Studio toward a professional CapCut-inspired editor.
+- **Phase 1 implementation:** keep Create, Timeline, and Export sections visible together; make the section navigation scroll to in-page sections; add responsive workspace layout rules for desktop, tablet, and phone.
+- **Specification:** `docs/video-studio-unified-editor.md` defines the multitrack timeline, creative toolset, complete composition/export requirements, security, responsive UX, and phased acceptance gates.
+- **Tests:** `test/video-studio-unified-workspace.test.js` checks the single-page visibility contract and guards against claiming feature parity or guaranteed MP4 when the browser codec does not support it.
+- **Not included yet:** real multi-track composition, drag-and-drop editing, transitions/keyframes/effect stack, and reliable server-side MP4 rendering. This PR is the workspace foundation, not full CapCut parity.
+- **Validation:** dependency audit passed; CI test/database jobs and the Documentation Gate are running or require re-check after the changelog entry. Mobile Safari and desktop visual QA remain release gates.
