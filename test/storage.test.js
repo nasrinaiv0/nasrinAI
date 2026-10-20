@@ -213,3 +213,26 @@ test('settings: the keep-time is null, 0 (until I delete) or whole days up to te
   assert.equal(readPrefs({ nasrin_prefs: { retention: 'forever' } }).retention, null, 'bad stored values read as not chosen');
   assert.equal(readPrefs({ nasrin_prefs: { retention: 90 } }).retention, 90);
 });
+
+
+test('chat attachment references return stable IDs that can be fetched only by their owner', async () => {
+  const store = createMemoryStore();
+  const logger = memoryLogger();
+  const config = testConfig();
+  const conversations = createConversations({ store, config, logger });
+  const storage = createStorage({ store, config, conversations, library: null, logger });
+  const caller = { tenantId: PLATFORM_TENANT_ID, actor: { type: 'user', id: 'attachment-owner' }, prefs: {} };
+  const conv = await store.createConversation({ tenantId: PLATFORM_TENANT_ID, ownerType: 'user', ownerId: caller.actor.id });
+  const bytes = Buffer.from('fake image bytes');
+  const refs = await storage.keepSentWithRefs(caller, conv, [{
+    kind: 'image', mime: 'image/jpeg', name: 'sticker reference.jpg', data: bytes.toString('base64')
+  }]);
+  assert.equal(refs.length, 1);
+  assert.equal(refs[0].name, 'sticker reference.jpg');
+  assert.equal(refs[0].mime, 'image/jpeg');
+  const saved = await storage.readSent(caller, refs[0].id);
+  assert.deepEqual(saved.bytes, bytes);
+  await assert.rejects(storage.readSent({
+    tenantId: PLATFORM_TENANT_ID, actor: { type: 'user', id: 'different-user' }, prefs: {}
+  }, refs[0].id), (err) => err.status === 404);
+});
