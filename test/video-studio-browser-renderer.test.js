@@ -23,14 +23,16 @@ test('Video Studio exposes bounded browser timeline rendering and honest format 
 
 test('browser renderer audio stream declarations remain valid source lines', async () => {
   const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
-  assert.match(js, /audioDestination=audioContext\?audioContext\.createMediaStreamDestination\(\):null;/);\n  assert.match(js, /const output=new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\)/);
+  assert.match(js, /audioDestination=audioContext\?audioContext\.createMediaStreamDestination\(\):null;/);
+  assert.match(js, /const output=new MediaStream\(\[\.\.\.canvasStream\.getVideoTracks\(\)/);
   assert.doesNotMatch(js, /null;\\\\n\s*const output=new MediaStream/);
 });
 
 
 test('browser renderer records clip audio and draws the current clip title', async () => {
   const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
-  assert.match(js, /createMediaElementSource\(media\);item\.gainNode=audioContext\.createGain\(\)/);\n  assert.match(js, /item\.gainNode\.connect\(audioDestination\)/);
+  assert.match(js, /createMediaElementSource\(media\);item\.gainNode=audioContext\.createGain\(\)/);
+  assert.match(js, /item\.gainNode\.connect\(audioDestination\)/);
   assert.doesNotMatch(js, /createMediaElementSource\(media\);source\.connect\(audioContext\.destination\)/);
   assert.match(js, /if\(r\.clip\.title&&r\.clip\.track!==\'audio\'\)/);
   assert.doesNotMatch(js, /const selected=state\.clips\.find\(c=>c\.id===state\.selected\);\s*if\(selected\?\.title\)/);
