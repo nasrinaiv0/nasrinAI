@@ -170,7 +170,7 @@ export function buildApp({ config, logger }) {
       const p = slot.provider === 'gemini'
         ? createGeminiImage({ apiKey: config.ai.geminiApiKey, model: slot.model, totalMs: ms })
         : slot.provider === 'openrouter'
-          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, timeoutMs: ms })
+          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, price, timeoutMs: ms })
           : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
       return { p, price };
     };
