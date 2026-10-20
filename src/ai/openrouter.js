@@ -156,7 +156,8 @@ export function createOpenRouterClient({
       const refLimit = capability?.supported_parameters?.input_references;
       const maxRefs = Number(refLimit?.max ?? refLimit?.maximum ?? 0);
       if (!capability || !Number.isFinite(maxRefs) || maxRefs < 1) throw new ProviderError('config', 'Selected image model does not advertise image-reference editing support');
-      const refs = images.slice(0, Math.min(16, maxRefs));
+      if (images.length > Math.min(16, maxRefs)) throw new ProviderError('config', 'Too many reference images for the selected OpenRouter model');
+      const refs = images;
       if (refs.some((item) => typeof item !== 'string' || (!item.startsWith('https://') && !/^data:image\/(png|jpeg|webp);base64,/.test(item)))) throw new ProviderError('config', 'Image references must be HTTPS URLs or supported image data URLs');
       options.input_references = refs.map((image_url) => ({ image_url }));
     }
