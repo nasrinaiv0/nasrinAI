@@ -70,3 +70,30 @@ export function createOpenAITranscription({ apiKey, model = 'whisper-1', fetchIm
     }
   };
 }
+
+
+// OpenRouter STT adapter. It preserves the existing upload validation contract
+// and delegates model selection to the live transcription capability catalog.
+export function createOpenRouterTranscription({ client, model = '' }) {
+  return {
+    available: Boolean(client && typeof client.transcribe === 'function'),
+    async transcribe({ bytes, name, mime, language }) {
+      if (!client || typeof client.transcribe !== 'function') {
+        throw new HttpError(503, 'transcription_unavailable', 'Audio transcription is not available right now.');
+      }
+      if (!Buffer.isBuffer(bytes) || bytes.length === 0) throw new HttpError(400, 'audio_required', 'Choose a non-empty audio file to transcribe.');
+      if (bytes.length > MAX_TRANSCRIPTION_BYTES) throw new HttpError(413, 'audio_too_large', 'For transcription, choose an audio file smaller than 4 MB. Long recordings must be split into shorter clips before uploading.');
+      const filename = safeName(name);
+      let contentType = String(mime || '').split(';')[0].trim().toLowerCase();
+      const ext = filename.toLowerCase().split('.').pop();
+      if (contentType === 'application/octet-stream' || !contentType) contentType = MIME_BY_EXTENSION[ext] || contentType;
+      if (contentType === 'audio/x-m4a') contentType = 'audio/mp4';
+      if (!ALLOWED_EXT.test(filename) || !ALLOWED_MIME.has(contentType)) {
+        throw new HttpError(415, 'unsupported_audio_format', 'Choose an MP3, M4A, WAV, WebM, OGG or FLAC audio file.');
+      }
+      const result = await client.transcribe({ model: model || undefined, file: bytes, filename, language });
+      if (typeof result?.text !== 'string') throw new HttpError(502, 'transcription_invalid_response', 'The transcription service returned an invalid response.');
+      return { text: result.text, usage: result.usage || null, model: result.model || model || 'openrouter' };
+    }
+  };
+}
