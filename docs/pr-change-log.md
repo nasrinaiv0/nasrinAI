@@ -1446,3 +1446,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for video creation, duration enforcement, configured cost, and unsupported extension.
 - Add OpenRouter GPT Image 2 / GPT Image 2.5 Flare / Sunburst allowlisting and image quality propagation.
 - Release status: draft only. CI, provider-specific pricing and capability checks, task-policy routing, and end-to-end tests are required before merge or production enablement.
+
+
+- Follow-up: wired the policy's classified task into the OpenRouter text adapter; exact models are checked against live output modality and tool support, external data collection is denied, attachments fail closed on the text adapter, and structured decisions are kept separate from ordinary chat.
