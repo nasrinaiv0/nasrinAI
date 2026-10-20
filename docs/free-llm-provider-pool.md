@@ -129,3 +129,25 @@ Pricing remains governed by NasrinAI's configured model price registry and spend
 - OpenRouter video generation checks the live catalog's supported duration, resolution, and aspect ratio, and requires a parseable per-second SKU price. The configured per-second ceiling must be at least the highest advertised per-second SKU rate. Unsupported settings or missing pricing fail closed.
 - When OpenRouter returns `usage.cost` for an image, NasrinAI uses that provider-reported value for image spend settlement and logs a warning if it exceeds the configured estimate.
 - Video generation remains capped to single-shot clips while the existing video workflow cannot safely extend provider jobs. Production approval still requires durable actual-cost reconciliation for video jobs and a live provider integration test.
+
+
+### OpenRouter video model routing
+
+The video provider allowlist for this rollout is:
+
+- `google/veo-3.1-fast`
+- `google/veo-3.1-lite`
+- `heygen/video` (confirm the exact current catalog ID before configuring)
+- `alibaba/happyhorse-1.1`
+- `alibaba/wan-2.7`
+- `alibaba/wan-3.0`
+
+Use the exact IDs returned by `GET /api/v1/videos/models`; model names displayed in the UI are labels, not API identifiers. Do not infer the HeyGen or Wan 3.0 slug from the marketing name. For each model, read the live `supported_durations`, `supported_resolutions`, `supported_aspect_ratios`, and current pricing before enabling it. Veo 3.1 Fast advertises 4/6/8 second clips; Wan 2.7 advertises 2–10 seconds; HappyHorse 1.1 advertises 3–15 seconds. The current NasrinAI video workflow is intentionally capped at 8 seconds until durable extension and video spend reconciliation are complete.
+
+### Provider failover policy
+
+- OpenRouter can retry among its own eligible upstream endpoints; NasrinAI must still handle total model/API failure.
+- Cross-provider failover is permitted only before a generation job is accepted, or when the provider definitively reports that no job was created. Never retry a timed-out create request blindly: it may create duplicate paid jobs.
+- Image, video and speech failover must preserve modality, capability, user tier, safety rules and spend ceiling. Never fall back from video/image/audio to text chat, or from coding to a model that cannot follow tool calls.
+- Coding must remain on a verified code-capable text model with tools enabled when required. If all code-capable providers fail, return a clear retryable error; do not silently downgrade to a generic/free chat model.
+- Keep Gemini/OpenAI/other existing providers as explicit fallback candidates only where their adapters are configured, health-checked, and compatible with the request. A fallback is not considered healthy merely because its API key exists.
