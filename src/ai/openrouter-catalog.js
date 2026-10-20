@@ -23,17 +23,19 @@ export const OPENROUTER_SKILL_CATALOG = Object.freeze([
 
 const byId = new Map(OPENROUTER_SKILL_CATALOG.filter((m) => m.id && m.status === 'verified').map((m) => [m.id, m]));
 export function prioritizeOpenRouterCandidates(task, candidates) {
-  const preferred = (candidate) => {
-    if (candidate.provider !== 'openrouter') return -1;
+  const positions = [];
+  const ranked = [];
+  candidates.forEach((candidate, index) => {
+    if (candidate.provider !== 'openrouter') return;
     const item = byId.get(candidate.model);
-    if (!item) return -1;
-    const index = item.preferredTasks.indexOf(task);
-    return index < 0 ? 999 : index;
-  };
-  // Preserve configured order for non-catalog models and models without a task match.
-  return candidates.map((candidate, index) => ({ candidate, index, rank: preferred(candidate) }))
-    .sort((a, b) => {
-      if (a.rank === -1 || b.rank === -1 || a.rank === 999 || b.rank === 999) return a.index - b.index;
-      return a.rank - b.rank || a.index - b.index;
-    }).map(({ candidate }) => candidate);
+    const rank = item ? item.preferredTasks.indexOf(task) : -1;
+    if (rank >= 0) {
+      positions.push(index);
+      ranked.push({ candidate, rank, index });
+    }
+  });
+  ranked.sort((a, b) => a.rank - b.rank || a.index - b.index);
+  const output = [...candidates];
+  positions.forEach((position, i) => { output[position] = ranked[i].candidate; });
+  return output;
 }
