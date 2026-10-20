@@ -180,9 +180,11 @@
   $('binImportButton').addEventListener('click',()=>$('mediaInput').click());
   $('editorSave').addEventListener('click',()=>$('saveProject').click());
   $('editorCreate').addEventListener('click',()=>switchTab('create'));
-  $('toolExport').addEventListener('click',()=>switchTab('export'));
-  $('toolText').addEventListener('click',()=>{const clip=state.clips.find(x=>x.id===state.selected);if(!clip){notice('Select a timeline clip first to add a title.',true);return;}showClip(clip);$('clipTitle').focus();notice('Add your title in Clip details on the right.');});
-  $('toolAudio').addEventListener('click',()=>$('mediaInput').click());
+  function activateEditorTool(name){document.querySelectorAll('[data-editor-tool]').forEach(button=>button.classList.toggle('active',button.dataset.editorTool===name));}
+  document.querySelector('[data-editor-tool="media"]').addEventListener('click',()=>{activateEditorTool('media');$('mediaBinItems').scrollIntoView({block:'nearest'});});
+  $('toolExport').addEventListener('click',()=>{activateEditorTool('export');switchTab('export');});
+  $('toolText').addEventListener('click',()=>{activateEditorTool('text');const clip=state.clips.find(x=>x.id===state.selected);if(!clip){notice('Select a timeline clip first to add a title.',true);return;}showClip(clip);$('clipTitle').focus();notice('Add your title in Clip details on the right.');});
+  $('toolAudio').addEventListener('click',()=>{activateEditorTool('audio');$('mediaInput').click();});
   $('mediaInput').addEventListener('change',()=>{for(const file of Array.from($('mediaInput').files||[])){if(file.size>100*1024*1024){notice(file.name+' is larger than the 100 MB browser upload limit.',true);continue;}const url=URL.createObjectURL(file);state.objectUrls.set(url,true);addClip({id:crypto.randomUUID(),name:file.name,kind:'upload',mediaType:file.type||'application/octet-stream',duration:file.type.startsWith('audio/')?30:8,title:'',start:0,url,file});} $('mediaInput').value='';});
   $('clipName').addEventListener('change',()=>updateSelected({name:safe($('clipName').value).slice(0,100)}));
   $('clipTitle').addEventListener('change',()=>updateSelected({title:safe($('clipTitle').value).slice(0,140)}));
