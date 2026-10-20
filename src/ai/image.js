@@ -200,7 +200,8 @@ export function createOpenRouterImage({ client, model, quality, price, timeoutMs
       const bytes = Buffer.from(item.b64_json, 'base64');
       const mime = sniff(bytes);
       if (!mime || bytes.length > 25 * 1024 * 1024) throw new ProviderError('config', 'OpenRouter returned an invalid or oversized image');
-      return { bytes, mime };
+      const actualCost = Number(result?.usage?.cost);
+      return { bytes, mime, ...(Number.isFinite(actualCost) && actualCost >= 0 ? { costUsd: actualCost } : {}) };
     }
   };
 }
