@@ -184,8 +184,7 @@ export function createOpenRouterImage({ client, model, timeoutMs = 100_000 }) {
         result = await client.generateImage({
           model, prompt, images: refs,
           aspect_ratio: aspectRatio,
-          n: 1,
-          timeoutMs
+          n: 1
         });
       } catch (err) {
         if (err instanceof ProviderError) throw err;
