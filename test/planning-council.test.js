@@ -57,3 +57,18 @@ test('council rejects empty goal and bounds context and role output', async () =
   });
   assert.equal(result.findings[0].text.length, 10000);
 });
+
+test('council falls back instead of using one model as a fake committee', async () => {
+  let calls = 0;
+  const result = await runPlanningCouncil({
+    enabled: true, tier: 'max', task: 'planning', goal: 'Plan securely',
+    runCandidate: async () => {
+      calls += 1;
+      if (calls > 1) throw new Error('no distinct route');
+      return { text: 'Only one model answered', spec: { provider: 'openrouter', model: 'one-model' }, costUsd: 0.001 };
+    }
+  });
+  assert.equal(result.used, false);
+  assert.equal(result.reason, 'insufficient_diversity');
+  assert.equal(result.findings.filter((x) => x.text).length, 1);
+});
