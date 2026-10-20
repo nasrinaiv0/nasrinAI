@@ -665,11 +665,17 @@ export function loadConfig(env = process.env) {
     else paymongo = Object.freeze({ secretKey: pmKey, webhookSecret: pmHook, methods: Object.freeze(methods) });
   }
 
+  const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
+  if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
+  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || '').trim();
+  const openRouterVideoCost = Number(env.OPENROUTER_VIDEO_COST_PER_SECOND_USD);
   const video = Object.freeze({
-    enabled: Boolean(geminiKey) && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, 'true'),
+    provider: videoProviderName,
+    enabled: (videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY && openRouterVideoModel && Number.isFinite(openRouterVideoCost) && openRouterVideoCost > 0)) && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, 'true'),
     // Ultra video uses Veo 3.1 Standard for final quality. Fast remains the
     // explicit operator choice when lower cost/latency is more important.
-    model: String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
+    model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
+    costPerSecondUsd: videoProviderName === 'openrouter' ? openRouterVideoCost : null,
     resolution: String(env.VIDEO_RESOLUTION || '1080p').trim().toLowerCase(),
     perHour: toInt('VIDEO_PER_HOUR', env.VIDEO_PER_HOUR, 1, 1, 10),
     maxSeconds: 60,
