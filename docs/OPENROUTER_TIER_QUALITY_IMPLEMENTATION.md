@@ -72,8 +72,8 @@ Never log or expose API keys, internal provider exceptions, or secret environmen
 A new runtime skill catalog is added at `src/ai/openrouter-catalog.js`. It maps model IDs to verified task skills and reorders only explicitly configured OpenRouter candidates for a classified task. This does not bypass existing policy: a candidate must still be present in ROUTE_LEVEL_n, have a price, pass live model availability/capability checks, privacy checks, spend budget, tool/attachment checks, and tier limits.
 
 Verified IDs/prices recorded in `config/model-prices.json` from OpenRouter model pages:
-- `deepseek/deepseek-v4.1-flash`: $0.13 input / $0.52 output per 1M; cached input $0.0026.
-- `z-ai/glm-5.3-flash`: $0.075 input / $0.25 output per 1M; cached input $0.015 (page identifies a promotional rate; re-check before future pricing changes).
+- `deepseek/deepseek-v4.1-flash`: $0.13 input / $0.52 output per 1M; cached input pricing not added until independently confirmed.
+- `z-ai/glm-5.3-flash`: $0.075 input / $0.25 output per 1M; cached input $0.015 (promotional listed rate; verify before pricing updates).
 - `xiaomi/mimo-v2.6-flash`: $0.14 input / $0.28 output per 1M; cached input $0.0028.
 - `deepseek/deepseek-v4-flash-0731`: $0.0152 input / $1.28 output per 1M.
 - `deepseek/deepseek-v4-flash-vision-exp`: $0.2156 input / $0.6468 output per 1M; cached input $0.00686.
