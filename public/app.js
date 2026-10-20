@@ -19,7 +19,6 @@
   const $ = (id) => document.getElementById(id);
   // Delegate desktop navigation to the established controls to preserve behavior.
   $('desktopNewChat')?.addEventListener('click', () => $('newChat')?.click());
-  $('desktopHistoryBtn')?.addEventListener('click', () => $('historyBtn')?.click());
   $('desktopSettingsBtn')?.addEventListener('click', () => $('settingsBtn')?.click());
   const log = $('log');
   // The message box floats over the chat; the chat keeps room for it below.
@@ -7597,7 +7596,6 @@
     researchOverlay.hidden = true;
     document.body.classList.remove('research-open');
   }
-  $('drawerResearch').addEventListener('click', openResearch);
   $('desktopResearchBtn')?.addEventListener('click', openResearch);
   $('researchClose').addEventListener('click', closeResearch);
   researchOverlay.addEventListener('click', (event) => { if (event.target === researchOverlay) closeResearch(); });
