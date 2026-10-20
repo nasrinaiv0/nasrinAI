@@ -1386,3 +1386,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Remove the separate Research and Your chats navigation rows from the desktop rail and mobile drawer while preserving chat search, recent-chat access, the Research workspace implementation, and the existing header history control.
 - Remove obsolete event bindings and update navigation regression tests to assert the simplified navigation rather than requiring the deleted controls.
 - **Validation:** GitHub Actions initially identified stale assertions in desktop navigation, iOS-style icon, Research UI, and Video Studio tests; those expectations are being aligned with the requested navigation change. CI must pass before merge.
+
+
+## PR #487 — Comprehensive production audit remediation plan (2026-10-20)
+
+- **Commit:** `2002a3cbf44701093c8f786fce251ecf6f98f54a` — `docs: add comprehensive production audit remediation plan`.
+- Added `docs/audits/NASRINAI_COMPREHENSIVE_AUDIT_REMEDIATION_2026-10-20.md`, documenting observed audit findings, risk areas, phased remediation, acceptance criteria, validation requirements, and restrictions on production changes.
+- **Scope/impact:** documentation only; no application runtime code, database schema/data, credentials, environment settings, merge, or deployment changed by this commit.
+- **Validation:** GitHub Documentation Gate initially failed because this PR did not include `docs/pr-change-log.md`. This changelog entry is the corrective follow-up; the gate must rerun to confirm it passes. No other test results are claimed here.
+- **Limitations:** audit findings must be revalidated against current repository, CI, Supabase, and Vercel state before implementation. No vulnerabilities are represented as exploited without evidence.
