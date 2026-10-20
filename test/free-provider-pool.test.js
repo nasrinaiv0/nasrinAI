@@ -48,6 +48,8 @@ test('free model pricing requires an exact allowlist match', async () => {
   assert.equal(run.spec.provider, 'groq');
   assert.equal(run.costUsd, 0);
 
+  // Do not pin an unallowlisted Groq model into ROUTE_LEVEL_1 here: that would
+  // test explicit operator routing, not whether the free-model allowlist is exact.
   const paidModelConfig = loadConfig({
     AI_PROVIDER: 'none',
     ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
