@@ -429,6 +429,7 @@ export function loadConfig(env = process.env) {
   if (wantSpeech === 'gemini' && !geminiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=gemini needs GEMINI_API_KEY');
   if (wantSpeech === 'openai' && !openaiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openai needs AI_PROVIDER=openai or auto, and OPENAI_API_KEY');
   if (wantSpeech === 'openrouter' && !openrouterSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_API_KEY');
+  if (wantSpeech === 'openrouter' && !String(env.OPENROUTER_TTS_MODEL || '').trim()) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_TTS_MODEL set to a verified speech-output model ID');
   const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : openrouterSpeechOk ? 'openrouter' : 'none';
 
   const SPEECH_RATE_DEFAULT = 1.15;
