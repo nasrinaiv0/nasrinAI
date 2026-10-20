@@ -321,3 +321,32 @@ test('speech provider choice: OpenAI first, Gemini when it is the only key', asy
   assert.equal(loadConfig({ ...base }).ai.speech.enabled, false);
   assert.throws(() => loadConfig({ ...base, SPEECH_PROVIDER: 'gemini' }), /GEMINI_API_KEY/);
 });
+
+
+test('OpenRouter speech config pins the requested Gemini Flash Lite TTS model and provider', async () => {
+  const { loadConfig } = await import('../src/config.js');
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    SPEECH_PROVIDER: 'openrouter',
+    OPENROUTER_TTS_MODEL: 'google/gemini-3.8-flash-lite-tts',
+    OPENROUTER_TTS_PROVIDER: 'Google Vertex'
+  });
+  assert.equal(cfg.ai.speech.provider, 'openrouter');
+  assert.equal(cfg.ai.speech.openrouterModel, 'google/gemini-3.8-flash-lite-tts');
+  assert.equal(cfg.ai.speech.openrouterProvider, 'Google Vertex');
+});
+
+test('coding tiers pin Max to GPT-6 Sol and Ultra to GPT-6.1 Sol', async () => {
+  const { loadConfig } = await import('../src/config.js');
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    CODING_MAX_MODEL: 'openrouter:openai/gpt-6-sol',
+    CODING_ULTRA_MODEL: 'openrouter:openai/gpt-6.1-sol',
+    CODING_ULTRA_DEEP_MODEL: 'openrouter:openai/gpt-6.1-sol'
+  });
+  assert.equal(cfg.ai.coding.max.model, 'openai/gpt-6-sol');
+  assert.equal(cfg.ai.coding.ultra.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
+});
