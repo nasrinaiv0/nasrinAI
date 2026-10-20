@@ -186,3 +186,23 @@ Update this section during execution.
 5. State which actions require the owner in Supabase/Vercel dashboards; never claim those actions were completed unless verified.
 6. List remaining risks and deployment/rollback steps.
 7. Do not merge or deploy until required checks pass and the owner authorizes release.
+
+
+## Phase 10 — Persistent generated images and sent attachments (P1; reproduced on iOS Safari)
+
+**Current reproduction (2026-10-20):** In a NasrinAI conversation on iPhone Safari, the assistant says it generated a full-screen Video Studio Filters design, but the message then displays “This picture is no longer available.” The same failure has been observed for Stickers and Transitions mockups. Sent user attachments must also remain visible and tappable after the composer clears, refresh, and conversation history reload.
+
+**Status:** Reproduced from user-provided screenshot; runtime root cause and fix are not yet verified. PR #356 merged a documentation-only specification and did not implement this behavior. Track implementation in issue https://github.com/primusco20/nasrinAI/issues/486.
+
+Tasks:
+- [ ] Trace image-generation response handling from provider output through server persistence, message serialization, database storage, history loading, and client rendering. Identify whether the current message stores a temporary provider URL, blob URL, expiring signed URL, or a missing artifact reference.
+- [ ] Persist generated image bytes to the existing private storage system before reporting generation success. Store a stable artifact ID/object key and safe metadata linked to the assistant message; do not rely on temporary URLs as the sole reference.
+- [ ] Resolve preview/download URLs on demand through an authenticated server path or short-lived signed URLs. Verify the requesting user can access the parent conversation/message and the specific object; reject cross-user ID guessing.
+- [ ] Render generated images and user attachments as persistent, tappable message cards. Images open in a full-screen lightbox; supported files open/download using safe viewers. Restore previews after refresh and conversation-history reload.
+- [ ] Handle expiry, deleted objects, provider failure, storage failure, and unsupported formats explicitly. Never show a dead image as if generation succeeded; report failure if persistence fails and provide retry where safe.
+- [ ] Distinguish a static design/mockup image from an implemented interactive Video Studio feature. Do not claim a Filters/Stickers/Transitions UI was implemented merely because a concept image was generated.
+- [ ] Validate MIME type and file signatures, enforce upload limits and ownership, prevent arbitrary uploaded HTML/script execution, keep buckets private, and respect retention/deletion policy.
+- [ ] Add regression tests for user uploads and assistant-generated images: send → persist → render → tap/open → refresh → reopen history; expired signed URL renewal; missing/deleted asset; storage/provider failure; multiple files; unauthorized cross-account access; iOS Safari viewport/lightbox behavior.
+- [ ] Run relevant unit/integration/E2E tests and verify the fix on iPhone Safari or a documented equivalent before marking complete.
+
+**Acceptance:** no “This picture is no longer available” for successfully persisted artifacts; images and attachments survive refresh/history reload and open only for authorized users; generation success is emitted only after durable persistence; test evidence and deployment SHA are recorded.
