@@ -375,3 +375,21 @@ test('OpenRouter TTS exposes Google voice IDs and selects a provider-scoped defa
   assert.equal(voice.voices.some((v) => v.id === 'openrouter:Charon' && v.available), true);
   assert.equal(voice.voices.some((v) => v.id === 'openrouter:cedar' && v.available), false);
 });
+
+
+test('premium coding and TTS price snapshots include provider cache-read rates', async () => {
+  const fs = await import('node:fs/promises');
+  const prices = JSON.parse(await fs.readFile(new URL('../config/model-prices.json', import.meta.url), 'utf8'));
+  assert.deepEqual(
+    [prices.openrouter['openai/gpt-6-sol'].input, prices.openrouter['openai/gpt-6-sol'].output, prices.openrouter['openai/gpt-6-sol'].cached_input],
+    [2, 10, 0.2]
+  );
+  assert.deepEqual(
+    [prices.openrouter['openai/gpt-6.1-sol'].input, prices.openrouter['openai/gpt-6.1-sol'].output, prices.openrouter['openai/gpt-6.1-sol'].cached_input],
+    [2, 10, 0.1]
+  );
+  assert.deepEqual(
+    [prices.openrouter['google/gemini-3.8-flash-lite-tts'].input, prices.openrouter['google/gemini-3.8-flash-lite-tts'].output],
+    [0.5, 6]
+  );
+});
