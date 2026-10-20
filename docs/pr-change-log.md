@@ -1,4 +1,13 @@
 
+## Proposed PR — CapCut-inspired Video Studio workspace (`feat/capcut-style-video-studio`)
+
+- Replace the previous spacious template/timeline page with an editor-first, dark workspace inspired by familiar desktop video editors while retaining NasrinAI branding.
+- Add a left media bin, centered preview canvas, horizontal clip cards/timeline, and right-side clip properties panel.
+- Wire Import media, Save project, Create scene, Text focus, Audio import, and Export navigation to existing functional flows.
+- Keep the layout responsive for tablet/mobile and add regression coverage for unique DOM IDs, core editor controls, media bin, and responsive styles.
+- Scope note: this improves the editing workspace and does not claim full CapCut parity; multi-track editing, transitions, keyframes, captions/effects, and a server render worker are not included by this change.
+
+
 ## Post-merge Video Studio preview fix (2026-10-20)
 
 - Added image and audio preview rendering for uploaded cloud assets; previously the inspector attempted to show every media type in a video element.
