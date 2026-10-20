@@ -3,25 +3,29 @@ import { marketingCacheKey } from './marketing-cache.js';
 import { owns } from './conversations.js';
 import { safePrompt, MAX_SECONDS, STEP_SECONDS, EXTEND_SECONDS, videoStepSeconds } from './ai/video.js';
 import { videoCostPerSecond } from './ai/pricing.js';
+import { resolveRequestTier } from './ai/request-tier.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function createVideos({ store, plans, provider, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
   const unavailable = () => new HttpError(503, 'videos_unavailable', 'Video creation is not available right now.');
 
-  async function requireVideoPlan(caller) {
+  async function requireVideoPlan(caller, requestedTier) {
     if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans.');
     if (!plans) throw unavailable();
-    const p = await plans.current(caller);
-    if (p.open || !['max', 'ultra'].includes(p.plan)) throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans. Upgrade your plan to create videos.');
+    const account = await plans.current(caller);
+    if (account.open || !['max', 'ultra'].includes(account.plan)) throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans. Upgrade your plan to create videos.');
+    const selected = resolveRequestTier(requestedTier, account.plan, { open: Boolean(account.open) });
+    if (!['max', 'ultra'].includes(selected)) throw new HttpError(403, 'video_tier_required', 'Video creation requires selecting Max or Ultra.');
+    return { account, selected };
   }
 
   async function create(caller, body) {
-    await requireVideoPlan(caller);
+    const b = body && typeof body === 'object' ? body : {};
+    const { selected } = await requireVideoPlan(caller, b.tier ?? b.model);
     if (!provider) throw unavailable();
     if (provider.maxSeconds && Number(b.seconds || MAX_SECONDS) > provider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${provider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
     await limiter.signIn('video:' + caller.actor.id, config.video.perHour);
-    const b = body && typeof body === 'object' ? body : {};
     if (b.conversation_id != null) {
       if (!UUID.test(String(b.conversation_id))) throw notFound();
       const conversation = await store.getConversation(b.conversation_id);
@@ -29,6 +33,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, Number(b.seconds) || MAX_SECONDS));
+    if (selected === 'max' && config.video.provider === 'openrouter' && provider.tier && provider.tier !== 'max') throw new HttpError(503, 'video_tier_unavailable', 'The selected Max video route is not configured.');
+    if (selected === 'ultra' && config.video.provider === 'openrouter' && provider.tier && provider.tier !== 'ultra') throw new HttpError(503, 'video_tier_unavailable', 'The selected Ultra video route is not configured.');
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, provider: provider.id, model: provider.model || 'unknown',
