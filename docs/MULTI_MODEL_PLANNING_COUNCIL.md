@@ -119,3 +119,10 @@ The following general text models have conservative rates in `config/model-price
 - OpenRouter lists GPT-6 Sol and GPT-6.1 Sol at $2/$10 per million input/output tokens. The Gemini 3.8 Flash Lite TTS listing confirms $0.50/$6 per million text-input/audio-output tokens. Sources: https://openrouter.ai/openai/gpt-6-sol/ ; https://openrouter.ai/openai/gpt-6.1-sol ; https://openrouter.ai/google/gemini-3.8-flash-lite-tts/ .
 - **Provider availability gate:** the current public Gemini Flash Lite TTS listing shows Google AI Studio as its provider, not Google Vertex. Because this configuration pins `Google Vertex` with no fallback, TTS will fail closed if OpenRouter does not expose that provider for this model. Before production, verify the exact provider ID/name in OpenRouter's live endpoint catalog. If Google Vertex is not offered for this model, choose explicitly between (a) switching the pin to the available Google AI Studio provider or (b) using a Vertex-native integration with the matching Vertex model and authentication. Do not silently fall back to a different provider.
 - Regression tests assert the configured model IDs and provider pin. They do not substitute for authenticated provider smoke tests.
+
+
+## Premium coding and TTS model selection — 2026-10-21
+
+The coding routes are configured as tier-scoped allowlists: Max → `openai/gpt-6-sol`; Ultra → `openai/gpt-6.1-sol`; Ultra deep coding → `openai/gpt-6.1-sol`. The listed OpenRouter rates are $2/M input and $10/M output for both models. This routing does not let the low-cost planning council override the tier's coding model.
+
+TTS is configured for `google/gemini-3.8-flash-lite-tts` through OpenRouter, pinned to provider `Google Vertex`. Listed rates are $0.50/M text input and $6/M audio output. Voice catalog support was extended so OpenRouter TTS exposes the Google Gemini voice IDs rather than OpenAI-specific voices, and voice selection remains namespaced by provider. See `docs/voice-screen.md` and `docs/coding-chat.md` for setup and release gates.
