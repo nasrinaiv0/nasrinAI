@@ -274,14 +274,14 @@
         const clip=clips[index],duration=durations[index],sourceUrl=await resolveClipSource(clip);
         if(sourceUrl.startsWith('blob:'))temporaryUrls.push(sourceUrl);
         let media;
-        if(clip.kind==='image'||(clip.file?.type||'').startsWith('image/')){
+        if(clip.kind==='image'||(clip.mediaType||clip.file?.type||'').startsWith('image/')){
           media=new Image();media.src=sourceUrl;await waitForMedia(media,'load');
           drawFrame(media,clip);const start=performance.now();
           await new Promise(resolve=>{const tick=now=>{drawFrame(media,clip);const pct=Math.min(1,(now-start)/(duration*1000));progress.value=Math.round(((elapsed+duration*pct)/total)*100);if(pct>=1)resolve();else raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);});
         }else{
-          const audioOnly=clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
+          const audioOnly=clip.kind==='audio'||(clip.mediaType||clip.file?.type||'').startsWith('audio/');media=document.createElement(audioOnly?'audio':'video');media.muted=false;if(!audioOnly)media.playsInline=true;media.preload='auto';media.src=sourceUrl;
           await waitForMedia(media,'loadedmetadata');
-          if(clip.kind==='audio'||(clip.file?.type||'').startsWith('audio/')){media.style.display='none';document.body.append(media);}
+          if(audioOnly){media.style.display='none';document.body.append(media);}
           if(audioContext){const source=audioContext.createMediaElementSource(media);source.connect(audioDestination);}
           const startAt=Math.max(0,Number(clip.start)||0);if(startAt<media.duration&&Math.abs(media.currentTime-startAt)>0.05){
             // Register before assigning currentTime: Safari may dispatch seeked immediately.
