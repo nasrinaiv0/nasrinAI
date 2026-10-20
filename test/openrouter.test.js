@@ -6,7 +6,8 @@ function response(body, status = 200, type = 'application/json') {
   return new Response(type === 'application/json' ? JSON.stringify(body) : body, { status, headers: { 'content-type': type } });
 }
 const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion: '0.000002' }) => ({
-  id, name: id, architecture: { output_modalities: [modality], input_modalities: ['text'] }, pricing
+  id, name: id, architecture: { output_modalities: [modality], input_modalities: ['text'] }, pricing,
+  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'], pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
 });
 
 test('OpenRouter routes tasks to modality-specific endpoints', () => {
