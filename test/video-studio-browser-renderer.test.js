@@ -39,7 +39,7 @@ test('browser renderer records clip audio and draws the current clip title', asy
 });
 
 
-test('browser renderer refuses more than 30 clips rather than silently omitting the rest', async () => {
+test('browser renderer enforces its 40-clip bound rather than silently omitting the rest', async () => {
   const js = await readFile(new URL('../public/video-studio.js', import.meta.url), 'utf8');
   assert.match(js, /state\.clips\.length>40/);
   assert.match(js, /browser renderer supports up to 40 clips per export/);
