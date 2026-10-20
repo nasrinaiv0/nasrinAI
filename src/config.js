@@ -277,7 +277,7 @@ export function loadConfig(env = process.env) {
   // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
   // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
-  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) || freeProviderSettings.some((p) => p.freeModels.includes(p.model)) ? 'smart' : 'fixed')).trim().toLowerCase();
+  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
   const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY));
   // Last-resort, explicitly priced model choices for when an operator's custom
@@ -310,7 +310,6 @@ export function loadConfig(env = process.env) {
     const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
     const normalCandidates = parsed.filter((spec) => {
       if (!eligibleFreeProviderIds.includes(spec.provider)) return true;
-      warnings.push(`ROUTE_LEVEL_${n}: free-tier provider ${spec.provider} is emergency-fallback-only and was excluded from normal routing.`);
       return false;
     });
     levels[n] = Object.freeze(normalCandidates);
