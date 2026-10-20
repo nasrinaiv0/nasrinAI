@@ -900,8 +900,15 @@ return { body: { sites: await connect.list(caller) } }; }
           throw new HttpError(400, 'expected_version_required', 'Reload this project before saving so changes are not overwritten.');
         }
         const expectedVersion = body.expected_version;
-        const project = await store.updateVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id, name, document: cleanVideoStudioDocument(body.document), expectedVersion });
+        const previous = await store.getVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
+        const document = cleanVideoStudioDocument(body.document);
+        const project = await store.updateVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id, name, document, expectedVersion });
         if (!project) throw new HttpError(409, 'video_project_conflict', 'This project changed or is no longer available. Reload it before saving again.');
+        if (videoStudioAssets && previous) {
+          const retained = new Set(document.clips.map((clip) => clip.assetId).filter(Boolean));
+          const obsolete = [...new Set((previous.document?.clips || []).map((clip) => clip?.assetId).filter((id) => typeof id === 'string'))].filter((id) => !retained.has(id));
+          for (const id of obsolete) await videoStudioAssets.remove(caller, id).catch(() => {});
+        }
         return { body: { project } };
       }
     },
@@ -912,8 +919,14 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params }) => {
         if (caller.actor.type !== 'user') throw new HttpError(403, 'sign_in_required', 'Sign in to delete cloud Video Studio projects.');
         if (!store?.deleteVideoStudioProject) throw new HttpError(503, 'video_projects_unavailable', 'Cloud projects are not available yet.');
+        const project = await store.getVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
+        if (!project) throw new HttpError(404, 'not_found', 'That video project was not found.');
         const deleted = await store.deleteVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
         if (!deleted) throw new HttpError(404, 'not_found', 'That video project was not found.');
+        if (videoStudioAssets) {
+          const ids = [...new Set((project.document?.clips || []).map((clip) => clip?.assetId).filter((id) => typeof id === 'string'))];
+          for (const id of ids) await videoStudioAssets.remove(caller, id).catch(() => {});
+        }
         return { body: { deleted: true } };
       }
     },
