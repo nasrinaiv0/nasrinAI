@@ -187,3 +187,25 @@ TTS is configured for `google/gemini-3.8-flash-lite-tts` through OpenRouter, pin
 - **TTS:** `google/gemini-3.8-flash-lite-tts` via OpenRouter, priced in `config/model-prices.json` at the operator-supplied $0.50/M text input and $6/M audio output. Configuration is `SPEECH_PROVIDER=openrouter`, `OPENROUTER_TTS_MODEL=google/gemini-3.8-flash-lite-tts`, and `OPENROUTER_TTS_PROVIDER=Google Vertex`. The adapter passes provider pinning to OpenRouter with `only` and `allow_fallbacks:false`, so a request must fail rather than silently route to another provider if Vertex is unavailable.
 - **Release gate:** model IDs and listed coding prices were verified from OpenRouter pages: https://openrouter.ai/openai/gpt-6-sol/ and https://openrouter.ai/openai/gpt-6.1-sol/. TTS's provider availability and actual audio response shape still require an authenticated Preview smoke test. Do not enable production TTS or claim Vertex routing works until that test passes.
 - Vercel environment variables are not changed by editing `.env.example`. Set these values in Preview first; never paste API keys into chat or commit them.
+
+
+## 2026-10-21 — Tier-specific coding models and Google Vertex TTS
+
+Requested routing:
+- Max coding: `openrouter:openai/gpt-6-sol`, budget estimate $2 input / $10 output per 1M tokens.
+- Ultra coding and Ultra deep coding: `openrouter:openai/gpt-6.1-sol`, budget estimate $2 input / $10 output per 1M tokens.
+- TTS: `google/gemini-3.8-flash-lite-tts` via OpenRouter, with provider preference `Google Vertex`; estimated $0.50 input / $6 output per 1M tokens.
+
+The coding tier defaults and allowlists already point to these exact model IDs; the price table now includes both. The TTS config defaults to the requested model when OpenRouter is configured, and its provider preference is explicit. Prices are operator-provided estimates and must be rechecked against live model/provider pricing before setting production budgets. OpenRouter model ID/provider capability, voice compatibility, output format, and end-to-end audio playback remain release-smoke checks. Do not reveal API keys or copy them into logs.
+
+Environment settings (Preview first):
+```dotenv
+CODING_MAX_MODEL=openrouter:openai/gpt-6-sol
+CODING_ULTRA_MODEL=openrouter:openai/gpt-6.1-sol
+CODING_ULTRA_DEEP_MODEL=openrouter:openai/gpt-6.1-sol
+SPEECH_PROVIDER=openrouter
+OPENROUTER_TTS_MODEL=google/gemini-3.8-flash-lite-tts
+OPENROUTER_TTS_PROVIDER=Google Vertex
+```
+
+Validation limitation: live provider calls cannot be asserted from repository edits alone. Run tier-specific coding smoke tests (Max and Ultra), TTS synthesis for every supported voice group, audio MIME/playback checks, and spend/token reconciliation before production enablement.
