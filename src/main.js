@@ -55,7 +55,7 @@ import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
 import { createSemanticCache } from './semanticCache.js';
 import { createOpenAIEmbedder } from './ai/embeddings.js';
-import { createOpenAITranscription } from './ai/transcription.js';
+import { createOpenAITranscription, createOpenRouterTranscription } from './ai/transcription.js';
 import { createOpenAIPdfOcr } from './ai/pdf-ocr.js';
 import { createWebAnswers } from './web-answers.js';
 import { createGithub } from './github/index.js';
@@ -236,7 +236,9 @@ export function buildApp({ config, logger }) {
         ? geminiSpeech
         : openaiSpeech;
   const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech, openrouter: openrouterSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
-  const transcription = config.ai.openaiApiKey ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey }) : null;
+  const transcription = config.ai.openaiApiKey
+    ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey })
+    : openRouterClient ? createOpenRouterTranscription({ client: openRouterClient, model: String(process.env.OPENROUTER_STT_MODEL || '').trim() }) : null;
   const pdfOcr = config.ai.openaiApiKey ? createOpenAIPdfOcr({ apiKey: config.ai.openaiApiKey }) : null;
 
   const auth = config.auth.email || config.auth.google
