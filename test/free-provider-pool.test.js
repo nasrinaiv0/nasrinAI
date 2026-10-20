@@ -16,16 +16,14 @@ const quiet = { info() {}, warn() {}, error() {} };
 test('free provider pool enables only keyed providers with pinned models', () => {
   const config = loadConfig({
     AI_PROVIDER: 'none',
+    ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'llama-3.3-70b-versatile,llama-3.1-8b-instant'
   });
   assert.equal(config.ai.freeProviders.length, 1);
   assert.equal(config.ai.freeProviders[0].id, 'groq');
-  assert.deepEqual(config.ai.routing.levels[1].slice(0, 2), [
-    { provider: 'groq', model: 'llama-3.3-70b-versatile', effort: null },
-    { provider: 'groq', model: 'llama-3.1-8b-instant', effort: null }
-  ]);
+  assert.ok(!Object.values(config.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'), 'free-tier providers stay out of normal routing levels');
   assert.ok(config.ai.fallback.providers.includes('groq'));
   assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('groq'));
 });
@@ -33,6 +31,7 @@ test('free provider pool enables only keyed providers with pinned models', () =>
 test('free model pricing requires an exact allowlist match', async () => {
   const config = loadConfig({
     AI_PROVIDER: 'none',
+    ROUTE_LEVEL_1: 'groq:llama-3.3-70b-versatile',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'
@@ -49,8 +48,11 @@ test('free model pricing requires an exact allowlist match', async () => {
   assert.equal(run.spec.provider, 'groq');
   assert.equal(run.costUsd, 0);
 
+  // Do not pin an unallowlisted Groq model into ROUTE_LEVEL_1 here: that would
+  // test explicit operator routing, not whether the free-model allowlist is exact.
   const paidModelConfig = loadConfig({
     AI_PROVIDER: 'none',
+    ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'another-model'
@@ -62,6 +64,7 @@ test('free model pricing requires an exact allowlist match', async () => {
 test('free provider credentials never become available from browser-facing config fields', () => {
   const config = loadConfig({
     AI_PROVIDER: 'none',
+    ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'

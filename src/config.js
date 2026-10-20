@@ -233,10 +233,10 @@ export function loadConfig(env = process.env) {
   // deliberately excluded here; it is only a coding specialist for Max/Ultra.
   // If Claude coding is unavailable, the normal GPT pool remains the fallback.
   // AI_FALLBACK=none disables cross-provider failover.
-  // Provider failover is separate from tier routing. "auto" means try the
-  // cheapest configured external provider first, then paid providers. A
-  // provider failure never changes the user's selected tier; the router picks
-  // the best available model for the same route level.
+  // Provider failover is separate from tier routing. "auto" tries configured
+  // paid/general-purpose providers first, then explicitly allowlisted free-tier
+  // providers as emergency-only fallbacks. A provider failure never changes the
+  // user's selected tier; the router picks the best available model for the same route level.
   const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai', 'anthropic'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.length > 0);
   const fallbackMode = String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
   if (!['auto', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
@@ -274,7 +274,10 @@ export function loadConfig(env = process.env) {
   ].map((s) => Object.freeze(s)));
   const defaultsByLevel = {
     // Include every configured provider; model allowlists and price validation still apply.
-    1: [...freeProviderSettings.flatMap((p) => p.freeModels.map((model) => p.id + ':' + model)), has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    // Free-model providers are emergency-only: they are deliberately excluded from
+    // normal cost-aware levels and are appended after configured paid providers
+    // in AI_FALLBACK=auto. Do not promote them to primary routing by default.
+    1: [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano:none' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
     2: [has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
     3: [has('openai') ? 'openai:gpt-5.4:medium' : ''],
     4: [has('openai') ? 'openai:gpt-5.4:high' : ''],
