@@ -62,3 +62,12 @@ Gemini realtime replies showed "Talking…" with no sound on iPhone. Two causes:
   call sets it back to `'auto'`.
 The audio context is also resumed from iOS's `interrupted` state, not only
 `suspended`. Needs a real iPhone call to confirm.
+
+
+## OpenRouter Gemini Flash Lite TTS (2026-10-21)
+
+- Configured model ID: `google/gemini-3.8-flash-lite-tts`, with OpenRouter provider routing pinned to `Google Vertex` by `OPENROUTER_TTS_PROVIDER`.
+- Listed pricing snapshot: $0.50 per 1M text-input tokens and $6 per 1M generated audio tokens. The OpenRouter TTS price page lists those rates; provider availability is dynamic, so verify the selected endpoint before production rollout. Source: https://openrouter.ai/google/gemini-3.8-flash-lite-tts/.
+- OpenRouter TTS uses the Google Gemini voice catalog (30 voice IDs), not the OpenAI voice catalog. Settings IDs are namespaced as `openrouter:Charon`, etc., to ensure the selected voice is routed to the correct engine.
+- The existing server-side voice endpoint continues to enforce ownership, rate limits, daily usage, spend reservations, short-lived audio cache, and usage logging. No API key is sent to the browser.
+- Current validation covers configuration and model/provider pinning. Authenticated live speech generation and audio-format compatibility must be smoke-tested in Vercel Preview before enabling production traffic.
