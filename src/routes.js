@@ -51,7 +51,7 @@ function cleanVideoStudioDocument(raw) {
 }
 
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -912,6 +912,34 @@ return { body: { sites: await connect.list(caller) } }; }
         const deleted = await store.deleteVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: params.id });
         if (!deleted) throw new HttpError(404, 'not_found', 'That video project was not found.');
         return { body: { deleted: true } };
+      }
+    },
+    {
+      method: 'POST',
+      path: '/v1/video-studio/assets',
+      scope: 'chat',
+      body: true,
+      handler: async ({ caller, body, ip }) => {
+        if (!videoStudioAssets) throw new HttpError(503, 'video_assets_unavailable', 'Cloud media storage is not configured yet.');
+        return { status: 201, body: await videoStudioAssets.sign(caller, body, ip) };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/assets/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!videoStudioAssets) throw new HttpError(503, 'video_assets_unavailable', 'Cloud media storage is not configured yet.');
+        return { body: await videoStudioAssets.readUrl(caller, params.id) };
+      }
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/video-studio/assets/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        if (!videoStudioAssets) throw new HttpError(503, 'video_assets_unavailable', 'Cloud media storage is not configured yet.');
+        return { body: await videoStudioAssets.remove(caller, params.id) };
       }
     },
     {
