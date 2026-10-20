@@ -53,6 +53,30 @@ test('OpenAI: failures become ProviderErrors that never contain the key', async 
   await assert.rejects(provider.generate({ system: 'S', messages: [] }), { kind: 'timeout' });
 });
 
+test('auto mode registers Gemini, OpenAI, and Claude together and includes them in fallback', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'auto',
+    AI_FALLBACK: 'auto',
+    OPENAI_API_KEY: KEY,
+    GEMINI_API_KEY: 'gemini-test-key',
+    ANTHROPIC_API_KEY: 'anthropic-test-key'
+  });
+  const provider = providerFromConfig(config);
+  assert.ok(provider.providerIds.includes('openai'));
+  assert.ok(provider.providerIds.includes('gemini'));
+  assert.ok(provider.providerIds.includes('anthropic'));
+  assert.ok(config.ai.fallback.providers.includes('openai'));
+  assert.ok(config.ai.fallback.providers.includes('gemini'));
+  assert.ok(config.ai.fallback.providers.includes('anthropic'));
+});
+
+test('explicit Gemini and Claude provider modes require their own key and use compatible defaults', () => {
+  assert.throws(() => loadConfig({ AI_PROVIDER: 'gemini' }), ConfigError);
+  assert.throws(() => loadConfig({ AI_PROVIDER: 'claude' }), ConfigError);
+  assert.equal(loadConfig({ AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'gemini-test-key' }).ai.tiers.nasrinai.provider, 'gemini');
+  assert.equal(loadConfig({ AI_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'anthropic-test-key' }).ai.tiers.nasrinai.provider, 'anthropic');
+});
+
 test('provider choice: none by default; openai needs a key; fake never in production', () => {
   assert.equal(providerFromConfig(loadConfig({})), null);
   assert.throws(() => loadConfig({ AI_PROVIDER: 'openai' }), ConfigError);
