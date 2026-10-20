@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createOpenRouterClient, OPENROUTER_TASK_ENDPOINTS, OPENROUTER_TASK_MODALITIES } from '../src/ai/openrouter.js';
+import { createOpenRouterClient, createOpenRouterVideoProvider, OPENROUTER_TASK_ENDPOINTS, OPENROUTER_TASK_MODALITIES } from '../src/ai/openrouter.js';
 
 function response(body, status = 200, type = 'application/json') {
   return new Response(type === 'application/json' ? JSON.stringify(body) : body, { status, headers: { 'content-type': type } });
@@ -106,4 +106,23 @@ test('image and video model discovery use their dedicated capability catalogs', 
   assert.equal((await client.selectModel('video', ['provider/video-maker'])).id, 'provider/video-maker');
   assert.ok(urls.some((url) => url.endsWith('/images/models')));
   assert.ok(urls.some((url) => url.endsWith('/videos/models')));
+});
+
+
+test('OpenRouter video adapter pins model, duration, and explicit cost; rejects unsupported extensions', async () => {
+  const calls = [];
+  const client = {
+    createVideo: async (body) => { calls.push(body); return { id: 'job_123' }; },
+    videoStatus: async (id) => ({ id, status: 'completed' }),
+    videoContent: async (id) => Buffer.from('video'),
+  };
+  const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', maxSeconds: 8, resolution: '720p', costPerSecondUsd: 0.12 });
+  assert.equal(provider.costPerSecondUsd, 0.12);
+  assert.equal(provider.maxSeconds, 8);
+  assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
+  assert.deepEqual(calls[0], { model: 'provider/video', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p' });
+  await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
+  await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
+  assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
+  assert.equal((await provider.download('job_123')).toString(), 'video');
 });
