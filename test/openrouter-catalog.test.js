@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { OPENROUTER_SKILL_CATALOG, prioritizeOpenRouterCandidates } from '../src/ai/openrouter-catalog.js';
 
 test('OpenRouter skill catalog records the requested model names and fails closed for unverified IDs', () => {
-  assert.equal(OPENROUTER_SKILL_CATALOG.length, 16);
+  assert.equal(OPENROUTER_SKILL_CATALOG.length, 17);
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'deepseek/deepseek-v4-flash-0731' && m.status === 'verified'));
-  assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status.startsWith('unverified')).every((m) => m.id === null));
+  assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status === 'unverified_exact_id').every((m) => m.id === null));
+  assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.status === 'operator_supplied_unverified').every((m) => m.id && !m.id.startsWith('')));
+  assert.ok(!OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'openai/gpt-6-luna' && m.status === 'verified'), 'operator-supplied IDs must not become eligible before verification');
 });
 
 test('task skills prioritize matching configured OpenRouter models without moving non-OpenRouter candidates', () => {
