@@ -4,10 +4,12 @@ Owner request (2026-10-12): a top bar with a menu button on phones and
 tablets; the bottom tab bar is an option.
 
 - On phones and tablets the header shows only the **menu button** and **New
-  chat** (icon); Your chats and Settings moved into the menu.
+  chat** (icon); Settings lives in the menu. The drawer keeps search and recent
+  chat access, but does not show separate **Your chats** or **Research** entries.
 - **Menu button** (two lines, top left of the header, under 70rem) opens a
-  drawer from the left: NasrinAI and a search button (opens Your chats),
-  Library, Projects, Your chats, up to 8 recent chats with "See all…", and at
+  drawer from the left: NasrinAI and a search button (opens chat search),
+  Library, Code, Projects, Studio and Plugins, plus up to 8 recent chats with
+  "See all…"; there are no separate Your chats or Research navigation rows. At
   the bottom **New chat** and **Settings**. Tap outside or press Escape to
   close. Library and Projects show only when the server offers them; signed
   out, they ask to sign in (the existing screens).

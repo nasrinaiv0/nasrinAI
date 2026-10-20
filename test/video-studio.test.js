@@ -40,7 +40,7 @@ test('main workspace links to Video Studio without replacing existing navigation
   assert.match(html, /class="nvs-studio-mark__line"/);
   assert.match(html, /class="nvs-studio-mark__play"/);
   assert.match(html, /drawer-studio-link/);
-  assert.match(html, /id="desktopResearchBtn"/);
+  assert.doesNotMatch(html, /id="desktopResearchBtn"|id="drawerResearch"/, 'standalone Research navigation has been removed');
   assert.match(html, /id="desktopCodeBtn"/);
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(app, /studio_context/);

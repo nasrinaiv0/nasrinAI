@@ -1379,3 +1379,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added a Studio shortcut to the navigation drawer and replaced the desktop rail's generic video icon/label with the supplied NasrinAI Video Studio logo and concise Studio label.
 - Added the supplied SVG under `public/space-logos/nasrinai-video-studio.svg` and made the inline navigation mark adapt its pause line to the selected light/dark theme while preserving the pastel-orange play mark.
 - Added regression assertions for Space navigation and the adaptive logo mark.
+
+
+## Remove standalone Research and Your chats navigation (`ui/remove-research-and-chats-nav`)
+
+- Remove the separate Research and Your chats navigation rows from the desktop rail and mobile drawer while preserving chat search, recent-chat access, the Research workspace implementation, and the existing header history control.
+- Remove obsolete event bindings and update navigation regression tests to assert the simplified navigation rather than requiring the deleted controls.
+- **Validation:** GitHub Actions initially identified stale assertions in desktop navigation, iOS-style icon, Research UI, and Video Studio tests; those expectations are being aligned with the requested navigation change. CI must pass before merge.

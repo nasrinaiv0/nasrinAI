@@ -8,10 +8,10 @@ const [html, script, styles] = await Promise.all([
   readFile(new URL('../public/app.css', import.meta.url), 'utf8')
 ]);
 
-test('Research workspace is reachable from mobile and desktop navigation', () => {
-  assert.match(html, /id="drawerResearch"/);
-  assert.match(html, /id="desktopResearchBtn"/);
+test('Research workspace remains implemented without standalone navigation rows', () => {
+  assert.doesNotMatch(html, /id="drawerResearch"|id="desktopResearchBtn"/);
   assert.match(html, /id="researchOverlay"[^>]*role="dialog"/);
+  assert.match(script, /api\('\/v1\/research'/);
 });
 
 test('Research workspace exposes its existing query, URL, report, history and export controls', () => {
