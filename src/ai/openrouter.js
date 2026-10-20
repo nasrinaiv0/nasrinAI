@@ -127,7 +127,9 @@ export function createOpenRouterClient({
   async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, provider = {}, signal }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
-    const selected = await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens, maxPromptUsdPerMillion });
+    const selected = model === 'openrouter/free' && task === 'chat' && !(Array.isArray(tools) && tools.length)
+      ? { id: 'openrouter/free' }
+      : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens, maxPromptUsdPerMillion });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: 'deny', allow_fallbacks: provider.allow_fallbacks !== false } };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
@@ -279,7 +281,8 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
     async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [] }) {
       if (Array.isArray(attachments) && attachments.length) throw new ProviderError('config', 'OpenRouter text route does not accept attachments; choose a verified vision or file-capable route');
       if (requestedModel === 'openrouter/free' && fallbackProvider) {
-        return fallbackProvider.generate({ system, messages, model: requestedModel, tools, maxTokens, signal, attachments });
+        if (normalizeTask(task) !== 'chat' || tools.length) throw new ProviderError('config', 'OpenRouter free routing cannot guarantee task-specific capabilities or tool support');
+        if (attachments.length) throw new ProviderError('config', 'OpenRouter free routing does not accept attachments');
       }
       if (task === 'decisions') throw new ProviderError('config', 'Structured decisions require the dedicated decide({state, questions}) API');
       const result = await openrouter.chat({
