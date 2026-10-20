@@ -167,4 +167,11 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   assert.equal(seen.provider.data_collection, 'deny');
   await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments/);
   await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'decide' }], model: 'vendor/model', task: 'decisions' }), /dedicated decide/);
+
+  let freeCall;
+  const freeProvider = createOpenRouterProvider({ apiKey: 'test-key', model: 'openrouter/free', fallbackProvider: { generate: async () => { throw new Error('legacy adapter must not be called'); } }, client: { listModels: async () => [], chat: async (args) => { freeCall = args; return { choices: [{ message: { content: 'basic fallback' }, finish_reason: 'stop' }], usage: {} }; } } });
+  const freeResult = await freeProvider.generate({ system: 'S', messages: [{ role: 'user', content: 'hello' }], model: 'openrouter/free', task: 'chat' });
+  assert.equal(freeResult.text, 'basic fallback');
+  assert.equal(freeCall.provider.data_collection, 'deny');
+  await assert.rejects(freeProvider.generate({ system: 'S', messages: [{ role: 'user', content: 'write code' }], model: 'openrouter/free', task: 'coding' }), /cannot guarantee task-specific capabilities/);
 });
