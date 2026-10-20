@@ -11,7 +11,7 @@ const TASK_OUTPUT = Object.freeze({
 const ENDPOINT = Object.freeze({
   chat: '/chat/completions', research: '/chat/completions', coding: '/chat/completions',
   scraping: '/chat/completions', extraction: '/chat/completions', editing: '/chat/completions',
-  decisions: '/chat/completions', image: '/images', video: '/videos',
+  decisions: '/alpha/decisions', image: '/images', video: '/videos',
   speech: '/audio/speech', transcription: '/audio/transcriptions',
   audio: '/chat/completions', embeddings: '/embeddings', rerank: '/rerank'
 });
@@ -50,7 +50,7 @@ export function createOpenRouterClient({
 
   async function request(path, { method = 'POST', body, headers = {}, signal, raw = false } = {}) {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('..')) throw new ProviderError('config', 'Invalid OpenRouter endpoint');
-    const url = new URL(root.href.replace(/\/$/, '') + path);
+    const url = path === '/alpha/decisions' ? new URL('/api/alpha/decisions', root.origin) : new URL(root.href.replace(/\/$/, '') + path);
     if (url.origin !== root.origin) throw new ProviderError('config', 'OpenRouter endpoint origin mismatch');
     let response;
     try {
@@ -106,6 +106,7 @@ export function createOpenRouterClient({
   }
 
   async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, provider = {}, signal }) {
+    if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
     const selected = model ? { id: cleanModelId(model) } : await selectModel(task, preferred);
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
@@ -113,6 +114,20 @@ export function createOpenRouterClient({
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
     if (Number.isFinite(temperature)) payload.temperature = Math.max(0, Math.min(2, temperature));
     return request(ENDPOINT[task] || ENDPOINT.chat, { body: payload, signal });
+  }
+
+  async function decide({ model, preferred = [], state, questions, signal }) {
+    const selected = model ? { id: cleanModelId(model) } : await selectModel('decisions', preferred);
+    if (state === undefined || state === null || (typeof state === 'string' && !state.trim())) throw new ProviderError('config', 'Decision state is required');
+    if (!questions || typeof questions !== 'object' || Array.isArray(questions) || !Object.keys(questions).length || Object.keys(questions).length > 100) {
+      throw new ProviderError('config', 'Decision questions must be a non-empty object with at most 100 entries');
+    }
+    for (const [key, question] of Object.entries(questions)) {
+      if (!/^[a-zA-Z0-9_-]{1,80}$/.test(key) || !question || typeof question !== 'object' || !['choice', 'noul', 'score', 'box'].includes(question.type)) {
+        throw new ProviderError('config', 'Decision question schema is invalid');
+      }
+    }
+    return request('/alpha/decisions', { body: { model: selected.id, state, questions }, signal });
   }
 
   async function generateImage({ model, preferred = [], prompt, images, signal, ...options }) {
@@ -165,7 +180,7 @@ export function createOpenRouterClient({
     return request('/embeddings', { body: { model: selected.id, input }, signal });
   }
 
-  return Object.freeze({ listModels, selectModel, chat, generateImage, createVideo, videoStatus, videoContent, speak, transcribe, embeddings });
+  return Object.freeze({ listModels, selectModel, chat, decide, generateImage, createVideo, videoStatus, videoContent, speak, transcribe, embeddings });
 }
 
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;
