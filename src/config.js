@@ -155,7 +155,9 @@ export function loadConfig(env = process.env) {
   const geminiKey = String(env.GEMINI_API_KEY || '').trim();
   if (geminiKey && aiProvider !== 'fake' && !providerKeys.includes('gemini')) providerKeys.push('gemini');
   if (env.OPENAI_API_KEY && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('openai')) providerKeys.push('openai');
-  if (aiProvider === 'auto' && ![env.OPENAI_API_KEY, geminiKey, anthropicKey].some((key) => String(key || '').trim())) throw new ConfigError('AI_PROVIDER=auto needs at least one external provider key: OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY');
+  const openrouterApiKey = String(env.OPENROUTER_API_KEY || '').trim();
+  if (openrouterApiKey && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('openrouter')) providerKeys.push('openrouter');
+  if (aiProvider === 'auto' && ![env.OPENAI_API_KEY, geminiKey, anthropicKey, openrouterApiKey].some((key) => String(key || '').trim())) throw new ConfigError('AI_PROVIDER=auto needs at least one external provider key: OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY');
   // Optional APIs from awesome-freellm-apis. Model IDs are pinned explicitly;
   // free-model allowlists are separate because a provider may also expose paid models.
   const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => ['openai-compatible', 'cloudflare-workers-ai', 'cohere-v2'].includes(p.adapter)).map((p) => {
@@ -315,28 +317,37 @@ export function loadConfig(env = process.env) {
   }
   if (routingMode === 'smart' && !levels[1].length) throw new ConfigError('ROUTING=smart needs at least one model for ROUTE_LEVEL_1');
 
-  // Claude is a deliberate specialist, not a general-purpose fallback.
-  // Max uses Sonnet 5.5 for well-scoped coding/debugging; Ultra uses Opus 5.5
-  // for the hardest coding, refactors and codebase-scale work. If Anthropic is
-  // not configured, coding falls back to the normal OpenAI/Gemini routing.
-  const codingModel = (name, value, fallback) => {
+  // Coding specialists are explicit, tier-scoped routes. Prefer the requested
+  // OpenRouter Sol models when OPENROUTER_API_KEY is configured; retain the
+  // previous Anthropic defaults only when OpenRouter is not configured.
+  const codingModel = (name, value, fallback, allowedModels) => {
     const raw = value === undefined || String(value).trim() === '' ? fallback : String(value).trim();
     if (!raw) return null;
-    if (!has('anthropic')) {
-      if (value !== undefined && String(value).trim() !== '') throw new ConfigError(`${name}: needs ANTHROPIC_API_KEY`);
-      return null;
-    }
     const spec = tierSpec(name, raw);
-    if (spec.provider !== 'anthropic') throw new ConfigError(`${name}: must use anthropic:claude-...`);
-    return spec;
+    if (spec.provider === 'openrouter') {
+      if (!has('openrouter')) throw new ConfigError(`${name}: needs OPENROUTER_API_KEY`);
+      if (!allowedModels.includes(spec.model)) throw new ConfigError(`${name}: model is not allowed for this coding tier`);
+      return spec;
+    }
+    if (spec.provider === 'anthropic') {
+      if (!has('anthropic')) throw new ConfigError(`${name}: needs ANTHROPIC_API_KEY`);
+      if (!/^claude-(sonnet|opus)-/.test(spec.model)) throw new ConfigError(`${name}: expected an approved Claude coding model`);
+      return spec;
+    }
+    throw new ConfigError(`${name}: use an approved openrouter:openai/gpt-6-sol or openrouter:openai/gpt-6.1-sol model (or an approved anthropic:claude-... fallback)`);
   };
+  const codingOpenRouter = has('openrouter');
+  const codingAnthropic = has('anthropic');
+  const codingFallback = (openrouterModel, anthropicModel) => codingOpenRouter
+    ? `openrouter:${openrouterModel}`
+    : codingAnthropic ? `anthropic:${anthropicModel}` : '';
   const coding = Object.freeze({
-    // Sonnet handles routine and moderate coding across Max and Ultra.
-    max: codingModel('CODING_MAX_MODEL', env.CODING_MAX_MODEL, 'anthropic:claude-sonnet-5-5'),
-    ultra: codingModel('CODING_ULTRA_MODEL', env.CODING_ULTRA_MODEL, 'anthropic:claude-sonnet-5-5'),
-    // Opus is reserved for Ultra's level 4-5 coding only, where its extra
-    // reasoning quality is worth the higher token price.
-    ultraDeep: codingModel('CODING_ULTRA_DEEP_MODEL', env.CODING_ULTRA_DEEP_MODEL, 'anthropic:claude-opus-5-5')
+    max: codingModel('CODING_MAX_MODEL', env.CODING_MAX_MODEL,
+      codingFallback('openai/gpt-6-sol', 'claude-sonnet-5-5'), ['openai/gpt-6-sol']),
+    ultra: codingModel('CODING_ULTRA_MODEL', env.CODING_ULTRA_MODEL,
+      codingFallback('openai/gpt-6.1-sol', 'claude-sonnet-5-5'), ['openai/gpt-6.1-sol']),
+    ultraDeep: codingModel('CODING_ULTRA_DEEP_MODEL', env.CODING_ULTRA_DEEP_MODEL,
+      codingFallback('openai/gpt-6.1-sol', 'claude-opus-5-5'), ['openai/gpt-6.1-sol'])
   });
   // Which levels each tier may use: [lowest, highest]. Powerful levels must be
   // earned by the message; the tier only sets how high it may go.
@@ -424,7 +435,7 @@ export function loadConfig(env = process.env) {
   }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
-  const wantSpeech = String(env.SPEECH_PROVIDER || 'auto').trim().toLowerCase();
+  const wantSpeech = String(env.SPEECH_PROVIDER || (openrouterApiKey ? 'openrouter' : 'auto')).trim().toLowerCase();
   if (!['auto', 'openai', 'gemini', 'openrouter'].includes(wantSpeech)) throw new ConfigError('SPEECH_PROVIDER: use auto, openai, gemini or openrouter');
   const openaiSpeechOk = (aiProvider === 'openai' || aiProvider === 'auto') && Boolean(env.OPENAI_API_KEY);
   const geminiSpeechOk = Boolean(geminiKey) && aiProvider !== 'fake';
@@ -432,7 +443,7 @@ export function loadConfig(env = process.env) {
   if (wantSpeech === 'gemini' && !geminiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=gemini needs GEMINI_API_KEY');
   if (wantSpeech === 'openai' && !openaiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openai needs AI_PROVIDER=openai or auto, and OPENAI_API_KEY');
   if (wantSpeech === 'openrouter' && !openrouterSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_API_KEY');
-  if (wantSpeech === 'openrouter' && !String(env.OPENROUTER_TTS_MODEL || '').trim()) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_TTS_MODEL set to a verified speech-output model ID');
+  if (wantSpeech === 'openrouter' && !String(env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-lite-tts').trim()) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_TTS_MODEL set to a verified speech-output model ID');
   const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : openrouterSpeechOk ? 'openrouter' : 'none';
 
   const SPEECH_RATE_DEFAULT = 1.15;
@@ -830,7 +841,8 @@ export function loadConfig(env = process.env) {
         // (lower delay, a little less expressive). OPENAI_TTS_FAST_MODEL=off uses the normal one.
         fastModel: /^(off|none|false)$/i.test(String(env.OPENAI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.OPENAI_TTS_FAST_MODEL || 'tts-1').trim(),
         // Gemini speech. GEMINI_TTS_FAST_MODEL is optional (empty: same model).
-        openrouterModel: String(env.OPENROUTER_TTS_MODEL || '').trim(),
+        openrouterModel: String(env.OPENROUTER_TTS_MODEL || (openrouterApiKey ? 'google/gemini-3.8-flash-lite-tts' : '')).trim(),
+        openrouterProvider: String(env.OPENROUTER_TTS_PROVIDER || 'Google Vertex').trim(),
         geminiModel: String(env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts').trim(),
         geminiFastModel: /^(off|none|false)$/i.test(String(env.GEMINI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.GEMINI_TTS_FAST_MODEL || 'gemini-3.8-flash-lite-tts').trim(),
         responsive: String(env.SPEECH_RESPONSIVE ?? 'true').toLowerCase() !== 'false',
