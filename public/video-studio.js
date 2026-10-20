@@ -181,7 +181,7 @@
       generated:state.generated.slice(0,20).map(c=>({name:safe(c.name).slice(0,100),video_id:c.videoId||null,duration:Number(c.duration)||0})),
       audio_assets:(state.audioAssets||[]).slice(0,20).map(a=>({id:a.id,label:safe(a.label).slice(0,120),kind:a.kind,voice_id:a.voice_id||null,model_id:a.model_id||null,content_url:a.content_url})),
       audio_timeline:(state.audioTimeline||[]).slice(0,20).map(item=>({asset_id:item.audioAssetId,label:safe(item.asset?.label||'Audio clip').slice(0,120),kind:item.asset?.kind||'audio',start_seconds:item.startSeconds,trim_start_seconds:item.trimStartSeconds,trim_end_seconds:item.trimEndSeconds,gain:item.gain,lane:item.lane})),
-      note:'This project brief includes metadata for saved audio assets and the selected project audio timeline. Audio/video bytes are not attached to chat; NasrinAI can help plan or troubleshoot the project and refer to the provided asset IDs.'
+      note:'Saved audio assets: audio_assets contains metadata and IDs for generated voiceovers and sound effects. Project audio timeline: audio_timeline contains placements, trim ranges, gain, and lane metadata. Audio/video bytes are not attached to chat; NasrinAI can help plan or troubleshoot the project and refer to the provided asset IDs.'
     };
     const encoded=encodeURIComponent(JSON.stringify(project));
     if(encoded.length>7000){notice('This project brief is too large to transfer at once. Remove some timeline clips and try again.',true);return;}
