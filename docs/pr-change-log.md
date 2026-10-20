@@ -6,6 +6,7 @@
 - **Studio:** cloud save uploads local media bytes before saving project metadata, persists validated asset IDs/MIME types, and resolves signed URLs when reopening a project. The server rejects cloud projects that claim an uploaded clip without a durable asset ID.
 - **Cleanup:** project updates/deletion attempt to remove no-longer-referenced assets after the project mutation succeeds. Storage cleanup is best-effort; failed cleanup can leave an orphan, but ownership scoping prevents cross-user deletion.
 - **Tests/docs:** add service-level tests for auth, size/type validation, owner scoping, private URL signing, and frontend/cloud-document integration; add database assertions for bucket privacy/limits; update architecture docs.
+- **CI follow-up:** the first database run showed that plain PostgreSQL CI does not create Supabase's `storage.buckets` schema. Migration 052 and its DB assertions now skip only the Storage-specific DDL/assertions when that schema is absent; on Supabase the bucket is still created and checked.
 - **Deployment gates:** CI and DB tests must pass. Migration 052 must be applied through the approved migration process, then verify real signed-in upload/save/reopen/delete on staging. Browser rendering remains client-side; this does not add a server-side render worker.
 
 ## Proposed PR — Require optimistic versions for Video Studio cloud saves (`fix/video-studio-version-conflicts`)
