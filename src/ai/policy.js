@@ -100,7 +100,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     // answer (for usage records). Resolves { result, spec, level, escalated, costUsd }.
     async run(plan, req, { onFailure = async () => {}, reserveTokens = null, settleTokens = null, caller = null } = {}) {
       // `minTokens`: a request for a file or long document may use more reply tokens than its level allows.
-      const { minTokens = 0, ...modelReq } = req;
+      const { minTokens = 0, maxTokens: requestedMaxTokens = null, ...modelReq } = req;
       req = modelReq;
       const attachments = req.attachments || [];
       const inputTokens = estimateTokens(req.system) + req.messages.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
@@ -199,7 +199,10 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         if (at < level) logger.info('downgraded to fit the budget', { from: level, to: at });
 
         const started = now();
-        const callMaxTokens = Math.max(r.maxTokens[at], minTokens);
+        const normalMaxTokens = Math.max(r.maxTokens[at], minTokens);
+        const boundedMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens >= 64
+          ? Math.min(normalMaxTokens, requestedMaxTokens) : normalMaxTokens;
+        const callMaxTokens = boundedMaxTokens;
         let reservation = null;
         let result;
         try {
