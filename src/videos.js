@@ -23,8 +23,9 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
   async function create(caller, body) {
     const b = body && typeof body === 'object' ? body : {};
     const { selected } = await requireVideoPlan(caller, b.tier ?? b.model);
-    if (!provider) throw unavailable();
-    if (provider.maxSeconds && Number(b.seconds || MAX_SECONDS) > provider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${provider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
+    const routeProvider = provider && typeof provider.create !== 'function' ? provider[selected] : provider;
+    if (!routeProvider) throw new HttpError(503, 'video_tier_unavailable', 'Video generation is not configured for the selected tier.');
+    if (routeProvider.maxSeconds && Number(b.seconds || MAX_SECONDS) > routeProvider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${routeProvider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
     await limiter.signIn('video:' + caller.actor.id, config.video.perHour);
     if (b.conversation_id != null) {
       if (!UUID.test(String(b.conversation_id))) throw notFound();
@@ -33,12 +34,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, Number(b.seconds) || MAX_SECONDS));
-    if (selected === 'max' && config.video.provider === 'openrouter' && provider.tier && provider.tier !== 'max') throw new HttpError(503, 'video_tier_unavailable', 'The selected Max video route is not configured.');
-    if (selected === 'ultra' && config.video.provider === 'openrouter' && provider.tier && provider.tier !== 'ultra') throw new HttpError(503, 'video_tier_unavailable', 'The selected Ultra video route is not configured.');
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
     const cacheKey = marketingCacheKey('video', {
-      prompt, targetSeconds, aspectRatio, provider: provider.id, model: provider.model || 'unknown',
-      resolution: provider.resolution || 'provider-default'
+      prompt, targetSeconds, aspectRatio, requestTier: selected,
+      provider: routeProvider.id, model: routeProvider.model || 'unknown',
+      resolution: routeProvider.resolution || 'provider-default'
     });
     const cached = b.reuse_cached === true && store.getMarketingCache ? await store.getMarketingCache({
       tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, kind: 'video', key: cacheKey
@@ -52,7 +52,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
     }
-    const perSecond = videoCostPerSecond(provider.model, provider.resolution, provider.costPerSecondUsd ?? null);
+    const perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
     if (!budget || perSecond === null) {
       throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because a safe spending estimate is not configured for this model and resolution.');
     }
@@ -69,12 +69,12 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const started = now();
     let operation;
     try {
-      operation = await provider.create({ prompt, aspectRatio, seconds: targetSeconds });
+      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds });
     } catch (err) {
       // Provider failures can still incur charges; keep the maximum-duration
       // reservation rather than releasing budget on an uncertain outcome.
       await budget.settleSpend(spendReservation, estimatedCost).catch(() => {});
-      await usageLog?.record?.(caller, { provider: provider.id, model: provider.model, outcome: 'provider_error',
+      await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'provider_error',
         task: 'video', latencyMs: now() - started, costUsd: estimatedCost, spendReservationId: spendReservation.id });
       throw err;
     }
