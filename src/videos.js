@@ -106,7 +106,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       : provider;
     if (!jobProvider) throw unavailable();
     let state;
-    try { state = jobProvider.extract(await jobProvider.status(v.providerOperation));
+    try { state = jobProvider.extract(await jobProvider.status(v.providerOperation)); }
     catch (err) {
       logger.warn('video provider poll failed', { id, error: err.message });
       return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
