@@ -210,3 +210,40 @@ export function createOpenRouterClient({
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;
 export const OPENROUTER_TASK_MODALITIES = TASK_OUTPUT;
 export const OPENROUTER_TASK_INPUT_MODALITIES = TASK_INPUT;
+
+
+// Adapter for NasrinAI's existing video job lifecycle. OpenRouter video jobs
+// are single-shot: do not pretend that provider-side extension is supported.
+// The caller must enforce maxSeconds and use its existing spend reservation.
+export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, resolution = '720p' }) {
+  if (!client || typeof client.createVideo !== 'function') throw new ProviderError('config', 'OpenRouter video client is required');
+  const safeMax = Math.max(1, Math.min(8, Number(maxSeconds) || 8));
+  return {
+    id: 'openrouter',
+    model,
+    maxSeconds: safeMax,
+    resolution,
+    async create({ prompt, aspectRatio, seconds = safeMax }) {
+      if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
+      const result = await client.createVideo({
+        model, prompt,
+        duration: Math.floor(seconds),
+        aspect_ratio: aspectRatio,
+        resolution
+      });
+      const id = result?.id || result?.job_id || result?.data?.id;
+      if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
+      return id;
+    },
+    async status(id) { return client.videoStatus(id); },
+    extract(result) {
+      const state = String(result?.status || result?.data?.status || '').toLowerCase();
+      const failed = ['failed', 'error', 'cancelled', 'canceled'].includes(state);
+      const done = ['completed', 'complete', 'succeeded', 'success', 'ready'].includes(state);
+      return { done, failed, uri: done ? (result?.id || result?.job_id || result?.data?.id) : null,
+        error: failed ? String(result?.error?.message || result?.message || 'Video generation failed').slice(0, 240) : null };
+    },
+    async download(id) { return client.videoContent(id); },
+    async extend() { throw new ProviderError('config', 'OpenRouter video extension is not supported; request a single clip within the model duration limit'); }
+  };
+}
