@@ -98,7 +98,7 @@ export function createOpenRouterClient({
     } else {
       models = await listModels();
     }
-    let eligible = models.filter((m) => task === 'video'
+    let eligible = models.filter((m) => task === 'video' || task === 'decisions'
       ? typeof m.id === 'string'
       : task === 'image'
         ? typeof m.id === 'string' && (m.architecture?.output_modalities?.includes('image') || !m.architecture)
@@ -127,7 +127,7 @@ export function createOpenRouterClient({
         const duration = requirements.duration;
         const resolution = requirements.resolution;
         const aspectRatio = requirements.aspectRatio;
-        if (duration != null && (!list('supported_durations') || !list('supported_durations').includes(Number(duration)))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested duration');
+        if (duration != null && (!list('supported_durations') || !list('supported_durations').some((value) => Number(value) === Number(duration)))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested duration');
         if (resolution && (!list('supported_resolutions') || !list('supported_resolutions').includes(resolution))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested resolution');
         if (aspectRatio && (!list('supported_aspect_ratios') || !list('supported_aspect_ratios').includes(aspectRatio))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested aspect ratio');
         if (requirements.generateAudio === true && match.generate_audio !== true && match.supports_audio_generation !== true) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise generated audio support');
@@ -149,7 +149,7 @@ export function createOpenRouterClient({
     }
     if (preferred.length) throw new ProviderError('config', `Configured OpenRouter model is unavailable or lacks the required capability for task: ${task}`);
     // Never silently choose an arbitrary model for costly generation.
-    if (['image', 'video', 'rerank'].includes(task)) {
+    if (['image', 'video', 'rerank', 'decisions'].includes(task)) {
       throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
     }
     const affordable = eligible.filter((m) => Number.isFinite(Number(m.pricing?.prompt)) && Number.isFinite(Number(m.pricing?.completion)));
