@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createOpenRouterClient, createOpenRouterVideoProvider, OPENROUTER_TASK_ENDPOINTS, OPENROUTER_TASK_MODALITIES } from '../src/ai/openrouter.js';
+import { createOpenRouterClient, createOpenRouterProvider, createOpenRouterVideoProvider, OPENROUTER_TASK_ENDPOINTS, OPENROUTER_TASK_MODALITIES } from '../src/ai/openrouter.js';
 
 function response(body, status = 200, type = 'application/json') {
   return new Response(type === 'application/json' ? JSON.stringify(body) : body, { status, headers: { 'content-type': type } });
@@ -147,4 +147,24 @@ test('image catalog schema without chat architecture is accepted, but editing re
   const edited = calls.filter((x) => x.path === '/api/v1/images').at(-1);
   assert.equal(edited.body.input_references.length, 1);
   assert.ok(!('images' in edited.body));
+});
+
+
+test('OpenRouter text adapter routes classified tasks through exact capability-checked models with privacy denial', async () => {
+  let seen;
+  const client = {
+    listModels: async () => [{ id: 'vendor/model', architecture: { output_modalities: ['text'] } }],
+    chat: async (args) => { seen = args; return { model: 'vendor/model', choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 3, completion_tokens: 2 } }; }
+  };
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'vendor/model', client });
+  assert.equal(provider.capabilities().dataLeavesServer, true);
+  assert.equal(provider.capabilities().trainsOnData, false);
+  const result = await provider.generate({ system: 'S', messages: [{ role: 'user', content: 'inspect code' }], model: 'vendor/model', task: 'coding', maxTokens: 32 });
+  assert.equal(result.text, 'ok');
+  assert.equal(result.inputTokens, 3);
+  assert.equal(seen.task, 'coding');
+  assert.equal(seen.model, 'vendor/model');
+  assert.equal(seen.provider.data_collection, 'deny');
+  await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments/);
+  await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'decide' }], model: 'vendor/model', task: 'decisions' }), /dedicated decide/);
 });
