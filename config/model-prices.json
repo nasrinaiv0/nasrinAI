@@ -152,11 +152,13 @@
   "openrouter": {
     "deepseek/deepseek-v4.1-flash": {
       "input": 0.13,
-      "output": 0.52
+      "output": 0.52,
+      "cached_input": 0.0026
     },
     "z-ai/glm-5.3-flash": {
       "input": 0.075,
-      "output": 0.25
+      "output": 0.25,
+      "cached_input": 0.015
     },
     "xiaomi/mimo-v2.6-flash": {
       "input": 0.14,
