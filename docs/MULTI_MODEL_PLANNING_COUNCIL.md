@@ -159,3 +159,12 @@ TTS is configured for `google/gemini-3.8-flash-lite-tts` through OpenRouter, pin
 - Provider mismatch: the currently listed provider for this TTS model is Google AI Studio, not Google Vertex. The default is therefore pinned to the provider actually shown by OpenRouter. Do not configure `Google Vertex` until the model's live OpenRouter endpoint list explicitly offers it; an unavailable provider pin would fail requests.
 - Cached token rates are explicit in the pricing file. The $2/$10 rates above are standard rates; cached input is set to the listed cache-read rates rather than the full input rate.
 - Validation/release gates: run the full suite and changed-module syntax checks; verify OpenRouter TTS capability and actual provider slug in the deployed Preview environment; confirm WAV/MP3 response format and voice mapping end-to-end; perform a bounded-cost coding smoke test for Max and Ultra. No production deployment or environment-secret changes are included in this commit.
+
+
+## Coding and speech model selection update (2026-10-21)
+
+- Max coding model: `openrouter:openai/gpt-6-sol`, $2 input / $10 output per million tokens.
+- Ultra coding and Ultra deep coding model: `openrouter:openai/gpt-6.1-sol`, $2 input / $10 output per million tokens. Existing tier-scoped allowlists keep the Ultra model out of the Max coding slot.
+- TTS model: `google/gemini-3.8-flash-lite-tts` through OpenRouter. OpenRouter's model page confirms $0.50/M text input and $6/M audio output. Its current page shows Google AI Studio as the listed provider; it does not confirm Google Vertex for this specific TTS model, so the default provider remains unpinned until the endpoint list verifies Vertex. Source: https://openrouter.ai/google/gemini-3.8-flash-lite-tts/ and https://openrouter.ai/google/gemini-3.8-flash-lite-tts/providers.
+- Runtime speech provider selection now prefers OpenRouter TTS when the OpenRouter provider is ready, while explicit `SPEECH_PROVIDER` overrides remain respected. If OpenRouter is not configured, existing OpenAI/Gemini fallback behavior remains available.
+- Price values are budgeting estimates. Confirm actual audio-token usage and provider billing in a live Preview smoke test before relying on exact TTS cost attribution.
