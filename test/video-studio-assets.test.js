@@ -7,7 +7,12 @@ function setup({ response = {}, status = 200 } = {}) {
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url, init });
-    return new Response(JSON.stringify(response), { status, headers:{ 'Content-Type':'application/json' } });
+    let payload = response;
+    if (String(url).includes('/object/upload/sign/video-studio-assets/')) {
+      const object = new URL(url).pathname.split('/').pop();
+      payload = { url:'/object/upload/sign/video-studio-assets/'+object+'?token=short-lived' };
+    }
+    return new Response(JSON.stringify(payload), { status, headers:{ 'Content-Type':'application/json' } });
   };
   const service = createVideoStudioAssets({
     config:{ supabaseUrl:'https://project.supabase.co', supabaseSecretKey:'server-only', uploads:{ perHour:60 } },
@@ -17,10 +22,9 @@ function setup({ response = {}, status = 200 } = {}) {
 }
 
 test('Video Studio assets issue private owner-scoped upload links', async () => {
-  const { service, calls } = setup({ response:{ url:'/object/upload/sign/video-studio-assets/owner_asset?token=secret-token' } });
-  // Use the deterministic owner hash in the fake Storage response.
-  const signed = await service.sign(caller(), { name:'clip.mp4', type:'video/mp4', size:1024 }, '127.0.0.1').catch(e=>e);
-  assert.equal(signed.code, undefined);
+  const { service, calls } = setup();
+  const signed = await service.sign(caller(), { name:'clip.mp4', type:'video/mp4', size:1024 }, '127.0.0.1');
+  assert.match(signed.upload_url, /video-studio-assets\\/.+\\?token=short-lived$/);
   assert.match(calls[0].url, /\/object\/upload\/sign\/video-studio-assets\//);
   assert.equal(calls[0].init.headers.Authorization, 'Bearer server-only');
   assert.equal(calls[0].init.headers.apikey, 'server-only');
