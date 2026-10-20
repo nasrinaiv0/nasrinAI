@@ -565,3 +565,5 @@ body.editor-mode .clip-trim-handle.trim-right{right:0}
 body.editor-mode .clip-trim-handle:focus-visible{outline:2px solid #12c7f4;outline-offset:2px}
 body.editor-mode .timeline-track.track-text .clip-trim-handle{background:#dba5f6}
 @media(max-width:760px){body.editor-mode .clip-trim-handle{width:12px;min-width:12px;opacity:.9}}
+
+body.editor-mode .timeline-track.track-video .clip-row{background:#24333d;border-color:#3d7189}
