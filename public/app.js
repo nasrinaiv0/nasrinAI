@@ -1250,14 +1250,14 @@
 
   function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false } = {}) {
     startChat();
-    const attachmentRefs = [...String(text || '').matchAll(/\\[attachment:([0-9a-f-]{36})\\|([^|\\]]*)\\|([^|\\]]*)\\]/g)].map((m) => {
+    const attachmentRefs = [...String(text || '').matchAll(/\[attachment:([0-9a-f-]{36})\|([^|\]]*)\|([^|\]]*)\]/g)].map((m) => {
       let name = 'Attachment';
       let mime = 'application/octet-stream';
       try { name = decodeURIComponent(m[2]) || name; } catch {}
       try { mime = decodeURIComponent(m[3]) || mime; } catch {}
       return { id: m[1], name, mime };
     });
-    text = String(text || '').replace(/\\[attachment:[0-9a-f-]{36}\\|[^|\\]]*\\|[^|\\]]*\\]/g, '').trim();
+    text = String(text || '').replace(/\[attachment:[0-9a-f-]{36}\|[^|\]]*\|[^|\]]*\]/g, '').trim();
     const el = document.createElement('div');
     el.className = 'msg ' + role;
     if (files.length) {
