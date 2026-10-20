@@ -25,3 +25,13 @@ test('task skills prioritize matching configured OpenRouter models without movin
   assert.equal(routed[1].model, 'deepseek/deepseek-v4-flash-0731');
   assert.equal(routed[2].model, 'xiaomi/mimo-v2.6-flash');
 });
+
+test('operator-supplied unverified models are recorded but never promoted by the skill router', () => {
+  const candidates = [
+    { provider: 'openrouter', model: 'openai/gpt-6-luna' },
+    { provider: 'openrouter', model: 'deepseek/deepseek-v4-flash-0731' }
+  ];
+  const routed = prioritizeOpenRouterCandidates('coding', candidates);
+  assert.equal(routed[0].model, 'openai/gpt-6-luna', 'unverified candidate keeps its configured slot');
+  assert.equal(routed[1].model, 'deepseek/deepseek-v4-flash-0731');
+});
