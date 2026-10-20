@@ -205,7 +205,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, route: spec, maxTokens: callMaxTokens, ...(spendHooks ? { spendHooks, spendTier: plan.tier } : {}) });
+          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, ...(spendHooks ? { spendHooks, spendTier: plan.tier } : {}) });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
             const actual = hasUsage && result.fallback !== true
