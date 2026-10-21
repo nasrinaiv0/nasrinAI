@@ -1722,7 +1722,7 @@
     sendBtn.classList.toggle('has-text', hasText || stopping);
     sendBtn.title = stopping ? 'Stop' : listening ? 'Stop listening' : hasText ? 'Send' : 'Dictate';
     sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : listening ? 'Stop listening' : hasText ? 'Send message' : 'Dictate message');
-    sendBtn.disabled = !stopping && (busy || !aiAvailable || preparing > 0 || (!hasText && !Recognition));
+    sendBtn.disabled = !stopping && (busy || (!aiAvailable && !isYouTubeSearchRequest(input.value)) || preparing > 0 || (!hasText && !Recognition));
   }
 
   function autosize() {
