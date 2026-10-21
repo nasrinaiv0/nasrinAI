@@ -4357,10 +4357,31 @@
       panel.hidden = !opening;
       details.setAttribute('aria-expanded', String(opening));
       if (opening) {
-        // Anchor the details popover directly below the ellipsis, not at the
-        // left edge of the entire action row (which clips on narrow screens).
-        panel.style.left = Math.max(0, Math.min(details.offsetLeft, row.clientWidth - Math.min(320, row.clientWidth))) + 'px';
-        panel.style.top = (row.offsetHeight + 6) + 'px';
+        // Use viewport coordinates so the preview never escapes the visible
+        // screen. Prefer below the trigger; flip above when space is limited.
+        panel.style.position = 'fixed';
+        panel.style.width = 'min(18rem, calc(100vw - 2rem))';
+        panel.style.maxWidth = 'calc(100vw - 2rem)';
+        panel.style.left = '0px';
+        panel.style.top = '0px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.maxHeight = 'min(60vh, 22rem)';
+        const triggerRect = details.getBoundingClientRect();
+        const gap = 8;
+        const edge = 12;
+        const panelWidth = Math.min(288, Math.max(0, window.innerWidth - edge * 2));
+        const panelHeight = Math.min(panel.scrollHeight || 220, window.innerHeight * 0.6, 352);
+        const left = Math.max(edge, Math.min(triggerRect.left + triggerRect.width / 2 - panelWidth / 2, window.innerWidth - panelWidth - edge));
+        const below = window.innerHeight - triggerRect.bottom - gap - edge;
+        const above = triggerRect.top - gap - edge;
+        const placeBelow = below >= Math.min(panelHeight, 180) || below >= above;
+        const top = placeBelow
+          ? Math.min(triggerRect.bottom + gap, window.innerHeight - panelHeight - edge)
+          : Math.max(edge, triggerRect.top - panelHeight - gap);
+        panel.style.left = left + 'px';
+        panel.style.top = Math.max(edge, top) + 'px';
+        panel.style.maxHeight = Math.max(120, Math.min( panelHeight, window.innerHeight - Math.max(edge, top) - edge)) + 'px';
       }
     });
     // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
