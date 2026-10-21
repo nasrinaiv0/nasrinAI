@@ -309,7 +309,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // What the person asked in this chat decides whether an .html file stays one.
     let askedText = typed;
     const ownChips = new Set();   // pull request chip lines the server made from GitHub's answers
-    const finish = async (reply) => {
+    const finish = async (reply, responseUsage = null) => {
       live?.flush();
       // Any other line shaped like a chip (written by the model) is dropped.
       if (typeof reply === 'string') reply = reply.replace(PR_CHIP_LINES, (line) => (ownChips.has(line.trim()) ? line : ''));
@@ -339,10 +339,10 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
       }
       const responseTimestamp = new Date(now()).toISOString();
-      const responseUsage = opts.responseUsage && Number.isFinite(opts.responseUsage.inputTokens) && Number.isFinite(opts.responseUsage.outputTokens)
-        ? { input_tokens: Math.max(0, Math.round(opts.responseUsage.inputTokens)), output_tokens: Math.max(0, Math.round(opts.responseUsage.outputTokens)) }
+      const usageMetadata = responseUsage && Number.isFinite(responseUsage.inputTokens) && Number.isFinite(responseUsage.outputTokens)
+        ? { input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)), output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)) }
         : null;
-      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, usage: responseUsage }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
+      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, usage: usageMetadata }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
     // Requests for private system details are refused in code, before any model call.
@@ -882,6 +882,6 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     });
     if (!reply) throw unavailable();
 
-    return finish(reply);
+    return finish(reply, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
   };
 }
