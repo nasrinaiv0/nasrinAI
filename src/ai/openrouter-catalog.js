@@ -35,7 +35,7 @@ const TASK_ALIASES = Object.freeze({
   data_analysis: ['data_analysis', 'analysis', 'research'],
   design: ['design', 'analysis'],
   creative: ['creative', 'design', 'chat'],
-  writing: ['writing', 'chat'],
+  writing: ['writing'],
   translate: ['translate', 'writing', 'chat'],
   debugging: ['debugging', 'coding'],
   extraction: ['extraction', 'research', 'analysis']
