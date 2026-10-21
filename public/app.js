@@ -4383,55 +4383,62 @@
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
     panel.id = 'reply-details-' + id;
+    const closePanel = () => {
+      panel.hidden = true;
+      details.setAttribute('aria-expanded', 'false');
+    };
+    const positionPanel = () => {
+      if (panel.hidden || window.innerWidth <= 600) return;
+      const trigger = details.getBoundingClientRect();
+      if (trigger.bottom < 0 || trigger.top > window.innerHeight) { closePanel(); return; }
+      const dockEl = document.querySelector('.dock');
+      const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
+      const edge = 12, gap = 8, width = Math.min(248, window.innerWidth - 40);
+      panel.style.position = 'fixed';
+      panel.style.width = width + 'px';
+      panel.style.maxWidth = 'calc(100vw - 40px)';
+      panel.style.maxHeight = 'min(55vh, 22rem)';
+      const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
+      const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
+      const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
+      const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
+      const aboveSpace = Math.max(0, trigger.top - gap - edge);
+      const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
+      const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
+      panel.style.left = left + 'px';
+      panel.style.top = Math.max(edge, placeBelow ? trigger.bottom + gap : trigger.top - gap - height) + 'px';
+      panel.style.maxHeight = height + 'px';
+    };
     details.addEventListener('click', (event) => {
       event.stopPropagation();
       const opening = panel.hidden;
-      panel.hidden = !opening;
-      details.setAttribute('aria-expanded', String(opening));
-      if (opening) {
-        // Viewport positioning: never let the panel cover the fixed composer.
-        panel.style.position = 'fixed';
-        panel.style.left = '12px';
-        panel.style.top = '12px';
-        panel.style.right = 'auto';
-        panel.style.bottom = 'auto';
-        panel.style.width = '248px';
-        panel.style.maxWidth = 'calc(100vw - 40px)';
-        panel.style.maxHeight = 'min(55vh, 22rem)';
-        const trigger = details.getBoundingClientRect();
-        const dockEl = document.querySelector('.dock');
-        const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
-        const edge = 12, gap = 8;
-        const width = Math.min(248, window.innerWidth - 40);
-        panel.style.width = width + 'px';
-        const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
-        const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
-        const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
-        const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
-        const aboveSpace = Math.max(0, trigger.top - gap - edge);
-        const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
-        const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
-        const top = placeBelow ? trigger.bottom + gap : trigger.top - gap - height;
-        panel.style.left = left + 'px';
-        panel.style.top = Math.max(edge, top) + 'px';
-        panel.style.maxHeight = height + 'px';
-      }
+      document.querySelectorAll('.reply-details-panel').forEach((other) => {
+        if (other !== panel) {
+          other.hidden = true;
+          const otherButton = document.querySelector('[aria-controls="' + other.id + '"]');
+          if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
+        }
+      });
+      if (!opening) { closePanel(); return; }
+      panel.hidden = false;
+      details.setAttribute('aria-expanded', 'true');
+      positionPanel();
     });
-    // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
-    // so the opening click does not immediately close the popover.
-    document.addEventListener('click', (event) => {
-      if (!panel.hidden && !panel.contains(event.target) && event.target !== details) {
-        panel.hidden = true;
-        details.setAttribute('aria-expanded', 'false');
-      }
-    });
+    const onScroll = () => {
+      if (window.innerWidth <= 600) closePanel();
+      else positionPanel();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    document.addEventListener('pointerdown', (event) => {
+      if (!panel.hidden && !panel.contains(event.target) && !details.contains(event.target)) closePanel();
+    }, true);
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !panel.hidden) {
-        panel.hidden = true;
-        details.setAttribute('aria-expanded', 'false');
-        details.focus();
-      }
+      if (event.key === 'Escape' && !panel.hidden) { closePanel(); details.focus(); }
     });
+    document.addEventListener('input', (event) => {
+      if (!panel.hidden && event.target instanceof HTMLElement &&
+          event.target.matches('input, textarea, [contenteditable="true"]')) closePanel();
+    }, true);
     row.appendChild(details);
     row.appendChild(panel);
 
@@ -4455,7 +4462,7 @@
           notice.textContent = err.message || 'That reply could not be saved.';
         } finally { keep.disabled = false; }
       });
-      row.appendChild(keep);
+      row.insertBefore(keep, details);
     }
     return row;
   }
