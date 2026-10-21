@@ -94,13 +94,19 @@ export function replaceOpenRouterPrices(table, models) {
     if (typeof model?.id !== 'string' || !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:/-]*$/i.test(model.id)) continue;
     const pricing = model.pricing;
     if (!pricing || typeof pricing !== 'object') continue;
-    const inputPerToken = Number(pricing.prompt);
-    const outputPerToken = Number(pricing.completion);
-    if (pricing.prompt == null || pricing.completion == null
-      || !Number.isFinite(inputPerToken) || inputPerToken < 0
-      || !Number.isFinite(outputPerToken) || outputPerToken < 0) continue;
-    const cachedPerToken = pricing.input_cache_read == null ? inputPerToken : Number(pricing.input_cache_read);
-    if (!Number.isFinite(cachedPerToken) || cachedPerToken < 0) continue;
+    const readPrice = (value) => {
+      if (typeof value !== 'number' && typeof value !== 'string') return null;
+      if (typeof value === 'string' && value.trim() === '') return null;
+      const number = Number(value);
+      return Number.isFinite(number) && number >= 0 ? number : null;
+    };
+    const inputPerToken = readPrice(pricing.prompt);
+    const outputPerToken = readPrice(pricing.completion);
+    if (inputPerToken === null || outputPerToken === null) continue;
+    const cachedPerToken = pricing.input_cache_read == null
+      ? inputPerToken
+      : readPrice(pricing.input_cache_read);
+    if (cachedPerToken === null) continue;
     verified[model.id] = {
       input: inputPerToken * 1e6,
       cachedInput: cachedPerToken * 1e6,
