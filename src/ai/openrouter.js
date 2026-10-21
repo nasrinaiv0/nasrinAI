@@ -325,20 +325,20 @@ export const OPENROUTER_TASK_INPUT_MODALITIES = TASK_INPUT;
 // Adapter for NasrinAI's existing video job lifecycle. OpenRouter video jobs
 // are single-shot: do not pretend that provider-side extension is supported.
 // The caller must enforce maxSeconds and use its existing spend reservation.
-export function createOpenRouterVideoProvider({ client, model = null, tier = 'max', maxSeconds = 8, resolution = '720p' }) {
+export function createOpenRouterVideoProvider({ client, model = null, tier = 'max', maxSeconds = 8, resolution = '720p', allow4kAddon = false }) {
   if (!client || typeof client.createVideo !== 'function' || typeof client.getVideoPricing !== 'function') throw new ProviderError('config', 'OpenRouter video client with live pricing lookup is required');
   const safeMax = Math.max(1, Math.min(8, Number(maxSeconds) || 8));
   let resolvedModel = model;
   return {
-    id: 'openrouter', get model() { return resolvedModel; }, tier, maxSeconds: safeMax, resolution, costPerSecondUsd: null,
+    id: 'openrouter', get model() { return resolvedModel; }, tier, maxSeconds: safeMax, resolution, allow4kAddon: allow4kAddon === true, costPerSecondUsd: null,
     async getCostPerSecondUsd({ generateAudio = true, hasVideoInput = false, duration = safeMax, aspectRatio = '16:9', requestedResolution = resolution } = {}) {
-      const pricing = await client.getVideoPricing({ model, tier, resolution: requestedResolution, duration, aspectRatio, generateAudio, hasVideoInput });
+      const pricing = await client.getVideoPricing({ model: resolvedModel || model, tier, resolution: requestedResolution, duration, aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = pricing.model;
       return pricing.costPerSecondUsd;
     },
     async create({ prompt, aspectRatio, seconds = safeMax, generateAudio = true, hasVideoInput = false, requestedResolution = resolution }) {
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
-      const pricing = await client.getVideoPricing({ model, tier, resolution: requestedResolution, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
+      const pricing = await client.getVideoPricing({ model: resolvedModel || model, tier, resolution: requestedResolution, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = pricing.model;
       const result = await client.createVideo({ model: pricing.model, tier, prompt, duration: Math.floor(seconds), aspect_ratio: aspectRatio, resolution: requestedResolution, generate_audio: generateAudio, maxCostPerSecondUsd: pricing.costPerSecondUsd });
       const id = result?.id || result?.job_id || result?.data?.id;
