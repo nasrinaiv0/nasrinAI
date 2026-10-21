@@ -304,7 +304,8 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   assert.ok(toggle.includes("b.setAttribute('aria-label', `Show sources and resources (${links.length})`);"));
   assert.ok(toggle.includes("b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);"));
   assert.ok(toggle.includes('const hosts = [...new Set(links.map((l) => l.host))].slice(0, 3);'));
-  assert.ok(toggle.includes("word.className = 'src-word';"));\n  assert.ok(toggle.includes("character.className = 'src-letter';"));
+  assert.ok(toggle.includes("word.className = 'src-word';"));
+  assert.ok(toggle.includes("character.className = 'src-letter';"));
   assert.ok(!toggle.includes('<img') && !toggle.includes('.src = ')); // no outside images (strict CSP, no third-party requests)
   assert.ok(css.includes('.src-face + .src-face { margin-left: -0.38rem; }'));
 });
