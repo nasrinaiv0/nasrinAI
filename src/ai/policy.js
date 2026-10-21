@@ -110,6 +110,9 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         // payload is not ordinary text; reserve a conservative allowance per file.
         + attachments.reduce((n, a) => n + (a.kind === 'image' ? 8192 : a.kind === 'pdf' ? 16000 : 4000), 0);
       const spendHooks = createProviderSpendHooks({ budget, config, prices, caller, tier: plan.tier });
+      // Let the provider router preflight internal failover models against the same
+      // exact pricing rules used by the budget reservation hook.
+      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => Boolean(priceFor({ provider: providerId, model: modelId }));
       let left = await budget.remaining();
       // If spend cannot be read, stay on the cheapest level.
       let level = left.unknown ? plan.floor : plan.level;
