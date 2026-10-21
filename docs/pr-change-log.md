@@ -1619,3 +1619,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reduce the top navigation tint to 3% opacity and backdrop blur to 3px.
 - Preserve the 5px gradient fade at the lower edge, with neutral saturation so content behind the bar remains clear.
 - Validation: pending PR checks and production visual verification.
+
+## PR #517 — SmartChat knowledge isolation and capability-based routing (2026-10-21)
+
+- Document tenant-isolated knowledge as the factual source of truth, evidence-first answers, and no guessing when visitor-visible knowledge is insufficient.
+- Specify provider use only for enabled capabilities that require interpretation or synthesis; require configured integrations, tenant authorization, validated arguments, and verified results for external actions.
+- Record investigation steps for the observed knowledge-write 403 and guest-session/chat errors without weakening origin validation, tenant isolation, or rate limits.
+- **Validation:** the initial Documentation Gate failed because `docs/pr-change-log.md` was missing from the PR diff; this entry addresses that gate. CI passed for the PR head. Production behavior and live end-to-end SmartChat remain unverified.
