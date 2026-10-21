@@ -140,6 +140,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
   // so write/money tools are refused instead of proposed.
   return async function chat(caller, body, ip, opts = {}) {
+    const requestStartedAt = now();
     if (body.conversation_id !== undefined && typeof body.conversation_id !== 'string') {
       throw new HttpError(400, 'invalid_conversation', 'The conversation id is not valid.');
     }
@@ -342,7 +343,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const usageMetadata = responseUsage && Number.isFinite(responseUsage.inputTokens) && Number.isFinite(responseUsage.outputTokens)
         ? { input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)), output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)) }
         : null;
-      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, usage: usageMetadata }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
+      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, duration_ms: Math.max(0, now() - requestStartedAt), usage: usageMetadata }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
     // Requests for private system details are refused in code, before any model call.
