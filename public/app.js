@@ -3088,7 +3088,7 @@
     } finally { busy = false; refreshSendButton(); }
   }
 
-  async   async function runYouTubeFirst(query) {
+  async function runYouTubeFirst(query) {
     if (busy || preparing || editing || pending.length) return;
     busy = true;
     notice.textContent = '';
@@ -3123,7 +3123,7 @@
     }
   }
 
-function send(raw) {
+  async function send(raw) {
     const text = String(raw || '').trim();
     if (turn) return;
     if ((!text && !pending.length) || busy || preparing) return;
