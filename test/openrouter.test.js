@@ -40,6 +40,23 @@ test('video pricing is looked up from the live catalog SKU map', async () => {
   assert.equal(pricing.source, 'openrouter-live-catalog');
 });
 
+test('video auto-routing selects only priced compatible models per tier', async () => {
+  const catalog = [
+    { ...model('provider/cheap-video', 'video'), pricing_skus: [{ unit: 'USD/second', cost_usd: 0.03 }] },
+    { ...model('provider/premium-video', 'video'), pricing_skus: [{ unit: 'USD/second', cost_usd: 0.18 }] },
+    { ...model('provider/unpriced-video', 'video'), pricing_skus: [{ unit: 'job', cost_usd: 0.50 }] },
+    { ...model('provider/no-audio-video', 'video'), generate_audio: false, pricing_skus: [{ unit: 'USD/second', cost_usd: 0.01 }] }
+  ];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const common = { resolution: '720p', duration: 8, aspectRatio: '16:9', generateAudio: true };
+  const max = await client.getVideoPricing({ ...common, tier: 'max' });
+  const ultra = await client.getVideoPricing({ ...common, tier: 'ultra' });
+  assert.equal(max.model, 'provider/cheap-video');
+  assert.equal(max.costPerSecondUsd, 0.03);
+  assert.equal(ultra.model, 'provider/premium-video');
+  assert.equal(ultra.costPerSecondUsd, 0.18);
+});
+
 test('specialized tasks fail closed when no model is verified', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [model('provider/chat')] }) });
   await assert.rejects(client.selectModel('image'), /No verified OpenRouter model/);
@@ -141,7 +158,7 @@ test('OpenRouter video adapter looks up live catalog pricing and pins model and 
   assert.equal(await provider.getCostPerSecondUsd(), 0.12);
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
-  assert.deepEqual(calls[0], { model: 'provider/video', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', generate_audio: true });
+  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', generate_audio: true, maxCostPerSecondUsd: 0.12 });
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
