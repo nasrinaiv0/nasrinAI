@@ -142,7 +142,7 @@ export function createOpenRouterClient({
               ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
               : sku;
             const rate = Number(value);
-            return /generate|video|second|\\/sec\\b|per_sec/.test(unit) && Number.isFinite(rate) && rate > 0;
+            return /generate|video|second|\/sec\b|per_sec/.test(unit) && Number.isFinite(rate) && rate > 0;
           }).map(([, sku]) => Number(typeof sku === 'object' && sku !== null
             ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
             : sku));
@@ -237,8 +237,8 @@ export function createOpenRouterClient({
         ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
         : sku;
       const rate = Number(value);
-      if (!/generate|video|second|\\/sec\\b|per_sec/.test(unit) || !Number.isFinite(rate) || rate <= 0) return false;
-      if (resolution && /\\b(480p|720p|1080p|4k)\\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return false;
+      if (!/generate|video|second|\/sec\b|per_sec/.test(unit) || !Number.isFinite(rate) || rate <= 0) return false;
+      if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return false;
       if (typeof sku?.with_audio === 'boolean' && sku.with_audio !== generateAudio) return false;
       if (typeof sku?.with_video_input === 'boolean' && sku.with_video_input !== hasVideoInput) return false;
       return true;
