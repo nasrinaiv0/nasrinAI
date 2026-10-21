@@ -301,6 +301,7 @@ test('OpenRouter pricing is replaced by exact live catalog prices and unpriced m
     { id: 'vendor/free-model', pricing: { prompt: '0', completion: '0' } },
     { id: 'vendor/missing-output', pricing: { prompt: '0.000001' } },
     { id: 'vendor/invalid-price', pricing: { prompt: 'not-a-price', completion: '0.000001' } },
+    { id: 'vendor/empty-price', pricing: { prompt: '', completion: '0.000001' } },
     { id: 'invalid-id', pricing: { prompt: '0', completion: '0' } }
   ];
   const result = replaceOpenRouterPrices(prices, models);
@@ -313,4 +314,5 @@ test('OpenRouter pricing is replaced by exact live catalog prices and unpriced m
     'static prices must not survive replacement by the live catalog');
   assert.equal(priceOf(prices, 'openrouter', 'vendor/missing-output'), null);
   assert.equal(priceOf(prices, 'openrouter', 'vendor/invalid-price'), null);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/empty-price'), null, 'an empty string must not be interpreted as a zero-cost model');
 });
