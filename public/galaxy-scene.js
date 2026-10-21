@@ -90,7 +90,7 @@
     if (!root.matches('[data-motion="reduce"]') && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       currentSun.classList.add('is-arriving');
     }
-    if (window.Nasrin && isGalaxyWelcome()) window.Nasrin.flash('concerned', 5000);
+    if (window.Nasrin && isGalaxyWelcome()) window.Nasrin.mood('concerned');
   }
 
   const rootObserver = new MutationObserver(() => {
