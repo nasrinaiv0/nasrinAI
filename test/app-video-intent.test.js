@@ -8,7 +8,7 @@ const end = app.indexOf('  const PERSISTENT_YOUTUBE_KEY', start);
 assert.ok(start >= 0 && end > start, 'video intent helpers should exist in app.js');
 const helpers = app.slice(start, end);\nconst helpersSearchIntent = (query) => isYouTubeSearchRequest(query);
 const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest } = new Function(
-  helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading };'
+  helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest };'
 )();
 
 test('video requests for other social platforms do not trigger unrelated YouTube cards', () => {
