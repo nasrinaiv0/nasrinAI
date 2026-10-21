@@ -4300,6 +4300,9 @@ busy = false; refreshSendButton(); }
     b.title = 'Sources & Resources';
     b.append(faces, mk('span', 'src-word', 'Sources'));
     b.addEventListener('click', () => {
+      b.classList.remove('source-wave');
+      void b.offsetWidth;
+      b.classList.add('source-wave');
       const open = list.hidden;
       list.hidden = !open;
       heading.hidden = !open;
@@ -4362,7 +4365,22 @@ busy = false; refreshSendButton(); }
     details.setAttribute('aria-label', 'Show reply details');
     details.setAttribute('aria-expanded', 'false');
     details.title = 'Reply details';
-    details.textContent = '⋯';
+    details.append(...[0, 1, 2].map((index) => {
+      const dot = document.createElement('span');
+      dot.className = 'reply-details-dot';
+      dot.dataset.n = String(index);
+      dot.setAttribute('aria-hidden', 'true');
+      dot.textContent = '•';
+      return dot;
+    }));
+    const replayWave = (button, className) => {
+      button.classList.remove(className);
+      void button.offsetWidth;
+      button.classList.add(className);
+    };
+    details.addEventListener('animationend', (event) => {
+      if (event.target?.dataset?.n === '2') details.classList.remove('reply-details-wave');
+    });
     const panel = document.createElement('div');
     panel.className = 'reply-details-panel';
     panel.hidden = true;
@@ -4445,7 +4463,7 @@ busy = false; refreshSendButton(); }
       details.setAttribute('aria-expanded', 'false');
     };
     const positionPanel = () => {
-      if (panel.hidden || window.innerWidth <= 600) return;
+      if (panel.hidden) return;
       const trigger = details.getBoundingClientRect();
       if (trigger.bottom < 0 || trigger.top > window.innerHeight) { closePanel(); return; }
       const dockEl = document.querySelector('.dock');
@@ -4476,6 +4494,7 @@ busy = false; refreshSendButton(); }
           if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
         }
       });
+      replayWave(details, 'reply-details-wave');
       if (!opening) { closePanel(); return; }
       panel.hidden = false;
       details.setAttribute('aria-expanded', 'true');
