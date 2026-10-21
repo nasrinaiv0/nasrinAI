@@ -1248,7 +1248,7 @@
     return card;
   }
 
-  function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false } = {}) {
+  function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false, responseMetadata = null } = {}) {
     startChat();
     const attachmentRefs = [...String(text || '').matchAll(/\[attachment:([0-9a-f-]{36})\|([^|\]]*)\|([^|\]]*)\]/g)].map((m) => {
       let name = 'Attachment';
@@ -1489,7 +1489,7 @@
         const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
         if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery, cited.links);
       }
-      const actions = replyActions(text, id, full);
+      const actions = replyActions(text, id, full, responseMetadata);
       el.appendChild(actions);
       sourcesToggle(actions, cited.links);
       const disclaimer = document.createElement('p');
@@ -3282,7 +3282,7 @@
       if (!isCurrentView()) return { data, shown: null, background: true };
       busy = false;
       if (!data.message) return;
-      const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true });
+      const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true, responseMetadata: data.response_metadata || null });
       // Explicit requests for real internet photos get a separate inline gallery.
       // Keep this opt-in by intent so ordinary replies never gain unrelated images.
       if (!turnCoding && /\b(show|find|search|display|give me)\b.{0,70}\b(real )?(photos?|pictures?|images?)\b/i.test(text)
@@ -4240,7 +4240,7 @@
     row.after(heading, list);
   }
 
-  function replyActions(text, id, full = text) {
+  function replyActions(text, id, full = text, responseMetadata = null) {
     const row = document.createElement('div');
     row.className = 'reply-actions';
     if (canSpeakAnything()) {
@@ -4296,14 +4296,39 @@
     const panel = document.createElement('div');
     panel.className = 'reply-details-panel';
     panel.hidden = true;
-    const created = new Date();
+    const created = responseMetadata?.timestamp ? new Date(responseMetadata.timestamp) : new Date();
     const date = document.createElement('time');
     date.dateTime = created.toISOString();
     date.textContent = created.toLocaleString();
-    const label = document.createElement('div');
-    label.className = 'reply-detail-label';
-    label.textContent = 'Date & time';
-    panel.append(label, date);
+    const dateLabel = document.createElement('div');
+    dateLabel.className = 'reply-detail-label';
+    dateLabel.textContent = 'Date & time';
+    const durationLabel = document.createElement('div');
+    durationLabel.className = 'reply-detail-label reply-detail-spaced';
+    durationLabel.textContent = 'Time to complete';
+    const duration = document.createElement('div');
+    const elapsedMs = Number(responseMetadata?.duration_ms);
+    duration.textContent = Number.isFinite(elapsedMs) && elapsedMs >= 0
+      ? (elapsedMs >= 60000 ? (elapsedMs / 60000).toFixed(1) + ' min' : (elapsedMs / 1000).toFixed(1) + ' sec')
+      : 'Not reported';
+    const inputLabel = document.createElement('div');
+    inputLabel.className = 'reply-detail-label reply-detail-spaced';
+    inputLabel.textContent = 'Input tokens';
+    const inputTokens = document.createElement('div');
+    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
+    const outputLabel = document.createElement('div');
+    outputLabel.className = 'reply-detail-label reply-detail-spaced';
+    outputLabel.textContent = 'Output tokens';
+    const outputTokens = document.createElement('div');
+    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'reply-detail-label reply-detail-spaced';
+    totalLabel.textContent = 'Total tokens';
+    const totalTokens = document.createElement('div');
+    totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
+      ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
+      : 'Not reported';
+    panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.addEventListener('click', () => {
       panel.hidden = !panel.hidden;
       details.setAttribute('aria-expanded', String(!panel.hidden));
