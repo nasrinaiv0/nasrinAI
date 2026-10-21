@@ -58,7 +58,10 @@ test('OpenRouter video routes support Pro 720p, Max 1080p and Ultra 1080p/4K add
     NODE_ENV: 'test',
     OPENROUTER_API_KEY: 'test-openrouter-key',
     VIDEO_PROVIDER: 'openrouter',
-    VIDEO_ENABLED: 'true'
+    VIDEO_ENABLED: 'true',
+    VIDEO_PRO_WEEKLY_SECONDS: '600',
+    VIDEO_MAX_WEEKLY_SECONDS: '1800',
+    VIDEO_ULTRA_WEEKLY_SECONDS: '3600'
   });
   assert.equal(cfg.video.enabled, true);
   assert.deepEqual(Object.keys(cfg.video.tierRoutes), ['pro', 'max', 'ultra']);
