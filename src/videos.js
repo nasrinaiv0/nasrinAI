@@ -70,21 +70,40 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
-    const wants4k = String(b.resolution || '').toLowerCase() === '4k';
-    if (wants4k && (selected !== 'ultra' || routeProvider.id !== 'openrouter' || !routeProvider.allow4kAddon)) {
-      throw new HttpError(403, 'video_addon_unavailable', 'The 4K video add-on is available only to Ultra subscribers with a compatible OpenRouter video model.');
-    }
-    const requestedResolution = wants4k ? '4k' : routeProvider.resolution;
-    let perSecond = videoCostPerSecond(routeProvider.model, requestedResolution, routeProvider.costPerSecondUsd ?? null);
+    // Select the highest quality the tier permits AND the live model catalog
+    // explicitly advertises. Try resolution first (highest to lowest), then FPS
+    // (60 before 30); never silently label an output with unsupported settings.
+    const tierResolutions = selected === 'pro'
+      ? ['480p', '360p']
+      : ['4k', '1080p', '720p', '480p', '360p'];
+    const allowedResolutions = (routeProvider.allowedResolutions || tierResolutions)
+      .filter((resolution) => tierResolutions.includes(resolution));
+    const allowedFrameRates = (routeProvider.allowedFrameRates || [60, 30]).filter((fps) => [60, 30].includes(Number(fps))).map(Number);
+    let requestedResolution = null;
+    let requestedFps = null;
+    let perSecond = null;
     let basePerSecond = null;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
-      try {
-        perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution });
-        if (wants4k) basePerSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: '1080p' });
-      } catch (err) {
-        logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
-        perSecond = null;
+      for (const resolution of allowedResolutions) {
+        for (const fps of allowedFrameRates) {
+          try {
+            perSecond = await routeProvider.getCostPerSecondUsd({
+              generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
+            });
+            requestedResolution = resolution;
+            requestedFps = fps;
+            break;
+          } catch { /* try the next supported quality combination */ }
+        }
+        if (requestedResolution) break;
       }
+      if (!requestedResolution) {
+        throw new HttpError(503, 'video_quality_unavailable', 'This video model does not advertise a supported resolution, frame rate, and price for your plan.');
+      }
+    } else {
+      requestedResolution = routeProvider.resolution || config.video.resolution;
+      requestedFps = 30;
+      perSecond = videoCostPerSecond(routeProvider.model, requestedResolution, routeProvider.costPerSecondUsd ?? null);
     }
     if (!budget || perSecond === null || (wants4k && (!Number.isFinite(basePerSecond) || basePerSecond <= 0 || perSecond <= basePerSecond))) {
       throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because safe, comparable pricing is not available for this model and resolution.');
@@ -94,7 +113,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
       provider: routeProvider.id, model: routeProvider.model || 'unknown',
-      resolution: requestedResolution || 'provider-default'
+      resolution: requestedResolution || 'provider-default', fps: requestedFps
     });
     const cached = b.reuse_cached === true && store.getMarketingCache ? await store.getMarketingCache({
       tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, kind: 'video', key: cacheKey
@@ -117,46 +136,34 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!Number.isFinite(estimatedCost) || estimatedCost <= 0 || estimatedCost > config.video.maxCostUsd) {
       throw new HttpError(503, 'budget_reached', 'This video exceeds the configured per-video spending limit.');
     }
-    const addonCostUsd = wants4k ? Math.round(estimatedSeconds * (perSecond - basePerSecond) * 1e6) / 1e6 : 0;
-    // The documented NasrinAI add-on conversion is 150,000 tokens per USD.
-    // Reserve the 4K premium against the same account/tenant quota before the provider call.
-    const addonTokens = addonCostUsd > 0 ? Math.ceil(addonCostUsd * 150_000) : 0;
-    let addonTokenReservation = null;
-    if (addonTokens > 0) {
-      if (typeof limiter.reserveTokens !== 'function' || typeof limiter.settleTokens !== 'function' || typeof limiter.releaseTokens !== 'function') {
-        throw new HttpError(503, 'video_addon_quota_unavailable', 'The 4K add-on is paused because token quota accounting is unavailable.');
-      }
-      addonTokenReservation = await limiter.reserveTokens(caller, addonTokens);
-    }
+    const addonCostUsd = 0;
+    const addonTokens = 0;
     let spendReservation;
     try {
       spendReservation = await budget.reserveSpend({ caller, amountUsd: estimatedCost, maxRequestUsd: null });
     } catch (err) {
-      if (addonTokenReservation) await limiter.releaseTokens(addonTokenReservation).catch(() => {});
       throw err;
     }
     const started = now();
     let operation;
     try {
-      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution });
+      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution, fps: requestedFps });
     } catch (err) {
       // Provider failures can still incur charges; settle both reservations conservatively.
       await budget.settleSpend(spendReservation, estimatedCost).catch(() => {});
-      if (addonTokenReservation) await limiter.settleTokens(addonTokenReservation, addonTokens).catch(() => {});
       await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'provider_error',
         task: 'video', latencyMs: now() - started, costUsd: estimatedCost, inputTokens: addonTokens, spendReservationId: spendReservation.id });
       throw err;
     }
     // No final invoice is available at job creation; settle the conservative estimate.
     await budget.settleSpend(spendReservation, estimatedCost);
-    if (addonTokenReservation) await limiter.settleTokens(addonTokenReservation, addonTokens);
     await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'ok',
       task: 'video', latencyMs: now() - started, costUsd: estimatedCost, inputTokens: addonTokens, spendReservationId: spendReservation.id });
     const id = await store.addVideo({
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
       targetSeconds, producedSeconds: 0, status: 'in_progress', requestTier: selected,
-      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey, resolution: requestedResolution,
+      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey, resolution: requestedResolution, fps: requestedFps,
       spendReservationId: spendReservation.id, estimatedCostUsd: estimatedCost, addonTokens, addonCostUsd, actualCostUsd: null, costReconciledAt: null
     });
     logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
