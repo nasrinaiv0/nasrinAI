@@ -681,17 +681,11 @@ export function loadConfig(env = process.env) {
 
   const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
   if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
-  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || '').trim();
-  const openRouterVideoCost = Number(env.OPENROUTER_VIDEO_COST_PER_SECOND_USD);
+  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || 'bytedance/seedance-2.0-fast').trim();
   const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
-    const legacyUltra = tier === 'ultra' && openRouterVideoModel;
-    const model = String(env[prefix + '_MODEL'] || (legacyUltra ? openRouterVideoModel : '')).trim();
-    const rawCost = env[prefix + '_COST_PER_SECOND_USD'] ?? (legacyUltra ? env.OPENROUTER_VIDEO_COST_PER_SECOND_USD : undefined);
-    const cost = Number(rawCost);
-    return [tier, model && Number.isFinite(cost) && cost > 0
-      ? Object.freeze({ model, costPerSecondUsd: cost, tier })
-      : null];
+    const model = String(env[prefix + '_MODEL'] || openRouterVideoModel).trim();
+    return [tier, model ? Object.freeze({ model, tier }) : null];
   }).filter(([, route]) => route)));
   const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY && Object.keys(videoTierRoutes).length);
   const video = Object.freeze({
@@ -699,7 +693,7 @@ export function loadConfig(env = process.env) {
     enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, 'true'),
     // Legacy single-model configuration is accepted only as the Ultra route.
     model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
-    costPerSecondUsd: videoProviderName === 'openrouter' ? openRouterVideoCost : null,
+    costPerSecondUsd: null,
     tierRoutes: videoTierRoutes,
     resolution: String(env.VIDEO_RESOLUTION || '1080p').trim().toLowerCase(),
     perHour: toInt('VIDEO_PER_HOUR', env.VIDEO_PER_HOUR, 1, 1, 10),
