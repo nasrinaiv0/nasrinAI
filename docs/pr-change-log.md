@@ -1524,3 +1524,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Label estimated values with `≈` and `estimated` in reply details; do not present them as model-specific or authoritative billing counts.
 - Add `tokenizeText`/`estimateTextTokenCount` and `prepareImageForMultimodal` utilities for common raster image types with a 20 MiB default limit.
 - Add regression tests for token normalization, image payload preparation, and rejection of unsupported, empty, or oversized images.
+
+
+## Reply details visibility and source wave animations (2026-10-21)
+
+- Explicitly position the reply-details popover within the viewport on mobile Safari.
+- Animate the three-dot control and source badges/label from left to right when tapped.
+- Respect `prefers-reduced-motion` and add regression coverage for panel positioning and animation hooks.

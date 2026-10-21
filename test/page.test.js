@@ -433,3 +433,27 @@ test('transcript text is joined with real blank lines, not the characters backsl
   assert.match(app, /transcripts\.filter\(Boolean\)\.join\('\\n\\n'\)/);
   assert.match(app, /existing \+ '\\n\\n' \+ transcript/);
 });
+
+
+test('reply details popover positions on mobile and includes a three-dot wave', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const start = js.indexOf("const positionPanel = () => {");
+  const end = js.indexOf("details.addEventListener('click'", start);
+  assert.ok(start >= 0 && end > start);
+  const positioner = js.slice(start, end);
+  assert.doesNotMatch(positioner, /window\.innerWidth\s*<=\s*600\)\s*return/);
+  assert.match(positioner, /panel\.style\.position = 'fixed'/);
+  assert.match(positioner, /panel\.style\.left = left \+ 'px'/);
+  assert.match(positioner, /panel\.style\.top =/);
+  assert.match(js, /reply-details-dot/);
+  assert.match(js, /replayWave\(details, 'reply-details-wave'\)/);
+});
+
+test('sources animate left-to-right and respect reduced-motion preferences', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /classList\.add\('source-wave'\)/);
+  assert.match(css, /\.sources-toggle\.source-wave \.src-face:nth-child\(1\)/);
+  assert.match(css, /\.sources-toggle\.source-wave \.src-word \{ animation-delay:225ms/);
+  assert.match(css, /prefers-reduced-motion:reduce/);
+});
