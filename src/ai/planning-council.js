@@ -39,7 +39,7 @@ export async function runPlanningCouncil({
   goal,
   context = '',
   runCandidate,
-  maxCalls = 3,
+  maxCalls = 2,
   maxTokensPerCall = 700,
   maxInputChars = 12000,
   minSuccessfulRoles = 2
