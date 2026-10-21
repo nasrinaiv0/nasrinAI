@@ -51,5 +51,5 @@ test('latest YouTube video requests trigger inline embed rendering', () => {
 
 test('YouTube player uses the privacy-enhanced embed host', async () => {
   const source = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(source, /youtube-nocookie\\.com\\/embed\\/\' \+ video\.id/);
+  assert.match(source, /youtube-nocookie\.com\/embed\/' \+ video\.id/);
 });
