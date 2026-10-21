@@ -171,7 +171,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
             sensitive: plan.sensitive, attachments, inputTokens, level: plan.floor, left, minOut: minTokens,
             reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
           })) {
-            logger.error('configured route models have no price on file; using the tier model instead. Add their prices to config/model-prices.json or MODEL_PRICES_JSON', { tier: plan.tier, using: `${own.provider}:${own.model}`, reasons: why });
+            logger.error('configured route models have no price on file; using the tier model instead. Add their prices to config/model-prices.json', { tier: plan.tier, using: `${own.provider}:${own.model}`, reasons: why });
             spec = own; at = plan.floor;
           }
         }
@@ -192,7 +192,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         }
         if (!spec) {
           if (why.some((w) => /no price on file/.test(w))) {
-            logger.error('no price on file for the routed models; add them to config/model-prices.json or MODEL_PRICES_JSON', { reasons: why });
+            logger.error('no price on file for the routed models; add them to config/model-prices.json', { reasons: why });
           }
           logger.warn('no model can take this request', { level, reasons: why });
           if (why.length && why.every((w) => /cannot (read|see)/.test(w))) {
