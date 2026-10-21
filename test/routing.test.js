@@ -286,10 +286,10 @@ test('routing excludes models already used by the planning council', async () =>
 });
 
 
-test('pricing resolves provider-qualified model IDs without guessing unknown prices', () => {
+test('OpenRouter model calls do not depend on local price snapshots', () => {
   const prices = loadPrices();
-  assert.equal(priceOf(prices, 'openrouter', 'openai/gpt-6-luna').input, 0.1);
-  assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/gpt-6-luna').input, 0.1);
+  assert.equal(priceOf(prices, 'openrouter', 'openai/gpt-6-luna'), null);
+  assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/gpt-6-luna'), null);
   assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/not-a-real-model'), null);
 });
 
