@@ -4365,21 +4365,28 @@
     inputLabel.textContent = 'Input tokens';
     addDetailIcon(inputLabel, 'tokens');
     const inputTokens = document.createElement('div');
-    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
+    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens)
+      ? (responseMetadata.usage.estimated ? '≈ ' : '') + responseMetadata.usage.input_tokens.toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
+      : 'Not reported';
+    if (responseMetadata?.usage?.estimated) inputLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
     outputLabel.textContent = 'Output tokens';
     addDetailIcon(outputLabel, 'tokens');
     const outputTokens = document.createElement('div');
-    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
+    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens)
+      ? (responseMetadata.usage.estimated ? '≈ ' : '') + responseMetadata.usage.output_tokens.toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
+      : 'Not reported';
+    if (responseMetadata?.usage?.estimated) outputLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
     totalLabel.textContent = 'Total tokens';
     addDetailIcon(totalLabel, 'tokens');
     const totalTokens = document.createElement('div');
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
-      ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
+      ? (responseMetadata.usage.estimated ? '≈ ' : '') + (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
+    if (responseMetadata?.usage?.estimated) totalLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
     panel.id = 'reply-details-' + id;
