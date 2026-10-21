@@ -4192,37 +4192,16 @@ body[data-theme="light"] .reply-details-panel,
 
 
 /* Reply action micro-interactions: dots and source badges wave left-to-right. */
-.reply-details-toggle .reply-details-dot {
-  display: inline-block;
-  transform-origin: center;
-  line-height: 1;
-}
-.reply-details-toggle.reply-details-wave .reply-details-dot {
-  animation: reply-dot-wave 480ms cubic-bezier(.2,.75,.25,1) both;
-}
-.reply-details-toggle.reply-details-wave .reply-details-dot:nth-child(1) { animation-delay: 0ms; }
-.reply-details-toggle.reply-details-wave .reply-details-dot:nth-child(2) { animation-delay: 75ms; }
-.reply-details-toggle.reply-details-wave .reply-details-dot:nth-child(3) { animation-delay: 150ms; }
-@keyframes reply-dot-wave {
-  0% { transform: translateY(0) scale(1); opacity: .65; }
-  42% { transform: translateY(-4px) scale(1.22); opacity: 1; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-.sources-toggle.source-wave .src-face,
-.sources-toggle.source-wave .src-word {
-  animation: source-wave 520ms cubic-bezier(.2,.75,.25,1) both;
-}
-.sources-toggle.source-wave .src-face:nth-child(1) { animation-delay: 0ms; }
-.sources-toggle.source-wave .src-face:nth-child(2) { animation-delay: 75ms; }
-.sources-toggle.source-wave .src-face:nth-child(3) { animation-delay: 150ms; }
-.sources-toggle.source-wave .src-word { animation-delay: 225ms; }
-@keyframes source-wave {
-  0% { transform: translateY(0); opacity: .72; }
-  42% { transform: translateY(-3px); opacity: 1; }
-  100% { transform: translateY(0); opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .reply-details-toggle.reply-details-wave .reply-details-dot,
-  .sources-toggle.source-wave .src-face,
-  .sources-toggle.source-wave .src-word { animation: none !important; }
-}
+.reply-details-toggle .reply-details-dot { display:inline-block; transform-origin:center; line-height:1; }
+.reply-details-toggle.reply-details-wave .reply-details-dot { animation:reply-dot-wave 480ms cubic-bezier(.2,.75,.25,1) both; }
+.reply-details-toggle.reply-details-wave .reply-details-dot:nth-child(1) { animation-delay:0ms; }
+.reply-details-toggle.reply-details-wave .reply-details-dot:nth-child(2) { animation-delay:75ms; }
+.reply-details-toggle.reply-details-wave .reply-details-dot:nth-child(3) { animation-delay:150ms; }
+@keyframes reply-dot-wave { 0%{transform:translateY(0) scale(1);opacity:.65} 42%{transform:translateY(-4px) scale(1.22);opacity:1} 100%{transform:translateY(0) scale(1);opacity:1} }
+.sources-toggle.source-wave .src-face,.sources-toggle.source-wave .src-word { animation:source-wave 520ms cubic-bezier(.2,.75,.25,1) both; }
+.sources-toggle.source-wave .src-face:nth-child(1) { animation-delay:0ms; }
+.sources-toggle.source-wave .src-face:nth-child(2) { animation-delay:75ms; }
+.sources-toggle.source-wave .src-face:nth-child(3) { animation-delay:150ms; }
+.sources-toggle.source-wave .src-word { animation-delay:225ms; }
+@keyframes source-wave { 0%{transform:translateY(0);opacity:.72} 42%{transform:translateY(-3px);opacity:1} 100%{transform:translateY(0);opacity:1} }
+@media(prefers-reduced-motion:reduce){.reply-details-toggle.reply-details-wave .reply-details-dot,.sources-toggle.source-wave .src-face,.sources-toggle.source-wave .src-word{animation:none!important}}
