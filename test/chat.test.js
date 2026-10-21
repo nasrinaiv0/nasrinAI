@@ -324,7 +324,7 @@ test('simple greetings are answered locally without calling an AI provider', asy
     const response = await send(url, token, { message: 'hi' });
     assert.equal(response.status, 200);
     const data = await response.json();
-    assert.match(data.message.content, /Hi! What can I help you with\?/);
+    assert.equal(data.message.content, 'Hi! What can I help you with?');
     assert.equal(provider.calls.length, 0, 'a greeting must not wait for model routing');
     assert.ok(store.usage.some((entry) => entry.task === 'small_talk' && entry.provider === 'logic'));
   });
