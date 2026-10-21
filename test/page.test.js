@@ -363,7 +363,7 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /\/v1\/youtube\/search\?q=/);
   const youtubePlayer = js.slice(js.indexOf('function createYouTubeVideoCard'), js.indexOf('function mountPersistentYouTubePlayer'));
   assert.ok(youtubePlayer.includes("frame.referrerPolicy = 'strict-origin-when-cross-origin'"), 'set a referrer policy on the iframe');
-  assert.ok(youtubePlayer.includes("frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0'"), 'enable inline playback with the standard YouTube embed URL');
+  assert.ok(youtubePlayer.includes("frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0'"), 'enable inline playback with the privacy-enhanced YouTube embed URL');
   assert.ok(youtubePlayer.indexOf('frame.referrerPolicy =') < youtubePlayer.indexOf('frame.src ='), 'configure iframe policy before navigation starts');
   assert.match(js, /\^\[A-Za-z0-9_-\]\{11\}\$/);
   assert.match(css, /\.youtube-video-frame/);
