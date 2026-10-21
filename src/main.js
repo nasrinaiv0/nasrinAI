@@ -130,7 +130,7 @@ export function buildApp({ config, logger }) {
   const videoStudioAssets = config.supabaseUrl && config.supabaseSecretKey ? createVideoStudioAssets({ config: effective, limiter, logger }) : null;
   const usageLog = createUsageLog({ store, logger });
   const conversations = createConversations({ store, config: effective, logger });
-  const prices = loadPrices(config.ai.routing.pricesJson);
+  const prices = loadPrices();
   // OpenRouter model selection reads the official live catalog in its adapter;
   // actual billing comes from OpenRouter usage.cost. Do not use local OpenRouter
   // snapshots or MODEL_PRICES_JSON to gate calls.
