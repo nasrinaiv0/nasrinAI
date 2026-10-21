@@ -681,14 +681,12 @@ export function loadConfig(env = process.env) {
 
   const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
   if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
-  // Prefer explicit per-tier model IDs so different video models can be routed by plan.
-  // The legacy single-model variable is retained only as a fallback for Ultra.
-  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || '').trim();
-  // Model IDs are optional: the shared router can discover compatible models
-  // from OpenRouter's live catalog, but it must verify capability and price.
+  // HeyGen Video 1 is the primary OpenRouter video model. Per-tier model
+  // overrides remain available, but must pass live capability and pricing checks.
+  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || 'heygen/heygen-video-1').trim();
   const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
-    const model = String(env[prefix + '_MODEL'] || (tier === 'ultra' ? openRouterVideoModel : '')).trim();
+    const model = String(env[prefix + '_MODEL'] || openRouterVideoModel).trim();
     const resolution = tier === 'pro' ? '720p' : '1080p';
     return [tier, Object.freeze({ model: model || null, tier, resolution, allow4kAddon: tier === 'ultra' })];
   })));
