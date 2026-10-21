@@ -43,7 +43,7 @@ Do not infer quality from model names. Verify live capability and SKU/endpoint p
 
 ## Operator configuration still required
 
-Configure `OPENROUTER_API_KEY`, `VIDEO_PROVIDER=openrouter`, and `VIDEO_ENABLED=true` in the intended Vercel environment. Optionally pin `OPENROUTER_VIDEO_MAX_MODEL` and `OPENROUTER_VIDEO_ULTRA_MODEL`; dynamic per-second catalog pricing replaces manual cost variables. OpenRouter currently remains single-shot and capped at 8 seconds. Do not enable paid production video until authenticated live-provider smoke tests and durable actual-cost reconciliation are complete.
+Apply migration `052_video_spend_reconciliation.sql` before enabling video in any deployed environment. Configure `OPENROUTER_API_KEY`, `VIDEO_PROVIDER=openrouter`, and explicitly set `VIDEO_ENABLED=true` only in the intended environment. Optionally pin `OPENROUTER_VIDEO_MAX_MODEL` and `OPENROUTER_VIDEO_ULTRA_MODEL`; dynamic per-second catalog pricing replaces manual cost variables. OpenRouter remains single-shot and capped at 8 seconds. Final `usage.cost` from the provider's completed poll response reconciles the estimate idempotently; if the provider omits cost, the conservative estimate remains. Do not enable paid production video until migration 052 is applied and authenticated live-provider smoke tests pass.
 
 For image generation, configure and verify `IMAGE_TIER_1_PRIMARY_*`, `IMAGE_TIER_2_PRIMARY_*`, and `IMAGE_TIER_3_PRIMARY_*` with increasing quality/cost, and fallbacks only when their capability and price are verified. These existing slots are still the routing mechanism; request-tier ceilings prevent Pro from using slots above 1 and Max from using slots above 2.
 
