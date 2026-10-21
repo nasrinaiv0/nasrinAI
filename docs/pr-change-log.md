@@ -1493,3 +1493,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reduce frosted background opacity and use light/dark system theme-aware colors with readable labels and values.
 - Add small inline SVG icons for date/time, duration, and token metadata without copying reference content or adding an icon dependency.
 - Validate JS syntax, CSS, CI, and light/dark mobile Preview before merge/deployment.
+
+## YouTube inline playback fix (2026-10-21)
+
+- Use YouTube's privacy-enhanced `youtube-nocookie.com/embed/` host for the inline iframe after server-side embeddability and region checks.
+- Add regression coverage for latest-video requests and the iframe host, preserving the existing YouTube intent routing and validated video IDs.
+- Verify CI and an iPhone Preview playback test before merging; this change cannot verify production playback without a live Preview/API response.
