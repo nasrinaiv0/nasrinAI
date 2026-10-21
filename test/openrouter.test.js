@@ -7,7 +7,7 @@ function response(body, status = 200, type = 'application/json') {
 }
 const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion: '0.000002' }) => ({
   id, name: id, architecture: { output_modalities: [modality], input_modalities: ['text'] }, pricing,
-  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'], pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
+  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
 });
 
 test('OpenRouter routes tasks to modality-specific endpoints', () => {
@@ -33,9 +33,9 @@ test('catalog selection validates actual output modality and caches catalog', as
 test('video pricing is looked up from the live catalog SKU map', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/video', 'video'), supported_durations: [4, 8], supported_resolutions: ['720p'],
-    supported_aspect_ratios: ['16:9'], pricing_skus: { generate: '0.09' }
+    supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: { generate: { unit: 'USD/second', cost_usd: '0.09' } }
   }] }) });
-  const pricing = await client.getVideoPricing({ model: 'provider/video', resolution: '720p' });
+  const pricing = await client.getVideoPricing({ model: 'provider/video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
   assert.equal(pricing.costPerSecondUsd, 0.09);
   assert.equal(pricing.source, 'openrouter-live-catalog');
 });
@@ -131,12 +131,12 @@ test('image and video model discovery use dedicated catalogs and reject unsuppor
 test('OpenRouter video adapter looks up live catalog pricing and pins model and duration', async () => {
   const calls = [];
   const client = {
-    getVideoPricing: async ({ model, resolution }) => ({ model, resolution, costPerSecondUsd: 0.12, source: 'openrouter-live-catalog' }),
+    getVideoPricing: async ({ model, tier, resolution }) => ({ model: model || (tier === 'ultra' ? 'provider/premium-video' : 'provider/cheap-video'), resolution, costPerSecondUsd: 0.12, source: 'openrouter-live-catalog' }),
     createVideo: async (body) => { calls.push(body); return { id: 'job_123' }; },
     videoStatus: async (id) => ({ id, status: 'completed' }),
     videoContent: async (id) => Buffer.from('video'),
   };
-  const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', maxSeconds: 8, resolution: '720p' });
+  const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', tier: 'max', maxSeconds: 8, resolution: '720p' });
   assert.equal(provider.costPerSecondUsd, null);
   assert.equal(await provider.getCostPerSecondUsd(), 0.12);
   assert.equal(provider.maxSeconds, 8);
