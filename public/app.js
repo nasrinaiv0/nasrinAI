@@ -2946,14 +2946,28 @@
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
   async function sendVideo(text) {
-    if (!window.confirm('Create this video now? NasrinAI will send your prompt to the configured AI video service. Video generation may use your plan allowance. Choose Cancel to stop.')) return;
+    const resolutionInput = window.prompt('Video resolution (default 720p). Enter 360p, 480p, 720p, 1080p, or 4k. Your plan determines which options are available.', '720p');
+    if (resolutionInput === null) return;
+    const resolution = String(resolutionInput || '720p').trim().toLowerCase();
+    if (!['360p', '480p', '720p', '1080p', '4k'].includes(resolution)) {
+      show('problem', 'Choose 360p, 480p, 720p, 1080p, or 4k.');
+      return;
+    }
+    const fpsInput = window.prompt('Video frame rate (default 30 FPS). Enter 30 or 60.', '30');
+    if (fpsInput === null) return;
+    const fps = Number(fpsInput || 30);
+    if (![30, 60].includes(fps)) {
+      show('problem', 'Choose 30 or 60 FPS.');
+      return;
+    }
+    if (!window.confirm('Create this video at ' + resolution + ' / ' + fps + ' FPS? NasrinAI will use your weekly video-seconds allowance. Your plan and the provider determine the final available quality.')) return;
     noticesOnSend();
     show('user', text);
     input.value = '';
     autosize();
     setImageMode(false);
     try {
-      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 8, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) });
+      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 8, tier: currentModel || 'nasrinai', resolution, fps, conversation_id: conversationId || undefined }) });
       const id = data.video_id;
       if (!id) throw new Error('The video job could not be started.');
       const card = document.createElement('div');
