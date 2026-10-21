@@ -57,6 +57,16 @@ test('video auto-routing selects only priced compatible models per tier', async 
   assert.equal(ultra.costPerSecondUsd, 0.18);
 });
 
+test('OpenRouter default generate SKU is treated as the documented per-second video rate', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
+    ...model('provider/default-video', 'video'),
+    supported_durations: [4, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'],
+    pricing_skus: { generate: '0.07' }
+  }] }) });
+  const pricing = await client.getVideoPricing({ model: 'provider/default-video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
+  assert.equal(pricing.costPerSecondUsd, 0.07);
+});
+
 test('specialized tasks fail closed when no model is verified', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [model('provider/chat')] }) });
   await assert.rejects(client.selectModel('image'), /No verified OpenRouter model/);
