@@ -4067,6 +4067,8 @@ busy = false; refreshSendButton(); }
   function needsYouTubeVideos(query) {
     const q = String(query || '').trim();
     if (q.length < 5 || q.length > 600) return false;
+    // Generic assistant greetings are not video-search intent ("How can I help you?").
+    if (/\bhow can i help you\b/i.test(q)) return false;
     // Do not append unrelated YouTube results to a request about another platform.
     const asksOtherPlatform = /\b(?:tiktok|tik tok|facebook|instagram)\b/i.test(q);
     const explicitlyAsksYouTube = /\b(?:youtube|yt)\b/i.test(q);
