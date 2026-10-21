@@ -22,6 +22,7 @@ import { providerFromConfig } from './ai/registry.js';
 import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
+import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/openrouter.js';
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
@@ -30,7 +31,7 @@ import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
 import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
-import { createGeminiImage, createOpenAIImage } from './ai/image.js';
+import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
 import { createImages } from './images.js';
 import { basicTools } from './tools/basic.js';
 import { createConnectors } from './connectors/index.js';
@@ -41,7 +42,7 @@ import { createMemory, memoryTools } from './knowledge/memory.js';
 import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
 import { imagePrice } from './ai/pricing.js';
-import { createOpenAISpeech, createGeminiSpeech, createResponsiveSpeech } from './ai/speech.js';
+import { createOpenAISpeech, createGeminiSpeech, createOpenRouterSpeech, createResponsiveSpeech } from './ai/speech.js';
 import { createVoice } from './voice.js';
 import { createStorage } from './storage.js';
 import { createUploads } from './uploads.js';
@@ -54,7 +55,7 @@ import { createConnect } from './connect/index.js';
 import { createInstallRegistry } from './connect/provider-registry.js';
 import { createSemanticCache } from './semanticCache.js';
 import { createOpenAIEmbedder } from './ai/embeddings.js';
-import { createOpenAITranscription } from './ai/transcription.js';
+import { createOpenAITranscription, createOpenRouterTranscription } from './ai/transcription.js';
 import { createOpenAIPdfOcr } from './ai/pdf-ocr.js';
 import { createWebAnswers } from './web-answers.js';
 import { createGithub } from './github/index.js';
@@ -120,6 +121,7 @@ export function buildApp({ config, logger }) {
   }
 
   const effective = { ...config, guestSecret };
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
@@ -167,7 +169,9 @@ export function buildApp({ config, logger }) {
       if (price === null) { logger.warn('picture route has no price; it is off', { tier: Number(n), provider: slot.provider, model: slot.model }); return null; }
       const p = slot.provider === 'gemini'
         ? createGeminiImage({ apiKey: config.ai.geminiApiKey, model: slot.model, totalMs: ms })
-        : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
+        : slot.provider === 'openrouter'
+          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, price, timeoutMs: ms })
+          : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
       return { p, price };
     };
     const primary = make(t.primary, t.fallback ? 45_000 : 105_000);
@@ -177,8 +181,15 @@ export function buildApp({ config, logger }) {
   }
   const imageBudget = createBudget({ store, config: effective, logger, kind: 'image' });
   const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, budget: imageBudget, provider, policy, legal, config: effective, logger });
-  const videoProvider = effective.video?.enabled ? createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution }) : null;
-  const videos = createVideos({ store, plans, provider: videoProvider, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const videoProviders = effective.video?.enabled
+    ? effective.video.provider === 'openrouter'
+      ? Object.fromEntries(Object.entries(effective.video.tierRoutes || {}).map(([tier, route]) => [tier, createOpenRouterVideoProvider({
+          client: openRouterClient,
+          model: route.model, tier, maxSeconds: 8, resolution: route.resolution, allowedResolutions: route.allowedResolutions, allowedFrameRates: route.allowedFrameRates, allow4kAddon: route.allow4kAddon === true
+        })]))
+      : Object.fromEntries(['max', 'ultra'].map((tier) => [tier, createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution })]))
+    : null;
+  const videos = createVideos({ store, plans, provider: videoProviders, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
   const elevenlabs = createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY || '' });
   const videoStudioExporter = createVideoStudioExporter();
   // Tools: the basic ones for everyone, plus each business's own connectors.
@@ -217,6 +228,9 @@ export function buildApp({ config, logger }) {
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
+  const openrouterSpeech = sp.enabled && sp.provider === 'openrouter' && openRouterClient
+    ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, provider: sp.openrouterProvider, rate: sp.rate, responseFormat: 'wav' })
+    : null;
   const openaiSpeech = sp.enabled && config.ai.openaiApiKey
     ? createOpenAISpeech({ apiKey: config.ai.openaiApiKey, model: sp.model, fastModel: sp.fastModel, rate: sp.rate, responseFormat: 'wav' })
     : null;
@@ -224,13 +238,16 @@ export function buildApp({ config, logger }) {
     ? createGeminiSpeech({ apiKey: config.ai.geminiApiKey, model: sp.geminiModel, fastModel: sp.geminiFastModel, rate: sp.rate })
     : null;
   const engine = !sp.enabled ? null
+    : sp.provider === 'openrouter' ? openrouterSpeech
     : sp.responsive && sp.provider === 'openai' && openaiSpeech && geminiSpeech
       ? createResponsiveSpeech({ openai: openaiSpeech, gemini: geminiSpeech, timeoutMs: sp.responsiveTimeoutMs })
       : sp.provider === 'gemini'
         ? geminiSpeech
         : openaiSpeech;
-  const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
-  const transcription = config.ai.openaiApiKey ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey }) : null;
+  const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech, openrouter: openrouterSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const transcription = config.ai.openaiApiKey
+    ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey })
+    : openRouterClient ? createOpenRouterTranscription({ client: openRouterClient, model: String(process.env.OPENROUTER_STT_MODEL || '').trim() }) : null;
   const pdfOcr = config.ai.openaiApiKey ? createOpenAIPdfOcr({ apiKey: config.ai.openaiApiKey }) : null;
 
   const auth = config.auth.email || config.auth.google

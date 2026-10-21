@@ -19,21 +19,26 @@ export function createVoice({ engine, engines = null, conversations, limiter, us
   // Keep both real provider catalogs visible in Settings. Each selected voice
   // carries its provider so it is never sent to the wrong TTS API.
   const providerEngines = engines && typeof engines === 'object'
-    ? { openai: engines.openai || null, gemini: engines.gemini || null }
+    ? { openai: engines.openai || null, gemini: engines.gemini || null, openrouter: engines.openrouter || null }
     : {};
   if (!providerEngines.openai && engine?.provider === 'openai') providerEngines.openai = engine;
   if (!providerEngines.gemini && engine?.provider === 'gemini') providerEngines.gemini = engine;
+  if (!providerEngines.openrouter && engine?.provider === 'openrouter') providerEngines.openrouter = engine;
   const multiProvider = Boolean(engines);
   const catalog = multiProvider
     ? [
         ...VOICES.map((v) => ({ id: 'openai:' + v.id, provider: 'openai', name: v.name, available: Boolean(providerEngines.openai) })),
-        ...GEMINI_VOICES.map((v) => ({ id: 'gemini:' + v.id, provider: 'gemini', name: v.name, available: Boolean(providerEngines.gemini) }))
+        ...GEMINI_VOICES.map((v) => ({ id: 'gemini:' + v.id, provider: 'gemini', name: v.name, available: Boolean(providerEngines.gemini) })),
+        ...GEMINI_VOICES.map((v) => ({ id: 'openrouter:' + v.id, provider: 'openrouter', name: v.name, available: Boolean(providerEngines.openrouter) }))
       ]
     : (engine?.voices || VOICES).map((v) => ({ id: v.id, provider: engine?.provider || 'openai', name: v.name, available: Boolean(engine) }));
   const voiceMap = new Map(catalog.map((v) => [v.id, v]));
   const provider = engine?.provider || 'openai';
   const defaultVoice = multiProvider
-    ? (providerEngines.openai ? 'openai:cedar' : providerEngines.gemini ? 'gemini:Charon' : 'openai:cedar')
+    ? (engine?.provider === 'openrouter' && providerEngines.openrouter ? 'openrouter:Charon'
+      : engine?.provider === 'gemini' && providerEngines.gemini ? 'gemini:Charon'
+        : providerEngines.openai ? 'openai:cedar' : providerEngines.gemini ? 'gemini:Charon'
+          : providerEngines.openrouter ? 'openrouter:Charon' : 'openai:cedar')
     : (engine?.defaultVoice || 'cedar');
 
   function resolveVoice(value) {

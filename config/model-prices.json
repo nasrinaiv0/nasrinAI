@@ -1,5 +1,5 @@
 {
-  "_about": "USD per 1M tokens. Verified against provider pricing pages on 2026-10-09; re-check before changing production budgets.",
+  "_about": "USD per 1M tokens unless otherwise noted. Provider/model prices are dynamic snapshots; verify provider-specific pricing before changing production budgets.",
   "openai": {
     "gpt-5.4-nano": {
       "input": 0.2,
@@ -136,6 +136,12 @@
       "gemini-3.8-flash-lite-tts": {
         "worst_case_per_character": 0.00003
       }
+    },
+    "openrouter": {
+      "google/gemini-3.8-flash-lite-tts": {
+        "worst_case_per_character": 0.00003,
+        "_note": "Conservative reservation ceiling until provider usage confirms audio token billing."
+      }
     }
   },
   "video": {
@@ -146,6 +152,84 @@
     },
     "veo-3.1-fast-generate-preview": {
       "720p": 0.125
+    }
+  },
+  "_openrouterCatalogNote": "OpenRouter prices are dynamic snapshots checked 2026-10-21. Recheck model and provider-specific rates before changing budgets.",
+  "openrouter": {
+    "deepseek/deepseek-v4.1-flash": {
+      "input": 0.13,
+      "output": 0.52,
+      "cached_input": 0.0026
+    },
+    "z-ai/glm-5.3-flash": {
+      "input": 0.075,
+      "output": 0.25,
+      "cached_input": 0.015
+    },
+    "xiaomi/mimo-v2.6-flash": {
+      "input": 0.14,
+      "output": 0.28,
+      "cached_input": 0.0028
+    },
+    "deepseek/deepseek-v4-flash-0731": {
+      "input": 0.0152,
+      "output": 1.28,
+      "cached_input": 0.0152
+    },
+    "deepseek/deepseek-v4-flash-vision-exp": {
+      "input": 0.2156,
+      "output": 0.6468,
+      "cached_input": 0.00686
+    },
+    "deepseek/deepseek-v4.1-flash-1017": {
+      "input": 0.15,
+      "output": 0.6,
+      "cached_input": 0.15
+    },
+    "openai/gpt-6-luna": {
+      "input": 0.1,
+      "output": 0.5,
+      "cached_input": 0.1
+    },
+    "openai/gpt-6-luna-pro": {
+      "input": 0.1,
+      "output": 0.5,
+      "cached_input": 0.1
+    },
+    "anthropic/claude-haiku-5.5": {
+      "input": 0.1,
+      "output": 0.5,
+      "cached_input": 0.1
+    },
+    "xiaomi/mimo-v2.6-pro": {
+      "input": 0.435,
+      "output": 0.87,
+      "cached_input": 0.435
+    },
+    "qwen/qwen3.8-flash": {
+      "input": 0.15,
+      "output": 0.47,
+      "cached_input": 0.15
+    },
+    "inclusionai/ling-3.1-flash": {
+      "input": 0.075,
+      "output": 0.225,
+      "cached_input": 0.075
+    },
+    "openai/gpt-6-sol": {
+      "input": 2,
+      "cached_input": 0.2,
+      "output": 10
+    },
+    "openai/gpt-6.1-sol": {
+      "input": 2,
+      "cached_input": 0.1,
+      "output": 10
+    },
+    "google/gemini-3.8-flash-lite-tts": {
+      "input": 0.5,
+      "cached_input": 0.5,
+      "output": 6
     }
   }
 }

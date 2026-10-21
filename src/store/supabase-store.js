@@ -269,6 +269,14 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       return value;
     },
 
+    async reconcileGlobalSpendReservation({ reservationId, expectedUsd, actualUsd }) {
+      const value = await request('POST', 'rpc/reconcile_global_spend', {
+        body: { p_reservation_id: reservationId, p_expected_usd: expectedUsd, p_actual_usd: actualUsd }
+      });
+      if (typeof value !== 'boolean') throw new UpstreamError('reconcile_global_spend returned an unexpected shape');
+      return value;
+    },
+
     async releaseGlobalSpendReservation({ reservationId }) {
       const value = await request('POST', 'rpc/release_global_spend', { body: { p_reservation_id: reservationId } });
       if (typeof value !== 'boolean') throw new UpstreamError('release_global_spend returned an unexpected shape');
@@ -921,6 +929,9 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
           status: row.status, provider: row.provider, provider_operation: row.providerOperation || null,
           provider_video_uri: row.providerVideoUri || null, mime: row.mime || null,
           bytes: row.bytes ? '\\x' + Buffer.from(row.bytes).toString('hex') : null,
+          spend_reservation_id: row.spendReservationId || null,
+          estimated_cost_usd: row.estimatedCostUsd ?? null, actual_cost_usd: row.actualCostUsd ?? null,
+          cost_reconciled_at: row.costReconciledAt || null,
           error_code: row.errorCode || null, error_message: row.errorMessage || null
         }
       });
@@ -936,6 +947,8 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         prompt:r.prompt, targetSeconds:r.target_seconds, producedSeconds:r.produced_seconds, status:r.status, cacheKey:r.cache_key || null,
         provider:r.provider, providerOperation:r.provider_operation, providerVideoUri:r.provider_video_uri,
         mime:r.mime, bytes:r.bytes ? Buffer.from(String(r.bytes).replace(/^\\x/, ''), 'hex') : null,
+        spendReservationId:r.spend_reservation_id || null, estimatedCostUsd:r.estimated_cost_usd == null ? null : Number(r.estimated_cost_usd),
+        actualCostUsd:r.actual_cost_usd == null ? null : Number(r.actual_cost_usd), costReconciledAt:r.cost_reconciled_at || null,
         errorCode:r.error_code, errorMessage:r.error_message, createdAt:r.created_at, updatedAt:r.updated_at };
     },
 
@@ -944,7 +957,9 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const body = {};
       const map = { tenantId:'tenant_id', conversationId:'conversation_id', targetSeconds:'target_seconds',
         producedSeconds:'produced_seconds', status:'status', cacheKey:'cache_key', providerOperation:'provider_operation',
-        providerVideoUri:'provider_video_uri', mime:'mime', bytes:'bytes', errorCode:'error_code', errorMessage:'error_message' };
+        providerVideoUri:'provider_video_uri', mime:'mime', bytes:'bytes', spendReservationId:'spend_reservation_id',
+        estimatedCostUsd:'estimated_cost_usd', actualCostUsd:'actual_cost_usd', costReconciledAt:'cost_reconciled_at',
+        errorCode:'error_code', errorMessage:'error_message' };
       for (const [k,col] of Object.entries(map)) if (k in patch) body[col] = k === 'bytes' && patch[k] ? '\\x' + Buffer.from(patch[k]).toString('hex') : patch[k];
       body.updated_at = new Date().toISOString();
       const rows = await request('PATCH', `generated_videos?id=eq.${id}`, { prefer:'return=representation', body });

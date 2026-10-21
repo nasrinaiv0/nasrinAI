@@ -70,7 +70,7 @@ export function speechCostPerChar(provider, model) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export function videoCostPerSecond(model, resolution) {
-  const n = Number(BASE_PRICES.video?.[model]?.[resolution]);
+export function videoCostPerSecond(model, resolution, override = null) {
+  const n = Number(override ?? BASE_PRICES.video?.[model]?.[resolution]);
   return Number.isFinite(n) && n > 0 ? n : null;
 }

@@ -105,16 +105,26 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
     }
 
     const useFallback = async (reason, failedKey = key) => {
+      let lastRetryableError = null;
+      const skipped = new Set([failedKey]);
+      // Walk the entire fallback pool. A provider may be configured but have
+      // exhausted its free quota, so one failed fallback must not end failover.
       for (const [provider, fallbackSpec] of fallbackSpecs) {
-        if (provider === failedKey) continue;
-        if (!(await healthy(provider))) continue;
-        logger.warn('AI provider failover', {
-          from: failedKey,
-          to: provider,
-          reason
-        });
-        return call(provider, fallbackSpec, req, true, attempts);
+        if (skipped.has(provider) || !(await healthy(provider))) continue;
+        logger.warn('AI provider failover', { from: failedKey, to: provider, reason });
+        try {
+          return await call(provider, fallbackSpec, req, true, attempts);
+        } catch (err) {
+          if (!(err instanceof ProviderError) || !['config', ...RETRYABLE].includes(err.kind)) throw err;
+          if (err.kind !== 'busy') markDown(provider);
+          skipped.add(provider);
+          lastRetryableError = err;
+          logger.warn('AI fallback provider unavailable; trying next provider', {
+            provider, reason: err.kind
+          });
+        }
       }
+      if (lastRetryableError) throw lastRetryableError;
       return null;
     };
 

@@ -353,6 +353,18 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       return true;
     },
 
+    async reconcileGlobalSpendReservation({ reservationId, expectedUsd, actualUsd }) {
+      const row = spendReservations.get(reservationId);
+      if (!row || !Number.isFinite(expectedUsd) || expectedUsd < 0 ||
+          !Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > 100000 || row.status !== 'settled') return false;
+      const expected = Math.round(expectedUsd * 1e6) / 1e6;
+      const actual = Math.round(actualUsd * 1e6) / 1e6;
+      if (row.actualUsd === actual) return true;
+      if (row.actualUsd !== expected) return false;
+      row.actualUsd = actual;
+      return true;
+    },
+
     async releaseGlobalSpendReservation({ reservationId }) {
       const row = spendReservations.get(reservationId);
       if (!row) return false;

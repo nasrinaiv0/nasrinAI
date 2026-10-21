@@ -22,6 +22,10 @@ test('a guest asks, gets an answer, and the history is kept on the server', asyn
     const a1 = await r1.json();
     assert.equal(a1.message.role, 'assistant');
     assert.equal(a1.message.content, 'You said: What is the capital of Japan?');
+    assert.equal(a1.response_metadata?.usage?.input_tokens > 0, true, 'input tokens are exposed per reply');
+    assert.equal(a1.response_metadata?.usage?.output_tokens > 0, true, 'output tokens are exposed per reply');
+    assert.equal(Number.isFinite(a1.response_metadata?.duration_ms), true, 'server measures request duration');
+    assert.equal(Number.isFinite(Date.parse(a1.response_metadata?.timestamp)), true, 'reply timestamp is ISO date/time');
 
     const r2 = await send(url, token, { message: 'And of France?', conversation_id: a1.conversation_id });
     assert.equal((await r2.json()).conversation_id, a1.conversation_id);

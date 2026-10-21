@@ -1248,7 +1248,7 @@
     return card;
   }
 
-  function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false } = {}) {
+  function show(role, text, { animate = true, files = [], id = null, regenerate = null, asks = true, fresh = false, responseMetadata = null } = {}) {
     startChat();
     const attachmentRefs = [...String(text || '').matchAll(/\[attachment:([0-9a-f-]{36})\|([^|\]]*)\|([^|\]]*)\]/g)].map((m) => {
       let name = 'Attachment';
@@ -1489,7 +1489,7 @@
         const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
         if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery, cited.links);
       }
-      const actions = replyActions(text, id, full);
+      const actions = replyActions(text, id, full, responseMetadata);
       el.appendChild(actions);
       sourcesToggle(actions, cited.links);
       const disclaimer = document.createElement('p');
@@ -2786,6 +2786,7 @@
     const data = await imageStep('Making your picture', '/v1/images', {
       ...jobBody(job),
       ...(job.brief ? { brief: job.brief } : {}),
+      tier: currentModel || 'nasrinai',
       ...(conversationId ? { conversation_id: conversationId } : {})
     });
     if (!data) return false;
@@ -2945,14 +2946,34 @@
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
   async function sendVideo(text) {
-    if (!window.confirm('Create this video now? NasrinAI will send your prompt to the configured AI video service. Video generation may use your plan allowance. Choose Cancel to stop.')) return;
+    const videoTier = String(currentModel || 'nasrinai').trim().toLowerCase();
+    const defaultResolution = videoTier === 'pro' ? '480p' : '720p';
+    // Keep the client choices aligned with server-enforced base entitlements.
+    // 4K remains hidden until a verified account-level add-on entitlement exists.
+    const resolutionChoices = videoTier === 'pro' ? '360p or 480p' : '360p, 480p, 720p, 1080p, or 4k';
+    const resolutionInput = window.prompt('Video resolution (default ' + defaultResolution + '). Available base options: ' + resolutionChoices + '.', defaultResolution);
+    if (resolutionInput === null) return;
+    const resolution = String(resolutionInput || defaultResolution).trim().toLowerCase();
+    const allowedChoices = videoTier === 'pro' ? ['360p', '480p'] : ['360p', '480p', '720p', '1080p', '4k'];
+    if (!allowedChoices.includes(resolution)) {
+      show('problem', 'Choose a resolution available on your selected plan: ' + resolutionChoices + '.');
+      return;
+    }
+    const fpsInput = window.prompt('Video frame rate (default 30 FPS). Enter 30 or 60.', '30');
+    if (fpsInput === null) return;
+    const fps = Number(fpsInput || 30);
+    if (![30, 60].includes(fps)) {
+      show('problem', 'Choose 30 or 60 FPS.');
+      return;
+    }
+    if (!window.confirm('Create this video at ' + resolution + ' / ' + fps + ' FPS? NasrinAI will use your weekly video-seconds allowance. Your plan and the provider determine the final available quality.')) return;
     noticesOnSend();
     show('user', text);
     input.value = '';
     autosize();
     setImageMode(false);
     try {
-      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 60, conversation_id: conversationId || undefined }) });
+      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 8, tier: currentModel || 'nasrinai', resolution, fps, conversation_id: conversationId || undefined }) });
       const id = data.video_id;
       if (!id) throw new Error('The video job could not be started.');
       const card = document.createElement('div');
@@ -3281,7 +3302,7 @@
       if (!isCurrentView()) return { data, shown: null, background: true };
       busy = false;
       if (!data.message) return;
-      const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true });
+      const shown = show('assistant', data.message.content, { id: data.message.id, animate: !live.text(), fresh: true, responseMetadata: data.response_metadata || null });
       // Explicit requests for real internet photos get a separate inline gallery.
       // Keep this opt-in by intent so ordinary replies never gain unrelated images.
       if (!turnCoding && /\b(show|find|search|display|give me)\b.{0,70}\b(real )?(photos?|pictures?|images?)\b/i.test(text)
@@ -4239,7 +4260,7 @@
     row.after(heading, list);
   }
 
-  function replyActions(text, id, full = text) {
+  function replyActions(text, id, full = text, responseMetadata = null) {
     const row = document.createElement('div');
     row.className = 'reply-actions';
     if (canSpeakAnything()) {
@@ -4284,6 +4305,56 @@
       if (await copyText(plainText)) { flashDone(share, 'Copied to share'); notice.textContent = 'Copied. Paste it anywhere to share.'; }
     });
     row.appendChild(share);
+
+    const details = document.createElement('button');
+    details.type = 'button';
+    details.className = 'act reply-details-toggle';
+    details.setAttribute('aria-label', 'Show reply details');
+    details.setAttribute('aria-expanded', 'false');
+    details.title = 'Reply details';
+    details.textContent = '⋯';
+    const panel = document.createElement('div');
+    panel.className = 'reply-details-panel';
+    panel.hidden = true;
+    const created = responseMetadata?.timestamp ? new Date(responseMetadata.timestamp) : new Date();
+    const date = document.createElement('time');
+    date.dateTime = created.toISOString();
+    date.textContent = created.toLocaleString();
+    const dateLabel = document.createElement('div');
+    dateLabel.className = 'reply-detail-label';
+    dateLabel.textContent = 'Date & time';
+    const durationLabel = document.createElement('div');
+    durationLabel.className = 'reply-detail-label reply-detail-spaced';
+    durationLabel.textContent = 'Time to complete';
+    const duration = document.createElement('div');
+    const elapsedMs = Number(responseMetadata?.duration_ms);
+    duration.textContent = Number.isFinite(elapsedMs) && elapsedMs >= 0
+      ? (elapsedMs >= 60000 ? (elapsedMs / 60000).toFixed(1) + ' min' : (elapsedMs / 1000).toFixed(1) + ' sec')
+      : 'Not reported';
+    const inputLabel = document.createElement('div');
+    inputLabel.className = 'reply-detail-label reply-detail-spaced';
+    inputLabel.textContent = 'Input tokens';
+    const inputTokens = document.createElement('div');
+    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
+    const outputLabel = document.createElement('div');
+    outputLabel.className = 'reply-detail-label reply-detail-spaced';
+    outputLabel.textContent = 'Output tokens';
+    const outputTokens = document.createElement('div');
+    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'reply-detail-label reply-detail-spaced';
+    totalLabel.textContent = 'Total tokens';
+    const totalTokens = document.createElement('div');
+    totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
+      ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
+      : 'Not reported';
+    panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
+    details.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      details.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    row.appendChild(details);
+    row.appendChild(panel);
 
     if (libraryOn) {
       const keep = document.createElement('button');

@@ -28,37 +28,24 @@ test('free provider pool enables only keyed providers with pinned models', () =>
   assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('groq'));
 });
 
-test('free model pricing requires an exact allowlist match', async () => {
-  const config = loadConfig({
+test('free model allowlist is exact and free providers stay fallback-only', () => {
+  const allowed = loadConfig({
     AI_PROVIDER: 'none',
-    ROUTE_LEVEL_1: 'groq:llama-3.3-70b-versatile',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'
   });
-  const fake = createFakeProvider({ models: ['llama-3.3-70b-versatile'] });
-  fake.id = 'groq';
-  fake.capabilities = () => ({ local: false, dataLeavesServer: true, vision: false, pdf: false, tools: false, trainsOnData: false });
-  const router = createRouter({ providers: { groq: fake }, config, logger: quiet });
-  const store = createMemoryStore();
-  const budget = createBudget({ store, config, logger: quiet });
-  const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
-  const plan = policy.plan({ tier: 'nasrinai', message: 'hello', history: [] });
-  const run = await policy.run(plan, { system: 'S', messages: [{ role: 'user', content: 'hello' }], attachments: [] });
-  assert.equal(run.spec.provider, 'groq');
-  assert.equal(run.costUsd, 0);
+  assert.deepEqual(allowed.ai.routing.freeModels.groq, ['llama-3.3-70b-versatile']);
+  assert.ok(!Object.values(allowed.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'));
 
-  // Do not pin an unallowlisted Groq model into ROUTE_LEVEL_1 here: that would
-  // test explicit operator routing, not whether the free-model allowlist is exact.
-  const paidModelConfig = loadConfig({
+  const notAllowed = loadConfig({
     AI_PROVIDER: 'none',
-    ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'another-model'
   });
-  assert.equal(paidModelConfig.ai.routing.freeModels.groq.includes('llama-3.3-70b-versatile'), false);
-  assert.equal(paidModelConfig.ai.routing.levels[1].some((s) => s.provider === 'groq' && s.model === 'llama-3.3-70b-versatile'), false);
+  assert.equal(notAllowed.ai.routing.freeModels.groq.includes('llama-3.3-70b-versatile'), false);
+  assert.ok(!Object.values(notAllowed.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'));
 });
 
 test('free provider credentials never become available from browser-facing config fields', () => {
@@ -121,4 +108,54 @@ test('Cohere v2 adapter maps text and usage without leaking its key', async () =
   assert.equal(out.inputTokens, 4);
   assert.equal(out.outputTokens, 5);
   assert.equal(out.finishReason, 'COMPLETE');
+});
+
+
+test('free-only fallback mode includes only configured, explicitly free-allowlisted providers', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'none',
+    AI_FALLBACK: 'free',
+    GROQ_API_KEY: 'test-groq-key',
+    CEREBRAS_API_KEY: 'test-cerebras-key',
+    CEREBRAS_MODEL: 'gpt-oss-120b',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    GEMINI_API_KEY: 'test-gemini-key',
+    OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30)
+  });
+  assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'groq', 'openrouter']);
+  assert.ok(!config.ai.fallback.providers.includes('openai'));
+  assert.ok(!config.ai.fallback.providers.includes('gemini'));
+  assert.equal(config.ai.freeProviders.find((p) => p.id === 'openrouter').model, 'openrouter/free');
+  assert.ok(config.ai.freeProviders.find((p) => p.id === 'groq').freeModels.includes('openai/gpt-oss-20b'));
+  assert.ok(!config.ai.freeProviders.some((p) => p.id === 'z-ai'));
+});
+
+test('free provider catalog model defaults can be overridden with explicit environment values', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'none',
+    GROQ_API_KEY: 'test-groq-key',
+    GROQ_MODEL: 'custom-free-model',
+    GROQ_FREE_MODELS: 'custom-free-model'
+  });
+  assert.equal(config.ai.freeProviders[0].model, 'custom-free-model');
+  assert.deepEqual(config.ai.freeProviders[0].freeModels, ['custom-free-model']);
+});
+
+
+test('free tier catalog enables Cerebras, Cloudflare and OpenRouter when credentials are configured', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'none',
+    AI_FALLBACK: 'free',
+    CEREBRAS_API_KEY: 'test-cerebras-key',
+    CLOUDFLARE_WORKERS_AI_API_KEY: 'test-cloudflare-key',
+    CLOUDFLARE_ACCOUNT_ID: 'test-account',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    GROQ_API_KEY: 'test-groq-key'
+  });
+  const providers = config.ai.freeProviders;
+  assert.equal(providers.find((p) => p.id === 'cerebras').model, 'gpt-oss-120b');
+  assert.equal(providers.find((p) => p.id === 'cloudflare-workers-ai').model, '@cf/meta/llama-3.1-8b-instruct');
+  assert.ok(!providers.some((p) => p.id === 'z-ai'));
+  assert.equal(providers.find((p) => p.id === 'openrouter').model, 'openrouter/free');
+  assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'cloudflare-workers-ai', 'groq', 'openrouter']);
 });
