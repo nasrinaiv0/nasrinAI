@@ -457,3 +457,19 @@ test('sources animate left-to-right and respect reduced-motion preferences', asy
   assert.match(css, /\.sources-toggle\.source-wave \.src-word \{ animation-delay:225ms/);
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
+
+
+test('reply details panel uses transparent frosted glass and readable theme-aware text', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /background: rgba\(28, 29, 32, \.15\) !important/);
+  assert.match(css, /backdrop-filter: blur\(28px\) saturate\(165%\)/);
+  assert.match(css, /reply-details-panel \.reply-detail-label[\s\S]*?color: rgba\(255,255,255,\.9\)/);
+  assert.match(css, /\.light \.reply-details-panel time[\s\S]*?color: #17191d/);
+});
+
+test('sources use the same wave animation as the three-dot reply-details control', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.sources-toggle\.source-wave \.src-face,[\s\S]*?animation: reply-dot-wave 480ms cubic-bezier\(\.2,\.75,\.25,1\) both/);
+  assert.match(css, /\.sources-toggle\.source-wave \.src-word \{ animation-delay: 225ms/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});

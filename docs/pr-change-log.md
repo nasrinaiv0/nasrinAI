@@ -1531,3 +1531,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Explicitly position the reply-details popover within the viewport on mobile Safari.
 - Animate the three-dot control and source badges/label from left to right when tapped.
 - Respect `prefers-reduced-motion` and add regression coverage for panel positioning and animation hooks.
+
+
+## Reply details frosted glass and synchronized source animation (2026-10-21)
+
+- Make the reply-details panel 85% transparent with stronger frosted-glass blur.
+- Improve label and value contrast for dark and light themes.
+- Reuse the exact reply-dot wave keyframes, duration, easing, and stagger for the Sources control.
+- Add regression tests for transparency, readability, and matching animation timing.
