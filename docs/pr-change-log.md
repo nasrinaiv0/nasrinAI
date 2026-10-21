@@ -1516,3 +1516,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Use YouTube's privacy-enhanced `youtube-nocookie.com/embed/` host for the inline iframe after server-side embeddability and regional-availability checks.
 - Preserve the current YouTube-first intent routing and validated video IDs; keep video generation and explanation requests on their existing AI routes.
 - Add regression assertions for the privacy-enhanced embed URL. Verify CI and iPhone Preview playback before merging.
+
+
+## Interaction token estimates and multimodal image preparation (2026-10-21)
+
+- Prefer provider-reported input/output token counts when available; when unavailable, return a clearly marked word-based estimate for the current user message and assistant reply.
+- Label estimated values with `≈` and `estimated` in reply details; do not present them as model-specific or authoritative billing counts.
+- Add `tokenizeText`/`estimateTextTokenCount` and `prepareImageForMultimodal` utilities for common raster image types with a 20 MiB default limit.
+- Add regression tests for token normalization, image payload preparation, and rejection of unsupported, empty, or oversized images.
