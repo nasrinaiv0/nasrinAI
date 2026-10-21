@@ -27,7 +27,7 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
   const priceFor = (spec) => {
     // Only exact model IDs explicitly allowlisted in the environment are treated as free.
     // A provider can offer both free and paid models; never infer zero cost from provider name.
-    if ((r.freeModels?.[spec.provider] || []).includes(spec.model)) return { input: 0, cachedInput: 0, output: 0, free: true };
+    if (spec.provider !== 'openrouter' && (r.freeModels?.[spec.provider] || []).includes(spec.model)) return { input: 0, cachedInput: 0, output: 0, free: true };
     return priceOf(prices, spec.provider, spec.model, { freeTier: spec.provider === 'gemini' && r.geminiFreeTier });
   };
 
