@@ -63,7 +63,6 @@ test('video discovery queries route directly to YouTube instead of generating a 
   ]) assert.equal(isYouTubeSearchRequest(query), false, query);
 });
 
-
 test('affirmative follow-ups preserve the assistant reply YouTube search context', () => {
   const reply = 'I can help you find MrBeast latest YouTube uploads or trending videos. Would you like me to search?';
   assert.equal(youtubeQueryForReply('Yes', reply), reply);

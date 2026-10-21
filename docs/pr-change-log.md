@@ -1566,6 +1566,14 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for the glass, labels, and spacing.
 
 
+## Reply panel glass and spacing refinement (2026-10-21)
+
+- Keep 6% background opacity while reducing blur to 18px and saturation to 120% for a lighter glass appearance, especially in dark mode.
+- Use neutral gray labels in both themes for date/time, completion time, and token counts.
+- Set internal padding to 10px vertically and 20px horizontally.
+- Preserve regular-weight typography and the subtle 0.5px border.
+
+
 ## YouTube send and inline playback context fix (2026-10-21)
 
 - Keep the composer Send button actionable when a user has typed text; report AI availability failures in the conversation instead of silently dropping a submission.

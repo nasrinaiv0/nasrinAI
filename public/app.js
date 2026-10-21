@@ -1487,9 +1487,7 @@
         const userMessages = log.querySelectorAll('.msg.user');
         const lastUser = userMessages[userMessages.length - 1] || null;
         const lastUserQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
-        // A short affirmative ("yes", "sure", "go ahead") can answer a prior
-        // offer to find videos. In that case use this reply's researched
-        // YouTube/video context instead of searching for the literal "yes".
+        // Short affirmative replies may accept the assistant's offer to find videos.
         const videoQuery = youtubeQueryForReply(lastUserQuery, text);
         if (videoQuery) renderYouTubeVideos(el, videoQuery, cited.links);
       }
@@ -1726,8 +1724,7 @@
     sendBtn.classList.toggle('has-text', hasText || stopping);
     sendBtn.title = stopping ? 'Stop' : listening ? 'Stop listening' : hasText ? 'Send' : 'Dictate';
     sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : listening ? 'Stop listening' : hasText ? 'Send message' : 'Dictate message');
-    // Keep Send actionable whenever text is present. Availability errors are
-    // reported in the conversation by send(), never by a silently disabled button.
+    // Keep Send actionable for typed messages; send() reports availability errors in-chat.
     sendBtn.disabled = !stopping && (busy || preparing > 0 || (!hasText && !Recognition));
   }
 
@@ -4075,6 +4072,7 @@ busy = false; refreshSendButton(); }
     if (asksOtherPlatform && !explicitlyAsksYouTube) return false;
     return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
   }
+
 
   function youtubeQueryForReply(userQuery, assistantText) {
     const query = String(userQuery || '').trim();
