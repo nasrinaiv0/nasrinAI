@@ -1572,3 +1572,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Use neutral gray labels in both themes for date/time, completion time, and token counts.
 - Set internal padding to 10px vertically and 20px horizontally.
 - Preserve regular-weight typography and the subtle 0.5px border.
+
+
+## YouTube send and inline playback context fix (2026-10-21)
+
+- Keep the composer Send button actionable when a user has typed text; report AI availability failures in the conversation instead of silently dropping a submission.
+- Preserve YouTube/video intent for affirmative follow-ups such as "Yes" when the generated answer contains the requested YouTube/video context, so inline video results are attached to the relevant reply rather than searching for the literal confirmation.
+- Add regression tests for affirmative follow-up context and composer send behavior.
+- Continue to render only server-verified, embeddable YouTube results in the inline player; direct YouTube search remains a fallback when no eligible embedded results are available.
