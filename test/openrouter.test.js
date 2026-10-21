@@ -168,7 +168,7 @@ test('OpenRouter video adapter looks up live catalog pricing and pins model and 
   assert.equal(await provider.getCostPerSecondUsd(), 0.12);
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
-  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', generate_audio: true, maxCostPerSecondUsd: 0.12 });
+  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true, maxCostPerSecondUsd: 0.12 });
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
