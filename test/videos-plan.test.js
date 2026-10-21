@@ -7,7 +7,7 @@ import { testConfig } from './helpers.js';
 
 function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null) {
   const created = [];
-  const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10', VIDEO_MAX_COST_USD: '100' });
+  const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10', VIDEO_MAX_COST_USD: '100000' });
   const store = createMemoryStore();
   const addVideo = store.addVideo.bind(store);
   store.addVideo = async (row) => { created.push(row); return addVideo(row); };
