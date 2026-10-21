@@ -46,7 +46,7 @@ test('OpenRouter TTS pins the configured Google Vertex provider and requested mo
 });
 
 
-test('OpenRouter video routes are shared across Max and Ultra with optional catalog discovery', () => {
+test('OpenRouter video routes support Pro 720p, Max 1080p and Ultra 1080p/4K add-on with optional catalog discovery', () => {
   const disabledByDefault = loadConfig({
     NODE_ENV: 'test',
     OPENROUTER_API_KEY: 'test-openrouter-key',
@@ -61,7 +61,12 @@ test('OpenRouter video routes are shared across Max and Ultra with optional cata
     VIDEO_ENABLED: 'true'
   });
   assert.equal(cfg.video.enabled, true);
-  assert.deepEqual(Object.keys(cfg.video.tierRoutes), ['max', 'ultra']);
+  assert.deepEqual(Object.keys(cfg.video.tierRoutes), ['pro', 'max', 'ultra']);
+  assert.equal(cfg.video.tierRoutes.pro.resolution, '720p');
+  assert.equal(cfg.video.tierRoutes.pro.allow4kAddon, false);
+  assert.equal(cfg.video.tierRoutes.max.resolution, '1080p');
   assert.equal(cfg.video.tierRoutes.max.model, null);
+  assert.equal(cfg.video.tierRoutes.ultra.resolution, '1080p');
+  assert.equal(cfg.video.tierRoutes.ultra.allow4kAddon, true);
   assert.equal(cfg.video.tierRoutes.ultra.model, null);
 });
