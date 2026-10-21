@@ -4364,23 +4364,23 @@
       : 'Not reported';
     const inputLabel = document.createElement('div');
     inputLabel.className = 'reply-detail-label reply-detail-spaced';
-    inputLabel.textContent = 'Input tokens';
+    inputLabel.textContent = responseMetadata?.usage?.source === 'estimated' ? 'Input tokens (est.)' : 'Input tokens';
     addDetailIcon(inputLabel, 'tokens');
     const inputTokens = document.createElement('div');
-    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
+    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? (responseMetadata.usage.source === 'estimated' ? '~' : '') + responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
-    outputLabel.textContent = 'Output tokens';
+    outputLabel.textContent = responseMetadata?.usage?.source === 'estimated' ? 'Output tokens (est.)' : 'Output tokens';
     addDetailIcon(outputLabel, 'tokens');
     const outputTokens = document.createElement('div');
-    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
+    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? (responseMetadata.usage.source === 'estimated' ? '~' : '') + responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
-    totalLabel.textContent = 'Total tokens';
+    totalLabel.textContent = responseMetadata?.usage?.source === 'estimated' ? 'Total tokens (est.)' : 'Total tokens';
     addDetailIcon(totalLabel, 'tokens');
     const totalTokens = document.createElement('div');
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
-      ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
+      ? (responseMetadata.usage.source === 'estimated' ? '~' : '') + (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
       : 'Not reported';
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
