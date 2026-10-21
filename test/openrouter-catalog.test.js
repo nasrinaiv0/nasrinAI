@@ -33,8 +33,8 @@ test('operator-supplied unverified models are recorded but never promoted by the
     { provider: 'openrouter', model: 'deepseek/deepseek-v4-flash-0731' }
   ];
   const routed = prioritizeOpenRouterCandidates('coding', candidates);
-  assert.equal(routed[0].model, 'qwen/qwen3.8-27b', 'unverified candidate keeps its configured slot');
-  assert.equal(routed[1].model, 'deepseek/deepseek-v4-flash-0731');
+  assert.equal(routed[0].model, 'deepseek/deepseek-v4-flash-0731', 'verified task match should rank first');
+  assert.equal(routed[1].model, 'qwen/qwen3.8-27b', 'unverified model remains configured but is not promoted over a verified match');
 });
 
 test('classifier task aliases prioritize relevant verified models without adding or duplicating calls', () => {
