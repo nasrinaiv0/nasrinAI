@@ -4053,7 +4053,7 @@
     frame.allowFullscreen = true;
     frame.setAttribute('loading', 'lazy');
     frame.setAttribute('playsinline', '');
-    frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
     frameWrap.appendChild(frame);
     const details = document.createElement('div');
     details.className = 'youtube-video-details';
