@@ -44,19 +44,26 @@ const TASK_ALIASES = Object.freeze({
 export function prioritizeOpenRouterCandidates(task, candidates) {
   const taskNames = TASK_ALIASES[task] || [task];
   const positions = [];
-  const ranked = [];
+  const matching = [];
+  const remaining = [];
   candidates.forEach((candidate, index) => {
     if (candidate.provider !== 'openrouter') return;
+    positions.push(index);
     const item = byId.get(candidate.model);
-    if (!item) return;
-    const ranks = taskNames.map((name) => item.preferredTasks.indexOf(name)).filter((rank) => rank >= 0);
-    if (ranks.length) {
-      positions.push(index);
-      ranked.push({ candidate, rank: Math.min(...ranks), index });
-    }
+    const ranks = item
+      ? taskNames.map((name) => item.preferredTasks.indexOf(name)).filter((rank) => rank >= 0)
+      : [];
+    if (ranks.length) matching.push({ candidate, rank: Math.min(...ranks), index });
+    else remaining.push({ candidate, index });
   });
-  ranked.sort((a, b) => a.rank - b.rank || a.index - b.index);
+  // Keep the configured candidate set and non-OpenRouter slots intact. Within
+  // OpenRouter slots, put verified task matches first; preserve order for the
+  // rest, including unverified IDs. This only ranks candidates already configured
+  // by the operator; policy.js still makes the actual capability/privacy/budget decision.
+  matching.sort((a, b) => a.rank - b.rank || a.index - b.index);
+  remaining.sort((a, b) => a.index - b.index);
+  const ordered = [...matching, ...remaining].map((item) => item.candidate);
   const output = [...candidates];
-  positions.forEach((position, index) => { output[position] = ranked[index].candidate; });
+  positions.forEach((position, index) => { output[position] = ordered[index]; });
   return output;
 }
