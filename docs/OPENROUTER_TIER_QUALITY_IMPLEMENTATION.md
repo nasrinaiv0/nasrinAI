@@ -96,3 +96,101 @@ See [docs/MULTI_MODEL_PLANNING_COUNCIL.md](./MULTI_MODEL_PLANNING_COUNCIL.md) fo
 - TTS default when OpenRouter is configured: `google/gemini-3.8-flash-lite-tts` at $0.50/M text input and $6/M audio output. The OpenRouter speech request pins provider routing to `Google Vertex` with fallbacks disabled so it cannot silently switch provider. The OpenRouter model page currently lists Google AI Studio as the model's visible endpoint, while the Google Vertex provider page also lists the model; live provider pinning must be verified in Preview before release.
 - Runtime cached-input prices for the Sol models are conservatively set equal to standard input ($2/M) until billing telemetry is confirmed. TTS reservation cost remains a conservative per-character ceiling until actual usage data is verified.
 - Required release checks: configured provider key in Vercel Preview; verify a Max coding request selects GPT-6 Sol, an Ultra coding request selects GPT-6.1 Sol, and a speech request returns playable WAV from the pinned Google Vertex endpoint; confirm usage/cost settlement and fail-closed behavior.
+
+
+## Consolidated OpenRouter model and capability inventory — 2026-10-21
+
+This section consolidates the OpenRouter model references and task routing represented in PR #491. **A catalog entry or model name is not proof of production enablement.** A model is usable only when its exact ID is configured for the route, live capability and endpoint pricing checks pass, the user's tier/policy permits it, and the relevant end-to-end smoke test has passed.
+
+### 1. Text, chat, reasoning, research and coding candidates
+
+The runtime skill catalog is `src/ai/openrouter-catalog.js`. Its skills are hints for ordering candidates, not a capability guarantee or authorization list.
+
+| Model / exact ID in catalog | Catalog status | Intended tasks | Price snapshot in `config/model-prices.json` (USD per 1M tokens) |
+|---|---|---|---|
+| DeepSeek V4.1 Flash — `deepseek/deepseek-v4.1-flash` | verified | Chat, coding, debugging, research, analysis, agent workflows; vision only if input path supports it | $0.13 input / $0.52 output; cached $0.0026 |
+| GLM 5.3 Flash — `z-ai/glm-5.3-flash` | verified | Fast chat, coding, multimodal understanding, agents | $0.075 input / $0.25 output; cached $0.015 (recheck promotional rate) |
+| MiMo-V2.6-Flash — `xiaomi/mimo-v2.6-flash` | verified | Chat, coding, research, analysis; vision only with compatible input path | $0.14 input / $0.28 output; cached $0.0028 |
+| DeepSeek V4.1 Flash 1017 — `deepseek/deepseek-v4.1-flash-1017` | verified ID; price entry exists | Chat, coding, debugging, research, analysis, agents | $0.15 input / $0.60 output; cached $0.15 |
+| DeepSeek V4 Flash 0731 — `deepseek/deepseek-v4-flash-0731` | verified | Coding, reasoning, agents | $0.0152 input / $1.28 output; cached $0.0152 |
+| DeepSeek V4 Flash Vision Exp — `deepseek/deepseek-v4-flash-vision-exp` | verified | Image/chart/document understanding, vision | $0.2156 input / $0.6468 output; cached $0.00686 |
+| GPT-6 Luna — `openai/gpt-6-luna` | operator-supplied catalog entry; live identity still requires verification | Fast chat, classification, tools, coding | Price snapshot present, but do not treat as verified until the exact live catalog identity and endpoint are checked |
+| GPT-6 Luna Pro — `openai/gpt-6-luna-pro` | operator-supplied catalog entry; live identity still requires verification | Complex analysis and reasoning | Price snapshot present, but do not enable without live verification |
+| Claude Haiku 5.5 — `anthropic/claude-haiku-5.5` | operator-supplied catalog entry; live identity still requires verification | Writing, summaries, coding assistance, agents | Price snapshot present, but do not enable without live verification |
+| MiMo-V2.6-Pro — `xiaomi/mimo-v2.6-pro` | operator-supplied catalog entry; live identity still requires verification | Advanced reasoning, coding, research | Price snapshot present, but do not enable without live verification |
+| Qwen3.8 Flash — `qwen/qwen3.8-flash` | operator-supplied catalog entry; live identity still requires verification | Reasoning, coding, document analysis, multimodal | Price snapshot present, but do not enable without live verification |
+| Ling 3.1 Flash — `inclusionai/ling-3.1-flash` | verified in catalog | Fast reasoning, coding, tool-enabled agents | $0.075 input / $0.225 output; cached $0.075 |
+| Jev1.13 — `typesafe/jev-1.13` | unverified | Brainstorming, decision support | No verified price; do not route |
+| GPT-6 Luna Decisions — `openai/gpt-6-luna-decisions` | unverified | Structured decisions, classification, routing, scoring | No verified price; do not route |
+| Qwen3.8 27B — `qwen/qwen3.8-27b` | unverified | Vision-language, coding, research, agents | No verified price; do not route |
+| Decider V1.2 — `perplexity/pplx-decider-v1.2` | unverified | Decision selection, rubric scoring, moderation | No verified price; do not route |
+| Google Vertex Global — `google-vertex/global` | unverified; not a confirmed OpenRouter model ID | General generation candidate only | No verified price; do not route |
+
+**Dedicated coding routes**
+- Max coding/debugging: `openrouter:openai/gpt-6-sol` — listed at $2/M input and $10/M output; cached input is configured at $0.20/M.
+- Ultra coding/debugging and Ultra deep coding: `openrouter:openai/gpt-6.1-sol` — listed at $2/M input and $10/M output; cached input is configured at $0.10/M.
+- The coding routes are tier-scoped and are not general chat overrides. Existing Anthropic fallback is used only according to the configured route and policy. Automated tests do not replace authenticated Preview smoke tests for selection, quality and billing.
+
+### 2. Image generation and image editing
+
+The PR documents the OpenRouter GPT Image family:
+- `openai/gpt-image-2`
+- `openai/gpt-image-2.5-flare`
+- `openai/gpt-image-2.5-sunburst`
+
+These are model candidates, not a guarantee that all three are enabled. Before any image request, the adapter must validate the exact model against the live `/images/models` catalog, requested quality/aspect ratio/reference-image count, live endpoint pricing, and a positive spend ceiling. Image generation uses the dedicated `/images` endpoint; do not substitute text chat for image output. The current adapter requires an explicitly configured/preferred model for costly image generation and fails closed when a verified model/price is not available.
+
+Image understanding is separate from image generation. DeepSeek V4 Flash Vision Exp and other catalog entries labelled `vision` are not considered usable for user image/file input unless the live input-modality checks and actual request payload path support that input. The general OpenRouter text adapter currently rejects direct attachments; do not advertise those skill labels as an enabled vision workflow without testing the dedicated payload path.
+
+### 3. Video generation
+
+The OpenRouter video adapter is connected to the **shared NasrinAI video job lifecycle**, not only Video Studio. It checks live model capabilities for duration, resolution, aspect ratio, generated audio/video-input needs, and a published per-second SKU price. Cost lookup uses the live OpenRouter catalog; do not hard-code or guess a per-second price.
+
+Video model candidates named in PR documentation:
+- `heygen/heygen-video-1`
+- `alibaba/wan-3.0`
+- `google/veo-3.1-lite`
+- `google/veo-3.1-fast`
+- `alibaba/happyhorse-1.1`
+- `alibaba/wan-2.7`
+
+These names are documented candidates, not proof every model is currently returned by the live catalog, supports the requested options, or has passed end-to-end generation. The router may discover eligible models only when required capabilities and price are verified. Max prefers the least expensive eligible route; Ultra prefers the highest-priced eligible route as a fallback heuristic, **not** a quality guarantee. Model pinning uses `OPENROUTER_VIDEO_MAX_MODEL` and `OPENROUTER_VIDEO_ULTRA_MODEL`; legacy `OPENROUTER_VIDEO_MODEL` is an Ultra-only fallback. The UI/adapter currently keeps a conservative 8-second single-shot cap; do not advertise 60-second output until extension support and durable cost reconciliation are proven. Keep paid video disabled unless the provider/model and spend ceiling are configured and live tests pass.
+
+### 4. Speech / text-to-speech (TTS) / audio
+
+- OpenRouter TTS candidate: `google/gemini-3.8-flash-lite-tts`, listed at $0.50/M text input and $6/M audio output. The current `.env.example` pins `OPENROUTER_TTS_PROVIDER=Google AI Studio`; the provider-specific endpoint and playable output must be verified in Preview. Do not document this as Google Vertex unless the actual configured value and live test are changed and confirmed.
+- Other supported speech routes in the app include the separately configured OpenAI and Gemini speech engines. Their existence does not mean they use OpenRouter.
+- The adapter maps speech to `/audio/speech`, transcription to `/audio/transcriptions`, audio understanding to chat completions with audio input, and audio generation/understanding to their corresponding task routes. These endpoint mappings are implementation support, **not proof of a configured or tested transcription/audio model**.
+
+### 5. Transcription, extraction, research, artifacts, decisions and other tasks
+
+| Task | Current PR #491 status | Model selection / guardrail |
+|---|---|---|
+| Transcription | Endpoint mapping exists; no dedicated verified OpenRouter transcription model is established in this inventory | Requires exact configured model with live transcription capability and an end-to-end audio-file test; otherwise unavailable |
+| Text extraction / PDF | Classified tasks map to text chat; catalog skill labels may help candidate ordering | PDF/file input must pass live input-modality checks and a tested payload path; no skill label alone enables file upload |
+| Research / web research | Task-aware text routing exists; separate research tools remain configuration/feature-gated | A text model is not a web-search integration. Require configured search/tool access and test citations/source handling |
+| Coding / debugging | Tier-specific GPT-6 Sol / GPT-6.1 Sol routes documented | Verify exact tier route, tool execution, fallback compatibility, spend reservation and usage settlement |
+| Structured decisions | Dedicated `/alpha/decisions` API path exists; no existing business workflow is confirmed to call it | Do not send decisions through ordinary chat. Candidate decision model IDs above remain unverified and must not be enabled |
+| Artifacts / document generation | No standalone “artifact model” is established by this PR | Artifacts are an application workflow: classify task, route a capable text/coding model and any required tools, then validate output. No separate model ID should be invented |
+| Video understanding | Task mapping exists for video input | Requires a model that advertises video input and a tested video payload; no verified route is claimed here |
+| Embeddings / reranking | Endpoint/task names are mapped | No verified dedicated model/price pair is established in this inventory; keep disabled until exact model, pricing and end-to-end behavior are verified |
+| Audio understanding | Task mapping exists for audio input | Requires live audio-input support and tested payload; do not treat TTS support as transcription or audio understanding |
+
+### 6. Pricing source and operational rules
+
+- Token prices above are snapshots in `config/model-prices.json`, in USD per 1 million input/output tokens unless stated otherwise. They are not a substitute for live provider price validation and must be reviewed before changing budgets.
+- Image generation checks live endpoint prices from OpenRouter's image endpoint catalog. Video generation checks explicit per-second SKU entries in the live video catalog. The code rejects ambiguous per-job prices when a per-second rate is required.
+- Do not copy a model's listed price into production configuration without confirming the exact model ID, provider endpoint, billing unit, cached-input rate, and requested modality.
+- Keep API keys and environment values private. Do not paste secret values into this document, logs, browser output or chat.
+- Exact model selection remains subject to `ROUTE_LEVEL_n`, tier entitlements, live capabilities, privacy/data-collection policy, budget, tools/attachments and endpoint-specific constraints. Catalog labels are not authorization.
+
+### 7. Release readiness checklist
+
+- [ ] Reconfirm every exact model ID against the live OpenRouter catalog.
+- [ ] Confirm every enabled model is present in Vercel configuration for the intended environment and tier.
+- [ ] Run authenticated Preview smoke tests for text, coding/tools, image generation/editing, video create/status/download, TTS, transcription, extraction, research and any decision route being enabled.
+- [ ] Confirm audio/video options, reference limits, MIME types, response parsing and download format.
+- [ ] Reconcile actual provider usage/cost with reservations durably and idempotently, especially asynchronous video jobs.
+- [ ] Verify unknown model, missing price, unsupported capability, provider error and timeout all fail safely without duplicate paid requests.
+- [ ] Confirm exact-head CI is green and security review passes.
+- [ ] Keep PR #491 Draft and do not merge/deploy to production until all required gates are closed.
