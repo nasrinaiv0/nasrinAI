@@ -39,12 +39,15 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
   const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
 
   async function requireVideoPlan(caller, requestedTier) {
-    if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans.');
+    if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation requires an eligible paid plan.');
     if (!plans) throw unavailable();
     const account = await plans.current(caller);
-    if (account.open || !['max', 'ultra'].includes(account.plan)) throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans. Upgrade your plan to create videos.');
+    if (account.open || !['pro', 'max', 'ultra'].includes(account.plan)) throw new HttpError(403, 'video_plan_required', 'Video creation requires Pro, Max or Ultra. Upgrade your plan to create videos.');
     const selected = resolveRequestTier(requestedTier, account.plan, { open: Boolean(account.open) });
-    if (!['max', 'ultra'].includes(selected)) throw new HttpError(403, 'video_tier_required', 'Video creation requires selecting Max or Ultra.');
+    if (!['pro', 'max', 'ultra'].includes(selected)) throw new HttpError(403, 'video_tier_required', 'Video generation requires selecting Pro, Max or Ultra.');
+    if (account.plan === 'pro' && selected !== 'pro') throw new HttpError(403, 'video_tier_required', 'Pro video generation is limited to 720p. Upgrade to Max or Ultra for 1080p.');
+    if (account.plan === 'max' && selected === 'ultra') throw new HttpError(403, 'video_tier_required', 'Max cannot use Ultra video add-ons.');
+    if (account.plan === 'ultra' && selected !== 'ultra') throw new HttpError(403, 'video_tier_required', 'Select Ultra for Ultra video options.');
     return { account, selected };
   }
 
