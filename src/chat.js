@@ -282,6 +282,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const project = !only && projects && caller.tenantId === PLATFORM_TENANT_ID ? await projects.forChat(caller, conv.id) : null;
     let pending = null;   // an action waiting for the person's Confirm
     let fromLibrary = [];   // titles of the person's Library files used for this answer
+    const live = opts.stream ? liveText(opts.stream) : null;
+    const streamReq = live ? { onText: (t) => live.push(t) } : {};
 
     // Keep ordinary greetings off the provider and out of slow context lookups.
     // The user's message has already been persisted and private-system refusals
@@ -299,8 +301,6 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     }
 
     const projectText = projectBlock(project);
-    const live = opts.stream ? liveText(opts.stream) : null;
-    const streamReq = live ? { onText: (t) => live.push(t) } : {};
     // The person pressed Stop (or left): keep what was written so far, and
     // count the tokens spent, estimated, so stopping never gets around the
     // daily limits or the spending budget.
