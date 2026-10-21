@@ -39,7 +39,12 @@ function videoPricingRates(model, { resolution, generateAudio = true, hasVideoIn
       ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
       : sku;
     const rate = Number(value);
-    if (!/(?:second|\/sec\b|per[_ -]?sec)/.test(unit) || !Number.isFinite(rate) || rate <= 0) return [];
+    // OpenRouter's documented video catalog uses "generate" for the default
+    // per-video-second rate; more specific SKUs name the seconds basis and
+    // may add audio/resolution modifiers. Never accept a job/request SKU.
+    const defaultGenerateSku = key === 'generate' && (!sku || typeof sku !== 'object' ||
+      (!sku.unit && !sku.billing_unit && !sku.metric));
+    if ((!/(?:second|\/sec\b|per[_ -]?sec)/.test(unit) && !defaultGenerateSku) || !Number.isFinite(rate) || rate <= 0) return [];
     if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return [];
     if (/(?:with|including)[_-]?audio/.test(labels) && !generateAudio) return [];
     if (/(?:without|no)[_-]?audio/.test(labels) && generateAudio) return [];
