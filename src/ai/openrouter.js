@@ -24,6 +24,28 @@ function cleanModelId(id) {
   }
   return id;
 }
+
+// Only explicit per-second catalog SKUs are safe for pre-generation budgets.
+// A per-job price must never be misinterpreted as a per-second rate.
+function videoPricingRates(model, { resolution, generateAudio = true, hasVideoInput = false } = {}) {
+  const raw = model?.pricing_skus;
+  const entries = raw && typeof raw === 'object'
+    ? (Array.isArray(raw) ? raw.map((sku, index) => [String(index), sku]) : Object.entries(raw))
+    : [];
+  return entries.flatMap(([key, sku]) => {
+    const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || key || '').toLowerCase();
+    const labels = [unit, sku?.resolution, sku?.audio, sku?.input_type, sku?.modality, sku?.description].filter(Boolean).join(' ').toLowerCase();
+    const value = typeof sku === 'object' && sku !== null
+      ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
+      : sku;
+    const rate = Number(value);
+    if (!/(?:second|\/sec\b|per[_ -]?sec)/.test(unit) || !Number.isFinite(rate) || rate <= 0) return [];
+    if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return [];
+    if (typeof sku?.with_audio === 'boolean' && sku.with_audio !== generateAudio) return [];
+    if (typeof sku?.with_video_input === 'boolean' && sku.with_video_input !== hasVideoInput) return [];
+    return [{ rate, labels }];
+  });
+}
 function asJsonOrText(text) {
   try { return JSON.parse(text); } catch { return text.slice(0, 500); }
 }
@@ -132,22 +154,9 @@ export function createOpenRouterClient({
         if (aspectRatio && (!list('supported_aspect_ratios') || !list('supported_aspect_ratios').includes(aspectRatio))) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise the requested aspect ratio');
         if (requirements.generateAudio === true && match.generate_audio !== true && match.supports_audio_generation !== true) throw new ProviderError('config', 'Configured OpenRouter video model does not advertise generated audio support');
         if (requirements.requirePrice === true) {
-          const raw = match.pricing_skus;
-          const skus = raw && typeof raw === 'object'
-            ? (Array.isArray(raw) ? raw.map((sku, index) => [String(index), sku]) : Object.entries(raw))
-            : [];
-          const prices = skus.filter(([key, sku]) => {
-            const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || key || '').toLowerCase();
-            const value = typeof sku === 'object' && sku !== null
-              ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
-              : sku;
-            const rate = Number(value);
-            return /generate|video|second|\/sec\b|per_sec/.test(unit) && Number.isFinite(rate) && rate > 0;
-          }).map(([, sku]) => Number(typeof sku === 'object' && sku !== null
-            ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
-            : sku));
-          if (!prices.length) throw new ProviderError('config', 'OpenRouter video model has no verifiable published generation price');
-          const conservativeCatalogRate = Math.max(...prices);
+          const prices = videoPricingRates(match, requirements);
+          if (!prices.length) throw new ProviderError('config', 'OpenRouter video model has no verifiable published per-second generation price');
+          const conservativeCatalogRate = Math.max(...prices.map((entry) => entry.rate));
           if (requirements.maxCostPerSecondUsd != null && (!Number.isFinite(Number(requirements.maxCostPerSecondUsd)) || Number(requirements.maxCostPerSecondUsd) < conservativeCatalogRate)) {
             throw new ProviderError('config', 'Configured OpenRouter video cost estimate is below the live catalog rate');
           }
@@ -161,7 +170,25 @@ export function createOpenRouterClient({
       if (match) return validateRequirements(match);
     }
     if (preferred.length) throw new ProviderError('config', `Configured OpenRouter model is unavailable or lacks the required capability for task: ${task}`);
-    // Never silently choose an arbitrary model for costly generation.
+    // Discover video models only after checking duration, resolution, aspect
+    // ratio, audio support, and an explicit per-second price. Max prefers the
+    // least expensive eligible model; Ultra prefers the highest-priced one as
+    // a fallback heuristic. Price alone is not a quality guarantee.
+    if (task === 'video') {
+      const tier = requirements.tier === 'ultra' ? 'ultra' : 'max';
+      const priced = eligible.flatMap((candidate) => {
+        try {
+          validateRequirements(candidate);
+          const rates = videoPricingRates(candidate, requirements);
+          if (!rates.length) return [];
+          return [{ candidate, rate: Math.max(...rates.map((entry) => entry.rate)) }];
+        } catch { return []; }
+      });
+      priced.sort((a, b) => (tier === 'ultra' ? b.rate - a.rate : a.rate - b.rate) || a.candidate.id.localeCompare(b.candidate.id));
+      if (priced.length) return priced[0].candidate;
+      throw new ProviderError('config', 'No OpenRouter video model advertises the requested duration, resolution, aspect ratio, audio support, and a verifiable per-second price');
+    }
+    // Never silently choose an arbitrary model for other costly generation.
     if (['image', 'video', 'rerank', 'decisions'].includes(task)) {
       throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
     }
@@ -224,34 +251,17 @@ export function createOpenRouterClient({
     return request('/images', { body, signal });
   }
 
-  async function getVideoPricing({ model, resolution, generateAudio = true, hasVideoInput = false } = {}) {
-    const selected = await selectModel('video', model ? [cleanModelId(model)] : [], { resolution });
-    const raw = selected.pricing_skus;
-    const skus = raw && typeof raw === 'object'
-      ? (Array.isArray(raw) ? raw.map((sku, index) => [String(index), sku]) : Object.entries(raw))
-      : [];
-    const rates = skus.filter(([key, sku]) => {
-      const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || key || '').toLowerCase();
-      const labels = [unit, sku?.resolution, sku?.audio, sku?.input_type, sku?.modality, sku?.description].filter(Boolean).join(' ').toLowerCase();
-      const value = typeof sku === 'object' && sku !== null
-        ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
-        : sku;
-      const rate = Number(value);
-      if (!/generate|video|second|\/sec\b|per_sec/.test(unit) || !Number.isFinite(rate) || rate <= 0) return false;
-      if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return false;
-      if (typeof sku?.with_audio === 'boolean' && sku.with_audio !== generateAudio) return false;
-      if (typeof sku?.with_video_input === 'boolean' && sku.with_video_input !== hasVideoInput) return false;
-      return true;
-    }).map(([, sku]) => Number(typeof sku === 'object' && sku !== null
-      ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
-      : sku));
+  async function getVideoPricing({ model, tier = 'max', resolution, duration, aspectRatio, generateAudio = true, hasVideoInput = false } = {}) {
+    const requirements = { tier, resolution, duration, aspectRatio, generateAudio, hasVideoInput, requirePrice: true };
+    const selected = await selectModel('video', model ? [cleanModelId(model)] : [], requirements);
+    const rates = videoPricingRates(selected, requirements).map((entry) => entry.rate);
     if (!rates.length) throw new ProviderError('config', 'OpenRouter video price lookup failed; generation is paused for safety');
     return Object.freeze({ model: selected.id, resolution: resolution || null, costPerSecondUsd: Math.max(...rates), source: 'openrouter-live-catalog' });
   }
 
-  async function createVideo({ model, preferred = [], prompt, signal, maxCostPerSecondUsd, ...options }) {
+  async function createVideo({ model, preferred = [], tier = 'max', prompt, signal, maxCostPerSecondUsd, ...options }) {
     const selected = await selectModel('video', model ? [cleanModelId(model)] : preferred, {
-      duration: options.duration, resolution: options.resolution, aspectRatio: options.aspect_ratio,
+      tier, duration: options.duration, resolution: options.resolution, aspectRatio: options.aspect_ratio,
       generateAudio: options.generate_audio === true, requirePrice: true, maxCostPerSecondUsd
     });
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Video prompt must be 1–8000 characters');
@@ -306,18 +316,22 @@ export const OPENROUTER_TASK_INPUT_MODALITIES = TASK_INPUT;
 // Adapter for NasrinAI's existing video job lifecycle. OpenRouter video jobs
 // are single-shot: do not pretend that provider-side extension is supported.
 // The caller must enforce maxSeconds and use its existing spend reservation.
-export function createOpenRouterVideoProvider({ client, model, maxSeconds = 8, resolution = '720p' }) {
+export function createOpenRouterVideoProvider({ client, model = null, tier = 'max', maxSeconds = 8, resolution = '720p' }) {
   if (!client || typeof client.createVideo !== 'function' || typeof client.getVideoPricing !== 'function') throw new ProviderError('config', 'OpenRouter video client with live pricing lookup is required');
   const safeMax = Math.max(1, Math.min(8, Number(maxSeconds) || 8));
+  let resolvedModel = model;
   return {
-    id: 'openrouter', model, maxSeconds: safeMax, resolution, costPerSecondUsd: null,
-    async getCostPerSecondUsd({ generateAudio = true, hasVideoInput = false } = {}) {
-      return (await client.getVideoPricing({ model, resolution, generateAudio, hasVideoInput })).costPerSecondUsd;
+    id: 'openrouter', get model() { return resolvedModel; }, tier, maxSeconds: safeMax, resolution, costPerSecondUsd: null,
+    async getCostPerSecondUsd({ generateAudio = true, hasVideoInput = false, duration = safeMax, aspectRatio = '16:9' } = {}) {
+      const pricing = await client.getVideoPricing({ model, tier, resolution, duration, aspectRatio, generateAudio, hasVideoInput });
+      resolvedModel = pricing.model;
+      return pricing.costPerSecondUsd;
     },
     async create({ prompt, aspectRatio, seconds = safeMax, generateAudio = true, hasVideoInput = false }) {
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
-      await client.getVideoPricing({ model, resolution, generateAudio, hasVideoInput });
-      const result = await client.createVideo({ model, prompt, duration: Math.floor(seconds), aspect_ratio: aspectRatio, resolution, generate_audio: generateAudio });
+      const pricing = await client.getVideoPricing({ model, tier, resolution, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
+      resolvedModel = pricing.model;
+      const result = await client.createVideo({ model: pricing.model, tier, prompt, duration: Math.floor(seconds), aspect_ratio: aspectRatio, resolution, generate_audio: generateAudio, maxCostPerSecondUsd: pricing.costPerSecondUsd });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
       return id;
