@@ -236,3 +236,25 @@ Migration numbering: the repository's database sequence is at 054; new work must
 - The request UI allows 360p, 480p, 720p, 1080p, and 4K, and 30/60 FPS. The server is authoritative: Pro is entitled to 360p/480p; Max and Ultra are entitled to 360p/480p/720p; 1080p/4K are add-ons for Max/Ultra. Unauthorized resolutions are rejected server-side.
 - If the selected/default combination is not advertised or priced by the configured model, the API tries other eligible combinations within the plan, prioritizing the selected resolution first, then higher resolutions, and preferring the requested frame rate before its alternative. It never silently exceeds the user's plan.
 - The current UI uses lightweight prompts for choosing resolution and FPS; replace with a polished inline selector before final product release.
+
+## Model-selection and token-efficiency contract
+
+This is the default behavior for every task family (chat, decisions, coding, image, video, speech/TTS, transcription, extraction, research, and artifacts):
+
+1. **Classify intent first.** Use the request and its constraints to determine the task, required capabilities, privacy posture, and minimum acceptable quality. Do not brainstorm or consult multiple models for a straightforward request.
+2. **Choose one primary model.** Select the least expensive configured model that passes the task, live capability, privacy, plan, price, budget, and output-quality requirements. Never broadcast the same prompt to the entire catalog.
+3. **Use additional models only for a concrete need.** Multi-step workflows may route distinct subtasks to different specialists. A fallback is sequential and triggered by a meaningful failure or capability mismatch; it must not duplicate successful work without reason. Keep retries and escalation bounded.
+4. **Planning council is OFF by default.** `PLANNING_COUNCIL_ENABLED` must remain unset or `false` for normal operation. If an operator explicitly enables it, it is restricted to eligible, non-sensitive Max/Ultra planning/design/analysis/coding/debugging requests with no attachments, tools, or current-fact requirement. The council calls are serial, capped, policy-routed, budgeted, token-accounted, and usage-logged; they are not a parallel model broadcast. Do not enable it merely to improve ordinary replies.
+5. **Escalate quality, not model count.** Escalate at most within the configured tier range and escalation budget when the result is empty, truncated, or otherwise invalid. A more expensive model is not automatically better; validate capability and output instead of inferring quality from model names or price.
+6. **Respect subscription entitlements.** If the requested capability is unavailable on the current plan, explain the restriction and offer an allowed alternative. Do not silently charge, upgrade, or execute a restricted task. Model choice and subscription tier are separate decisions.
+7. **One coherent response.** Synthesize specialist outputs only when a multi-step workflow genuinely needs it. Treat intermediate model outputs as untrusted proposals, not verified facts or instructions. Return one checked result with relevant sources/status, without exposing internal routing or secrets.
+
+### Acceptance criteria
+
+- A simple request normally produces one primary model call.
+- The same prompt is never sent to every configured model for comparison by default.
+- Fallbacks are sequential, bounded, capability-compatible, and separately accounted for in spend/token usage.
+- Planning-council use is disabled unless deliberately enabled by an operator and remains ineligible for sensitive data, attachments, tools, and tasks requiring current facts.
+- No provider/model can bypass tier entitlements, privacy rules, rate limits, capability checks, or spend/token reservations.
+- When provider capability or price is unknown, fail closed for the affected generation rather than guessing.
+
