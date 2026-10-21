@@ -1722,7 +1722,7 @@
     sendBtn.classList.toggle('has-text', hasText || stopping);
     sendBtn.title = stopping ? 'Stop' : listening ? 'Stop listening' : hasText ? 'Send' : 'Dictate';
     sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : listening ? 'Stop listening' : hasText ? 'Send message' : 'Dictate message');
-    sendBtn.disabled = !stopping && (busy || !aiAvailable || preparing > 0 || (!hasText && !Recognition));
+    sendBtn.disabled = !stopping && (busy || (!aiAvailable && !isYouTubeSearchRequest(input.value)) || preparing > 0 || (!hasText && !Recognition));
   }
 
   function autosize() {
@@ -3085,13 +3085,51 @@
     } catch (error) {
       pendingReply.remove();
       show('assistant', 'I couldn’t complete the job search because the search service returned an error: ' + (error.message || 'Unknown error') + '. No results were fabricated. Please try again.');
-    } finally { busy = false; refreshSendButton(); }
+    } finally {   async function runYouTubeFirst(query) {
+    if (busy || preparing || editing || pending.length) return;
+    busy = true;
+    notice.textContent = '';
+    stopSpeaking();
+    noticesOnSend();
+    hideMemoryAsk();
+    refreshSendButton();
+    refreshTurnControls();
+    input.value = '';
+    autosize();
+    show('user', query);
+    const assistant = show('assistant', 'Searching YouTube for videos matching your request…');
+    try {
+      const rendered = await renderYouTubeVideos(assistant, query);
+      if (!rendered) {
+        const body = assistant.querySelector('.msg-body') || assistant;
+        body.replaceChildren();
+        const note = document.createElement('p');
+        note.textContent = 'I couldn’t load embedded results right now. You can still search directly on YouTube.';
+        const link = document.createElement('a');
+        link.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query.slice(0, 180));
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Search on YouTube';
+        body.append(note, link);
+      }
+    } finally {
+      busy = false;
+      refreshSendButton();
+      refreshTurnControls();
+      Nasrin.mood('idle');
+    }
+  }
+
+busy = false; refreshSendButton(); }
   }
 
   async function send(raw) {
     const text = String(raw || '').trim();
     if (turn) return;
-    if ((!text && !pending.length) || busy || preparing || !aiAvailable) return;
+    if ((!text && !pending.length) || busy || preparing) return;
+    // Public video retrieval is independent from AI generation and model pricing.
+    if (!imageMode && !editing && !pending.length && isYouTubeSearchRequest(text)) return runYouTubeFirst(text);
+    if (!aiAvailable) return;
     if (!imageMode && !editing && !pending.length && isJobSearchRequest(text)) return runChatJobSearch(text);
     const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
     const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
@@ -4053,8 +4091,6 @@
     frame.allowFullscreen = true;
     frame.setAttribute('loading', 'lazy');
     frame.setAttribute('playsinline', '');
-    // Use YouTube's privacy-enhanced host. The server has already verified
-    // this video is embeddable and available in the user's region.
     frame.src = 'https://www.youtube-nocookie.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
     frameWrap.appendChild(frame);
     const details = document.createElement('div');
@@ -4130,8 +4166,17 @@
     return persistentYouTubeRestore;
   }
 
+  function isYouTubeSearchRequest(query) {
+    const q = String(query || '').trim();
+    if (!needsYouTubeVideos(q)) return false;
+    // Requests that explicitly ask for interpretation still need the normal AI answer.
+    if (/\b(?:explain|summari[sz]e|analy[sz]e|review|compare|breakdown|tell me about)\b/i.test(q)) return false;
+    if (/\b(?:create|generate|make|render|produce|animate)\b.{0,50}\b(?:a |an |the )?(?:video|clip|movie)\b/i.test(q)) return false;
+    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search for|look for|watch|youtube|yt|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
+  }
+
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
-    if (message.querySelector('.youtube-results')) return;
+    if (message.querySelector('.youtube-results')) return true;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const tutorialIntent = /\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '')).slice(0, 180);
@@ -4153,7 +4198,7 @@
       // render results returned by the server-side YouTube Data API after its
       // embeddability and regional-availability checks. If verification fails,
       // show no video card rather than a broken/random player.
-      if (!videos.length || message.querySelector('.youtube-results')) return;
+      if (!videos.length || message.querySelector('.youtube-results')) return false;
       const section = document.createElement('section');
       section.className = 'youtube-results';
       section.setAttribute('aria-label', 'Relevant YouTube videos');
@@ -4183,9 +4228,12 @@
       if (section.querySelector('.youtube-video-card')) {
         const body = message.querySelector('.msg-body');
         (body || message).appendChild(section);
+        return true;
       }
+      return false;
     } catch {
       // Video search is an enhancement; it must never break the chat reply.
+      return false;
     }
   }
 
@@ -4364,76 +4412,83 @@
       : 'Not reported';
     const inputLabel = document.createElement('div');
     inputLabel.className = 'reply-detail-label reply-detail-spaced';
-    inputLabel.textContent = responseMetadata?.usage?.source === 'estimated' ? 'Input tokens (est.)' : 'Input tokens';
+    inputLabel.textContent = 'Input tokens';
     addDetailIcon(inputLabel, 'tokens');
     const inputTokens = document.createElement('div');
-    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? (responseMetadata.usage.source === 'estimated' ? '~' : '') + responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
+    inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
-    outputLabel.textContent = responseMetadata?.usage?.source === 'estimated' ? 'Output tokens (est.)' : 'Output tokens';
+    outputLabel.textContent = 'Output tokens';
     addDetailIcon(outputLabel, 'tokens');
     const outputTokens = document.createElement('div');
-    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? (responseMetadata.usage.source === 'estimated' ? '~' : '') + responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
+    outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
-    totalLabel.textContent = responseMetadata?.usage?.source === 'estimated' ? 'Total tokens (est.)' : 'Total tokens';
+    totalLabel.textContent = 'Total tokens';
     addDetailIcon(totalLabel, 'tokens');
     const totalTokens = document.createElement('div');
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
-      ? (responseMetadata.usage.source === 'estimated' ? '~' : '') + (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
+      ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
       : 'Not reported';
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
     panel.id = 'reply-details-' + id;
+    const closePanel = () => {
+      panel.hidden = true;
+      details.setAttribute('aria-expanded', 'false');
+    };
+    const positionPanel = () => {
+      if (panel.hidden || window.innerWidth <= 600) return;
+      const trigger = details.getBoundingClientRect();
+      if (trigger.bottom < 0 || trigger.top > window.innerHeight) { closePanel(); return; }
+      const dockEl = document.querySelector('.dock');
+      const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
+      const edge = 12, gap = 8, width = Math.min(248, window.innerWidth - 40);
+      panel.style.position = 'fixed';
+      panel.style.width = width + 'px';
+      panel.style.maxWidth = 'calc(100vw - 40px)';
+      panel.style.maxHeight = 'min(55vh, 22rem)';
+      const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
+      const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
+      const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
+      const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
+      const aboveSpace = Math.max(0, trigger.top - gap - edge);
+      const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
+      const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
+      panel.style.left = left + 'px';
+      panel.style.top = Math.max(edge, placeBelow ? trigger.bottom + gap : trigger.top - gap - height) + 'px';
+      panel.style.maxHeight = height + 'px';
+    };
     details.addEventListener('click', (event) => {
       event.stopPropagation();
       const opening = panel.hidden;
-      panel.hidden = !opening;
-      details.setAttribute('aria-expanded', String(opening));
-      if (opening) {
-        // Viewport positioning: never let the panel cover the fixed composer.
-        panel.style.position = 'fixed';
-        panel.style.left = '12px';
-        panel.style.top = '12px';
-        panel.style.right = 'auto';
-        panel.style.bottom = 'auto';
-        panel.style.width = '248px';
-        panel.style.maxWidth = 'calc(100vw - 40px)';
-        panel.style.maxHeight = 'min(55vh, 22rem)';
-        const trigger = details.getBoundingClientRect();
-        const dockEl = document.querySelector('.dock');
-        const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
-        const edge = 12, gap = 8;
-        const width = Math.min(248, window.innerWidth - 40);
-        panel.style.width = width + 'px';
-        const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
-        const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
-        const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
-        const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
-        const aboveSpace = Math.max(0, trigger.top - gap - edge);
-        const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
-        const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
-        const top = placeBelow ? trigger.bottom + gap : trigger.top - gap - height;
-        panel.style.left = left + 'px';
-        panel.style.top = Math.max(edge, top) + 'px';
-        panel.style.maxHeight = height + 'px';
-      }
+      document.querySelectorAll('.reply-details-panel').forEach((other) => {
+        if (other !== panel) {
+          other.hidden = true;
+          const otherButton = document.querySelector('[aria-controls="' + other.id + '"]');
+          if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
+        }
+      });
+      if (!opening) { closePanel(); return; }
+      panel.hidden = false;
+      details.setAttribute('aria-expanded', 'true');
+      positionPanel();
     });
-    // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
-    // so the opening click does not immediately close the popover.
-    document.addEventListener('click', (event) => {
-      if (!panel.hidden && !panel.contains(event.target) && event.target !== details) {
-        panel.hidden = true;
-        details.setAttribute('aria-expanded', 'false');
-      }
-    });
+    const onScroll = () => {
+      if (window.innerWidth <= 600) closePanel();
+      else positionPanel();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    document.addEventListener('pointerdown', (event) => {
+      if (!panel.hidden && !panel.contains(event.target) && !details.contains(event.target)) closePanel();
+    }, true);
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !panel.hidden) {
-        panel.hidden = true;
-        details.setAttribute('aria-expanded', 'false');
-        details.focus();
-      }
+      if (event.key === 'Escape' && !panel.hidden) { closePanel(); details.focus(); }
     });
+    document.addEventListener('input', (event) => {
+      if (!panel.hidden && event.target instanceof HTMLElement &&
+          event.target.matches('input, textarea, [contenteditable="true"]')) closePanel();
+    }, true);
     row.appendChild(details);
     row.appendChild(panel);
 
@@ -4457,7 +4512,7 @@
           notice.textContent = err.message || 'That reply could not be saved.';
         } finally { keep.disabled = false; }
       });
-      row.appendChild(keep);
+      row.insertBefore(keep, details);
     }
     return row;
   }

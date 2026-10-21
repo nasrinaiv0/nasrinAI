@@ -284,3 +284,11 @@ test('routing excludes models already used by the planning council', async () =>
   assert.equal(result.spec.provider, 'openai');
   assert.equal(result.spec.model, 'gpt-5.4-mini');
 });
+
+
+test('pricing resolves provider-qualified model IDs without guessing unknown prices', () => {
+  const prices = loadPrices();
+  assert.equal(priceOf(prices, 'openrouter', 'openai/gpt-6-luna').input, 0.1);
+  assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/gpt-6-luna').input, 0.1);
+  assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/not-a-real-model'), null);
+});

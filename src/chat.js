@@ -21,7 +21,6 @@ import { prChipOf, PR_CHIP_LINES } from './github/chips.js';
 import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 import { runPlanningCouncil } from './ai/planning-council.js';
-import { tokenizeText } from './ai/multimodal-input.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
@@ -341,23 +340,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
       }
       const responseTimestamp = new Date(now()).toISOString();
-      const providerReportedUsage = responseUsage && Number.isFinite(responseUsage.inputTokens) && Number.isFinite(responseUsage.outputTokens);
-      // Prefer provider-reported model tokens. If the provider omits usage,
-      // expose a clearly marked normalized word-token estimate instead of
-      // misleading users with "Not reported". Estimates are not billing units.
-      const inputWordTokens = tokenizeText(typed).count;
-      const outputWordTokens = tokenizeText(reply).count;
-      const usageMetadata = providerReportedUsage
-        ? {
-            input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)),
-            output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)),
-            source: 'provider'
-          }
-        : {
-            input_tokens: inputWordTokens,
-            output_tokens: outputWordTokens,
-            source: 'estimated'
-          };
+      const usageMetadata = responseUsage && Number.isFinite(responseUsage.inputTokens) && Number.isFinite(responseUsage.outputTokens)
+        ? { input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)), output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)) }
+        : null;
       return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, duration_ms: Math.max(0, now() - requestStartedAt), usage: usageMetadata }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 

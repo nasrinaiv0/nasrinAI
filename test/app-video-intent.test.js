@@ -5,10 +5,12 @@ import { readFile } from 'node:fs/promises';
 const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
 const start = app.indexOf('  function needsYouTubeVideos(query) {');
 const end = app.indexOf('  const PERSISTENT_YOUTUBE_KEY', start);
-assert.ok(start >= 0 && end > start, 'video intent helpers should exist in app.js');
-const helpers = app.slice(start, end);
-const { needsYouTubeVideos, youtubeResultsHeading } = new Function(
-  helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading };'
+const intentStart = app.indexOf('  function isYouTubeSearchRequest(query) {');
+const intentEnd = app.indexOf('  async function renderYouTubeVideos(', intentStart);
+assert.ok(start >= 0 && end > start && intentStart > end && intentEnd > intentStart, 'video intent helpers should exist in app.js');
+const helpers = app.slice(start, end) + '\n' + app.slice(intentStart, intentEnd);
+const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest } = new Function(
+  helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest };'
 )();
 
 test('video requests for other social platforms do not trigger unrelated YouTube cards', () => {
@@ -43,13 +45,20 @@ test('general video search does not force tutorial keywords into the YouTube que
   assert.match(snippet, /tutorialIntent \? ' tutorial walkthrough' : ''/);
 });
 
-
-test('latest YouTube video requests trigger inline embed rendering', () => {
-  assert.equal(needsYouTubeVideos('latest video of mr beast in youtube'), true);
-  assert.equal(needsYouTubeVideos('latest video of mr beast'), true);
-});
-
-test('YouTube player uses the privacy-enhanced embed host', async () => {
-  const source = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  assert.match(source, /youtube-nocookie\.com\/embed\/' \+ video\.id/);
+test('video discovery queries route directly to YouTube instead of generating a video', () => {
+  for (const query of [
+    'show me the latest MrBeast video',
+    'latest video of MrBeast',
+    'find videos about the James Webb telescope',
+    'show me YouTube videos about MrBeast',
+    'watch the newest video from NASA'
+  ]) assert.equal(isYouTubeSearchRequest(query), true, query);
+  for (const query of [
+    'create a video about MrBeast',
+    'generate a video intro',
+    'make a video of a cat',
+    'explain how video compression works',
+    'show me the latest MrBeast video and summarize it',
+    'find a video and explain what happens'
+  ]) assert.equal(isYouTubeSearchRequest(query), false, query);
 });

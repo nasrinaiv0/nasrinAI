@@ -28,7 +28,15 @@ export function loadPrices(overrideJson = '') {
 
 // Price for one provider/model, or null when unknown (unknown = never assumed free).
 export function priceOf(table, provider, model, { freeTier = false } = {}) {
-  const p = table[provider]?.[model] || table[provider]?.['*'] || null;
+  // Some configuration paths carry the provider-qualified route ID all the way
+  // into the budget hook (for example `openrouter:openai/gpt-6-luna`), while
+  // the price registry is keyed by the provider-native model ID. Normalize only
+  // this exact provider prefix; never guess a price from a partial model name.
+  const qualifiedPrefix = `${provider}:`;
+  const normalizedModel = typeof model === 'string' && model.startsWith(qualifiedPrefix)
+    ? model.slice(qualifiedPrefix.length)
+    : model;
+  const p = table[provider]?.[normalizedModel] || table[provider]?.[model] || table[provider]?.['*'] || null;
   if (!p) return null;
   if (freeTier && p.freeTier) return { input: 0, cachedInput: 0, output: 0, free: true };
   return p;
