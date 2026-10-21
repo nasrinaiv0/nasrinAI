@@ -36,3 +36,20 @@ test('palette is applied before first paint and saved on this device', async () 
   const privacy = await read('public/legal/privacy.md');
   assert.match(privacy, /your choices \(appearance, theme,/i, 'privacy notice lists theme as a device choice');
 });
+
+
+test('Galaxy solar play scene is isolated to the empty welcome state', async () => {
+  const html = await read('public/index.html');
+  assert.match(html, /<script src="\/galaxy-scene\.js" defer><\/script>/);
+  const scene = await read('public/galaxy-scene.js');
+  assert.match(scene, /data-palette.*galaxy/);
+  assert.match(scene, /welcome\.hidden/);
+  assert.match(scene, /has-chat/);
+  assert.match(scene, /setTimeout\(revealSun, 6200\)/);
+  assert.match(scene, /Nasrin\.flash\('concerned'/);
+  assert.match(scene, /MutationObserver/);
+  const css = await read('public/app.css');
+  assert.match(css, /\.galaxy-play-sun\.is-arriving/);
+  assert.match(css, /\.planet-saturn/);
+  assert.match(css, /prefers-reduced-motion:reduce/);
+});
