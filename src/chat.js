@@ -277,7 +277,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const metaQuestion = isPastIntent(typed) || isConversationMeta(typed);
     const pro = !only && !metaQuestion && caller.tenantId === PLATFORM_TENANT_ID ? resolveProfessionals(selection, typed) : null;
     const professional = promptBlock(pro, typed);
-    const fastGreeting = caller.tenantId === PLATFORM_TENANT_ID && SMALL_TALK.test(typed.trim())
+    const fastGreeting = smart && caller.tenantId === PLATFORM_TENANT_ID && SMALL_TALK.test(typed.trim())
       && typed.trim().length <= 40 && !files.length && !only && !voice && !pro
       && !regenerate && editId === null && body.project_id === undefined && !body.professional;
     // Greetings do not need project, Library, memory, or semantic-context lookups.
