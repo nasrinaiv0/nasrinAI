@@ -30,6 +30,19 @@ test('catalog selection validates actual output modality and caches catalog', as
   assert.equal(calls, 2);
 });
 
+test('video pricing is looked up from the live catalog for the requested resolution', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
+    ...model('provider/video', 'video'), supported_durations: [4, 8], supported_resolutions: ['720p'],
+    supported_aspect_ratios: ['16:9'], pricing_skus: [
+      { unit: 'video_second', resolution: '720p', cost_usd: 0.09 },
+      { unit: 'video_second', resolution: '4k', cost_usd: 0.8 }
+    ]
+  }] }) });
+  const pricing = await client.getVideoPricing({ model: 'provider/video', resolution: '720p' });
+  assert.equal(pricing.costPerSecondUsd, 0.09);
+  assert.equal(pricing.source, 'openrouter-live-catalog');
+});
+
 test('specialized tasks fail closed when no model is verified', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [model('provider/chat')] }) });
   await assert.rejects(client.selectModel('image'), /No verified OpenRouter model/);
@@ -118,18 +131,20 @@ test('image and video model discovery use dedicated catalogs and reject unsuppor
 });
 
 
-test('OpenRouter video adapter pins model, duration, and explicit cost; rejects unsupported extensions', async () => {
+test('OpenRouter video adapter looks up live catalog pricing and pins model and duration', async () => {
   const calls = [];
   const client = {
+    getVideoPricing: async ({ model, resolution }) => ({ model, resolution, costPerSecondUsd: 0.12, source: 'openrouter-live-catalog' }),
     createVideo: async (body) => { calls.push(body); return { id: 'job_123' }; },
     videoStatus: async (id) => ({ id, status: 'completed' }),
     videoContent: async (id) => Buffer.from('video'),
   };
-  const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', maxSeconds: 8, resolution: '720p', costPerSecondUsd: 0.12 });
-  assert.equal(provider.costPerSecondUsd, 0.12);
+  const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', maxSeconds: 8, resolution: '720p' });
+  assert.equal(provider.costPerSecondUsd, null);
+  assert.equal(await provider.getCostPerSecondUsd(), 0.12);
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
-  assert.deepEqual(calls[0], { model: 'provider/video', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', maxCostPerSecondUsd: 0.12 });
+  assert.deepEqual(calls[0], { model: 'provider/video', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', generate_audio: true });
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
