@@ -5,7 +5,7 @@ import { createBudget } from '../src/ai/budget.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { testConfig } from './helpers.js';
 
-function service(plan, open = false, maxSeconds = null, providerOverride = null) {
+function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null) {
   const created = [];
   const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10' });
   const store = createMemoryStore();
@@ -25,7 +25,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null)
     store,
     plans: { async current() { return { plan, open }; } },
     provider: providerOverride || { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
-    limiter: { async signIn() {} },
+    limiter: limiterOverride || { async signIn() {} },
     budget,
     config,
     logger: { info() {} }
@@ -139,4 +139,42 @@ test('completed OpenRouter video reconciles the estimate to authoritative provid
 
   await videos.status(caller, createdResult.video_id);
   assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0.04, 'repeat status polling must not double-count or reapply the final cost');
+});
+
+
+test('Ultra 4K add-on reserves and settles tokens from the verified price delta', async () => {
+  const tokenCalls = [];
+  const provider = {
+    id: 'openrouter', model: 'provider/video-4k', tier: 'ultra', resolution: '1080p',
+    allow4kAddon: true, maxSeconds: 8,
+    async getCostPerSecondUsd({ requestedResolution }) {
+      return requestedResolution === '4k' ? 0.20 : 0.10;
+    },
+    async create({ requestedResolution }) { assert.equal(requestedResolution, '4k'); return { operation: '4k-op' }; }
+  };
+  const limiter = {
+    async signIn() {},
+    async reserveTokens(caller, tokens) { tokenCalls.push(['reserve', tokens]); return { id: 'token-reservation', reservedTokens: tokens }; },
+    async settleTokens(reservation, tokens) { tokenCalls.push(['settle', tokens]); },
+    async releaseTokens(reservation) { tokenCalls.push(['release']); }
+  };
+  const { videos, created } = service('ultra', false, null, provider, limiter);
+  const result = await videos.create(caller, { prompt: 'Ultra 4K test', resolution: '4k' });
+  assert.equal(result.status, 'in_progress');
+  assert.deepEqual(tokenCalls, [['reserve', 120000], ['settle', 120000]]);
+  assert.equal(created[0].resolution, '4k');
+  assert.equal(created[0].addonTokens, 120000);
+  assert.equal(created[0].addonCostUsd, 0.8);
+});
+
+test('4K add-on fails closed when the provider cannot price both 4K and 1080p', async () => {
+  const provider = {
+    id: 'openrouter', model: 'provider/video', tier: 'ultra', resolution: '1080p',
+    allow4kAddon: true, maxSeconds: 8,
+    async getCostPerSecondUsd({ requestedResolution }) { return requestedResolution === '4k' ? 0.20 : null; },
+    async create() { throw new Error('must not call provider without comparable prices'); }
+  };
+  const { videos, created } = service('ultra', false, null, provider, { async signIn() {} });
+  await assert.rejects(() => videos.create(caller, { prompt: 'Unpriced 4K', resolution: '4k' }), (err) => err.code === 'video_budget_unavailable');
+  assert.equal(created.length, 0);
 });
