@@ -4378,3 +4378,10 @@ body[data-theme="light"] .reply-details-panel .reply-detail-label,
 .light .reply-details-panel .reply-detail-label {
   color: #858991 !important;
 }
+
+
+/* User-requested final glass tuning: minimal blur and saturation. */
+.reply-details-panel {
+  -webkit-backdrop-filter: blur(5px) saturate(50%) !important;
+  backdrop-filter: blur(5px) saturate(50%) !important;
+}
