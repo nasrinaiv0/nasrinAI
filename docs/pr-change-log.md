@@ -1631,7 +1631,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 ## PR #518 — Live OpenRouter pricing verification and safe failover (2026-10-22)
 
 - Replace the static OpenRouter model-price snapshot with exact model IDs and input/output/cache rates from the official live catalog before smart routing.
-- Convert USD-per-token catalog prices to the backend's USD-per-1M-token units; omit models with missing or invalid required prices and preserve verified zero-cost entries.
+- Convert USD-per-token catalog prices to the backend's USD-per-1M-token units; omit models with missing, empty, or invalid required prices and preserve verified zero-cost entries.
 - Clear OpenRouter prices when catalog verification fails, prohibit free-model allowlists from bypassing verification, and skip unpriced models during internal provider failover.
-- Add regression tests for live-price conversion, missing/invalid pricing, and removal of stale static OpenRouter prices.
-- **Validation:** Vercel status passed for the PR head. CI and Documentation Gate were queued/running at last check; full test results and production behavior remain pending.
+- Add regression tests for live-price conversion, missing/empty/invalid pricing, zero-cost models, and removal of stale static OpenRouter prices.
+- Implementation commits: `4aaa160` (share pricing preflight), `af626d4` (skip unpriced failover), `8e8caf0` (failover regression), `76b07b3` (live catalog conversion), `a4732be` (refresh before routing), `9b6b576` (runtime catalog refresh), `425e65e` (price verification tests), `b0d6b7a` (no free-list bypass), `f4c8ef4` (reject empty price fields), `df80f51` (empty-price regression), and `dc0c4db` (initial changelog entry).
+- **Validation:** Vercel status passed on the prior implementation commit. Latest CI and Documentation Gate checks need to finish; full test results and production behavior remain pending.
