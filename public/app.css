@@ -4205,3 +4205,63 @@ body[data-theme="light"] .reply-details-panel,
 .sources-toggle.source-wave .src-word { animation-delay:225ms; }
 @keyframes source-wave { 0%{transform:translateY(0);opacity:.72} 42%{transform:translateY(-3px);opacity:1} 100%{transform:translateY(0);opacity:1} }
 @media(prefers-reduced-motion:reduce){.reply-details-toggle.reply-details-wave .reply-details-dot,.sources-toggle.source-wave .src-face,.sources-toggle.source-wave .src-word{animation:none!important}}
+
+
+/* Reply details: 85%-transparent frosted glass with theme-aware readable text. */
+.reply-details-panel {
+  background: rgba(28, 29, 32, .15) !important;
+  border: 1px solid rgba(255, 255, 255, .24) !important;
+  color: #f8f9fb !important;
+  -webkit-backdrop-filter: blur(28px) saturate(165%) !important;
+  backdrop-filter: blur(28px) saturate(165%) !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.16) !important;
+}
+.reply-details-panel .reply-detail-label {
+  color: rgba(255,255,255,.9) !important;
+  font-size: .78rem !important;
+  font-weight: 600 !important;
+}
+.reply-details-panel time,
+.reply-details-panel > div:not(.reply-detail-label) {
+  color: #fff !important;
+  font-size: .92rem !important;
+  font-weight: 550 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.28);
+}
+:root[data-theme="light"] .reply-details-panel,
+html[data-theme="light"] .reply-details-panel,
+body[data-theme="light"] .reply-details-panel,
+.light .reply-details-panel {
+  background: rgba(255,255,255,.15) !important;
+  border-color: rgba(35,38,44,.22) !important;
+  color: #17191d !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.48) !important;
+}
+:root[data-theme="light"] .reply-details-panel .reply-detail-label,
+html[data-theme="light"] .reply-details-panel .reply-detail-label,
+body[data-theme="light"] .reply-details-panel .reply-detail-label,
+.light .reply-details-panel .reply-detail-label { color: #343840 !important; }
+:root[data-theme="light"] .reply-details-panel time,
+:root[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
+html[data-theme="light"] .reply-details-panel time,
+html[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
+body[data-theme="light"] .reply-details-panel time,
+body[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
+.light .reply-details-panel time,
+.light .reply-details-panel > div:not(.reply-detail-label) {
+  color: #17191d !important;
+  text-shadow: none;
+}
+/* Sources reuse the exact same wave keyframes, duration and easing as the three dots. */
+.sources-toggle.source-wave .src-face,
+.sources-toggle.source-wave .src-word {
+  animation: reply-dot-wave 480ms cubic-bezier(.2,.75,.25,1) both;
+}
+.sources-toggle.source-wave .src-face:nth-child(1) { animation-delay: 0ms; }
+.sources-toggle.source-wave .src-face:nth-child(2) { animation-delay: 75ms; }
+.sources-toggle.source-wave .src-face:nth-child(3) { animation-delay: 150ms; }
+.sources-toggle.source-wave .src-word { animation-delay: 225ms; }
+@media (prefers-reduced-motion: reduce) {
+  .sources-toggle.source-wave .src-face,
+  .sources-toggle.source-wave .src-word { animation: none !important; }
+}
