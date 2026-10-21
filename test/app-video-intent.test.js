@@ -10,7 +10,7 @@ const intentEnd = app.indexOf('  async function renderYouTubeVideos(', intentSta
 assert.ok(start >= 0 && end > start && intentStart > end && intentEnd > intentStart, 'video intent helpers should exist in app.js');
 const helpers = app.slice(start, end) + '\n' + app.slice(intentStart, intentEnd);
 const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest, youtubeQueryForReply } = new Function(
-  helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest };'
+  helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest, youtubeQueryForReply };'
 )();
 
 test('video requests for other social platforms do not trigger unrelated YouTube cards', () => {
