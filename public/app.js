@@ -2946,11 +2946,17 @@
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
   async function sendVideo(text) {
-    const resolutionInput = window.prompt('Video resolution (default 720p). Enter 360p, 480p, 720p, 1080p, or 4k. Your plan determines which options are available.', '720p');
+    const videoTier = String(currentModel || 'nasrinai').trim().toLowerCase();
+    const defaultResolution = videoTier === 'pro' ? '480p' : '720p';
+    // Keep the client choices aligned with server-enforced base entitlements.
+    // 4K remains hidden until a verified account-level add-on entitlement exists.
+    const resolutionChoices = videoTier === 'pro' ? '360p or 480p' : '360p, 480p, 720p, or 1080p';
+    const resolutionInput = window.prompt('Video resolution (default ' + defaultResolution + '). Available base options: ' + resolutionChoices + '.', defaultResolution);
     if (resolutionInput === null) return;
-    const resolution = String(resolutionInput || '720p').trim().toLowerCase();
-    if (!['360p', '480p', '720p', '1080p', '4k'].includes(resolution)) {
-      show('problem', 'Choose 360p, 480p, 720p, 1080p, or 4k.');
+    const resolution = String(resolutionInput || defaultResolution).trim().toLowerCase();
+    const allowedChoices = videoTier === 'pro' ? ['360p', '480p'] : ['360p', '480p', '720p', '1080p'];
+    if (!allowedChoices.includes(resolution)) {
+      show('problem', 'Choose a resolution available on your selected plan: ' + resolutionChoices + '.');
       return;
     }
     const fpsInput = window.prompt('Video frame rate (default 30 FPS). Enter 30 or 60.', '30');
