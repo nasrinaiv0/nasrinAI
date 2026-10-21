@@ -1480,3 +1480,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Make error messages wrap safely on narrow screens and force Retry onto its own row below message/resource links, with a separate tappable area.
 - Preserve readable, wrapping source/resource links and mobile-friendly retry height.
 - Rebase the fix on current `main` to avoid the CSS conflict from PR #496; validate CI and iPhone-width layout before merge/deploy.
+
+## YouTube-first video discovery routing (2026-10-21)
+
+- Route clear video-discovery requests (including “latest video of [creator]”) to the existing server-side YouTube search/embed path before AI model selection, so missing general-model pricing cannot block public video retrieval.
+- Do not call a chat model for simple retrieval. Keep video-generation prompts on the existing generation path and preserve normal tier-aware fail-closed pricing for conversational/reasoning requests.
+- Allow the send control to submit video-discovery requests even when general AI routing is unavailable; preserve the server-side YouTube key, session scope, rate limiting, embeddability checks, regional restrictions, and safe fallback link.
+- Add regression tests for latest/named video searches versus video-generation prompts.
+- Validation required: focused test, full `npm test`, and Preview smoke test with configured `YOUTUBE_DATA_API_KEY`; no production deployment until checks pass.
