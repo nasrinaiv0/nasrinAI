@@ -687,15 +687,21 @@ export function loadConfig(env = process.env) {
   const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
     const model = String(env[prefix + '_MODEL'] || openRouterVideoModel).trim();
-    const resolution = tier === 'pro' ? '720p' : '1080p';
-    return [tier, Object.freeze({ model: model || null, tier, resolution, allow4kAddon: tier === 'ultra' })];
+    const allowedResolutions = tier === 'pro' ? ['480p', '360p'] : ['4k', '1080p', '720p', '480p', '360p'];
+    const allowedFrameRates = [60, 30];
+    return [tier, Object.freeze({ model: model || null, tier, allowedResolutions: Object.freeze(allowedResolutions), allowedFrameRates: Object.freeze(allowedFrameRates), resolution: null, allow4kAddon: tier === 'max' || tier === 'ultra' })];
   })));
   const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY);
   const video = Object.freeze({
     provider: videoProviderName,
     enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, videoProviderName === 'openrouter' ? 'false' : 'true'),
-    // Legacy single-model configuration is accepted only as the Ultra route.
+    // Primary OpenRouter model, with per-tier overrides above.
     model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
+    weeklySeconds: Object.freeze({
+      pro: toInt('VIDEO_PRO_WEEKLY_SECONDS', env.VIDEO_PRO_WEEKLY_SECONDS, 600, 0, 1000000),
+      max: toInt('VIDEO_MAX_WEEKLY_SECONDS', env.VIDEO_MAX_WEEKLY_SECONDS, 1800, 0, 1000000),
+      ultra: toInt('VIDEO_ULTRA_WEEKLY_SECONDS', env.VIDEO_ULTRA_WEEKLY_SECONDS, 3600, 0, 1000000)
+    }),
     costPerSecondUsd: null,
     tierRoutes: videoTierRoutes,
     resolution: String(env.VIDEO_RESOLUTION || (videoProviderName === 'openrouter' ? '720p' : '1080p')).trim().toLowerCase(),
