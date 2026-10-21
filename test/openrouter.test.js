@@ -189,19 +189,19 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
 });
 
 
-test('OpenRouter TTS pins the request to the configured Google Vertex provider without fallback', async () => {
+test('OpenRouter TTS pins the request to the configured Google AI Studio provider without fallback', async () => {
   const { createOpenRouterClient } = await import('../src/ai/openrouter.js');
   let requestSeen;
   const client = createOpenRouterClient({
     apiKey: 'test-key',
     fetchImpl: async (url, init = {}) => {
-      if (String(url).endsWith('/models')) return new Response(JSON.stringify({ data: [{ id: 'google/gemini-3.8-flash-lite-tts', architecture: { output_modalities: ['audio'] } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+      if (String(url).includes('/models?')) return new Response(JSON.stringify({ data: [{ id: 'google/gemini-3.8-flash-lite-tts', architecture: { output_modalities: ['speech'] } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
       requestSeen = { url: String(url), body: JSON.parse(init.body) };
       return new Response(new Uint8Array([82, 73, 70, 70]), { status: 200, headers: { 'content-type': 'audio/wav' } });
     }
   });
-  await client.speak({ model: 'google/gemini-3.8-flash-lite-tts', input: 'Hello from NasrinAI', voice: 'Charon', responseFormat: 'wav', provider: 'Google Vertex' });
+  await client.speak({ model: 'google/gemini-3.8-flash-lite-tts', input: 'Hello from NasrinAI', voice: 'Charon', responseFormat: 'wav', provider: 'Google AI Studio' });
   assert.equal(requestSeen.url.endsWith('/audio/speech'), true);
   assert.equal(requestSeen.body.model, 'google/gemini-3.8-flash-lite-tts');
-  assert.deepEqual(requestSeen.body.provider, { order: ['Google Vertex'], only: ['Google Vertex'], allow_fallbacks: false });
+  assert.deepEqual(requestSeen.body.provider, { order: ['Google AI Studio'], only: ['Google AI Studio'], allow_fallbacks: false });
 });
