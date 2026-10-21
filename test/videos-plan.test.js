@@ -24,7 +24,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null,
   const videos = createVideos({
     store,
     plans: { async current() { return { plan, open }; } },
-    provider: providerOverride || { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
+    provider: providerOverride || { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', costPerSecondUsd: 0.05, ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
     limiter: limiterOverride || { async signIn() {} },
     budget,
     config,
