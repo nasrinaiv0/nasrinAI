@@ -694,7 +694,7 @@ export function loadConfig(env = process.env) {
   const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY);
   const video = Object.freeze({
     provider: videoProviderName,
-    enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, 'true'),
+    enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, videoProviderName === 'openrouter' ? 'false' : 'true'),
     // Legacy single-model configuration is accepted only as the Ultra route.
     model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
     costPerSecondUsd: null,
