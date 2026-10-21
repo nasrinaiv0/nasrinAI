@@ -1626,3 +1626,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Specify provider use only for enabled capabilities that require interpretation or synthesis; require configured integrations, tenant authorization, validated arguments, and verified results for external actions.
 - Record investigation steps for the observed knowledge-write 403 and guest-session/chat errors without weakening origin validation, tenant isolation, or rate limits.
 - **Validation:** the initial Documentation Gate failed because `docs/pr-change-log.md` was missing from the PR diff; this entry addresses that gate. CI passed for the PR head. Production behavior and live end-to-end SmartChat remain unverified.
+
+
+## PR #518 — Live OpenRouter pricing verification and safe failover (2026-10-22)
+
+- Replace the static OpenRouter model-price snapshot with exact model IDs and input/output/cache rates from the official live catalog before smart routing.
+- Convert USD-per-token catalog prices to the backend's USD-per-1M-token units; omit models with missing or invalid required prices and preserve verified zero-cost entries.
+- Clear OpenRouter prices when catalog verification fails, prohibit free-model allowlists from bypassing verification, and skip unpriced models during internal provider failover.
+- Add regression tests for live-price conversion, missing/invalid pricing, and removal of stale static OpenRouter prices.
+- **Validation:** Vercel status passed for the PR head. CI and Documentation Gate were queued/running at last check; full test results and production behavior remain pending.
