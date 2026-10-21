@@ -1539,3 +1539,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Improve label and value contrast for dark and light themes.
 - Reuse the exact reply-dot wave keyframes, duration, easing, and stagger for the Sources control.
 - Add regression tests for transparency, readability, and matching animation timing.
+
+
+## Reply-details glass refinement (2026-10-21)
+
+- Use 10% background opacity for a more transparent, strongly frosted-glass reply-details panel.
+- Set a 0.5px border and 10px vertical / 15px horizontal margins.
+- Use regular font weight for all detail labels and values, including date/time, completion time, and token counts.
+- Preserve readable theme-aware foreground colors and add regression coverage.
