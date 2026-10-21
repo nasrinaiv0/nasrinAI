@@ -484,3 +484,14 @@ test('reply details use 10% glass opacity, half-pixel border, regular text and r
   assert.match(css, /\.reply-details-panel,\s*\.reply-details-panel \*[\s\S]*?font-weight: 400 !important/);
   assert.match(css, /background: rgba\(255,255,255,\.10\) !important/);
 });
+
+
+test('reply details use extra-transparent glass, gray labels, and 10px padding', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /padding: 10px !important/);
+  assert.match(css, /background: rgba\(28, 29, 32, \.06\) !important/);
+  assert.match(css, /backdrop-filter: blur\(40px\) saturate\(200%\) !important/);
+  assert.match(css, /\.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #9a9da3 !important/);
+  assert.match(css, /\.light \.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #858991 !important/);
+  assert.match(css, /background: rgba\(255, 255, 255, \.06\) !important/);
+});
