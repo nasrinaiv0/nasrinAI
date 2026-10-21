@@ -1588,3 +1588,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep the requested 5px backdrop blur and 50% saturation, preserving the existing glass opacity, border, spacing, and theme-aware labels.
 - Animate the “Sources” word in a left-to-right wave, one character at a time, after the source badges; respect reduced-motion preferences.
 - Add regression coverage for each letter delay and the final backdrop filter.
+
+
+## PR #514 — Fix SmartChat guest-session send retry (2026-10-21)
+
+- Retry guest-session initialization when the initial request fails, rather than silently ignoring Send when no session token is available.
+- Show a connecting/thinking state, disable duplicate submissions while a request is active, and restore controls after success or failure.
+- Preserve the submitted message in the input after a failure so the user can retry without retyping.
+- Validation: GitHub CI is running; live widget/deployment smoke test remains pending.

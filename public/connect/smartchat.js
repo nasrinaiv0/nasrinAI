@@ -71,25 +71,51 @@
       };
       add('Hi! How can I help?', 'assistant');
 
-      try {
+      const ensureSession = async () => {
+        if (token) return true;
         const session = await request('/v1/guest/sessions', { method: 'POST', body: '{}' });
+        if (typeof session?.token !== 'string' || !session.token) {
+          throw new Error('Chat session could not be started. Please try again.');
+        }
         token = session.token;
-      } catch (e) { add(e.message, 'assistant'); }
+        return true;
+      };
+
+      // Initialize early for a fast first send, but retry on submit if the
+      // initial request failed (e.g. a temporary network or server error).
+      ensureSession().catch((e) => add(e.message, 'assistant'));
 
       form.onsubmit = async (event) => {
         event.preventDefault();
         const message = input.value.trim();
-        if (!message || busy || !token) return;
-        busy = true; input.value = ''; add(message, 'user');
-        const pending = el('div', 'color:#777;padding:9px 11px', 'Thinking…');
+        if (!message || busy) return;
+        busy = true;
+        send.disabled = true;
+        const originalLabel = send.textContent;
+        send.textContent = '…';
+        input.disabled = true;
+        input.value = '';
+        add(message, 'user');
+        const pending = el('div', 'color:#777;padding:9px 11px', 'Connecting…');
         main.appendChild(pending);
         try {
+          await ensureSession();
+          pending.textContent = 'Thinking…';
           const data = await request('/v1/chat', { method: 'POST', body: JSON.stringify({ message, ...(conversationId ? { conversation_id: conversationId } : {}) }) });
           conversationId = data?.conversation_id || conversationId;
           pending.remove();
           add(data?.message?.content || 'I could not produce a reply.', 'assistant');
-        } catch (e) { pending.textContent = e.message; }
-        finally { busy = false; }
+        } catch (e) {
+          pending.textContent = e?.message || 'NasrinAI is temporarily unavailable. Please try again.';
+          // Preserve the user's message so they can retry without retyping.
+          input.value = message;
+        } finally {
+          busy = false;
+          input.disabled = false;
+          send.disabled = false;
+          send.textContent = originalLabel;
+          input.focus();
+        }
       };
     };
 
