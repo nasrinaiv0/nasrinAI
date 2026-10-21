@@ -4316,6 +4316,33 @@
     const panel = document.createElement('div');
     panel.className = 'reply-details-panel';
     panel.hidden = true;
+    const makeDetailIcon = (kind) => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('width', '14');
+      svg.setAttribute('height', '14');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      svg.classList.add('reply-detail-icon', 'reply-detail-icon-' + kind);
+      const paths = {
+        calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+        duration: 'M12 7v5l3 2 M21 12a9 9 0 1 1-2.64-6.36 M21 3v6h-6',
+        tokens: 'M12 3 20 7.5 12 12 4 7.5 12 3Z M4 12l8 4.5 8-4.5 M4 16.5 12 21l8-4.5'
+      };
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', paths[kind] || paths.tokens);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', 'currentColor');
+      path.setAttribute('stroke-width', '1.7');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(path);
+      return svg;
+    };
+    const addDetailIcon = (label, kind) => {
+      label.classList.add('reply-detail-label-row');
+      label.prepend(makeDetailIcon(kind));
+    };
     const created = responseMetadata?.timestamp ? new Date(responseMetadata.timestamp) : new Date();
     const date = document.createElement('time');
     date.dateTime = created.toISOString();
@@ -4323,9 +4350,11 @@
     const dateLabel = document.createElement('div');
     dateLabel.className = 'reply-detail-label';
     dateLabel.textContent = 'Date & time';
+    addDetailIcon(dateLabel, 'calendar');
     const durationLabel = document.createElement('div');
     durationLabel.className = 'reply-detail-label reply-detail-spaced';
     durationLabel.textContent = 'Time to complete';
+    addDetailIcon(durationLabel, 'duration');
     const duration = document.createElement('div');
     const elapsedMs = Number(responseMetadata?.duration_ms);
     duration.textContent = Number.isFinite(elapsedMs) && elapsedMs >= 0
@@ -4334,16 +4363,19 @@
     const inputLabel = document.createElement('div');
     inputLabel.className = 'reply-detail-label reply-detail-spaced';
     inputLabel.textContent = 'Input tokens';
+    addDetailIcon(inputLabel, 'tokens');
     const inputTokens = document.createElement('div');
     inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
     outputLabel.textContent = 'Output tokens';
+    addDetailIcon(outputLabel, 'tokens');
     const outputTokens = document.createElement('div');
     outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
     totalLabel.textContent = 'Total tokens';
+    addDetailIcon(totalLabel, 'tokens');
     const totalTokens = document.createElement('div');
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
       ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
