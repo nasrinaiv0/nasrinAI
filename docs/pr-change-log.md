@@ -1547,3 +1547,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Set a 0.5px border and 10px vertical / 15px horizontal margins.
 - Use regular font weight for all detail labels and values, including date/time, completion time, and token counts.
 - Preserve readable theme-aware foreground colors and add regression coverage.
+
+
+## NasrinAI skills catalog and user knowledge base (2026-10-21)
+
+- Add a full professional skills catalog covering 26 skill groups and a structured JSON knowledge base with 644 skill entries.
+- Document the four intended intelligence tiers, multimodal capability groups, system-level orchestration responsibilities, retrieval guidance, and professional boundaries.
+- Link the new documentation and knowledge base from the existing README without replacing its current content.
+- Mark catalog entries as `needs_verification`; do not claim every listed skill is live or verified. Runtime integration and implementation audit remain separate follow-up work.
+- Validation: JSON parses successfully and contains 644 skill entries. No application tests were run because this change adds documentation and a static knowledge file only.

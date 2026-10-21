@@ -84,3 +84,8 @@ NasrinAI can help inspect code and supported attachments, explain errors, and su
 ## Composer controls on startup
 
 Composer toolbar controls render immediately with the composer on page load. Their visibility must not depend on model or professional-catalog availability; asynchronous catalog loading may update functionality, but must not hide or delay the controls. Keep the initial HTML and CSS free of startup rules that set the composer toolbar to `visibility: hidden`.
+
+
+## Skills and capabilities
+
+See the [NasrinAI Skills documentation](docs/NASRINAI_SKILLS.md) for the full professional skills catalog, intelligence tiers, multimodal capabilities, system capability descriptions, and implementation-status guidance. The structured [skills knowledge base](knowledge/nasrinai_skills_kb.json) is intended for retrieval-backed answers when users ask what NasrinAI can do. Catalog entries are not proof of live implementation; verify current configuration and tests before promising availability.
