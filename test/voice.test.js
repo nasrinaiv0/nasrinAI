@@ -330,11 +330,11 @@ test('OpenRouter speech config pins the requested Gemini Flash Lite TTS model an
     OPENROUTER_API_KEY: 'test-openrouter-key',
     SPEECH_PROVIDER: 'openrouter',
     OPENROUTER_TTS_MODEL: 'google/gemini-3.8-flash-lite-tts',
-    OPENROUTER_TTS_PROVIDER: 'Google Vertex'
+    OPENROUTER_TTS_PROVIDER: 'Google AI Studio'
   });
   assert.equal(cfg.ai.speech.provider, 'openrouter');
   assert.equal(cfg.ai.speech.openrouterModel, 'google/gemini-3.8-flash-lite-tts');
-  assert.equal(cfg.ai.speech.openrouterProvider, 'Google Vertex');
+  assert.equal(cfg.ai.speech.openrouterProvider, 'Google AI Studio');
 });
 
 test('coding tiers pin Max to GPT-6 Sol and Ultra to GPT-6.1 Sol', async () => {
