@@ -387,7 +387,6 @@ export function loadConfig(env = process.env) {
     // Coding answers (including Claude's Max/Ultra coding lane) are remembered too, per person.
     cacheCoding: String(env.CACHE_CODING ?? 'true').toLowerCase() !== 'false',
     geminiFreeTier: String(env.GEMINI_FREE_TIER ?? 'true').toLowerCase() !== 'false',
-    pricesJson: String(env.MODEL_PRICES_JSON || '').trim(),
     // Spending limits in USD (estimated). Empty = no limit for that period.
     budget: Object.freeze({
       dailyUsd: usd('DAILY_BUDGET_USD', env.DAILY_BUDGET_USD, 3),
@@ -417,9 +416,9 @@ export function loadConfig(env = process.env) {
   // taking the whole site down: off is the safe state for an optional feature.
   const warnings = [];
 
-  // Web search model. It must have a price in config/model-prices.json (or
-  // MODEL_PRICES_JSON): without one the spend check cannot size the call and
-  // every search is skipped. An unpriced setting falls back to the default.
+  // Web search model. It must have a price in config/model-prices.json:
+  // without one the spend check cannot size the call and every search is skipped.
+  // An unpriced setting falls back to the default.
   const WEB_SEARCH_DEFAULT = 'gpt-5.4-mini';
   function webSearchModel() {
     const set = String(env.WEB_SEARCH_MODEL ?? '').trim();
@@ -428,7 +427,7 @@ export function loadConfig(env = process.env) {
     if (!set && (aiProvider === 'fake' || aiProvider === 'none')) return '';
     if (!set) return WEB_SEARCH_DEFAULT;
     let table = {};
-    try { table = loadPrices(String(env.MODEL_PRICES_JSON || '').trim()); } catch { table = loadPrices(''); }
+    try { table = loadPrices(); } catch { table = loadPrices(); }
     if (priceOf(table, 'openai', set)) return set;
     warnings.push(`WEB_SEARCH_MODEL: ${set} has no price in config/model-prices.json, so web search could not run. Using ${WEB_SEARCH_DEFAULT}.`);
     return WEB_SEARCH_DEFAULT;
