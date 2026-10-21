@@ -1501,3 +1501,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Darken the frosted panel and blend it with the active light/dark theme.
 - Keep only one details panel open; opening another closes the previous one.- Dismiss on outside touch/click, typing, Escape, or mobile scrolling; on desktop, reposition the panel to follow its trigger while scrolling and close it when its trigger leaves the viewport.
 - Swap the reply-details three-dot control with the Save-to-Library/bookmark action when that action is available.
+
+## YouTube-first video discovery routing (2026-10-21)
+
+- Route clear video-discovery requests (including latest/named creator videos) through the existing server-side YouTube search/embed path before AI model selection, so missing general-model pricing cannot block public video retrieval.
+- Keep video-generation prompts and requests needing explanation/summarization on existing routes; preserve tier-aware fail-closed pricing for actual AI calls.
+- Allow discovery requests even when general AI routing is unavailable, while preserving server-side API keys, session scope, rate limiting, embeddability and regional checks, plus a safe fallback search link.
+- Add regression tests for discovery intent and generation/explanation exclusions.
+- Validation required: focused tests, full `npm test`, and Preview smoke test with configured `YOUTUBE_DATA_API_KEY`; no production deployment until checks pass.
