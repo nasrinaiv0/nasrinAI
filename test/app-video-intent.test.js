@@ -5,8 +5,10 @@ import { readFile } from 'node:fs/promises';
 const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
 const start = app.indexOf('  function needsYouTubeVideos(query) {');
 const end = app.indexOf('  const PERSISTENT_YOUTUBE_KEY', start);
-assert.ok(start >= 0 && end > start, 'video intent helpers should exist in app.js');
-const helpers = app.slice(start, end);
+const intentStart = app.indexOf('  function isYouTubeSearchRequest(query) {');
+const intentEnd = app.indexOf('  async function renderYouTubeVideos(', intentStart);
+assert.ok(start >= 0 && end > start && intentStart > end && intentEnd > intentStart, 'video intent helpers should exist in app.js');
+const helpers = app.slice(start, end) + '\n' + app.slice(intentStart, intentEnd);
 const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest } = new Function(
   helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest };'
 )();
