@@ -82,3 +82,32 @@ export function videoCostPerSecond(model, resolution, override = null) {
   const n = Number(override ?? BASE_PRICES.video?.[model]?.[resolution]);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
+
+
+// Replace the static OpenRouter snapshot with exact live catalog prices.
+// OpenRouter reports USD per token; this application's shared price table uses
+// USD per 1M tokens. Missing or malformed price fields are deliberately omitted.
+export function replaceOpenRouterPrices(table, models) {
+  if (!table || typeof table !== 'object') throw new TypeError('price table is required');
+  const verified = {};
+  for (const model of Array.isArray(models) ? models : []) {
+    if (typeof model?.id !== 'string' || !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:/-]*$/i.test(model.id)) continue;
+    const pricing = model.pricing;
+    if (!pricing || typeof pricing !== 'object') continue;
+    const inputPerToken = Number(pricing.prompt);
+    const outputPerToken = Number(pricing.completion);
+    if (pricing.prompt == null || pricing.completion == null
+      || !Number.isFinite(inputPerToken) || inputPerToken < 0
+      || !Number.isFinite(outputPerToken) || outputPerToken < 0) continue;
+    const cachedPerToken = pricing.input_cache_read == null ? inputPerToken : Number(pricing.input_cache_read);
+    if (!Number.isFinite(cachedPerToken) || cachedPerToken < 0) continue;
+    verified[model.id] = {
+      input: inputPerToken * 1e6,
+      cachedInput: cachedPerToken * 1e6,
+      output: outputPerToken * 1e6,
+      source: 'openrouter-live-catalog'
+    };
+  }
+  table.openrouter = verified;
+  return { verified: Object.keys(verified).length, omitted: (Array.isArray(models) ? models.length : 0) - Object.keys(verified).length };
+}
