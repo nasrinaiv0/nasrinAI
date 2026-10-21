@@ -1499,3 +1499,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Use YouTube's privacy-enhanced `youtube-nocookie.com/embed/` host for the inline iframe after server-side embeddability and region checks.
 - Add regression coverage for latest-video requests and the iframe host, preserving the existing YouTube intent routing and validated video IDs.
 - Verify CI and an iPhone Preview playback test before merging; this change cannot verify production playback without a live Preview/API response.
+
+## PR #501 follow-up: usage tokenization and multimodal input preparation (2026-10-21)
+
+- Align the YouTube player regression assertion with the privacy-enhanced `youtube-nocookie.com/embed/` endpoint, resolving the stale standard-host expectation.
+- Add `tokenizeText()`: normalize text, remove punctuation/symbols, lowercase, and return normalized text, token array, and count.
+- Add `prepareImageForMultimodalApi()`: securely resolve a local path within an allowed root, reject symlinks/traversal/unsupported formats/oversized files, verify raster image signatures, and return a multimodal image data URL.
+- Reply details now prefer provider-reported model token counts. If a provider omits usage, show explicitly marked approximate word-token counts (`~`, “est.”) for the current user text and assistant reply. These estimates are informational and must not be treated as billing/quota token counts.
+- Add regression tests for text normalization, image path/format/size validation, usage-source marking, and the multimodal data URL.
