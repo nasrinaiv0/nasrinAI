@@ -31,7 +31,7 @@ const byId = new Map(OPENROUTER_SKILL_CATALOG
 // they never add a model, bypass allowlists, or change authorization.
 const TASK_ALIASES = Object.freeze({
   decision: ['decision', 'decisions', 'analysis'],
-  planning: ['planning', 'analysis'],
+  planning: ['planning', 'analysis', 'research', 'chat'],
   data_analysis: ['data_analysis', 'analysis', 'research'],
   design: ['design', 'analysis'],
   creative: ['creative', 'design', 'chat'],
