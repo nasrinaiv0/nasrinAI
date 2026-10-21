@@ -4370,18 +4370,28 @@
         const triggerRect = details.getBoundingClientRect();
         const gap = 8;
         const edge = 12;
-        const panelWidth = Math.min(288, Math.max(0, window.innerWidth - edge * 2));
-        const panelHeight = Math.min(panel.scrollHeight || 220, window.innerHeight * 0.6, 352);
-        const left = Math.max(edge, Math.min(triggerRect.left + triggerRect.width / 2 - panelWidth / 2, window.innerWidth - panelWidth - edge));
-        const below = window.innerHeight - triggerRect.bottom - gap - edge;
-        const above = triggerRect.top - gap - edge;
-        const placeBelow = below >= Math.min(panelHeight, 180) || below >= above;
-        const top = placeBelow
-          ? Math.min(triggerRect.bottom + gap, window.innerHeight - panelHeight - edge)
-          : Math.max(edge, triggerRect.top - panelHeight - gap);
+        // Reserve the composer area: a popover must never cover the message box.
+        const composer = document.querySelector('.composer');
+        const composerRect = composer ? composer.getBoundingClientRect() : null;
+        const composerTop = composerRect && composerRect.height > 0
+          ? Math.max(0, composerRect.top - 10)
+          : window.innerHeight - 180;
+        const panelWidth = Math.min(248, Math.max(0, window.innerWidth - 40));
+        panel.style.width = panelWidth + 'px';
+        panel.style.maxWidth = 'calc(100vw - 40px)';
+        const left = Math.max(20, Math.min(triggerRect.left + triggerRect.width / 2 - panelWidth / 2, window.innerWidth - panelWidth - 20));
+        const availableBelow = Math.max(0, Math.min(window.innerHeight - triggerRect.bottom - gap - edge, composerTop - triggerRect.bottom - gap));
+        const availableAbove = Math.max(0, triggerRect.top - gap - edge);
+        // Prefer below only if it fits before the composer; otherwise flip above.
+        const placeBelow = panel.scrollHeight <= availableBelow || availableBelow >= Math.min(180, availableAbove);
+        const available = placeBelow ? availableBelow : availableAbove;
+        const maxPanelHeight = Math.max(96, Math.min(available, window.innerHeight * 0.6, 352));
         panel.style.left = left + 'px';
-        panel.style.top = Math.max(edge, top) + 'px';
-        panel.style.maxHeight = Math.max(120, Math.min( panelHeight, window.innerHeight - Math.max(edge, top) - edge)) + 'px';
+        panel.style.top = placeBelow
+          ? Math.max(edge, Math.min(triggerRect.bottom + gap, composerTop - maxPanelHeight))
+          : Math.max(edge, triggerRect.top - Math.min(panel.scrollHeight, maxPanelHeight) - gap) + 'px';
+        if (placeBelow) panel.style.top = Math.max(edge, Math.min(triggerRect.bottom + gap, composerTop - maxPanelHeight)) + 'px';
+        panel.style.maxHeight = maxPanelHeight + 'px';
       }
     });
     // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
