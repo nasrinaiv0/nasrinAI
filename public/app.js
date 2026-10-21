@@ -4191,7 +4191,9 @@ busy = false; refreshSendButton(); }
     // Requests that explicitly ask for interpretation still need the normal AI answer.
     if (/\b(?:explain|summari[sz]e|analy[sz]e|review|compare|breakdown|tell me about)\b/i.test(q)) return false;
     if (/\b(?:create|generate|make|render|produce|animate)\b.{0,50}\b(?:a |an |the )?(?:video|clip|movie)\b/i.test(q)) return false;
-    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search for|look for|watch|youtube|yt|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
+    // A bare keyword (for example, "youtube") is a normal chat message.
+    // Route to the special video flow only when the person asks to search/watch/find.
+    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search(?:\s+for)?|look for|watch|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
   }
 
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
