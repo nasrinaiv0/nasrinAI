@@ -5,6 +5,7 @@ import { answerWithLogic } from '../src/ai/logic.js';
 import { createPolicy } from '../src/ai/policy.js';
 import { createRouter } from '../src/ai/router.js';
 import { createBudget } from '../src/ai/budget.js';
+import { createProviderSpendHooks } from '../src/ai/budget.js';
 import { loadPrices, priceOf, costOf, replaceOpenRouterPrices } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
@@ -315,4 +316,37 @@ test('OpenRouter pricing is replaced by exact live catalog prices and unpriced m
   assert.equal(priceOf(prices, 'openrouter', 'vendor/missing-output'), null);
   assert.equal(priceOf(prices, 'openrouter', 'vendor/invalid-price'), null);
   assert.equal(priceOf(prices, 'openrouter', 'vendor/empty-price'), null, 'an empty string must not be interpreted as a zero-cost model');
+});
+
+
+test('OpenRouter spend reservations do not require local model-price entries', async () => {
+  let reserved = null;
+  let settled = null;
+  const budget = {
+    maxRequestUsd: 0.05,
+    async remaining() { return { usd: 0.04, unknown: false, limitedBy: 'daily' }; },
+    async reserveSpend(args) { reserved = args; return { id: 'reservation-1', reservedUsd: args.amountUsd }; },
+    async settleSpend(_reservation, amount) { settled = amount; return amount; },
+    async releaseSpend() {}
+  };
+  const config = {
+    isProduction: true,
+    ai: {
+      maxReplyTokens: 256,
+      routing: { geminiFreeTier: false, budget: { maxRequestUsdByTier: { pro: 0.05 } } }
+    }
+  };
+  const hooks = createProviderSpendHooks({
+    budget, config, prices: {}, tier: 'pro',
+    caller: { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } }
+  });
+  const reservation = await hooks.reserve({
+    provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices',
+    request: { system: 'You are helpful', messages: [{ role: 'user', content: 'hello' }], maxTokens: 64 }
+  });
+  assert.equal(reserved.amountUsd, 0.04);
+  assert.equal(reservation.openRouter, true);
+  const result = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8, actualCostUsd: 0.0017 });
+  assert.equal(result.costUsd, 0.0017);
+  assert.equal(settled, 0.0017);
 });
