@@ -315,3 +315,20 @@ test('uploaded images reach the vision-capable provider with image-analysis inst
     assert.equal(provider.calls[0].attachments?.[0]?.mime, 'image/png');
   });
 });
+
+
+test('simple greetings skip model routing and expensive context lookups', async () => {
+  const provider = createFakeProvider();
+  let contextCalls = 0;
+  const context = async () => { contextCalls += 1; return null; };
+  await withApp({ provider, knowledge: { context }, memory: { context }, founder: { context }, productKnowledge: { context } }, async ({ url, store }) => {
+    const token = await guestToken(url);
+    const response = await send(url, token, { message: 'hi' });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.message.content, 'Hi! What can I help you with?');
+    assert.equal(provider.calls.length, 0);
+    assert.equal(contextCalls, 0);
+    assert.ok(store.usage.some((entry) => entry.task === 'small_talk' && entry.provider === 'logic'));
+  });
+});
