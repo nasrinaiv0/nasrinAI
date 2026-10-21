@@ -7,7 +7,7 @@ import { testConfig } from './helpers.js';
 
 function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null) {
   const created = [];
-  const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10' });
+  const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10', VIDEO_MAX_COST_USD: '100' });
   const store = createMemoryStore();
   const addVideo = store.addVideo.bind(store);
   store.addVideo = async (row) => { created.push(row); return addVideo(row); };
@@ -142,7 +142,7 @@ test('completed OpenRouter video reconciles the estimate to authoritative provid
 });
 
 
-test('Ultra 4K add-on reserves and settles tokens from the verified price delta', async () => {
+test('Ultra 4K add-on records verified provider cost delta without per-generation token charges', async () => {
   const tokenCalls = [];
   const provider = {
     id: 'openrouter', model: 'provider/video-4k', tier: 'ultra', resolution: '1080p',
@@ -161,9 +161,9 @@ test('Ultra 4K add-on reserves and settles tokens from the verified price delta'
   const { videos, created } = service('ultra', false, null, provider, limiter);
   const result = await videos.create(caller, { prompt: 'Ultra 4K test', resolution: '4k' });
   assert.equal(result.status, 'in_progress');
-  assert.deepEqual(tokenCalls, [['reserve', 120000], ['settle', 120000]]);
+  assert.deepEqual(tokenCalls, [], 'video seconds and provider spend—not token surcharges—govern video usage');
   assert.equal(created[0].resolution, '4k');
-  assert.equal(created[0].addonTokens, 120000);
+  assert.equal(created[0].addonTokens, 0);
   assert.equal(created[0].addonCostUsd, 0.8);
 });
 
