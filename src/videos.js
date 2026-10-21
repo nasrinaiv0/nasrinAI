@@ -148,8 +148,33 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!Number.isFinite(estimatedCost) || estimatedCost <= 0 || estimatedCost > config.video.maxCostUsd) {
       throw new HttpError(503, 'budget_reached', 'This video exceeds the configured per-video spending limit.');
     }
-    const addonCostUsd = 0;
+    // 4K is a provider-cost add-on, not a user-token surcharge. Verify a
+    // comparable 1080p price before accepting it and account for the delta
+    // separately while reserving the full 4K operating cost above.
+    let addonCostUsd = 0;
     const addonTokens = 0;
+    if (requestedResolution === '4k') {
+      if (!['max', 'ultra'].includes(selected) || routeProvider.allow4kAddon !== true ||
+          routeProvider.id !== 'openrouter' || typeof routeProvider.getCostPerSecondUsd !== 'function') {
+        throw new HttpError(403, 'video_resolution_not_in_plan', '4K video requires an eligible Max/Ultra add-on route.');
+      }
+      try {
+        basePerSecond = await routeProvider.getCostPerSecondUsd({
+          generateAudio: true, duration: targetSeconds, aspectRatio,
+          requestedResolution: '1080p', fps: requestedFps
+        });
+      } catch {
+        throw new HttpError(503, 'video_budget_unavailable', '4K video pricing could not be verified. Choose a lower resolution.');
+      }
+      if (!Number.isFinite(basePerSecond) || basePerSecond <= 0 ||
+          !Number.isFinite(perSecond) || perSecond <= basePerSecond) {
+        throw new HttpError(503, 'video_budget_unavailable', '4K video requires verified, comparable 4K and 1080p prices.');
+      }
+      addonCostUsd = Math.round(estimatedSeconds * (perSecond - basePerSecond) * 1e6) / 1e6;
+      if (!Number.isFinite(addonCostUsd) || addonCostUsd <= 0) {
+        throw new HttpError(503, 'video_budget_unavailable', '4K add-on pricing is invalid.');
+      }
+    }
     let spendReservation;
     try {
       spendReservation = await budget.reserveSpend({ caller, amountUsd: estimatedCost, maxRequestUsd: null });
