@@ -36,3 +36,21 @@ test('operator-supplied unverified models are recorded but never promoted by the
   assert.equal(routed[0].model, 'qwen/qwen3.8-27b', 'unverified candidate keeps its configured slot');
   assert.equal(routed[1].model, 'deepseek/deepseek-v4-flash-0731');
 });
+
+test('classifier task aliases prioritize relevant verified models without adding or duplicating calls', () => {
+  const candidates = [
+    { provider: 'openrouter', model: 'deepseek/deepseek-v4-flash-0731' },
+    { provider: 'openrouter', model: 'openai/gpt-6-luna' },
+    { provider: 'openrouter', model: 'anthropic/claude-haiku-5.5' },
+    { provider: 'openai', model: 'gpt-5-mini' }
+  ];
+  const planning = prioritizeOpenRouterCandidates('planning', candidates);
+  assert.equal(planning.length, candidates.length);
+  assert.equal(planning[3], candidates[3], 'non-OpenRouter order and identity remain unchanged');
+  assert.deepEqual(new Set(planning), new Set(candidates), 'ranking must neither add nor remove candidates');
+  assert.equal(planning[0].model, 'openai/gpt-6-luna', 'planning should rank a verified general chat model ahead of coding-only candidates');
+  const writing = prioritizeOpenRouterCandidates('writing', candidates);
+  assert.equal(writing.length, candidates.length);
+  assert.deepEqual(new Set(writing), new Set(candidates));
+  assert.equal(writing[0].model, 'anthropic/claude-haiku-5.5', 'writing aliases should prefer a verified writing-capable model');
+});
