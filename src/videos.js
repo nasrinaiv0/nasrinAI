@@ -70,22 +70,37 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
-    // Select the highest quality the tier permits AND the live model catalog
-    // explicitly advertises. Try resolution first (highest to lowest), then FPS
-    // (60 before 30); never silently label an output with unsupported settings.
+    // Default to 720p/30 FPS. Honor a user-selected value only when the
+    // plan permits it; if the model cannot provide it, fall back to the
+    // highest available quality within that plan, preferring 60 FPS.
     const tierResolutions = selected === 'pro'
       ? ['480p', '360p']
       : ['4k', '1080p', '720p', '480p', '360p'];
     const allowedResolutions = (routeProvider.allowedResolutions || tierResolutions)
       .filter((resolution) => tierResolutions.includes(resolution));
-    const allowedFrameRates = (routeProvider.allowedFrameRates || [60, 30]).filter((fps) => [60, 30].includes(Number(fps))).map(Number);
+    const allowedFrameRates = (routeProvider.allowedFrameRates || [60, 30])
+      .filter((fps) => [60, 30].includes(Number(fps))).map(Number);
+    const requestedByUserResolution = String(b.resolution || '').trim().toLowerCase();
+    const requestedByUserFps = b.fps == null || b.fps === '' ? null : Number(b.fps);
+    if (requestedByUserResolution && !tierResolutions.includes(requestedByUserResolution)) {
+      throw new HttpError(403, 'video_resolution_not_in_plan', 'That resolution is not available on your current video plan.');
+    }
+    if (requestedByUserFps != null && ![30, 60].includes(requestedByUserFps)) {
+      throw new HttpError(400, 'invalid_video_fps', 'Choose 30 or 60 FPS.');
+    }
+    const preferredResolution = requestedByUserResolution || (tierResolutions.includes('720p') ? '720p' : '480p');
+    const preferredFps = requestedByUserFps || 30;
+    const resolutionCandidates = [preferredResolution, ...allowedResolutions.filter((x) => x !== preferredResolution)];
+    const fpsCandidates = [preferredFps, ...allowedFrameRates.filter((x) => x !== preferredFps)];
     let requestedResolution = null;
     let requestedFps = null;
     let perSecond = null;
     let basePerSecond = null;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
-      for (const resolution of allowedResolutions) {
-        for (const fps of allowedFrameRates) {
+      for (const resolution of resolutionCandidates) {
+        if (!allowedResolutions.includes(resolution)) continue;
+        for (const fps of fpsCandidates) {
+          if (!allowedFrameRates.includes(fps)) continue;
           try {
             perSecond = await routeProvider.getCostPerSecondUsd({
               generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
@@ -93,23 +108,18 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
             requestedResolution = resolution;
             requestedFps = fps;
             break;
-          } catch { /* try the next supported quality combination */ }
+          } catch { /* try the next eligible quality combination */ }
         }
         if (requestedResolution) break;
       }
       if (!requestedResolution) {
-        throw new HttpError(503, 'video_quality_unavailable', 'This video model does not advertise a supported resolution, frame rate, and price for your plan.');
+        throw new HttpError(503, 'video_quality_unavailable', 'This model has no supported, priced video quality for your plan.');
       }
     } else {
-      requestedResolution = routeProvider.resolution || config.video.resolution;
-      requestedFps = 30;
+      requestedResolution = allowedResolutions.includes(preferredResolution) ? preferredResolution : (allowedResolutions[0] || config.video.resolution);
+      requestedFps = allowedFrameRates.includes(preferredFps) ? preferredFps : 30;
       perSecond = videoCostPerSecond(routeProvider.model, requestedResolution, routeProvider.costPerSecondUsd ?? null);
     }
-    if (!budget || perSecond === null || (wants4k && (!Number.isFinite(basePerSecond) || basePerSecond <= 0 || perSecond <= basePerSecond))) {
-      throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because safe, comparable pricing is not available for this model and resolution.');
-    }
-    // Resolve the actual catalog-selected model before cache lookup so a
-    // model change cannot collide with an "unknown model" cache entry.
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
       provider: routeProvider.id, model: routeProvider.model || 'unknown',
