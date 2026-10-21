@@ -36,21 +36,14 @@ Do not infer quality from model names. Verify live capability and SKU/endpoint p
 ## Latest implementation verification (2026-10-21)
 
 - Added selected composer tier to image-generation and video-generation request payloads.
-- Added per-tier OpenRouter video route configuration. Pro, Max, and Ultra routes require their own model ID and positive cost-per-second environment value. The legacy single-model video config is Ultra-only; missing Pro/Max routes return a safe 503 instead of borrowing another tier's model.
+- Added Max/Ultra OpenRouter video routes with optional pinned model IDs and fail-closed live catalog pricing. Unknown or unsupported model capabilities pause generation instead of guessing a price.
 - Video route selection now uses the selected request tier throughout cost estimation, cache identity, job creation, and usage logging.
 - The UI requests 8-second clips because the current OpenRouter adapter only verifies single-shot clips up to 8 seconds. Do not advertise 60-second OpenRouter generation until extension support and durable final-cost reconciliation are implemented.
 - Latest PR head syntax checks passed and full test suite passed: 857 tests, 856 passed, 0 failed, 1 skipped. `git diff --check` passed.
 
 ## Operator configuration still required
 
-For each OpenRouter video tier intended to be enabled, configure all of these in the correct Vercel environment (Production/Preview separately as appropriate):
-
-- `OPENROUTER_VIDEO_PRO_MODEL` + `OPENROUTER_VIDEO_PRO_COST_PER_SECOND_USD`
-- `OPENROUTER_VIDEO_MAX_MODEL` + `OPENROUTER_VIDEO_MAX_COST_PER_SECOND_USD`
-- `OPENROUTER_VIDEO_ULTRA_MODEL` + `OPENROUTER_VIDEO_ULTRA_COST_PER_SECOND_USD`
-- `OPENROUTER_API_KEY`, `VIDEO_PROVIDER=openrouter`, and `VIDEO_ENABLED=true`
-
-Use model IDs and per-second prices verified against current OpenRouter capability and SKU pricing. Do not copy approximate pricing from old notes into production. Re-deploy after environment changes, then run a small smoke test for each tier and verify the charged cost against provider usage. Missing routes are intentionally unavailable. Existing single-route legacy config only enables Ultra.
+Configure `OPENROUTER_API_KEY`, `VIDEO_PROVIDER=openrouter`, and `VIDEO_ENABLED=true` in the intended Vercel environment. Optionally pin `OPENROUTER_VIDEO_MAX_MODEL` and `OPENROUTER_VIDEO_ULTRA_MODEL`; dynamic per-second catalog pricing replaces manual cost variables. OpenRouter currently remains single-shot and capped at 8 seconds. Do not enable paid production video until authenticated live-provider smoke tests and durable actual-cost reconciliation are complete.
 
 For image generation, configure and verify `IMAGE_TIER_1_PRIMARY_*`, `IMAGE_TIER_2_PRIMARY_*`, and `IMAGE_TIER_3_PRIMARY_*` with increasing quality/cost, and fallbacks only when their capability and price are verified. These existing slots are still the routing mechanism; request-tier ceilings prevent Pro from using slots above 1 and Max from using slots above 2.
 
