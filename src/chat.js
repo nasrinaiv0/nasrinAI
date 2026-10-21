@@ -21,6 +21,7 @@ import { prChipOf, PR_CHIP_LINES } from './github/chips.js';
 import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 import { runPlanningCouncil } from './ai/planning-council.js';
+import { estimateTextTokenCount } from './ai/text-image.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
@@ -340,9 +341,22 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
       }
       const responseTimestamp = new Date(now()).toISOString();
-      const usageMetadata = responseUsage && Number.isFinite(responseUsage.inputTokens) && Number.isFinite(responseUsage.outputTokens)
-        ? { input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)), output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)) }
-        : null;
+      const hasProviderUsage = responseUsage
+        && Number.isFinite(responseUsage.inputTokens)
+        && Number.isFinite(responseUsage.outputTokens);
+      // Prefer authoritative provider usage. If the provider omits usage, show a
+      // clearly marked word-token estimate rather than displaying "Not reported".
+      const usageMetadata = hasProviderUsage
+        ? {
+            input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)),
+            output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)),
+            estimated: false
+          }
+        : {
+            input_tokens: estimateTextTokenCount(typed),
+            output_tokens: estimateTextTokenCount(reply),
+            estimated: true
+          };
       return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, duration_ms: Math.max(0, now() - requestStartedAt), usage: usageMetadata }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
