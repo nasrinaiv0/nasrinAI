@@ -4317,7 +4317,15 @@ busy = false; refreshSendButton(); }
       faces.appendChild(f);
     });
     b.title = 'Sources & Resources';
-    b.append(faces, mk('span', 'src-word', 'Sources'));
+    const word = mk('span', 'src-word', '');
+    for (const [index, letter] of Array.from('Sources').entries()) {
+      const character = mk('span', 'src-letter', letter);
+      character.style.setProperty('--src-letter-index', String(index));
+      word.append(character);
+    }
+    word.setAttribute('aria-hidden', 'true');
+    b.append(faces, word);
+    b.setAttribute('aria-label', 'Sources');
     b.addEventListener('click', () => {
       b.classList.remove('source-wave');
       void b.offsetWidth;
