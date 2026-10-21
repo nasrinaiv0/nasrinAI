@@ -52,7 +52,14 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
     }
-    const perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
+    let perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
+    if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
+      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true }); }
+      catch (err) {
+        logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
+        perSecond = null;
+      }
+    }
     if (!budget || perSecond === null) {
       throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because a safe spending estimate is not configured for this model and resolution.');
     }
