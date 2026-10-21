@@ -9,7 +9,7 @@ const intentStart = app.indexOf('  function isYouTubeSearchRequest(query) {');
 const intentEnd = app.indexOf('  async function renderYouTubeVideos(', intentStart);
 assert.ok(start >= 0 && end > start && intentStart > end && intentEnd > intentStart, 'video intent helpers should exist in app.js');
 const helpers = app.slice(start, end) + '\n' + app.slice(intentStart, intentEnd);
-const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest } = new Function(
+const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest, youtubeQueryForReply } = new Function(
   helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest };'
 )();
 
@@ -61,4 +61,19 @@ test('video discovery queries route directly to YouTube instead of generating a 
     'show me the latest MrBeast video and summarize it',
     'find a video and explain what happens'
   ]) assert.equal(isYouTubeSearchRequest(query), false, query);
+});
+
+
+test('affirmative follow-ups preserve the assistant reply YouTube search context', () => {
+  const reply = 'I can help you find MrBeast latest YouTube uploads or trending videos. Would you like me to search?';
+  assert.equal(youtubeQueryForReply('Yes', reply), reply);
+  assert.equal(youtubeQueryForReply('Sure, please do', reply), reply);
+  assert.equal(youtubeQueryForReply('Yes', 'Hello! How can I help you today?'), '');
+  assert.equal(youtubeQueryForReply('show me YouTube videos about MrBeast', reply), 'show me YouTube videos about MrBeast');
+});
+
+test('send button remains actionable for typed messages even when AI is unavailable', () => {
+  assert.match(app, /sendBtn\.disabled = !stopping && \(busy \|\| preparing > 0 \|\| \(!hasText && !Recognition\)\)/);
+  assert.doesNotMatch(app, /sendBtn\.disabled = !stopping && \(busy \|\| \(!aiAvailable && !isYouTubeSearchRequest\(input\.value\)\)/);
+  assert.match(app, /NasrinAI is temporarily unavailable for this message/);
 });
