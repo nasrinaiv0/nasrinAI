@@ -1493,3 +1493,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reduce frosted background opacity and use light/dark system theme-aware colors with readable labels and values.
 - Add small inline SVG icons for date/time, duration, and token metadata without copying reference content or adding an icon dependency.
 - Validate JS syntax, CSS, CI, and light/dark mobile Preview before merge/deployment.
+
+## Reply details theme and dismissal behavior (2026-10-21)
+
+- Darken the frosted panel and blend it with the active light/dark theme.
+- Keep only one details panel open; opening another closes the previous one.
+- Dismiss on outside touch/click, typing, Escape, or mobile scrolling; on desktop, reposition the panel to follow its trigger while scrolling and close it when its trigger leaves the viewport.
+- Swap the reply-details three-dot control with the Save-to-Library/bookmark action when that action is available.

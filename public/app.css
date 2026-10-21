@@ -4149,3 +4149,43 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
     border-radius: 1.05rem !important;
   }
 }
+
+
+/* Reply details: darker, theme-integrated glass and reliable dismissal. */
+.reply-details-panel {
+  background: rgba(38, 39, 42, 0.84) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--ink, #f4f4f5) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(118%) !important;
+  backdrop-filter: blur(20px) saturate(118%) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+@media (prefers-color-scheme: dark) {
+  .reply-details-panel {
+    background: rgba(25, 26, 28, 0.88) !important;
+    border-color: rgba(255, 255, 255, 0.105) !important;
+    color: #f2f2f3 !important;
+    box-shadow: 0 14px 34px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.04) !important;
+  }
+  .reply-details-panel .reply-detail-label {
+    color: rgba(242, 242, 243, .58) !important;
+  }
+}
+:root[data-theme="dark"] .reply-details-panel,
+html[data-theme="dark"] .reply-details-panel,
+body[data-theme="dark"] .reply-details-panel,
+.dark .reply-details-panel {
+  background: rgba(25, 26, 28, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.105) !important;
+  color: #f2f2f3 !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+:root[data-theme="light"] .reply-details-panel,
+html[data-theme="light"] .reply-details-panel,
+body[data-theme="light"] .reply-details-panel,
+.light .reply-details-panel {
+  background: rgba(248, 249, 251, 0.86) !important;
+  border-color: rgba(45, 48, 55, 0.12) !important;
+  color: #25272b !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.36) !important;
+}
