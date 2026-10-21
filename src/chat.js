@@ -280,9 +280,25 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Projects: this chat's project context (instructions, open tasks), and its
     // Library items only. Other chats never see it.
     const project = !only && projects && caller.tenantId === PLATFORM_TENANT_ID ? await projects.forChat(caller, conv.id) : null;
-    const projectText = projectBlock(project);
     let pending = null;   // an action waiting for the person's Confirm
     let fromLibrary = [];   // titles of the person's Library files used for this answer
+
+    // Keep ordinary greetings off the provider and out of slow context lookups.
+    // The user's message has already been persisted and private-system refusals
+    // are handled above; business knowledge-only tenants retain their own policy.
+    if (caller.tenantId === PLATFORM_TENANT_ID && !only && SMALL_TALK.test(typed.trim())
+      && typed.trim().length <= 40 && !files.length && !voice && !pro && !codingChat
+      && !regenerate && editId === null && body.project_id === undefined && !body.professional) {
+      const greeting = /^(thanks?|thank|ty|salamat|daghang)/i.test(typed.trim())
+        ? 'You’re welcome! What can I help you with next?'
+        : /^(ok(ay)?|cool|great|nice)/i.test(typed.trim())
+          ? 'Got it! What would you like to do next?'
+          : 'Hi! What can I help you with?';
+      await usageLog.record(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: 'small_talk', level: 0, costUsd: 0 });
+      return finish(greeting);
+    }
+
+    const projectText = projectBlock(project);
     const live = opts.stream ? liveText(opts.stream) : null;
     const streamReq = live ? { onText: (t) => live.push(t) } : {};
     // The person pressed Stop (or left): keep what was written so far, and
@@ -450,21 +466,6 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (extra.length && history.length) {
       const last = history.at(-1);
       history[history.length - 1] = { role: last.role, content: last.content + extra.join('') };
-    }
-
-    // Plain greetings are deterministic: avoid routing and provider latency for a one-word hello.
-    // Keep this after message persistence, history loading, policy refusals, and context checks.
-    if (smart && caller.tenantId === PLATFORM_TENANT_ID && SMALL_TALK.test(typed.trim())
-      && typed.trim().length <= 40 && !files.length && !only && !voice && !pro
-      && !extra.length && !codeFile && !regenerate && editId === null
-      && body.project_id === undefined && !body.professional) {
-      const greeting = /^(thanks?|thank|ty|salamat|daghang)/i.test(typed.trim())
-        ? 'You’re welcome! What can I help you with next?'
-        : /^(ok(ay)?|cool|great|nice)/i.test(typed.trim())
-          ? 'Got it! What would you like to do next?'
-          : 'Hi! What can I help you with?';
-      await usageLog.record(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: 'small_talk', level: 0, costUsd: 0 });
-      return finish(greeting);
     }
 
     // Requests for previously generated pictures are retrieval, not a new image brief.
