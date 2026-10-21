@@ -4317,7 +4317,15 @@ busy = false; refreshSendButton(); }
       faces.appendChild(f);
     });
     b.title = 'Sources & Resources';
-    b.append(faces, mk('span', 'src-word', 'Sources'));
+    const word = document.createElement('span');
+    word.className = 'src-word';
+    for (const letter of 'Sources') {
+      const character = document.createElement('span');
+      character.className = 'src-letter';
+      character.textContent = letter;
+      word.appendChild(character);
+    }
+    b.append(faces, word);
     b.addEventListener('click', () => {
       b.classList.remove('source-wave');
       void b.offsetWidth;
