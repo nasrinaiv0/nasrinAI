@@ -216,7 +216,7 @@ Migration numbering: the repository's database sequence is at 054; new work must
 
 - GitHub CI: **passed** for the current PR head (test, database, dependency-audit jobs).
 - Documentation Gate: **passed**.
-- Pro video access is included in the entitlement tests; the server's base resolution allowlist is Pro 360p/480p and Max/Ultra up to 1080p. 4K is blocked until an account-level add-on entitlement is verified.
+- Pro video access is included in the entitlement tests; Pro is limited to 360p/480p. Max/Ultra support the existing 4K add-on route, which must pass the live capability and verified price-delta checks.
 - Ultra 4K pricing fails closed unless both 4K and 1080p rates are available for the same catalog-selected model. The estimated 4K premium is reserved as tokens at 150,000 tokens/USD, with quota reservation before provider invocation and conservative settlement on uncertain outcomes.
 - New SQL migration/test files use sequence **055**. The incorrectly numbered 052 migration and test files were removed from this branch.
 - Vercel production currently has `VIDEO_PROVIDER` and an `OPENROUTER_API_KEY` variable entry, but `VIDEO_ENABLED` is absent (so OpenRouter video remains disabled by default). This is intentional until a real authenticated catalog/pricing smoke test confirms the production provider can quote and generate at 1080p and 4K safely. CI mocks do not establish live-provider readiness.
@@ -233,7 +233,7 @@ Migration numbering: the repository's database sequence is at 054; new work must
 ### Default video output settings — 2026-10-21
 
 - Unless a user changes the controls, the shared video-generation API requests **720p at 30 FPS**.
-- The request UI offers only base resolutions supported by the selected tier: Pro 360p/480p; Max/Ultra 360p/480p/720p/1080p. 4K is intentionally unavailable until the server verifies a purchased account-level add-on. The server remains authoritative and rejects unauthorized or unsupported combinations.
+- The request UI is tier-aware: Pro defaults to 480p and offers 360p/480p; Max/Ultra default to 720p and may request 360p/480p/720p/1080p/4K. The server remains authoritative and rejects unauthorized or unsupported combinations; 4K must pass live provider capability and pricing checks.
 - If the selected/default combination is not advertised or priced by the configured model, the API tries other eligible combinations within the plan, prioritizing the selected resolution first, then higher resolutions, and preferring the requested frame rate before its alternative. It never silently exceeds the user's plan.
 - The current UI uses lightweight prompts for choosing resolution and FPS; replace with a polished inline selector before final product release.
 
