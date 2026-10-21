@@ -82,6 +82,31 @@ export function createBudget({ store, config, logger, kind = 'reasoning', now = 
     return actual;
   }
 
+  // Correct a previously settled conservative estimate using a provider's
+  // authoritative final usage cost. The database RPC only permits one change
+  // from the expected estimate and is idempotent for the same final amount.
+  async function reconcileSpend(reservation, actualUsd) {
+    if (!reservation?.id || !Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > 100000
+        || !Number.isFinite(reservation.reservedUsd) || reservation.reservedUsd < 0
+        || !store.reconcileGlobalSpendReservation) {
+      throw new HttpError(503, 'budget_reconciliation_unavailable', 'NasrinAI could not reconcile final provider spending safely.', { retryAfter: 600 });
+    }
+    const expectedUsd = Math.round(reservation.reservedUsd * 1e6) / 1e6;
+    const actual = Math.round(actualUsd * 1e6) / 1e6;
+    let ok;
+    try {
+      ok = await store.reconcileGlobalSpendReservation({ reservationId: reservation.id, expectedUsd, actualUsd: actual });
+    } catch (err) {
+      logger.error('global USD reconciliation failed; final provider cost remains pending', { kind, error: err.message });
+      throw new HttpError(503, 'budget_reconciliation_unavailable', 'NasrinAI could not reconcile final provider spending safely.', { retryAfter: 600 });
+    }
+    if (!ok) throw new HttpError(503, 'budget_reconciliation_conflict', 'Final provider cost did not match the expected spend reservation.', { retryAfter: 600 });
+    if (cache.value && !cache.value.unknown && Number.isFinite(cache.value.usd)) {
+      cache.value = { ...cache.value, usd: Math.max(0, cache.value.usd + expectedUsd - actual) };
+    }
+    return actual;
+  }
+
   async function releaseSpend(reservation) {
     if (!reservation?.id || !store.releaseGlobalSpendReservation) {
       throw new HttpError(503, 'budget_reached', 'NasrinAI could not release its spending reservation safely. Please try again later.', { retryAfter: 600 });
@@ -103,6 +128,7 @@ export function createBudget({ store, config, logger, kind = 'reasoning', now = 
     maxRequestUsd: b.maxRequestUsd ?? null,
     reserveSpend,
     settleSpend,
+    reconcileSpend,
     releaseSpend,
     // Retained for separately metered tools while they are migrated to
     // reservations. This only updates the local routing hint, never the ledger.
