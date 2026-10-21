@@ -473,3 +473,14 @@ test('sources use the same wave animation as the three-dot reply-details control
   assert.match(css, /\.sources-toggle\.source-wave \.src-word \{ animation-delay: 225ms/);
   assert.match(css, /prefers-reduced-motion: reduce/);
 });
+
+
+test('reply details use 10% glass opacity, half-pixel border, regular text and requested margins', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /margin: 10px 15px !important/);
+  assert.match(css, /background: rgba\(28, 29, 32, \.10\) !important/);
+  assert.match(css, /border: \.5px solid rgba\(255, 255, 255, \.24\) !important/);
+  assert.match(css, /backdrop-filter: blur\(34px\) saturate\(185%\) !important/);
+  assert.match(css, /\.reply-details-panel,\s*\.reply-details-panel \*[\s\S]*?font-weight: 400 !important/);
+  assert.match(css, /background: rgba\(255,255,255,\.10\) !important/);
+});

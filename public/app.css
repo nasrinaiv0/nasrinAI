@@ -4265,3 +4265,53 @@ body[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
   .sources-toggle.source-wave .src-face,
   .sources-toggle.source-wave .src-word { animation: none !important; }
 }
+
+
+/* Reply-details refinement: lighter glass, regular-weight typography, precise spacing. */
+.reply-details-panel {
+  box-sizing: border-box !important;
+  margin: 10px 15px !important;
+  background: rgba(28, 29, 32, .10) !important;
+  border: .5px solid rgba(255, 255, 255, .24) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(185%) !important;
+  backdrop-filter: blur(34px) saturate(185%) !important;
+}
+.reply-details-panel,
+.reply-details-panel *,
+.reply-details-panel .reply-detail-label,
+.reply-details-panel time,
+.reply-details-panel > div:not(.reply-detail-label) {
+  font-weight: 400 !important;
+}
+.reply-details-panel .reply-detail-label {
+  color: rgba(255,255,255,.88) !important;
+}
+.reply-details-panel time,
+.reply-details-panel > div:not(.reply-detail-label) {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.32);
+}
+:root[data-theme="light"] .reply-details-panel,
+html[data-theme="light"] .reply-details-panel,
+body[data-theme="light"] .reply-details-panel,
+.light .reply-details-panel {
+  background: rgba(255,255,255,.10) !important;
+  border: .5px solid rgba(35,38,44,.22) !important;
+}
+:root[data-theme="light"] .reply-details-panel .reply-detail-label,
+html[data-theme="light"] .reply-details-panel .reply-detail-label,
+body[data-theme="light"] .reply-details-panel .reply-detail-label,
+.light .reply-details-panel .reply-detail-label {
+  color: #343840 !important;
+}
+:root[data-theme="light"] .reply-details-panel time,
+:root[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
+html[data-theme="light"] .reply-details-panel time,
+html[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
+body[data-theme="light"] .reply-details-panel time,
+body[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
+.light .reply-details-panel time,
+.light .reply-details-panel > div:not(.reply-detail-label) {
+  color: #17191d !important;
+  text-shadow: none;
+}
