@@ -617,6 +617,11 @@ body:not(.has-chat) #newChat { display: none; }
 .reply-actions .act { width: 1.75rem; height: 1.75rem; }
 .reply-actions .act svg { width: 0.92rem; height: 0.92rem; }
 .reply-actions .src-word { font-size: 0.76rem; }
+.reply-actions .reply-details-toggle { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.08em; }
+.reply-details-panel { position: absolute; z-index: 8; margin-top: 2.15rem; padding: 0.65rem 0.75rem; min-width: 12rem; border: 1px solid var(--line); border-radius: 0.75rem; background: var(--paper); color: var(--ink); font-size: 0.75rem; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.reply-details-panel[hidden] { display: none; }
+.reply-details-panel time { display: block; font-variant-numeric: tabular-nums; }
+.reply-detail-label { color: var(--ink-3); font-size: 0.7rem; margin-bottom: 0.15rem; }
 .reply-actions .sources-toggle[aria-expanded="true"] { color: var(--ink); background: var(--surface); }
 /* One round badge per site, overlapping like stacked avatars. */
 .src-faces { display: inline-flex; align-items: center; }
