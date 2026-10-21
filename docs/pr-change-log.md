@@ -1466,3 +1466,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Position the reply-details preview beneath the ellipsis trigger, constrain it to the viewport, and allow scrolling on small screens.
 - Dismiss the preview on outside click/tap or Escape; expose popover state with `aria-expanded` and `aria-controls`.
 - Validation: CI and an iPhone-width visual check must pass before merge or deployment.
+
+## OpenRouter ScaleDown Extract pricing and extraction capability (2026-10-21)
+
+- Added exact model ID `scaledown/extract` to `config/model-prices.json` at $0.04 per 1M input tokens, $0 per 1M output tokens, and matching cached-input rate.
+- Intended for description-driven extraction from text, images, and files/PDFs; do not use as a general chat/research fallback. It does not support tool calling or enforced structured outputs and requires extraction-specific provider options to describe requested fields.
+- This fixes missing local pricing metadata for this model only. Other unpriced selected models must still be diagnosed against the exact runtime model ID; unknown pricing remains fail-closed.
+- Source: OpenRouter model page https://openrouter.ai/scaledown/extract
+- Validation required: price-registry tests and CI; authenticated Preview smoke test before production use.

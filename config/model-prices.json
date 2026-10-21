@@ -230,6 +230,12 @@
       "input": 0.5,
       "cached_input": 0.5,
       "output": 6
+    },
+    "scaledown/extract": {
+      "input": 0.04,
+      "cached_input": 0.04,
+      "output": 0,
+      "_note": "OpenRouter ScaleDown Extract; $0.04 per 1M input tokens, $0 output tokens. Extraction-only candidate; no tool calling or enforced structured output. Catalog checked 2026-10-21."
     }
   }
 }
