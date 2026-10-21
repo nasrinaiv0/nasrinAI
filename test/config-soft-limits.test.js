@@ -28,9 +28,9 @@ test('Ultra and Max coding use their requested OpenRouter Sol models', () => {
     CODING_ULTRA_MODEL: 'openrouter:openai/gpt-6.1-sol',
     CODING_ULTRA_DEEP_MODEL: 'openrouter:openai/gpt-6.1-sol'
   });
-  assert.equal(cfg.ai.coding.max.model, 'openai/gpt-6-sol');
-  assert.equal(cfg.ai.coding.ultra.model, 'openai/gpt-6.1-sol');
-  assert.equal(cfg.ai.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.routing.coding.max.model, 'openai/gpt-6-sol');
+  assert.equal(cfg.ai.routing.coding.ultra.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.routing.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
 });
 
 test('OpenRouter TTS pins the configured Google Vertex provider and requested model', () => {
@@ -42,5 +42,5 @@ test('OpenRouter TTS pins the configured Google Vertex provider and requested mo
   });
   assert.equal(cfg.ai.speech.provider, 'openrouter');
   assert.equal(cfg.ai.speech.openrouterModel, 'google/gemini-3.8-flash-lite-tts');
-  assert.equal(cfg.ai.speech.openrouterProvider, 'Google Vertex');
+  assert.equal(cfg.ai.speech.openrouterProvider, 'Google AI Studio');
 });
