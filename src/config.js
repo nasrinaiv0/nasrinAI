@@ -681,10 +681,12 @@ export function loadConfig(env = process.env) {
 
   const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
   if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
-  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || 'bytedance/seedance-2.0-fast').trim();
-  const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
+  // Prefer explicit per-tier model IDs so different video models can be routed by plan.
+  // The legacy single-model variable is retained only as a fallback for Ultra.
+  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || '').trim();
+  const videoTierRoutes = Object.freeze(Object.fromEntries(['max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
-    const model = String(env[prefix + '_MODEL'] || openRouterVideoModel).trim();
+    const model = String(env[prefix + '_MODEL'] || (tier === 'ultra' ? openRouterVideoModel : '')).trim();
     return [tier, model ? Object.freeze({ model, tier }) : null];
   }).filter(([, route]) => route)));
   const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY && Object.keys(videoTierRoutes).length);
