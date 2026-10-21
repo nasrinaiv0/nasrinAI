@@ -622,7 +622,7 @@ body:not(.has-chat) #newChat { display: none; }
 .reply-actions .act svg { width: 0.92rem; height: 0.92rem; }
 .reply-actions .src-word { font-size: 0.76rem; }
 .reply-actions .reply-details-toggle { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.08em; }
-.reply-details-panel { position: absolute; z-index: 30; top: calc(100% + 0.35rem); left: 0; box-sizing: border-box; width: min(20rem, calc(100vw - 2rem)); min-width: 0; max-width: calc(100vw - 2rem); max-height: min(65vh, 24rem); overflow: auto; margin: 0; padding: 0.75rem 0.85rem; border: 1px solid var(--line); border-radius: 0.85rem; background: var(--paper); color: var(--ink); font-size: 0.78rem; line-height: 1.45; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+.reply-details-panel { position: fixed; z-index: 1000; box-sizing: border-box; width: min(18rem, calc(100vw - 2rem)); min-width: 0; max-width: calc(100vw - 2rem); max-height: min(60vh, 22rem); overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: 0.85rem; background: var(--paper); color: var(--ink); font-size: 0.76rem; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,.24); }
 .reply-details-panel[hidden] { display: none; }
 .reply-details-panel time { display: block; font-variant-numeric: tabular-nums; }
 .reply-details-panel > div:not(.reply-detail-label) { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -1403,8 +1403,16 @@ body.legal-page .brand { opacity: 1; transform: none; pointer-events: auto; }
 .file-card .btn { flex: none; }
 .file-card.is-offer { flex-wrap: wrap; }
 .file-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.ask-card { margin-top: 0.7rem; }
-.ask-card .question input { display: block; }
+.ask-card { margin: 0.65rem auto 0.8rem; width: min(100%, 36rem); max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+.ask-card .question input { display: block; box-sizing: border-box; max-width: 100%; min-width: 0; }
+.ask-card .card-lede, .ask-card .question legend { overflow-wrap: anywhere; }
+.ask-card .card-actions { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .ask-card { width: calc(100% - 0.5rem); padding: clamp(0.8rem, 3.5vw, 1.1rem); }
+  .ask-card .ask-questions { padding-left: 1rem; }
+  .ask-card .answer-chips { gap: 0.35rem; }
+  .ask-card .answer-chip { max-width: 100%; white-space: normal; }
+}
 
 /* the hands-free voice button sits beside the dictation mic */
 .voice-btn svg { stroke-width: 2; }
