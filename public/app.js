@@ -4200,7 +4200,7 @@ busy = false; refreshSendButton(); }
     if (/\b(?:create|generate|make|render|produce|animate)\b.{0,50}\b(?:a |an |the )?(?:video|clip|movie)\b/i.test(q)) return false;
     // Bare terms such as "youtube" are ordinary messages, not a reason to
     // divert submission into a specialized flow that can fail silently.
-    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search(?:\s+for)?|look for|watch|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
+    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|find|search(?:\s+for)?|look for|watch|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
   }
 
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
