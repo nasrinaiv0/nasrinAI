@@ -184,7 +184,7 @@ export function buildApp({ config, logger }) {
   const videoProviders = effective.video?.enabled
     ? effective.video.provider === 'openrouter'
       ? Object.fromEntries(Object.entries(effective.video.tierRoutes || {}).map(([tier, route]) => [tier, createOpenRouterVideoProvider({
-          client: createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }),
+          client: openRouterClient,
           model: route.model, tier, maxSeconds: 8, resolution: effective.video.resolution
         })]))
       : Object.fromEntries(['max', 'ultra'].map((tier) => [tier, createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution })]))
