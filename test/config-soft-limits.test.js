@@ -44,3 +44,17 @@ test('OpenRouter TTS pins the configured Google Vertex provider and requested mo
   assert.equal(cfg.ai.speech.openrouterModel, 'google/gemini-3.8-flash-lite-tts');
   assert.equal(cfg.ai.speech.openrouterProvider, 'Google AI Studio');
 });
+
+
+test('OpenRouter video routes are shared across Max and Ultra with optional catalog discovery', () => {
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    VIDEO_PROVIDER: 'openrouter',
+    VIDEO_ENABLED: 'true'
+  });
+  assert.equal(cfg.video.enabled, true);
+  assert.deepEqual(Object.keys(cfg.video.tierRoutes), ['max', 'ultra']);
+  assert.equal(cfg.video.tierRoutes.max.model, null);
+  assert.equal(cfg.video.tierRoutes.ultra.model, null);
+});
