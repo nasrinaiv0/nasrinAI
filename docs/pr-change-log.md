@@ -1,3 +1,10 @@
+## Proposed PR — Compact mobile reply actions and viewport-aware details popover (`fix/actually-compact-reply-popover`)
+
+- Reduce reply details popover width to 248px on mobile with 20px viewport gutters and reduce internal padding.
+- Position the panel relative to the viewport, flip above the trigger when the space below is insufficient, and reserve the fixed composer area so the popover cannot cover it.
+- Left-align reply action icons and reduce gaps between controls.
+- Fixes the Documentation Gate requirement by recording this PR in the required changelog.
+
 
 ## Proposed PR — Video Studio button and padding normalization (`fix/video-studio-buttons-padding-v2`)
 

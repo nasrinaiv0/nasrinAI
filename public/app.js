@@ -4357,10 +4357,32 @@
       panel.hidden = !opening;
       details.setAttribute('aria-expanded', String(opening));
       if (opening) {
-        // Anchor the details popover directly below the ellipsis, not at the
-        // left edge of the entire action row (which clips on narrow screens).
-        panel.style.left = Math.max(0, Math.min(details.offsetLeft, row.clientWidth - Math.min(320, row.clientWidth))) + 'px';
-        panel.style.top = (row.offsetHeight + 6) + 'px';
+        // Viewport positioning: never let the panel cover the fixed composer.
+        panel.style.position = 'fixed';
+        panel.style.left = '12px';
+        panel.style.top = '12px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.width = '248px';
+        panel.style.maxWidth = 'calc(100vw - 40px)';
+        panel.style.maxHeight = 'min(55vh, 22rem)';
+        const trigger = details.getBoundingClientRect();
+        const dockEl = document.querySelector('.dock');
+        const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
+        const edge = 12, gap = 8;
+        const width = Math.min(248, window.innerWidth - 40);
+        panel.style.width = width + 'px';
+        const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
+        const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
+        const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
+        const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
+        const aboveSpace = Math.max(0, trigger.top - gap - edge);
+        const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
+        const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
+        const top = placeBelow ? trigger.bottom + gap : trigger.top - gap - height;
+        panel.style.left = left + 'px';
+        panel.style.top = Math.max(edge, top) + 'px';
+        panel.style.maxHeight = height + 'px';
       }
     });
     // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
