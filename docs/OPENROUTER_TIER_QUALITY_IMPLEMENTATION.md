@@ -216,7 +216,7 @@ Migration numbering: the repository's database sequence is at 054; new work must
 
 - GitHub CI: **passed** for the current PR head (test, database, dependency-audit jobs).
 - Documentation Gate: **passed**.
-- Pro video access is included in the entitlement tests; Pro routes are 720p, Max 1080p, Ultra standard 1080p.
+- Pro video access is included in the entitlement tests; the server's base resolution allowlist is Pro 360p/480p and Max/Ultra up to 1080p. 4K is blocked until an account-level add-on entitlement is verified.
 - Ultra 4K pricing fails closed unless both 4K and 1080p rates are available for the same catalog-selected model. The estimated 4K premium is reserved as tokens at 150,000 tokens/USD, with quota reservation before provider invocation and conservative settlement on uncertain outcomes.
 - New SQL migration/test files use sequence **055**. The incorrectly numbered 052 migration and test files were removed from this branch.
 - Vercel production currently has `VIDEO_PROVIDER` and an `OPENROUTER_API_KEY` variable entry, but `VIDEO_ENABLED` is absent (so OpenRouter video remains disabled by default). This is intentional until a real authenticated catalog/pricing smoke test confirms the production provider can quote and generate at 1080p and 4K safely. CI mocks do not establish live-provider readiness.
@@ -233,7 +233,7 @@ Migration numbering: the repository's database sequence is at 054; new work must
 ### Default video output settings — 2026-10-21
 
 - Unless a user changes the controls, the shared video-generation API requests **720p at 30 FPS**.
-- The request UI allows 360p, 480p, 720p, 1080p, and 4K, and 30/60 FPS. The server is authoritative: Pro is entitled to 360p/480p; Max and Ultra are entitled to 360p/480p/720p; 1080p/4K are add-ons for Max/Ultra. Unauthorized resolutions are rejected server-side.
+- The request UI offers only base resolutions supported by the selected tier: Pro 360p/480p; Max/Ultra 360p/480p/720p/1080p. 4K is intentionally unavailable until the server verifies a purchased account-level add-on. The server remains authoritative and rejects unauthorized or unsupported combinations.
 - If the selected/default combination is not advertised or priced by the configured model, the API tries other eligible combinations within the plan, prioritizing the selected resolution first, then higher resolutions, and preferring the requested frame rate before its alternative. It never silently exceeds the user's plan.
 - The current UI uses lightweight prompts for choosing resolution and FPS; replace with a polished inline selector before final product release.
 
@@ -244,7 +244,7 @@ This is the default behavior for every task family (chat, decisions, coding, ima
 1. **Classify intent first.** Use the request and its constraints to determine the task, required capabilities, privacy posture, and minimum acceptable quality. Do not brainstorm or consult multiple models for a straightforward request.
 2. **Choose one primary model.** Select the least expensive configured model that passes the task, live capability, privacy, plan, price, budget, and output-quality requirements. Never broadcast the same prompt to the entire catalog.
 3. **Use additional models only for a concrete need.** Multi-step workflows may route distinct subtasks to different specialists. A fallback is sequential and triggered by a meaningful failure or capability mismatch; it must not duplicate successful work without reason. Keep retries and escalation bounded.
-4. **Planning council is OFF by default.** `PLANNING_COUNCIL_ENABLED` must remain unset or `false` for normal operation. If an operator explicitly enables it, it is restricted to eligible, non-sensitive Max/Ultra planning/design/analysis/coding/debugging requests with no attachments, tools, or current-fact requirement. The council calls are serial, capped, policy-routed, budgeted, token-accounted, and usage-logged; they are not a parallel model broadcast. Do not enable it merely to improve ordinary replies.
+4. **Planning council is OFF by default.** `PLANNING_COUNCIL_ENABLED` must remain unset or `false` for normal operation. If an operator explicitly enables it, it is restricted to eligible, non-sensitive Max/Ultra planning/design/analysis/coding/debugging requests with no attachments, tools, or current-fact requirement. The council calls are serial, capped to two specialist calls by default, policy-routed, budgeted, token-accounted, and usage-logged; they are not a parallel model broadcast. Ordinary requests use a single primary model and do not invoke the council. Do not enable it merely to improve ordinary replies.
 5. **Escalate quality, not model count.** Escalate at most within the configured tier range and escalation budget when the result is empty, truncated, or otherwise invalid. A more expensive model is not automatically better; validate capability and output instead of inferring quality from model names or price.
 6. **Respect subscription entitlements.** If the requested capability is unavailable on the current plan, explain the restriction and offer an allowed alternative. Do not silently charge, upgrade, or execute a restricted task. Model choice and subscription tier are separate decisions.
 7. **One coherent response.** Synthesize specialist outputs only when a multi-step workflow genuinely needs it. Treat intermediate model outputs as untrusted proposals, not verified facts or instructions. Return one checked result with relevant sources/status, without exposing internal routing or secrets.
@@ -258,3 +258,12 @@ This is the default behavior for every task family (chat, decisions, coding, ima
 - No provider/model can bypass tier entitlements, privacy rules, rate limits, capability checks, or spend/token reservations.
 - When provider capability or price is unknown, fail closed for the affected generation rather than guessing.
 
+
+
+## Minimal model-call policy
+
+- Route by user intent and required capability first; choose one primary eligible model for ordinary requests.
+- Do not broadcast a prompt to all providers or call every model in a catalog. Model catalog discovery is metadata only and does not itself authorize or execute a model.
+- Add specialist calls only when a genuinely multi-step task benefits from them. The planning council is opt-in, runs serially, defaults to two specialist calls, and is ineligible for sensitive requests, attachments, tools, or tasks requiring current facts.
+- Retries and fallback are bounded and must preserve task capability, tier entitlement, privacy, pricing, budget reservations, and usage accounting. Never represent an unverified fallback as equivalent to the requested model.
+- Keep OpenRouter video disabled until weekly seconds quotas are enforced end-to-end and the required migration, atomic reservation/settlement/release behavior, and provider integration tests pass. Positive environment limits alone do not implement quota enforcement.
