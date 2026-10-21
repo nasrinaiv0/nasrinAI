@@ -638,7 +638,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             currentFactsRequired: needsWeb(typed),
             goal: typed,
             context: history.slice(-4).map((m) => `${m.role}: ${String(m.content || '').slice(0, 1800)}`).join('\\n'),
-            maxCalls: 3,
+            maxCalls: 2,
             maxTokensPerCall: 450,
             maxInputChars: 9000,
             runCandidate: async ({ role, system, messages, maxTokens }) => {
