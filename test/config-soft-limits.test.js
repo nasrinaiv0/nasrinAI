@@ -67,9 +67,9 @@ test('OpenRouter video routes support Pro 720p, Max 1080p and Ultra 1080p/4K add
   assert.deepEqual(Object.keys(cfg.video.tierRoutes), ['pro', 'max', 'ultra']);
   assert.equal(cfg.video.tierRoutes.pro.resolution, null, 'quality is selected from live provider capabilities at request time');
   assert.equal(cfg.video.tierRoutes.pro.allow4kAddon, false);
-  assert.equal(cfg.video.tierRoutes.max.resolution, '1080p');
+  assert.equal(cfg.video.tierRoutes.max.resolution, null, 'quality is selected from live provider capabilities at request time');
   assert.equal(cfg.video.tierRoutes.max.model, null);
-  assert.equal(cfg.video.tierRoutes.ultra.resolution, '1080p');
+  assert.equal(cfg.video.tierRoutes.ultra.resolution, null, 'quality is selected from live provider capabilities at request time');
   assert.equal(cfg.video.tierRoutes.ultra.allow4kAddon, true);
   assert.equal(cfg.video.tierRoutes.ultra.model, null);
 });
