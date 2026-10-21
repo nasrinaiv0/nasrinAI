@@ -47,6 +47,13 @@ test('OpenRouter TTS pins the configured Google Vertex provider and requested mo
 
 
 test('OpenRouter video routes are shared across Max and Ultra with optional catalog discovery', () => {
+  const disabledByDefault = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    VIDEO_PROVIDER: 'openrouter'
+  });
+  assert.equal(disabledByDefault.video.enabled, false, 'paid video stays opt-in until live billing reconciliation is verified');
+
   const cfg = loadConfig({
     NODE_ENV: 'test',
     OPENROUTER_API_KEY: 'test-openrouter-key',
