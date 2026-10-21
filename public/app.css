@@ -622,7 +622,7 @@ body:not(.has-chat) #newChat { display: none; }
 .reply-actions .act svg { width: 0.92rem; height: 0.92rem; }
 .reply-actions .src-word { font-size: 0.76rem; }
 .reply-actions .reply-details-toggle { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.08em; }
-.reply-details-panel { position: fixed; z-index: 1000; box-sizing: border-box; width: min(18rem, calc(100vw - 2rem)); min-width: 0; max-width: calc(100vw - 2rem); max-height: min(60vh, 22rem); overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0.7rem 0.8rem; border: 1px solid var(--line); border-radius: 0.85rem; background: var(--paper); color: var(--ink); font-size: 0.76rem; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,.24); }
+.reply-details-panel { position: fixed; z-index: 1000; box-sizing: border-box; width: min(15.5rem, calc(100vw - 40px)); min-width: 0; max-width: calc(100vw - 40px); max-height: min(60vh, 22rem); overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0.55rem 0.6rem; border: 1px solid var(--line); border-radius: 0.85rem; background: var(--paper); color: var(--ink); font-size: 0.76rem; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,.24); }
 .reply-details-panel[hidden] { display: none; }
 .reply-details-panel time { display: block; font-variant-numeric: tabular-nums; }
 .reply-details-panel > div:not(.reply-detail-label) { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
