@@ -213,7 +213,7 @@ export function createOpenRouterClient({
     return affordable[0];
   }
 
-  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, provider = {}, signal }) {
+  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, includeUsage = false, provider = {}, signal }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
     const selected = model === 'openrouter/free' && task === 'chat' && !(Array.isArray(tools) && tools.length)
@@ -221,6 +221,7 @@ export function createOpenRouterClient({
       : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens, maxPromptUsdPerMillion });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: 'deny', allow_fallbacks: provider.allow_fallbacks !== false } };
+    if (includeUsage) payload.usage = { include: true };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
     if (Number.isFinite(temperature)) payload.temperature = Math.max(0, Math.min(2, temperature));
     return request(ENDPOINT[task] || ENDPOINT.chat, { body: payload, signal });
@@ -402,7 +403,7 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
       const result = await openrouter.chat({
         task: normalizeTask(task), model: requestedModel,
         messages: [{ role: 'system', content: system }, ...messages],
-        tools, maxTokens, signal,
+        tools, maxTokens, signal, includeUsage: true,
         provider: { data_collection: 'deny', allow_fallbacks: true }
       });
       const choice = result.choices?.[0];
@@ -416,6 +417,9 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
         inputTokens: Number(result.usage?.prompt_tokens) || 0,
         cachedTokens: Number(result.usage?.prompt_tokens_details?.cached_tokens) || 0,
         outputTokens: Number(result.usage?.completion_tokens) || 0,
+        actualCostUsd: result.usage?.cost !== undefined && result.usage?.cost !== null
+          && Number.isFinite(Number(result.usage.cost)) && Number(result.usage.cost) >= 0 && Number(result.usage.cost) <= 100000
+          ? Number(result.usage.cost) : null,
         finishReason: choice.finish_reason || 'unknown',
         model: result.model || requestedModel
       };
