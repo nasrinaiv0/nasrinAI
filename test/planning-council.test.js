@@ -72,3 +72,19 @@ test('council falls back instead of using one model as a fake committee', async 
   assert.equal(result.reason, 'insufficient_diversity');
   assert.equal(result.findings.filter((x) => x.text).length, 1);
 });
+
+
+test('planning council defaults to two serial specialist calls rather than querying every role', async () => {
+  const roles = [];
+  const result = await runPlanningCouncil({
+    enabled: true, tier: 'ultra', task: 'planning', goal: 'Plan a bounded workflow',
+    runCandidate: async (req) => {
+      roles.push(req.role);
+      return { text: req.role + ' finding', spec: { provider: 'openrouter', model: req.role }, costUsd: 0.001 };
+    }
+  });
+  assert.deepEqual(roles, ['brainstorm', 'architect']);
+  assert.equal(result.used, true);
+  assert.equal(result.findings.length, 2);
+  assert.equal(result.costUsd, 0.002);
+});
