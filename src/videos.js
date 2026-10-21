@@ -73,11 +73,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     // Default to 720p/30 FPS. Honor a user-selected value only when the
     // plan permits it; if the model cannot provide it, fall back to the
     // highest available quality within that plan, preferring 60 FPS.
-    // 4K is excluded until a verified per-account add-on entitlement exists.
-    // A tier label alone must never grant a paid add-on.
+    // Keep the existing 4K add-on route for Max/Ultra. Provider pricing and
+    // capability checks below remain authoritative; unsupported combinations fail closed.
     const tierResolutions = selected === 'pro'
       ? ['480p', '360p']
-      : ['1080p', '720p', '480p', '360p'];
+      : ['4k', '1080p', '720p', '480p', '360p'];
     const allowedResolutions = (routeProvider.allowedResolutions || tierResolutions)
       .filter((resolution) => tierResolutions.includes(resolution));
     const allowedFrameRates = (routeProvider.allowedFrameRates || [60, 30])
