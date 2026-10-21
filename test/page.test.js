@@ -508,3 +508,11 @@ test('final reply details styling uses subtle glass, gray labels, and 20px horiz
   assert.match(finalTuning, /\.light \.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #858991 !important/);
   assert.match(finalTuning, /font-weight: 400 !important/);
 });
+
+
+test('reply details panel uses requested 5px blur and 50 percent saturation', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const finalTuning = css.slice(css.lastIndexOf('/* User-requested final glass tuning:'));
+  assert.match(finalTuning, /backdrop-filter: blur\(5px\) saturate\(50%\) !important/);
+  assert.match(finalTuning, /-webkit-backdrop-filter: blur\(5px\) saturate\(50%\) !important/);
+});
