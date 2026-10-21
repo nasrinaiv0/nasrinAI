@@ -194,3 +194,19 @@ These names are documented candidates, not proof every model is currently return
 - [ ] Verify unknown model, missing price, unsupported capability, provider error and timeout all fail safely without duplicate paid requests.
 - [ ] Confirm exact-head CI is green and security review passes.
 - [ ] Keep PR #491 Draft and do not merge/deploy to production until all required gates are closed.
+
+
+## Per-reply details menu (current implementation status)
+
+The chat response now includes server-generated `response_metadata`:
+- `timestamp`: ISO 8601 completion timestamp.
+- `duration_ms`: elapsed wall-clock time measured by the server from chat-handler entry to reply completion.
+- `usage.input_tokens` and `usage.output_tokens`: rounded, non-negative provider usage counts when the provider supplies them; unavailable counts remain null rather than being fabricated.
+
+The compact three-dot reply menu renders date/time, request duration, input tokens, output tokens, and total tokens. If a response path has no authoritative provider usage (for example, a local policy answer), the menu displays “Not reported”. The frontend only receives metadata for a newly completed chat response; historical conversation messages do not yet persist this metadata and therefore cannot reliably display historical durations or token counts.
+
+## Vercel activation and safety gate
+
+The production Vercel project currently has `VIDEO_PROVIDER` and an `OPENROUTER_API_KEY` variable entry, but `VIDEO_ENABLED` and explicit per-tier video model variables were not found in the production environment listing. The OpenRouter key's secret value cannot be validated from the environment listing. OpenRouter model IDs are optional because the adapter is intended to discover models from the live catalog, but the live catalog's pricing/capability behavior must be smoke-tested before enabling paid generation. Do not enable the paid video feature in production until that check and the full test suite pass.
+
+Migration numbering: the repository's database sequence is at 054; new work must use 055 or later. Never apply a 052 migration to this database.
