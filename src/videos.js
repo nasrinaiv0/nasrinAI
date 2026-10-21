@@ -36,6 +36,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }) || video;
   }
 
+  const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
+
   async function requireVideoPlan(caller, requestedTier) {
     if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans.');
     if (!plans) throw unavailable();
