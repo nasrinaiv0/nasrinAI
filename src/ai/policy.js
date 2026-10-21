@@ -50,11 +50,13 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
     if (attachments.length && c.pdf === false) return 'cannot read attachments';
     if (reqToolsCount > 0 && c.tools === false) return 'does not support tools';
     const cost = estimate(spec, inputTokens, level, minOut);
-    if (cost === null) return 'no price on file';
+    // OpenRouter's live catalog selects priced models, and usage.cost reports
+    // the actual billed amount. Do not gate its models on local price snapshots.
+    if (cost === null && spec.provider !== 'openrouter') return 'no price on file';
     const requestCap = r.budget.maxRequestUsdByTier?.[tier] ?? budget.maxRequestUsd;
-    if (cost > 0 && requestCap !== null && cost > requestCap) return 'over the per-tier request limit';
+    if (cost !== null && cost > 0 && requestCap !== null && cost > requestCap) return 'over the per-tier request limit';
     // Unknown spend: the cheapest level only (set in run), within the per-request cap.
-    if (cost > 0 && !left.unknown && cost > left.usd) return `over the ${left.limitedBy} budget`;
+    if (cost !== null && cost > 0 && !left.unknown && cost > left.usd) return `over the ${left.limitedBy} budget`;
     return null;
   }
 
@@ -115,7 +117,7 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
       const spendHooks = createProviderSpendHooks({ budget, config, prices, caller, tier: plan.tier });
       // Let the provider router preflight internal failover models against the same
       // exact pricing rules used by the budget reservation hook.
-      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => Boolean(priceFor({ provider: providerId, model: modelId }));
+      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => providerId === 'openrouter' || Boolean(priceFor({ provider: providerId, model: modelId }));
       let left = await budget.remaining();
       // If spend cannot be read, stay on the cheapest level.
       let level = left.unknown ? plan.floor : plan.level;
@@ -239,7 +241,9 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
             ? { ...spec, provider: result.provider, model: result.model, effort: result.effort ?? spec.effort }
             : spec);
           const cachedTokens = Number(result.cachedTokens) || 0;
-          const costUsd = costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0;
+          const costUsd = Number.isFinite(result.actualCostUsd) && result.actualCostUsd >= 0
+            ? result.actualCostUsd
+            : (costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0);
           const text = String(result.text || '').trim();
           const asksTools = Array.isArray(result.toolCalls) && result.toolCalls.length > 0;
           const valid = asksTools || (text.length > 0 && !(result.finishReason === 'length' && text.length < 40));
