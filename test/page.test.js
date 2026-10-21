@@ -357,7 +357,7 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   assert.match(js, /if \(firstCard\) \{\s*section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer and persist its metadata');
   assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
   assert.match(js, /https:\/\/www\.youtube\.com\/embed\//, 'use the standard YouTube iframe endpoint');
-  assert.match(js, /if \(!videos\.length \|\| message\.querySelector\('\.youtube-results'\)\) return;/, 'do not skip rendering while the assistant message is being attached');
+  assert.match(js, /if \(!videos\.length \|\| message\.querySelector\('\.youtube-results'\)\) return false;/, 'report failed or duplicate video rendering to the caller');
   assert.ok(js.includes('how (?:do i|to|do|does|can i|can you)'));
   assert.ok(js.includes('tutorialIntent'), 'tutorial terms are appended only when tutorial intent is detected');
   assert.match(js, /\/v1\/youtube\/search\?q=/);
