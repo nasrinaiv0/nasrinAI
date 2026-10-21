@@ -4381,7 +4381,8 @@ busy = false; refreshSendButton(); }
       button.classList.add(className);
     };
     details.addEventListener('animationend', (event) => {
-      if (event.target === details || event.target.classList?.contains('reply-details-dot')) details.classList.remove('reply-details-wave');
+      // Keep the wave active until the last (right-most) dot finishes.
+      if (event.target?.dataset?.n === '2') details.classList.remove('reply-details-wave');
     });
     const panel = document.createElement('div');
     panel.className = 'reply-details-panel';
