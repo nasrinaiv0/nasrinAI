@@ -684,12 +684,14 @@ export function loadConfig(env = process.env) {
   // Prefer explicit per-tier model IDs so different video models can be routed by plan.
   // The legacy single-model variable is retained only as a fallback for Ultra.
   const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || '').trim();
+  // Model IDs are optional: the shared router can discover compatible models
+  // from OpenRouter's live catalog, but it must verify capability and price.
   const videoTierRoutes = Object.freeze(Object.fromEntries(['max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
     const model = String(env[prefix + '_MODEL'] || (tier === 'ultra' ? openRouterVideoModel : '')).trim();
-    return [tier, model ? Object.freeze({ model, tier }) : null];
-  }).filter(([, route]) => route)));
-  const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY && Object.keys(videoTierRoutes).length);
+    return [tier, Object.freeze({ model: model || null, tier })];
+  })));
+  const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY);
   const video = Object.freeze({
     provider: videoProviderName,
     enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, 'true'),
