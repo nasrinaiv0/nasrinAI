@@ -4286,6 +4286,31 @@
     });
     row.appendChild(share);
 
+    const details = document.createElement('button');
+    details.type = 'button';
+    details.className = 'act reply-details-toggle';
+    details.setAttribute('aria-label', 'Show reply details');
+    details.setAttribute('aria-expanded', 'false');
+    details.title = 'Reply details';
+    details.textContent = '⋯';
+    const panel = document.createElement('div');
+    panel.className = 'reply-details-panel';
+    panel.hidden = true;
+    const created = new Date();
+    const date = document.createElement('time');
+    date.dateTime = created.toISOString();
+    date.textContent = created.toLocaleString();
+    const label = document.createElement('div');
+    label.className = 'reply-detail-label';
+    label.textContent = 'Date & time';
+    panel.append(label, date);
+    details.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      details.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    row.appendChild(details);
+    row.appendChild(panel);
+
     if (libraryOn) {
       const keep = document.createElement('button');
       keep.type = 'button';
