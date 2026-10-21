@@ -4315,3 +4315,34 @@ body[data-theme="light"] .reply-details-panel > div:not(.reply-detail-label),
   color: #17191d !important;
   text-shadow: none;
 }
+
+
+/* Reply-details: extra-transparent glass, neutral-gray labels, and compact padding. */
+.reply-details-panel {
+  padding: 10px !important;
+  background: rgba(28, 29, 32, .06) !important;
+  border: .5px solid rgba(255, 255, 255, .18) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+  backdrop-filter: blur(40px) saturate(200%) !important;
+}
+.reply-details-panel .reply-detail-label {
+  color: #9a9da3 !important;
+  font-weight: 400 !important;
+}
+.reply-details-panel time,
+.reply-details-panel > div:not(.reply-detail-label) {
+  font-weight: 400 !important;
+}
+:root[data-theme="light"] .reply-details-panel,
+html[data-theme="light"] .reply-details-panel,
+body[data-theme="light"] .reply-details-panel,
+.light .reply-details-panel {
+  background: rgba(255, 255, 255, .06) !important;
+  border-color: rgba(55, 60, 68, .16) !important;
+}
+:root[data-theme="light"] .reply-details-panel .reply-detail-label,
+html[data-theme="light"] .reply-details-panel .reply-detail-label,
+body[data-theme="light"] .reply-details-panel .reply-detail-label,
+.light .reply-details-panel .reply-detail-label {
+  color: #858991 !important;
+}

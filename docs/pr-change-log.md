@@ -1556,3 +1556,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Link the new documentation and knowledge base from the existing README without replacing its current content.
 - Mark catalog entries as `needs_verification`; do not claim every listed skill is live or verified. Runtime integration and implementation audit remain separate follow-up work.
 - Validation: JSON parses successfully and contains 644 skill entries. No application tests were run because this change adds documentation and a static knowledge file only.
+
+
+## Reply-details glass, label color, and padding refinement (2026-10-21)
+
+- Increase transparency to 6% background opacity and strengthen the frosted glass blur.
+- Render detail labels such as Date & time, Time to complete, Input tokens, Output tokens, and Total tokens in gray in both themes.
+- Set panel padding to 10px on all sides while preserving the existing outer margins and regular-weight text.
+- Add regression coverage for the glass, labels, and spacing.
