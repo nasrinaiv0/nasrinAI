@@ -105,6 +105,42 @@ test('video creation accepts only a caller-owned conversation', async () => {
 });
 
 
+
+test('Pro video jobs poll and download through the Pro adapter without crossing tiers', async () => {
+  const calls = [];
+  const makeProvider = (tier) => ({
+    id: tier + '-video-provider',
+    model: tier + '-video-model',
+    resolution: tier === 'pro' ? '480p' : '1080p',
+    costPerSecondUsd: 0.05,
+    maxSeconds: 8,
+    async create() { calls.push(tier + ':create'); return tier + '-operation'; },
+    async status(operation) {
+      calls.push(tier + ':status:' + operation);
+      return { id: tier + '-uri', status: 'completed' };
+    },
+    extract(result) { return { done: true, failed: false, uri: result.id }; },
+    async download(uri) { calls.push(tier + ':download:' + uri); return Buffer.from(tier + '-mp4'); }
+  });
+  const providers = { pro: makeProvider('pro'), max: makeProvider('max'), ultra: makeProvider('ultra') };
+  const { videos, store } = service('pro', false, null, providers);
+  const created = await videos.create(caller, body);
+  assert.equal(created.status, 'in_progress');
+  assert.ok(calls.includes('pro:create'));
+  assert.equal(calls.some((call) => call.startsWith('max:') || call.startsWith('ultra:')), false);
+
+  const status = await videos.status(caller, created.video_id);
+  assert.equal(status.status, 'completed');
+  assert.ok(calls.includes('pro:status:pro-operation'));
+  assert.ok(calls.includes('pro:download:pro-uri'));
+  assert.equal(calls.some((call) => call.startsWith('max:') || call.startsWith('ultra:')), false);
+
+  await store.updateVideo(created.video_id, { bytes: null });
+  const content = await videos.read(caller, created.video_id);
+  assert.equal(content.bytes.toString(), 'pro-mp4');
+  assert.ok(calls.includes('pro:download:pro-uri'));
+});
+
 test('video creation defaults to the configured provider clip limit when duration is omitted', async () => {
   const { videos, created } = service('max', false, 8);
   const result = await videos.create(caller, body);
