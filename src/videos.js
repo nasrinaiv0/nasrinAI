@@ -38,6 +38,13 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
 
   const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
 
+  function providerForVideo(video) {
+    if (provider && typeof provider.create === 'function') return provider;
+    // A job must always poll/download/extend through the exact tier adapter
+    // that created it. Never silently cross-fallback into another paid tier.
+    return provider?.[video?.requestTier] || provider?.[video?.providerTier] || null;
+  }
+
   async function requireVideoPlan(caller, requestedTier) {
     if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation requires an eligible paid plan.');
     if (!plans) throw unavailable();
@@ -219,9 +226,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       return v;
     }
 
-    const jobProvider = provider && typeof provider.create !== 'function'
-      ? provider[v.requestTier] || provider[v.providerTier] || provider.ultra || provider.max
-      : provider;
+    const jobProvider = providerForVideo(v);
     if (!jobProvider) throw unavailable();
     let state;
     try { state = jobProvider.extract(await jobProvider.status(v.providerOperation)); }
@@ -258,11 +263,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         }).catch((err) => logger.warn('marketing video cache write failed', { error: err.message }));
       }
     } else {
-      if (provider.maxSeconds) {
+      if (jobProvider.maxSeconds || typeof jobProvider.extend !== 'function') {
         await store.updateVideo(v.id, { status:'failed', errorCode:'duration_unsupported', errorMessage:'This provider cannot extend video jobs.' });
         return await store.getVideo({ tenantId:v.tenantId, ownerType:v.ownerType, ownerId:v.ownerId, id:v.id });
       }
-      const nextOperation = await provider.extend({ prompt: v.prompt, videoBytes: bytes });
+      const nextOperation = await jobProvider.extend({ prompt: v.prompt, videoBytes: bytes });
       await store.updateVideo(v.id, {
         status:'in_progress',
         producedSeconds: produced,
@@ -290,7 +295,9 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'Video not found.');
     const v = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id });
     if (!v || v.status !== 'completed' || (!v.bytes && !v.providerVideoUri)) throw new HttpError(404, 'not_found', 'Video is not ready.');
-    const bytes = v.bytes ? Buffer.from(v.bytes) : await provider.download(v.providerVideoUri);
+    const jobProvider = providerForVideo(v);
+    if (!v.bytes && (!jobProvider || typeof jobProvider.download !== 'function')) throw unavailable();
+    const bytes = v.bytes ? Buffer.from(v.bytes) : await jobProvider.download(v.providerVideoUri);
     return { ...v, bytes };
   }
 
