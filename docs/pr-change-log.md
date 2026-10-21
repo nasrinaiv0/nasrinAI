@@ -1509,3 +1509,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Allow discovery requests even when general AI routing is unavailable, while preserving server-side API keys, session scope, rate limiting, embeddability and regional checks, plus a safe fallback search link.
 - Add regression tests for discovery intent and generation/explanation exclusions.
 - Validation required: focused tests, full `npm test`, and Preview smoke test with configured `YOUTUBE_DATA_API_KEY`; no production deployment until checks pass.
+
+
+## YouTube inline playback fix (2026-10-21)
+
+- Use YouTube's privacy-enhanced `youtube-nocookie.com/embed/` host for the inline iframe after server-side embeddability and regional-availability checks.
+- Preserve the current YouTube-first intent routing and validated video IDs; keep video generation and explanation requests on their existing AI routes.
+- Add regression assertions for the privacy-enhanced embed URL. Verify CI and iPhone Preview playback before merging.
