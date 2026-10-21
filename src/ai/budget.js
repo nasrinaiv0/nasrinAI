@@ -101,9 +101,9 @@ export function createBudget({ store, config, logger, kind = 'reasoning', now = 
       throw new HttpError(503, 'budget_reconciliation_unavailable', 'NasrinAI could not reconcile final provider spending safely.', { retryAfter: 600 });
     }
     if (!ok) throw new HttpError(503, 'budget_reconciliation_conflict', 'Final provider cost did not match the expected spend reservation.', { retryAfter: 600 });
-    if (cache.value && !cache.value.unknown && Number.isFinite(cache.value.usd)) {
-      cache.value = { ...cache.value, usd: Math.max(0, cache.value.usd + expectedUsd - actual) };
-    }
+    // A repeated idempotent reconciliation must not apply the cache delta
+    // twice. Invalidate this routing hint and let the next read use the ledger.
+    cache = { at: -Infinity, value: null };
     return actual;
   }
 
