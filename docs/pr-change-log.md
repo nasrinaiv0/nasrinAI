@@ -1451,3 +1451,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Follow-up: wired the policy's classified task into the OpenRouter text adapter; exact models are checked against live output modality and tool support, external data collection is denied, attachments fail closed on the text adapter, and structured decisions are kept separate from ordinary chat.
 
 - Further hardening: preflight OpenRouter image/video model capabilities and live pricing before paid generation; reconcile OpenRouter image spend with provider-reported `usage.cost`; video SKU pricing is checked against the configured conservative per-second estimate.
+
+
+## PR #493 — Mobile reply actions and details popover (2026-10-21)
+
+- Compact reply action spacing and prevent the Sources control label from collapsing vertically on narrow mobile screens.
+- Position the reply-details preview beneath the ellipsis trigger, constrain it to the viewport, and allow scrolling on small screens.
+- Dismiss the preview on outside click/tap or Escape; expose popover state with `aria-expanded` and `aria-controls`.
+- Validation: CI and an iPhone-width visual check must pass before merge or deployment.
