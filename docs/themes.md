@@ -1,54 +1,29 @@
-# Themes
+# NasrinAI themes
 
-Owner request, 2026-10-12: "aside from the appearance add theme (orange,
-charcoal, galaxy)".
+Settings keeps **Appearance** (Light, Dark, System) independent from **Theme**. Theme choices are stored locally on the device and apply to both light and dark appearance modes.
 
-Settings has two choices, side by side:
+## Available themes
 
-- **Appearance:** Light, Dark or System (unchanged).
-- **Theme:** **Mono** (the default monochrome look), **Orange**, **Charcoal**
-  or **Galaxy**. Each theme has its own Light and Dark colours, so the two
-  choices combine (for example Galaxy + Dark).
+| Theme | Visual direction | Action accent |
+|---|---|---|
+| Mono | Original monochrome, unchanged | Neutral |
+| Orange | Neutral light/dark surfaces; pastel orange actions only | Pastel orange |
+| Blush (formerly Charcoal) | Feminine pearl, rose and mauve | Rose |
+| Galaxy | Deep navy and black-hole atmosphere; faint stars and distant planets in dark mode | Steel blue |
+| Rose Quartz | Soft pink and mauve | Rose |
+| Ocean | Cool sea-glass and deep teal | Aqua |
+| Forest | Calm sage and evergreen | Sage |
+| Sunset | Warm peach and terracotta, without overwhelming the surface | Peach |
+| Midnight | Ink-black and blue-grey | Periwinkle |
 
-| Theme | Light | Dark | Main actions |
-|---|---|---|---|
-| Mono | off-white | near-black | black / white (unchanged) |
-| Orange | warm paper | warm brown-black | orange |
-| Charcoal | cool grey | charcoal grey | charcoal / light grey |
-| Galaxy | lavender, soft violet glow | deep night sky with stars | violet |
+## Implementation
 
-## How it works
+- `public/theme.js` applies a valid saved palette before rendering to prevent a flash of the wrong theme.
+- `public/app.js` validates the theme name, persists the selection in `nasrin.palette`, and synchronizes the Settings radio controls.
+- `public/app.css` defines theme-scoped surface, text, line, glass, focus and accent tokens. Light, Dark and System are supported.
+- Galaxy's celestial effects are CSS gradients only: no remote assets, trackers, or extra network requests. The stars and planet-like forms remain subtle behind the interface.
+- Mono remains the default and keeps its original styling. The logo and product functionality are unchanged.
 
-- `public/theme.js` sets `data-palette` on `<html>` before the page is drawn
-  (no flash), next to `data-theme`. Mono means no attribute.
-- `public/app.css`, at the end: each theme sets the page tokens (`--paper`,
-  `--surface`, `--ink`, `--line`, glass, glow) for Light and Dark, and
-  `--accent` / `--on-accent`. The accent colours the main actions only:
-  Send, main buttons, switches, selected chips, the open model menu, links in
-  replies and focus rings. Every accent rule sits under `:root[data-palette]`,
-  so Mono is exactly as before.
-- The logo stays monochrome in every theme (owner decision).
-- `public/app.js` saves the choice on the device (`nasrin.palette`, like the
-  appearance) and paints the phone's status bar in the theme's colour.
-- Only the three known theme names are applied; anything else falls back to
-  Mono.
+## Quality checks
 
-## Privacy
-
-The theme is a device setting, kept in the browser like the appearance. The
-privacy notice's list of device choices now names it (version 2026-10-12a).
-Nothing is sent to the server.
-
-## Tests
-
-`test/themes.test.js`. Checked in headless Chromium at 390 px for every theme
-in Light and Dark: Settings picker, chat, Send colour, status-bar colour, and
-the theme kept after a reload.
-
-## The person's message bubble
-
-In light mode the bubble is a softer charcoal than the ink
-(`--bubble: color-mix(in srgb, var(--ink) 76%, var(--paper))`, about `#454545`
-in Mono, white text well above 7:1 contrast), so it reads less heavy (owner,
-2026-10-13). Each palette's light mode mixes its own ink and paper the same
-way. In dark mode the bubble stays the ink colour.
+Verify each palette in Light, Dark and System modes, reload persistence, selected-state/focus accessibility, mobile Settings layout, text contrast, and that Orange backgrounds remain neutral while buttons use pastel orange.

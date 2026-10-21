@@ -6,7 +6,7 @@
     var t = JSON.parse(localStorage.getItem('nasrin.theme'));
     if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
     var c = JSON.parse(localStorage.getItem('nasrin.palette'));
-    if (c === 'orange' || c === 'charcoal' || c === 'galaxy') document.documentElement.setAttribute('data-palette', c);
+    if (['orange', 'charcoal', 'galaxy', 'rose-quartz', 'ocean', 'forest', 'sunset', 'midnight'].includes(c)) document.documentElement.setAttribute('data-palette', c);
     if (JSON.parse(localStorage.getItem('nasrin.tabbar')) === true) document.documentElement.setAttribute('data-tabbar', 'on');
     if (JSON.parse(localStorage.getItem('nasrin.motion')) === 'reduce') document.documentElement.setAttribute('data-motion', 'reduce');
   } catch (e) { /* private mode: follow the phone */ }

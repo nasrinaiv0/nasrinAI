@@ -4592,7 +4592,7 @@ busy = false; refreshSendButton(); }
   const themeMetas = [...document.querySelectorAll('meta[name="theme-color"]')];
   themeMetas.forEach((m) => { m.dataset.original = m.content; });
 
-  const PALETTES = ['orange', 'charcoal', 'galaxy'];   // Mono is the default: no attribute
+  const PALETTES = ['orange', 'charcoal', 'galaxy', 'rose-quartz', 'ocean', 'forest', 'sunset', 'midnight'];   // Mono is the default: no attribute
   function paintThemeColor() {
     // The phone's status bar follows the page: the default Mono colours, or the
     // chosen theme's paper colour.
