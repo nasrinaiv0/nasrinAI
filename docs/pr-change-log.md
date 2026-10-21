@@ -1480,3 +1480,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Make error messages wrap safely on narrow screens and force Retry onto its own row below message/resource links, with a separate tappable area.
 - Preserve readable, wrapping source/resource links and mobile-friendly retry height.
 - Rebase the fix on current `main` to avoid the CSS conflict from PR #496; validate CI and iPhone-width layout before merge/deploy.
+
+## Reply details frosted-glass styling (2026-10-21)
+
+- Restyle the existing reply metadata panel as a dark translucent, blurred glass surface with a soft highlight edge, deep shadow, and large rounded corners inspired by the supplied reference.
+- Improve label/value hierarchy, spacing, legibility, and mobile sizing while preserving all existing metadata and behavior; no reference screenshot text or actions are copied.
+- Validate CSS/preview at mobile widths and confirm the panel remains inside the viewport before merge/deploy.
