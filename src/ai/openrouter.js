@@ -331,16 +331,16 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
   let resolvedModel = model;
   return {
     id: 'openrouter', get model() { return resolvedModel; }, tier, maxSeconds: safeMax, resolution, costPerSecondUsd: null,
-    async getCostPerSecondUsd({ generateAudio = true, hasVideoInput = false, duration = safeMax, aspectRatio = '16:9' } = {}) {
-      const pricing = await client.getVideoPricing({ model, tier, resolution, duration, aspectRatio, generateAudio, hasVideoInput });
+    async getCostPerSecondUsd({ generateAudio = true, hasVideoInput = false, duration = safeMax, aspectRatio = '16:9', requestedResolution = resolution } = {}) {
+      const pricing = await client.getVideoPricing({ model, tier, resolution: requestedResolution, duration, aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = pricing.model;
       return pricing.costPerSecondUsd;
     },
-    async create({ prompt, aspectRatio, seconds = safeMax, generateAudio = true, hasVideoInput = false }) {
+    async create({ prompt, aspectRatio, seconds = safeMax, generateAudio = true, hasVideoInput = false, requestedResolution = resolution }) {
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
-      const pricing = await client.getVideoPricing({ model, tier, resolution, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
+      const pricing = await client.getVideoPricing({ model, tier, resolution: requestedResolution, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = pricing.model;
-      const result = await client.createVideo({ model: pricing.model, tier, prompt, duration: Math.floor(seconds), aspect_ratio: aspectRatio, resolution, generate_audio: generateAudio, maxCostPerSecondUsd: pricing.costPerSecondUsd });
+      const result = await client.createVideo({ model: pricing.model, tier, prompt, duration: Math.floor(seconds), aspect_ratio: aspectRatio, resolution: requestedResolution, generate_audio: generateAudio, maxCostPerSecondUsd: pricing.costPerSecondUsd });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
       return id;
