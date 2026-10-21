@@ -210,3 +210,14 @@ The compact three-dot reply menu renders date/time, request duration, input toke
 The production Vercel project currently has `VIDEO_PROVIDER` and an `OPENROUTER_API_KEY` variable entry, but `VIDEO_ENABLED` and explicit per-tier video model variables were not found in the production environment listing. The OpenRouter key's secret value cannot be validated from the environment listing. OpenRouter model IDs are optional because the adapter is intended to discover models from the live catalog, but the live catalog's pricing/capability behavior must be smoke-tested before enabling paid generation. Do not enable the paid video feature in production until that check and the full test suite pass.
 
 Migration numbering: the repository's database sequence is at 054; new work must use 055 or later. Never apply a 052 migration to this database.
+
+
+## Latest verification checkpoint — 2026-10-21
+
+- GitHub CI: **passed** for the current PR head (test, database, dependency-audit jobs).
+- Documentation Gate: **passed**.
+- Pro video access is included in the entitlement tests; Pro routes are 720p, Max 1080p, Ultra standard 1080p.
+- Ultra 4K pricing fails closed unless both 4K and 1080p rates are available for the same catalog-selected model. The estimated 4K premium is reserved as tokens at 150,000 tokens/USD, with quota reservation before provider invocation and conservative settlement on uncertain outcomes.
+- New SQL migration/test files use sequence **055**. The incorrectly numbered 052 migration and test files were removed from this branch.
+- Vercel production currently has `VIDEO_PROVIDER` and an `OPENROUTER_API_KEY` variable entry, but `VIDEO_ENABLED` is absent (so OpenRouter video remains disabled by default). This is intentional until a real authenticated catalog/pricing smoke test confirms the production provider can quote and generate at 1080p and 4K safely. CI mocks do not establish live-provider readiness.
+- Historical replies still do not persist response metadata; the three-dot panel shows authoritative token counts and server duration for fresh responses only.
