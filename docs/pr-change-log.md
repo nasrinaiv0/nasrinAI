@@ -1509,3 +1509,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Allow discovery requests even when general AI routing is unavailable, while preserving server-side API keys, session scope, rate limiting, embeddability and regional checks, plus a safe fallback search link.
 - Add regression tests for discovery intent and generation/explanation exclusions.
 - Validation required: focused tests, full `npm test`, and Preview smoke test with configured `YOUTUBE_DATA_API_KEY`; no production deployment until checks pass.
+
+
+## Reply details visibility and source wave animations (2026-10-21)
+
+- Fix the reply-details popover on mobile Safari by explicitly setting viewport-safe fixed coordinates and recalculating its position when opened.
+- Animate the three-dot reply-details control and the source badges/label from left to right on tap.
+- Respect `prefers-reduced-motion` and add regression coverage for panel positioning and animation hooks.
+- Validate CI, Documentation Gate, and iPhone Preview before merging; no production deployment is included in this PR.
