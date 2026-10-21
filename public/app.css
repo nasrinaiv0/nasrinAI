@@ -4511,3 +4511,40 @@ body[data-theme="light"] .reply-details-panel .reply-detail-label,
 
 /* Updated swatch for the renamed feminine Charcoal palette. */
 .palette-swatch.charcoal { background: radial-gradient(circle at 35% 28%, #FFE4F0, #D58EAF 60%, #70435C); }
+
+
+/* Galaxy welcome animation: miniature planets play around Nasrin; the sun
+   dramatically arrives at the viewport's upper-right only on an empty chat. */
+:root[data-palette="galaxy"] .welcome { position:relative; isolation:isolate; }
+:root[data-palette="galaxy"] .hero { position:relative; z-index:1; overflow:visible; }
+.galaxy-play-stage { position:absolute; inset:-22% -24%; z-index:3; pointer-events:none; overflow:visible; }
+.galaxy-play-planet { position:absolute; display:block; width:var(--planet-size); height:var(--planet-size); border-radius:50%; opacity:.88; filter:drop-shadow(0 2px 5px rgba(0,0,0,.18)); will-change:transform; }
+.galaxy-play-planet-surface { position:absolute; inset:0; border-radius:inherit; overflow:hidden; background:radial-gradient(circle at 28% 23%,rgba(255,255,255,.92),rgba(255,255,255,.14) 23%,transparent 43%),var(--planet-fill); box-shadow:inset -5px -5px 9px rgba(0,0,0,.28),inset 2px 2px 4px rgba(255,255,255,.2); }
+.planet-mercury { --planet-fill:linear-gradient(135deg,#B9C2D0,#6C788D 60%,#374256); left:8%; top:25%; animation:galaxy-planet-float-a 5.2s ease-in-out infinite; }
+.planet-venus { --planet-fill:linear-gradient(135deg,#FFE1A8,#C98A59 62%,#754B48); right:9%; top:22%; animation:galaxy-planet-float-b 6.1s ease-in-out infinite; }
+.planet-earth { --planet-fill:radial-gradient(ellipse at 30% 55%,#77C7A2 0 16%,transparent 18%),radial-gradient(ellipse at 65% 28%,#91D5A7 0 18%,transparent 20%),linear-gradient(135deg,#6DD4F2,#2861B5 70%,#152F73); left:1%; top:65%; animation:galaxy-planet-float-c 5.7s ease-in-out infinite; }
+.planet-mars { --planet-fill:linear-gradient(135deg,#F6B18A,#B95445 65%,#672F42); right:2%; top:64%; animation:galaxy-planet-float-a 4.6s ease-in-out infinite reverse; }
+.planet-saturn { --planet-fill:linear-gradient(135deg,#F2D6A3,#BA966B 65%,#6D5C61); left:20%; top:4%; animation:galaxy-planet-float-b 6.7s ease-in-out infinite; }
+.planet-saturn .galaxy-play-planet-surface::after { content:"";position:absolute;width:155%;height:36%;left:-28%;top:32%;border:2px solid rgba(235,213,177,.78);border-radius:50%;transform:rotate(-24deg); }
+.planet-neptune { --planet-fill:linear-gradient(135deg,#9DD9F8,#416DCE 60%,#252B70); right:21%; bottom:1%; animation:galaxy-planet-float-c 6.3s ease-in-out infinite reverse; }
+@keyframes galaxy-planet-float-a { 0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(9px,-15px) rotate(18deg)} }
+@keyframes galaxy-planet-float-b { 0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(-11px,12px) rotate(-15deg)} }
+@keyframes galaxy-planet-float-c { 0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(13px,-9px) scale(1.06)} }
+.galaxy-play-sun { position:fixed; z-index:0; top:max(4.75rem,env(safe-area-inset-top)); right:max(-2.5rem,env(safe-area-inset-right)); width:clamp(9rem,28vw,23rem); aspect-ratio:1; border-radius:50%; pointer-events:none; opacity:.82; transform-origin:82% 18%; }
+.galaxy-play-sun-corona { position:absolute; inset:-24%; border-radius:50%; background:radial-gradient(circle,rgba(255,177,85,.2) 0 43%,rgba(255,119,61,.13) 57%,rgba(255,100,44,0) 73%); filter:blur(7px); }
+.galaxy-play-sun-surface { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 32% 27%,#FFF4C5 0,#FFC66C 23%,#FF873F 48%,#D94A35 72%,#672C53 100%); box-shadow:inset -18px -20px 42px rgba(57,18,49,.45),0 0 42px rgba(255,129,64,.24); }
+.galaxy-play-sun-flare { position:absolute; inset:-12%; border-radius:50%; background:conic-gradient(from 12deg,transparent 0 8%,rgba(255,180,99,.12) 10%,transparent 15% 31%,rgba(255,222,154,.16) 34%,transparent 39% 66%,rgba(255,146,80,.13) 70%,transparent 76%); filter:blur(2px); }
+.galaxy-play-sun.is-arriving { animation:galaxy-sun-arrive 950ms cubic-bezier(.16,.9,.24,1) both; }
+@keyframes galaxy-sun-arrive { from{opacity:0;transform:translate(16%, -12%) scale(.16)} 65%{opacity:.9;transform:translate(-2%, 2%) scale(1.06)} to{opacity:.82;transform:translate(0,0) scale(1)} }
+:root[data-palette="galaxy"] .galaxy-play-sun { opacity:.6; filter:saturate(.78); }
+:root[data-palette="galaxy"] .galaxy-play-sun-surface { background:radial-gradient(circle at 32% 27%,#FFF4C5 0,#FFC66C 23%,#FF873F 48%,#D94A35 72%,#672C53 100%); }
+.galaxy-play-stage.is-reduced-motion .galaxy-play-planet { animation:none; }
+@media (max-width:600px) {
+  .galaxy-play-stage { inset:-17% -18%; }
+  .galaxy-play-sun { top:max(5rem,env(safe-area-inset-top)); right:-2.8rem; width:clamp(8rem,39vw,13rem); opacity:.64; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .galaxy-play-planet,.galaxy-play-sun.is-arriving { animation:none !important; }
+}
+:root[data-motion="reduce"] .galaxy-play-planet,:root[data-motion="reduce"] .galaxy-play-sun.is-arriving { animation:none !important; }
+body.has-chat .galaxy-play-sun { display:none !important; }
