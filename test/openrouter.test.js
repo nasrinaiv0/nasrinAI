@@ -30,13 +30,10 @@ test('catalog selection validates actual output modality and caches catalog', as
   assert.equal(calls, 2);
 });
 
-test('video pricing is looked up from the live catalog for the requested resolution', async () => {
+test('video pricing is looked up from the live catalog SKU map', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/video', 'video'), supported_durations: [4, 8], supported_resolutions: ['720p'],
-    supported_aspect_ratios: ['16:9'], pricing_skus: [
-      { unit: 'video_second', resolution: '720p', cost_usd: 0.09 },
-      { unit: 'video_second', resolution: '4k', cost_usd: 0.8 }
-    ]
+    supported_aspect_ratios: ['16:9'], pricing_skus: { generate: '0.09' }
   }] }) });
   const pricing = await client.getVideoPricing({ model: 'provider/video', resolution: '720p' });
   assert.equal(pricing.costPerSecondUsd, 0.09);
