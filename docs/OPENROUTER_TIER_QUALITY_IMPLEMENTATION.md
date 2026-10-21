@@ -228,3 +228,11 @@ Migration numbering: the repository's database sequence is at 054; new work must
 - Default OpenRouter video model is pinned to `heygen/heygen-video-1` for Pro, Max, and Ultra unless a tier-specific Vercel environment override is supplied.
 - HeyGen Video 1 currently documents 480p and 768p output and 5–15 second clips. The product tier matrix (360p/480p/720p and Max/Ultra 1080p/4K add-ons, each at 30/60 FPS) is a product entitlement policy, not proof that this model supports every option. The API must check OpenRouter's live video model catalog and reject unsupported combinations rather than silently changing the user's requested settings.
 - Keep `VIDEO_ENABLED=false` in production until the tier/frame-rate selector, subscription/add-on token accounting, spend reconciliation migration, and authenticated live-provider tests all pass. Video is billed against subscription/add-on token allowances, not as a separate per-generation user payment.
+
+
+### Default video output settings — 2026-10-21
+
+- Unless a user changes the controls, the shared video-generation API requests **720p at 30 FPS**.
+- The request UI allows 360p, 480p, 720p, 1080p, and 4K, and 30/60 FPS. The server is authoritative: Pro is entitled to 360p/480p; Max and Ultra are entitled to 360p/480p/720p; 1080p/4K are add-ons for Max/Ultra. Unauthorized resolutions are rejected server-side.
+- If the selected/default combination is not advertised or priced by the configured model, the API tries other eligible combinations within the plan, prioritizing the selected resolution first, then higher resolutions, and preferring the requested frame rate before its alternative. It never silently exceeds the user's plan.
+- The current UI uses lightweight prompts for choosing resolution and FPS; replace with a polished inline selector before final product release.
