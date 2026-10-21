@@ -46,7 +46,7 @@ test('Galaxy solar play scene is isolated to the empty welcome state', async () 
   assert.match(scene, /welcome\.hidden/);
   assert.match(scene, /has-chat/);
   assert.match(scene, /setTimeout\(revealSun, 6200\)/);
-  assert.match(scene, /Nasrin\.flash\('concerned'/);
+  assert.match(scene, /Nasrin\.mood\('concerned'/);
   assert.match(scene, /MutationObserver/);
   const css = await read('public/app.css');
   assert.match(css, /\.galaxy-play-sun\.is-arriving/);
