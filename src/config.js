@@ -686,10 +686,11 @@ export function loadConfig(env = process.env) {
   const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || '').trim();
   // Model IDs are optional: the shared router can discover compatible models
   // from OpenRouter's live catalog, but it must verify capability and price.
-  const videoTierRoutes = Object.freeze(Object.fromEntries(['max', 'ultra'].map((tier) => {
+  const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
     const model = String(env[prefix + '_MODEL'] || (tier === 'ultra' ? openRouterVideoModel : '')).trim();
-    return [tier, Object.freeze({ model: model || null, tier })];
+    const resolution = tier === 'pro' ? '720p' : '1080p';
+    return [tier, Object.freeze({ model: model || null, tier, resolution, allow4kAddon: tier === 'ultra' })];
   })));
   const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY);
   const video = Object.freeze({
