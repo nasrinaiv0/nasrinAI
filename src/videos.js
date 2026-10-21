@@ -45,7 +45,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (account.open || !['pro', 'max', 'ultra'].includes(account.plan)) throw new HttpError(403, 'video_plan_required', 'Video creation requires Pro, Max or Ultra. Upgrade your plan to create videos.');
     const selected = resolveRequestTier(requestedTier, account.plan, { open: Boolean(account.open) });
     if (!['pro', 'max', 'ultra'].includes(selected)) throw new HttpError(403, 'video_tier_required', 'Video generation requires selecting Pro, Max or Ultra.');
-    if (account.plan === 'pro' && selected !== 'pro') throw new HttpError(403, 'video_tier_required', 'Pro video generation is limited to 720p. Upgrade to Max or Ultra for 1080p.');
+    if (account.plan === 'pro' && selected !== 'pro') throw new HttpError(403, 'video_tier_required', 'Pro video generation is limited to 480p. Upgrade to Max or Ultra for 1080p.');
     if (account.plan === 'max' && selected === 'ultra') throw new HttpError(403, 'video_tier_required', 'Max cannot use Ultra video add-ons.');
     if (account.plan === 'ultra' && selected !== 'ultra') throw new HttpError(403, 'video_tier_required', 'Select Ultra for Ultra video options.');
     return { account, selected };
@@ -73,9 +73,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     // Default to 720p/30 FPS. Honor a user-selected value only when the
     // plan permits it; if the model cannot provide it, fall back to the
     // highest available quality within that plan, preferring 60 FPS.
+    // 4K is excluded until a verified per-account add-on entitlement exists.
+    // A tier label alone must never grant a paid add-on.
     const tierResolutions = selected === 'pro'
       ? ['480p', '360p']
-      : ['4k', '1080p', '720p', '480p', '360p'];
+      : ['1080p', '720p', '480p', '360p'];
     const allowedResolutions = (routeProvider.allowedResolutions || tierResolutions)
       .filter((resolution) => tierResolutions.includes(resolution));
     const allowedFrameRates = (routeProvider.allowedFrameRates || [60, 30])
