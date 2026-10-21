@@ -277,9 +277,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const metaQuestion = isPastIntent(typed) || isConversationMeta(typed);
     const pro = !only && !metaQuestion && caller.tenantId === PLATFORM_TENANT_ID ? resolveProfessionals(selection, typed) : null;
     const professional = promptBlock(pro, typed);
-    // Projects: this chat's project context (instructions, open tasks), and its
-    // Library items only. Other chats never see it.
-    const project = !only && projects && caller.tenantId === PLATFORM_TENANT_ID ? await projects.forChat(caller, conv.id) : null;
+    const fastGreeting = smart && caller.tenantId === PLATFORM_TENANT_ID && SMALL_TALK.test(typed.trim())
+      && typed.trim().length <= 40 && !files.length && !only && !voice && !pro
+      && !regenerate && editId === null && body.project_id === undefined && !body.professional;
+    // Greetings do not need project, Library, memory, or semantic-context lookups.
+    const project = !fastGreeting && !only && projects && caller.tenantId === PLATFORM_TENANT_ID
+      ? await projects.forChat(caller, conv.id) : null;
     const projectText = projectBlock(project);
     let pending = null;   // an action waiting for the person's Confirm
     let fromLibrary = [];   // titles of the person's Library files used for this answer
@@ -422,12 +425,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // (no model call), added to this turn as data. Not saved with the chat.
     // The lookups below do not depend on each other, so they run together.
     let [known, founderText, productText, memoryText, shelf, pastChats] = await Promise.all([
-      knowledge && typed ? knowledge.context(caller, typed) : null,
-      founder && typed && !only ? founder.context(caller, typed, PLATFORM_TENANT_ID) : null,
-      productKnowledge && typed && !only ? productKnowledge.context(caller, typed, PLATFORM_TENANT_ID) : null,
-      memory && typed && !only ? memory.context(caller, typed) : null,
-      library && typed && !only ? library.context(caller, typed, { projectId: project ? project.id : null }) : null,
-      typed && !only ? conversations.context(caller, typed, conv.id) : null
+      !fastGreeting && knowledge && typed ? knowledge.context(caller, typed) : null,
+      !fastGreeting && founder && typed && !only ? founder.context(caller, typed, PLATFORM_TENANT_ID) : null,
+      !fastGreeting && productKnowledge && typed && !only ? productKnowledge.context(caller, typed, PLATFORM_TENANT_ID) : null,
+      !fastGreeting && memory && typed && !only ? memory.context(caller, typed) : null,
+      !fastGreeting && library && typed && !only ? library.context(caller, typed, { projectId: project ? project.id : null }) : null,
+      !fastGreeting && typed && !only ? conversations.context(caller, typed, conv.id) : null
     ]);
     if (only && knowledge && !known) {
       // A follow-up ("and the price?") is looked up with the person's previous
@@ -452,12 +455,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       history[history.length - 1] = { role: last.role, content: last.content + extra.join('') };
     }
 
-    // Plain greetings are deterministic: avoid routing and provider latency for a one-word hello.
-    // Keep this after message persistence, history loading, policy refusals, and context checks.
-    if (smart && caller.tenantId === PLATFORM_TENANT_ID && SMALL_TALK.test(typed.trim())
-      && typed.trim().length <= 40 && !files.length && !only && !voice && !pro
-      && !extra.length && !codeFile && !regenerate && editId === null
-      && body.project_id === undefined && !body.professional) {
+    // Plain greetings are deterministic and bypass slow project/context lookups.
+    if (fastGreeting && !extra.length && !codeFile) {
       const greeting = /^(thanks?|thank|ty|salamat|daghang)/i.test(typed.trim())
         ? 'You’re welcome! What can I help you with next?'
         : /^(ok(ay)?|cool|great|nice)/i.test(typed.trim())
