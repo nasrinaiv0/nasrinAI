@@ -346,9 +346,9 @@ test('coding tiers pin Max to GPT-6 Sol and Ultra to GPT-6.1 Sol', async () => {
     CODING_ULTRA_MODEL: 'openrouter:openai/gpt-6.1-sol',
     CODING_ULTRA_DEEP_MODEL: 'openrouter:openai/gpt-6.1-sol'
   });
-  assert.equal(cfg.ai.coding.max.model, 'openai/gpt-6-sol');
-  assert.equal(cfg.ai.coding.ultra.model, 'openai/gpt-6.1-sol');
-  assert.equal(cfg.ai.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.routing.coding.max.model, 'openai/gpt-6-sol');
+  assert.equal(cfg.ai.routing.coding.ultra.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.routing.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
 });
 
 
