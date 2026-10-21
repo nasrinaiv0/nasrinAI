@@ -19,7 +19,7 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
+export function createPolicy({ config, provider, prices, budget, logger, refreshOpenRouterPrices = async () => {}, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
   const r = config.ai.routing;
   const cache = new Map();   // key -> { at, value }
 
@@ -99,6 +99,9 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     // `onFailure(entry)` is told about each attempt that did not produce the
     // answer (for usage records). Resolves { result, spec, level, escalated, costUsd }.
     async run(plan, req, { onFailure = async () => {}, reserveTokens = null, settleTokens = null, caller = null } = {}) {
+      // Refresh exact OpenRouter prices before selecting a route. The callback
+      // fails closed by clearing stale OpenRouter prices if the live catalog is unavailable.
+      await refreshOpenRouterPrices();
       // `minTokens`: a request for a file or long document may use more reply tokens than its level allows.
       const { minTokens = 0, maxTokens: requestedMaxTokens = null, excludeModels = [], ...modelReq } = req;
       const excluded = new Set(Array.isArray(excludeModels) ? excludeModels.map((x) => String(x)) : []);
