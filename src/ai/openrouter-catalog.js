@@ -22,21 +22,41 @@ export const OPENROUTER_SKILL_CATALOG = Object.freeze([
   { name: 'Google Vertex Global', id: 'google-vertex/global', status: 'operator_supplied_unverified', skills: ['general_generation'], preferredTasks: ['chat','planning'] }
 ]);
 
-const byId = new Map(OPENROUTER_SKILL_CATALOG.filter((m) => m.id && m.status === 'verified').map((m) => [m.id, m]));
+const byId = new Map(OPENROUTER_SKILL_CATALOG
+  .filter((model) => model.id && model.status === 'verified')
+  .map((model) => [model.id, model]));
+
+// The deterministic classifier uses product-facing task names, while model
+// metadata may use narrower capability labels. Aliases only affect ordering;
+// they never add a model, bypass allowlists, or change authorization.
+const TASK_ALIASES = Object.freeze({
+  decision: ['decision', 'decisions', 'analysis'],
+  planning: ['planning', 'analysis'],
+  data_analysis: ['data_analysis', 'analysis', 'research'],
+  design: ['design', 'analysis'],
+  creative: ['creative', 'design', 'chat'],
+  writing: ['writing', 'chat'],
+  translate: ['translate', 'writing', 'chat'],
+  debugging: ['debugging', 'coding'],
+  extraction: ['extraction', 'research', 'analysis']
+});
+
 export function prioritizeOpenRouterCandidates(task, candidates) {
+  const taskNames = TASK_ALIASES[task] || [task];
   const positions = [];
   const ranked = [];
   candidates.forEach((candidate, index) => {
     if (candidate.provider !== 'openrouter') return;
     const item = byId.get(candidate.model);
-    const rank = item ? item.preferredTasks.indexOf(task) : -1;
-    if (rank >= 0) {
+    if (!item) return;
+    const ranks = taskNames.map((name) => item.preferredTasks.indexOf(name)).filter((rank) => rank >= 0);
+    if (ranks.length) {
       positions.push(index);
-      ranked.push({ candidate, rank, index });
+      ranked.push({ candidate, rank: Math.min(...ranks), index });
     }
   });
   ranked.sort((a, b) => a.rank - b.rank || a.index - b.index);
   const output = [...candidates];
-  positions.forEach((position, i) => { output[position] = ranked[i].candidate; });
+  positions.forEach((position, index) => { output[position] = ranked[index].candidate; });
   return output;
 }
