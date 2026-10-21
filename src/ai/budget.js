@@ -158,6 +158,20 @@ export function createProviderSpendHooks({ budget, config, prices, caller, tier 
     async reserve({ provider, model, request }) {
       if (provider === 'fake' && !config.isProduction) return null;
       const price = priceOf(prices, provider, model, { freeTier: provider === 'gemini' && config.ai.routing.geminiFreeTier });
+      if (provider === 'openrouter') {
+        // OpenRouter's catalog publishes model prices and its response returns
+        // the authoritative billed usage.cost. Reserve a ceiling first so
+        // missing local model-price entries never block an otherwise valid call.
+        const balance = await budget.remaining();
+        const configuredCap = maxRequestUsd ?? budget.maxRequestUsd;
+        const cap = Number.isFinite(configuredCap) ? configuredCap : balance.usd;
+        const amountUsd = Math.min(cap, balance.usd);
+        if (balance.unknown || !Number.isFinite(amountUsd) || amountUsd < 0.000001) {
+          throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
+        }
+        const reservation = await budget.reserveSpend({ caller, amountUsd, maxRequestUsd });
+        return { ...reservation, provider, model, price: null, openRouter: true };
+      }
       if (!price) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot safely price this model call, so it was blocked.', { retryAfter: 600 });
       const inputTokens = estimateInput(request);
       const outputTokens = Math.max(1, Math.round(Number(request.maxTokens) || config.ai.maxReplyTokens));
@@ -179,7 +193,10 @@ export function createProviderSpendHooks({ budget, config, prices, caller, tier 
       const estimatedActual = hasUsage
         ? costOf(reservation.price, { inputTokens: result.inputTokens, cachedTokens: result.cachedTokens || 0, outputTokens: result.outputTokens })
         : null;
-      const actualUsd = Number.isFinite(estimatedActual) ? estimatedActual : reservation.reservedUsd;
+      const providerReportedCost = reservation.openRouter && Number.isFinite(result?.actualCostUsd)
+        && result.actualCostUsd >= 0 && result.actualCostUsd <= 100000
+        ? result.actualCostUsd : null;
+      const actualUsd = providerReportedCost ?? (Number.isFinite(estimatedActual) ? estimatedActual : reservation.reservedUsd);
       const costUsd = await budget.settleSpend(reservation, actualUsd);
       return { costUsd, spendReservationId: reservation.id };
     },
