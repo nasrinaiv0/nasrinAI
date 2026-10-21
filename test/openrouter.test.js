@@ -207,7 +207,7 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   let seen;
   const client = {
     listModels: async () => [{ id: 'vendor/model', architecture: { output_modalities: ['text'] } }],
-    chat: async (args) => { seen = args; return { model: 'vendor/model', choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 3, completion_tokens: 2 } }; }
+    chat: async (args) => { seen = args; return { model: 'vendor/model', choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 3, completion_tokens: 2, cost: 0.0123 } }; }
   };
   const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'vendor/model', client });
   assert.equal(provider.capabilities().dataLeavesServer, true);
@@ -215,6 +215,8 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   const result = await provider.generate({ system: 'S', messages: [{ role: 'user', content: 'inspect code' }], model: 'vendor/model', task: 'coding', maxTokens: 32 });
   assert.equal(result.text, 'ok');
   assert.equal(result.inputTokens, 3);
+  assert.equal(result.actualCostUsd, 0.0123);
+  assert.equal(seen.includeUsage, true);
   assert.equal(seen.task, 'coding');
   assert.equal(seen.model, 'vendor/model');
   assert.equal(seen.provider.data_collection, 'deny');
