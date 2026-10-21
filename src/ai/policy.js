@@ -19,7 +19,7 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
+export function createPolicy({ config, provider, prices, budget, logger, refreshOpenRouterPrices = async () => {}, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
   const r = config.ai.routing;
   const cache = new Map();   // key -> { at, value }
 
@@ -27,7 +27,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
   const priceFor = (spec) => {
     // Only exact model IDs explicitly allowlisted in the environment are treated as free.
     // A provider can offer both free and paid models; never infer zero cost from provider name.
-    if ((r.freeModels?.[spec.provider] || []).includes(spec.model)) return { input: 0, cachedInput: 0, output: 0, free: true };
+    if (spec.provider !== 'openrouter' && (r.freeModels?.[spec.provider] || []).includes(spec.model)) return { input: 0, cachedInput: 0, output: 0, free: true };
     return priceOf(prices, spec.provider, spec.model, { freeTier: spec.provider === 'gemini' && r.geminiFreeTier });
   };
 
@@ -99,6 +99,9 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     // `onFailure(entry)` is told about each attempt that did not produce the
     // answer (for usage records). Resolves { result, spec, level, escalated, costUsd }.
     async run(plan, req, { onFailure = async () => {}, reserveTokens = null, settleTokens = null, caller = null } = {}) {
+      // Refresh exact OpenRouter prices before selecting a route. The callback
+      // fails closed by clearing stale OpenRouter prices if the live catalog is unavailable.
+      await refreshOpenRouterPrices();
       // `minTokens`: a request for a file or long document may use more reply tokens than its level allows.
       const { minTokens = 0, maxTokens: requestedMaxTokens = null, excludeModels = [], ...modelReq } = req;
       const excluded = new Set(Array.isArray(excludeModels) ? excludeModels.map((x) => String(x)) : []);
@@ -110,6 +113,9 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         // payload is not ordinary text; reserve a conservative allowance per file.
         + attachments.reduce((n, a) => n + (a.kind === 'image' ? 8192 : a.kind === 'pdf' ? 16000 : 4000), 0);
       const spendHooks = createProviderSpendHooks({ budget, config, prices, caller, tier: plan.tier });
+      // Let the provider router preflight internal failover models against the same
+      // exact pricing rules used by the budget reservation hook.
+      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => Boolean(priceFor({ provider: providerId, model: modelId }));
       let left = await budget.remaining();
       // If spend cannot be read, stay on the cheapest level.
       let level = left.unknown ? plan.floor : plan.level;

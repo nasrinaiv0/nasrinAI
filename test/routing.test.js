@@ -5,7 +5,7 @@ import { answerWithLogic } from '../src/ai/logic.js';
 import { createPolicy } from '../src/ai/policy.js';
 import { createRouter } from '../src/ai/router.js';
 import { createBudget } from '../src/ai/budget.js';
-import { loadPrices, priceOf, costOf } from '../src/ai/pricing.js';
+import { loadPrices, priceOf, costOf, replaceOpenRouterPrices } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { ProviderError } from '../src/ai/provider.js';
@@ -291,4 +291,28 @@ test('pricing resolves provider-qualified model IDs without guessing unknown pri
   assert.equal(priceOf(prices, 'openrouter', 'openai/gpt-6-luna').input, 0.1);
   assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/gpt-6-luna').input, 0.1);
   assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/not-a-real-model'), null);
+});
+
+
+test('OpenRouter pricing is replaced by exact live catalog prices and unpriced models are excluded', () => {
+  const prices = loadPrices();
+  const models = [
+    { id: 'vendor/model-a', pricing: { prompt: '0.000002', completion: '0.000006', input_cache_read: '0.0000005' } },
+    { id: 'vendor/free-model', pricing: { prompt: '0', completion: '0' } },
+    { id: 'vendor/missing-output', pricing: { prompt: '0.000001' } },
+    { id: 'vendor/invalid-price', pricing: { prompt: 'not-a-price', completion: '0.000001' } },
+    { id: 'vendor/empty-price', pricing: { prompt: '', completion: '0.000001' } },
+    { id: 'invalid-id', pricing: { prompt: '0', completion: '0' } }
+  ];
+  const result = replaceOpenRouterPrices(prices, models);
+  assert.equal(result.verified, 2);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/model-a').input, 2);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/model-a').output, 6);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/model-a').cachedInput, 0.5);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/free-model').input, 0);
+  assert.equal(priceOf(prices, 'openrouter', 'deepseek/deepseek-v4.1-flash'), null,
+    'static prices must not survive replacement by the live catalog');
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/missing-output'), null);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/invalid-price'), null);
+  assert.equal(priceOf(prices, 'openrouter', 'vendor/empty-price'), null, 'an empty string must not be interpreted as a zero-cost model');
 });

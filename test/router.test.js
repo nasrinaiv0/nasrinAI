@@ -119,3 +119,24 @@ test('provider failover: continues to the next free provider when a fallback is 
   assert.equal(gemini.calls.length, 1, 'the rate-limited fallback is attempted once');
   assert.equal(groq.calls.length, 1, 'router continues to the next eligible provider');
 });
+
+
+test('provider failover: skips a fallback whose exact model has no verified price', async () => {
+  const local = own({ fail: 'unavailable' });
+  const openai = gpt();
+  const r = createRouter({ providers: { local, openai }, config: loadConfig(AUTO), logger: quiet });
+  const spendHooks = {
+    canPrice(provider, model) {
+      return provider === 'local' && model === 'llama3.1:8b';
+    },
+    // The router reserves spend for the primary attempt before checking failover.
+    reserve: async () => null,
+    settle: async () => ({})
+  };
+  await assert.rejects(
+    ask(r, { provider: 'local', model: 'llama3.1:8b' }, { spendHooks }),
+    (error) => error instanceof ProviderError && error.provider === 'local'
+  );
+  assert.equal(local.calls.length, 1);
+  assert.equal(openai.calls.length, 0, 'an unpriced fallback must never reach a provider');
+});
