@@ -1,3 +1,10 @@
+## PR #519 — Fast greetings and ordinary keyword submission (2026-10-22)
+
+- Return plain NasrinAI greetings through a deterministic local response before model routing and expensive conversation-context lookups.
+- Keep bare terms such as `youtube`, `MrBeast`, and `mr beast` in ordinary chat; explicit requests to search for or watch videos still use YouTube discovery.
+- Add regression tests for provider-free greeting responses and bare-keyword routing.
+- **Validation:** CI running; confirm the full test suite and preview smoke test before merge/deployment.
+
 ## PR #504 — Fix provider-qualified model pricing (2026-10-21)
 
 - Normalize an exact provider prefix before resolving a selected model against the existing price registry, fixing known priced models being treated as unknown when the router passes a qualified model ID.
