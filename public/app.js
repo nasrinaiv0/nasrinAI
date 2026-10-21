@@ -4076,9 +4076,16 @@ busy = false; refreshSendButton(); }
 
   function youtubeQueryForReply(userQuery, assistantText) {
     const query = String(userQuery || '').trim();
+    const reply = String(assistantText || '').trim();
+    // A vague request for the embed should reuse the video the assistant just
+    // mentioned, not search YouTube for the literal phrase "embedded videos".
+    const vagueEmbedRequest = /^(?:embedded videos?|embed(?:ded)?(?: it| them| the videos?| player)?|play(?: it| them| the video)?|show(?: me)? the (?:embedded )?video player)[.!\s]*$/i.test(query);
+    if (vagueEmbedRequest && needsYouTubeVideos(reply)) {
+      const title = reply.match(/(?:watch|video)\s+["“]([^"”]{3,200})["”]\s+(?:on YouTube|video)/i);
+      return title ? title[1].trim() : reply.slice(0, 600);
+    }
     if (needsYouTubeVideos(query)) return query;
     const affirmative = /^(?:yes|yeah|yep|yup|sure|please(?: do)?|go ahead|sounds good|that would be great|of course|okay|ok|search|find them|show me)(?:[,.! ]+(?:please|do|it|them|the videos|the latest videos))*[.!\s]*$/i.test(query);
-    const reply = String(assistantText || '').trim();
     if (affirmative && needsYouTubeVideos(reply)) return reply.slice(0, 600);
     return '';
   }
@@ -4191,7 +4198,9 @@ busy = false; refreshSendButton(); }
     // Requests that explicitly ask for interpretation still need the normal AI answer.
     if (/\b(?:explain|summari[sz]e|analy[sz]e|review|compare|breakdown|tell me about)\b/i.test(q)) return false;
     if (/\b(?:create|generate|make|render|produce|animate)\b.{0,50}\b(?:a |an |the )?(?:video|clip|movie)\b/i.test(q)) return false;
-    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search for|look for|watch|youtube|yt|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
+    // Bare terms such as "youtube" are ordinary messages, not a reason to
+    // divert submission into a specialized flow that can fail silently.
+    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search(?:\s+for)?|look for|watch|embedded videos?|embed(?:ded)? (?:videos?|player)|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
   }
 
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
@@ -4211,12 +4220,30 @@ busy = false; refreshSendButton(); }
           videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
         }
       } catch {
-        // Fall back to researched YouTube links when live search is unavailable.
+        // Fall back to a validated, direct YouTube source link below.
       }
-      // Never turn arbitrary assistant citations into embedded videos. Only
-      // render results returned by the server-side YouTube Data API after its
-      // embeddability and regional-availability checks. If verification fails,
-      // show no video card rather than a broken/random player.
+      // If server-side search is unavailable or has no verified results, a
+      // cited direct YouTube URL may still be embedded. Only accept official
+      // YouTube hosts and an exact 11-character video ID; never embed arbitrary URLs.
+      if (!videos.length && Array.isArray(sourceLinks)) {
+        videos = sourceLinks.slice(0, 8).flatMap((source) => {
+          const raw = typeof source === 'string' ? source : source?.url || source?.href || '';
+          let url;
+          try { url = new URL(raw); } catch { return []; }
+          if (!['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtube-nocookie.com'].includes(url.hostname.toLowerCase())) return [];
+          const id = url.hostname.toLowerCase() === 'youtu.be'
+            ? url.pathname.split('/').filter(Boolean)[0]
+            : (url.searchParams.get('v') || url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})(?:\/|$)/)?.[1] || '');
+          if (!/^[A-Za-z0-9_-]{11}$/.test(String(id || ''))) return [];
+          return [{
+            id,
+            title: String((typeof source === 'object' && source.title) || 'YouTube video').slice(0, 240),
+            channelTitle: 'YouTube',
+            watchUrl: 'https://www.youtube.com/watch?v=' + id,
+            embedUrl: 'https://www.youtube-nocookie.com/embed/' + id
+          }];
+        });
+      }
       if (!videos.length || message.querySelector('.youtube-results')) return false;
       const section = document.createElement('section');
       section.className = 'youtube-results';
