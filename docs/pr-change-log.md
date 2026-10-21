@@ -1580,3 +1580,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Preserve YouTube/video intent for affirmative follow-ups such as "Yes" when the generated answer contains the requested YouTube/video context, so inline video results are attached to the relevant reply rather than searching for the literal confirmation.
 - Add regression tests for affirmative follow-up context and composer send behavior.
 - Continue to render only server-verified, embeddable YouTube results in the inline player; direct YouTube search remains a fallback when no eligible embedded results are available.
+
+
+## PR — Resolve reply-panel styling conflict and animate “Sources” letter-by-letter (2026-10-21)
+
+- Rebased the intended reply-panel glass tuning on the current `main` contents to avoid carrying stale conflicting CSS.
+- Keep the requested 5px backdrop blur and 50% saturation, preserving the existing glass opacity, border, spacing, and theme-aware labels.
+- Animate the “Sources” word in a left-to-right wave, one character at a time, after the source badges; respect reduced-motion preferences.
+- Add regression coverage for each letter delay and the final backdrop filter.

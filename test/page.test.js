@@ -304,7 +304,8 @@ test('the Sources button shows overlapping site badges and the word Sources (own
   assert.ok(toggle.includes("b.setAttribute('aria-label', `Show sources and resources (${links.length})`);"));
   assert.ok(toggle.includes("b.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} sources and resources (${links.length})`);"));
   assert.ok(toggle.includes('const hosts = [...new Set(links.map((l) => l.host))].slice(0, 3);'));
-  assert.ok(toggle.includes("b.append(faces, mk('span', 'src-word', 'Sources'));") );
+  assert.ok(toggle.includes("word.className = 'src-word';"));
+  assert.ok(toggle.includes("character.className = 'src-letter';"));
   assert.ok(!toggle.includes('<img') && !toggle.includes('.src = ')); // no outside images (strict CSP, no third-party requests)
   assert.ok(css.includes('.src-face + .src-face { margin-left: -0.38rem; }'));
 });
@@ -455,7 +456,7 @@ test('sources animate left-to-right and respect reduced-motion preferences', asy
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /classList\.add\('source-wave'\)/);
   assert.match(css, /\.sources-toggle\.source-wave \.src-face:nth-child\(1\)/);
-  assert.match(css, /\.sources-toggle\.source-wave \.src-word \{ animation-delay:225ms/);
+  assert.ok(css.includes('.sources-toggle.source-wave .src-word .src-letter:nth-child(1) { animation-delay:225ms;'));
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
 
@@ -508,4 +509,22 @@ test('final reply details styling uses subtle glass, gray labels, and 20px horiz
   assert.match(finalTuning, /\.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #9a9da3 !important/);
   assert.match(finalTuning, /\.light \.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #858991 !important/);
   assert.match(finalTuning, /font-weight: 400 !important/);
+});
+
+
+test('Sources label waves one letter at a time from S through s', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /character\.className = 'src-letter'/);
+  for (const [letterIndex, delay] of [[1,225],[2,270],[3,315],[4,360],[5,405],[6,450],[7,495]]) {
+    assert.ok(css.includes(`.sources-toggle.source-wave .src-word .src-letter:nth-child(${letterIndex}) { animation-delay:${delay}ms;`));
+  }
+  assert.match(css, /prefers-reduced-motion:reduce/);
+});
+
+test('reply details panel uses the requested 5px blur and 50% saturation', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const finalTuning = css.slice(css.lastIndexOf('/* Final requested glass tuning:'));
+  assert.match(finalTuning, /-webkit-backdrop-filter: blur\(5px\) saturate\(50%\) !important/);
+  assert.match(finalTuning, /backdrop-filter: blur\(5px\) saturate\(50%\) !important/);
 });
