@@ -350,7 +350,14 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
       const state = String(result?.status || result?.data?.status || '').toLowerCase();
       const failed = ['failed', 'error', 'cancelled', 'canceled', 'expired'].includes(state);
       const done = ['completed', 'complete', 'succeeded', 'success', 'ready'].includes(state);
-      return { done, failed, uri: done ? (result?.id || result?.job_id || result?.data?.id) : null, error: failed ? String(result?.error?.message || result?.message || 'Video generation failed').slice(0, 240) : null };
+      const rawCost = result?.usage?.cost ?? result?.data?.usage?.cost;
+      const actualCostUsd = rawCost !== undefined && rawCost !== null && Number.isFinite(Number(rawCost)) && Number(rawCost) >= 0 && Number(rawCost) <= 100000
+        ? Number(rawCost) : null;
+      return {
+        done, failed, uri: done ? (result?.id || result?.job_id || result?.data?.id) : null,
+        actualCostUsd,
+        error: failed ? String(result?.error?.message || result?.message || 'Video generation failed').slice(0, 240) : null
+      };
     },
     async download(id) { return client.videoContent(id); },
     async extend() { throw new ProviderError('config', 'OpenRouter video extension is not supported; request a single clip within the model duration limit'); }
