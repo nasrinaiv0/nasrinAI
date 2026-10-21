@@ -271,3 +271,11 @@ The price catalog records conservative cache pricing as input rates for generic 
 - Model price snapshots are estimates for budget control, not a billing guarantee. Endpoint/provider choice can change cached-input rates and availability.
 - Environment variables are documented in `.env.example`; no secret values are stored in source control.
 - Status: config/test wiring exists and tests cover model/provider selection. Live API smoke tests and measured cost/quality checks remain release gates. Keep production enablement off until those pass.
+
+
+## Premium coding and TTS routing update (2026-10-21)
+
+- Max coding uses `openrouter:openai/gpt-6-sol`; Ultra coding and Ultra deep coding use `openrouter:openai/gpt-6.1-sol`. Both have listed standard rates of $2/M input and $10/M output. The config restricts each tier to its assigned model and requires `OPENROUTER_API_KEY`; when OpenRouter is not configured, existing approved Anthropic fallback behavior remains.
+- OpenRouter TTS uses `google/gemini-3.8-flash-lite-tts`, with $0.50/M text input and $6/M audio output, configured through `SPEECH_PROVIDER=openrouter`, `OPENROUTER_TTS_MODEL`, and `OPENROUTER_TTS_PROVIDER`.
+- Provider-routing correction: the current OpenRouter model/provider listing identifies **Google AI Studio**, not Google Vertex, as the available provider for this TTS model. The default and `.env.example` use `Google AI Studio` to avoid pinning requests to an unsupported provider. Do not change to Google Vertex unless OpenRouter's live provider catalog confirms that exact provider for this model. Sources: https://openrouter.ai/openai/gpt-6-sol/ ; https://openrouter.ai/openai/gpt-6.1-sol ; https://openrouter.ai/google/gemini-3.8-flash-lite-tts/providers .
+- TTS currently uses the existing OpenRouter `/audio/speech` adapter, pins the model and provider, restricts voice IDs, and uses the existing voice usage/budget accounting. Live synthesis remains unverified without a configured OpenRouter key; do not claim provider reachability until a Preview smoke test succeeds.
