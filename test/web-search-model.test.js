@@ -20,7 +20,7 @@ test('an unpriced WEB_SEARCH_MODEL falls back with a warning; empty turns search
   assert.match(cfg.warnings.join(' '), /WEB_SEARCH_MODEL: gpt-6-luna has no price/);
   assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: 'gpt-5.4' }).web.searchModel, 'gpt-5.4');
   assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: '' }).web.searchModel, '');
-  assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: 'gpt-6-luna', MODEL_PRICES_JSON: '{"openai":{"gpt-6-luna":{"input":0.1,"output":0.5}}}' }).web.searchModel, 'gpt-6-luna');
+  assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: 'gpt-6-luna', MODEL_PRICES_JSON: '{"openai":{"gpt-6-luna":{"input":0.1,"output":0.5}}}' }).web.searchModel, 'gpt-5.4-mini', 'the removed environment override cannot change local model prices');
 });
 
 test('news questions search; questions about browsing itself do not', () => {
