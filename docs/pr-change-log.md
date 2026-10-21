@@ -1500,3 +1500,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep only one details panel open; opening another closes the previous one.
 - Dismiss on outside touch/click, typing, Escape, or mobile scrolling; on desktop, reposition the panel to follow its trigger while scrolling and close it when its trigger leaves the viewport.
 - Swap the reply-details three-dot control with the Save-to-Library/bookmark action when that action is available.
+
+
+## YouTube test correction and interaction token/multimodal utilities (2026-10-21)
+
+- Fixed the PR #501 regression test: it expected the standard YouTube iframe host while the implementation correctly uses YouTube's privacy-enhanced host.
+- Added `tokenizeText`, which lowercases text, separates punctuation/symbols, and returns tokens with a count.
+- Added `prepareImageForMultimodal` to validate supported raster image files and return MIME type, base64, and a data URL with a 20 MiB default size limit.
+- Chat response metadata now prefers actual provider input/output usage. When provider usage is missing, it reports a clearly marked word-based estimate; the reply-details panel distinguishes estimates with an approximation symbol and label.
+- Added regression tests for tokenizer behavior and image preparation. Estimates are not model-specific token counts and must not be presented as authoritative billing usage.
