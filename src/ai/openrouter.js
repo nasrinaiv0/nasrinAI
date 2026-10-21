@@ -219,8 +219,8 @@ export function createOpenRouterClient({
     const rates = skus.filter((sku) => {
       const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || '').toLowerCase();
       const labels = [unit, sku?.resolution, sku?.audio, sku?.input_type, sku?.modality, sku?.description].filter(Boolean).join(' ').toLowerCase();
-      if (!/second|\\/sec\\b|per_sec/.test(unit)) return false;
-      if (resolution && /\\b(480p|720p|1080p|4k)\\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return false;
+      if (!/second|\/sec\b|per_sec/.test(unit)) return false;
+      if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return false;
       if (typeof sku?.with_audio === 'boolean' && sku.with_audio !== generateAudio) return false;
       if (typeof sku?.with_video_input === 'boolean' && sku.with_video_input !== hasVideoInput) return false;
       return true;
