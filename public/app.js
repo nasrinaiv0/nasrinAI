@@ -2950,11 +2950,11 @@
     const defaultResolution = videoTier === 'pro' ? '480p' : '720p';
     // Keep the client choices aligned with server-enforced base entitlements.
     // 4K remains hidden until a verified account-level add-on entitlement exists.
-    const resolutionChoices = videoTier === 'pro' ? '360p or 480p' : '360p, 480p, 720p, or 1080p';
+    const resolutionChoices = videoTier === 'pro' ? '360p or 480p' : '360p, 480p, 720p, 1080p, or 4k';
     const resolutionInput = window.prompt('Video resolution (default ' + defaultResolution + '). Available base options: ' + resolutionChoices + '.', defaultResolution);
     if (resolutionInput === null) return;
     const resolution = String(resolutionInput || defaultResolution).trim().toLowerCase();
-    const allowedChoices = videoTier === 'pro' ? ['360p', '480p'] : ['360p', '480p', '720p', '1080p'];
+    const allowedChoices = videoTier === 'pro' ? ['360p', '480p'] : ['360p', '480p', '720p', '1080p', '4k'];
     if (!allowedChoices.includes(resolution)) {
       show('problem', 'Choose a resolution available on your selected plan: ' + resolutionChoices + '.');
       return;
