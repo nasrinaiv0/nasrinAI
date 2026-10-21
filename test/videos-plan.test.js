@@ -5,7 +5,7 @@ import { createBudget } from '../src/ai/budget.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { testConfig } from './helpers.js';
 
-function service(plan, open = false) {
+function service(plan, open = false, maxSeconds = null) {
   const created = [];
   const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10' });
   const store = createMemoryStore();
@@ -23,7 +23,7 @@ function service(plan, open = false) {
   const videos = createVideos({
     store,
     plans: { async current() { return { plan, open }; } },
-    provider: { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', async create() { return { operation: 'fake-op' }; } },
+    provider: { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
     limiter: { async signIn() {} },
     budget,
     config,
@@ -101,4 +101,13 @@ test('video creation accepts only a caller-owned conversation', async () => {
     );
   }
   assert.equal(created.length, 1, 'foreign, malformed, and missing conversations never create a video job');
+});
+
+
+test('video creation defaults to the configured provider clip limit when duration is omitted', async () => {
+  const { videos, created } = service('max', false, 8);
+  const result = await videos.create(caller, body);
+  assert.equal(result.status, 'in_progress');
+  assert.equal(result.target_seconds, 8);
+  assert.equal(created[0].targetSeconds, 8);
 });
