@@ -39,6 +39,19 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
+    let perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
+    if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
+      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio }); }
+      catch (err) {
+        logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
+        perSecond = null;
+      }
+    }
+    if (!budget || perSecond === null) {
+      throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because a safe spending estimate is not configured for this model and resolution.');
+    }
+    // Resolve the actual catalog-selected model before cache lookup so a
+    // model change cannot collide with an "unknown model" cache entry.
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
       provider: routeProvider.id, model: routeProvider.model || 'unknown',
@@ -55,17 +68,6 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         logger.info('marketing video cache hit', { id: existing.id, targetSeconds, provider: routeProvider.id });
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
-    }
-    let perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
-    if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
-      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio }); }
-      catch (err) {
-        logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
-        perSecond = null;
-      }
-    }
-    if (!budget || perSecond === null) {
-      throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because a safe spending estimate is not configured for this model and resolution.');
     }
     // Provider generation is chunked (8 seconds initially, then 7-second
     // extensions), so its billable duration can exceed the requested clip.
