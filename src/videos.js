@@ -33,7 +33,9 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       if (!owns(caller, conversation)) throw notFound();
     }
     const prompt = safePrompt(b.prompt);
-    const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, Number(b.seconds) || MAX_SECONDS));
+    const requestedSeconds = Number(b.seconds);
+    const defaultSeconds = routeProvider.maxSeconds || MAX_SECONDS;
+    const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, Number.isFinite(requestedSeconds) && requestedSeconds > 0 ? requestedSeconds : defaultSeconds));
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
@@ -54,7 +56,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     let perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
     if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
-      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true }); }
+      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio }); }
       catch (err) {
         logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
         perSecond = null;
