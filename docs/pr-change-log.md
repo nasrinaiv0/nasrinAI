@@ -1596,3 +1596,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Show a connecting/thinking state, disable duplicate submissions while a request is active, and restore controls after success or failure.
 - Preserve the submitted message in the input after a failure so the user can retry without retyping.
 - Validation: GitHub CI is running; live widget/deployment smoke test remains pending.
+
+
+## PR #515 — Premium themes and Galaxy solar welcome scene (2026-10-21)
+
+- Expand the theme picker with Rose Quartz, Ocean, Forest, Sunset, and Midnight while preserving the existing Mono, Orange, Charcoal, and Galaxy palette keys and local theme persistence.
+- Refine palette-specific light, dark, and system-dark tokens; keep Orange's page background neutral with pastel-orange actions and give Galaxy a subtle celestial background.
+- Add a Galaxy-only welcome animation with floating planets and a delayed sun reveal; trigger Nasrin's concerned expression during the scene, then clean up when leaving the welcome state or changing themes.
+- Respect reduced-motion preferences and keep the animation out of active chats; add regression tests for palette tokens, persistence, welcome-state isolation, and animation hooks.
+- **Validation:** GitHub CI passed for the current PR head. The Documentation Gate failed because this changelog file was not included in the PR diff; this entry addresses that gate condition. Vercel preview status is successful. Recheck the Documentation Gate after this commit; browser/iPhone visual verification remains pending.
