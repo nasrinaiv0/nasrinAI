@@ -55,6 +55,8 @@ test('video discovery queries route directly to YouTube instead of generating a 
     'create a video about MrBeast',
     'generate a video intro',
     'make a video of a cat',
-    'explain how video compression works'
+    'explain how video compression works',
+    'show me the latest MrBeast video and summarize it',
+    'find a video and explain what happens'
   ]) assert.equal(isYouTubeSearchRequest(query), false, query);
 });
