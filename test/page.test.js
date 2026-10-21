@@ -455,7 +455,7 @@ test('sources animate left-to-right and respect reduced-motion preferences', asy
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /classList\.add\('source-wave'\)/);
   assert.match(css, /\.sources-toggle\.source-wave \.src-face:nth-child\(1\)/);
-  assert.match(css, /\.sources-toggle\.source-wave \.src-word \.src-letter:nth-child\(1\) \\{ animation-delay:225ms/);
+  assert.ok(css.includes('.sources-toggle.source-wave .src-word .src-letter:nth-child(1) { animation-delay:225ms;'));
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
 
@@ -516,7 +516,7 @@ test('Sources label waves one letter at a time from S through s', async () => {
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   assert.match(js, /character\.className = 'src-letter'/);
   for (const [letterIndex, delay] of [[1,225],[2,270],[3,315],[4,360],[5,405],[6,450],[7,495]]) {
-    assert.match(css, new RegExp(String.raw`\\.src-word \\.src-letter:nth-child\\(\${letterIndex}\\) \\{ animation-delay:\${delay}ms`));
+    assert.ok(css.includes(`.sources-toggle.source-wave .src-word .src-letter:nth-child(${letterIndex}) { animation-delay:${delay}ms;`));
   }
   assert.match(css, /prefers-reduced-motion:reduce/);
 });
