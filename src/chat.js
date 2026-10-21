@@ -338,7 +338,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (webAnswers && webSources.length && reply) {
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
       }
-      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
+      const responseTimestamp = new Date(now()).toISOString();
+      const responseUsage = opts.responseUsage && Number.isFinite(opts.responseUsage.inputTokens) && Number.isFinite(opts.responseUsage.outputTokens)
+        ? { input_tokens: Math.max(0, Math.round(opts.responseUsage.inputTokens)), output_tokens: Math.max(0, Math.round(opts.responseUsage.outputTokens)) }
+        : null;
+      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, usage: responseUsage }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
     // Requests for private system details are refused in code, before any model call.
