@@ -433,3 +433,31 @@ test('transcript text is joined with real blank lines, not the characters backsl
   assert.match(app, /transcripts\.filter\(Boolean\)\.join\('\\n\\n'\)/);
   assert.match(app, /existing \+ '\\n\\n' \+ transcript/);
 });
+
+
+test('reply details panel gets an explicit visible viewport position on mobile and waves the three dots', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const start = js.indexOf("const positionPanel = () => {");
+  const end = js.indexOf("details.addEventListener('click'", start);
+  assert.ok(start >= 0 && end > start);
+  const positioner = js.slice(start, end);
+  assert.doesNotMatch(positioner, /window\.innerWidth\s*<=\s*600\)\s*return/);
+  assert.match(positioner, /panel\.style\.position = 'fixed'/);
+  assert.match(positioner, /panel\.style\.left = left \+ 'px'/);
+  assert.match(positioner, /panel\.style\.top =/);
+  const details = js.slice(js.indexOf("details.title = 'Reply details';"), start);
+  assert.match(details, /reply-details-dot/);
+  assert.match(details, /reply-details-wave/);
+});
+
+test('source badge and label animate in a left-to-right wave with reduced-motion support', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const start = js.indexOf('function sourcesToggle(');
+  const end = js.indexOf('function replyActions(', start);
+  const toggle = js.slice(start, end);
+  assert.match(toggle, /classList\.add\('source-wave'\)/);
+  assert.match(css, /\.sources-toggle\.source-wave \.src-face:nth-child\(1\)/);
+  assert.match(css, /\.sources-toggle\.source-wave \.src-word \{ animation-delay: 225ms/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});
