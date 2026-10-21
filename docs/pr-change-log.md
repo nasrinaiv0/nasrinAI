@@ -1,3 +1,10 @@
+## PR #504 — Fix provider-qualified model pricing (2026-10-21)
+
+- Normalize an exact provider prefix before resolving a selected model against the existing price registry, fixing known priced models being treated as unknown when the router passes a qualified model ID.
+- Preserve fail-closed behavior for genuinely unknown model IDs; no unknown model is treated as free.
+- Add regression coverage for qualified/unqualified known model IDs and an unknown model.
+- **Validation:** CI and Preview smoke tests pending; confirm basic chat, stored FAQ/legal answers, current-facts browsing, and spend reservation before merge/deployment.
+
 ## Proposed PR — Compact mobile reply actions and viewport-aware details popover (`fix/actually-compact-reply-popover`)
 
 - Reduce reply details popover width to 248px on mobile with 20px viewport gutters and reduce internal padding.
@@ -247,8 +254,7 @@
 ## Proposed PR — Reliable repository coding (`feature/coding-engine`)
 
 - **Owner request (2026-10-13):** audit the repository read/write capability and turn it into a reliable coding workflow (real files, verified writes, tests, honest status).
-- **Audit:** capability table in `docs/github.md` (verified by tests / unavailable / unverified live).
-- **Change:** exact SEARCH/REPLACE changes to existing files (applied only where the text still matches once, so stale files are never overwritten); unchanged files skipped; saved files read back from the new branch and compared (`verified`); a repeated request returns the open PR; a saved branch without a PR is reported by name; `github_search_code` and `github_pr_status` (PR state, files, CI checks) tools; coding rules: read real code first, send changes not rewrites, report checks only from `github_pr_status`.
+- **Audit:** capability table in `docs/github.md` (verified by tests / unavailable / unverified live).- **Change:** exact SEARCH/REPLACE changes to existing files (applied only where the text still matches once, so stale files are never overwritten); unchanged files skipped; saved files read back from the new branch and compared (`verified`); a repeated request returns the open PR; a saved branch without a PR is reported by name; `github_search_code` and `github_pr_status` (PR state, files, CI checks) tools; coding rules: read real code first, send changes not rewrites, report checks only from `github_pr_status`.
 - **Owner step (optional):** GitHub App permissions → Checks: Read-only, Commit statuses: Read-only (for CI results).
 - **Validation:** `npm test`; headless Chromium.
 
@@ -498,7 +504,6 @@
 - **Safety:** no changes to token limits, database schema, RLS, cache threshold, or unrelated routing. Existing policy still excludes sensitive requests, attachments, extra context, tools, voice, code files, regenerations and detected secrets.
 - **Regression coverage:** run awaited-write and non-fatal-insert-failure tests with `blocks: true`, matching the NasrinAI page request shape.
 - **Validation:** CI must pass `npm test` and `npm run check:secrets`; verify production row counts only after merge and deployment.
-
 ## Proposed PR — Wire the HNSW semantic cache into chat
 
 - **Owner request (2026-10-12):** connect the existing Supabase HNSW semantic cache to the active chat flow without changing unrelated behavior.
@@ -747,7 +752,6 @@ For every future NasrinAI PR:
 - **Regression test:** `test/ios-header-fit.test.js` (fails without the change).
 
 ## Proposed PR — Feature audit (`fix/feature-audit`)
-
 - **Intent:** backlog item 1 of the 2026-10-12 upgrade: record what works and what doesn't on the user side before fixing anything. Adds `docs/feature-audit.md`.
 - **Findings:** F1 header overflows on phones ≤ 390 px in a signed-out chat (page 404 px wide); F2 tap targets under 44 pt; F3 the signed-out Billing page has no way forward. It also maps the owner's GPT-capability list to NasrinAI and sets the iOS design principles and work order.
 - **Validation:** documentation only, no code change. Findings come from a local fake-provider run in headless Chromium (every control clicked, signed out and signed in, at 390 and 1280 px; header measured at 320–768 px). Local `npm test` (439 pass) and `npm run check:secrets` pass. CI and the Vercel preview must pass before merge.
@@ -997,7 +1001,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 
 ## Email sign-in CAPTCHA/upstream error handling
-
 - Preserve a constrained upstream status and error-code category for email OTP rejection so production logs can distinguish a CAPTCHA rejection from other email-send failures.
 - Map upstream errors explicitly mentioning CAPTCHA/Turnstile to a safe security-check message rather than the generic email-delivery message.
 - Logs never include the email address, CAPTCHA token, CAPTCHA secret, raw upstream response, or provider message text.
@@ -1248,7 +1251,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** route code committed; CI, authorization tests, migration execution, and deployment remain pending.
 
 ### Video Studio cloud project controls (2026-10-20)
-
 - **Commit:** `20585ecef98e2f85aabb8ca138e399cf7ab9adaa` — `feat: add cloud project controls to Studio`.
 - Added Save to cloud and Open project controls to the Studio project header.
 - **Validation:** markup committed; mobile layout and end-to-end behavior need tests.
@@ -1497,15 +1499,22 @@ The original test used over-escaped regular expressions. The test is being simpl
 ## Reply details theme and dismissal behavior (2026-10-21)
 
 - Darken the frosted panel and blend it with the active light/dark theme.
-- Keep only one details panel open; opening another closes the previous one.
-- Dismiss on outside touch/click, typing, Escape, or mobile scrolling; on desktop, reposition the panel to follow its trigger while scrolling and close it when its trigger leaves the viewport.
+- Keep only one details panel open; opening another closes the previous one.- Dismiss on outside touch/click, typing, Escape, or mobile scrolling; on desktop, reposition the panel to follow its trigger while scrolling and close it when its trigger leaves the viewport.
 - Swap the reply-details three-dot control with the Save-to-Library/bookmark action when that action is available.
 
+## YouTube-first video discovery routing (2026-10-21)
 
-## YouTube test correction and interaction token/multimodal utilities (2026-10-21)
+- Route clear video-discovery requests (including latest/named creator videos) through the existing server-side YouTube search/embed path before AI model selection, so missing general-model pricing cannot block public video retrieval.
+- Keep video-generation prompts and requests needing explanation/summarization on existing routes; preserve tier-aware fail-closed pricing for actual AI calls.
+- Allow discovery requests even when general AI routing is unavailable, while preserving server-side API keys, session scope, rate limiting, embeddability and regional checks, plus a safe fallback search link.
+- Add regression tests for discovery intent and generation/explanation exclusions.
+- Validation required: focused tests, full `npm test`, and Preview smoke test with configured `YOUTUBE_DATA_API_KEY`; no production deployment until checks pass.
 
-- Fixed the PR #501 regression test: it expected the standard YouTube iframe host while the implementation correctly uses YouTube's privacy-enhanced host.
-- Added `tokenizeText`, which lowercases text, separates punctuation/symbols, and returns tokens with a count.
-- Added `prepareImageForMultimodal` to validate supported raster image files and return MIME type, base64, and a data URL with a 20 MiB default size limit.
-- Chat response metadata now prefers actual provider input/output usage. When provider usage is missing, it reports a clearly marked word-based estimate; the reply-details panel distinguishes estimates with an approximation symbol and label.
-- Added regression tests for tokenizer behavior and image preparation. Estimates are not model-specific token counts and must not be presented as authoritative billing usage.
+
+## Interaction token estimates and multimodal image preparation (2026-10-21)
+
+- Prefer provider-reported input/output token counts when available; when unavailable, return a clearly marked word-based estimate for the current user message and assistant reply.
+- Label estimated values with `≈` and `estimated` in reply details; do not present them as model-specific or authoritative billing counts.
+- Add `tokenizeText`/`estimateTextTokenCount` and `prepareImageForMultimodal` utilities for common raster image types with a 20 MiB default limit.
+- Add regression tests for token normalization, image payload preparation, and rejection of unsupported, empty, or oversized images.
+- Preserve the privacy-enhanced YouTube embed host and regression coverage.
