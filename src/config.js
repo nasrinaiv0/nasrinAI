@@ -692,15 +692,20 @@ export function loadConfig(env = process.env) {
     return [tier, Object.freeze({ model: model || null, tier, allowedResolutions: Object.freeze(allowedResolutions), allowedFrameRates: Object.freeze(allowedFrameRates), resolution: null, allow4kAddon: tier === 'max' || tier === 'ultra' })];
   })));
   const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY);
+  if (videoProviderName === 'openrouter' && String(env.VIDEO_ENABLED ?? 'false').toLowerCase() === 'true') {
+    const missingVideoLimits = ['VIDEO_PRO_WEEKLY_SECONDS', 'VIDEO_MAX_WEEKLY_SECONDS', 'VIDEO_ULTRA_WEEKLY_SECONDS']
+      .filter((name) => env[name] === undefined || String(env[name]).trim() === '' || Number(env[name]) < 1);
+    if (missingVideoLimits.length) throw new ConfigError('OpenRouter video requires positive weekly seconds limits in Vercel: ' + missingVideoLimits.join(', '));
+  }
   const video = Object.freeze({
     provider: videoProviderName,
     enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, videoProviderName === 'openrouter' ? 'false' : 'true'),
     // Primary OpenRouter model, with per-tier overrides above.
     model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
     weeklySeconds: Object.freeze({
-      pro: toInt('VIDEO_PRO_WEEKLY_SECONDS', env.VIDEO_PRO_WEEKLY_SECONDS, 600, 0, 1000000),
-      max: toInt('VIDEO_MAX_WEEKLY_SECONDS', env.VIDEO_MAX_WEEKLY_SECONDS, 1800, 0, 1000000),
-      ultra: toInt('VIDEO_ULTRA_WEEKLY_SECONDS', env.VIDEO_ULTRA_WEEKLY_SECONDS, 3600, 0, 1000000)
+      pro: toInt('VIDEO_PRO_WEEKLY_SECONDS', env.VIDEO_PRO_WEEKLY_SECONDS, 0, 0, 1000000),
+      max: toInt('VIDEO_MAX_WEEKLY_SECONDS', env.VIDEO_MAX_WEEKLY_SECONDS, 0, 0, 1000000),
+      ultra: toInt('VIDEO_ULTRA_WEEKLY_SECONDS', env.VIDEO_ULTRA_WEEKLY_SECONDS, 0, 0, 1000000)
     }),
     costPerSecondUsd: null,
     tierRoutes: videoTierRoutes,
