@@ -4076,6 +4076,8 @@ function send(raw) {
   function isYouTubeSearchRequest(query) {
     const q = String(query || '').trim();
     if (!needsYouTubeVideos(q)) return false;
+    // Requests that explicitly ask for interpretation still need the normal AI answer.
+    if (/\b(?:explain|summari[sz]e|analy[sz]e|review|compare|breakdown|tell me about)\b/i.test(q)) return false;
     if (/\b(?:create|generate|make|render|produce|animate)\b.{0,50}\b(?:a |an |the )?(?:video|clip|movie)\b/i.test(q)) return false;
     return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search for|look for|watch|youtube|yt|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
   }
