@@ -4349,9 +4349,34 @@
       ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
       : 'Not reported';
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
-    details.addEventListener('click', () => {
-      panel.hidden = !panel.hidden;
-      details.setAttribute('aria-expanded', String(!panel.hidden));
+    details.setAttribute('aria-controls', 'reply-details-' + id);
+    panel.id = 'reply-details-' + id;
+    details.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const opening = panel.hidden;
+      panel.hidden = !opening;
+      details.setAttribute('aria-expanded', String(opening));
+      if (opening) {
+        // Anchor the details popover directly below the ellipsis, not at the
+        // left edge of the entire action row (which clips on narrow screens).
+        panel.style.left = Math.max(0, Math.min(details.offsetLeft, row.clientWidth - Math.min(320, row.clientWidth))) + 'px';
+        panel.style.top = (row.offsetHeight + 6) + 'px';
+      }
+    });
+    // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
+    // so the opening click does not immediately close the popover.
+    document.addEventListener('click', (event) => {
+      if (!panel.hidden && !panel.contains(event.target) && event.target !== details) {
+        panel.hidden = true;
+        details.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !panel.hidden) {
+        panel.hidden = true;
+        details.setAttribute('aria-expanded', 'false');
+        details.focus();
+      }
     });
     row.appendChild(details);
     row.appendChild(panel);
