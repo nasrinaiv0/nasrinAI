@@ -1486,8 +1486,12 @@
       if (fresh && role === 'assistant') {
         const userMessages = log.querySelectorAll('.msg.user');
         const lastUser = userMessages[userMessages.length - 1] || null;
-        const videoQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
-        if (needsYouTubeVideos(videoQuery)) renderYouTubeVideos(el, videoQuery, cited.links);
+        const lastUserQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
+        // A short affirmative ("yes", "sure", "go ahead") can answer a prior
+        // offer to find videos. In that case use this reply's researched
+        // YouTube/video context instead of searching for the literal "yes".
+        const videoQuery = youtubeQueryForReply(lastUserQuery, text);
+        if (videoQuery) renderYouTubeVideos(el, videoQuery, cited.links);
       }
       const actions = replyActions(text, id, full, responseMetadata);
       el.appendChild(actions);
@@ -1722,7 +1726,9 @@
     sendBtn.classList.toggle('has-text', hasText || stopping);
     sendBtn.title = stopping ? 'Stop' : listening ? 'Stop listening' : hasText ? 'Send' : 'Dictate';
     sendBtn.setAttribute('aria-label', stopping ? 'Stop the reply' : listening ? 'Stop listening' : hasText ? 'Send message' : 'Dictate message');
-    sendBtn.disabled = !stopping && (busy || (!aiAvailable && !isYouTubeSearchRequest(input.value)) || preparing > 0 || (!hasText && !Recognition));
+    // Keep Send actionable whenever text is present. Availability errors are
+    // reported in the conversation by send(), never by a silently disabled button.
+    sendBtn.disabled = !stopping && (busy || preparing > 0 || (!hasText && !Recognition));
   }
 
   function autosize() {
@@ -3129,7 +3135,11 @@ busy = false; refreshSendButton(); }
     if ((!text && !pending.length) || busy || preparing) return;
     // Public video retrieval is independent from AI generation and model pricing.
     if (!imageMode && !editing && !pending.length && isYouTubeSearchRequest(text)) return runYouTubeFirst(text);
-    if (!aiAvailable) return;
+    if (!aiAvailable) {
+      show('user', text);
+      problem('NasrinAI is temporarily unavailable for this message. Please try again shortly.');
+      return;
+    }
     if (!imageMode && !editing && !pending.length && isJobSearchRequest(text)) return runChatJobSearch(text);
     const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
     const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
@@ -4062,6 +4072,15 @@ busy = false; refreshSendButton(); }
     const explicitlyAsksYouTube = /\b(?:youtube|yt)\b/i.test(q);
     if (asksOtherPlatform && !explicitlyAsksYouTube) return false;
     return /\b(?:youtube|video(?:s)?|tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration|demo|directions? (?:to|from)|from here to|how to get to|how do i get to|navigate to|route to|walking directions|driving directions)\b/i.test(q);
+  }
+
+  function youtubeQueryForReply(userQuery, assistantText) {
+    const query = String(userQuery || '').trim();
+    if (needsYouTubeVideos(query)) return query;
+    const affirmative = /^(?:yes|yeah|yep|yup|sure|please|please do|go ahead|sounds good|that would be great|of course|okay|ok|search|find them|show me)\b[.!\s]*$/i.test(query);
+    const reply = String(assistantText || '').trim();
+    if (affirmative && needsYouTubeVideos(reply)) return reply.slice(0, 600);
+    return '';
   }
 
   function youtubeResultsHeading(query) {
