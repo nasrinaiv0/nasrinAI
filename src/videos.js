@@ -70,9 +70,14 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
-    let perSecond = videoCostPerSecond(routeProvider.model, routeProvider.resolution, routeProvider.costPerSecondUsd ?? null);
+    const wants4k = String(b.resolution || '').toLowerCase() === '4k';
+    if (wants4k && (selected !== 'ultra' || routeProvider.id !== 'openrouter' || !routeProvider.allow4kAddon)) {
+      throw new HttpError(403, 'video_addon_unavailable', 'The 4K video add-on is available only to Ultra subscribers with a compatible OpenRouter video model.');
+    }
+    const requestedResolution = wants4k ? '4k' : routeProvider.resolution;
+    let perSecond = videoCostPerSecond(routeProvider.model, requestedResolution, routeProvider.costPerSecondUsd ?? null);
     if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
-      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio }); }
+      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution }); }
       catch (err) {
         logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
         perSecond = null;
@@ -86,7 +91,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
       provider: routeProvider.id, model: routeProvider.model || 'unknown',
-      resolution: routeProvider.resolution || 'provider-default'
+      resolution: requestedResolution || 'provider-default'
     });
     const cached = b.reuse_cached === true && store.getMarketingCache ? await store.getMarketingCache({
       tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, kind: 'video', key: cacheKey
@@ -113,7 +118,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const started = now();
     let operation;
     try {
-      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds });
+      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution });
     } catch (err) {
       // Provider failures can still incur charges; keep the maximum-duration
       // reservation rather than releasing budget on an uncertain outcome.
@@ -132,7 +137,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
       targetSeconds, producedSeconds: 0, status: 'in_progress', requestTier: selected,
-      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey,
+      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey, resolution: requestedResolution,
       spendReservationId: spendReservation.id, estimatedCostUsd: estimatedCost, actualCostUsd: null, costReconciledAt: null
     });
     logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
