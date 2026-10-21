@@ -4391,3 +4391,117 @@ body[data-theme="light"] .reply-details-panel .reply-detail-label,
   -webkit-backdrop-filter: blur(5px) saturate(50%) !important;
   backdrop-filter: blur(5px) saturate(50%) !important;
 }
+
+
+/* Premium theme refresh — additive overrides keep existing component behavior.
+   Charcoal is now a soft, feminine blush palette; Orange keeps neutral surfaces
+   and reserves pastel orange for actions. Galaxy uses a restrained navy/black-hole
+   sky with faint celestial details. All palettes support Light, Dark and System. */
+
+/* Orange: neutral light/dark surfaces; pastel orange is reserved for controls. */
+:root[data-palette="orange"] {
+  --paper: #F7F7F5; --surface: #FCFCFA; --ink: #20201E; --ink-2: #4F504C; --ink-3: #898A84; --line: #E4E4DF;
+  --glass: rgba(247,247,245,.68); --glass-line: rgba(32,32,30,.08); --glass-line-focus: rgba(235,159,105,.48);
+  --bg-glow: rgba(255,255,255,.8); --press: rgba(239,164,111,.14); --accent: #F2B184; --on-accent: #3C281B;
+}
+:root[data-palette="orange"][data-theme="dark"] {
+  --paper: #141414; --surface: #1E1E1E; --ink: #F4F3F0; --ink-2: #C9C8C3; --ink-3: #898983; --line: #30302E;
+  --glass: rgba(27,27,27,.72); --glass-line: rgba(255,255,255,.08); --glass-line-focus: rgba(242,177,132,.48);
+  --bg-glow: rgba(255,255,255,.025); --press: rgba(242,177,132,.16); --accent: #EFA977; --on-accent: #24180F;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="orange"]:not([data-theme="light"]) {
+    --paper:#141414;--surface:#1E1E1E;--ink:#F4F3F0;--ink-2:#C9C8C3;--ink-3:#898983;--line:#30302E;
+    --glass:rgba(27,27,27,.72);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(242,177,132,.48);
+    --bg-glow:rgba(255,255,255,.025);--press:rgba(242,177,132,.16);--accent:#EFA977;--on-accent:#24180F;
+  }
+}
+
+/* Charcoal → Blush: feminine rose, mauve and pearl instead of industrial grey. */
+:root[data-palette="charcoal"], :root[data-palette="rose-quartz"] {
+  --paper:#FBF4F7;--surface:#FFF9FC;--ink:#33232D;--ink-2:#6D5261;--ink-3:#A58B99;--line:#EBDCE4;
+  --glass:rgba(251,244,247,.72);--glass-line:rgba(85,48,68,.09);--glass-line-focus:rgba(204,125,164,.42);
+  --bg-glow:rgba(255,255,255,.9);--press:rgba(204,125,164,.12);--accent:#D58EAF;--on-accent:#321E2A;
+}
+:root[data-palette="charcoal"][data-theme="dark"], :root[data-palette="rose-quartz"][data-theme="dark"] {
+  --paper:#171116;--surface:#241923;--ink:#F8EDF3;--ink-2:#D8BDCC;--ink-3:#A88B9D;--line:#3D2A38;
+  --glass:rgba(36,25,35,.74);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(222,151,190,.42);
+  --bg-glow:rgba(219,147,185,.055);--press:rgba(222,151,190,.15);--accent:#E3A1C2;--on-accent:#321D2A;
+}
+@media (prefers-color-scheme:dark) {
+  :root[data-palette="charcoal"]:not([data-theme="light"]), :root[data-palette="rose-quartz"]:not([data-theme="light"]) {
+    --paper:#171116;--surface:#241923;--ink:#F8EDF3;--ink-2:#D8BDCC;--ink-3:#A88B9D;--line:#3D2A38;
+    --glass:rgba(36,25,35,.74);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(222,151,190,.42);
+    --bg-glow:rgba(219,147,185,.055);--press:rgba(222,151,190,.15);--accent:#E3A1C2;--on-accent:#321D2A;
+  }
+}
+
+/* Galaxy: navy-black-hole depth with understated stars and distant planets. */
+:root[data-palette="galaxy"] {
+  --paper:#F1F4FA;--surface:#FAFBFE;--ink:#17243A;--ink-2:#40516B;--ink-3:#8795AA;--line:#DCE4EF;
+  --glass:rgba(241,244,250,.72);--glass-line:rgba(23,36,58,.08);--glass-line-focus:rgba(87,132,205,.4);
+  --bg-glow:rgba(255,255,255,.7);--press:rgba(89,130,194,.12);--accent:#587FC0;--on-accent:#FFFFFF;
+  --sky:radial-gradient(ellipse 18rem 18rem at 88% 12%,rgba(117,150,203,.12),transparent 72%),radial-gradient(ellipse 15rem 15rem at 8% 84%,rgba(176,190,219,.16),transparent 74%);
+}
+:root[data-palette="galaxy"][data-theme="dark"] {
+  --paper:#030711;--surface:#0A1222;--ink:#EDF3FF;--ink-2:#B7C7E1;--ink-3:#788AA7;--line:#1A2940;
+  --glass:rgba(8,16,31,.76);--glass-line:rgba(177,202,241,.10);--glass-line-focus:rgba(110,157,226,.45);
+  --bg-glow:rgba(49,87,151,.13);--press:rgba(94,140,211,.16);--accent:#789DD8;--on-accent:#061020;
+  --sky:
+    radial-gradient(ellipse 1.2rem 1.2rem at 13% 23%,rgba(170,190,222,.32),transparent 75%),
+    radial-gradient(ellipse 2rem 2rem at 86% 18%,rgba(89,124,181,.18),transparent 76%),
+    radial-gradient(ellipse 1.4rem 1.4rem at 74% 79%,rgba(128,152,192,.22),transparent 78%),
+    radial-gradient(1px 1px at 9% 16%,rgba(255,255,255,.54),transparent 100%),
+    radial-gradient(1px 1px at 22% 61%,rgba(219,231,255,.45),transparent 100%),
+    radial-gradient(1.5px 1.5px at 42% 13%,rgba(255,255,255,.56),transparent 100%),
+    radial-gradient(1px 1px at 58% 43%,rgba(210,225,255,.4),transparent 100%),
+    radial-gradient(1.5px 1.5px at 71% 72%,rgba(255,255,255,.46),transparent 100%),
+    radial-gradient(1px 1px at 93% 64%,rgba(255,255,255,.36),transparent 100%),
+    radial-gradient(ellipse 34rem 18rem at 72% -7%,rgba(27,55,105,.32),transparent 75%),
+    radial-gradient(ellipse 26rem 22rem at 8% 108%,rgba(22,47,91,.28),transparent 76%),
+    radial-gradient(ellipse 13rem 13rem at 51% 48%,rgba(0,0,0,.28),rgba(0,0,0,.08) 48%,transparent 73%);
+}
+@media (prefers-color-scheme:dark) {
+  :root[data-palette="galaxy"]:not([data-theme="light"]) {
+    --paper:#030711;--surface:#0A1222;--ink:#EDF3FF;--ink-2:#B7C7E1;--ink-3:#788AA7;--line:#1A2940;
+    --glass:rgba(8,16,31,.76);--glass-line:rgba(177,202,241,.10);--glass-line-focus:rgba(110,157,226,.45);
+    --bg-glow:rgba(49,87,151,.13);--press:rgba(94,140,211,.16);--accent:#789DD8;--on-accent:#061020;
+    --sky:
+      radial-gradient(ellipse 1.2rem 1.2rem at 13% 23%,rgba(170,190,222,.32),transparent 75%),
+      radial-gradient(ellipse 2rem 2rem at 86% 18%,rgba(89,124,181,.18),transparent 76%),
+      radial-gradient(ellipse 1.4rem 1.4rem at 74% 79%,rgba(128,152,192,.22),transparent 78%),
+      radial-gradient(1px 1px at 9% 16%,rgba(255,255,255,.54),transparent 100%),
+      radial-gradient(1px 1px at 22% 61%,rgba(219,231,255,.45),transparent 100%),
+      radial-gradient(1.5px 1.5px at 42% 13%,rgba(255,255,255,.56),transparent 100%),
+      radial-gradient(1px 1px at 58% 43%,rgba(210,225,255,.4),transparent 100%),
+      radial-gradient(1.5px 1.5px at 71% 72%,rgba(255,255,255,.46),transparent 100%),
+      radial-gradient(1px 1px at 93% 64%,rgba(255,255,255,.36),transparent 100%),
+      radial-gradient(ellipse 34rem 18rem at 72% -7%,rgba(27,55,105,.32),transparent 75%),
+      radial-gradient(ellipse 26rem 22rem at 8% 108%,rgba(22,47,91,.28),transparent 76%),
+      radial-gradient(ellipse 13rem 13rem at 51% 48%,rgba(0,0,0,.28),rgba(0,0,0,.08) 48%,transparent 73%);
+  }
+}
+:root[data-palette="galaxy"] body { background:var(--sky),radial-gradient(130% 75% at 50% -25%,var(--bg-glow),transparent 70%) var(--paper);background-attachment:fixed; }
+
+/* Five additional premium palettes. */
+:root[data-palette="ocean"] {--paper:#F0F7FA;--surface:#FAFDFF;--ink:#18313C;--ink-2:#42616D;--ink-3:#849EA8;--line:#D8E7EC;--glass:rgba(240,247,250,.72);--glass-line:rgba(24,49,60,.08);--glass-line-focus:rgba(54,151,174,.4);--bg-glow:rgba(255,255,255,.8);--press:rgba(54,151,174,.12);--accent:#3999AE;--on-accent:#FFFFFF;}
+:root[data-palette="ocean"][data-theme="dark"] {--paper:#07151B;--surface:#0E222A;--ink:#EAF8FB;--ink-2:#B4D3DA;--ink-3:#7799A2;--line:#1D3A43;--glass:rgba(10,31,38,.76);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(83,184,202,.42);--bg-glow:rgba(39,141,160,.09);--press:rgba(83,184,202,.15);--accent:#62B9C9;--on-accent:#082027;}
+@media(prefers-color-scheme:dark){:root[data-palette="ocean"]:not([data-theme="light"]){--paper:#07151B;--surface:#0E222A;--ink:#EAF8FB;--ink-2:#B4D3DA;--ink-3:#7799A2;--line:#1D3A43;--glass:rgba(10,31,38,.76);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(83,184,202,.42);--bg-glow:rgba(39,141,160,.09);--press:rgba(83,184,202,.15);--accent:#62B9C9;--on-accent:#082027;}}
+:root[data-palette="forest"] {--paper:#F2F6F0;--surface:#FBFDF9;--ink:#203326;--ink-2:#4A6550;--ink-3:#8A9E8D;--line:#DCE7DA;--glass:rgba(242,246,240,.72);--glass-line:rgba(32,51,38,.08);--glass-line-focus:rgba(93,143,99,.4);--bg-glow:rgba(255,255,255,.8);--press:rgba(93,143,99,.12);--accent:#5F9367;--on-accent:#FFFFFF;}
+:root[data-palette="forest"][data-theme="dark"] {--paper:#0C1710;--surface:#15251A;--ink:#EEF7EF;--ink-2:#BDD4C1;--ink-3:#7D9B83;--line:#263D2D;--glass:rgba(18,36,24,.76);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(124,184,133,.42);--bg-glow:rgba(72,132,82,.1);--press:rgba(124,184,133,.15);--accent:#82B88A;--on-accent:#102016;}
+@media(prefers-color-scheme:dark){:root[data-palette="forest"]:not([data-theme="light"]){--paper:#0C1710;--surface:#15251A;--ink:#EEF7EF;--ink-2:#BDD4C1;--ink-3:#7D9B83;--line:#263D2D;--glass:rgba(18,36,24,.76);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(124,184,133,.42);--bg-glow:rgba(72,132,82,.1);--press:rgba(124,184,133,.15);--accent:#82B88A;--on-accent:#102016;}}
+:root[data-palette="sunset"] {--paper:#FBF3EE;--surface:#FFFAF6;--ink:#39261F;--ink-2:#745346;--ink-3:#AA8A7D;--line:#EFDED5;--glass:rgba(251,243,238,.72);--glass-line:rgba(57,38,31,.08);--glass-line-focus:rgba(211,125,91,.4);--bg-glow:rgba(255,255,255,.8);--press:rgba(211,125,91,.12);--accent:#D78360;--on-accent:#FFFFFF;}
+:root[data-palette="sunset"][data-theme="dark"] {--paper:#1A100F;--surface:#291B19;--ink:#FFF0E9;--ink-2:#E0C3B7;--ink-3:#A98A7D;--line:#44302B;--glass:rgba(40,26,23,.76);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(230,151,119,.42);--bg-glow:rgba(196,96,67,.08);--press:rgba(230,151,119,.15);--accent:#E6A080;--on-accent:#301A12;}
+@media(prefers-color-scheme:dark){:root[data-palette="sunset"]:not([data-theme="light"]){--paper:#1A100F;--surface:#291B19;--ink:#FFF0E9;--ink-2:#E0C3B7;--ink-3:#A98A7D;--line:#44302B;--glass:rgba(40,26,23,.76);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(230,151,119,.42);--bg-glow:rgba(196,96,67,.08);--press:rgba(230,151,119,.15);--accent:#E6A080;--on-accent:#301A12;}}
+:root[data-palette="midnight"] {--paper:#F0F2F7;--surface:#FAFBFF;--ink:#1D2537;--ink-2:#47536B;--ink-3:#8994AA;--line:#DDE2ED;--glass:rgba(240,242,247,.72);--glass-line:rgba(29,37,55,.08);--glass-line-focus:rgba(104,127,187,.4);--bg-glow:rgba(255,255,255,.8);--press:rgba(104,127,187,.12);--accent:#6B80B8;--on-accent:#FFFFFF;}
+:root[data-palette="midnight"][data-theme="dark"] {--paper:#080B14;--surface:#111827;--ink:#EEF2FF;--ink-2:#BBC5DF;--ink-3:#818DAA;--line:#252E43;--glass:rgba(14,20,35,.78);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(133,153,211,.42);--bg-glow:rgba(89,105,159,.1);--press:rgba(133,153,211,.15);--accent:#91A4DB;--on-accent:#101729;}
+@media(prefers-color-scheme:dark){:root[data-palette="midnight"]:not([data-theme="light"]){--paper:#080B14;--surface:#111827;--ink:#EEF2FF;--ink-2:#BBC5DF;--ink-3:#818DAA;--line:#252E43;--glass:rgba(14,20,35,.78);--glass-line:rgba(255,255,255,.08);--glass-line-focus:rgba(133,153,211,.42);--bg-glow:rgba(89,105,159,.1);--press:rgba(133,153,211,.15);--accent:#91A4DB;--on-accent:#101729;}}
+
+/* Theme swatches and layout: compact, readable on phones and desktop. */
+.palette-control {grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;}
+.palette-option {min-height:3.4rem;padding:.45rem .25rem;}
+.palette-swatch.rose-quartz {background:radial-gradient(circle at 35% 28%,#FFE4F0,#D58EAF 60%,#70435C);}
+.palette-swatch.ocean {background:radial-gradient(circle at 35% 28%,#B9F0F5,#3999AE 60%,#123B4B);}
+.palette-swatch.forest {background:radial-gradient(circle at 35% 28%,#D3E9C9,#5F9367 60%,#183C27);}
+.palette-swatch.sunset {background:radial-gradient(circle at 35% 28%,#FFD6BA,#D78360 60%,#6C3028);}
+.palette-swatch.midnight {background:radial-gradient(circle at 35% 28%,#D4DBF7,#6B80B8 60%,#10182C);}
