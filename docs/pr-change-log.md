@@ -1564,3 +1564,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Render detail labels such as Date & time, Time to complete, Input tokens, Output tokens, and Total tokens in gray in both themes.
 - Set panel padding to 10px on all sides while preserving the existing outer margins and regular-weight text.
 - Add regression coverage for the glass, labels, and spacing.
+
+
+## Reply panel glass and spacing refinement (2026-10-21)
+
+- Keep 6% background opacity while reducing blur to 18px and saturation to 120% for a lighter glass appearance, especially in dark mode.
+- Use neutral gray labels in both themes for date/time, completion time, and token counts.
+- Set internal padding to 10px vertically and 20px horizontally.
+- Preserve regular-weight typography and the subtle 0.5px border.
