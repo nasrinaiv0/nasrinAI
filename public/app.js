@@ -4077,7 +4077,7 @@ busy = false; refreshSendButton(); }
   function youtubeQueryForReply(userQuery, assistantText) {
     const query = String(userQuery || '').trim();
     if (needsYouTubeVideos(query)) return query;
-    const affirmative = /^(?:yes|yeah|yep|yup|sure|please|please do|go ahead|sounds good|that would be great|of course|okay|ok|search|find them|show me)\b[.!\s]*$/i.test(query);
+    const affirmative = /^(?:yes|yeah|yep|yup|sure|please(?: do)?|go ahead|sounds good|that would be great|of course|okay|ok|search|find them|show me)(?:[,.! ]+(?:please|do|it|them|the videos|the latest videos))*[.!\s]*$/i.test(query);
     const reply = String(assistantText || '').trim();
     if (affirmative && needsYouTubeVideos(reply)) return reply.slice(0, 600);
     return '';
