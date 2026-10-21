@@ -10,6 +10,32 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export function createVideos({ store, plans, provider, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
   const unavailable = () => new HttpError(503, 'videos_unavailable', 'Video creation is not available right now.');
 
+  async function reconcileActualVideoCost(video, actualCostUsd) {
+    if (!video?.spendReservationId || video.costReconciledAt ||
+        !Number.isFinite(actualCostUsd) || actualCostUsd < 0 || actualCostUsd > 100000) return video;
+    const expectedUsd = Number(video.estimatedCostUsd);
+    if (!Number.isFinite(expectedUsd) || expectedUsd < 0 || typeof budget?.reconcileSpend !== 'function') {
+      logger.warn('video final cost could not be reconciled; conservative estimate retained', { id: video.id });
+      return video;
+    }
+    try {
+      // Persist provider usage first. If the RPC or timestamp write fails, a
+      // later status poll can retry reconciliation without losing the invoice.
+      await store.updateVideo(video.id, { actualCostUsd });
+      await budget.reconcileSpend({ id: video.spendReservationId, reservedUsd: expectedUsd }, actualCostUsd);
+      await store.updateVideo(video.id, { actualCostUsd, costReconciledAt: new Date(now()).toISOString() });
+      logger.info('video provider cost reconciled', {
+        id: video.id, provider: video.provider, model: video.providerModel,
+        estimatedCostUsd: expectedUsd, actualCostUsd
+      });
+    } catch (err) {
+      logger.warn('video final cost reconciliation pending retry', { id: video.id, code: err?.code || 'reconciliation_failed' });
+    }
+    return await store.getVideo({
+      tenantId: video.tenantId, ownerType: video.ownerType, ownerId: video.ownerId, id: video.id
+    }) || video;
+  }
+
   async function requireVideoPlan(caller, requestedTier) {
     if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation is available on Max and Ultra plans.');
     if (!plans) throw unavailable();
@@ -101,7 +127,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
       targetSeconds, producedSeconds: 0, status: 'in_progress', requestTier: selected,
-      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey
+      provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey,
+      spendReservationId: spendReservation.id, estimatedCostUsd: estimatedCost, actualCostUsd: null, costReconciledAt: null
     });
     logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
     return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
@@ -112,7 +139,12 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'Video not found.');
     const v = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id });
     if (!v) throw new HttpError(404, 'not_found', 'Video not found.');
-    if (v.status === 'completed' || v.status === 'failed') return v;
+    if (v.status === 'completed' || v.status === 'failed') {
+      if (v.actualCostUsd !== null && v.actualCostUsd !== undefined && !v.costReconciledAt) {
+        return await reconcileActualVideoCost(v, Number(v.actualCostUsd));
+      }
+      return v;
+    }
 
     const jobProvider = provider && typeof provider.create !== 'function'
       ? provider[v.requestTier] || provider[v.providerTier] || provider.ultra || provider.max
@@ -124,7 +156,12 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       logger.warn('video provider poll failed', { id, error: err.message });
       return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
     }
-    if (!state.done) return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
+    if (!state.done && !state.failed) return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
+    if (state.actualCostUsd !== null && state.actualCostUsd !== undefined && v.spendReservationId) {
+      Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd)));
+    } else if (routeProviderOrJobIsOpenRouter(jobProvider) && (state.done || state.failed)) {
+      logger.warn('OpenRouter video poll omitted final usage cost; conservative estimate retained', { id: v.id });
+    }
     if (state.failed || !state.uri) {
       await store.updateVideo(v.id, { status:'failed', errorCode:'provider_failed', errorMessage:state.error || 'Video generation failed.' });
       return await store.getVideo({ tenantId:v.tenantId, ownerType:v.ownerType, ownerId:v.ownerId, id:v.id });
