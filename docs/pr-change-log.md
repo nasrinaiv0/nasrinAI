@@ -1612,3 +1612,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reduce the top navigation tint to 5% opacity, apply an 8px backdrop blur with neutral saturation, and fade the tint to transparent over the final 5px.
 - Keep navigation icons and text crisp while allowing the underlying page to remain visible through the glass surface.
 - Validation: CI and visual verification remain pending; confirm the effect on iPhone Safari in light and dark themes.
+
+
+## Top navigation glass adjustment (2026-10-21)
+
+- Reduce the top navigation tint to 3% opacity and backdrop blur to 3px.
+- Preserve the 5px gradient fade at the lower edge, with neutral saturation so content behind the bar remains clear.
+- Validation: pending PR checks and production visual verification.
