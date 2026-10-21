@@ -36,7 +36,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null)
 const caller = { actor: { type: 'user', id: 'user-1' }, tenantId: 'tenant-1' };
 const body = { prompt: 'A peaceful ocean at sunrise' };
 
-for (const plan of ['max', 'ultra']) {
+for (const plan of ['pro', 'max', 'ultra']) {
   test('video creation is allowed on ' + plan + ' plan', async () => {
     const { videos, created } = service(plan);
     const result = await videos.create(caller, body);
@@ -45,7 +45,7 @@ for (const plan of ['max', 'ultra']) {
   });
 }
 
-for (const plan of ['quick', 'pro', 'free']) {
+for (const plan of ['quick', 'free']) {
   test('video creation is rejected on ' + plan + ' plan', async () => {
     const { videos, created } = service(plan);
     await assert.rejects(() => videos.create(caller, body), (err) => {
