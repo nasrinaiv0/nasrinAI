@@ -172,6 +172,8 @@ test('OpenRouter video adapter looks up live catalog pricing and pins model and 
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
+  assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 0.037 } }).actualCostUsd, 0.037);
+  assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 'unknown' } }).actualCostUsd, null);
   assert.equal((await provider.download('job_123')).toString(), 'video');
 });
 
