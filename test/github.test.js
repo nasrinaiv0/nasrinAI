@@ -408,7 +408,7 @@ test('coding chat page: PR description from the reply, many-file card, automatic
   assert.match(js, /const MANY_FILES = 5;/);
   assert.match(js, /const many = sources\.length > MANY_FILES && codingProject && github\.available;/);
   assert.match(js, /if \(fresh && codingProject && github\.autoPr\)/);
-  assert.match(js, /show\('assistant', data\.message\.content, \{ id: data\.message\.id, animate: !live\.text\(\), fresh: true \}\)/);
+  assert.match(js, /show\('assistant', data\.message\.content, \{ id: data\.message\.id, animate: !live\.text\(\), fresh: true, responseMetadata: data\.response_metadata \|\| null \}\)/);
   assert.match(js, /data\.messages\.forEach\(\(m, i\) => show\([^)]*\{ animate: false, id: m\.id/, 'history replies are not fresh');
 });
 
