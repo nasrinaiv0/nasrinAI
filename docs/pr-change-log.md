@@ -1605,3 +1605,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a Galaxy-only welcome animation with floating planets and a delayed sun reveal; trigger Nasrin's concerned expression during the scene, then clean up when leaving the welcome state or changing themes.
 - Respect reduced-motion preferences and keep the animation out of active chats; add regression tests for palette tokens, persistence, welcome-state isolation, and animation hooks.
 - **Validation:** GitHub CI passed for the current PR head. The Documentation Gate failed because this changelog file was not included in the PR diff; this entry addresses that gate condition. Vercel preview status is successful. Recheck the Documentation Gate after this commit; browser/iPhone visual verification remains pending.
+
+
+## Top navigation ultra-transparent glass refinement (2026-10-21)
+
+- Reduce the top navigation's tint to 5% opacity, apply an 8px backdrop blur with neutral saturation, and fade the tint to transparent over the final 5px.
+- Keep the navigation content crisp and preserve visibility of the underlying page through the glass surface.
+- Validation: CI and visual verification remain pending; confirm the effect on iPhone Safari in light and dark themes.
