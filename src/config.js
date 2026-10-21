@@ -699,7 +699,7 @@ export function loadConfig(env = process.env) {
     model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
     costPerSecondUsd: null,
     tierRoutes: videoTierRoutes,
-    resolution: String(env.VIDEO_RESOLUTION || '1080p').trim().toLowerCase(),
+    resolution: String(env.VIDEO_RESOLUTION || (videoProviderName === 'openrouter' ? '720p' : '1080p')).trim().toLowerCase(),
     perHour: toInt('VIDEO_PER_HOUR', env.VIDEO_PER_HOUR, 1, 1, 10),
     maxSeconds: 60,
     maxCostUsd: usd('VIDEO_MAX_COST_USD', env.VIDEO_MAX_COST_USD, 32)
