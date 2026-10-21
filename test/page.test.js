@@ -495,3 +495,16 @@ test('reply details use extra-transparent glass, gray labels, and 10px padding',
   assert.match(css, /\.light \.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #858991 !important/);
   assert.match(css, /background: rgba\(255, 255, 255, \.06\) !important/);
 });
+
+
+test('final reply details styling uses subtle glass, gray labels, and 20px horizontal padding', async () => {
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const finalTuning = css.slice(css.lastIndexOf('/* Final reply-details tuning:'));
+  assert.match(finalTuning, /padding: 10px 20px !important/);
+  assert.match(finalTuning, /background: rgba\(28, 29, 32, \.06\) !important/);
+  assert.match(finalTuning, /border: \.5px solid rgba\(255, 255, 255, \.18\) !important/);
+  assert.match(finalTuning, /backdrop-filter: blur\(18px\) saturate\(120%\) !important/);
+  assert.match(finalTuning, /\.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #9a9da3 !important/);
+  assert.match(finalTuning, /\.light \.reply-details-panel \.reply-detail-label \{[\s\S]*?color: #858991 !important/);
+  assert.match(finalTuning, /font-weight: 400 !important/);
+});
