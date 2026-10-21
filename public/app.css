@@ -3905,3 +3905,39 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .reply-actions .act.sources-toggle { flex: 0 0 auto; width: auto; min-width: max-content; max-width: calc(100vw - 2rem); white-space: nowrap; }
 .reply-actions .act.sources-toggle .src-word { display: inline-block; white-space: nowrap; }
 .reply-actions .reply-details-toggle { flex: 0 0 1.75rem; }
+
+/* Align reply actions with the reply text and keep the controls tightly grouped. */
+.reply-actions {
+  justify-content: flex-start;
+  gap: 0.04rem;
+  margin-left: 0;
+  padding-left: 0;
+  column-gap: 0.04rem;
+}
+.reply-actions > .act {
+  flex: 0 0 1.65rem;
+  width: 1.65rem;
+  min-width: 1.65rem;
+  margin: 0;
+}
+.reply-actions .sources-toggle {
+  margin-left: 0.08rem;
+  padding-left: 0.18rem;
+  padding-right: 0.28rem;
+}
+@media (max-width: 600px) {
+  .reply-actions {
+    gap: 0;
+    column-gap: 0;
+    margin-left: 0;
+    padding-left: 0;
+  }
+  .reply-actions > .act {
+    flex-basis: 1.55rem;
+    width: 1.55rem;
+    min-width: 1.55rem;
+  }
+  .reply-actions .sources-toggle {
+    margin-left: 0.05rem;
+  }
+}
