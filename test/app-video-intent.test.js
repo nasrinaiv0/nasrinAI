@@ -6,7 +6,7 @@ const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8')
 const start = app.indexOf('  function needsYouTubeVideos(query) {');
 const end = app.indexOf('  const PERSISTENT_YOUTUBE_KEY', start);
 assert.ok(start >= 0 && end > start, 'video intent helpers should exist in app.js');
-const helpers = app.slice(start, end);\nconst helpersSearchIntent = (query) => isYouTubeSearchRequest(query);
+const helpers = app.slice(start, end);
 const { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest } = new Function(
   helpers + '\nreturn { needsYouTubeVideos, youtubeResultsHeading, isYouTubeSearchRequest };'
 )();
@@ -50,11 +50,11 @@ test('video discovery queries route directly to YouTube instead of generating a 
     'find videos about the James Webb telescope',
     'show me YouTube videos about MrBeast',
     'watch the newest video from NASA'
-  ]) assert.equal(helpersSearchIntent(query), true, query);
+  ]) assert.equal(isYouTubeSearchRequest(query), true, query);
   for (const query of [
     'create a video about MrBeast',
     'generate a video intro',
     'make a video of a cat',
     'explain how video compression works'
-  ]) assert.equal(helpersSearchIntent(query), false, query);
+  ]) assert.equal(isYouTubeSearchRequest(query), false, query);
 });
