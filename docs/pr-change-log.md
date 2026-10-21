@@ -1466,3 +1466,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Position the reply-details preview beneath the ellipsis trigger, constrain it to the viewport, and allow scrolling on small screens.
 - Dismiss the preview on outside click/tap or Escape; expose popover state with `aria-expanded` and `aria-controls`.
 - Validation: CI and an iPhone-width visual check must pass before merge or deployment.
+
+## Reply action spacing and hover highlight fix (2026-10-21)
+
+- Give each reply action a distinct 2rem hit target with consistent 0.35–0.45rem gaps so the ellipsis, bookmark, and Sources controls remain independently tappable.
+- Remove hover/active pill backgrounds and pseudo-element highlight effects from reply action buttons while keeping the controls visually clean.
+- Keep Sources label sized to its content instead of squeezing it into an icon-sized width.
+- Validate at mobile viewport widths and with keyboard/touch interaction before merging.
