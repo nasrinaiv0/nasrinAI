@@ -76,15 +76,18 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     const requestedResolution = wants4k ? '4k' : routeProvider.resolution;
     let perSecond = videoCostPerSecond(routeProvider.model, requestedResolution, routeProvider.costPerSecondUsd ?? null);
+    let basePerSecond = null;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
-      try { perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution }); }
-      catch (err) {
+      try {
+        perSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution });
+        if (wants4k) basePerSecond = await routeProvider.getCostPerSecondUsd({ generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: '1080p' });
+      } catch (err) {
         logger.warn('OpenRouter video pricing lookup failed; generation paused', { model: routeProvider.model, code: err?.code || 'pricing_lookup_failed' });
         perSecond = null;
       }
     }
-    if (!budget || perSecond === null) {
-      throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because a safe spending estimate is not configured for this model and resolution.');
+    if (!budget || perSecond === null || (wants4k && (!Number.isFinite(basePerSecond) || basePerSecond <= 0 || perSecond <= basePerSecond))) {
+      throw new HttpError(503, 'video_budget_unavailable', 'Video creation is paused because safe, comparable pricing is not available for this model and resolution.');
     }
     // Resolve the actual catalog-selected model before cache lookup so a
     // model change cannot collide with an "unknown model" cache entry.
@@ -114,31 +117,47 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!Number.isFinite(estimatedCost) || estimatedCost <= 0 || estimatedCost > config.video.maxCostUsd) {
       throw new HttpError(503, 'budget_reached', 'This video exceeds the configured per-video spending limit.');
     }
-    const spendReservation = await budget.reserveSpend({ caller, amountUsd: estimatedCost, maxRequestUsd: null });
+    const addonCostUsd = wants4k ? Math.round(estimatedSeconds * (perSecond - basePerSecond) * 1e6) / 1e6 : 0;
+    // The documented NasrinAI add-on conversion is 150,000 tokens per USD.
+    // Reserve the 4K premium against the same account/tenant quota before the provider call.
+    const addonTokens = addonCostUsd > 0 ? Math.ceil(addonCostUsd * 150_000) : 0;
+    let addonTokenReservation = null;
+    if (addonTokens > 0) {
+      if (typeof limiter.reserveTokens !== 'function' || typeof limiter.settleTokens !== 'function' || typeof limiter.releaseTokens !== 'function') {
+        throw new HttpError(503, 'video_addon_quota_unavailable', 'The 4K add-on is paused because token quota accounting is unavailable.');
+      }
+      addonTokenReservation = await limiter.reserveTokens(caller, addonTokens);
+    }
+    let spendReservation;
+    try {
+      spendReservation = await budget.reserveSpend({ caller, amountUsd: estimatedCost, maxRequestUsd: null });
+    } catch (err) {
+      if (addonTokenReservation) await limiter.releaseTokens(addonTokenReservation).catch(() => {});
+      throw err;
+    }
     const started = now();
     let operation;
     try {
       operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution });
     } catch (err) {
-      // Provider failures can still incur charges; keep the maximum-duration
-      // reservation rather than releasing budget on an uncertain outcome.
+      // Provider failures can still incur charges; settle both reservations conservatively.
       await budget.settleSpend(spendReservation, estimatedCost).catch(() => {});
+      if (addonTokenReservation) await limiter.settleTokens(addonTokenReservation, addonTokens).catch(() => {});
       await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'provider_error',
-        task: 'video', latencyMs: now() - started, costUsd: estimatedCost, spendReservationId: spendReservation.id });
+        task: 'video', latencyMs: now() - started, costUsd: estimatedCost, inputTokens: addonTokens, spendReservationId: spendReservation.id });
       throw err;
     }
-    // The API exposes no reliable final invoice at job creation. Charge the
-    // conservative full-duration estimate now; polling/extension cannot exceed
-    // the reserved target duration.
+    // No final invoice is available at job creation; settle the conservative estimate.
     await budget.settleSpend(spendReservation, estimatedCost);
+    if (addonTokenReservation) await limiter.settleTokens(addonTokenReservation, addonTokens);
     await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'ok',
-      task: 'video', latencyMs: now() - started, costUsd: estimatedCost, spendReservationId: spendReservation.id });
+      task: 'video', latencyMs: now() - started, costUsd: estimatedCost, inputTokens: addonTokens, spendReservationId: spendReservation.id });
     const id = await store.addVideo({
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
       targetSeconds, producedSeconds: 0, status: 'in_progress', requestTier: selected,
       provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey, resolution: requestedResolution,
-      spendReservationId: spendReservation.id, estimatedCostUsd: estimatedCost, actualCostUsd: null, costReconciledAt: null
+      spendReservationId: spendReservation.id, estimatedCostUsd: estimatedCost, addonTokens, addonCostUsd, actualCostUsd: null, costReconciledAt: null
     });
     logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
     return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
