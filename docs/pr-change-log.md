@@ -1486,3 +1486,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Restyle the existing reply metadata panel as a dark translucent, blurred glass surface with a soft highlight edge, deep shadow, and large rounded corners inspired by the supplied reference.
 - Improve label/value hierarchy, spacing, legibility, and mobile sizing while preserving all existing metadata and behavior; no reference screenshot text or actions are copied.
 - Validate CSS/preview at mobile widths and confirm the panel remains inside the viewport before merge/deploy.
+
+## Compact adaptive reply details refinement (2026-10-21)
+
+- Reduce reply details typography and panel width/height; set horizontal padding to 15px and border thickness to 0.2px.
+- Reduce frosted background opacity and use light/dark system theme-aware colors with readable labels and values.
+- Add small inline SVG icons for date/time, duration, and token metadata without copying reference content or adding an icon dependency.
+- Validate JS syntax, CSS, CI, and light/dark mobile Preview before merge/deployment.
