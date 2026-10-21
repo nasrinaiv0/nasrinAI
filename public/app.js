@@ -3088,10 +3088,48 @@
     } finally { busy = false; refreshSendButton(); }
   }
 
-  async function send(raw) {
+  async   async function runYouTubeFirst(query) {
+    if (busy || preparing || editing || pending.length) return;
+    busy = true;
+    notice.textContent = '';
+    stopSpeaking();
+    noticesOnSend();
+    hideMemoryAsk();
+    refreshSendButton();
+    refreshTurnControls();
+    input.value = '';
+    autosize();
+    show('user', query);
+    const assistant = show('assistant', 'Searching YouTube for videos matching your request…');
+    try {
+      const rendered = await renderYouTubeVideos(assistant, query);
+      if (!rendered) {
+        const body = assistant.querySelector('.msg-body') || assistant;
+        body.replaceChildren();
+        const note = document.createElement('p');
+        note.textContent = 'I couldn’t load embedded results right now. You can still search directly on YouTube.';
+        const link = document.createElement('a');
+        link.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query.slice(0, 180));
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Search on YouTube';
+        body.append(note, link);
+      }
+    } finally {
+      busy = false;
+      refreshSendButton();
+      refreshTurnControls();
+      Nasrin.mood('idle');
+    }
+  }
+
+function send(raw) {
     const text = String(raw || '').trim();
     if (turn) return;
-    if ((!text && !pending.length) || busy || preparing || !aiAvailable) return;
+    if ((!text && !pending.length) || busy || preparing) return;
+    // Public video retrieval is independent from AI generation and model pricing.
+    if (!imageMode && !editing && !pending.length && isYouTubeSearchRequest(text)) return runYouTubeFirst(text);
+    if (!aiAvailable) return;
     if (!imageMode && !editing && !pending.length && isJobSearchRequest(text)) return runChatJobSearch(text);
     const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
     const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
@@ -4034,6 +4072,14 @@
     return 'Videos';
   }
 
+  // Search intent is retrieval, not video generation. Handle it before model/provider selection.
+  function isYouTubeSearchRequest(query) {
+    const q = String(query || '').trim();
+    if (!needsYouTubeVideos(q)) return false;
+    if (/\b(?:create|generate|make|render|produce|animate)\b.{0,50}\b(?:a |an |the )?(?:video|clip|movie)\b/i.test(q)) return false;
+    return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|show me|find|search for|look for|watch|youtube|yt|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
+  }
+
   const PERSISTENT_YOUTUBE_KEY = 'nasrin.persistentYoutubePlayer';
 
   function createYouTubeVideoCard(video) {
@@ -4129,7 +4175,7 @@
   }
 
   async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
-    if (message.querySelector('.youtube-results')) return;
+    if (message.querySelector('.youtube-results')) return true;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const tutorialIntent = /\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(userQuery);
     const query = (userQuery + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '')).slice(0, 180);
@@ -4151,7 +4197,7 @@
       // render results returned by the server-side YouTube Data API after its
       // embeddability and regional-availability checks. If verification fails,
       // show no video card rather than a broken/random player.
-      if (!videos.length || message.querySelector('.youtube-results')) return;
+      if (!videos.length || message.querySelector('.youtube-results')) return false;
       const section = document.createElement('section');
       section.className = 'youtube-results';
       section.setAttribute('aria-label', 'Relevant YouTube videos');
@@ -4181,9 +4227,12 @@
       if (section.querySelector('.youtube-video-card')) {
         const body = message.querySelector('.msg-body');
         (body || message).appendChild(section);
+        return true;
       }
+      return false;
     } catch {
       // Video search is an enhancement; it must never break the chat reply.
+      return false;
     }
   }
 
