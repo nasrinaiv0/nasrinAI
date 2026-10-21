@@ -1572,3 +1572,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Use neutral gray labels in both themes for date/time, completion time, and token counts.
 - Set internal padding to 10px vertically and 20px horizontally.
 - Preserve regular-weight typography and the subtle 0.5px border.
+
+
+## Reply panel blur and saturation adjustment (2026-10-21)
+
+- Reduce the reply-details frosted-glass blur to 5px.
+- Reduce saturation to 50%, retaining the existing 6% background opacity, gray labels, 0.5px border, and padding.
+- Add a regression test for both backdrop-filter values.
