@@ -1,0 +1,1 @@
+export function tokenizeText(text) { const normalizedText = String(text ?? '').toLowerCase().replace(/[\p{P}\p{S}]+/gu, ' ').replace(/\s+/gu, ' ').trim(); const tokens = normalizedText ? normalizedText.match(/[\p{L}\p{N}\p{M}]+/gu) || [] : []; return { normalizedText, tokens, count: tokens.length }; }
