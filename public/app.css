@@ -3904,3 +3904,111 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .reply-actions > .sources-toggle { flex:0 0 auto!important; margin:0 0 0 .12rem!important; padding-left:.18rem!important; padding-right:.22rem!important; }
 .reply-details-panel { position:fixed!important; z-index:1000!important; width:min(15.5rem,calc(100vw - 40px))!important; min-width:0!important; max-width:calc(100vw - 40px)!important; padding:.55rem .6rem!important; box-sizing:border-box!important; overflow:auto!important; overscroll-behavior:contain; }
 @media(max-width:600px){ .reply-actions{gap:0!important;column-gap:0!important} .reply-actions > .act{flex-basis:1.5rem!important;width:1.5rem!important;min-width:1.5rem!important;max-width:1.5rem!important} }
+
+
+/* Error/retry layout: keep Retry below the message and its resource/source links. */
+.msg.problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.msg.problem > .retry,
+.msg.problem .retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 2.5rem;
+  margin: 0.65rem 0 0;
+  vertical-align: initial;
+  position: relative;
+  z-index: 1;
+}
+.msg.problem .retry {
+  /* Force the action onto its own row, never alongside source/resource links. */
+  flex-basis: 100%;
+  justify-self: flex-start;
+}
+.msg.problem a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .msg.problem .retry {
+    min-height: 2.75rem;
+    margin-top: 0.75rem;
+  }
+}
+
+
+/* Reply action row: distinct touch targets and no hover highlight. */
+.reply-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.35rem !important;
+  column-gap: 0.35rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+.reply-actions > .act,
+.reply-actions > .act.reply-details-toggle {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 2rem !important;
+  width: 2rem !important;
+  min-width: 2rem !important;
+  max-width: 2rem !important;
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0.35rem !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.reply-actions > .act.sources-toggle {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: max-content !important;
+  max-width: calc(100vw - 2rem) !important;
+  padding: 0 0.2rem !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+.reply-actions .act:hover,
+.reply-actions .act:active,
+.reply-actions .act:focus,
+.reply-actions .act:focus-visible,
+.reply-actions .act[aria-expanded="true"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.reply-actions .act:hover::before,
+.reply-actions .act:hover::after,
+.reply-actions .act:active::before,
+.reply-actions .act:active::after {
+  content: none !important;
+  display: none !important;
+}
+.reply-actions .reply-details-toggle[aria-expanded="true"] {
+  background: transparent !important;
+}
+@media (max-width: 600px) {
+  .reply-actions { gap: 0.3rem !important; column-gap: 0.3rem !important; }
+  .reply-actions > .act,
+  .reply-actions > .act.reply-details-toggle {
+    flex-basis: 2rem !important;
+    width: 2rem !important;
+    min-width: 2rem !important;
+    max-width: 2rem !important;
+  }
+}

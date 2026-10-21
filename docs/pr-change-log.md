@@ -1474,3 +1474,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This fixes missing local pricing metadata for this model only. Other unpriced selected models must still be diagnosed against the exact runtime model ID; unknown pricing remains fail-closed.
 - Source: OpenRouter model page https://openrouter.ai/scaledown/extract
 - Validation required: price-registry tests and CI; authenticated Preview smoke test before production use.
+
+## Retry button overlapping resources fix (2026-10-21)
+
+- Make error messages wrap safely on narrow screens and force Retry onto its own row below message/resource links, with a separate tappable area.
+- Preserve readable, wrapping source/resource links and mobile-friendly retry height.
+- Rebase the fix on current `main` to avoid the CSS conflict from PR #496; validate CI and iPhone-width layout before merge/deploy.
