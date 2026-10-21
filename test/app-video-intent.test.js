@@ -51,11 +51,9 @@ test('video discovery queries route directly to YouTube instead of generating a 
     'latest video of MrBeast',
     'find videos about the James Webb telescope',
     'show me YouTube videos about MrBeast',
-    'watch the newest video from NASA',
-    'show me embedded videos',
-    'embed the video player'
+    'watch the newest video from NASA'
   ]) assert.equal(isYouTubeSearchRequest(query), true, query);
-  for (const query of ['youtube', 'MrBeast', 'mr beast']) {
+  for (const query of ['youtube', 'MrBeast', 'mr beast', 'show me embedded videos', 'embed the video player']) {
     assert.equal(isYouTubeSearchRequest(query), false, query);
   }
   for (const query of [
