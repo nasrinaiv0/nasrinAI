@@ -25,7 +25,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const { selected } = await requireVideoPlan(caller, b.tier ?? b.model);
     const routeProvider = provider && typeof provider.create !== 'function' ? provider[selected] : provider;
     if (!routeProvider) throw new HttpError(503, 'video_tier_unavailable', 'Video generation is not configured for the selected tier.');
-    if (routeProvider.maxSeconds && Number(b.seconds || MAX_SECONDS) > routeProvider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${routeProvider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
+    const requestedSeconds = Number(b.seconds);
+    const effectiveRequestedSeconds = Number.isFinite(requestedSeconds) && requestedSeconds > 0
+      ? requestedSeconds
+      : (routeProvider.maxSeconds || MAX_SECONDS);
+    if (routeProvider.maxSeconds && effectiveRequestedSeconds > routeProvider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${routeProvider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
     await limiter.signIn('video:' + caller.actor.id, config.video.perHour);
     if (b.conversation_id != null) {
       if (!UUID.test(String(b.conversation_id))) throw notFound();
@@ -33,9 +37,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       if (!owns(caller, conversation)) throw notFound();
     }
     const prompt = safePrompt(b.prompt);
-    const requestedSeconds = Number(b.seconds);
-    const defaultSeconds = routeProvider.maxSeconds || MAX_SECONDS;
-    const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, Number.isFinite(requestedSeconds) && requestedSeconds > 0 ? requestedSeconds : defaultSeconds));
+    const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
     const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
