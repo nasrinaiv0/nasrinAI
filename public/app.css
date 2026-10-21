@@ -608,7 +608,7 @@ body:not(.has-chat) #newChat { display: none; }
 .card-actions { display: flex; gap: 0.5rem; }
 
 /* Under each reply: Listen, Copy, Share. */
-.reply-actions { display: flex; align-items: center; gap: 0.18rem; margin-top: 0.32rem; }
+.reply-actions { position: relative; display: flex; align-items: center; gap: 0.18rem; margin-top: 0.32rem; }
 .reply-actions .listen { margin-top: 0; }
 /* Compact source controls to match the quieter, minimal reply footer. */
 .reply-actions .sources-toggle { width: auto; min-width: 0; height: 1.75rem; display: inline-flex; align-items: center; gap: 0.28rem; padding: 0 0.42rem 0 0.24rem; border-radius: 999px; font-size: 0.76rem; line-height: 1; color: var(--ink-2); }
