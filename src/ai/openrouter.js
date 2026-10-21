@@ -41,6 +41,10 @@ function videoPricingRates(model, { resolution, generateAudio = true, hasVideoIn
     const rate = Number(value);
     if (!/(?:second|\/sec\b|per[_ -]?sec)/.test(unit) || !Number.isFinite(rate) || rate <= 0) return [];
     if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return [];
+    if (/(?:with|including)[_-]?audio/.test(labels) && !generateAudio) return [];
+    if (/(?:without|no)[_-]?audio/.test(labels) && generateAudio) return [];
+    if (/(?:with|including)[_-]?video[_ -]?input/.test(labels) && !hasVideoInput) return [];
+    if (/(?:without|no)[_-]?video[_ -]?input/.test(labels) && hasVideoInput) return [];
     if (typeof sku?.with_audio === 'boolean' && sku.with_audio !== generateAudio) return [];
     if (typeof sku?.with_video_input === 'boolean' && sku.with_video_input !== hasVideoInput) return [];
     return [{ rate, labels }];
