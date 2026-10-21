@@ -240,7 +240,9 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           const cachedTokens = Number(result.cachedTokens) || 0;
           const costUsd = Number.isFinite(result.actualCostUsd) && result.actualCostUsd >= 0
             ? result.actualCostUsd
-            : (costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0);
+            : Number.isFinite(result.costUsd) && result.costUsd >= 0
+              ? result.costUsd
+              : (costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0);
           const text = String(result.text || '').trim();
           const asksTools = Array.isArray(result.toolCalls) && result.toolCalls.length > 0;
           const valid = asksTools || (text.length > 0 && !(result.finishReason === 'length' && text.length < 40));
