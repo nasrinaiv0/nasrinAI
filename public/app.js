@@ -3085,10 +3085,7 @@
     } catch (error) {
       pendingReply.remove();
       show('assistant', 'I couldn’t complete the job search because the search service returned an error: ' + (error.message || 'Unknown error') + '. No results were fabricated. Please try again.');
-    } finally { busy = false; refreshSendButton(); }
-  }
-
-  async function runYouTubeFirst(query) {
+    } finally {   async function runYouTubeFirst(query) {
     if (busy || preparing || editing || pending.length) return;
     busy = true;
     notice.textContent = '';
@@ -3121,6 +3118,9 @@
       refreshTurnControls();
       Nasrin.mood('idle');
     }
+  }
+
+busy = false; refreshSendButton(); }
   }
 
   async function send(raw) {
@@ -4072,7 +4072,100 @@
     return 'Videos';
   }
 
-  // Search intent is retrieval, not video generation. Handle it before model/provider selection.
+  const PERSISTENT_YOUTUBE_KEY = 'nasrin.persistentYoutubePlayer';
+
+  function createYouTubeVideoCard(video) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return null;
+    const card = document.createElement('article');
+    card.className = 'youtube-video-card';
+    const frameWrap = document.createElement('div');
+    frameWrap.className = 'youtube-video-frame';
+    const frame = document.createElement('iframe');
+    frame.title = String(video.title || 'YouTube video').slice(0, 240);
+    frame.loading = 'lazy';
+    // Set playback permissions and referrer policy BEFORE src. Assigning src
+    // first can start navigation immediately, before Safari applies the policy;
+    // YouTube may then reject the embed when it receives no usable referrer.
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+    frame.allowFullscreen = true;
+    frame.setAttribute('loading', 'lazy');
+    frame.setAttribute('playsinline', '');
+    frame.src = 'https://www.youtube.com/embed/' + video.id + '?playsinline=1&rel=0&enablejsapi=0';
+    frameWrap.appendChild(frame);
+    const details = document.createElement('div');
+    details.className = 'youtube-video-details';
+    const title = document.createElement('p');
+    title.className = 'youtube-video-title';
+    title.textContent = String(video.title || 'YouTube video').slice(0, 240);
+    const channel = document.createElement('p');
+    channel.className = 'youtube-video-channel';
+    channel.textContent = String(video.channelTitle || 'YouTube').slice(0, 120);
+    const open = document.createElement('a');
+    open.className = 'youtube-video-link';
+    open.href = 'https://www.youtube.com/watch?v=' + video.id;
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.textContent = 'Watch on YouTube';
+    details.append(title, channel, open);
+    card.append(frameWrap, details);
+    return card;
+  }
+
+  function mountPersistentYouTubePlayer(video, existingCard = null) {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(String(video?.id || ''))) return;
+    const state = { id: video.id, title: String(video.title || 'YouTube video').slice(0, 240), channelTitle: String(video.channelTitle || 'YouTube').slice(0, 120) };
+    try { localStorage.setItem(PERSISTENT_YOUTUBE_KEY, JSON.stringify(state)); } catch {}
+    let panel = document.getElementById('persistent-youtube-player');
+    if (!panel) {
+      panel = document.createElement('aside');
+      panel.id = 'persistent-youtube-player';
+      panel.className = 'persistent-youtube-player';
+      panel.setAttribute('aria-label', 'Persistent video player');
+      panel.setAttribute('role', 'region');
+      const header = document.createElement('div');
+      header.className = 'persistent-youtube-header';
+      const label = document.createElement('span');
+      label.className = 'persistent-youtube-label';
+      label.textContent = 'Continue watching';
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'persistent-youtube-close';
+      close.setAttribute('aria-label', 'Close persistent video player');
+      close.title = 'Close video player';
+      close.textContent = '×';
+      close.addEventListener('click', () => {
+        panel.remove();
+        try { localStorage.removeItem(PERSISTENT_YOUTUBE_KEY); } catch {}
+      });
+      header.append(label, close);
+      panel.appendChild(header);
+      document.body.appendChild(panel);
+    }
+    let card = existingCard;
+    if (!card) card = createYouTubeVideoCard(state);
+    if (!card) return;
+    panel.querySelector('.youtube-video-card')?.remove();
+    panel.appendChild(card);
+    panel.dataset.videoId = state.id;
+  }
+
+  let persistentYouTubeRestore = null;
+  function restorePersistentYouTubePlayer() {
+    if (persistentYouTubeRestore) return persistentYouTubeRestore;
+    persistentYouTubeRestore = Promise.resolve().then(() => {
+      let state;
+      try { state = JSON.parse(localStorage.getItem(PERSISTENT_YOUTUBE_KEY) || 'null'); } catch { return; }
+      if (!state || !/^[A-Za-z0-9_-]{11}$/.test(String(state.id || ''))) return;
+      const mounted = document.getElementById('persistent-youtube-player');
+      if (mounted?.dataset.videoId === state.id) return;
+      // Do not delete a saved player because a verification/search API is
+      // temporarily unavailable. YouTube's own embed handles playback status.
+      mountPersistentYouTubePlayer(state);
+    }).finally(() => { persistentYouTubeRestore = null; });
+    return persistentYouTubeRestore;
+  }
+
   function isYouTubeSearchRequest(query) {
     const q = String(query || '').trim();
     if (!needsYouTubeVideos(q)) return false;
@@ -4367,6 +4460,33 @@
     const panel = document.createElement('div');
     panel.className = 'reply-details-panel';
     panel.hidden = true;
+    const makeDetailIcon = (kind) => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('width', '14');
+      svg.setAttribute('height', '14');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      svg.classList.add('reply-detail-icon', 'reply-detail-icon-' + kind);
+      const paths = {
+        calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+        duration: 'M12 7v5l3 2 M21 12a9 9 0 1 1-2.64-6.36 M21 3v6h-6',
+        tokens: 'M12 3 20 7.5 12 12 4 7.5 12 3Z M4 12l8 4.5 8-4.5 M4 16.5 12 21l8-4.5'
+      };
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', paths[kind] || paths.tokens);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', 'currentColor');
+      path.setAttribute('stroke-width', '1.7');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(path);
+      return svg;
+    };
+    const addDetailIcon = (label, kind) => {
+      label.classList.add('reply-detail-label-row');
+      label.prepend(makeDetailIcon(kind));
+    };
     const created = responseMetadata?.timestamp ? new Date(responseMetadata.timestamp) : new Date();
     const date = document.createElement('time');
     date.dateTime = created.toISOString();
@@ -4374,9 +4494,11 @@
     const dateLabel = document.createElement('div');
     dateLabel.className = 'reply-detail-label';
     dateLabel.textContent = 'Date & time';
+    addDetailIcon(dateLabel, 'calendar');
     const durationLabel = document.createElement('div');
     durationLabel.className = 'reply-detail-label reply-detail-spaced';
     durationLabel.textContent = 'Time to complete';
+    addDetailIcon(durationLabel, 'duration');
     const duration = document.createElement('div');
     const elapsedMs = Number(responseMetadata?.duration_ms);
     duration.textContent = Number.isFinite(elapsedMs) && elapsedMs >= 0
@@ -4385,16 +4507,19 @@
     const inputLabel = document.createElement('div');
     inputLabel.className = 'reply-detail-label reply-detail-spaced';
     inputLabel.textContent = 'Input tokens';
+    addDetailIcon(inputLabel, 'tokens');
     const inputTokens = document.createElement('div');
     inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) ? responseMetadata.usage.input_tokens.toLocaleString() : 'Not reported';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
     outputLabel.textContent = 'Output tokens';
+    addDetailIcon(outputLabel, 'tokens');
     const outputTokens = document.createElement('div');
     outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens) ? responseMetadata.usage.output_tokens.toLocaleString() : 'Not reported';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
     totalLabel.textContent = 'Total tokens';
+    addDetailIcon(totalLabel, 'tokens');
     const totalTokens = document.createElement('div');
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
       ? (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString()
@@ -4402,55 +4527,62 @@
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
     panel.id = 'reply-details-' + id;
+    const closePanel = () => {
+      panel.hidden = true;
+      details.setAttribute('aria-expanded', 'false');
+    };
+    const positionPanel = () => {
+      if (panel.hidden || window.innerWidth <= 600) return;
+      const trigger = details.getBoundingClientRect();
+      if (trigger.bottom < 0 || trigger.top > window.innerHeight) { closePanel(); return; }
+      const dockEl = document.querySelector('.dock');
+      const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
+      const edge = 12, gap = 8, width = Math.min(248, window.innerWidth - 40);
+      panel.style.position = 'fixed';
+      panel.style.width = width + 'px';
+      panel.style.maxWidth = 'calc(100vw - 40px)';
+      panel.style.maxHeight = 'min(55vh, 22rem)';
+      const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
+      const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
+      const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
+      const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
+      const aboveSpace = Math.max(0, trigger.top - gap - edge);
+      const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
+      const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
+      panel.style.left = left + 'px';
+      panel.style.top = Math.max(edge, placeBelow ? trigger.bottom + gap : trigger.top - gap - height) + 'px';
+      panel.style.maxHeight = height + 'px';
+    };
     details.addEventListener('click', (event) => {
       event.stopPropagation();
       const opening = panel.hidden;
-      panel.hidden = !opening;
-      details.setAttribute('aria-expanded', String(opening));
-      if (opening) {
-        // Viewport positioning: never let the panel cover the fixed composer.
-        panel.style.position = 'fixed';
-        panel.style.left = '12px';
-        panel.style.top = '12px';
-        panel.style.right = 'auto';
-        panel.style.bottom = 'auto';
-        panel.style.width = '248px';
-        panel.style.maxWidth = 'calc(100vw - 40px)';
-        panel.style.maxHeight = 'min(55vh, 22rem)';
-        const trigger = details.getBoundingClientRect();
-        const dockEl = document.querySelector('.dock');
-        const dockRect = dockEl ? dockEl.getBoundingClientRect() : null;
-        const edge = 12, gap = 8;
-        const width = Math.min(248, window.innerWidth - 40);
-        panel.style.width = width + 'px';
-        const left = Math.max(20, Math.min(trigger.left + trigger.width / 2 - width / 2, window.innerWidth - width - 20));
-        const naturalHeight = Math.min(panel.scrollHeight || 240, window.innerHeight * 0.55, 352);
-        const composerTop = dockRect && dockRect.height > 0 ? dockRect.top - 12 : window.innerHeight - 180;
-        const belowSpace = Math.max(0, Math.min(window.innerHeight - trigger.bottom - gap - edge, composerTop - trigger.bottom - gap));
-        const aboveSpace = Math.max(0, trigger.top - gap - edge);
-        const placeBelow = naturalHeight <= belowSpace || (belowSpace >= 150 && belowSpace >= aboveSpace);
-        const height = Math.max(96, Math.min(naturalHeight, placeBelow ? belowSpace : aboveSpace));
-        const top = placeBelow ? trigger.bottom + gap : trigger.top - gap - height;
-        panel.style.left = left + 'px';
-        panel.style.top = Math.max(edge, top) + 'px';
-        panel.style.maxHeight = height + 'px';
-      }
+      document.querySelectorAll('.reply-details-panel').forEach((other) => {
+        if (other !== panel) {
+          other.hidden = true;
+          const otherButton = document.querySelector('[aria-controls="' + other.id + '"]');
+          if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
+        }
+      });
+      if (!opening) { closePanel(); return; }
+      panel.hidden = false;
+      details.setAttribute('aria-expanded', 'true');
+      positionPanel();
     });
-    // Dismiss on any outside tap/click and on Escape. Ignore the trigger itself
-    // so the opening click does not immediately close the popover.
-    document.addEventListener('click', (event) => {
-      if (!panel.hidden && !panel.contains(event.target) && event.target !== details) {
-        panel.hidden = true;
-        details.setAttribute('aria-expanded', 'false');
-      }
-    });
+    const onScroll = () => {
+      if (window.innerWidth <= 600) closePanel();
+      else positionPanel();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    document.addEventListener('pointerdown', (event) => {
+      if (!panel.hidden && !panel.contains(event.target) && !details.contains(event.target)) closePanel();
+    }, true);
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !panel.hidden) {
-        panel.hidden = true;
-        details.setAttribute('aria-expanded', 'false');
-        details.focus();
-      }
+      if (event.key === 'Escape' && !panel.hidden) { closePanel(); details.focus(); }
     });
+    document.addEventListener('input', (event) => {
+      if (!panel.hidden && event.target instanceof HTMLElement &&
+          event.target.matches('input, textarea, [contenteditable="true"]')) closePanel();
+    }, true);
     row.appendChild(details);
     row.appendChild(panel);
 
@@ -4474,7 +4606,7 @@
           notice.textContent = err.message || 'That reply could not be saved.';
         } finally { keep.disabled = false; }
       });
-      row.appendChild(keep);
+      row.insertBefore(keep, details);
     }
     return row;
   }
