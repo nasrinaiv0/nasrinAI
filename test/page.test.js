@@ -352,7 +352,8 @@ test('tutorial intent uses a privacy-enhanced YouTube player and only trusted vi
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
   const youtube = await readFile(new URL('../src/web/youtube.js', import.meta.url), 'utf8');
-  assert.match(js, /needsYouTubeVideos\(videoQuery\)/);
+  assert.match(js, /const videoQuery = youtubeQueryForReply\(lastUserQuery, text\)/, 'resolve affirmative follow-ups against the assistant reply context');
+  assert.match(js, /if \(videoQuery\) renderYouTubeVideos\(el, videoQuery, cited\.links\)/, 'render video results only when the resolved query has video intent');
   assert.match(js, /renderYouTubeVideos\(el, videoQuery, cited\.links\)/);
   assert.match(js, /if \(firstCard\) \{\s*section\.appendChild\(firstCard\)/, 'keep the main tutorial player inline in the answer and persist its metadata');
   assert.match(js, /!needsYouTubeVideos\(latestUserQuery\)/, 'skip follow-up questions for tutorial requests');
