@@ -30,6 +30,12 @@ test('explicit YouTube requests still show video results', () => {
   ]) assert.equal(needsYouTubeVideos(query), true, query);
 });
 
+test('bare keywords stay in ordinary chat instead of hijacking the send flow', () => {
+  for (const query of ['youtube', 'MrBeast', 'mr beast']) {
+    assert.equal(isYouTubeSearchRequest(query), false, query);
+  }
+});
+
 test('video result heading reflects the requested content intent', () => {
   assert.equal(youtubeResultsHeading('trending videos in TikTok'), 'Trending videos');
   assert.equal(youtubeResultsHeading('show me YouTube videos about MrBeast'), 'Videos');
