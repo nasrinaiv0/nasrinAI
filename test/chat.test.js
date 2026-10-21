@@ -321,7 +321,7 @@ test('simple greetings skip model routing and expensive context lookups', async 
   const provider = createFakeProvider();
   let contextCalls = 0;
   const context = async () => { contextCalls += 1; return null; };
-  await withApp({ provider, knowledge: { context }, memory: { context }, founder: { context }, productKnowledge: { context } }, async ({ url, store }) => {
+  await withApp({ provider, env: { AI_PROVIDER: 'fake', ROUTING: 'smart' }, knowledge: { context }, memory: { context }, founder: { context }, productKnowledge: { context } }, async ({ url, store }) => {
     const token = await guestToken(url);
     const response = await send(url, token, { message: 'hi' });
     assert.equal(response.status, 200);
