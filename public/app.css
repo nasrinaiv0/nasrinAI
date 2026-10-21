@@ -4202,6 +4202,6 @@ body[data-theme="light"] .reply-details-panel,
 .sources-toggle.source-wave .src-face:nth-child(1) { animation-delay:0ms; }
 .sources-toggle.source-wave .src-face:nth-child(2) { animation-delay:75ms; }
 .sources-toggle.source-wave .src-face:nth-child(3) { animation-delay:150ms; }
-.sources-toggle.source-wave .src-word { animation-delay:225ms; }
+.sources-toggle.source-wave .src-word { animation-delay: 225ms; }
 @keyframes source-wave { 0%{transform:translateY(0);opacity:.72} 42%{transform:translateY(-3px);opacity:1} 100%{transform:translateY(0);opacity:1} }
 @media(prefers-reduced-motion:reduce){.reply-details-toggle.reply-details-wave .reply-details-dot,.sources-toggle.source-wave .src-face,.sources-toggle.source-wave .src-word{animation:none!important}}
