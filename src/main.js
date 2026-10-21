@@ -22,6 +22,7 @@ import { providerFromConfig } from './ai/registry.js';
 import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
+import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/openrouter.js';
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
@@ -42,7 +43,6 @@ import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
 import { imagePrice } from './ai/pricing.js';
 import { createOpenAISpeech, createGeminiSpeech, createOpenRouterSpeech, createResponsiveSpeech } from './ai/speech.js';
-import { createOpenRouterClient } from './ai/openrouter.js';
 import { createVoice } from './voice.js';
 import { createStorage } from './storage.js';
 import { createUploads } from './uploads.js';
@@ -170,7 +170,7 @@ export function buildApp({ config, logger }) {
       const p = slot.provider === 'gemini'
         ? createGeminiImage({ apiKey: config.ai.geminiApiKey, model: slot.model, totalMs: ms })
         : slot.provider === 'openrouter'
-          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, timeoutMs: ms })
+          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, price, timeoutMs: ms })
           : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
       return { p, price };
     };
@@ -181,8 +181,15 @@ export function buildApp({ config, logger }) {
   }
   const imageBudget = createBudget({ store, config: effective, logger, kind: 'image' });
   const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, budget: imageBudget, provider, policy, legal, config: effective, logger });
-  const videoProvider = effective.video?.enabled ? createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution }) : null;
-  const videos = createVideos({ store, plans, provider: videoProvider, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const videoProviders = effective.video?.enabled
+    ? effective.video.provider === 'openrouter'
+      ? Object.fromEntries(Object.entries(effective.video.tierRoutes || {}).map(([tier, route]) => [tier, createOpenRouterVideoProvider({
+          client: openRouterClient,
+          model: route.model, tier, maxSeconds: 8, resolution: route.resolution, allowedResolutions: route.allowedResolutions, allowedFrameRates: route.allowedFrameRates, allow4kAddon: route.allow4kAddon === true
+        })]))
+      : Object.fromEntries(['max', 'ultra'].map((tier) => [tier, createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution })]))
+    : null;
+  const videos = createVideos({ store, plans, provider: videoProviders, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
   const elevenlabs = createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY || '' });
   const videoStudioExporter = createVideoStudioExporter();
   // Tools: the basic ones for everyone, plus each business's own connectors.
@@ -222,7 +229,7 @@ export function buildApp({ config, logger }) {
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
   const openrouterSpeech = sp.enabled && sp.provider === 'openrouter' && openRouterClient
-    ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, rate: sp.rate, responseFormat: 'wav' })
+    ? createOpenRouterSpeech({ client: openRouterClient, model: sp.openrouterModel, provider: sp.openrouterProvider, rate: sp.rate, responseFormat: 'wav' })
     : null;
   const openaiSpeech = sp.enabled && config.ai.openaiApiKey
     ? createOpenAISpeech({ apiKey: config.ai.openaiApiKey, model: sp.model, fastModel: sp.fastModel, rate: sp.rate, responseFormat: 'wav' })

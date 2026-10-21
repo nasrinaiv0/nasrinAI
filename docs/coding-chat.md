@@ -136,3 +136,12 @@ question only when a missing decision materially blocks safe action. A prompt
 rule is guidance, not a guarantee, so regression tests cover the presence of
 these instructions and actual tool evidence must still support every completion
 claim.
+
+
+## Tier-specific coding models (2026-10-21)
+
+- **Max:** `openrouter:openai/gpt-6-sol` ($2/M input, $10/M output listed).
+- **Ultra:** `openrouter:openai/gpt-6.1-sol` ($2/M input, $10/M output listed).
+- Ultra deep-coding route is also pinned to GPT-6.1 Sol. These are server-side, tier-scoped allowlisted routes; Max cannot select the Ultra model through the Max coding route. Source pricing: https://openrouter.ai/openai/gpt-6-sol/ and https://openrouter.ai/openai/gpt-6.1-sol/.
+- Defaults select these OpenRouter models when `OPENROUTER_API_KEY` is configured. Otherwise the existing approved Anthropic fallback remains. To force the selection explicitly in Vercel, set `CODING_MAX_MODEL=openrouter:openai/gpt-6-sol`, `CODING_ULTRA_MODEL=openrouter:openai/gpt-6.1-sol`, and `CODING_ULTRA_DEEP_MODEL=openrouter:openai/gpt-6.1-sol`.
+- Current automated tests verify tier/model pinning; live authenticated coding requests, cost reconciliation, and output quality still need Preview smoke testing.

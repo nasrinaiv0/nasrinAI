@@ -5,6 +5,7 @@ import { priceOf, costOf, estimateTokens } from './pricing.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { createProviderSpendHooks } from './budget.js';
+import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 
 // The cost-aware routing policy (Phase 4.1), between the chat and the router:
 //
@@ -99,7 +100,8 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     // answer (for usage records). Resolves { result, spec, level, escalated, costUsd }.
     async run(plan, req, { onFailure = async () => {}, reserveTokens = null, settleTokens = null, caller = null } = {}) {
       // `minTokens`: a request for a file or long document may use more reply tokens than its level allows.
-      const { minTokens = 0, ...modelReq } = req;
+      const { minTokens = 0, maxTokens: requestedMaxTokens = null, excludeModels = [], ...modelReq } = req;
+      const excluded = new Set(Array.isArray(excludeModels) ? excludeModels.map((x) => String(x)) : []);
       req = modelReq;
       const attachments = req.attachments || [];
       const inputTokens = estimateTokens(req.system) + req.messages.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
@@ -131,10 +133,11 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
               : r.coding?.[plan.tier];
             if (codingSpec) candidates.push(codingSpec);
           }
-          candidates.push(...r.levels[l]);
+          candidates.push(...prioritizeOpenRouterCandidates(plan.task, r.levels[l]));
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
+            if (excluded.has(`${s.provider}:${s.model}`)) { why.push(`${s.provider}:${s.model} (already used in this planning council)`); continue; }
             const b = blocker(s, {
               sensitive: plan.sensitive, attachments, inputTokens, level: l, left, minOut: minTokens,
               reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
@@ -198,14 +201,17 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         if (at < level) logger.info('downgraded to fit the budget', { from: level, to: at });
 
         const started = now();
-        const callMaxTokens = Math.max(r.maxTokens[at], minTokens);
+        const normalMaxTokens = Math.max(r.maxTokens[at], minTokens);
+        const boundedMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens >= 64
+          ? Math.min(normalMaxTokens, requestedMaxTokens) : normalMaxTokens;
+        const callMaxTokens = boundedMaxTokens;
         let reservation = null;
         let result;
         try {
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, route: spec, maxTokens: callMaxTokens, ...(spendHooks ? { spendHooks, spendTier: plan.tier } : {}) });
+          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, ...(spendHooks ? { spendHooks, spendTier: plan.tier } : {}) });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
             const actual = hasUsage && result.fallback !== true

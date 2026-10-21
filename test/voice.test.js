@@ -321,3 +321,75 @@ test('speech provider choice: OpenAI first, Gemini when it is the only key', asy
   assert.equal(loadConfig({ ...base }).ai.speech.enabled, false);
   assert.throws(() => loadConfig({ ...base, SPEECH_PROVIDER: 'gemini' }), /GEMINI_API_KEY/);
 });
+
+
+test('OpenRouter speech config pins the requested Gemini Flash Lite TTS model and provider', async () => {
+  const { loadConfig } = await import('../src/config.js');
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    SPEECH_PROVIDER: 'openrouter',
+    OPENROUTER_TTS_MODEL: 'google/gemini-3.8-flash-lite-tts',
+    OPENROUTER_TTS_PROVIDER: 'Google AI Studio'
+  });
+  assert.equal(cfg.ai.speech.provider, 'openrouter');
+  assert.equal(cfg.ai.speech.openrouterModel, 'google/gemini-3.8-flash-lite-tts');
+  assert.equal(cfg.ai.speech.openrouterProvider, 'Google AI Studio');
+});
+
+test('coding tiers pin Max to GPT-6 Sol and Ultra to GPT-6.1 Sol', async () => {
+  const { loadConfig } = await import('../src/config.js');
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    CODING_MAX_MODEL: 'openrouter:openai/gpt-6-sol',
+    CODING_ULTRA_MODEL: 'openrouter:openai/gpt-6.1-sol',
+    CODING_ULTRA_DEEP_MODEL: 'openrouter:openai/gpt-6.1-sol'
+  });
+  assert.equal(cfg.ai.routing.coding.max.model, 'openai/gpt-6-sol');
+  assert.equal(cfg.ai.routing.coding.ultra.model, 'openai/gpt-6.1-sol');
+  assert.equal(cfg.ai.routing.coding.ultraDeep.model, 'openai/gpt-6.1-sol');
+});
+
+
+test('OpenRouter TTS exposes Google voice IDs and selects a provider-scoped default', async () => {
+  const { createVoice } = await import('../src/voice.js');
+  const openrouter = {
+    provider: 'openrouter',
+    model: 'google/gemini-3.8-flash-lite-tts',
+    mime: 'audio/wav',
+    voices: [{ id: 'cedar', name: 'Cedar' }],
+    defaultVoice: 'cedar',
+    async synthesize({ voice }) { return Buffer.from('wav:' + voice); }
+  };
+  const voice = createVoice({
+    engine: openrouter,
+    engines: { openai: null, gemini: null, openrouter },
+    conversations: {},
+    limiter: {},
+    usageLog: {},
+    config: { isProduction: false },
+    logger: { error() {}, warn() {} }
+  });
+  assert.equal(voice.defaultVoice, 'openrouter:Charon');
+  assert.equal(voice.voices.some((v) => v.id === 'openrouter:Charon' && v.available), true);
+  assert.equal(voice.voices.some((v) => v.id === 'openrouter:cedar' && v.available), false);
+});
+
+
+test('premium coding and TTS price snapshots include provider cache-read rates', async () => {
+  const fs = await import('node:fs/promises');
+  const prices = JSON.parse(await fs.readFile(new URL('../config/model-prices.json', import.meta.url), 'utf8'));
+  assert.deepEqual(
+    [prices.openrouter['openai/gpt-6-sol'].input, prices.openrouter['openai/gpt-6-sol'].output, prices.openrouter['openai/gpt-6-sol'].cached_input],
+    [2, 10, 0.2]
+  );
+  assert.deepEqual(
+    [prices.openrouter['openai/gpt-6.1-sol'].input, prices.openrouter['openai/gpt-6.1-sol'].output, prices.openrouter['openai/gpt-6.1-sol'].cached_input],
+    [2, 10, 0.1]
+  );
+  assert.deepEqual(
+    [prices.openrouter['google/gemini-3.8-flash-lite-tts'].input, prices.openrouter['google/gemini-3.8-flash-lite-tts'].output],
+    [0.5, 6]
+  );
+});

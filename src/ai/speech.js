@@ -254,7 +254,7 @@ export function createResponsiveSpeech({ openai, gemini, timeoutMs = 3000 }) {
 
 // OpenRouter TTS adapter. The model is capability-checked against OpenRouter's
 // live speech-output catalog by the shared client; secrets remain server-side.
-export function createOpenRouterSpeech({ client, model = '', rate = 1, responseFormat = 'wav' }) {
+export function createOpenRouterSpeech({ client, model = '', provider = '', rate = 1, responseFormat = 'wav' }) {
   if (!client || typeof client.speak !== 'function') return null;
   return {
     provider: 'openrouter',
@@ -265,7 +265,7 @@ export function createOpenRouterSpeech({ client, model = '', rate = 1, responseF
     fastModel: '',
     async synthesize({ text, voice, timeoutMs }) {
       try {
-        return await client.speak({ model: model || undefined, input: text, voice, responseFormat, timeoutMs });
+        return await client.speak({ model: model || undefined, input: text, voice, responseFormat, provider: provider || undefined, timeoutMs });
       } catch (err) {
         if (err instanceof ProviderError) throw err;
         throw new ProviderError('unavailable', 'OpenRouter speech generation failed');

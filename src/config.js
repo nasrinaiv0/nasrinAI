@@ -155,7 +155,9 @@ export function loadConfig(env = process.env) {
   const geminiKey = String(env.GEMINI_API_KEY || '').trim();
   if (geminiKey && aiProvider !== 'fake' && !providerKeys.includes('gemini')) providerKeys.push('gemini');
   if (env.OPENAI_API_KEY && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('openai')) providerKeys.push('openai');
-  if (aiProvider === 'auto' && ![env.OPENAI_API_KEY, geminiKey, anthropicKey].some((key) => String(key || '').trim())) throw new ConfigError('AI_PROVIDER=auto needs at least one external provider key: OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY');
+  const openrouterApiKey = String(env.OPENROUTER_API_KEY || '').trim();
+  if (openrouterApiKey && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('openrouter')) providerKeys.push('openrouter');
+  if (aiProvider === 'auto' && ![env.OPENAI_API_KEY, geminiKey, anthropicKey, openrouterApiKey].some((key) => String(key || '').trim())) throw new ConfigError('AI_PROVIDER=auto needs at least one external provider key: OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY');
   // Optional APIs from awesome-freellm-apis. Model IDs are pinned explicitly;
   // free-model allowlists are separate because a provider may also expose paid models.
   const freeProviderSettings = FREE_LLM_CATALOG.filter((p) => ['openai-compatible', 'cloudflare-workers-ai', 'cohere-v2'].includes(p.adapter)).map((p) => {
@@ -277,7 +279,7 @@ export function loadConfig(env = process.env) {
   // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
   // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
-  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) || freeProviderSettings.some((p) => p.freeModels.includes(p.model)) ? 'smart' : 'fixed')).trim().toLowerCase();
+  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
   const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY));
   // Last-resort, explicitly priced model choices for when an operator's custom
@@ -289,11 +291,10 @@ export function loadConfig(env = process.env) {
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
   const defaultsByLevel = {
-    // Level 1 is the zero-cost lane: explicitly allowlisted free models first,
-    // then configured low-cost general-purpose options. The policy layer still
-    // validates model capability, price, privacy, tier range and budget.
+    // Free-tier providers are emergency-only fallback targets, never normal
+    // routing candidates. Level 1 uses configured general-purpose models; the
+    // fallback pool may still try allowlisted free models after paid providers fail.
     1: [
-      ...freeProviderSettings.filter((p) => p.freeModels.includes(p.model)).map((p) => p.id + ':' + p.model),
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
       has('openai') ? 'openai:gpt-5.4-nano:none' : '',
@@ -308,34 +309,45 @@ export function loadConfig(env = process.env) {
   for (let n = 1; n <= 5; n++) {
     const raw = env['ROUTE_LEVEL_' + n];
     const list = raw !== undefined && String(raw).trim() !== '' ? String(raw).split(',') : defaultsByLevel[n];
-    levels[n] = Object.freeze(list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x)));
+    const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
+    const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
+    levels[n] = Object.freeze(normalCandidates);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
   if (routingMode === 'smart' && !levels[1].length) throw new ConfigError('ROUTING=smart needs at least one model for ROUTE_LEVEL_1');
 
-  // Claude is a deliberate specialist, not a general-purpose fallback.
-  // Max uses Sonnet 5.5 for well-scoped coding/debugging; Ultra uses Opus 5.5
-  // for the hardest coding, refactors and codebase-scale work. If Anthropic is
-  // not configured, coding falls back to the normal OpenAI/Gemini routing.
-  const codingModel = (name, value, fallback) => {
+  // Coding specialists are explicit, tier-scoped routes. Prefer the requested
+  // OpenRouter Sol models when OPENROUTER_API_KEY is configured; retain the
+  // previous Anthropic defaults only when OpenRouter is not configured.
+  const codingModel = (name, value, fallback, allowedModels) => {
     const raw = value === undefined || String(value).trim() === '' ? fallback : String(value).trim();
     if (!raw) return null;
-    if (!has('anthropic')) {
-      if (value !== undefined && String(value).trim() !== '') throw new ConfigError(`${name}: needs ANTHROPIC_API_KEY`);
-      return null;
-    }
     const spec = tierSpec(name, raw);
-    if (spec.provider !== 'anthropic') throw new ConfigError(`${name}: must use anthropic:claude-...`);
-    return spec;
+    if (spec.provider === 'openrouter') {
+      if (!has('openrouter')) throw new ConfigError(`${name}: needs OPENROUTER_API_KEY`);
+      if (!allowedModels.includes(spec.model)) throw new ConfigError(`${name}: model is not allowed for this coding tier`);
+      return spec;
+    }
+    if (spec.provider === 'anthropic') {
+      if (!has('anthropic')) throw new ConfigError(`${name}: needs ANTHROPIC_API_KEY`);
+      if (!/^claude-(sonnet|opus)-/.test(spec.model)) throw new ConfigError(`${name}: expected an approved Claude coding model`);
+      return spec;
+    }
+    throw new ConfigError(`${name}: use an approved openrouter:openai/gpt-6-sol or openrouter:openai/gpt-6.1-sol model (or an approved anthropic:claude-... fallback)`);
   };
+  const codingOpenRouter = has('openrouter');
+  const codingAnthropic = has('anthropic');
+  const codingFallback = (openrouterModel, anthropicModel) => codingOpenRouter
+    ? `openrouter:${openrouterModel}`
+    : codingAnthropic ? `anthropic:${anthropicModel}` : '';
   const coding = Object.freeze({
-    // Sonnet handles routine and moderate coding across Max and Ultra.
-    max: codingModel('CODING_MAX_MODEL', env.CODING_MAX_MODEL, 'anthropic:claude-sonnet-5-5'),
-    ultra: codingModel('CODING_ULTRA_MODEL', env.CODING_ULTRA_MODEL, 'anthropic:claude-sonnet-5-5'),
-    // Opus is reserved for Ultra's level 4-5 coding only, where its extra
-    // reasoning quality is worth the higher token price.
-    ultraDeep: codingModel('CODING_ULTRA_DEEP_MODEL', env.CODING_ULTRA_DEEP_MODEL, 'anthropic:claude-opus-5-5')
+    max: codingModel('CODING_MAX_MODEL', env.CODING_MAX_MODEL,
+      codingFallback('openai/gpt-6-sol', 'claude-sonnet-5-5'), ['openai/gpt-6-sol']),
+    ultra: codingModel('CODING_ULTRA_MODEL', env.CODING_ULTRA_MODEL,
+      codingFallback('openai/gpt-6.1-sol', 'claude-sonnet-5-5'), ['openai/gpt-6.1-sol']),
+    ultraDeep: codingModel('CODING_ULTRA_DEEP_MODEL', env.CODING_ULTRA_DEEP_MODEL,
+      codingFallback('openai/gpt-6.1-sol', 'claude-opus-5-5'), ['openai/gpt-6.1-sol'])
   });
   // Which levels each tier may use: [lowest, highest]. Powerful levels must be
   // earned by the message; the tier only sets how high it may go.
@@ -353,6 +365,8 @@ export function loadConfig(env = process.env) {
   };
   const routing = Object.freeze({
     mode: routingMode,
+    // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
+    planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
     freeModels: Object.freeze(Object.fromEntries(freeProviderSettings.map((p) => [p.id, p.freeModels]))),
     coding,
@@ -421,7 +435,7 @@ export function loadConfig(env = process.env) {
   }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
-  const wantSpeech = String(env.SPEECH_PROVIDER || 'auto').trim().toLowerCase();
+  const wantSpeech = String(env.SPEECH_PROVIDER || (openrouterApiKey ? 'openrouter' : 'auto')).trim().toLowerCase();
   if (!['auto', 'openai', 'gemini', 'openrouter'].includes(wantSpeech)) throw new ConfigError('SPEECH_PROVIDER: use auto, openai, gemini or openrouter');
   const openaiSpeechOk = (aiProvider === 'openai' || aiProvider === 'auto') && Boolean(env.OPENAI_API_KEY);
   const geminiSpeechOk = Boolean(geminiKey) && aiProvider !== 'fake';
@@ -429,8 +443,8 @@ export function loadConfig(env = process.env) {
   if (wantSpeech === 'gemini' && !geminiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=gemini needs GEMINI_API_KEY');
   if (wantSpeech === 'openai' && !openaiSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openai needs AI_PROVIDER=openai or auto, and OPENAI_API_KEY');
   if (wantSpeech === 'openrouter' && !openrouterSpeechOk) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_API_KEY');
-  if (wantSpeech === 'openrouter' && !String(env.OPENROUTER_TTS_MODEL || '').trim()) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_TTS_MODEL set to a verified speech-output model ID');
-  const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : openrouterSpeechOk ? 'openrouter' : 'none';
+  if (wantSpeech === 'openrouter' && !String(env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-lite-tts').trim()) throw new ConfigError('SPEECH_PROVIDER=openrouter needs OPENROUTER_TTS_MODEL set to a verified speech-output model ID');
+  const speechProvider = wantSpeech !== 'auto' ? wantSpeech : openrouterSpeechOk ? 'openrouter' : openaiSpeechOk ? 'openai' : geminiSpeechOk ? 'gemini' : 'none';
 
   const SPEECH_RATE_DEFAULT = 1.15;
   let speechRate = SPEECH_RATE_DEFAULT;
@@ -518,7 +532,7 @@ export function loadConfig(env = process.env) {
     const off = (why) => { warnings.push(`${prefix}: ${why} This picture route is off.`); return null; };
     if (!(provider in imageKeys)) return off('_PROVIDER must be google (gemini), openai or openrouter.');
     if (!imageKeys[provider]) return off(`needs ${provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'OPENAI_API_KEY'}.`);
-    if (!(provider === 'openrouter' ? /^[a-z0-9][a-z0-9._-]{0,79}\\/[a-z0-9][a-z0-9._:/-]{0,99}$/i.test(model) : /^[a-z0-9][a-z0-9.-]{1,79}$/i.test(model))) return off('_MODEL: use the exact model ID from the provider catalog.');
+    if (!(provider === 'openrouter' ? /^[a-z0-9][a-z0-9._-]{0,79}\/[a-z0-9][a-z0-9._:/-]{0,99}$/i.test(model) : /^[a-z0-9][a-z0-9.-]{1,79}$/i.test(model))) return off('_MODEL: use the exact model ID from the provider catalog.');
     if (provider === 'openai' && !/^gpt-image/.test(model)) return off('_MODEL: use the GPT Image model name from OpenAI, for example gpt-image-….');
     if (provider === 'openrouter' && !['openai/gpt-image-2', 'openai/gpt-image-2.5-flare', 'openai/gpt-image-2.5-sunburst'].includes(model)) return off('_MODEL: use a verified OpenRouter image model, such as openai/gpt-image-2 or openai/gpt-image-2.5-flare.');
     let price = null;
@@ -665,12 +679,37 @@ export function loadConfig(env = process.env) {
     else paymongo = Object.freeze({ secretKey: pmKey, webhookSecret: pmHook, methods: Object.freeze(methods) });
   }
 
+  const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
+  if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
+  // HeyGen Video 1 is the primary OpenRouter video model. Per-tier model
+  // overrides remain available, but must pass live capability and pricing checks.
+  const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || 'heygen/heygen-video-1').trim();
+  const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
+    const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
+    const model = String(env[prefix + '_MODEL'] || openRouterVideoModel).trim();
+    const allowedResolutions = tier === 'pro' ? ['480p', '360p'] : ['4k', '1080p', '720p', '480p', '360p'];
+    const allowedFrameRates = [60, 30];
+    return [tier, Object.freeze({ model: model || null, tier, allowedResolutions: Object.freeze(allowedResolutions), allowedFrameRates: Object.freeze(allowedFrameRates), resolution: null, allow4kAddon: tier === 'max' || tier === 'ultra' })];
+  })));
+  const hasTierVideoRoute = videoProviderName === 'gemini' ? Boolean(geminiKey) : Boolean(env.OPENROUTER_API_KEY);
+  if (videoProviderName === 'openrouter' && String(env.VIDEO_ENABLED ?? 'false').toLowerCase() === 'true') {
+    const missingVideoLimits = ['VIDEO_PRO_WEEKLY_SECONDS', 'VIDEO_MAX_WEEKLY_SECONDS', 'VIDEO_ULTRA_WEEKLY_SECONDS']
+      .filter((name) => env[name] === undefined || String(env[name]).trim() === '' || Number(env[name]) < 1);
+    if (missingVideoLimits.length) throw new ConfigError('OpenRouter video requires positive weekly seconds limits in Vercel: ' + missingVideoLimits.join(', '));
+  }
   const video = Object.freeze({
-    enabled: Boolean(geminiKey) && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, 'true'),
-    // Ultra video uses Veo 3.1 Standard for final quality. Fast remains the
-    // explicit operator choice when lower cost/latency is more important.
-    model: String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
-    resolution: String(env.VIDEO_RESOLUTION || '1080p').trim().toLowerCase(),
+    provider: videoProviderName,
+    enabled: hasTierVideoRoute && softFlag('VIDEO_ENABLED', env.VIDEO_ENABLED, videoProviderName === 'openrouter' ? 'false' : 'true'),
+    // Primary OpenRouter model, with per-tier overrides above.
+    model: videoProviderName === 'openrouter' ? openRouterVideoModel : String(env.VIDEO_MODEL || 'veo-3.1-generate-preview').trim(),
+    weeklySeconds: Object.freeze({
+      pro: toInt('VIDEO_PRO_WEEKLY_SECONDS', env.VIDEO_PRO_WEEKLY_SECONDS, 0, 0, 1000000),
+      max: toInt('VIDEO_MAX_WEEKLY_SECONDS', env.VIDEO_MAX_WEEKLY_SECONDS, 0, 0, 1000000),
+      ultra: toInt('VIDEO_ULTRA_WEEKLY_SECONDS', env.VIDEO_ULTRA_WEEKLY_SECONDS, 0, 0, 1000000)
+    }),
+    costPerSecondUsd: null,
+    tierRoutes: videoTierRoutes,
+    resolution: String(env.VIDEO_RESOLUTION || (videoProviderName === 'openrouter' ? '720p' : '1080p')).trim().toLowerCase(),
     perHour: toInt('VIDEO_PER_HOUR', env.VIDEO_PER_HOUR, 1, 1, 10),
     maxSeconds: 60,
     maxCostUsd: usd('VIDEO_MAX_COST_USD', env.VIDEO_MAX_COST_USD, 32)
@@ -810,7 +849,10 @@ export function loadConfig(env = process.env) {
         // (lower delay, a little less expressive). OPENAI_TTS_FAST_MODEL=off uses the normal one.
         fastModel: /^(off|none|false)$/i.test(String(env.OPENAI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.OPENAI_TTS_FAST_MODEL || 'tts-1').trim(),
         // Gemini speech. GEMINI_TTS_FAST_MODEL is optional (empty: same model).
-        openrouterModel: String(env.OPENROUTER_TTS_MODEL || '').trim(),
+        openrouterModel: String(env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-lite-tts').trim(),
+        // Pin speech generation to the owner's requested provider. Provider routing is strict (only/no fallback)
+        // in the OpenRouter adapter, so an unavailable provider fails closed rather than silently changing vendors.
+        openrouterProvider: String(env.OPENROUTER_TTS_PROVIDER || 'Google AI Studio').trim(),
         geminiModel: String(env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts').trim(),
         geminiFastModel: /^(off|none|false)$/i.test(String(env.GEMINI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.GEMINI_TTS_FAST_MODEL || 'gemini-3.8-flash-lite-tts').trim(),
         responsive: String(env.SPEECH_RESPONSIVE ?? 'true').toLowerCase() !== 'false',

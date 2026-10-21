@@ -4,6 +4,7 @@ import { createLocalProvider } from './local.js';
 import { createRouter } from './router.js';
 import { createGeminiProvider } from './gemini.js';
 import { createAnthropicProvider } from './anthropic.js';
+import { createOpenRouterProvider } from './openrouter.js';
 import { createCloudflareWorkersAIProvider } from './cloudflare-workers-ai.js';
 import { createCohereProvider } from './cohere.js';
 import { assertProvider } from './provider.js';
@@ -43,13 +44,23 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
     const anthropicModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'anthropic')?.model || 'claude-haiku-5-5';
     providers.anthropic = assertProvider(createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: anthropicModel }));
   }
+  if (config.ai.openrouterApiKey && mode !== 'fake' && mode !== 'none') {
+    providers.openrouter = assertProvider(createOpenRouterProvider({ apiKey: config.ai.openrouterApiKey, model: 'openai/gpt-6-sol' }));
+  }
   if (config.ai.geminiApiKey && mode !== 'fake') {
     const geminiModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'gemini')?.model || 'gemini-3.1-flash-lite';
     providers.gemini = assertProvider(createGeminiProvider({ apiKey: config.ai.geminiApiKey, model: geminiModel, freeTier: config.ai.routing.geminiFreeTier }));
   }
   for (const p of config.ai.freeProviders || []) {
     if (providers[p.id]) continue;
-    if (p.adapter === 'openai-compatible') {
+    if (p.id === 'openrouter') {
+      const freeFallback = createLocalProvider({
+        baseUrl: p.baseUrl, model: p.model, apiKey: p.apiKey,
+        vision: false, timeoutMs: 60_000, id: p.id,
+        external: true, trainsOnData: false, tools: false
+      });
+      providers[p.id] = assertProvider(createOpenRouterProvider({ apiKey: p.apiKey, model: p.model, fallbackProvider: freeFallback }));
+    } else if (p.adapter === 'openai-compatible') {
       providers[p.id] = assertProvider(createLocalProvider({
         baseUrl: p.baseUrl, model: p.model, apiKey: p.apiKey,
         vision: p.vision === true, timeoutMs: 60_000, id: p.id,

@@ -28,37 +28,24 @@ test('free provider pool enables only keyed providers with pinned models', () =>
   assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('groq'));
 });
 
-test('free model pricing requires an exact allowlist match', async () => {
-  const config = loadConfig({
+test('free model allowlist is exact and free providers stay fallback-only', () => {
+  const allowed = loadConfig({
     AI_PROVIDER: 'none',
-    ROUTE_LEVEL_1: 'groq:llama-3.3-70b-versatile',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'
   });
-  const fake = createFakeProvider({ models: ['llama-3.3-70b-versatile'] });
-  fake.id = 'groq';
-  fake.capabilities = () => ({ local: false, dataLeavesServer: true, vision: false, pdf: false, tools: false, trainsOnData: false });
-  const router = createRouter({ providers: { groq: fake }, config, logger: quiet });
-  const store = createMemoryStore();
-  const budget = createBudget({ store, config, logger: quiet });
-  const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
-  const plan = policy.plan({ tier: 'nasrinai', message: 'hello', history: [] });
-  const run = await policy.run(plan, { system: 'S', messages: [{ role: 'user', content: 'hello' }], attachments: [] });
-  assert.equal(run.spec.provider, 'groq');
-  assert.equal(run.costUsd, 0);
+  assert.deepEqual(allowed.ai.routing.freeModels.groq, ['llama-3.3-70b-versatile']);
+  assert.ok(!Object.values(allowed.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'));
 
-  // Do not pin an unallowlisted Groq model into ROUTE_LEVEL_1 here: that would
-  // test explicit operator routing, not whether the free-model allowlist is exact.
-  const paidModelConfig = loadConfig({
+  const notAllowed = loadConfig({
     AI_PROVIDER: 'none',
-    ROUTE_LEVEL_1: 'openai:gpt-4o-mini',
     GROQ_API_KEY: 'test-groq-key',
     GROQ_MODEL: 'llama-3.3-70b-versatile',
     GROQ_FREE_MODELS: 'another-model'
   });
-  assert.equal(paidModelConfig.ai.routing.freeModels.groq.includes('llama-3.3-70b-versatile'), false);
-  assert.equal(paidModelConfig.ai.routing.levels[1].some((s) => s.provider === 'groq' && s.model === 'llama-3.3-70b-versatile'), false);
+  assert.equal(notAllowed.ai.routing.freeModels.groq.includes('llama-3.3-70b-versatile'), false);
+  assert.ok(!Object.values(notAllowed.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'));
 });
 
 test('free provider credentials never become available from browser-facing config fields', () => {
@@ -155,21 +142,20 @@ test('free provider catalog model defaults can be overridden with explicit envir
 });
 
 
-test('free tier catalog enables Cerebras, Cloudflare, Z.ai and OpenRouter when credentials are configured', () => {
+test('free tier catalog enables Cerebras, Cloudflare and OpenRouter when credentials are configured', () => {
   const config = loadConfig({
     AI_PROVIDER: 'none',
     AI_FALLBACK: 'free',
     CEREBRAS_API_KEY: 'test-cerebras-key',
     CLOUDFLARE_WORKERS_AI_API_KEY: 'test-cloudflare-key',
     CLOUDFLARE_ACCOUNT_ID: 'test-account',
-    Z_AI_API_KEY: 'test-zai-key',
     OPENROUTER_API_KEY: 'test-openrouter-key',
     GROQ_API_KEY: 'test-groq-key'
   });
   const providers = config.ai.freeProviders;
   assert.equal(providers.find((p) => p.id === 'cerebras').model, 'gpt-oss-120b');
   assert.equal(providers.find((p) => p.id === 'cloudflare-workers-ai').model, '@cf/meta/llama-3.1-8b-instruct');
-  assert.equal(providers.find((p) => p.id === 'z-ai').model, 'glm-4.5-flash');
-  assert.equal(providers.find((p) => p.id === 'openrouter').model, 'meta-llama/llama-3.1-8b-instruct:free');
+  assert.ok(!providers.some((p) => p.id === 'z-ai'));
+  assert.equal(providers.find((p) => p.id === 'openrouter').model, 'openrouter/free');
   assert.deepEqual(config.ai.fallback.providers, ['cerebras', 'cloudflare-workers-ai', 'groq', 'openrouter']);
 });

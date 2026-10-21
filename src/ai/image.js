@@ -172,7 +172,7 @@ export function createOpenAIImage({ apiKey, model, quality = null, fetchImpl = f
 
 // OpenRouter's dedicated Image API adapter. Model IDs and editing support are
 // checked against the live image-generation catalog before each request.
-export function createOpenRouterImage({ client, model, quality, timeoutMs = 100_000 }) {
+export function createOpenRouterImage({ client, model, quality, price, timeoutMs = 100_000 }) {
   if (!client || typeof client.generateImage !== 'function') throw new Error('OpenRouter client is required for images');
   return {
     id: 'openrouter',
@@ -185,6 +185,7 @@ export function createOpenRouterImage({ client, model, quality, timeoutMs = 100_
           model, prompt, images: refs,
           aspect_ratio: aspectRatio,
           ...(quality ? { quality } : {}),
+          maxCostUsd: price,
           n: 1
         });
       } catch (err) {
@@ -198,7 +199,8 @@ export function createOpenRouterImage({ client, model, quality, timeoutMs = 100_
       const bytes = Buffer.from(item.b64_json, 'base64');
       const mime = sniff(bytes);
       if (!mime || bytes.length > 25 * 1024 * 1024) throw new ProviderError('config', 'OpenRouter returned an invalid or oversized image');
-      return { bytes, mime };
+      const actualCost = Number(result?.usage?.cost);
+      return { bytes, mime, ...(Number.isFinite(actualCost) && actualCost >= 0 ? { costUsd: actualCost } : {}) };
     }
   };
 }
