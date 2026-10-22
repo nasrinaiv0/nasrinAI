@@ -43,20 +43,21 @@ test('tier settings are checked at start-up', () => {
   }
 });
 
-test('guests see Quick only; signed-in users can see all four; names only, no model ids', async () => {
+test('all four tiers are always visible; guest paid tiers are marked locked', async () => {
   const { c } = catalog();
   const g = await c.listFor(guest);
-  assert.deepEqual(g, { models: [{ id: 'nasrinai', name: 'Quick' }], default: 'nasrinai' });
-  const locked = await c.listFor(guest, { showLocked: true });
-  assert.deepEqual(locked.models.map((m) => [m.id, Boolean(m.locked)]), [['nasrinai', false], ['pro', true], ['max', true], ['ultra', true]]);
+  assert.deepEqual(g.models.map((m) => [m.id, m.name, Boolean(m.locked)]), [
+    ['nasrinai', 'Quick', false], ['pro', 'Pro', true], ['max', 'Max', true], ['ultra', 'Ultra', true]
+  ]);
+  assert.equal(g.default, 'nasrinai');
   assert.deepEqual(names(await c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
   assert.doesNotMatch(JSON.stringify(await c.listFor(user)), /gpt|o3/);
 });
 
-test('a tier whose model the key cannot use is hidden; the default never is', async () => {
-  assert.deepEqual(names(await catalog({ ids: ['gpt-4o-mini', 'gpt-5-mini'] }).c.listFor(user)), ['Quick', 'Pro']);
-  assert.deepEqual(names(await catalog({ ids: [] }).c.listFor(guest)), ['Quick']);
-  assert.deepEqual(names(await catalog({ env: { TIER_MAX: '' } }).c.listFor(user)), ['Quick', 'Pro', 'Ultra']);
+test('provider model-list results and missing tier overrides never hide the tier catalog', async () => {
+  assert.deepEqual(names(await catalog({ ids: ['gpt-4o-mini', 'gpt-5-mini'] }).c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
+  assert.deepEqual(names(await catalog({ ids: [] }).c.listFor(guest)), ['Quick', 'Pro', 'Max', 'Ultra']);
+  assert.deepEqual(names(await catalog({ env: { TIER_MAX: '' } }).c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
 });
 
 test('resolve: default, allowed, sign-in needed, unknown', async () => {
