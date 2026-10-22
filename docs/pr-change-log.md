@@ -1657,3 +1657,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage asserting every tier and smart-routing level uses OpenRouter and that the provider registry contains only OpenRouter.
 - This mode applies to normal text-model inference. Dedicated integrations such as YouTube Data API search and platform-specific media/voice endpoints remain separately configured capabilities; they are not silently converted into chat completions.
 - **Validation:** CI must pass on the final PR head. Production deployment and live-provider verification remain pending.
+
+
+## PRs #522–#523 — OpenRouter fallback and provider-owned chat billing (2026-10-22)
+
+- In `AI_PROVIDER=auto`, append OpenRouter as the final eligible chat-provider fallback when configured earlier providers cannot answer; keep provider capability, privacy, and retry checks in force.
+- Remove local USD price metadata as a prerequisite for selecting and calling configured chat models. Provider accounts own billing; provider-reported costs remain authoritative, with local estimates used only for fallback telemetry where necessary.
+- Local USD budget/price snapshots no longer downgrade or block chat routing. Token reservations/limits and hourly anti-abuse limits remain separate controls.
+- **Validation:** PR #522's CI unit tests passed; the Documentation Gate failed because this changelog was absent from the diff. PR #523's follow-up updates legacy tests that still expected local USD budget downgrades and price-based safe-model substitution. Re-run CI and Documentation Gate before merge. No production environment variables or secrets were changed.
