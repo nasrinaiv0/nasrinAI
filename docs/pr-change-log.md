@@ -1680,3 +1680,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Constrain the panel's maximum height using the chat dock height and device safe area, while retaining scrolling so it can stay clear of the composer.
 - Validation: CI passed on the previous head; re-run the Documentation Gate and verify mobile positioning before merge.
 
+## Reply details panel mobile layering follow-up (2026-10-22)
+
+- Keep the reply details panel in a body-level fixed layer with `z-index: 1000` while open, preventing reply-row stacking contexts from covering it.
+- Reposition the panel during scrolling and viewport resizing instead of automatically dismissing it on mobile; continue reserving space above the composer.
+- Add regression assertions for portal layering, mobile scroll behavior, resize handling, and fixed positioning.
+- Validation: automated CI and iPhone preview checks pending.
+
