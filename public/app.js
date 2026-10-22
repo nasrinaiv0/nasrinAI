@@ -1489,7 +1489,18 @@
         const lastUserQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
         // Short affirmative replies may accept the assistant's offer to find videos.
         const videoQuery = youtubeQueryForReply(lastUserQuery, text);
+        // A cited direct video URL is sufficient to render its player even when
+        // the person asked a factual question rather than explicitly requesting videos.
+        const hasCitedYouTube = Array.isArray(cited.links) && cited.links.some((source) => {
+          try {
+            const url = new URL(typeof source === 'string' ? source : source?.url || source?.href || '');
+            if (url.protocol !== 'https:' || !['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtube-nocookie.com'].includes(url.hostname.toLowerCase())) return false;
+            const id = url.hostname.toLowerCase() === 'youtu.be' ? url.pathname.split('/').filter(Boolean)[0] : (url.searchParams.get('v') || url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})(?:\/|$)/)?.[1] || '');
+            return /^[A-Za-z0-9_-]{11}$/.test(String(id || ''));
+          } catch { return false; }
+        });
         if (videoQuery) renderYouTubeVideos(el, videoQuery, cited.links);
+        else if (hasCitedYouTube) renderYouTubeVideos(el, '', cited.links, true);
       }
       const actions = replyActions(text, id, full, responseMetadata);
       el.appendChild(actions);
@@ -4210,7 +4221,7 @@
     return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|find|search(?:\s+for)?|look for|watch|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
   }
 
-  async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
+  async function renderYouTubeVideos(message, userQuery, sourceLinks = [], sourceOnly = false) {
     if (message.querySelector('.youtube-results')) return true;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const tutorialIntent = /\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(userQuery);
