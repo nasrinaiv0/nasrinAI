@@ -449,6 +449,10 @@ test('reply details popover positions on mobile and includes a three-dot wave', 
   assert.match(positioner, /panel\.style\.top =/);
   assert.match(js, /reply-details-dot/);
   assert.match(js, /replayWave\(details, 'reply-details-wave'\)/);
+  assert.match(js, /document\.body\.appendChild\(panel\)/, 'open panel must escape reply stacking contexts');
+  assert.match(js, /const onScroll = \(\) => positionPanel\(\)/, 'scrolling must reposition, not dismiss, the panel on mobile');
+  assert.match(js, /window\.addEventListener\('resize', onScroll/, 'viewport changes must reposition the panel');
+  assert.match(css, /position:fixed!important; z-index:1000!important/, 'panel must use viewport coordinates and a high stacking level');
 });
 
 test('sources animate left-to-right and respect reduced-motion preferences', async () => {
