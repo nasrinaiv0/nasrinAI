@@ -35,14 +35,19 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
   }
 
   async function storage(method, objectPath, bytes = null, mime = 'application/octet-stream') {
-    const response = await fetchImpl(base + '/storage/v1/object/' + BUCKET + '/' + encodePath(objectPath), {
+    const deleting = method === 'DELETE';
+    const response = await fetchImpl(base + (deleting
+      ? '/storage/v1/object/' + BUCKET
+      : '/storage/v1/object/' + BUCKET + '/' + encodePath(objectPath)), {
       method,
       headers: {
         apikey: key,
         Authorization: 'Bearer ' + key,
-        ...(bytes ? { 'Content-Type': mime, 'x-upsert': 'true' } : {})
+        ...(bytes ? { 'Content-Type': mime, 'x-upsert': 'true' } : {}),
+        ...(deleting ? { 'Content-Type': 'application/json' } : {})
       },
       ...(bytes ? { body: bytes } : {}),
+      ...(deleting ? { body: JSON.stringify({ prefixes: [objectPath] }) } : {}),
       signal: AbortSignal.timeout(60000)
     });
     if (!response.ok) {
@@ -231,7 +236,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       await updateJob(row.id, { status: 'running', progress: 15, sandbox_name: name, error_code: null, error_message: null });
       logger?.info?.('Video Studio render detached', { renderId: row.id, commandId: detached?.commandId || null });
     } catch (err) {
-      if (sandbox) await sandbox.stop().catch(() => {});
+      if (sandbox) await (typeof sandbox.delete === 'function' ? sandbox.delete() : sandbox.stop()).catch(() => {});
       await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_start_failed', error_message: 'The MP4 renderer could not start. Please retry the export.' });
       logger?.warn?.('Video Studio render start failed', { renderId: row.id, error: safeText(err?.message) });
     }
@@ -267,7 +272,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
           }
         }
         await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
-        await sandbox.stop().catch(() => {});
+        await (typeof sandbox.delete === 'function' ? sandbox.delete() : sandbox.stop()).catch(() => {});
       } catch (err) {
         // A not-yet-resumable sandbox may be temporarily unavailable. Leave it
         // running so the next cron tick can recover it; stale jobs are handled below.
