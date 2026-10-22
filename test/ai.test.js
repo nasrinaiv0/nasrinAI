@@ -93,6 +93,21 @@ test('explicit Gemini and Claude provider modes require their own key and use co
   assert.equal(loadConfig({ AI_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'anthropic-test-key' }).ai.tiers.nasrinai.provider, 'anthropic');
 });
 
+test('OpenRouter-primary mode routes every normal tier and smart-routing level through OpenRouter only', () => {
+  assert.throws(() => loadConfig({ AI_PROVIDER: 'openrouter' }), ConfigError);
+  const config = loadConfig({ AI_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'or-test-key' });
+  assert.equal(config.ai.provider, 'openrouter');
+  assert.equal(config.ai.routing.mode, 'smart');
+  assert.deepEqual(
+    Object.values(config.ai.tiers).map((route) => route.provider),
+    ['openrouter', 'openrouter', 'openrouter', 'openrouter']
+  );
+  assert.ok(Object.values(config.ai.routing.levels).flat().length > 0);
+  assert.ok(Object.values(config.ai.routing.levels).flat().every((route) => route.provider === 'openrouter'));
+  assert.deepEqual(config.ai.fallback, { mode: 'none', providers: [] });
+  assert.deepEqual(providerFromConfig(config).providerIds, ['openrouter']);
+});
+
 test('provider choice: none by default; openai needs a key; fake never in production', () => {
   assert.equal(providerFromConfig(loadConfig({})), null);
   assert.throws(() => loadConfig({ AI_PROVIDER: 'openai' }), ConfigError);
