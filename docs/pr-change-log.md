@@ -1728,3 +1728,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Validate chart categories and numeric series, constrain payload size, build output from safe DOM/SVG nodes, and display source/notes when provided.
 - Instruct NasrinAI to use verified, user-supplied, retrieved, or explicitly calculated values and never fabricate data; add prompt regression coverage.
 - **Validation:** CI is running; production deployment and live-browser behavior have not been verified.
+
+
+## Community learning notification and 30-day reminder (2026-10-23)
+
+- Add an accessible, responsive "Help improve NasrinAI" popup with explicit opt-in, Not now/close/Escape dismissal, Privacy Notice link, and clear explanation that contribution does not itself fine-tune a model.
+- Save the local dismissal timestamp and allow the popup to appear again after 30 days when server-side contribution consent remains off.
+- Update the popup implementation and correct the documentation gate failure by recording this change in the required PR change log.
+- **Validation:** CI run 5369 passed; Documentation Gate failed because this required changelog file was not changed. The changelog is now updated; rerun checks to verify. Vercel status was successful; no production deployment is claimed.

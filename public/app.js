@@ -5275,6 +5275,11 @@
       status.textContent = improvementConsentValue
         ? 'Help improve NasrinAI is on. Eligible Quick conversations may be screened for community learning.'
         : 'Help improve NasrinAI is off. No new examples will be collected.';
+      if (improvementConsentValue) {
+        if (learningNotice) learningNotice.hidden = true;
+      } else {
+        openLearningNotice();
+      }
     } catch (err) {
       improvementConsentVersion = null;
       improvementConsentValue = false;
@@ -5304,8 +5309,8 @@
       improvementConsentValue = result.enabled === true;
       control.checked = improvementConsentValue;
       status.textContent = improvementConsentValue
-        ? 'Preference saved. No chat content is currently collected for improvement.'
-        : 'Preference saved. Improvement consent is off.';
+        ? 'Preference saved. Eligible Quick conversations may be screened for community learning.'
+        : 'Preference saved. Help improve NasrinAI is off; no new examples will be collected.';
     } catch (err) {
       improvementConsentValue = previous;
       control.checked = previous;
@@ -5315,6 +5320,65 @@
     }
   }
   $('improvementConsent')?.addEventListener('change', () => setImprovementConsent($('improvementConsent').checked));
+
+  // The notice is informational until the user explicitly enables contribution.
+  // Store dismissal locally only; the actual preference remains server-side.
+  const learningNoticeDismissKey = 'nasrinai-learning-notice-dismissed-at-v1';
+  const learningNoticeReminderMs = 30 * 24 * 60 * 60 * 1000;
+  const learningNotice = $('learningNotice');
+  let learningNoticePreviouslyFocused = null;
+  function closeLearningNotice({ remember = true } = {}) {
+    if (!learningNotice) return;
+    learningNotice.hidden = true;
+    document.body.classList.remove('learning-notice-open');
+    if (remember) {
+      try { localStorage.setItem(learningNoticeDismissKey, String(Date.now())); } catch {}
+    }
+    if (learningNoticePreviouslyFocused?.isConnected) learningNoticePreviouslyFocused.focus();
+  }
+  function openLearningNotice() {
+    if (!learningNotice || improvementConsentValue) return;
+    try {
+      const dismissedAt = Number(localStorage.getItem(learningNoticeDismissKey));
+      if (Number.isFinite(dismissedAt) && dismissedAt > 0 && Date.now() - dismissedAt < learningNoticeReminderMs) return;
+      if (dismissedAt > 0) localStorage.removeItem(learningNoticeDismissKey);
+    } catch {}
+    learningNoticePreviouslyFocused = document.activeElement;
+    learningNotice.hidden = false;
+    document.body.classList.add('learning-notice-open');
+    $('learningNoticeEnable')?.focus();
+  }
+  $('learningNoticeLater')?.addEventListener('click', () => closeLearningNotice());
+  $('learningNoticeClose')?.addEventListener('click', () => closeLearningNotice());
+  $('learningNotice')?.addEventListener('click', (event) => {
+    if (event.target === learningNotice) closeLearningNotice();
+  });
+  $('learningNoticeEnable')?.addEventListener('click', async () => {
+    const button = $('learningNoticeEnable');
+    const status = $('learningNoticeStatus');
+    if (!improvementConsentVersion) {
+      status.textContent = 'We could not verify your privacy setting. Please try again in Settings.';
+      return;
+    }
+    button.disabled = true;
+    status.textContent = 'Saving your choice…';
+    try {
+      await setImprovementConsent(true);
+      if (improvementConsentValue) {
+        closeLearningNotice();
+        try { localStorage.removeItem(learningNoticeDismissKey); } catch {}
+      } else {
+        status.textContent = 'Your choice could not be saved. Nothing has been enabled.';
+      }
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $('learningNoticePrivacy')?.addEventListener('click', () => closeLearningNotice({ remember: false }));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && learningNotice && !learningNotice.hidden) closeLearningNotice();
+  });
+
 
   async function loadPrivacy() {
     for (const [id] of MEMORY_BOXES) $(id).disabled = true;
@@ -10005,6 +10069,9 @@
       return loadConversation();
     })
     .then(() => {
+      // Check the server-side contribution preference after identity restoration.
+      // This may show the optional learning notice on first visit; it never opts in automatically.
+      loadImprovementConsent().catch(() => {});
       // Back in the coding chat after a reload, while still signed in.
       const sc = saved.get(KEYS.coding);
       if (sc && typeof sc.id === 'string' && account && projectsOn) {
