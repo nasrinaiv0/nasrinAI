@@ -109,6 +109,29 @@ test('valid cookie grants dashboard and read-only overview only from the allowli
   assert.equal(denied.res.body, 'Page not found.');
 });
 
+test('production console page and APIs are hidden on the main site host', async () => {
+  const { consoleHandler } = setup();
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  for (const path of ['/owner', '/owner/api/overview']) {
+    const out = request('GET', path, { headers: { host: 'nasrinai.com', cookie }, testIp: IP });
+    await consoleHandler.handle(out.req, out.res, path);
+    assert.equal(out.res.statusCode, 404);
+    assert.equal(out.res.body, 'Page not found.');
+  }
+});
+
+test('production bootstrap cannot mint an owner session on the main site host', async () => {
+  const { consoleHandler } = setup();
+  const out = request('POST', '/v1/owner/session', {
+    headers: { origin: 'https://nasrinai.com', host: 'nasrinai.com', 'sec-fetch-site': 'same-origin', authorization: 'Bearer ' + TOKEN },
+    testIp: IP
+  });
+  await consoleHandler.handle(out.req, out.res, '/v1/owner/session');
+  assert.equal(out.res.statusCode, 404);
+  assert.equal(out.res.headers['set-cookie'], undefined);
+});
+
 test('tampered and expired owner cookies are denied', async () => {
   let current = 1_800_000_000_000;
   const { consoleHandler } = setup({ now: () => current });
