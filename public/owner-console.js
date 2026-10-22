@@ -176,7 +176,7 @@
     }
 
     if (key === 'users') {
-      const a = data && data.usage_24h, b = data && data.usage_7d, users = data && data.user_summary, panel = el('section', 'panel');
+      const a = data && data.usage_24h, b = data && data.usage_7d, users = data && data.user_summary, growth = data && data.growth_summary, panel = el('section', 'panel');
       panel.classList.add('module-extra');
       panel.append(el('h3', '', 'Account and activity signals'), el('p', 'panel-copy', 'Auth record totals and signup timestamps are aggregated server-side. Activity IDs reflect recorded model calls; retention cohorts are not yet connected.'));
       const grid = el('div', 'grid');
@@ -186,6 +186,11 @@
         metric('New Auth records · 24h', '↗', users ? numberText(users.new_auth_records_24h) : 'Unavailable', 'Records created in the last day'),
         metric('New Auth records · 7d', '↗', users ? numberText(users.new_auth_records_7d) : 'Unavailable', 'Records created in the last week'),
         metric('Sign-ins · 30d', '◷', users ? numberText(users.active_signins_30d) : 'Unavailable', 'Auth records with a recent sign-in'),
+        metric('Active users · 24h', '♙', growth ? numberText(growth.active_user_ids_24h) : 'Unavailable', 'Distinct actors with recorded calls'),
+        metric('Active users · 7d', '♙', growth ? numberText(growth.active_user_ids_7d) : 'Unavailable', 'Distinct actors with recorded calls'),
+        metric('Active users · 30d', '♙', growth ? numberText(growth.active_user_ids_30d) : 'Unavailable', 'Distinct actors with recorded calls'),
+        metric('Active guests · 24h', '◌', growth ? numberText(growth.active_guest_ids_24h) : 'Unavailable', 'Distinct guest actors with recorded calls'),
+        metric('7d return rate', '↻', growth && growth.return_rate_pct !== null ? Number(growth.return_rate_pct).toFixed(1) + '%' : growth ? 'No cohort yet' : 'Unavailable', 'Prior-week active users who returned this week'),
         metric('Active user IDs · 24h', '♙', value(a, 'active_user_ids'), 'Signed-in actors with recorded calls'),
         metric('Active guest IDs · 24h', '◌', value(a, 'active_guest_ids'), 'Guest actors with recorded calls'),
         metric('Active user IDs · 7d', '♙', value(b, 'active_user_ids'), 'Distinct signed-in actors'),
