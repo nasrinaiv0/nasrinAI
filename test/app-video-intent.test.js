@@ -102,3 +102,12 @@ test('video discovery keeps the normal answer path and embeds are optional enric
   assert.ok(answerRenderer >= 0 && optionalEmbed > answerRenderer, 'video enrichment runs after the assistant reply is rendered');
   assert.match(app.slice(optionalEmbed, optionalEmbed + 120), /renderYouTubeVideos/);
 });
+
+test('latest creator-video searches prioritize official uploads rather than channel cards', () => {
+  const start = app.indexOf('  async function renderYouTubeVideos(');
+  const end = app.indexOf('  function sourcesToggle(', start);
+  const body = app.slice(start, end);
+  assert.match(body, /official channel latest uploads video/);
+  assert.match(body, /buildVideoSearchQuery/);
+  assert.match(body, /const query = buildVideoSearchQuery\(userQuery\)/);
+});
