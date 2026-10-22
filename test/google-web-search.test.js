@@ -60,3 +60,33 @@ test('web research combines Google candidates with answer citations and provides
   assert.ok(result.citations.some((source) => source.url === 'https://example.com/source'));
   assert.ok(result.citations.some((source) => source.url === 'https://official.example/page'));
 });
+
+
+test('OpenRouter web research uses the server web-search tool and validates citations', async () => {
+  let requestUrl;
+  let requestBody;
+  const search = createWebSearch({
+    apiKey: 'openrouter-test-key',
+    model: 'openrouter/auto',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    fetchImpl: async (url, options) => {
+      requestUrl = String(url);
+      requestBody = JSON.parse(options.body);
+      return Response.json({
+        output: [{ type: 'message', content: [{ type: 'output_text', text: 'Verified answer.', annotations: [
+          { type: 'url_citation', url: 'https://example.com/source', title: 'Source' },
+          { type: 'url_citation', url: 'javascript:alert(1)', title: 'Unsafe' }
+        ] }] }],
+        usage: { input_tokens: 20, output_tokens: 8 }
+      });
+    }
+  });
+  const result = await search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
+  assert.equal(requestUrl, 'https://openrouter.ai/api/v1/responses');
+  assert.equal(requestBody.model, 'openrouter/auto');
+  assert.equal(requestBody.tools[0].type, 'openrouter:web_search');
+  assert.equal(requestBody.tools[0].parameters.engine, 'auto');
+  assert.equal(requestBody.tools[0].parameters.max_results, 10);
+  assert.equal(result.text, 'Verified answer.');
+  assert.deepEqual(result.citations.map((source) => source.url), ['https://example.com/source']);
+});
