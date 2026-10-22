@@ -92,7 +92,7 @@ The latest commit for this documentation audit is `a94de2fb6f19abf1bd6eb8ac2fbbc
 
 The repository is no longer documentation-only on `feature/owner-command-center`. The following code has been added in the follow-up implementation commits:
 
-- `src/owner-console.js`: dedicated bootstrap/session handler, exact email + IPv4 allowlist checks, signed 10-minute owner cookie, generic 404 behavior, no-store headers, strict CSP, read-only overview endpoint, and protected dashboard HTML.
+- `src/owner-console.js`: dedicated bootstrap/session handler, exact email + normalized IPv4/IPv6 allowlist checks, signed 10-minute owner cookie, generic 404 behavior, no-store headers, strict CSP, read-only overview endpoint, and protected dashboard HTML.
 - `src/config.js`: server-only `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and `OWNER_SESSION_SECRET` configuration. Invalid/missing values disable the feature rather than stopping the public site.
 - `src/http/app.js`, `src/main.js`, and `api/index.js`: route interception before normal routing/static serving, trusted IP resolver wiring, and Vercel path restoration.
 - `vercel.json`: rewrites `/owner` and `/owner/:path*` to the server function; public app routes remain unchanged.
