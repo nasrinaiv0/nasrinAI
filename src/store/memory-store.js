@@ -390,7 +390,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       return row.id;
     },
     async searchApprovedImprovementExamples({ tenantId, terms, limit = 3 }) {
-      const wanted = [...new Set((Array.isArray(terms) ? terms : []).map((x) => String(x).toLowerCase()).filter((x) => /^[\\p{L}\\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
+      const wanted = [...new Set((Array.isArray(terms) ? terms : []).map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
       if (!wanted.length) return [];
       const score = (row) => wanted.reduce((n, term) => n + (row.exampleText.toLowerCase().includes(term) ? 1 : 0), 0);
       return improvementExamples.filter((row) => row.tenantId === tenantId && row.status === 'approved'
