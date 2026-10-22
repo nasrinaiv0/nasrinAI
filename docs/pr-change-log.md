@@ -1759,3 +1759,17 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Validate chart categories and numeric series, constrain payload size, build output from safe DOM/SVG nodes, and display source/notes when provided.
 - Instruct NasrinAI to use verified, user-supplied, retrieved, or explicitly calculated values and never fabricate data; add prompt regression coverage.
 - **Validation:** CI is running; production deployment and live-browser behavior have not been verified.
+
+
+## Owner Command Center security and telemetry foundation (2026-10-23)
+
+- Added protected owner-console routing before public static serving, Vercel rewrites for owner paths, and a dedicated signed 10-minute HttpOnly/SameSite=Strict session.
+- Added server-only exact verified email and normalized IPv4/IPv6 allowlists via `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and `OWNER_SESSION_SECRET`; missing or malformed settings fail closed without breaking the public site.
+- Added trusted IP validation, the shared IP rate limiter, generic no-store 404 responses, and sign-out cookie clearing.
+- Added a premium responsive read-only console with ten navigation areas and explicit unavailable states. The app entry appears only after a successful server bootstrap.
+- Migration 042 adds aggregate usage/automation summaries and an RLS-protected owner-action audit trail. Audit rows store one-way IP hashes, not raw addresses; summaries do not expose prompts, workflow payloads, or actor IDs.
+- Added fixed-window aggregate usage CSV export with formula-injection protection. Session issuance and export fail closed if their audit event cannot be recorded.
+- Added config, route, session, telemetry, CSV, Vercel rewrite, and SQL permission regression tests.
+- **Not yet complete:** registered-account/retention, Vercel release telemetry, platform-wide security events, settled billing/revenue reconciliation, incidents/alerts, and privileged controls.
+- **Production boundary:** migration 042 and Vercel environment variables have not been applied/changed. Do not enable production owner access until migration and permission checks pass. No merge or deployment has been performed.
+- **Validation:** production module/frontend syntax checks passed. Full test suite, database tests, secret scan, GitGuardian, and desktop/iPhone preview inspection remain unconfirmed. Vercel preview was canceled by the project's ignored-build step.
