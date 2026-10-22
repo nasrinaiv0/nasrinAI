@@ -32,6 +32,12 @@ begin
   if not (v_after->'providers' @> '[{"provider":"owner-test-provider","model":"owner-test-model"}]'::jsonb) then
     raise exception 'owner metrics provider breakdown is missing';
   end if;
+  if coalesce((select (item->>'requests')::bigint from jsonb_array_elements(v_after->'features') item where item->>'feature' = 'conversation'), 0)
+       <> coalesce((select (item->>'requests')::bigint from jsonb_array_elements(v_before->'features') item where item->>'feature' = 'conversation'), 0) + 3
+    or coalesce((select (item->>'active_user_ids')::bigint from jsonb_array_elements(v_after->'features') item where item->>'feature' = 'conversation'), 0)
+       < coalesce((select (item->>'active_user_ids')::bigint from jsonb_array_elements(v_before->'features') item where item->>'feature' = 'conversation'), 0) then
+    raise exception 'feature adoption aggregate did not classify the seeded conversation events';
+  end if;
 
   begin
     perform public.owner_console_usage_summary(now() + interval '1 minute');
