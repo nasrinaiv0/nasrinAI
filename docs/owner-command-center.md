@@ -19,7 +19,7 @@ Implementation is being delivered on `feature/owner-console-v2`, based on curren
 
 Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repository. If any variable is missing or malformed, the owner route intentionally fails closed and shows a generic 404. Updating `OWNER_ALLOWED_IPS` does not configure Vercel Trusted IPs and does not restrict the public NasrinAI site.
 
-Optional release telemetry: add `OWNER_VERCEL_READONLY_TOKEN` (a narrowly scoped read-only Vercel token), `OWNER_VERCEL_PROJECT_ID` (`prj_...`), and `OWNER_VERCEL_TEAM_ID` (`team_...`) to the server environment. The integration only reads the latest production deployment metadata and sanitizes the response; it does not deploy, cancel, or modify releases. If these optional values are absent or invalid, deployment status remains Unavailable. These variables have not been configured in Production.
+Optional release telemetry: add `OWNER_VERCEL_READONLY_TOKEN` (a narrowly scoped read-only Vercel token), `OWNER_VERCEL_PROJECT_ID` (`prj_...`), and `OWNER_VERCEL_TEAM_ID` (`team_...`) to the server environment. The integration only reads the latest production deployment metadata and sanitizes the response; it does not deploy, cancel, or modify releases. If these optional values are absent or invalid, deployment status remains Unavailable. This work did not configure these optional variables; the deployment adapter remains unavailable unless all three are present and valid.
 
 ### Implemented in this branch
 
