@@ -255,6 +255,42 @@ test('coding falls back to the dedicated tier provider when OpenRouter is unavai
   assert.equal(anthropic.calls.length, 0, 'the router fallback avoids an unnecessary second provider switch');
 });
 
+test('transient OpenRouter outage cools down the failed model so the next request falls back without another wait', async () => {
+  const env = {
+    AI_PROVIDER: 'openai',
+    OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30),
+    OPENROUTER_API_KEY: 'or-test-' + 'r'.repeat(30),
+    ANTHROPIC_API_KEY: 'anthropic-test',
+    GEMINI_API_KEY: '',
+    ROUTE_LEVEL_3: 'openai:gpt-5.4-nano,openrouter:deepseek/deepseek-v4-flash-0731'
+  };
+  const config = loadConfig(env);
+  const openrouter = createFakeProvider({
+    models: ['deepseek/deepseek-v4-flash-0731'],
+    dataLeavesServer: true,
+    failWith: () => new ProviderError('unavailable', 'OpenRouter unavailable', 503)
+  });
+  openrouter.id = 'openrouter';
+  openrouter.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: true, tools: true, trainsOnData: false });
+  const openai = createFakeProvider({ models: ['gpt-5.4-nano'], dataLeavesServer: true });
+  openai.id = 'openai';
+  const anthropic = createFakeProvider({ models: ['claude-sonnet-5-5'], dataLeavesServer: true });
+  anthropic.id = 'anthropic';
+  anthropic.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: true, tools: false, trainsOnData: false });
+  const router = createRouter({ providers: { openrouter, openai, anthropic }, config, logger: quiet });
+  const store = createMemoryStore();
+  const budget = createBudget({ store, config, logger: quiet });
+  const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {}, failureCooldownMs: 30_000 });
+  const message = 'Fix this TypeScript bug and explain the regression';
+  const first = await policy.run(policy.plan({ tier: 'max', message }), req(message));
+  assert.equal(first.spec.provider, 'openai');
+  assert.equal(openrouter.calls.length, 1, 'the first request tries OpenRouter before fallback');
+  const second = await policy.run(policy.plan({ tier: 'max', message }), req(message));
+  assert.equal(second.spec.provider, 'openai');
+  assert.equal(openrouter.calls.length, 1, 'the next request skips the temporarily unhealthy model');
+  assert.equal(openai.calls.length, 2, 'fallback remains available for both requests');
+});
+
 test('Claude is isolated to Max/Ultra coding, with Opus reserved for deep Ultra work', async () => {
   const env = {
     AI_PROVIDER: 'openai',
