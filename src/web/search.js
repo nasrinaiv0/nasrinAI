@@ -4,7 +4,7 @@ import { ProviderError } from '../ai/provider.js';
 // (tools: [{ type: "web_search" }]), which returns an answer with url_citation
 // annotations. The model is a setting (WEB_SEARCH_MODEL); check on OpenAI's
 // web-search guide that your model supports the tool.
-export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://api.openai.com/v1' }) {
+export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://openrouter.ai/api/v1' }) {
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
@@ -59,7 +59,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
           body: JSON.stringify({
             model,
-            tools: [{ type: 'web_search', search_context_size: searchContextSize }],
+            tools: [{ type: 'openrouter:web_search', parameters: { engine: 'auto', max_results: 10, max_total_results: deepResearch ? 20 : 10, search_context_size: searchContextSize } }],
             include: ['web_search_call.action.sources'],
             instructions: String(system || '') + '\n\nWeb research quality requirements:\n' + researchInstructions,
             input: inputMessages,
