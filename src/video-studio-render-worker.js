@@ -358,7 +358,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "    args.push('-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
         "  } else {",
         "    const source = '/vercel/sandbox/source.mp4'; const probe = spawnSync('ffmpeg',['-hide_banner','-i',source],{encoding:'utf8',maxBuffer:1048576});",
-        "    const hasSourceAudio = /Stream #\\d+:\\d+[^\\n]*Audio:/i.test(probe.stderr || '');",
+        "    const hasSourceAudio = probe.status === 0 && String(probe.stdout || '').trim().length > 0;",
         "    if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); audioLabels.push('[source_audio]'); }",
         "    for (let i=0;i<input.audioCount;i++) { const item=input.timelineItems[i],delay=Math.round(item.startSeconds*1000); const trim=item.trimEndSeconds==null?'atrim=start='+item.trimStartSeconds.toFixed(3):'atrim=start='+item.trimStartSeconds.toFixed(3)+':end='+item.trimEndSeconds.toFixed(3); filters.push('['+(i+1)+':a:0]'+trim+',asetpts=PTS-STARTPTS,adelay='+delay+'|'+delay+',volume='+item.gain.toFixed(3)+',apad=pad_dur='+duration.toFixed(3)+'[audio_'+i+']'); audioLabels.push('[audio_'+i+']'); }",
         "    if (!audioLabels.length) throw new Error('No audio tracks');",
@@ -393,7 +393,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       logger?.info?.('Video Studio render detached', { renderId: row.id, commandId: detached?.commandId || null });
     } catch (err) {
       if (sandbox) await (typeof sandbox.delete === 'function' ? sandbox.delete() : sandbox.stop()).catch(() => {});
-      await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
+      await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || [], row.input_manifest?.media || []).map(path => storage('DELETE', path).catch(() => {})));
       await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_start_failed', error_message: 'The MP4 renderer could not start. Please retry the export.' });
       logger?.warn?.('Video Studio render start failed', { renderId: row.id, error: safeText(err?.message) });
     }
@@ -406,7 +406,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       const ageMs = now() - new Date(row.updated_at || row.created_at || 0).getTime();
       if (ageMs > 40 * 60 * 1000) {
         await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_worker_timeout', error_message: 'The render worker timed out. Retry the export.' });
-        await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
+        await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || [], row.input_manifest?.media || []).map(path => storage('DELETE', path).catch(() => {})));
         failed++; continue;
       }
       if (!row.sandbox_name || !/^nasrinai-render-[0-9a-f-]{36}$/.test(row.sandbox_name)) {
