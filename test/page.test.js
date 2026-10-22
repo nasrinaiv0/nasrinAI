@@ -548,11 +548,14 @@ test('cited YouTube links render inline even when the user did not explicitly as
 test('social video embeds allow only supported provider player origins', async () => {
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  assert.ok(app.includes("host === 'instagram.com'"));
   assert.ok(app.includes("host === 'vimeo.com'"));
   assert.ok(app.includes("host === 'dailymotion.com'"));
+  assert.ok(app.includes("embedUrl.origin === 'https://www.instagram.com'"));
   assert.ok(app.includes("embedUrl.origin === 'https://player.vimeo.com'"));
   assert.ok(app.includes("embedUrl.origin === 'https://www.dailymotion.com'"));
+  assert.ok(routes.includes("https://graph.facebook.com/v26.0/instagram_oembed"));
   assert.ok(routes.includes("https://vimeo.com/api/oembed.json"));
   assert.ok(routes.includes("https://www.dailymotion.com/services/oembed"));
-  assert.ok(routes.includes('Only TikTok, Facebook, Vimeo, and Dailymotion URLs are supported'));
+  assert.ok(routes.includes('Only TikTok, Facebook, Instagram, Vimeo, and Dailymotion URLs are supported'));
 });
