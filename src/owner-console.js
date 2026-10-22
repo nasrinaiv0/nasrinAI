@@ -289,6 +289,18 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     }
   }
 
+  async function retentionSummary() {
+    if (typeof store?.request !== 'function') return null;
+    try {
+      const value = await store.request('POST', 'rpc/owner_console_retention_summary', { body: {} });
+      const summary = Array.isArray(value) ? value[0] : value;
+      return summary && typeof summary === 'object' && Array.isArray(summary.cohorts) ? summary : null;
+    } catch {
+      logger?.warn?.('owner retention cohort source unavailable', { source: 'usage_events' });
+      return null;
+    }
+  }
+
   async function userSummary() {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -469,7 +481,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           logger?.warn?.('owner database health check unavailable', { source: 'database' });
         }
       }
-      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users, incidents24h, growth, deployments] = await Promise.all([
+      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users, incidents24h, growth, retention, deployments] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000),
         automationSince(at - 24 * 60 * 60 * 1000),
@@ -479,6 +491,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         userSummary(),
         incidentSince(at - 24 * 60 * 60 * 1000),
         growthSummary(),
+        retentionSummary(),
         vercelDeploymentSummary()
       ]);
       sendJson(res, 200, {
@@ -487,6 +500,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         data_sources: {
           ai_usage: usage24h || usage7d ? ((Number(usage24h?.request_count || 0) + Number(usage7d?.request_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           users: users || growth ? ((Number(users?.auth_user_records || 0) + Number(growth?.active_user_ids_24h || 0) + Number(growth?.active_guest_ids_24h || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
+          retention: retention ? (retention.cohorts.length > 0 ? 'available' : 'no_data') : 'unavailable',
           infrastructure: deployments ? (deployments.deployment_count > 0 ? 'available' : 'no_data') : 'unavailable',
           database: databaseHealth,
           security_audit: audit24h ? (Number(audit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
@@ -505,6 +519,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         plans_24h: plans24h,
         user_summary: users,
         growth_summary: growth,
+        retention_summary: retention,
         deployment_summary: deployments,
         incidents_24h: incidents24h,
         panels
