@@ -15,7 +15,7 @@ import { publicCatalog } from './ai/professions.js';
 import { realtimeCostPerMinute } from './ai/pricing.js';
 import { createNotices, WHENS } from './notices.js';
 
-const IMPROVEMENT_CONSENT_VERSION = '2026-10-10-preference-only';
+const IMPROVEMENT_CONSENT_VERSION = '2026-10-23-community-learning-v1';
 
 // The public API. Each route is either explicitly public or requires a caller.
 // The address of this NasrinAI app as the browser sees it (used to build the install code).
@@ -581,7 +581,7 @@ return { body: { sites: await connect.list(caller) } }; }
     },
     {
       // Improvement consent is independent of Terms and personal Memory.
-      // This endpoint records the choice only; it never captures chat content.
+      // This endpoint records explicit consent for limited, redacted Quick-tier learning examples.
       method: 'GET',
       path: '/v1/improvement-consent',
       scope: 'chat',
