@@ -305,9 +305,24 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     return { completed, failed, waiting };
   }
 
+  async function purgeExpired() {
+    const retentionDays = Math.max(1, Math.min(365, Number(config?.images?.retentionDays) || 30));
+    const cutoff = new Date(now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+    const rows = await db('GET', 'video_studio_render_jobs?status=in.(completed,failed)&updated_at=lt.' +
+      encodeURIComponent(cutoff) + '&select=id,output_path&limit=20');
+    let removed = 0;
+    for (const row of rows || []) {
+      if (row.output_path) await storage('DELETE', row.output_path);
+      await db('DELETE', 'video_studio_render_jobs?id=eq.' + row.id);
+      removed++;
+    }
+    return removed;
+  }
+
   async function processBatch({ limit = 1 } = {}) {
     if (!enabled) throw new Error('Video Studio render worker is not configured.');
     const polled = await pollRunning();
+    const expired = await purgeExpired();
     const staleBefore = new Date(now() - 10 * 60 * 1000).toISOString();
     const staleStarting = await db('GET', 'video_studio_render_jobs?status=eq.starting&updated_at=lt.' +
       encodeURIComponent(staleBefore) + '&select=id,input_manifest&limit=10');
@@ -320,7 +335,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     const claimed = await db('POST', 'rpc/claim_video_studio_render_jobs', { p_limit: Math.max(1, Math.min(1, Number(limit) || 1)) });
     let started = 0;
     for (const row of Array.isArray(claimed) ? claimed : []) { await launch(row); started++; }
-    return { enabled: true, started, recovered, ...polled };
+    return { enabled: true, started, recovered, expired, ...polled };
   }
 
   return { enabled, enqueue, status, readOutput, processBatch };
