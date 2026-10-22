@@ -368,7 +368,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "  }",
         "  await writeFile(marker, String(await run(args)));",
         "} catch { await writeFile(marker, '1'); }"
-      ].join('\\n');
+      ].join('\n');
       await sandbox.writeFiles([
         ...files,
         { path: '/vercel/sandbox/render-input.json', content: Buffer.from(JSON.stringify({
