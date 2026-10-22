@@ -95,7 +95,7 @@ The follow-up implementation is being ported to `feature/owner-console-v2`, crea
 - `src/owner-console.js` implements owner bootstrap/session, exact normalized IPv4/IPv6 allowlists, shared IP rate limiting, generic 404/no-store behavior, server-side usage/automation summaries, CSV export, and minimized owner-action audit writes.
 - `src/config.js` adds fail-closed server-only environment configuration. `src/http/app.js`, `src/main.js`, `api/index.js`, and `vercel.json` route protected owner paths to the server before static serving.
 - `public/owner-console.css` and `public/owner-console.js` implement a responsive read-only shell and honest data states; the main app exposes the entry only after server bootstrap succeeds.
-- Migration 042 adds aggregate-only usage/automation functions, Auth account-record/sign-in aggregates without identifiers, Pro/Max/Ultra paid plan-entitlement counts, an RLS-protected owner audit table, and service-role-only audit RPCs. Session issuance and exports fail closed when their audit writes fail.
+- Migration 057 adds aggregate-only usage/automation functions, Auth account-record/sign-in aggregates without identifiers, Pro/Max/Ultra paid plan-entitlement counts, an RLS-protected owner audit table, and service-role-only audit RPCs. Session issuance and exports fail closed when their audit writes fail.
 - Tests cover config validation, IPv4/IPv6 normalization, protected HTTP routing, usage/automation/audit data mapping, CSV export, Vercel path rewrites, and SQL grants.
 
 ### Validation boundaries
