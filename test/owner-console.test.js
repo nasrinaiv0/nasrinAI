@@ -13,7 +13,8 @@ function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000
     ownerConsole: ownerConsole || { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET }
   };
   const verifier = verifyUser || (async (token) => token === TOKEN ? { id: 'user-1', email } : null);
-  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store, clientIp: (req) => req.testIp ?? ip, now });
+  const activeStore = store || { kind: 'supabase', request: async (_method, path) => { if (path === 'rpc/owner_console_record_audit') return null; throw new Error('source unavailable'); } };
+  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now });
   return { config, consoleHandler };
 }
 
@@ -165,6 +166,7 @@ test('usage export is bounded, aggregate-only, and unavailable when its source i
   };
   const store = { kind: 'supabase', request: async (method, path, options) => {
     assert.equal(method, 'POST');
+    if (path === 'rpc/owner_console_record_audit') return null;
     assert.equal(path, 'rpc/owner_console_usage_summary');
     assert.ok(options.body.p_since);
     return summary;
