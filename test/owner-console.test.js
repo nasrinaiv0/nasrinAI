@@ -208,7 +208,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
         request_count: 3, success_count: 2, failure_count: 1, input_tokens: 10, output_tokens: 5,
         total_tokens: 15, active_user_ids: 1, active_guest_ids: 1, latency_p50_ms: 100,
         latency_p95_ms: 200, estimated_cost_usd: 0.02, cost_estimate_rows: 2,
-        last_event_at: '2026-10-23T00:00:00.000Z', providers: []
+        last_event_at: '2026-10-23T00:00:00.000Z', providers: [], features: [{ feature: 'conversation', requests: 3, active_user_ids: 2, active_guest_ids: 1, total_tokens: 45, estimated_cost_usd: 0.02 }]
       };
       if (path === 'rpc/owner_console_automation_summary') return {
         run_count: 2, pending_approval_count: 1, queued_count: 0, running_count: 0,
@@ -251,6 +251,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.data_sources.users, 'available');
   assert.equal(Object.hasOwn(payload.user_summary, 'email'), false);
   assert.equal(payload.usage_24h.total_tokens, 15);
+  assert.equal(payload.usage_24h.features[0].feature, 'conversation');
   assert.equal(payload.automation_24h.pending_approval_count, 1);
   assert.equal(Object.hasOwn(payload, 'prompt'), false);
 });
