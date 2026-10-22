@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createOwnerConsole, OWNER_SESSION_SECONDS } from '../src/owner-console.js';
 
 const SECRET = ['owner-console-test-', 'signing-material-', 'x'.repeat(32)].join('');
+const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 const EMAIL = 'owner@example.com';
 const IP = '203.0.113.42';
 
@@ -11,7 +12,7 @@ function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000
     isProduction: true,
     ownerConsole: ownerConsole || { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET }
   };
-  const verifier = verifyUser || (async (token) => token === 'valid-access-token-1234567890' ? { id: 'user-1', email } : null);
+  const verifier = verifyUser || (async (token) => token === TOKEN ? { id: 'user-1', email } : null);
   const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store, clientIp: (req) => req.testIp ?? ip, now });
   return { config, consoleHandler };
 }
@@ -32,7 +33,7 @@ const sameOrigin = { origin: 'https://nasrinai.com', host: 'nasrinai.com', 'sec-
 
 async function bootstrap(handler, options = {}) {
   const pair = request('POST', '/v1/owner/session', {
-    headers: { ...sameOrigin, authorization: 'Bearer valid-access-token-1234567890', ...(options.headers || {}) },
+    headers: { ...sameOrigin, authorization: 'Bearer ' + TOKEN, ...(options.headers || {}) },
     testIp: options.testIp
   });
   await handler.handle(pair.req, pair.res, '/v1/owner/session');
