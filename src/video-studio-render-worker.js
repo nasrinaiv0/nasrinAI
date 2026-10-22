@@ -196,43 +196,53 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       const files = [{ path: '/vercel/sandbox/source.mp4', content: source }];
       for (let i = 0; i < audio.length; i++) files.push({ path: '/vercel/sandbox/audio-' + i + '.mp3', content: audio[i] });
       await sandbox.writeFiles(files);
-      // Install FFmpeg in the isolated worker image, then detach the actual render.
-      let check = await sandbox.runCommand({ cmd: 'bash', args: ['-lc', 'command -v ffmpeg'] });
-      if (check.exitCode !== 0) {
-        const install = await sandbox.runCommand({ cmd: 'apt-get', args: ['update', '-qq'], sudo: true });
-        if (install.exitCode !== 0) throw new Error('The isolated renderer could not prepare FFmpeg.');
-        const installed = await sandbox.runCommand({ cmd: 'apt-get', args: ['install', '-y', '-qq', 'ffmpeg'], sudo: true });
-        if (installed.exitCode !== 0) throw new Error('The isolated renderer could not install FFmpeg.');
-      }
-      let probe;
-      try { probe = await sandbox.runCommand({ cmd: 'ffmpeg', args: ['-hide_banner', '-i', '/vercel/sandbox/source.mp4'] }); }
-      catch (err) { probe = err; }
-      const stderr = typeof probe?.stderr === 'function' ? await probe.stderr().catch(() => '') : '';
-      const probeText = stderr || String(probe?.message || '');
-      const hasSourceAudio = /Stream #\d+:\d+[^\n]*Audio:/i.test(probeText);
-      const duration = Number(manifest.durationSeconds);
-      const filters = [], mixLabels = [];
-      if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); mixLabels.push('[source_audio]'); }
-      for (let i = 0; i < manifest.audio.length; i++) {
-        const item = manifest.timelineItems[i], delayMs = Math.round(item.startSeconds * 1000);
-        const trim = item.trimEndSeconds == null
-          ? 'atrim=start=' + item.trimStartSeconds.toFixed(3)
-          : 'atrim=start=' + item.trimStartSeconds.toFixed(3) + ':end=' + item.trimEndSeconds.toFixed(3);
-        filters.push('[' + (i + 1) + ':a:0]' + trim + ',asetpts=PTS-STARTPTS,adelay=' + delayMs + '|' + delayMs +
-          ',volume=' + item.gain.toFixed(3) + ',apad=pad_dur=' + duration.toFixed(3) + '[audio_' + i + ']');
-        mixLabels.push('[audio_' + i + ']');
-      }
-      if (!mixLabels.length) throw new Error('No audio streams were found for the render.');
-      filters.push(mixLabels.join('') + 'amix=inputs=' + mixLabels.length + ':duration=longest:dropout_transition=0,alimiter=limit=0.95[aout]');
-      const args = ['-nostdin','-y','-hide_banner','-loglevel','error','-i','/vercel/sandbox/source.mp4'];
-      for (let i = 0; i < audio.length; i++) args.push('-i','/vercel/sandbox/audio-' + i + '.mp3');
-      args.push('-filter_complex', filters.join(';'), '-map','0:v:0','-map','[aout]','-c:v','copy','-c:a','aac','-b:a','192k',
-        '-map_metadata','0','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');
+      const runnerSource = [
+        "import { spawn, spawnSync } from 'node:child_process';",
+        "import { readFile, writeFile } from 'node:fs/promises';",
+        "const marker = '/vercel/sandbox/render.exit';",
+        "const source = '/vercel/sandbox/source.mp4';",
+        "try {",
+        "  const input = JSON.parse(await readFile('/vercel/sandbox/render-input.json', 'utf8'));",
+        "  const duration = Number(input.durationSeconds);",
+        "  const probe = spawnSync('ffmpeg', ['-hide_banner', '-i', source], { encoding: 'utf8', maxBuffer: 1048576 });",
+        "  const hasSourceAudio = /Stream #\\\\d+:\\\\d+[^\\\\n]*Audio:/i.test(probe.stderr || '');",
+        "  const filters = [], labels = [];",
+        "  if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); labels.push('[source_audio]'); }",
+        "  for (let i = 0; i < input.audioCount; i++) {",
+        "    const item = input.timelineItems[i], delay = Math.round(item.startSeconds * 1000);",
+        "    const trim = item.trimEndSeconds == null ? 'atrim=start=' + item.trimStartSeconds.toFixed(3) : 'atrim=start=' + item.trimStartSeconds.toFixed(3) + ':end=' + item.trimEndSeconds.toFixed(3);",
+        "    filters.push('[' + (i + 1) + ':a:0]' + trim + ',asetpts=PTS-STARTPTS,adelay=' + delay + '|' + delay + ',volume=' + item.gain.toFixed(3) + ',apad=pad_dur=' + duration.toFixed(3) + '[audio_' + i + ']');",
+        "    labels.push('[audio_' + i + ']');",
+        "  }",
+        "  if (!labels.length) throw new Error('No audio tracks');",
+        "  filters.push(labels.join('') + 'amix=inputs=' + labels.length + ':duration=longest:dropout_transition=0,alimiter=limit=0.95[aout]');",
+        "  const args = ['-nostdin','-y','-hide_banner','-loglevel','error','-i',source];",
+        "  for (let i = 0; i < input.audioCount; i++) args.push('-i','/vercel/sandbox/audio-' + i + '.mp3');",
+        "  args.push('-filter_complex',filters.join(';'),'-map','0:v:0','-map','[aout]','-c:v','copy','-c:a','aac','-b:a','192k','-map_metadata','0','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
+        "  const child = spawn('ffmpeg', args, { stdio: 'ignore' });",
+        "  child.on('error', async () => { await writeFile(marker, '127'); });",
+        "  child.on('close', async (code) => { await writeFile(marker, String(code ?? 1)); });",
+        "} catch { await writeFile(marker, '1'); }"
+      ].join('\\n');
+      const bootstrapSource = [
+        '#!/bin/bash',
+        'set +e',
+        'if ! command -v ffmpeg >/dev/null 2>&1; then',
+        '  sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg',
+        '  if [ $? -ne 0 ]; then echo 127 > /vercel/sandbox/render.exit; exit 127; fi',
+        'fi',
+        'node /vercel/sandbox/runner.mjs'
+      ].join('\\n');
       await sandbox.writeFiles([
-        { path: '/vercel/sandbox/ffmpeg-args.json', content: Buffer.from(JSON.stringify(args)) },
-        { path: '/vercel/sandbox/runner.mjs', content: Buffer.from(`import { spawn } from 'node:child_process';\nimport { readFile, writeFile } from 'node:fs/promises';\nconst args = JSON.parse(await readFile('/vercel/sandbox/ffmpeg-args.json', 'utf8'));\nconst child = spawn('ffmpeg', args, { stdio: 'ignore' });\nchild.on('error', async () => { await writeFile('/vercel/sandbox/render.exit', '127'); });\nchild.on('close', async (code) => { await writeFile('/vercel/sandbox/render.exit', String(code ?? 1)); });\n`) }
+        { path: '/vercel/sandbox/render-input.json', content: Buffer.from(JSON.stringify({
+          durationSeconds: Number(manifest.durationSeconds), audioCount: audio.length, timelineItems: manifest.timelineItems
+        })) },
+        { path: '/vercel/sandbox/runner.mjs', content: Buffer.from(runnerSource) },
+        { path: '/vercel/sandbox/bootstrap.sh', content: Buffer.from(bootstrapSource), mode: 0o755 }
       ]);
-      const detached = await sandbox.runCommand({ cmd: 'node', args: ['/vercel/sandbox/runner.mjs'], detached: true });
+      // The bootstrap and render both run detached: a Vercel function timeout or
+      // a closed browser cannot terminate the job's isolated worker process.
+      const detached = await sandbox.runCommand({ cmd: 'bash', args: ['/vercel/sandbox/bootstrap.sh'], detached: true });
       await updateJob(row.id, { status: 'running', progress: 15, sandbox_name: name, error_code: null, error_message: null });
       logger?.info?.('Video Studio render detached', { renderId: row.id, commandId: detached?.commandId || null });
     } catch (err) {
