@@ -9,6 +9,16 @@ Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and th
 
 Implementation is being delivered on `feature/owner-console-v2`, based on current `main` to avoid merging an outdated feature branch.
 
+### Configure the allowlist in Vercel
+
+1. Open the `nasrinai` project in the Vercel dashboard and go to **Settings → Environment Variables**.
+2. Add `OWNER_ALLOWED_EMAILS` with the exact owner email(s), comma-separated only if multiple owners are explicitly approved.
+3. Add `OWNER_ALLOWED_IPS` with the exact public IPv4/IPv6 address(es) allowed to open the console. Use commas between addresses; do not add CIDR ranges. Use the public egress IP, not a private LAN address. If the ISP/mobile carrier changes that address, update this variable and redeploy.
+4. Add `OWNER_SESSION_SECRET` as a dedicated random secret of at least 32 characters. Generate it in a trusted password/secret manager; never reuse a provider API key.
+5. Select **Production** for the production console (and Preview only if a separately approved preview allowlist is desired), save, and redeploy so the server reads the new values.
+
+Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repository. If any variable is missing or malformed, the owner route intentionally fails closed and shows a generic 404. Updating `OWNER_ALLOWED_IPS` does not configure Vercel Trusted IPs and does not restrict the public NasrinAI site.
+
 ### Implemented in this branch
 
 - Server-intercepted `/owner` and `/owner/api/*` routes before normal API routing and static serving; Vercel rewrites include the root, trailing slash, and nested owner paths.
@@ -23,7 +33,7 @@ Implementation is being delivered on `feature/owner-console-v2`, based on curren
 ### Not yet complete / production prerequisites
 
 - Migration 057 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
-- Registered-account totals/retention cohorts, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, incidents/alerts, and privileged controls remain pending source verification and implementation.
+- Retention cohorts and daily/weekly active-user definitions, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, incidents/alerts, and privileged controls remain pending source verification and implementation.
 - Vercel environment variables have not been changed. The actual owner email, public IP list, and dedicated signing secret are intentionally not guessed.
 - Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
 - No production migration, environment update, merge, or deployment has been performed.
@@ -454,7 +464,7 @@ The Owner Command Center navigation button must be rendered only when the server
 Use server-only environment variables, with names confirmed against existing repository conventions before implementation:
 
 - `OWNER_ALLOWED_EMAILS`: comma-separated exact email addresses for approved owner identities.
-- `OWNER_ALLOWED_IPS`: comma-separated exact IP addresses and, only if deliberately implemented and tested, supported CIDR ranges.
+- `OWNER_ALLOWED_IPS`: comma-separated exact IPv4/IPv6 addresses only; CIDR ranges are rejected.
 
 These are proposed names until Phase 0 verifies the existing configuration conventions. Never expose their values in browser code, HTML, API responses, client-visible configuration, logs, or error messages. Never commit real values to the repository. Configure them only through the hosting provider's protected environment settings after the owner explicitly approves the change.
 
