@@ -242,7 +242,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       let user;
       try { user = await verifyUser(token); } catch { jsonError(res); return true; }
       if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { jsonError(res); return true; }
-      await recordAudit('session_issued', user.id, req);
+      if (!(await recordAudit('session_issued', user.id, req))) { jsonError(res); return true; }
       const issued = Math.floor(now() / 1000);
       const value = sign({ sub: user.id, email: String(user.email).trim().toLowerCase(), iat: issued, exp: issued + SESSION_SECONDS, jti: randomUUID() }, allowlist.sessionSecret);
       const secure = config?.isProduction === true || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
@@ -332,7 +332,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         sendJson(res, 503, { error: { code: 'data_unavailable', message: 'Usage telemetry is unavailable until its verified data source is connected.' } });
         return true;
       }
-      await recordAudit('usage_export', session.sub, req);
+      if (!(await recordAudit('usage_export', session.sub, req))) {
+        sendJson(res, 503, { error: { code: 'audit_unavailable', message: 'The export audit service is unavailable. Please try again later.' } });
+        return true;
+      }
       const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','estimated_cost_usd','cost_estimate_rows'];
       const rows = [columns, [
         'summary', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end, '',
