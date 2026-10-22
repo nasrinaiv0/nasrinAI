@@ -36,6 +36,38 @@ begin
     'estimated_cost_usd', coalesce(sum(cost_usd), 0),
     'cost_estimate_rows', count(*) filter (where cost_usd is not null),
     'last_event_at', max(created_at),
+    'features', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'feature', f.feature,
+        'requests', f.requests,
+        'active_user_ids', f.active_user_ids,
+        'active_guest_ids', f.active_guest_ids,
+        'total_tokens', f.total_tokens,
+        'estimated_cost_usd', f.estimated_cost_usd
+      ) order by f.requests desc, f.feature)
+      from (
+        select
+          case
+            when task in ('coding', 'debugging', 'architecture') then 'coding'
+            when task in ('image', 'image_brief', 'marketing_cache_hit') then 'image_generation'
+            when task in ('video', 'video_sound_effect', 'video_studio_export', 'video_voiceover') then 'video_studio'
+            when task in ('realtime', 'speech', 'transcription') then 'voice'
+            when task = 'tool' then 'tools'
+            when task in ('chat', 'research', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis', 'planning', 'design', 'critique') then 'conversation'
+            else 'other'
+          end as feature,
+          count(*) as requests,
+          count(distinct actor_id) filter (where actor_type = 'user') as active_user_ids,
+          count(distinct actor_id) filter (where actor_type = 'guest') as active_guest_ids,
+          coalesce(sum(input_tokens::bigint + output_tokens::bigint), 0) as total_tokens,
+          coalesce(sum(cost_usd), 0) as estimated_cost_usd
+        from public.usage_events
+        where created_at >= p_since
+        group by 1
+        order by count(*) desc, 1
+        limit 10
+      ) f
+    ), '[]'::jsonb),
     'providers', coalesce((
       select jsonb_agg(jsonb_build_object(
         'provider', p.provider,
