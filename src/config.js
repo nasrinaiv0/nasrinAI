@@ -748,7 +748,7 @@ export function loadConfig(env = process.env) {
   const ownerIpEntries = String(env.OWNER_ALLOWED_IPS || '').split(',').map((value) => value.trim()).filter(Boolean);
   const ownerIps = ownerIpEntries.map(normalizeOwnerIp);
   const ownerSessionSecret = String(env.OWNER_SESSION_SECRET || '');
-  const ownerEmailValid = (value) => /^[^\\s@]{1,64}@[^\\s@]{1,190}\\.[A-Za-z]{2,63}$/.test(value);
+  const ownerEmailValid = (value) => /^[^\s@]{1,64}@[^\\s@]{1,190}\.[A-Za-z]{2,63}$/.test(value);
   const ownerConsoleEnabled = ownerEmails.length > 0 && ownerEmails.every(ownerEmailValid)
     && ownerIpEntries.length > 0 && ownerIps.every(Boolean) && ownerSessionSecret.length >= 32;
   const ownerConsole = Object.freeze({
