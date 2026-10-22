@@ -150,7 +150,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -184,6 +184,34 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return summary && typeof summary === 'object' && Number.isFinite(Number(summary.run_count)) ? summary : null;
     } catch {
       logger?.warn?.('owner automation source unavailable', { source: 'automation_runs' });
+      return null;
+    }
+  }
+
+  async function vercelDeploymentSummary() {
+    const source = config?.ownerConsole?.vercel;
+    if (!source?.enabled || typeof fetchImpl !== 'function') return null;
+    try {
+      const query = new URLSearchParams({ projectId: source.projectId, limit: '10', target: 'production', teamId: source.teamId });
+      const response = await fetchImpl('https://api.vercel.com/v6/deployments?' + query.toString(), {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + source.token, Accept: 'application/json' },
+        signal: AbortSignal.timeout(4000)
+      });
+      if (!response?.ok) throw new Error('deployment source unavailable');
+      const payload = await response.json();
+      if (!Array.isArray(payload?.deployments)) throw new Error('invalid deployment response');
+      const deployments = payload.deployments.slice(0, 10).map((item) => ({
+        state: typeof item?.state === 'string' ? item.state.toLowerCase() : 'unknown',
+        url: typeof item?.url === 'string' ? item.url.slice(0, 240) : null,
+        target: typeof item?.target === 'string' ? item.target : null,
+        created_at: Number.isFinite(Number(item?.created)) ? new Date(Number(item.created)).toISOString() : null,
+        branch: typeof item?.meta?.githubCommitRef === 'string' ? item.meta.githubCommitRef.slice(0, 120) : null,
+        commit: typeof item?.meta?.githubCommitSha === 'string' && /^[a-f0-9]{7,40}$/i.test(item.meta.githubCommitSha) ? item.meta.githubCommitSha : null
+      }));
+      return { deployment_count: deployments.length, ready_count: deployments.filter((item) => item.state === 'ready').length, failed_count: deployments.filter((item) => ['error','canceled','cancelled'].includes(item.state)).length, latest: deployments[0] || null, deployments };
+    } catch {
+      logger?.warn?.('owner Vercel deployment telemetry unavailable', { source: 'vercel_api' });
       return null;
     }
   }
@@ -341,7 +369,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           logger?.warn?.('owner database health check unavailable', { source: 'database' });
         }
       }
-      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users, incidents24h, growth] = await Promise.all([
+      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users, incidents24h, growth, deployments] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000),
         automationSince(at - 24 * 60 * 60 * 1000),
@@ -350,7 +378,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         plansSince(at - 24 * 60 * 60 * 1000),
         userSummary(),
         incidentSince(at - 24 * 60 * 60 * 1000),
-        growthSummary()
+        growthSummary(),
+        vercelDeploymentSummary()
       ]);
       sendJson(res, 200, {
         generated_at: new Date(at).toISOString(),
@@ -358,7 +387,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         data_sources: {
           ai_usage: usage24h || usage7d ? ((Number(usage24h?.request_count || 0) + Number(usage7d?.request_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           users: users || growth ? ((Number(users?.auth_user_records || 0) + Number(growth?.active_user_ids_24h || 0) + Number(growth?.active_guest_ids_24h || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
-          infrastructure: 'unavailable',
+          infrastructure: deployments ? (deployments.deployment_count > 0 ? 'available' : 'no_data') : 'unavailable',
           database: databaseHealth,
           security_audit: audit24h ? (Number(audit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
           automation: automation24h || automation7d ? ((Number(automation24h?.run_count || 0) + Number(automation7d?.run_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
@@ -375,6 +404,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         plans_24h: plans24h,
         user_summary: users,
         growth_summary: growth,
+        deployment_summary: deployments,
         incidents_24h: incidents24h,
         panels
       });
