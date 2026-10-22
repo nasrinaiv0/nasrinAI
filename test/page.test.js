@@ -585,3 +585,13 @@ test('owner subdomain root redirects to the protected Owner Command Center route
   assert.equal(route.permanent, false);
   assert.ok(config.rewrites.some((item) => item.source === '/owner' && item.destination === '/api/index?__path=/owner'), 'the protected /owner route is handled by the server function');
 });
+
+
+test('owner entry bootstraps on the dedicated host and expired sessions return to the main site', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const consoleJs = await readFile(new URL('../public/owner-console.js', import.meta.url), 'utf8');
+  assert.match(app, /fetch\('https:\/\/owner\.nasrinai\.com\/v1\/owner\/session', \{\s*method: 'POST', credentials: 'include', mode: 'cors'/);
+  assert.match(app, /window\.location\.href = 'https:\/\/owner\.nasrinai\.com\/owner'/);
+  assert.doesNotMatch(consoleJs, /window\.location\.href = '\/'/);
+  assert.match(consoleJs, /window\.location\.href = 'https:\/\/www\.nasrinai\.com\/'/);
+});
