@@ -283,6 +283,9 @@ create table if not exists public.owner_audit_events (
 
 create index if not exists owner_audit_events_created_at_idx
   on public.owner_audit_events (created_at desc);
+alter table public.owner_audit_events drop constraint if exists owner_audit_events_event_type_check;
+alter table public.owner_audit_events add constraint owner_audit_events_event_type_check
+  check (event_type in ('session_issued','session_revoked','usage_export','incident_created','incident_acknowledged','incident_resolved'));
 
 alter table public.owner_audit_events enable row level security;
 drop policy if exists server_only_deny_browser on public.owner_audit_events;
