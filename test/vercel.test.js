@@ -45,17 +45,21 @@ test('API paths are sent to the function, with the original path passed along', 
   assert.equal(dest('/v1/chat'), '/api/index?__path=/v1/chat');
   assert.equal(dest('/v1'), '/api/index?__path=/v1');
   assert.equal(dest('/healthz'), '/api/index?__path=/healthz');
+  assert.equal(dest('/owner'), '/api/index?__path=/owner');
+  assert.equal(dest('/owner/api/overview'), '/api/index?__path=/owner/api/overview');
   assert.equal(dest('/'), null, 'the page stays on the CDN');
   assert.equal(config.functions['api/index.js'].maxDuration, 120);
 });
 
-test('the function restores only API paths', async () => {
+test('the function restores only API and protected owner paths', async () => {
   const { restorePath } = await import('../api/index.js');
   assert.equal(restorePath('/api/index?__path=/v1/chat'), '/v1/chat');
   assert.equal(restorePath('/v1/chat?__path=/v1/chat'), '/v1/chat');
   assert.equal(restorePath('/api/index?__path=/healthz'), '/healthz');
+  assert.equal(restorePath('/api/index?__path=/owner'), '/owner');
+  assert.equal(restorePath('/api/index?__path=/owner/api/overview'), '/owner/api/overview');
   assert.equal(restorePath('/api/index?__path=/v1/conversations/abc/messages&x=1'), '/v1/conversations/abc/messages?x=1');
-  for (const bad of ['//evil.com', '/v1/../etc', '/admin', 'http://x/v1']) {
+  for (const bad of ['//evil.com', '/v1/../etc', '/admin', '/owner/../private', 'http://x/v1']) {
     assert.equal(restorePath('/api/index?__path=' + encodeURIComponent(bad)), '/api/index?__path=' + encodeURIComponent(bad));
   }
 });
