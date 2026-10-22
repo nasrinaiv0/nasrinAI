@@ -66,3 +66,13 @@ test('authorized browser flow bootstraps a cookie before loading the protected p
   assert.equal(body.data_sources.ai_usage, 'unavailable');
   assert.equal(app.getStaticCalls(), 0);
 });
+
+test('unknown owner route variants are intercepted and do not fall through to public routing', async (t) => {
+  const app = await start(t);
+  for (const path of ['/owner/console', '/owner/api/unknown', '/v1/owner/unknown']) {
+    const response = await fetch(app.url + path);
+    assert.equal(response.status, 404, path);
+    assert.equal(await response.text(), 'Page not found.', path);
+  }
+  assert.equal(app.getStaticCalls(), 0);
+});
