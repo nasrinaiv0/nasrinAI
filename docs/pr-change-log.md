@@ -1076,3 +1076,15 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Finding:** `docs/seo.md` (PR #405) — inline styles are blocked by the page policy, so both pages rendered unstyled.
 - **Change:** styles moved unchanged into `public/faq.css` and `public/registry.css`; the registry's `style=` attribute became the class `main-flush`. The security policy is unchanged.
 - **Validation:** `npm test` 726 pass, 0 fail, 1 skipped; before/after screenshots of `/faq.html` rendered locally under the real policy in headless Chromium. Not checked on a real phone or on the live site.
+
+
+## Owner Command Center implementation foundation (2026-10-23)
+
+- **Owner request:** implement the owner-only console with a Vercel-managed email/IP allowlist, generic 404 behavior for unauthorized visitors, premium responsive UI, and quality/safety-first execution.
+- **Security foundation:** added server-only `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and dedicated `OWNER_SESSION_SECRET`; Supabase token verification for bootstrap; trusted client-IP resolution; 10-minute HttpOnly/SameSite=Strict owner session; protected route interception before static serving; no-store responses and a uniform generic 404 boundary.
+- **Frontend:** added a responsive, restrained dark console with all ten owner areas. The main app reveals the entry only after server-side bootstrap succeeds. Data that has no verified source is explicitly marked Unavailable; no fake zeros or production metrics are hardcoded.
+- **Usage telemetry:** added migration 042 with an aggregate-only server-role RPC for usage events, token counts, outcomes, latency percentiles, distinct user IDs with recorded calls, estimated costs, and provider/model breakdowns. No prompts/message content are queried, and no browser grants/RLS policies are broadened. The migration is additive and has not been applied to production.
+- **Tests added:** owner config, session and allowlist cases, route interception, Vercel rewrite/restore behavior, and SQL aggregate/permission tests.
+- **Vercel configuration:** no project settings or environment variables were changed. The real owner email, public IPv4 allowlist, and signing secret must be entered by the owner in the Vercel Environment Variables UI and followed by a redeploy.
+- **Known gaps:** user registration/retention, infrastructure/releases, security audit, automation, finance/revenue reconciliation, incidents/alerts, reports/exports, and privileged controls remain unconnected pending source audits and implementation. This is not yet a complete operational control plane.
+- **Validation:** a Vercel preview check passed on an earlier implementation commit; newer test files were added afterward. Full CI, database tests, secret scan, GitGuardian, and desktop/iPhone preview inspection remain to be confirmed. Do not merge or deploy without owner approval.
