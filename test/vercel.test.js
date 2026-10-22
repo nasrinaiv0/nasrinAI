@@ -32,9 +32,9 @@ test('the page CSP on Vercel is exactly the one the server sends', () => {
   assert.match(header('Strict-Transport-Security'), /max-age=31536000/);
 });
 
-test('page headers apply to the page files, not to the API or health check', () => {
+test('page headers apply to public files, not API, owner, or health routes', () => {
   for (const p of ['/', '/index.html', '/app.js', '/app.css', '/icon.svg', '/v1x', '/healthzz']) assert.ok(matches(p), p);
-  for (const p of ['/v1', '/v1/', '/v1/chat', '/v1/conversations/abc/messages', '/healthz']) assert.ok(!matches(p), p);
+  for (const p of ['/v1', '/v1/', '/v1/chat', '/v1/conversations/abc/messages', '/healthz', '/owner', '/owner/', '/owner/api/overview']) assert.ok(!matches(p), p);
 });
 
 test('Studio root redirects only on the Studio hostname', () => {
