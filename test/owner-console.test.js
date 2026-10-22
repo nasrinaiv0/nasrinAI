@@ -207,6 +207,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
       if (path === 'rpc/owner_console_plan_summary') return { active_paid_periods: 3, active_pro_periods: 1, active_max_periods: 1, active_ultra_periods: 1, new_periods: 2, paid_payment_count: 1, gross_paid_by_currency: [{ currency: 'PHP', payment_count: 1, gross_amount_minor: 12345 }] };
       if (path === 'rpc/owner_console_user_summary') return { auth_user_records: 12, new_auth_records_24h: 2, new_auth_records_7d: 4, active_signins_30d: 7, last_signup_at: '2026-10-22T00:00:00.000Z' };
       if (path === 'rpc/owner_console_growth_summary') return { active_user_ids_24h: 2, active_guest_ids_24h: 1, active_user_ids_7d: 3, active_guest_ids_7d: 2, active_user_ids_30d: 5, active_guest_ids_30d: 4, returning_user_ids_7d: 1, prior_week_user_ids: 2, return_rate_pct: 50 };
+      if (path === 'rpc/owner_console_retention_summary') return { window_days: 14, definition: 'First observed signed-in model-call activity date', cohorts: [{ cohort_date: '2026-10-15', cohort_size: 4, day_1_eligible: 4, day_1_returned: 2, day_1_retention_pct: 50, day_7_eligible: 0, day_7_returned: 0, day_7_retention_pct: null }] };
       if (path === 'rpc/owner_console_incident_summary') return { ai_failed_requests: 1, automation_failed_runs: 1, stale_running_runs: 1, last_failure_at: '2026-10-23T00:00:00.000Z' };
       if (path === 'rpc/owner_console_audit_summary') return { event_count: 2, last_event_at: '2026-10-23T00:00:00.000Z', by_type: [] };
       if (path === 'rpc/owner_console_record_audit') return null;
@@ -234,6 +235,8 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.user_summary.new_auth_records_24h, 2);
   assert.equal(payload.growth_summary.active_user_ids_24h, 2);
   assert.equal(payload.growth_summary.return_rate_pct, 50);
+  assert.equal(payload.data_sources.retention, 'available');
+  assert.equal(payload.retention_summary.cohorts[0].day_1_retention_pct, 50);
   assert.equal(payload.data_sources.users, 'available');
   assert.equal(Object.hasOwn(payload.user_summary, 'email'), false);
   assert.equal(payload.usage_24h.total_tokens, 15);
