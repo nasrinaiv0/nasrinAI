@@ -7,7 +7,7 @@
 - Add a durable incident register with confirmed create/acknowledge/resolve actions, server-role-only RPCs, an RLS-protected table, and an audit event for every state change. Derived failure signals do not automatically create incidents, and alert delivery is not yet connected.
 - Add aggregate usage CSV exports with fixed windows, audit requirements, and spreadsheet-formula-injection protection.
 - Production environment inventory confirmed owner email/IP keys exist without decrypting them; a dedicated sensitive `OWNER_SESSION_SECRET` was created. The values were not read or committed. Migration 057 has not been applied to production, and no merge or deployment was performed.
-- **Validation:** the earlier implementation passed `npm test`, JavaScript syntax checks, `npm run check:secrets`, `db/tests/run.sh`, and `npm audit --audit-level=high`. The latest growth/release-adapter/incident-lifecycle changes are awaiting the current CI run; the latest documentation gate is also pending. Vercel preview builds remain canceled by the configured ignored-build step, so visual desktop/iPhone verification is not yet available.
+- **Validation:** latest CI passed: `npm test` (952 passed, 0 failed), JavaScript syntax check, `npm run check:secrets`, `db/tests/run.sh` (including repeatable migration execution, aggregate RPC permissions, and incident lifecycle audit checks), and `npm audit --audit-level=high`. Documentation Gate passed. Vercel preview builds remain canceled by the configured ignored-build step, so visual desktop/iPhone verification is not yet available.
 
 ## Historical reply metadata follow-up — tokens and completion time (2026-10-23)
 
