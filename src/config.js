@@ -19,6 +19,15 @@ function toInt(name, value, fallback, min, max) {
   return n;
 }
 
+function normalizeIp(value) {
+  const ip = String(value || '').trim().replace(/^::ffff:/, '');
+  if (isIP(ip) === 4) return ip;
+  if (isIP(ip) === 6) {
+    try { return new URL('http://[' + ip + ']/').hostname.slice(1, -1).toLowerCase(); } catch { return null; }
+  }
+  return null;
+}
+
 function cleanOrigin(name, value) {
   if (!value) return '';
   try {
@@ -129,11 +138,12 @@ export function loadConfig(env = process.env) {
   // allowlist and the dedicated session signing secret are valid. Invalid values
   // fail closed for this feature without taking down the public product.
   const ownerEmails = String(env.OWNER_ALLOWED_EMAILS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
-  const ownerIps = String(env.OWNER_ALLOWED_IPS || '').split(',').map((value) => value.trim()).filter(Boolean);
+  const ownerIpEntries = String(env.OWNER_ALLOWED_IPS || '').split(',').map((value) => value.trim()).filter(Boolean);
+  const ownerIps = ownerIpEntries.map(normalizeIp);
   const ownerSessionSecret = String(env.OWNER_SESSION_SECRET || '');
   const ownerEmailValid = (value) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,63}$/.test(value);
   const ownerConsoleValid = ownerEmails.length > 0 && ownerIps.length > 0
-    && ownerEmails.every(ownerEmailValid) && ownerIps.every((value) => isIP(value) === 4)
+    && ownerEmails.every(ownerEmailValid) && ownerIpEntries.length > 0 && ownerIps.every(Boolean)
     && ownerSessionSecret.length >= 32;
   const ownerConsole = Object.freeze({
     enabled: ownerConsoleValid,
