@@ -387,7 +387,6 @@ return { body: { sites: await connect.list(caller) } }; }
         return { body: { ok: true, ...result } };
       }
     },
-,
     {
       // Vercel Cron: launch queued Video Studio renders and collect finished MP4s.
       method: 'GET',
