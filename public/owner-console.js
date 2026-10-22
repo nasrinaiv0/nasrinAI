@@ -152,6 +152,7 @@
     if (key === 'ai') {
       const usage = data && data.usage_24h;
       const providers = data && data.usage_7d && Array.isArray(data.usage_7d.providers) ? data.usage_7d.providers : [];
+      const features = data && data.usage_7d && Array.isArray(data.usage_7d.features) ? data.usage_7d.features : [];
       const panel = el('section', 'panel');
       panel.classList.add('module-extra');
       panel.append(el('h3', '', 'Recorded AI activity'), el('p', 'panel-copy', 'Usage events contain aggregate telemetry only; cost values are internal estimates.'));
@@ -174,6 +175,26 @@
       } else list.append(el('p', 'panel-copy', 'Provider breakdown unavailable until usage telemetry is connected.'));
       panel.append(list);
       c.append(panel);
+
+      const featurePanel = el('section', 'panel');
+      featurePanel.classList.add('module-extra');
+      featurePanel.append(head('Feature activity · 7d', 'Fixed server-side usage categories; this is activity, not signup conversion or net revenue.', features.length ? 'Available' : 'No data yet'));
+      const featureList = el('div', 'source-list');
+      if (features.length) {
+        features.forEach((item) => {
+          const row = el('div', 'source-row'), left = el('div');
+          left.append(
+            el('div', 'source-name', String(item.feature || 'other').replace(/_/g, ' ')),
+            el('div', 'source-detail', numberText(item.active_user_ids) + ' signed-in IDs · ' + numberText(item.active_guest_ids) + ' guest IDs · ' + numberText(item.total_tokens) + ' tokens')
+          );
+          row.append(left, el('div', 'source-name', numberText(item.requests) + ' requests'));
+          featureList.append(row);
+        });
+      } else {
+        featureList.append(el('p', 'panel-copy', 'Feature activity is unavailable until usage telemetry contains matching events.'));
+      }
+      featurePanel.append(featureList);
+      c.append(featurePanel);
     }
 
     if (key === 'users') {
