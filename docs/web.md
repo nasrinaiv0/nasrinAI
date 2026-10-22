@@ -17,43 +17,52 @@ searches one person can trigger per hour. `WEB_LINKS=false` turns it off.
 
 ## Web search
 
-Questions that need fresh facts ("today", "latest", "weather", "news",
-"price of…", "search the web…") are answered with OpenAI's web search tool
-(Responses API, `tools: [{ type: "web_search" }]`), and the answer lists its
-**Sources**. It uses `WEB_SEARCH_MODEL` (default `gpt-5.4-mini`). The model
-must have a price in `config/model-prices.json`:
-without one the spend check cannot size the call and every search would be
-skipped, so an unpriced setting falls back to the default with a start-up
-warning. If the model does not support the tool, the log says
-`web search failed` and Nasrin answers without the web. Set
-`WEB_SEARCH_MODEL=` (empty) to turn search off.
+Questions that benefit from current facts are answered using OpenRouter's
+`openrouter:web_search` server tool through the OpenRouter Responses API.
+OpenRouter can choose when to search and can run multiple searches during one
+response. The default engine is `auto`: it uses native provider search when
+available and falls back to Exa otherwise. Set the server-side
+`OPENROUTER_WEB_SEARCH_MODEL` to override the default model
+(`openrouter/auto`); leave it empty to disable OpenRouter as the primary search provider. If the optional Google fallback is configured, Google search can still serve as a fallback-only path. The server-side
+`OPENROUTER_API_KEY` is reused, so no Google Custom Search key or engine ID is
+required.
+
+Search results and URL-citation annotations are parsed server-side. Only HTTP(S)
+URLs from provider citations (or URLs the user supplied) may remain clickable in
+the answer; guessed model-authored URLs are removed. Google candidate results
+are treated as untrusted context and are not mislabeled as cited evidence.
+
+OpenRouter is the primary search path. To enable an independent fallback, set
+server-only `WEB_GOOGLE_API_KEY` and `WEB_GOOGLE_CX`; if OpenRouter search is
+unconfigured, unavailable, or rate-limited, Nasrin can return real Google result
+titles, snippets, and links instead of inventing an answer. Google fallback
+results are identified as search results, not as a synthesized research answer.
+Keep both keys out of browser code. Browsing costs depend on the OpenRouter
+model/search engine or Google API quota, in addition to model token charges.
+See the [OpenRouter Web Search documentation](https://openrouter.ai/docs/guides/features/server-tools/web-search).
 
 The sources stay in the saved reply as a "**Sources**" list of links (so
 history, copy, share and Library keep them). The page takes that list out of
-the reply text and shows a **Sources** button beside the reply actions (up to three overlapping
-round badges with each site's first letter, then the word Sources; no outside
-images are loaded)
-(next to Regenerate); tapping it unfolds the links, each with its site name,
-opening in a new tab (`noopener noreferrer`). Only `http(s)` links are folded;
-anything else is left in the text as written (`NasrinFormat.sources` in
-`public/format.js`). Read-aloud skips the list. Each source has a **Cite**
-button for its publication details and citation formats (`docs/citations.md`).
+the reply text and shows a **Sources** button beside the reply actions. Only
+HTTP(S) links are folded; anything else is left in the text as written.
 
-If a question did not look current but the model's draft says it lacks
-current facts ("check the web", "knowledge may be outdated", "can't check live
-news"; `GAP` in `src/web/search.js`), Nasrin runs the web search instead and
-the page replaces the draft. A search without source links is never shown;
-the regular answer is used. The prompt also forbids mentioning a knowledge
-cutoff or an inability to browse, and asks for a direct answer (no clarifying
-questions first) on news and updates.
+If a question did not look current but the model's draft says it lacks current
+facts, Nasrin can trigger web research instead of presenting the uncertainty
+as a verified live answer. Questions about browsing itself are answered
+without unnecessary search.
 
-Questions about browsing itself ("can you browse the internet?") are answered
-from the prompt without a search; with search on, the prompt tells the model
-it can search and never to claim it cannot browse.
+## Inline video and source embeds
 
-Cost: OpenAI charges per search call (`config/model-prices.json`,
-`tools.web_search`) plus tokens. Each search is counted in the budget and only
-runs if it fits (see [routing.md](routing.md)).
+NasrinAI can render a supported public video inline when a direct video URL is
+returned by the web-search provider: YouTube uses its privacy-enhanced player;
+TikTok and Facebook use their official player/embed URLs; public Instagram posts and Reels use Instagram's embed URL; Vimeo and Dailymotion
+use provider-specific player URLs. All source URLs must be HTTPS and match a
+strict provider host/path allowlist before an embed is constructed. The server
+uses each provider's oEmbed endpoint for metadata where available, but does not
+return upstream HTML to the browser. Private, removed, restricted, or blocked
+videos may still refuse playback; in that case the verified source link remains
+available. YouTube API quota exhaustion does not disable general web research
+or the other providers.
 
 ## Site logos
 
