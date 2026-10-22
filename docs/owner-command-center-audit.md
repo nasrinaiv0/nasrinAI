@@ -86,3 +86,27 @@ The latest commit for this documentation audit is `a94de2fb6f19abf1bd6eb8ac2fbbc
 - Do not change Vercel deployment protection or project settings without owner approval.
 - Before final review, the owner or authorized project administrator must resolve the deployment-policy block, or explicitly confirm the accepted alternative preview-validation path.
 - The dashboard implementation must still pass unit/database/secret checks and be inspected in a working preview at desktop and iPhone widths before the PR is considered ready.
+
+
+## 8. Implementation follow-up (2026-10-23)
+
+The repository is no longer documentation-only on `feature/owner-command-center`. The following code has been added in the follow-up implementation commits:
+
+- `src/owner-console.js`: dedicated bootstrap/session handler, exact email + IPv4 allowlist checks, signed 10-minute owner cookie, generic 404 behavior, no-store headers, strict CSP, read-only overview endpoint, and protected dashboard HTML.
+- `src/config.js`: server-only `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and `OWNER_SESSION_SECRET` configuration. Invalid/missing values disable the feature rather than stopping the public site.
+- `src/http/app.js`, `src/main.js`, and `api/index.js`: route interception before normal routing/static serving, trusted IP resolver wiring, and Vercel path restoration.
+- `vercel.json`: rewrites `/owner` and `/owner/:path*` to the server function; public app routes remain unchanged.
+- `public/owner-console.css` and `public/owner-console.js`: responsive console shell and explicit unavailable states; the signed-in app only adds the Owner Command Center entry after a successful server bootstrap.
+- `db/migrations/042_owner_console_metrics.sql`: additive, aggregate-only usage summary RPC restricted to `service_role`, plus a time index. No existing RLS policy or browser grant is broadened.
+- `test/owner-console.test.js`, `test/owner-console-http.test.js`, `test/owner-config.test.js`, `db/tests/042_owner_console_metrics.test.sql`, and Vercel rewrite assertions.
+
+### Current validation and boundaries
+
+- Vercel reported a successful preview check for an earlier implementation commit. That is a build/deployment signal, not proof that all tests pass or that the preview was visually inspected.
+- The newest owner-console HTTP and database regression tests have been added after that preview check. Their CI outcomes have not yet been confirmed in this audit.
+- The SQL migration has **not** been applied to production; the metrics endpoint intentionally reports usage telemetry as unavailable if the RPC is absent.
+- Vercel environment variables have **not** been changed. Actual owner email/IP values are intentionally not guessed.
+- The initial documentation PR #353 is already merged. The implementation follow-up must be reviewed in a new PR; do not attempt to merge or deploy it automatically.
+- The current console is a read-only shell. Users/growth totals, infrastructure, security audit, automation, billing/revenue, incidents, alerts, and exports remain pending source verification and implementation.
+
+The historical observations in sections 1–7 describe the audit at the time it was performed. This section records subsequent branch changes without implying that production schema, environment, or runtime has changed.
