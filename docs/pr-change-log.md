@@ -1,3 +1,10 @@
+## PR #539 follow-up — Refresh-safe conversation restoration (2026-10-23)
+
+- Restore saved conversation messages on startup without marking historical assistant replies as fresh, so automated pull-request actions remain restricted to newly generated replies.
+- Preserve the saved conversation pointer and visible chat during temporary restore failures; clear it only when the server explicitly reports the conversation is missing or expired.
+- Restore response metadata when supplied by the server.
+- **Validation:** CI identified a source-contract regression because the history rendering call no longer matched the established data.messages.forEach form. Restored that form while keeping metadata restoration. Re-run CI to verify all tests and documentation gate.
+
 ## Multi-site video coverage follow-up (2026-10-23)
 
 - Extend the safe social embed route and strict frontend player-origin allowlist to public Instagram posts and Reels.
