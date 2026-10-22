@@ -43,12 +43,15 @@ const TASK_ALIASES = Object.freeze({
 
 export function prioritizeOpenRouterCandidates(task, candidates) {
   const taskNames = TASK_ALIASES[task] || [task];
-  const positions = [];
   const matching = [];
   const remaining = [];
+  const nonOpenRouter = [];
+
   candidates.forEach((candidate, index) => {
-    if (candidate.provider !== 'openrouter') return;
-    positions.push(index);
+    if (candidate.provider !== 'openrouter') {
+      nonOpenRouter.push({ candidate, index });
+      return;
+    }
     const item = byId.get(candidate.model);
     const ranks = item
       ? taskNames.map((name) => item.preferredTasks.indexOf(name)).filter((rank) => rank >= 0)
@@ -56,14 +59,13 @@ export function prioritizeOpenRouterCandidates(task, candidates) {
     if (ranks.length) matching.push({ candidate, rank: Math.min(...ranks), index });
     else remaining.push({ candidate, index });
   });
-  // Keep the configured candidate set and non-OpenRouter slots intact. Within
-  // OpenRouter slots, put verified task matches first; preserve order for the
-  // rest, including unverified IDs. This only ranks candidates already configured
-  // by the operator; policy.js still makes the actual capability/privacy/budget decision.
+
+  // Intent-compatible, verified OpenRouter candidates are always tried first.
+  // Other configured OpenRouter candidates follow, then the remaining providers
+  // in their original order. This is ordering only: the policy still enforces
+  // tier, privacy, capability, spend, allowlist, and failure checks before a call.
   matching.sort((a, b) => a.rank - b.rank || a.index - b.index);
   remaining.sort((a, b) => a.index - b.index);
-  const ordered = [...matching, ...remaining].map((item) => item.candidate);
-  const output = [...candidates];
-  positions.forEach((position, index) => { output[position] = ordered[index]; });
-  return output;
+  nonOpenRouter.sort((a, b) => a.index - b.index);
+  return [...matching, ...remaining, ...nonOpenRouter].map(({ candidate }) => candidate);
 }
