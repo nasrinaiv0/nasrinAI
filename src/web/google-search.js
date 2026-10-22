@@ -1,7 +1,7 @@
 // Optional Google Programmable Search adapter. Uses the official Custom Search JSON API;
 // never scrapes Google's HTML results page or bypasses access controls.
 const ENDPOINT = 'https://customsearch.googleapis.com/customsearch/v1';
-const clean = (value, max = 600) => String(value || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, max);
+const clean = (value, max = 600) => String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 export function createGoogleWebSearch({ apiKey = '', engineId = '', fetchImpl = fetch, timeoutMs = 6500 } = {}) {
   const key = String(apiKey || '').trim();
