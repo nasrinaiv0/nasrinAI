@@ -402,7 +402,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     const rows = await db('GET', 'video_studio_render_jobs?status=eq.running&select=*&order=updated_at.asc&limit=3');
     let completed = 0, failed = 0, waiting = 0;
     for (const row of rows || []) {
-      const ageMs = now() - new Date(row.updated_at || row.created_at || 0).getTime();
+      const ageMs = now() - new Date(row.started_at || row.created_at || row.updated_at || 0).getTime();
       if (ageMs > 40 * 60 * 1000) {
         await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_worker_timeout', error_message: 'The render worker timed out. Retry the export.' });
         await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || [], row.input_manifest?.media || []).map(path => storage('DELETE', path).catch(() => {})));
@@ -418,7 +418,13 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         const { Sandbox } = sandboxApi || await import('@vercel/sandbox');
         sandbox = await Sandbox.get({ name: row.sandbox_name });
         const marker = await sandbox.readFileToBuffer({ path: '/vercel/sandbox/render.exit' });
-        if (!marker) { waiting++; continue; }
+        if (!marker) {
+          const elapsed = Math.max(0, now() - new Date(row.started_at || row.created_at || now()).getTime());
+          const expectedMs = Math.max(10000, Number(row.input_manifest?.durationSeconds || 30) * 1000);
+          const progress = Math.min(90, Math.max(Number(row.progress) || 15, 15 + Math.floor(elapsed / expectedMs * 70)));
+          if (progress > Number(row.progress || 0)) await updateJob(row.id, { progress });
+          waiting++; continue;
+        }
         const exitCode = Number(marker.toString('utf8').trim());
         if (exitCode !== 0) {
           await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_failed', error_message: 'The MP4 could not be rendered. Check the source video and audio timeline, then retry.' });
