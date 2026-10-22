@@ -1,3 +1,9 @@
+## PR #531 follow-up — preserve user intent in Video Studio chat (2026-10-23)
+
+- Put the user's actual request before the project metadata in Video Studio's shared `/v1/chat` payload, and explicitly label project details as reference-only context. This reduces the chance that a long project prompt or clip list overshadows the task the user actually asked for during intent classification.
+- Add a UI regression assertion for the ordering. Video Studio continues to use the shared authenticated Chat API; no duplicate model orchestration was introduced.
+- Validation: pending CI for this follow-up.
+
 ## PR #531 follow-up — transient model cooldown for faster failover (2026-10-23)
 
 - Add a bounded, per-model cooldown after retryable provider outages (unavailable, timeout, busy) so subsequent requests can use healthy fallback models without repeating the same failing attempt.
