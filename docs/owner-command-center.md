@@ -1,9 +1,32 @@
 # Owner Command Center — Implementation Specification
 
-Status: proposed; documentation only until implementation PRs are reviewed and merged.
+Status: implementation in progress on `feature/owner-command-center`; the initial specification PR was merged, and runtime implementation is being delivered in a follow-up PR.
 Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
+
+## Current implementation status (2026-10-23)
+
+### Implemented in the current feature branch
+
+- Server-intercepted `/owner` and `/owner/api/*` routes; protected HTML is generated only after server authorization and cannot fall through to static serving.
+- Vercel rewrites send the owner route family to the server function.
+- Owner bootstrap verifies the Supabase access token server-side, then checks the exact verified email and trusted client IPv4 against `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS`.
+- Dedicated `OWNER_SESSION_SECRET` signs a 10-minute HttpOnly, SameSite=Strict cookie scoped to `/owner`; protected requests re-check the current IP and allowlists.
+- Unauthorized, invalid-session, unlisted-IP, unlisted-email, and missing/invalid configuration cases fail closed with a generic HTTP 404 and no-store headers.
+- Responsive, premium console shell with all ten navigation areas; unverified modules explicitly say Unavailable rather than showing fabricated values.
+- Additive migration `042_owner_console_metrics.sql` defines a server-role-only aggregate RPC for request counts, outcomes, tokens, latency percentiles, active user IDs with recorded model calls, estimated costs, and provider/model breakdowns. The RPC does not read prompts or message content and does not broaden browser grants or RLS.
+- Regression tests cover owner config, session bootstrap, identity/IP mismatch, expiry/tampering, no-store/404 behavior, route rewrites, and server interception before static serving.
+
+### Not yet complete
+
+- Migration 042 has **not** been applied to production. Usage metrics stay Unavailable until the migration is applied and the live schema is verified.
+- User registration/retention, infrastructure/releases, security/audit events, automation execution, billing/revenue reconciliation, incidents/alerts, and reports/exports remain unavailable until their source schemas, writers, freshness, permissions, and semantics are audited.
+- Privileged controls are not implemented; the console remains read-only.
+- Browser verification at desktop and iPhone widths, full unit/database/secret-scan CI, GitGuardian, and Vercel preview inspection must be confirmed before the implementation PR is ready.
+- Vercel environment variables have not been changed by this implementation. Configure the three `OWNER_*` variables using `docs/owner-allowlist-vercel-setup.md` only after choosing the actual owner email and public IPv4 allowlist.
+
+Do not treat the console shell as proof that every panel is connected. This status is intentionally explicit about what is live, unavailable, and pending.
 
 ## 1. Goal
 
