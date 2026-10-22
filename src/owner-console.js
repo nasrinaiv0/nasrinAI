@@ -491,7 +491,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           database: databaseHealth,
           security_audit: audit24h ? (Number(audit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
           automation: automation24h || automation7d ? ((Number(automation24h?.run_count || 0) + Number(automation7d?.run_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
-          finance: 'unavailable',
+          finance: plans24h && Number.isFinite(Number(plans24h.paid_payment_count))
+            ? (Number(plans24h.paid_payment_count) > 0 ? 'available' : 'no_data') : 'unavailable',
           plan_entitlements: plans24h ? ((Number(plans24h.active_paid_periods || 0) + Number(plans24h.new_periods || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           incidents: incidents24h ? ((Number(incidents24h.ai_failed_requests || 0) + Number(incidents24h.automation_failed_runs || 0) + Number(incidents24h.stale_running_runs || 0)) > 0 ? 'available' : 'no_data') : 'unavailable'
         },
