@@ -533,3 +533,13 @@ test('reply details panel uses the requested 5px blur and 50% saturation', async
   assert.match(finalTuning, /-webkit-backdrop-filter: blur\(5px\) saturate\(50%\) !important/);
   assert.match(finalTuning, /backdrop-filter: blur\(5px\) saturate\(50%\) !important/);
 });
+
+test('cited YouTube links render inline even when the user did not explicitly ask for videos', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(js, /const hasCitedYouTube = Array\.isArray\(cited\.links\)/);
+  assert.match(js, /else if \(hasCitedYouTube\) renderYouTubeVideos\(el, '', cited\.links, true\)/);
+  assert.match(js, /function renderYouTubeVideos\(message, userQuery, sourceLinks = \[\], sourceOnly = false\)/);
+  const renderer = js.slice(js.indexOf('function renderYouTubeVideos'), js.indexOf('function sourcesToggle'));
+  assert.match(renderer, /if \(!sourceOnly\)/, 'direct cited videos should not trigger an unrelated YouTube search');
+  assert.match(renderer, /youtube-nocookie\.com\/embed\//);
+});
