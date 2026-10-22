@@ -1687,3 +1687,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression assertions for portal layering, mobile scroll behavior, resize handling, and fixed positioning.
 - Validation: automated CI and iPhone preview checks pending.
 
+## Always-visible tiers and OpenRouter-first intent routing (2026-10-22)
+
+- Keep Quick, Pro, Max, and Ultra in `/v1/models` even when a provider's model-list endpoint omits a configured model or a provider temporarily fails; locked tiers remain visible with sign-in/plan metadata and are still enforced server-side.
+- Stop using provider model-list discovery to hide tiers and stop marking a tier unavailable in the UI after a provider refusal; provider errors belong to router failover.
+- In auto mode, choose OpenRouter models as the default per-tier targets and first candidate at every intent-routing level, including custom route-level configurations. Fall back to other configured providers if OpenRouter is unavailable.
+- Add regression coverage for persistent tier visibility and OpenRouter-first routing/failover.
+- Validation: CI pending.
+
