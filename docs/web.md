@@ -1,3 +1,7 @@
+## Relevant playable video selection
+
+The chat treats video discovery as optional enrichment after the normal answer. For creator requests such as "latest video of MrBeast", the search query is normalized toward the creator's official channel uploads rather than generic channel/profile cards. Results must be actual playable video IDs before the UI renders an inline player; when search fails or returns no playable video, keep the assistant answer and offer a direct search link only when useful. Latest requests should use date ordering in the server-side YouTube adapter, and server results should exclude channel cards, playlists, unavailable/private videos, and non-embeddable videos.
+
 # Nasrin and the internet
 
 ## Links people share
