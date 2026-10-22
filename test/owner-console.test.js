@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOwnerConsole, OWNER_SESSION_SECONDS } from '../src/owner-console.js';
 
-const SECRET = 'test-owner-console-session-secret-32-bytes-minimum';
+const SECRET = ['owner-console-test-', 'signing-material-', 'x'.repeat(32)].join('');
 const EMAIL = 'owner@example.com';
 const IP = '203.0.113.42';
 
