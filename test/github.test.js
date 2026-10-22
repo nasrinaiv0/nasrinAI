@@ -410,6 +410,8 @@ test('coding chat page: PR description from the reply, many-file card, automatic
   assert.match(js, /if \(fresh && codingProject && github\.autoPr\)/);
   assert.match(js, /show\('assistant', data\.message\.content, \{ id: data\.message\.id, animate: !live\.text\(\), fresh: true, responseMetadata: data\.response_metadata \|\| null \}\)/);
   assert.match(js, /data\.messages\.forEach\(\(m, i\) => show\([^)]*\{ animate: false, id: m\.id/, 'history replies are not fresh');
+  assert.match(js, /const estimateHistoricalTokens = \(value\) => Math\.max\(1, Math\.ceil\(String\(value \|\| ''\)\.length \/ 4\)\)/, 'restored replies estimate tokens instead of showing Not reported');
+  assert.match(js, /usage: \{\s*input_tokens: estimateHistoricalTokens\(precedingUser\),\s*output_tokens: estimateHistoricalTokens\(message\.content\),\s*estimated: true/s, 'historical estimates are labelled as estimates');
 });
 
 test('plugins: more apps are listed as Coming soon, never as connected', async () => {
