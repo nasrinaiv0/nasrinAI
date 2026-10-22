@@ -152,7 +152,7 @@ function jsonError(res, head = false) { sendNotFound(res, head); }
 
 export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null }) {
   async function usageSince(since) {
-    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
+    if (typeof store?.request !== 'function') return null;
     try {
       const value = await store.request('POST', 'rpc/owner_console_usage_summary', {
         body: { p_since: new Date(since).toISOString() }
@@ -203,7 +203,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
   }
 
   async function recordAudit(eventType, actorId, req) {
-    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return false;
+    if (typeof store?.request !== 'function') return false;
     let ip = '';
     try { ip = normalizeIp(clientIp(req)); } catch { return false; }
     if (!ip || typeof actorId !== 'string' || !actorId) return false;
@@ -281,7 +281,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     if (pathname === '/owner/api/overview') {
       const at = now();
       let databaseHealth = 'unavailable';
-      if (store?.kind === 'supabase' && typeof store.request === 'function') {
+      if (typeof store?.request === 'function') {
         try {
           const rows = await store.request('GET', 'tenants?select=id&limit=1');
           if (Array.isArray(rows)) databaseHealth = 'available';
