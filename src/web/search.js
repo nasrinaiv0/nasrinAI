@@ -1,9 +1,8 @@
 import { ProviderError } from '../ai/provider.js';
 
-// Web search through OpenAI's Responses API built-in tool
-// (tools: [{ type: "web_search" }]), which returns an answer with url_citation
-// annotations. The model is a setting (WEB_SEARCH_MODEL); check on OpenAI's
-// web-search guide that your model supports the tool.
+// Web research through OpenRouter's Responses API server-side web-search tool.
+// Citations are taken from provider annotations; arbitrary model-authored URLs are
+// removed before rendering. Google Custom Search is an optional failure-only fallback.
 export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://openrouter.ai/api/v1' }) {
   return {
     model,
@@ -23,8 +22,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         const text = [
           'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
           ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
-            (item.snippet ? '\\n' + item.snippet : '') + '\\n' + item.url)
-        ].join('\\n\\n');
+            (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
+        ].join('\n\n');
         return {
           text,
           citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
