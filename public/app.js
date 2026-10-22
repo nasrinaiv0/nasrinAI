@@ -4214,7 +4214,21 @@
     if (message.querySelector('.youtube-results')) return true;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const tutorialIntent = /\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(userQuery);
-    const query = (userQuery + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '')).slice(0, 180);
+    // Search for videos, not a creator's channel/profile card. For "latest"
+    // requests, prefer the creator's official uploads; the API adapter uses
+    // this intent to order by date and filters to playable video IDs.
+    const buildVideoSearchQuery = (raw) => {
+      const original = String(raw || '').trim();
+      const latest = /\\b(?:latest|newest|most recent|recent)\\b/i.test(original);
+      const creatorMatch = original.match(/\\b(?:video|videos|upload|uploads)\\s+(?:of|from|by)\\s+(.+?)(?:\\s+(?:on|in)\\s+youtube)?[?!.,]*$/i)
+        || original.match(/\\b(?:of|from|by)\\s+(.+?)(?:\\s+(?:on|in)\\s+youtube)?[?!.,]*$/i);
+      const creator = creatorMatch?.[1]?.replace(/\\b(?:the|latest|newest|most recent|recent|video|videos|youtube|please)\\b/ig, ' ').replace(/[?!.,]/g, ' ').replace(/\\s+/g, ' ').trim();
+      if (creator && latest) return (creator + ' official channel latest uploads video').slice(0, 180);
+      if (creator) return (creator + ' official channel videos').slice(0, 180);
+      const base = original + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '');
+      return base.slice(0, 180);
+    };
+    const query = buildVideoSearchQuery(userQuery);
     try {
       let videos = [];
       try {
