@@ -1,4 +1,4 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
 
@@ -188,6 +188,37 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     }
   }
 
+  async function auditSince(since) {
+    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
+    try {
+      const value = await store.request('POST', 'rpc/owner_console_audit_summary', {
+        body: { p_since: new Date(since).toISOString() }
+      });
+      const summary = Array.isArray(value) ? value[0] : value;
+      return summary && typeof summary === 'object' && Number.isFinite(Number(summary.event_count)) ? summary : null;
+    } catch {
+      logger?.warn?.('owner audit summary unavailable', { source: 'owner_audit_events' });
+      return null;
+    }
+  }
+
+  async function recordAudit(eventType, actorId, req) {
+    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return false;
+    let ip = '';
+    try { ip = normalizeIp(clientIp(req)); } catch { return false; }
+    if (!ip || typeof actorId !== 'string' || !actorId) return false;
+    const ipHash = createHash('sha256').update(ip).digest('hex');
+    try {
+      await store.request('POST', 'rpc/owner_console_record_audit', {
+        body: { p_event_type: eventType, p_actor_id: actorId, p_ip_hash: ipHash, p_outcome: 'success' }
+      });
+      return true;
+    } catch {
+      logger?.warn?.('owner audit write unavailable', { source: 'owner_audit_events', event_type: eventType });
+      return false;
+    }
+  }
+
   async function handle(req, res, pathname) {
     const ownerPath = pathname === '/owner' || pathname.startsWith('/owner/');
     const bootstrapPath = pathname === '/v1/owner/session';
@@ -211,6 +242,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       let user;
       try { user = await verifyUser(token); } catch { jsonError(res); return true; }
       if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { jsonError(res); return true; }
+      await recordAudit('session_issued', user.id, req);
       const issued = Math.floor(now() / 1000);
       const value = sign({ sub: user.id, email: String(user.email).trim().toLowerCase(), iat: issued, exp: issued + SESSION_SECONDS, jti: randomUUID() }, allowlist.sessionSecret);
       const secure = config?.isProduction === true || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
@@ -233,6 +265,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     if (pathname === '/owner/api/session' && req.method === 'DELETE') {
       if (!trustedSameOrigin(req)) { sendNotFound(res); return true; }
       const secure = config?.isProduction === true || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+      await recordAudit('session_revoked', session.sub, req);
       res.setHeader('Set-Cookie', sessionCookie('', 0, secure));
       res.statusCode = 204;
       res.end();
@@ -256,11 +289,12 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           logger?.warn?.('owner database health check unavailable', { source: 'database' });
         }
       }
-      const [usage24h, usage7d, automation24h, automation7d] = await Promise.all([
+      const [usage24h, usage7d, automation24h, automation7d, audit24h] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000),
         automationSince(at - 24 * 60 * 60 * 1000),
-        automationSince(at - 7 * 24 * 60 * 60 * 1000)
+        automationSince(at - 7 * 24 * 60 * 60 * 1000),
+        auditSince(at - 24 * 60 * 60 * 1000)
       ]);
       sendJson(res, 200, {
         generated_at: new Date(at).toISOString(),
@@ -270,7 +304,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           users: 'unavailable',
           infrastructure: 'unavailable',
           database: databaseHealth,
-          security_audit: 'unavailable',
+          security_audit: audit24h ? (Number(audit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
           automation: automation24h || automation7d ? ((Number(automation24h?.run_count || 0) + Number(automation7d?.run_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           finance: 'unavailable',
           incidents: 'unavailable'
@@ -280,6 +314,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         usage_7d: usage7d,
         automation_24h: automation24h,
         automation_7d: automation7d,
+        audit_24h: audit24h,
         panels
       });
       return true;
@@ -297,6 +332,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         sendJson(res, 503, { error: { code: 'data_unavailable', message: 'Usage telemetry is unavailable until its verified data source is connected.' } });
         return true;
       }
+      await recordAudit('usage_export', session.sub, req);
       const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','estimated_cost_usd','cost_estimate_rows'];
       const rows = [columns, [
         'summary', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end, '',
