@@ -199,6 +199,16 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       }
       const name = 'nasrinai-render-' + row.id;
       sandbox = await Sandbox.create({ name, runtime: 'node22', timeout: 2700000, persistent: true, resources: { vcpus: 2 } });
+      // Install the fixed renderer before any user media enters the VM. Once
+      // FFmpeg is ready, lock down egress so parsing hostile media cannot call out.
+      const check = await sandbox.runCommand({ cmd: 'bash', args: ['-lc', 'command -v ffmpeg'] });
+      if (check.exitCode !== 0) {
+        const install = await sandbox.runCommand({
+          cmd: 'bash', args: ['-c', 'apt-get update -qq && apt-get install -y -qq ffmpeg'], sudo: true
+        });
+        if (install.exitCode !== 0) throw new Error('The isolated renderer could not install FFmpeg.');
+      }
+      await sandbox.update({ networkPolicy: 'deny-all' });
       const files = [{ path: '/vercel/sandbox/source.mp4', content: source }];
       for (let i = 0; i < audio.length; i++) files.push({ path: '/vercel/sandbox/audio-' + i + '.mp3', content: audio[i] });
       await sandbox.writeFiles(files);
@@ -230,25 +240,14 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "  child.on('close', async (code) => { await writeFile(marker, String(code ?? 1)); });",
         "} catch { await writeFile(marker, '1'); }"
       ].join('\n');
-      const bootstrapSource = [
-        '#!/bin/bash',
-        'set +e',
-        'if ! command -v ffmpeg >/dev/null 2>&1; then',
-        '  sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg',
-        '  if [ $? -ne 0 ]; then echo 127 > /vercel/sandbox/render.exit; exit 127; fi',
-        'fi',
-        'node /vercel/sandbox/runner.mjs'
-      ].join('\n');
       await sandbox.writeFiles([
         { path: '/vercel/sandbox/render-input.json', content: Buffer.from(JSON.stringify({
           durationSeconds: Number(manifest.durationSeconds), audioCount: audio.length, timelineItems: manifest.timelineItems
         })) },
-        { path: '/vercel/sandbox/runner.mjs', content: Buffer.from(runnerSource) },
-        { path: '/vercel/sandbox/bootstrap.sh', content: Buffer.from(bootstrapSource), mode: 0o755 }
+        { path: '/vercel/sandbox/runner.mjs', content: Buffer.from(runnerSource) }
       ]);
-      // The bootstrap and render both run detached: a Vercel function timeout or
-      // a closed browser cannot terminate the job's isolated worker process.
-      const detached = await sandbox.runCommand({ cmd: 'bash', args: ['/vercel/sandbox/bootstrap.sh'], detached: true });
+      // The render runs detached: a closed browser cannot terminate the worker.
+      const detached = await sandbox.runCommand({ cmd: 'node', args: ['/vercel/sandbox/runner.mjs'], detached: true });
       await updateJob(row.id, { status: 'running', progress: 15, sandbox_name: name, error_code: null, error_message: null });
       logger?.info?.('Video Studio render detached', { renderId: row.id, commandId: detached?.commandId || null });
     } catch (err) {
