@@ -192,6 +192,49 @@ $owner_users$;
 
 revoke execute on function public.owner_console_user_summary() from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_user_summary() to service_role;
+-- Derived operational signals from existing telemetry. These are not durable incidents or delivered alerts.
+create or replace function public.owner_console_incident_summary(p_since timestamptz)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $owner_signals$
+declare
+  v_result jsonb;
+begin
+  if p_since is null or p_since > now() or p_since < now() - interval '90 days' then
+    raise exception 'p_since must be within the last 90 days';
+  end if;
+
+  select jsonb_build_object(
+    'window_start', p_since,
+    'window_end', now(),
+    'ai_failed_requests', (
+      select count(*) from public.usage_events
+      where created_at >= p_since and outcome <> 'ok'
+    ),
+    'automation_failed_runs', (
+      select count(*) from public.automation_runs
+      where created_at >= p_since and status = 'failed'
+    ),
+    'stale_running_runs', (
+      select count(*) from public.automation_runs
+      where status = 'running' and coalesce(started_at, created_at) < now() - interval '30 minutes'
+    ),
+    'last_failure_at', greatest(
+      (select max(created_at) from public.usage_events where created_at >= p_since and outcome <> 'ok'),
+      (select max(coalesce(finished_at, created_at)) from public.automation_runs where created_at >= p_since and status = 'failed')
+    )
+  )
+  into v_result;
+  return v_result;
+end;
+$owner_signals$;
+
+revoke execute on function public.owner_console_incident_summary(timestamptz) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_incident_summary(timestamptz) to service_role;
+
 -- Minimal owner-action audit trail. Store a one-way IP hash, never the raw address.
 create table if not exists public.owner_audit_events (
   id uuid primary key default gen_random_uuid(),
