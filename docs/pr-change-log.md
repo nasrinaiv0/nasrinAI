@@ -1719,3 +1719,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Set implementation and acceptance standards for Chat, Code, Studio render jobs, API validation, Supabase ownership/RLS, mobile accessibility, environment variables, migrations, and honest verification reporting.
 - Update `CLAUDE.md` and `README.md` to point all future feature work at the shared contract.
 - **Validation:** documentation-only change. Automated tests, secret scan, CI, Preview, and production behavior have not been run or verified for this change yet.
+
+
+## Intent-aware interactive chat visualizations (2026-10-23)
+
+- Add a chart widget selected by user intent and data shape, with bar, line, area, donut, and data-table views.
+- Let users switch chart type and standard, compact, or editorial presentation in the chat without another model call.
+- Validate chart categories and numeric series, constrain payload size, build output from safe DOM/SVG nodes, and display source/notes when provided.
+- Instruct NasrinAI to use verified, user-supplied, retrieved, or explicitly calculated values and never fabricate data; add prompt regression coverage.
+- **Validation:** CI is running; production deployment and live-browser behavior have not been verified.

@@ -82,3 +82,38 @@
 .genui-mermaid-source pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.75rem;line-height:1.5;padding:12px;border-radius:10px;background:var(--surface,rgba(128,128,128,.06));overflow:auto}
 @keyframes genui-mermaid-flow{to{stroke-dashoffset:-20}}
 @media(prefers-reduced-motion:reduce){.genui-mermaid-edge{animation:none!important}}
+
+
+/* Intent-aware, mobile-first chat charts */
+.genui-chart-card{min-width:0;overflow:hidden}
+.genui-chart-toolbar{display:flex;align-items:end;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.genui-chart-control{display:grid;gap:5px;font-size:.75rem;color:var(--muted,#777)}
+.genui-chart-select{max-width:100%;min-height:36px;border:1px solid var(--line,rgba(128,128,128,.25));border-radius:10px;padding:6px 10px;background:var(--surface,rgba(128,128,128,.06));color:var(--text,currentColor);font:inherit}
+.genui-chart-visual{min-width:0}
+.genui-chart-visual>svg{display:block;width:100%;height:auto;max-height:390px;overflow:visible;color:var(--text,currentColor)}
+.genui-chart-gridline{stroke:var(--line,rgba(128,128,128,.18));stroke-width:1}
+.genui-chart-axis-label{fill:var(--muted,#858585);font-size:11px}
+.genui-chart-area{opacity:.14}
+.genui-chart-line{vector-effect:non-scaling-stroke}
+.genui-chart-point{stroke:var(--panel,#fff);stroke-width:1.2}
+.genui-chart-bar{opacity:.9}
+.genui-chart-center{fill:var(--text,currentColor);font-size:18px;font-weight:650}
+.genui-chart-center-label{fill:var(--muted,#858585);font-size:11px}
+.genui-chart-legend{display:flex;gap:8px 16px;align-items:center;flex-wrap:wrap;margin:8px 0 0}
+.genui-chart-legend-item{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;color:var(--muted,#858585)}
+.genui-chart-legend-item strong{color:var(--text,currentColor);font-weight:600}
+.genui-chart-dot{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+.genui-chart-note,.genui-chart-source{font-size:.78rem;line-height:1.5;color:var(--muted,#858585);margin:10px 0 0}
+.genui-chart-source{overflow-wrap:anywhere}
+.genui-chart-table-wrap{max-width:100%;overflow:auto;border:1px solid var(--line,rgba(128,128,128,.18));border-radius:12px}
+.genui-chart-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.genui-chart-table th,.genui-chart-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line,rgba(128,128,128,.14));white-space:nowrap}
+.genui-chart-table thead th{background:var(--surface,rgba(128,128,128,.05));font-weight:650}
+.genui-chart-table tbody tr:last-child th,.genui-chart-table tbody tr:last-child td{border-bottom:0}
+.genui-chart-compact .genui-chart-visual>svg{max-height:270px}
+.genui-chart-compact .genui-chart-toolbar{justify-content:flex-start}
+.genui-chart-editorial{padding:clamp(14px,3vw,24px)}
+.genui-chart-editorial .genui-title{font-size:1.2rem;letter-spacing:-.025em}
+.genui-chart-editorial .genui-chart-visual{padding-top:6px}
+@media(max-width:520px){.genui-chart-toolbar{justify-content:stretch}.genui-chart-control{flex:1;min-width:120px}.genui-chart-select{width:100%}.genui-chart-visual>svg{min-width:0}.genui-chart-table th,.genui-chart-table td{padding:8px}.genui-chart-axis-label{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.genui-chart-card *{animation:none!important;transition:none!important}}
