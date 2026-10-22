@@ -30,7 +30,7 @@ function request(method, url, { headers = {}, testIp } = {}) {
   return { req, res };
 }
 
-const sameOrigin = { origin: 'https://nasrinai.com', host: 'nasrinai.com', 'sec-fetch-site': 'same-origin' };
+const sameOrigin = { origin: 'https://owner.nasrinai.com', host: 'owner.nasrinai.com', 'sec-fetch-site': 'same-origin' };
 
 async function bootstrap(handler, options = {}) {
   const pair = request('POST', '/v1/owner/session', {
@@ -123,6 +123,17 @@ test('tampered and expired owner cookies are denied', async () => {
   const expired = request('GET', '/owner', { headers: { cookie }, testIp: IP });
   await consoleHandler.handle(expired.req, expired.res, '/owner');
   assert.equal(expired.res.statusCode, 404);
+});
+
+test('production bootstrap refuses to mint an owner cookie on the main site origin', async () => {
+  const { consoleHandler } = setup();
+  const out = request('POST', '/v1/owner/session', {
+    headers: { origin: 'https://nasrinai.com', host: 'nasrinai.com', 'sec-fetch-site': 'same-origin', authorization: 'Bearer ' + TOKEN },
+    testIp: IP
+  });
+  await consoleHandler.handle(out.req, out.res, '/v1/owner/session');
+  assert.equal(out.res.statusCode, 404);
+  assert.equal(out.res.headers['set-cookie'], undefined);
 });
 
 test('bootstrap rejects cross-origin requests and owner sign-out clears its cookie', async () => {
