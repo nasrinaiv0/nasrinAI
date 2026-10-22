@@ -751,11 +751,21 @@ export function loadConfig(env = process.env) {
   const ownerEmailValid = (value) => /^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,63}$/.test(value);
   const ownerConsoleEnabled = ownerEmails.length > 0 && ownerEmails.every(ownerEmailValid)
     && ownerIpEntries.length > 0 && ownerIps.every(Boolean) && ownerSessionSecret.length >= 32;
+  const ownerVercelToken = String(env.OWNER_VERCEL_READONLY_TOKEN || '').trim();
+  const ownerVercelProjectId = String(env.OWNER_VERCEL_PROJECT_ID || '').trim();
+  const ownerVercelTeamId = String(env.OWNER_VERCEL_TEAM_ID || '').trim();
+  const ownerVercelEnabled = ownerVercelToken.length >= 20 && /^prj_[A-Za-z0-9]+$/.test(ownerVercelProjectId) && /^team_[A-Za-z0-9]+$/.test(ownerVercelTeamId);
   const ownerConsole = Object.freeze({
     enabled: ownerConsoleEnabled,
     emails: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerEmails)] : []),
     ips: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerIps)] : []),
-    sessionSecret: ownerConsoleEnabled ? ownerSessionSecret : ''
+    sessionSecret: ownerConsoleEnabled ? ownerSessionSecret : '',
+    vercel: Object.freeze({
+      enabled: ownerVercelEnabled,
+      token: ownerVercelEnabled ? ownerVercelToken : '',
+      projectId: ownerVercelEnabled ? ownerVercelProjectId : '',
+      teamId: ownerVercelEnabled ? ownerVercelTeamId : ''
+    })
   });
 
   return Object.freeze({
