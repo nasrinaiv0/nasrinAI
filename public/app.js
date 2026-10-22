@@ -3137,8 +3137,8 @@
     const text = String(raw || '').trim();
     if (turn) return;
     if ((!text && !pending.length) || busy || preparing) return;
-    // Public video retrieval is independent from AI generation and model pricing.
-    if (!imageMode && !editing && !pending.length && isYouTubeSearchRequest(text)) return runYouTubeFirst(text);
+    // Keep the normal answer path for every query. The assistant renderer may
+    // append verified, relevant video embeds after the answer when available.
     if (!aiAvailable) {
       show('user', text);
       problem('NasrinAI is temporarily unavailable for this message. Please try again shortly.');
