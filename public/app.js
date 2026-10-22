@@ -1489,7 +1489,18 @@
         const lastUserQuery = lastUser ? String(lastUser.dataset.text || lastUser.textContent || '').trim() : '';
         // Short affirmative replies may accept the assistant's offer to find videos.
         const videoQuery = youtubeQueryForReply(lastUserQuery, text);
+        // A cited direct video URL is sufficient to render its player even when
+        // the person asked a factual question rather than explicitly requesting videos.
+        const hasCitedYouTube = Array.isArray(cited.links) && cited.links.some((source) => {
+          try {
+            const url = new URL(typeof source === 'string' ? source : source?.url || source?.href || '');
+            if (url.protocol !== 'https:' || !['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtube-nocookie.com'].includes(url.hostname.toLowerCase())) return false;
+            const id = url.hostname.toLowerCase() === 'youtu.be' ? url.pathname.split('/').filter(Boolean)[0] : (url.searchParams.get('v') || url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})(?:\/|$)/)?.[1] || '');
+            return /^[A-Za-z0-9_-]{11}$/.test(String(id || ''));
+          } catch { return false; }
+        });
         if (videoQuery) renderYouTubeVideos(el, videoQuery, cited.links);
+        else if (hasCitedYouTube) renderYouTubeVideos(el, '', cited.links, true);
       }
       const actions = replyActions(text, id, full, responseMetadata);
       el.appendChild(actions);
@@ -4014,10 +4025,14 @@
       try {
         const url = new URL(link?.url || link?.href || '');
         const host = url.hostname.toLowerCase().replace(/^www\./, '');
-        const supported = host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch';
+        const supported = host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch' || host === 'instagram.com' || host === 'm.instagram.com' || host === 'vimeo.com' || host === 'm.vimeo.com' || host === 'dailymotion.com' || host === 'dai.ly';
         if (url.protocol !== 'https:' || !supported || seen.has(url.href)) continue;
         if (host.includes('tiktok') && !/^\/@[A-Za-z0-9._-]+\/video\/\d+/.test(url.pathname)) continue;
         if ((host === 'facebook.com' || host === 'm.facebook.com') && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) continue;
+        if ((host === 'instagram.com' || host === 'm.instagram.com') && !/^\/(?:p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) continue;
+        if ((host === 'vimeo.com' || host === 'm.vimeo.com') && !/^\/\d+\/?$/.test(url.pathname)) continue;
+        if (host === 'dailymotion.com' && !/^\/video\/[A-Za-z0-9]+(?:_[^/]+)?\/?$/.test(url.pathname)) continue;
+        if (host === 'dai.ly' && !/^\/[A-Za-z0-9]+\/?$/.test(url.pathname)) continue;
         seen.add(url.href);
         candidates.push({ url: url.href, title: String(link.title || '').slice(0, 240) });
         if (candidates.length >= 5) break;
@@ -4040,13 +4055,19 @@
           ? embedUrl.origin === 'https://www.tiktok.com' && /^\/player\/v1\/\d+$/.test(embedUrl.pathname)
           : data.provider === 'facebook'
             ? embedUrl.origin === 'https://www.facebook.com' && /^\/plugins\/(?:video|post)\.php$/.test(embedUrl.pathname)
-            : false;
+            : data.provider === 'instagram'
+              ? embedUrl.origin === 'https://www.instagram.com' && /^\/(?:p|reel|tv)\/[A-Za-z0-9_-]+\/embed\/$/.test(embedUrl.pathname)
+              : data.provider === 'vimeo'
+                ? embedUrl.origin === 'https://player.vimeo.com' && /^\/video\/\d+$/.test(embedUrl.pathname)
+                : data.provider === 'dailymotion'
+                ? embedUrl.origin === 'https://www.dailymotion.com' && /^\/embed\/video\/[A-Za-z0-9]+$/.test(embedUrl.pathname)
+                : false;
         if (!allowed) continue;
         const card = document.createElement('article');
         card.className = 'social-embed-card social-embed-' + data.provider;
         const heading = document.createElement('p');
         heading.className = 'social-embed-title';
-        heading.textContent = String(data.title || candidate.title || (data.provider === 'tiktok' ? 'TikTok video' : 'Facebook post')).slice(0, 240);
+        heading.textContent = String(data.title || candidate.title || ({ tiktok: 'TikTok video', facebook: 'Facebook post', instagram: 'Instagram post', vimeo: 'Vimeo video', dailymotion: 'Dailymotion video' }[data.provider] || 'Video')).slice(0, 240);
         const frame = document.createElement('iframe');
         frame.loading = 'lazy';
         frame.referrerPolicy = 'strict-origin-when-cross-origin';
@@ -4058,7 +4079,7 @@
         source.href = candidate.url;
         source.target = '_blank';
         source.rel = 'noopener noreferrer';
-        source.textContent = data.provider === 'tiktok' ? 'Open on TikTok' : 'Open on Facebook';
+        source.textContent = ({ tiktok: 'Open on TikTok', facebook: 'Open on Facebook', instagram: 'Open on Instagram', vimeo: 'Open on Vimeo', dailymotion: 'Open on Dailymotion' }[data.provider] || 'Open source');
         card.append(heading, frame, source);
         section.appendChild(card);
       } catch {
@@ -4210,7 +4231,7 @@
     return /\b(?:latest|newest|recent|trending|trends|viral|popular|top|find|search(?:\s+for)?|look for|watch|videos?\s+(?:of|from|by|about|on)|video\s+(?:of|from|by|about|on))\b/i.test(q);
   }
 
-  async function renderYouTubeVideos(message, userQuery, sourceLinks = []) {
+  async function renderYouTubeVideos(message, userQuery, sourceLinks = [], sourceOnly = false) {
     if (message.querySelector('.youtube-results')) return true;
     const nav = /\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(userQuery);
     const tutorialIntent = /\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(userQuery);
@@ -4218,13 +4239,15 @@
     try {
       let videos = [];
       try {
-        const token = account?.token || await guestToken(false);
-        const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+        if (!sourceOnly) {
+          const token = account?.token || await guestToken(false);
+          const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+          }
         }
       } catch {
         // Fall back to a validated, direct YouTube source link below.
