@@ -198,7 +198,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         audio.push(bytes);
       }
       const name = 'nasrinai-render-' + row.id;
-      sandbox = await Sandbox.create({ name, runtime: 'node22', timeout: 600000, persistent: true, resources: { vcpus: 2 } });
+      sandbox = await Sandbox.create({ name, runtime: 'node22', timeout: 2700000, persistent: true, resources: { vcpus: 2 } });
       const files = [{ path: '/vercel/sandbox/source.mp4', content: source }];
       for (let i = 0; i < audio.length; i++) files.push({ path: '/vercel/sandbox/audio-' + i + '.mp3', content: audio[i] });
       await sandbox.writeFiles(files);
@@ -253,6 +253,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       logger?.info?.('Video Studio render detached', { renderId: row.id, commandId: detached?.commandId || null });
     } catch (err) {
       if (sandbox) await (typeof sandbox.delete === 'function' ? sandbox.delete() : sandbox.stop()).catch(() => {});
+      await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
       await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_start_failed', error_message: 'The MP4 renderer could not start. Please retry the export.' });
       logger?.warn?.('Video Studio render start failed', { renderId: row.id, error: safeText(err?.message) });
     }
@@ -262,6 +263,12 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     const rows = await db('GET', 'video_studio_render_jobs?status=eq.running&select=*&order=updated_at.asc&limit=3');
     let completed = 0, failed = 0, waiting = 0;
     for (const row of rows || []) {
+      const ageMs = now() - new Date(row.updated_at || row.created_at || 0).getTime();
+      if (ageMs > 40 * 60 * 1000) {
+        await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_worker_timeout', error_message: 'The render worker timed out. Retry the export.' });
+        await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
+        failed++; continue;
+      }
       if (!row.sandbox_name || !/^nasrinai-render-[0-9a-f-]{36}$/.test(row.sandbox_name)) {
         await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_worker_lost', error_message: 'The render worker stopped unexpectedly. Retry the export.' }); failed++; continue;
       }
