@@ -22,7 +22,7 @@
     automation: ['Automation & jobs', 'Aggregate workflow run states'],
     finance: ['Finance & costs', 'Settled billing and provider-cost reconciliation'],
     plan_entitlements: ['Paid plan entitlements', 'Current active Pro/Max/Ultra periods; not revenue'],
-    incidents: ['Incidents & alerts', 'Durable incident states and alert delivery']
+    incidents: ['Operational signals', 'Derived failure and stale-job signals; durable incidents and alert delivery are not connected']
   };
   let data = null;
   let active = 'overview';
@@ -79,7 +79,7 @@
     c.replaceChildren();
     c.append(notice(hasUsage ? 'Usage telemetry is connected' : 'Telemetry connections are not verified yet',
       hasUsage
-        ? 'AI usage metrics are aggregated from server-side events. Cost values are internal estimates, not provider invoices. Registered-account totals, infrastructure/release telemetry, platform-wide security events, billing reconciliation, incidents, and alerts remain unavailable until their sources are verified.'
+        ? 'AI usage metrics are aggregated from server-side events. Cost values are internal estimates, not provider invoices. Registered-account totals, infrastructure/release telemetry, platform-wide security events, billing reconciliation, durable incident records, and alert delivery remain unavailable until their sources are verified.'
         : 'The secure console is in place, but this view deliberately does not invent metrics. Each panel shows real figures only after its server-side source, definitions, and access checks are verified.'));
     c.append(head('Platform snapshot', 'Last 24 hours · recorded model-call telemetry only.', 'Read-only'));
     const grid = el('div', 'grid');
