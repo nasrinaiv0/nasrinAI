@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Authenticated cloud project CRUD, private media assets, and a durable detached server-side timeline render worker are implemented in code. Production migration application, live Sandbox execution, and signed-in end-to-end validation must pass before promotion. Server rendering supports video/image clips, text overlays, basic color filters, fade/dissolve transitions, and saved audio tracks; keyframe animation and wipe transitions are not yet reproduced server-side.  
+**Status:** Authenticated cloud project CRUD, private media assets, browser-side timeline export, and a durable detached server-side MP4-plus-audio render queue are implemented in code. The server worker snapshots inputs to private storage, launches FFmpeg in Vercel Sandbox, and persists job status/output. Production migration application, live Sandbox execution, and signed-in cross-device/browser validation remain pending. The worker currently handles the generated source clip plus the saved project audio timeline; it does not yet replace the browser renderer for arbitrary multi-clip visual composition.  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -296,9 +296,12 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 Video Studio includes an authenticated developer-plugin integration for voice discovery, generated voiceovers and sound effects, private owner-scoped audio assets, project audio timeline placement, and MP4 export of one completed video with timeline audio. See [`docs/elevenlabs-plugin.md`](./elevenlabs-plugin.md) for API contracts, access checks, storage, limits, and validation details.
 
 
-## 17. Durable server-side timeline rendering (2026-10-23)
+## 17. Durable server-side render worker — implementation checkpoint (2026-10-23)
 
-- Migration `056_video_studio_render_jobs.sql` adds a private render-job queue, atomic claim function, tenant/owner scoping, idempotency, status/progress, and output metadata.
-- The main Export timeline button now saves the project, snapshots private media, and queues FFmpeg rendering in an isolated persistent Vercel Sandbox. The scheduled worker polls the detached job and stores completed MP4s privately.
-- Server render supports landscape/portrait canvas, uploaded images, video clips, title/text overlays, basic color filters, fade/dissolve transitions, source-video audio, and up to eight saved audio timeline clips. Output is limited to 60 seconds and 50 MB.
-- Keyframe animation and wipe transitions still need server-side parity. The browser preview remains client-side; production migration and live Sandbox validation are required before this feature is promoted.
+The authenticated Audio Studio export flow now submits a durable job rather than holding an HTTP request open for FFmpeg. Migration `056_video_studio_render_jobs.sql` adds the server-only job table, owner/tenant fields, idempotency key, status/progress, output metadata, and an atomic `SKIP LOCKED` claim function. The API snapshots the source MP4 and saved audio assets into the private `video-studio-assets` bucket, and the worker installs FFmpeg before loading user media, disables sandbox egress, and launches the render as a detached process in an isolated persistent Vercel Sandbox. A one-minute Vercel Cron polls the job marker, stores completed output privately, and exposes authenticated status/download endpoints.
+
+Operational requirements:
+- Apply migration 056 in the production Supabase project before enabling the worker.
+- Vercel must provide the existing `CRON_SECRET`, Supabase URL/service key, and Sandbox OIDC or access-token configuration supported by `@vercel/sandbox`.
+- Verify a real Preview render end-to-end, including Sandbox startup, FFmpeg installation, queue polling, private output download, and cleanup, before production promotion.
+- Full visual timeline composition (multiple video/image/text/overlay clips, transitions and keyframes) remains on the existing browser renderer; this queue currently renders a generated source clip with saved audio timeline mixing.

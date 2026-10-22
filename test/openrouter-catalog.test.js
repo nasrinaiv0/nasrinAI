@@ -11,7 +11,7 @@ test('OpenRouter skill catalog records the requested model names and fails close
   assert.ok(!OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.status === 'verified'), 'operator-supplied ID must not become eligible before verification');
 });
 
-test('task skills prioritize matching configured OpenRouter models without moving non-OpenRouter candidates', () => {
+test('task skills prioritize OpenRouter models before all other providers', () => {
   const candidates = [
     { provider: 'openai', model: 'gpt-5-mini' },
     { provider: 'openrouter', model: 'xiaomi/mimo-v2.6-flash' },
@@ -20,11 +20,11 @@ test('task skills prioritize matching configured OpenRouter models without movin
     { provider: 'openrouter', model: 'unverified/model' }
   ];
   const routed = prioritizeOpenRouterCandidates('coding', candidates);
-  assert.equal(routed[0], candidates[0]);
-  assert.equal(routed[3], candidates[3]);
-  assert.equal(routed[4], candidates[4]);
-  assert.equal(routed[1].model, 'deepseek/deepseek-v4-flash-0731');
-  assert.equal(routed[2].model, 'xiaomi/mimo-v2.6-flash');
+  assert.equal(routed[0].model, 'deepseek/deepseek-v4-flash-0731');
+  assert.equal(routed[1].model, 'xiaomi/mimo-v2.6-flash');
+  assert.equal(routed[2], candidates[4], 'unverified OpenRouter IDs remain after verified task matches');
+  assert.equal(routed[3], candidates[0], 'non-OpenRouter fallback order is preserved');
+  assert.equal(routed[4], candidates[3], 'all configured OpenRouter candidates precede other providers');
 });
 
 test('operator-supplied unverified models are recorded but never promoted by the skill router', () => {
@@ -37,7 +37,7 @@ test('operator-supplied unverified models are recorded but never promoted by the
   assert.equal(routed[1].model, 'qwen/qwen3.8-27b', 'unverified model remains configured but is not promoted over a verified match');
 });
 
-test('classifier task aliases prioritize relevant verified models without adding or duplicating calls', () => {
+test('classifier task aliases rank OpenRouter candidates before configured fallback providers', () => {
   const candidates = [
     { provider: 'openrouter', model: 'deepseek/deepseek-v4-flash-0731' },
     { provider: 'openrouter', model: 'openai/gpt-6-luna' },
@@ -46,7 +46,7 @@ test('classifier task aliases prioritize relevant verified models without adding
   ];
   const planning = prioritizeOpenRouterCandidates('planning', candidates);
   assert.equal(planning.length, candidates.length);
-  assert.equal(planning[3], candidates[3], 'non-OpenRouter order and identity remain unchanged');
+  assert.equal(planning[3], candidates[3], 'the non-OpenRouter fallback remains last');
   assert.deepEqual(new Set(planning), new Set(candidates), 'ranking must neither add nor remove candidates');
   assert.equal(planning[0].model, 'openai/gpt-6-luna', 'planning should rank a verified general chat model ahead of coding-only candidates');
   const writing = prioritizeOpenRouterCandidates('writing', candidates);

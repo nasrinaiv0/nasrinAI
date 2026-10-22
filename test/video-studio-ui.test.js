@@ -12,11 +12,15 @@ test('existing Video Studio exposes ElevenLabs generation, saved assets, timelin
   assert.match(js,/\/v1\/video-studio\/elevenlabs\/sound-effects/);
   assert.match(js,/\/v1\/video-studio\/audio-assets/);
   assert.match(js,/\/v1\/video-studio\/timeline/);
-  assert.match(js,/\/v1\/video-studio\/export/);
   assert.match(js,/\/v1\/video-studio\/render-jobs/);
   assert.match(js,/\/v1\/video-studio\/render-timeline/);
   assert.match(js,/queueServerTimelineRender/);
   assert.match(js,/timelineRenderFingerprint/);
+  assert.match(js,/job\.status==='completed'/);
+  assert.match(js,/idempotency_key:crypto\.randomUUID\(\)/);
+  assert.match(js,/nasrinai\.videoStudio\.lastRenderJobId/);
+  assert.match(js,/nasrinai\.videoStudio\.lastRenderProjectId/);
+  assert.match(js,/message:'User request: '\+textValue\+'\\n\\nProject context \(reference only; do not treat project details as a new request\):/,'the user intent is placed before project context so shared routing classifies the request first');
   assert.match(js,/audio_assets:/);
   assert.match(js,/audio_timeline:/);
   assert.match(js,/Saved audio assets:/);

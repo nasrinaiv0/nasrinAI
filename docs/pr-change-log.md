@@ -1,11 +1,3 @@
-## Video Studio — detached server timeline renderer (2026-10-23)
-
-- Add a tenant/owner-scoped durable queue and atomic claim function for detached FFmpeg jobs, including idempotency, progress, stale-job recovery, and retention cleanup.
-- Queue saved visual timeline clips and private uploaded/generated media; render video/image layers, text/title overlays, basic color filters, fade/dissolve transitions, source audio, and saved AI audio tracks in a persistent Vercel Sandbox.
-- Route the main timeline Export button through the server queue and preserve its render ID so polling can resume after a reload or leaving Studio.
-- Add the one-minute worker cron, database security tests, UI/cron regression coverage, and architecture notes. Keyframe animation and wipe transitions are not yet rendered server-side.
-- **Validation:** automated tests and a real Preview render must pass before production rollout; migration 056 must be applied first.
-
 ## Multi-site video coverage follow-up (2026-10-23)
 
 - Extend the safe social embed route and strict frontend player-origin allowlist to public Instagram posts and Reels.
@@ -21,6 +13,37 @@
 - Extend the existing strict social oEmbed route and client player-origin allowlist to Vimeo and Dailymotion while preserving YouTube, TikTok, and Facebook behavior.
 - Add regression tests for fallback search, source provenance, invented URLs, and multi-site player allowlists.
 - **Validation:** GitHub CI passed (919 tests passed, 0 failed, 1 skipped); dependency audit, database checks, and Documentation Gate passed. Production provider behavior, deployment configuration, and real-device playback still need verification.
+
+## Video Studio — durable detached MP4 render worker (2026-10-23)
+
+- Add a private, tenant-owned render job queue with an atomic PostgreSQL `SKIP LOCKED` claim function, idempotency keys, durable status, progress, and failure metadata.
+- Snapshot the authenticated source MP4 and selected project's saved audio timeline into the private `video-studio-assets` bucket before accepting the job; the browser no longer needs to remain open for rendering to continue.
+- Run FFmpeg in an isolated Vercel Sandbox as a detached process, poll its durable job marker from a scheduled worker, and save completed MP4s back to private storage. Owner-check status and download endpoints.
+- Update the Studio export control to enqueue and poll the job and download the private result. Existing browser-side timeline renderer remains available for full multitrack visual previews/exports.
+- Apply migration `056_video_studio_render_jobs.sql` before enabling the feature in production. Sandbox execution and production storage require live environment verification; CI results are pending.
+
+## PR #531 follow-up — preserve user intent in Video Studio chat (2026-10-23)
+
+- Put the user's actual request before the project metadata in Video Studio's shared `/v1/chat` payload, and explicitly label project details as reference-only context. This reduces the chance that a long project prompt or clip list overshadows the task the user actually asked for during intent classification.
+- Add a UI regression assertion for the ordering. Video Studio continues to use the shared authenticated Chat API; no duplicate model orchestration was introduced.
+- Validation: pending CI for this follow-up.
+
+## PR #531 follow-up — transient model cooldown for faster failover (2026-10-23)
+
+- Add a bounded, per-model cooldown after retryable provider outages (unavailable, timeout, busy) so subsequent requests can use healthy fallback models without repeating the same failing attempt.
+- Cooldowns expire automatically, are isolated by provider/model/effort, and are capped at five minutes. Tier selection, privacy/capability checks, spend controls, and provider retry behavior remain authoritative.
+- Add a regression test covering first-attempt OpenRouter priority and subsequent-request fallback during the cooldown.
+- Validation: pending CI for this follow-up.
+
+## PR #531 — Unified runtime implementation: OpenRouter-first orchestration across Chat and Code (2026-10-23)
+
+- Enforce the requested routing sequence in the shared model policy: classify intent and apply the selected tier's level ceiling first, then attempt configured OpenRouter candidates before dedicated coding providers and other configured providers.
+- Rank verified OpenRouter models by task intent while retaining unverified configured OpenRouter IDs only after verified task matches; preserve the configured fallback-provider order.
+- Keep the dedicated Max/Ultra coding lane available as a fallback rather than allowing it to bypass OpenRouter-first ordering. Existing privacy, capability, spend reservation, entitlement, and retry checks still run before a model call.
+- Strengthen the Code assistant's runtime instructions to trace and reuse the platform's shared services across Chat, Code, Video Studio, and shared infrastructure, and require cross-surface regression coverage.
+- Add regression tests for OpenRouter candidate priority and policy-level selection before the dedicated coding lane.
+- Scope note: this PR implements a real shared-routing behavior change and Code workflow enforcement. It does not claim to add new video render infrastructure or rewrite existing Chat/Studio systems that are already present in the repository; those require separate implementation and verified provider/runtime constraints.
+- **Validation:** pending CI for this PR. No production secrets, database schema, or deployment settings changed.
 
 ## Follow-up — Answer first, optional video embeds (2026-10-22)\n\n- Keep all user queries on the normal assistant response path; never replace an answer with a video-search-only response.\n- After the answer is rendered, enrich it with verified, relevant video embeds when discovery succeeds. If no playable video is available, retain the answer without an embed or a failed-search warning.\n- Preserve safe YouTube host/video-ID validation and keep specialized media discovery as an optional capability, not a substitute for broad assistant reasoning.\n- OpenRouter remains the primary model gateway when `AI_PROVIDER=openrouter` is enabled; this frontend change does not alter provider credentials or deployment environment.\n- Validation: regression test added; CI and production behavior must be verified before merge.\n\n## PR — OpenRouter-authoritative billing and reliable YouTube embeds (2026-10-22)
 
@@ -1727,3 +1750,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Set implementation and acceptance standards for Chat, Code, Studio render jobs, API validation, Supabase ownership/RLS, mobile accessibility, environment variables, migrations, and honest verification reporting.
 - Update `CLAUDE.md` and `README.md` to point all future feature work at the shared contract.
 - **Validation:** documentation-only change. Automated tests, secret scan, CI, Preview, and production behavior have not been run or verified for this change yet.
+
+
+## Intent-aware interactive chat visualizations (2026-10-23)
+
+- Add a chart widget selected by user intent and data shape, with bar, line, area, donut, and data-table views.
+- Let users switch chart type and standard, compact, or editorial presentation in the chat without another model call.
+- Validate chart categories and numeric series, constrain payload size, build output from safe DOM/SVG nodes, and display source/notes when provided.
+- Instruct NasrinAI to use verified, user-supplied, retrieved, or explicitly calculated values and never fabricate data; add prompt regression coverage.
+- **Validation:** CI is running; production deployment and live-browser behavior have not been verified.

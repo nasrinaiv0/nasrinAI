@@ -17,9 +17,13 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
+export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
   const r = config.ai.routing;
   const cache = new Map();   // key -> { at, value }
+  // Brief per-model circuit breaker: after a transient outage, avoid paying the
+  // same timeout/429 penalty on every request while preserving automatic retry
+  // once the cooldown expires. Model-specific keys keep healthy routes usable.
+  const failureCooldowns = new Map(); // provider:model:effort -> epoch ms
 
   const capsOf = (spec) => (provider.capsOf ? provider.capsOf(spec.provider) : provider.capabilities());
   const priceFor = (spec) => {
@@ -117,19 +121,31 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         let spec = null; let at = level; const why = [];
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
-          // Coding gets a dedicated Claude lane only on Max/Ultra. It is tried
-          // before the general model pool at the classified level, so a coding
-          // request does not accidentally land on a generic cheap model.
+          const ordered = prioritizeOpenRouterCandidates(plan.task, r.levels[l]);
+          const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
+          const otherCandidates = ordered.filter((candidate) => candidate.provider !== 'openrouter');
+
+          // Intent is classified and the tier's level ceiling is applied before
+          // this point. Within that permitted level, configured OpenRouter models
+          // are always attempted first. The dedicated Max/Ultra coding lane is a
+          // fallback after OpenRouter, but before generic non-OpenRouter candidates.
+          candidates.push(...openRouterCandidates);
           if ((plan.task === 'coding' || plan.task === 'debugging') && l === level) {
             const codingSpec = plan.tier === 'ultra' && l >= 4
               ? (r.coding?.ultraDeep || r.coding?.ultra)
               : r.coding?.[plan.tier];
-            if (codingSpec) candidates.push(codingSpec);
+            if (codingSpec && !candidates.some((candidate) =>
+              candidate.provider === codingSpec.provider && candidate.model === codingSpec.model && candidate.effort === codingSpec.effort)) {
+              candidates.push(codingSpec);
+            }
           }
-          candidates.push(...prioritizeOpenRouterCandidates(plan.task, r.levels[l]));
+          candidates.push(...otherCandidates);
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
+            const cooldownUntil = failureCooldowns.get(k) || 0;
+            if (cooldownUntil > now()) { why.push(`${s.provider}:${s.model} (temporarily cooling down after a provider outage)`); continue; }
+            if (cooldownUntil) failureCooldowns.delete(k);
             if (excluded.has(`${s.provider}:${s.model}`)) { why.push(`${s.provider}:${s.model} (already used in this planning council)`); continue; }
             const b = blocker(s, {
               sensitive: plan.sensitive, attachments, inputTokens, level: l, left, minOut: minTokens,
@@ -252,6 +268,13 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           // up. Those calls count against MAX_RETRIES too (1 call + MAX_RETRIES
           // more), and none of those models is tried again as a candidate.
           const attempts = err.attempts?.length ? err.attempts : [{ provider: spec.provider, model: spec.model, effort: spec.effort }];
+          if (failureCooldownMs > 0) {
+            const until = now() + Math.min(300_000, Math.max(1_000, failureCooldownMs));
+            for (const attempt of attempts) {
+              const failedKey = `${attempt.provider}:${attempt.model}:${attempt.effort ?? spec.effort}`;
+              failureCooldowns.set(failedKey, until);
+            }
+          }
           calls += attempts.length;
           if (calls > r.maxRetries) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).

@@ -344,7 +344,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "      const label = 'clip' + visual, next = 'v' + (visual++);",
         "      const colors = { none:'', cinematic:',eq=contrast=1.12:saturation=0.88', warm:',colorbalance=rs=0.08:gs=0.02:bs=-0.05', cool:',colorbalance=rs=-0.03:bs=0.08', mono:',hue=s=0', vivid:',eq=saturation=1.35:contrast=1.05' };",
         "      const fade = (clip.transition === 'fade' || clip.transition === 'dissolve') ? Math.min(0.6, Number(clip.duration)/2) : 0;",
-        "      const chain = '[' + index + ':v:0]trim=start=' + localStart.toFixed(3) + ':duration=' + Number(clip.duration).toFixed(3) + ',setpts=PTS-STARTPTS,scale=' + width + ':' + height + ':force_original_aspect_ratio=increase,crop=' + width + ':' + height + ',fps=30,setsar=1' + colors[clip.filter || 'none'] + ',format=rgba,colorchannelmixer=aa=' + (Number(clip.opacity ?? 100)/100).toFixed(3) + (fade ? ',fade=t=in:st=0:d=' + fade.toFixed(3) + ':alpha=1,fade=t=out:st=' + Math.max(0,Number(clip.duration)-fade).toFixed(3) + ':d=' + fade.toFixed(3) + ':alpha=1' : '') + '[' + label + ']';",
+        "      const chain = '[' + index + ':v:0]trim=start=' + localStart.toFixed(3) + ':duration=' + Number(clip.duration).toFixed(3) + ',setpts=PTS-STARTPTS,scale=' + width + ':' + height + ':force_original_aspect_ratio=increase,crop=' + width + ':' + height + ',fps=30,setsar=1,format=rgba' + colors[clip.filter || 'none'] + ',colorchannelmixer=aa=' + (Number(clip.opacity ?? 100)/100).toFixed(3) + (fade ? ',fade=t=in:st=0:d=' + fade.toFixed(3) + ':alpha=1,fade=t=out:st=' + Math.max(0,Number(clip.duration)-fade).toFixed(3) + ':d=' + fade.toFixed(3) + ':alpha=1' : '') + '[' + label + ']';",
         "      filters.push(chain);",
         "      const composite = 'base' + visual; filters.push('[' + base + '][' + label + ']overlay=0:0:eof_action=pass:enable=\\'between(t,' + start.toFixed(3) + ',' + end.toFixed(3) + ')\\'[' + composite + ']'); base = composite;",
         "      if (clip.title) { const textPath = '/vercel/sandbox/title-' + visual + '.txt'; await writeFile(textPath, String(clip.title).replace(/[\\r\\n]/g,' ').slice(0,200)); const titled = 'title' + visual;",
@@ -379,8 +379,8 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
           clips: (manifest.clips || []).map(clip => ({ ...clip, mediaIndex: clip.mediaIndex, mediaType: clip.mediaType })),
           media: media.map((item, i) => ({
             path: item.sandboxPath,
-            image: String(manifest.clips?.find(clip => clip.mediaIndex === i)?.mediaType || '').startsWith('image/'),
-            audio: String(manifest.clips?.find(clip => clip.mediaIndex === i)?.mediaType || '').startsWith('audio/'),
+            image: /image\\//i.test(String(manifest.clips?.find(clip => clip.mediaIndex === i)?.mediaType || '')) || /\\.(png|jpe?g|webp|gif)$/i.test(item.path),
+            audio: /audio\\//i.test(String(manifest.clips?.find(clip => clip.mediaIndex === i)?.mediaType || '')),
             duration: Math.max(1, ...((manifest.clips || []).filter(clip => clip.mediaIndex === i).map(clip => clip.duration)))
           }))
         })) },
