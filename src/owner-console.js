@@ -219,6 +219,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
     }
     if (pathname === '/owner/api/overview') {
       const at = now();
+      let databaseHealth = 'unavailable';
+      if (store?.kind === 'supabase' && typeof store.request === 'function') {
+        try {
+          const rows = await store.request('GET', 'tenants?select=id&limit=1');
+          if (Array.isArray(rows)) databaseHealth = 'available';
+        } catch {
+          logger?.warn?.('owner database health check unavailable', { source: 'database' });
+        }
+      }
       const [usage24h, usage7d] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000)
@@ -230,11 +239,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
           ai_usage: usage24h || usage7d ? ((Number(usage24h?.request_count || 0) + Number(usage7d?.request_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           users: 'unavailable',
           infrastructure: 'unavailable',
+          database: databaseHealth,
           security_audit: 'unavailable',
           automation: 'unavailable',
           finance: 'unavailable',
           incidents: 'unavailable'
         },
+        database_health: { status: databaseHealth, checked_at: new Date(at).toISOString() },
         usage_24h: usage24h,
         usage_7d: usage7d,
         panels
