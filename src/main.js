@@ -62,6 +62,7 @@ import { createSiteIcons } from './web/site-icon.js';
 import { createImageSearch } from './web/image-search.js';
 import { createPagePreviews } from './web/page-preview.js';
 import { createYouTubeSearch } from './web/youtube.js';
+import { createOwnerConsole } from './owner-console.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -229,10 +230,13 @@ export function buildApp({ config, logger }) {
     ? createSupabaseAuth({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey })
     : null;
 
+  const ownerConsole = createOwnerConsole({ config: effective, verifyUser, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger });
+
   return createApp({
     config: effective,
     logger,
     gateway,
+    ownerConsole,
     routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, research, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, budget: reasoningBudget, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
