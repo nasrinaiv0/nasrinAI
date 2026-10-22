@@ -56,7 +56,7 @@ function cleanVideoStudioDocument(raw) {
   return document;
 }
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, videoStudioRenderWorker = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -376,6 +376,21 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!crawler) throw new HttpError(503, 'crawler_unavailable', 'The core web crawler is not configured.');
         const result = await crawler.processBatch({ limit: 5 });
         return { body: { ok: true, ...result } };
+      }
+    },
+    {
+      // Vercel Cron: launch queued Video Studio renders and collect finished MP4s.
+      method: 'GET',
+      path: '/v1/internal/video-studio-render',
+      public: true,
+      handler: async ({ req }) => {
+        if (!retentionAuthorized(req)) throw new HttpError(401, 'unauthorized', 'Unauthorized.');
+        if (!videoStudioRenderWorker?.enabled) throw new HttpError(503, 'video_render_unavailable', 'Video Studio render worker is not configured.');
+        try { return { body: { ok: true, ...await videoStudioRenderWorker.processBatch({ limit: 1 }) } }; }
+        catch (err) {
+          logger?.warn?.('Video Studio render worker tick failed', { error: err?.message });
+          throw new HttpError(503, 'video_render_worker_failed', 'The render worker could not process its queue. It will retry on the next scheduled run.');
+        }
       }
     },
     {
@@ -1794,6 +1809,81 @@ return { body: { sites: await connect.list(caller) } }; }
         const removed = await store?.deleteVideoStudioTimelineItem?.({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId, id: params.id });
         if (!removed) throw new HttpError(404, 'not_found', 'Timeline item not found.');
         return { body: { deleted: true, id: params.id } };
+      }
+    },
+    {
+      // Enqueue a durable MP4 render. Inputs are snapshotted to private storage
+      // before returning, so browser disconnects cannot cancel the render.
+      method: 'POST',
+      path: '/v1/video-studio/render-jobs',
+      scope: 'chat',
+      body: true,
+      maxBody: 8 * 1024,
+      handler: async ({ caller, body }) => {
+        await requireVideoStudioAccess(caller);
+        if (!videoStudioRenderWorker?.enabled) throw new HttpError(503, 'video_render_unavailable', 'The server-side Video Studio renderer is not configured yet.');
+        if (!videos?.read || !store?.listVideoStudioTimelineItems || !store?.readVideoStudioAudioAsset) {
+          throw new HttpError(503, 'video_render_unavailable', 'Video Studio render storage is not ready yet.');
+        }
+        const projectId = body?.project_id;
+        await requireVideoStudioProject(caller, projectId);
+        await limiter.signIn('video-studio-render:' + caller.actor.id, config.video?.perHour || 10);
+        const video = await videos.read(caller, body?.video_id);
+        const items = await store.listVideoStudioTimelineItems({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId });
+        if (!items.length) throw new HttpError(400, 'video_timeline_empty', 'Add at least one audio clip to the project timeline before rendering.');
+        if (items.length > 8) throw new HttpError(400, 'video_timeline_limit', 'Render supports up to eight audio clips at a time.');
+        const audioAssets = await Promise.all(items.map(item => store.readVideoStudioAudioAsset({
+          tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId
+        })));
+        if (audioAssets.some(asset => !asset)) throw new HttpError(404, 'audio_asset_missing', 'A timeline audio asset could not be found. Remove the missing clip and try again.');
+        try {
+          return { status: 202, body: await videoStudioRenderWorker.enqueue(caller, {
+            projectId, videoId: video.id, videoBytes: video.bytes,
+            durationSeconds: video.producedSeconds || video.targetSeconds,
+            timelineItems: items, audioAssets, idempotencyKey: body?.idempotency_key || null
+          }) };
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          if (Number.isInteger(err?.status) && err.status >= 400 && err.status < 600) {
+            throw new HttpError(err.status, err.code || 'video_render_rejected', err.message || 'The render request could not be accepted.');
+          }
+          throw err;
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/render-jobs/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        await requireVideoStudioAccess(caller);
+        if (!videoStudioRenderWorker?.enabled) throw new HttpError(503, 'video_render_unavailable', 'The server-side Video Studio renderer is not configured yet.');
+        try { return { body: await videoStudioRenderWorker.status(caller, params.id) }; }
+        catch (err) {
+          if (Number.isInteger(err?.status) && err.status >= 400 && err.status < 600) throw new HttpError(err.status, err.code || 'render_status_failed', err.message);
+          throw err;
+        }
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/video-studio/render-jobs/:id/content',
+      scope: 'chat',
+      handler: async ({ caller, params, res }) => {
+        await requireVideoStudioAccess(caller);
+        if (!videoStudioRenderWorker?.enabled) throw new HttpError(503, 'video_render_unavailable', 'The server-side Video Studio renderer is not configured yet.');
+        let output;
+        try { output = await videoStudioRenderWorker.readOutput(caller, params.id); }
+        catch (err) {
+          if (Number.isInteger(err?.status) && err.status >= 400 && err.status < 600) throw new HttpError(err.status, err.code || 'render_download_failed', err.message);
+          throw err;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'video/mp4', 'Content-Length': output.bytes.length,
+          'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': 'attachment; filename="nasrinai-video-studio-' + output.id.slice(0, 8) + '.mp4"'
+        });
+        res.end(output.bytes);
       }
     },
     {
