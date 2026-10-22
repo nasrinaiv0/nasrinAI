@@ -135,10 +135,13 @@
     const cards = el('div', 'module-grid');
     sourceKeys.forEach((sourceKey) => {
       const source = sources[sourceKey], card = el('article', 'module-card'), body = el('div');
+      const current = data && data.data_sources ? data.data_sources[sourceKey] : 'unavailable';
+      const label = current === 'available' ? 'Available' : current === 'no_data' ? 'No data yet' : current === 'stale' ? 'Stale' : 'Unavailable';
+      const kind = current === 'available' ? 'available' : current === 'stale' ? 'stale' : 'unavailable';
       card.append(el('div', 'module-symbol', meta[2]));
-      body.append(el('h3', '', source[0]), el('p', '', source[1] + '. Source verification and freshness checks are required before this becomes actionable.'));
+      body.append(el('h3', '', source[0]), el('p', '', source[1] + '. Status is based on the last server-side check.'));
       const foot = el('div', 'module-meta');
-      foot.append(state('Unavailable'), el('small', '', 'No data displayed'));
+      foot.append(state(label, kind), el('small', '', current === 'available' ? 'Source connected' : current === 'no_data' ? 'Connected; no matching records' : current === 'stale' ? 'Refresh required' : 'No verified source'));
       body.append(foot);
       card.append(body);
       cards.append(card);
