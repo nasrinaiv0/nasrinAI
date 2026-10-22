@@ -91,3 +91,14 @@ test('send button remains actionable for typed messages even when AI is unavaila
   assert.doesNotMatch(app, /sendBtn\.disabled = !stopping && \(busy \|\| \(!aiAvailable && !isYouTubeSearchRequest\(input\.value\)\)/);
   assert.match(app, /NasrinAI is temporarily unavailable for this message/);
 });
+
+test('video discovery keeps the normal answer path and embeds are optional enrichment', () => {
+  const sendStart = app.indexOf('  async function send(raw) {');
+  const sendEnd = app.indexOf('  async function ', sendStart + 10);
+  const sendBody = app.slice(sendStart, sendEnd > sendStart ? sendEnd : undefined);
+  assert.doesNotMatch(sendBody, /return runYouTubeFirst\(text\)/, 'video intent must not bypass the normal answer');
+  const answerRenderer = app.indexOf('if (fresh && role === \'assistant\')');
+  const optionalEmbed = app.indexOf('if (videoQuery) renderYouTubeVideos(el, videoQuery, cited.links);', answerRenderer);
+  assert.ok(answerRenderer >= 0 && optionalEmbed > answerRenderer, 'video enrichment runs after the assistant reply is rendered');
+  assert.match(app.slice(optionalEmbed, optionalEmbed + 120), /renderYouTubeVideos/);
+});
