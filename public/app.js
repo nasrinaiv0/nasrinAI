@@ -4025,10 +4025,11 @@
       try {
         const url = new URL(link?.url || link?.href || '');
         const host = url.hostname.toLowerCase().replace(/^www\./, '');
-        const supported = host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch' || host === 'vimeo.com' || host === 'm.vimeo.com' || host === 'dailymotion.com' || host === 'dai.ly';
+        const supported = host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'facebook.com' || host === 'm.facebook.com' || host === 'fb.watch' || host === 'instagram.com' || host === 'm.instagram.com' || host === 'vimeo.com' || host === 'm.vimeo.com' || host === 'dailymotion.com' || host === 'dai.ly';
         if (url.protocol !== 'https:' || !supported || seen.has(url.href)) continue;
         if (host.includes('tiktok') && !/^\/@[A-Za-z0-9._-]+\/video\/\d+/.test(url.pathname)) continue;
         if ((host === 'facebook.com' || host === 'm.facebook.com') && !/(^\/watch(?:\/|$)|\/videos\/|\/posts\/|\/permalink\/|\/reel\/|\/photo(?:s)?\/)/i.test(url.pathname)) continue;
+        if ((host === 'instagram.com' || host === 'm.instagram.com') && !/^\/(?:p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) continue;
         if ((host === 'vimeo.com' || host === 'm.vimeo.com') && !/^\/\d+\/?$/.test(url.pathname)) continue;
         if (host === 'dailymotion.com' && !/^\/video\/[A-Za-z0-9]+(?:_[^/]+)?\/?$/.test(url.pathname)) continue;
         if (host === 'dai.ly' && !/^\/[A-Za-z0-9]+\/?$/.test(url.pathname)) continue;
@@ -4054,9 +4055,11 @@
           ? embedUrl.origin === 'https://www.tiktok.com' && /^\/player\/v1\/\d+$/.test(embedUrl.pathname)
           : data.provider === 'facebook'
             ? embedUrl.origin === 'https://www.facebook.com' && /^\/plugins\/(?:video|post)\.php$/.test(embedUrl.pathname)
-            : data.provider === 'vimeo'
-              ? embedUrl.origin === 'https://player.vimeo.com' && /^\/video\/\d+$/.test(embedUrl.pathname)
-              : data.provider === 'dailymotion'
+            : data.provider === 'instagram'
+              ? embedUrl.origin === 'https://www.instagram.com' && /^\/(?:p|reel|tv)\/[A-Za-z0-9_-]+\/embed\/$/.test(embedUrl.pathname)
+              : data.provider === 'vimeo'
+                ? embedUrl.origin === 'https://player.vimeo.com' && /^\/video\/\d+$/.test(embedUrl.pathname)
+                : data.provider === 'dailymotion'
                 ? embedUrl.origin === 'https://www.dailymotion.com' && /^\/embed\/video\/[A-Za-z0-9]+$/.test(embedUrl.pathname)
                 : false;
         if (!allowed) continue;
@@ -4064,7 +4067,7 @@
         card.className = 'social-embed-card social-embed-' + data.provider;
         const heading = document.createElement('p');
         heading.className = 'social-embed-title';
-        heading.textContent = String(data.title || candidate.title || ({ tiktok: 'TikTok video', facebook: 'Facebook post', vimeo: 'Vimeo video', dailymotion: 'Dailymotion video' }[data.provider] || 'Video')).slice(0, 240);
+        heading.textContent = String(data.title || candidate.title || ({ tiktok: 'TikTok video', facebook: 'Facebook post', instagram: 'Instagram post', vimeo: 'Vimeo video', dailymotion: 'Dailymotion video' }[data.provider] || 'Video')).slice(0, 240);
         const frame = document.createElement('iframe');
         frame.loading = 'lazy';
         frame.referrerPolicy = 'strict-origin-when-cross-origin';
@@ -4076,7 +4079,7 @@
         source.href = candidate.url;
         source.target = '_blank';
         source.rel = 'noopener noreferrer';
-        source.textContent = ({ tiktok: 'Open on TikTok', facebook: 'Open on Facebook', vimeo: 'Open on Vimeo', dailymotion: 'Open on Dailymotion' }[data.provider] || 'Open source');
+        source.textContent = ({ tiktok: 'Open on TikTok', facebook: 'Open on Facebook', instagram: 'Open on Instagram', vimeo: 'Open on Vimeo', dailymotion: 'Open on Dailymotion' }[data.provider] || 'Open source');
         card.append(heading, frame, source);
         section.appendChild(card);
       } catch {
