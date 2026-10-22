@@ -4520,7 +4520,7 @@
     inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens)
       ? (responseMetadata.usage.estimated ? '≈ ' : '') + responseMetadata.usage.input_tokens.toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
-    if (responseMetadata?.usage?.estimated) inputLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
+    if (responseMetadata?.usage?.estimated) inputLabel.title = 'Text-length estimate; original provider token usage was not saved for this historical reply.';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
     outputLabel.textContent = 'Output tokens';
@@ -4529,7 +4529,7 @@
     outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens)
       ? (responseMetadata.usage.estimated ? '≈ ' : '') + responseMetadata.usage.output_tokens.toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
-    if (responseMetadata?.usage?.estimated) outputLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
+    if (responseMetadata?.usage?.estimated) outputLabel.title = 'Text-length estimate; original provider token usage was not saved for this historical reply.';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
     totalLabel.textContent = 'Total tokens';
@@ -4538,7 +4538,7 @@
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
       ? (responseMetadata.usage.estimated ? '≈ ' : '') + (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
-    if (responseMetadata?.usage?.estimated) totalLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
+    if (responseMetadata?.usage?.estimated) totalLabel.title = 'Text-length estimate; original provider token usage was not saved for this historical reply.';
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
     panel.id = 'reply-details-' + id;
@@ -9937,7 +9937,31 @@
       const data = await api(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`);
       setChatProject(data.project && typeof data.project.id === 'string' ? data.project : null);
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: m.response_metadata || m.responseMetadata || null }));
+      // Historical messages may not include provider usage. Estimate from the
+      // saved user/assistant text so the panel remains useful after a refresh.
+      // This is explicitly marked estimated and never presented as provider usage.
+      const estimateHistoricalTokens = (value) => Math.max(1, Math.ceil(String(value || '').length / 4));
+      const historicalResponseMetadata = (message, index) => {
+        const supplied = message.response_metadata || message.responseMetadata;
+        if (supplied || message.role !== 'assistant') return supplied || null;
+        let precedingUser = '';
+        for (let j = index - 1; j >= 0; j -= 1) {
+          if (messages[j]?.role === 'user') {
+            precedingUser = messages[j].content || '';
+            break;
+          }
+        }
+        return {
+          timestamp: message.created_at || message.createdAt || null,
+          duration_ms: null,
+          usage: {
+            input_tokens: estimateHistoricalTokens(precedingUser),
+            output_tokens: estimateHistoricalTokens(message.content),
+            estimated: true
+          }
+        };
+      };
+      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: historicalResponseMetadata(m, i) }));
       if (messages.length) {
         startChat();
         refreshTurnControls();
