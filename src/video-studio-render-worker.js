@@ -4,6 +4,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 50 * 1024 * 1024;
+const MAX_TOTAL_INPUT_BYTES = 100 * 1024 * 1024;
 const BUCKET = 'video-studio-assets';
 const OWNER_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
@@ -105,6 +106,11 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
           (item.trimEndSeconds != null && (!Number.isFinite(item.trimEndSeconds) || item.trimEndSeconds <= item.trimStartSeconds))) {
         const error = new Error('One of the audio timeline clips has invalid timing or media.'); error.status = 400; error.code = 'video_timeline_invalid'; throw error;
       }
+    }
+
+    const totalInputBytes = videoBytes.length + audioAssets.reduce((total, asset) => total + (Buffer.isBuffer(asset?.bytes) ? asset.bytes.length : 0), 0);
+    if (totalInputBytes > MAX_TOTAL_INPUT_BYTES) {
+      const error = new Error('The combined source video and audio timeline exceed the 100 MB server-render input limit.'); error.status = 413; error.code = 'video_render_input_total_size'; throw error;
     }
 
     if (idempotencyKey) {
