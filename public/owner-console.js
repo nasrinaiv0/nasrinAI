@@ -231,6 +231,10 @@
 
     if (key === 'finance') {
       const usage = data && data.usage_24h, plans = data && data.plans_24h, hasCosts = Boolean(usage && Number(usage.cost_estimate_rows) > 0), panel = el('section', 'panel');
+      const paidByCurrency = Array.isArray(plans?.gross_paid_by_currency) ? plans.gross_paid_by_currency : [];
+      const phpPaid = paidByCurrency.find((item) => item && item.currency === 'PHP');
+      const paidPaymentCount = plans && Number.isFinite(Number(plans.paid_payment_count)) ? Number(plans.paid_payment_count) : null;
+      const grossPhp = plans ? '₱' + (Number(phpPaid?.gross_amount_minor || 0) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Unavailable';
       panel.classList.add('module-extra');
       panel.append(el('h3', '', 'Recorded AI cost estimates'), el('p', 'panel-copy', 'These are internal estimates recorded with model calls, not provider invoices, settled payments, revenue, refunds, or net margin.'));
       const grid = el('div', 'grid');
@@ -241,9 +245,11 @@
         metric('Active paid plan periods', '◇', plans ? numberText(plans.active_paid_periods) : 'Unavailable', 'Unexpired active periods, not unique users'),
         metric('Pro periods', 'P', plans ? numberText(plans.active_pro_periods) : 'Unavailable', 'Current active Pro periods'),
         metric('Max periods', 'M', plans ? numberText(plans.active_max_periods) : 'Unavailable', 'Current active Max periods'),
-        metric('Ultra periods', 'U', plans ? numberText(plans.active_ultra_periods) : 'Unavailable', 'Current active Ultra periods')
+        metric('Ultra periods', 'U', plans ? numberText(plans.active_ultra_periods) : 'Unavailable', 'Current active Ultra periods'),
+        metric('Recorded PayMongo gross · 24h', 'PHP', grossPhp, 'Recorded paid checkout amounts before fees and refunds'),
+        metric('Recorded paid checkouts · 24h', '#', paidPaymentCount === null ? 'Unavailable' : numberText(paidPaymentCount), 'PayMongo paid periods recorded in the selected window')
       );
-      panel.append(grid, el('p', 'panel-copy', 'Billing and revenue remain unavailable until payment and refund records are reconciled against authoritative webhook state.'));
+      panel.append(grid, el('p', 'panel-copy', 'PayMongo gross amounts are derived only from recorded paid checkout periods. They are not net revenue: refunds, disputes, processor fees, settlement timing, and unrecorded adjustments are not represented.'));
       c.append(panel);
     }
 
