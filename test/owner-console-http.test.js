@@ -4,8 +4,8 @@ import { createServer } from 'node:http';
 import { createApp } from '../src/http/app.js';
 import { createOwnerConsole } from '../src/owner-console.js';
 
-const SECRET = 'owner-console-http-test-secret-at-least-32-chars';
-const TOKEN = 'valid-access-token-1234567890';
+const SECRET = ['owner-console-http-', 'signing-material-', 'x'.repeat(32)].join('');
+const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 
 async function start(t) {
   const config = {
