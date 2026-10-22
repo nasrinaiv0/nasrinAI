@@ -9936,12 +9936,31 @@
     try {
       const data = await api(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`);
       setChatProject(data.project && typeof data.project.id === 'string' ? data.project : null);
-      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1 }));
-      refreshTurnControls();
-    } catch {
-      conversationId = null;
-      saved.del(identityKey(KEYS.conversation));
-      clearScreen();
+      const messages = Array.isArray(data.messages) ? data.messages : [];
+      messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, {
+        animate: false,
+        id: m.id,
+        asks: i === messages.length - 1,
+        responseMetadata: m.response_metadata || m.responseMetadata || null
+      }));
+      if (messages.length) {
+        startChat();
+        refreshTurnControls();
+      }
+    } catch (err) {
+      // A transient network/server error must never erase the locally saved
+      // conversation pointer or clear the visible chat. Only discard a pointer
+      // when the server explicitly confirms that this conversation no longer
+      // exists or is no longer accessible.
+      if (err && (err.status === 404 || err.status === 410)) {
+        conversationId = null;
+        saved.del(identityKey(KEYS.conversation));
+        clearScreen();
+        notice.textContent = 'This conversation is no longer available. You can find other saved chats in Your chats.';
+      } else {
+        notice.textContent = 'Could not restore this conversation right now. Your saved chat has been kept; check your connection and refresh to try again.';
+        console.warn('NasrinAI: conversation restore failed; keeping saved conversation pointer.', err);
+      }
     }
   }
 
@@ -10000,7 +10019,9 @@
         history.replaceState(null, '', location.pathname);
         openPlans('Thank you! Your plan is active once the payment is confirmed (usually within a minute).');
       }
-      if (awayLong() && conversationId) { conversationId = null; saved.del(identityKey(KEYS.conversation)); notice.textContent = 'Started a new chat. Your last one is in Your chats.'; }
+      // Do not silently start a blank chat after a refresh or a long absence.
+      // Restore the last conversation; server-side retention decides whether it
+      // still exists, and loadConversation handles a confirmed 404/410 safely.
       saved.del(KEYS.left);
       return loadConversation();
     })
