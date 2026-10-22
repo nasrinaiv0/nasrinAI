@@ -23,7 +23,7 @@ OpenRouter can choose when to search and can run multiple searches during one
 response. The default engine is `auto`: it uses native provider search when
 available and falls back to Exa otherwise. Set the server-side
 `OPENROUTER_WEB_SEARCH_MODEL` to override the default model
-(`openrouter/auto`); leave it empty to disable web search. The server-side
+(`openrouter/auto`); leave it empty to disable OpenRouter as the primary search provider. If the optional Google fallback is configured, Google search can still serve as a fallback-only path. The server-side
 `OPENROUTER_API_KEY` is reused, so no Google Custom Search key or engine ID is
 required.
 
