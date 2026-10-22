@@ -58,6 +58,27 @@ export function createVideoStudioAssets({ config, limiter, fetchImpl = fetch, ti
       return { id, upload_url: base + signed, max_bytes: MAX_BYTES };
     },
 
+    async read(caller, id) {
+      requireUser(caller);
+      if (typeof id !== 'string' || !UUID.test(id)) throw new HttpError(404, 'not_found', 'Media asset not found.');
+      const object = ownerKey(caller) + '_' + id;
+      let response;
+      try {
+        response = await fetchImpl(base + '/object/' + BUCKET + '/' + object, {
+          method: 'GET', headers: { apikey: key, Authorization: 'Bearer ' + key },
+          signal: AbortSignal.timeout(timeoutMs)
+        });
+      } catch (err) { throw new UpstreamError('Video Studio asset download failed: ' + (err?.name || 'error')); }
+      if (!response.ok) {
+        await response.arrayBuffer().catch(() => {});
+        if (response.status === 404) throw new HttpError(404, 'not_found', 'Media asset not found.');
+        throw new UpstreamError('Video Studio asset storage answered ' + response.status + ' while reading media.');
+      }
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > MAX_BYTES) throw new HttpError(413, 'video_asset_too_large', 'The stored media is empty or exceeds the 50 MB limit.');
+      return { id, bytes, mime: response.headers.get('content-type')?.split(';')[0] || 'application/octet-stream' };
+    },
+
     async readUrl(caller, id) {
       requireUser(caller);
       if (typeof id !== 'string' || !UUID.test(id)) throw new HttpError(404, 'not_found', 'Media asset not found.');
