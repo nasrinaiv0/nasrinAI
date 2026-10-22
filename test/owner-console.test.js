@@ -202,6 +202,8 @@ test('overview exposes only aggregate usage and automation data returned by serv
         succeeded_count: 1, failed_count: 0, cancelled_count: 0, stale_running_count: 0,
         by_status: []
       };
+      if (path === 'rpc/owner_console_audit_summary') return { event_count: 2, last_event_at: '2026-10-23T00:00:00.000Z', by_type: [] };
+      if (path === 'rpc/owner_console_record_audit') return null;
       if (path === 'tenants?select=id&limit=1') return [];
       throw new Error('unexpected data source');
     }
@@ -215,6 +217,8 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.data_sources.ai_usage, 'available');
   assert.equal(payload.data_sources.automation, 'available');
   assert.equal(payload.data_sources.database, 'available');
+  assert.equal(payload.data_sources.security_audit, 'available');
+  assert.equal(payload.audit_24h.event_count, 2);
   assert.equal(payload.usage_24h.total_tokens, 15);
   assert.equal(payload.automation_24h.pending_approval_count, 1);
   assert.equal(Object.hasOwn(payload, 'prompt'), false);
