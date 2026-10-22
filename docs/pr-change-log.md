@@ -1,3 +1,13 @@
+## PR #531 — Unified runtime implementation: OpenRouter-first orchestration across Chat and Code (2026-10-23)
+
+- Enforce the requested routing sequence in the shared model policy: classify intent and apply the selected tier's level ceiling first, then attempt configured OpenRouter candidates before dedicated coding providers and other configured providers.
+- Rank verified OpenRouter models by task intent while retaining unverified configured OpenRouter IDs only after verified task matches; preserve the configured fallback-provider order.
+- Keep the dedicated Max/Ultra coding lane available as a fallback rather than allowing it to bypass OpenRouter-first ordering. Existing privacy, capability, spend reservation, entitlement, and retry checks still run before a model call.
+- Strengthen the Code assistant's runtime instructions to trace and reuse the platform's shared services across Chat, Code, Video Studio, and shared infrastructure, and require cross-surface regression coverage.
+- Add regression tests for OpenRouter candidate priority and policy-level selection before the dedicated coding lane.
+- Scope note: this PR implements a real shared-routing behavior change and Code workflow enforcement. It does not claim to add new video render infrastructure or rewrite existing Chat/Studio systems that are already present in the repository; those require separate implementation and verified provider/runtime constraints.
+- **Validation:** pending CI for this PR. No production secrets, database schema, or deployment settings changed.
+
 ## Follow-up — Answer first, optional video embeds (2026-10-22)\n\n- Keep all user queries on the normal assistant response path; never replace an answer with a video-search-only response.\n- After the answer is rendered, enrich it with verified, relevant video embeds when discovery succeeds. If no playable video is available, retain the answer without an embed or a failed-search warning.\n- Preserve safe YouTube host/video-ID validation and keep specialized media discovery as an optional capability, not a substitute for broad assistant reasoning.\n- OpenRouter remains the primary model gateway when `AI_PROVIDER=openrouter` is enabled; this frontend change does not alter provider credentials or deployment environment.\n- Validation: regression test added; CI and production behavior must be verified before merge.\n\n## PR — OpenRouter-authoritative billing and reliable YouTube embeds (2026-10-22)
 
 - Stop using local OpenRouter model-price snapshots and the `MODEL_PRICES_JSON` override to block OpenRouter text calls. OpenRouter's live model catalog remains the source for capability/model selection, and its reported `usage.cost` is the source for actual billed cost.
