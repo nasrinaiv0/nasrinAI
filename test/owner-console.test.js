@@ -204,6 +204,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
         succeeded_count: 1, failed_count: 0, cancelled_count: 0, stale_running_count: 0,
         by_status: []
       };
+      if (path === 'rpc/owner_console_user_summary') return { auth_user_records: 12, new_auth_records_24h: 2, new_auth_records_7d: 4, active_signins_30d: 7, last_signup_at: '2026-10-22T00:00:00.000Z' };
       if (path === 'rpc/owner_console_audit_summary') return { event_count: 2, last_event_at: '2026-10-23T00:00:00.000Z', by_type: [] };
       if (path === 'rpc/owner_console_record_audit') return null;
       if (path === 'tenants?select=id&limit=1') return [];
@@ -221,6 +222,9 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.data_sources.database, 'available');
   assert.equal(payload.data_sources.security_audit, 'available');
   assert.equal(payload.audit_24h.event_count, 2);
+  assert.equal(payload.user_summary.auth_user_records, 12);
+  assert.equal(payload.user_summary.new_auth_records_24h, 2);
+  assert.equal(Object.hasOwn(payload.user_summary, 'email'), false);
   assert.equal(payload.usage_24h.total_tokens, 15);
   assert.equal(payload.automation_24h.pending_approval_count, 1);
   assert.equal(Object.hasOwn(payload, 'prompt'), false);
