@@ -144,3 +144,10 @@ test('unrelated paths are not intercepted', async () => {
   const out = request('GET', '/pricing');
   assert.equal(await consoleHandler.handle(out.req, out.res, '/pricing'), false);
 });
+
+test('IPv6 allowlist entries are normalized before exact comparison', async () => {
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: ['2001:0db8:0:0:0:0:0:1'], sessionSecret: SECRET };
+  const { consoleHandler } = setup({ ownerConsole, ip: '2001:db8::1' });
+  const out = await bootstrap(consoleHandler, { testIp: '2001:db8::1' });
+  assert.equal(out.res.statusCode, 204);
+});
