@@ -174,6 +174,20 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     try { await limiter.signIn('owner-console:' + ip, limit); return true; } catch { return false; }
   }
 
+  async function automationSince(since) {
+    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
+    try {
+      const value = await store.request('POST', 'rpc/owner_console_automation_summary', {
+        body: { p_since: new Date(since).toISOString() }
+      });
+      const summary = Array.isArray(value) ? value[0] : value;
+      return summary && typeof summary === 'object' && Number.isFinite(Number(summary.run_count)) ? summary : null;
+    } catch {
+      logger?.warn?.('owner automation source unavailable', { source: 'automation_runs' });
+      return null;
+    }
+  }
+
   async function handle(req, res, pathname) {
     const ownerPath = pathname === '/owner' || pathname.startsWith('/owner/');
     const bootstrapPath = pathname === '/v1/owner/session';
@@ -242,9 +256,11 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           logger?.warn?.('owner database health check unavailable', { source: 'database' });
         }
       }
-      const [usage24h, usage7d] = await Promise.all([
+      const [usage24h, usage7d, automation24h, automation7d] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
-        usageSince(at - 7 * 24 * 60 * 60 * 1000)
+        usageSince(at - 7 * 24 * 60 * 60 * 1000),
+        automationSince(at - 24 * 60 * 60 * 1000),
+        automationSince(at - 7 * 24 * 60 * 60 * 1000)
       ]);
       sendJson(res, 200, {
         generated_at: new Date(at).toISOString(),
@@ -255,13 +271,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           infrastructure: 'unavailable',
           database: databaseHealth,
           security_audit: 'unavailable',
-          automation: 'unavailable',
+          automation: automation24h || automation7d ? ((Number(automation24h?.run_count || 0) + Number(automation7d?.run_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           finance: 'unavailable',
           incidents: 'unavailable'
         },
         database_health: { status: databaseHealth, checked_at: new Date(at).toISOString() },
         usage_24h: usage24h,
         usage_7d: usage7d,
+        automation_24h: automation24h,
+        automation_7d: automation7d,
         panels
       });
       return true;
