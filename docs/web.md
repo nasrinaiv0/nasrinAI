@@ -17,51 +17,32 @@ searches one person can trigger per hour. `WEB_LINKS=false` turns it off.
 
 ## Web search
 
-Questions that need fresh facts ("today", "latest", "weather", "news",
-"price of…", "search the web…") are answered with OpenAI's web search tool
-(Responses API, `tools: [{ type: "web_search" }]`), and the answer lists its
-**Sources**. It uses `WEB_SEARCH_MODEL` (default `gpt-5.4-mini`). The model
-When both `WEB_GOOGLE_API_KEY` and `WEB_GOOGLE_CX` are configured,
-Nasrin also queries Google's official Programmable Search JSON API in parallel
-with the answer-producing search. Google results are passed to the answer model
-as supplemental candidate evidence and included in the Sources list; they are
-not treated as verified facts by themselves. This is optional and does not
-replace OpenAI web search. Obtain the API key and Programmable Search Engine ID
-from Google; no Google HTML scraping or access-control bypass is used.
+Questions that benefit from current facts are answered using OpenRouter's
+`openrouter:web_search` server tool through the OpenRouter Responses API.
+OpenRouter can choose when to search and can run multiple searches during one
+response. The default engine is `auto`: it uses native provider search when
+available and falls back to Exa otherwise. Set the server-side
+`OPENROUTER_WEB_SEARCH_MODEL` to override the default model
+(`openrouter/auto`); leave it empty to disable web search. The server-side
+`OPENROUTER_API_KEY` is reused, so no Google Custom Search key or engine ID is
+required.
 
-must have a price in `config/model-prices.json`:
-without one the spend check cannot size the call and every search would be
-skipped, so an unpriced setting falls back to the default with a start-up
-warning. If the model does not support the tool, the log says
-`web search failed` and Nasrin answers without the web. Set
-`WEB_SEARCH_MODEL=` (empty) to turn search off.
+Search results and URL-citation annotations are parsed server-side, validated
+to allow only HTTP(S) URLs, and shown as source links. Search failures do not
+break ordinary chat; the app falls back to its normal answer path. Browsing
+costs depend on the OpenRouter model and search engine selected, in addition
+to any model token charges. See the
+[OpenRouter Web Search documentation](https://openrouter.ai/docs/guides/features/server-tools/web-search).
 
 The sources stay in the saved reply as a "**Sources**" list of links (so
 history, copy, share and Library keep them). The page takes that list out of
-the reply text and shows a **Sources** button beside the reply actions (up to three overlapping
-round badges with each site's first letter, then the word Sources; no outside
-images are loaded)
-(next to Regenerate); tapping it unfolds the links, each with its site name,
-opening in a new tab (`noopener noreferrer`). Only `http(s)` links are folded;
-anything else is left in the text as written (`NasrinFormat.sources` in
-`public/format.js`). Read-aloud skips the list. Each source has a **Cite**
-button for its publication details and citation formats (`docs/citations.md`).
+the reply text and shows a **Sources** button beside the reply actions. Only
+HTTP(S) links are folded; anything else is left in the text as written.
 
-If a question did not look current but the model's draft says it lacks
-current facts ("check the web", "knowledge may be outdated", "can't check live
-news"; `GAP` in `src/web/search.js`), Nasrin runs the web search instead and
-the page replaces the draft. A search without source links is never shown;
-the regular answer is used. The prompt also forbids mentioning a knowledge
-cutoff or an inability to browse, and asks for a direct answer (no clarifying
-questions first) on news and updates.
-
-Questions about browsing itself ("can you browse the internet?") are answered
-from the prompt without a search; with search on, the prompt tells the model
-it can search and never to claim it cannot browse.
-
-Cost: OpenAI charges per search call (`config/model-prices.json`,
-`tools.web_search`) plus tokens. Each search is counted in the budget and only
-runs if it fits (see [routing.md](routing.md)).
+If a question did not look current but the model's draft says it lacks current
+facts, Nasrin can trigger web research instead of presenting the uncertainty
+as a verified live answer. Questions about browsing itself are answered
+without unnecessary search.
 
 ## Site logos
 
