@@ -1,15 +1,9 @@
 import { HttpError } from '../http/errors.js';
 import { TIER_NEEDS, rank, planName } from '../plans.js';
 
-// NasrinAI tiers. People pick a tier; only the server knows which model (and
-// reasoning effort) is behind it, set by the owner with TIER_* settings.
-//
-// - Quick is the default free tier and is open to everyone.
-// - Guests may pick the tiers in TIERS_GUEST; signed-in users and business
-//   servers the tiers in TIERS_USER.
-// - A tier is offered only if the OpenAI key can use its model (checked
-//   hourly). If that check fails, the configured tiers are trusted.
-// - A tier whose model the provider refuses is set aside for an hour.
+// The tier catalog is a product contract, not a live provider-model listing.
+// Always expose Quick, Pro, Max, and Ultra. Provider/model availability is
+// resolved by the router at request time, with OpenRouter preferred when set up.
 
 export const TIERS = Object.freeze([
   { id: 'nasrinai', name: 'Quick' },
@@ -19,97 +13,78 @@ export const TIERS = Object.freeze([
 ]);
 export const DEFAULT_TIER = 'nasrinai';
 
-export function createModelCatalog({ provider, config, logger, now = () => Date.now(), cacheMs = 3600_000 }) {
+export function createModelCatalog({ config, logger }) {
   const { tiers, guestTiers, userTiers } = config.ai;
-  const unusable = new Map();             // tier id -> until (ms)
-  let cache = { at: 0, ids: null };
-  let loading = null;
 
-  // The model ids the key can use, or null when that cannot be checked.
-  async function keyModels() {
-    if (!provider) return new Set();
-    if (cache.ids && now() - cache.at < cacheMs) return cache.ids;
-    if (!loading) {
-      loading = provider.listModels()
-        .then((ids) => { cache = { at: now(), ids: new Set(ids) }; return cache.ids; })
-        .catch((err) => { logger.warn('model list unavailable', { error: err.message }); return cache.ids; })
-        .finally(() => { loading = null; });
+  function tierSpec(id) {
+    if (tiers[id]) return tiers[id];
+    // If a deployment has intentionally omitted a tier-specific model, use
+    // the strongest configured smart-routing candidate within that tier's
+    // range; the router will still enforce capabilities and provider fallback.
+    const range = config.ai.routing?.tierRange?.[id];
+    if (range) {
+      for (let level = range[1]; level >= range[0]; level--) {
+        const candidate = config.ai.routing?.levels?.[level]?.[0];
+        if (candidate) return candidate;
+      }
     }
-    return loading;
+    return tiers[DEFAULT_TIER] || null;
   }
 
-  function offered(caller, id, available) {
-    const spec = tiers[id];
-    if (!spec) return false;
-    if (id !== DEFAULT_TIER) {
-      const allowed = caller.actor.type === 'guest' ? guestTiers : userTiers;
-      if (!allowed.includes(id)) return false;
-      const until = unusable.get(id);
-      if (until && until > now()) return false;
-      // If a provider is temporarily absent, keep configured tiers discoverable.
-      // Provider/model availability must not control whether the tier picker exists.
-      if (provider && available && !(available.has(`${spec.provider}:${spec.model}`) || available.has(`${spec.provider}:*`) || available.has(spec.model))) return false;
+  function allowed(caller, id) {
+    if (id === DEFAULT_TIER) return true;
+    const allowedTiers = caller.actor.type === 'guest' ? guestTiers : userTiers;
+    return allowedTiers.includes(id);
+  }
+
+  function lockedState(caller, id, plan) {
+    if (id === DEFAULT_TIER) return null;
+    if (caller.actor.type === 'guest') {
+      return { locked: true, needs: 'sign_in', ...(config.plans?.enabled ? { plan: TIER_NEEDS[id] } : {}) };
     }
-    return true;
+    const needs = TIER_NEEDS[id] || null;
+    if (needs && rank(plan) < rank(needs)) return { locked: true, needs: 'plan', plan: needs };
+    if (!allowed(caller, id)) return { locked: true, needs: 'plan', plan: needs || 'pro' };
+    return null;
   }
 
   return {
-    // The tiers this caller may pick: [{ id, name }], and the default.
-    // With showLocked, tiers this caller cannot use yet are listed too, marked
-    // { locked: true, needs: 'sign_in' | 'plan', plan? }, so the page can offer
-    // sign-in or a plan. `plan` is the caller's plan ('ultra' = everything open).
-    async listFor(caller, { showLocked = false, plan = 'ultra' } = {}) {
-      const available = await keyModels();
-      const asUser = { ...caller, actor: { type: 'user', id: '' } };
-      const models = [];
-      for (const t of TIERS) {
-        const needs = TIER_NEEDS[t.id] || null;
-        if (offered(caller, t.id, available)) {
-          if (needs && caller.actor.type === 'guest') {
-            if (showLocked) models.push({ id: t.id, name: t.name, locked: true, needs: 'sign_in', ...(config.plans?.enabled ? { plan: needs } : {}) });
-          } else if (needs && caller.actor.type === 'user' && rank(plan) < rank(needs)) {
-            if (showLocked) models.push({ id: t.id, name: t.name, locked: true, needs: 'plan', plan: needs });
-          } else {
-            models.push({ id: t.id, name: t.name });
-          }
-        } else if (showLocked && caller.actor.type === 'guest' && offered(asUser, t.id, available)) {
-          models.push({ id: t.id, name: t.name, locked: true, needs: 'sign_in', ...(needs && config.plans?.enabled ? { plan: needs } : {}) });
-        }
-      }
+    // Always return all four choices. Lock metadata controls the UI only;
+    // resolve() independently enforces sign-in and plan access server-side.
+    async listFor(caller, { plan = 'ultra' } = {}) {
+      const models = TIERS.map((t) => ({
+        id: t.id,
+        name: t.name,
+        ...(lockedState(caller, t.id, plan) || {})
+      }));
       return { models, default: DEFAULT_TIER };
     },
 
-    // The tier, model and effort for this request, or a 400.
     async resolve(caller, requested, { plan = 'ultra' } = {}) {
       const id = requested === undefined || requested === null || requested === '' ? DEFAULT_TIER : requested;
-      if (typeof id !== 'string' || !TIERS.some((t) => t.id === id)) {
+      const tier = TIERS.find((t) => t.id === id);
+      if (typeof id !== 'string' || !tier) {
         throw new HttpError(400, 'invalid_model', 'Choose Quick, Pro, Max or Ultra.');
       }
-      if (!offered(caller, id, await keyModels())) {
-        const name = TIERS.find((t) => t.id === id).name;
-        throw new HttpError(400, 'model_not_allowed',
-          caller.actor.type === 'guest' && userTiers.includes(id)
-            ? `Sign in to use ${name}.`
-            : `${name} is not available right now. Choose another option.`);
+      if (id !== DEFAULT_TIER && caller.actor.type === 'guest') {
+        throw new HttpError(400, 'model_not_allowed', `Sign in to use ${tier.name}.`);
+      }
+      if (id !== DEFAULT_TIER && !allowed(caller, id)) {
+        throw new HttpError(403, 'model_not_allowed', `${tier.name} is not available for this account.`);
       }
       const needs = TIER_NEEDS[id];
-      if (needs && caller.actor.type === 'guest') {
-        const name = TIERS.find((t) => t.id === id).name;
-        throw new HttpError(403, 'sign_in_required', `Sign in to use the ${name} tier.`);
-      }
       if (needs && caller.actor.type === 'user' && rank(plan) < rank(needs)) {
-        const name = TIERS.find((t) => t.id === id).name;
-        throw new HttpError(403, 'plan_required', `${name} comes with the ${planName(needs)} plan.`);
+        throw new HttpError(403, 'plan_required', `${tier.name} comes with the ${planName(needs)} plan.`);
       }
-      const spec = tiers[id];
+      const spec = tierSpec(id);
+      if (!spec) throw new HttpError(503, 'model_unavailable', `No model is configured for the ${tier.name} tier.`);
       return { tier: id, provider: spec.provider, model: spec.model, effort: spec.effort };
     },
 
-    // Called when the provider refuses a tier's model. The default is never set aside.
+    // Provider outages never hide a tier. This remains as a compatibility
+    // no-op for existing callers while failover is handled by the router.
     markUnusable(id) {
-      if (id === DEFAULT_TIER) return;
-      unusable.set(id, now() + cacheMs);
-      logger.warn('tier set aside for an hour', { tier: id, model: tiers[id]?.model });
+      logger?.warn('tier provider failure will be handled by router failover', { tier: id });
     }
   };
 }

@@ -13,10 +13,9 @@ test('configured AI tiers remain visible when provider is temporarily unavailabl
     logger: memoryLogger()
   });
 
-  assert.deepEqual(await catalog.listFor(guest), {
-    models: [{ id: 'nasrinai', name: 'Quick' }],
-    default: 'nasrinai'
-  });
+  assert.deepEqual((await catalog.listFor(guest)).models.map((model) => [model.id, Boolean(model.locked)]), [
+    ['nasrinai', false], ['pro', true], ['max', true], ['ultra', true]
+  ]);
   assert.deepEqual((await catalog.listFor(user)).models.map((model) => model.name), [
     'Quick', 'Pro', 'Max', 'Ultra'
   ]);
