@@ -439,6 +439,7 @@ test('transcript text is joined with real blank lines, not the characters backsl
 
 test('reply details popover positions on mobile and includes a three-dot wave', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const start = js.indexOf("const positionPanel = () => {");
   const end = js.indexOf("details.addEventListener('click'", start);
   assert.ok(start >= 0 && end > start);
