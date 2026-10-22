@@ -2275,7 +2275,7 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Resolve public TikTok/Facebook URLs using their official oEmbed APIs.
+      // Resolve public social/video URLs using provider-specific official embed formats and oEmbed APIs.
       // Only allowlisted provider hosts are accepted; upstream HTML is never
       // returned to the client or injected into the page.
       method: 'GET',
@@ -2307,8 +2307,29 @@ return { body: { sites: await connect.list(caller) } }; }
           const endpoint = /\/videos\/|\/reel\//i.test(url.pathname) || url.searchParams.has('v') ? 'oembed_video' : 'oembed_post';
           upstream = 'https://graph.facebook.com/v26.0/' + endpoint + '?url=' + encodeURIComponent(url.href) + '&omitscript=true';
           embedUrl = 'https://www.facebook.com/plugins/' + (endpoint === 'oembed_video' ? 'video.php' : 'post.php') + '?href=' + encodeURIComponent(url.href) + '&show_text=true&width=500';
+        } else if (host === 'instagram.com' || host === 'm.instagram.com') {
+          const match = url.pathname.match(/^\/(p|reel|tv)\/([A-Za-z0-9_-]+)\/?$/);
+          if (!match) throw new HttpError(400, 'invalid_url', 'Use a direct public Instagram post, Reel, or video link.');
+          provider = 'instagram';
+          upstream = 'https://graph.facebook.com/v26.0/instagram_oembed?url=' + encodeURIComponent('https://www.instagram.com/' + match[1] + '/' + match[2] + '/');
+          embedUrl = 'https://www.instagram.com/' + match[1] + '/' + match[2] + '/embed/';
+        } else if (host === 'vimeo.com' || host === 'm.vimeo.com') {
+          const match = url.pathname.match(/^\/(\d+)\/?$/);
+          if (!match) throw new HttpError(400, 'invalid_url', 'Use a direct Vimeo video link.');
+          provider = 'vimeo';
+          upstream = 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent('https://vimeo.com/' + match[1]);
+          embedUrl = 'https://player.vimeo.com/video/' + match[1] + '?dnt=1';
+        } else if (host === 'dailymotion.com' || host === 'dai.ly') {
+          const match = host === 'dai.ly'
+            ? url.pathname.match(/^\/([A-Za-z0-9]+)\/?$/)
+            : url.pathname.match(/^\/video\/([A-Za-z0-9]+)(?:_[^/]+)?\/?$/);
+          if (!match) throw new HttpError(400, 'invalid_url', 'Use a direct Dailymotion video link.');
+          provider = 'dailymotion';
+          const canonical = 'https://www.dailymotion.com/video/' + match[1];
+          upstream = 'https://www.dailymotion.com/services/oembed?url=' + encodeURIComponent(canonical);
+          embedUrl = 'https://www.dailymotion.com/embed/video/' + match[1];
         } else {
-          throw new HttpError(400, 'unsupported_provider', 'Only TikTok and Facebook URLs are supported.');
+          throw new HttpError(400, 'unsupported_provider', 'Only TikTok, Facebook, Instagram, Vimeo, and Dailymotion URLs are supported.');
         }
         // oEmbed metadata is helpful, but it is not the player. In particular,
         // Meta's Graph oEmbed endpoint can reject requests without an app token
