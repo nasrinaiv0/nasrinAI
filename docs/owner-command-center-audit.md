@@ -97,7 +97,7 @@ The repository is no longer documentation-only on `feature/owner-command-center`
 - `src/http/app.js`, `src/main.js`, and `api/index.js`: route interception before normal routing/static serving, trusted IP resolver wiring, and Vercel path restoration.
 - `vercel.json`: rewrites `/owner` and `/owner/:path*` to the server function; public app routes remain unchanged.
 - `public/owner-console.css` and `public/owner-console.js`: responsive console shell and explicit unavailable states; the signed-in app only adds the Owner Command Center entry after a successful server bootstrap.
-- `db/migrations/042_owner_console_metrics.sql`: additive, aggregate-only usage summary RPC restricted to `service_role`, plus a time index. No existing RLS policy or browser grant is broadened.
+- `db/migrations/042_owner_console_metrics.sql`: additive usage/automation aggregate RPCs and a minimized owner-action audit trail restricted to `service_role`; no prompts, workflow payloads, or raw IP addresses are returned. Browser grants are not broadened.
 - `test/owner-console.test.js`, `test/owner-console-http.test.js`, `test/owner-config.test.js`, `db/tests/042_owner_console_metrics.test.sql`, and Vercel rewrite assertions.
 
 ### Current validation and boundaries
