@@ -40,7 +40,7 @@ from a phone browser. Production from `main` comes after you approve merging
    | `GUEST_SESSION_SECRET` | The 64 characters from step 1 (Sensitive) |
    | `CRON_SECRET` | A separate random 32+ character secret for hourly retention cleanup (Sensitive) |
    | `OWNER_ALLOWED_EMAILS` | Exact verified owner sign-in email(s), comma-separated |
-   | `OWNER_ALLOWED_IPS` | Exact public IPv4 address(es), comma-separated; no CIDR ranges |
+   | `OWNER_ALLOWED_IPS` | Exact public IPv4 or IPv6 address(es), comma-separated; no CIDR ranges |
    | `OWNER_SESSION_SECRET` | Dedicated random 32+ character HMAC secret (Sensitive; do not reuse another secret) |
    | `AI_PROVIDER` | `openai` |
    | `OPENAI_API_KEY` | Your OpenAI key (Sensitive) |
@@ -78,7 +78,7 @@ the change to take effect.
 
 ### Owner Command Center access
 
-The owner console is disabled unless all three `OWNER_*` settings are valid. Configure them in the NasrinAI project's **Settings → Environment Variables** for the intended environment, then redeploy. Use exact public IPv4 addresses separated by commas; the server does not accept CIDR ranges or browser-provided IP headers. If your ISP or mobile network changes your public IP, update the allowlist and redeploy. Do not configure Vercel Trusted IPs for this feature: that control can block the public site, while these variables restrict only the owner console. Unauthorized requests receive a generic HTTP 404.
+The owner console is disabled unless all three `OWNER_*` settings are valid. Configure them in the NasrinAI project's **Settings → Environment Variables** for the intended environment, then redeploy. Use exact public IPv4 or IPv6 addresses separated by commas; the server does not accept CIDR ranges or browser-provided IP headers. If your ISP or mobile network changes your public IP, update the allowlist and redeploy. Do not configure Vercel Trusted IPs for this feature: that control can block the public site, while these variables restrict only the owner console. Unauthorized requests receive a generic HTTP 404.
 
 - **New OpenAI or Supabase key:** paste the new value and redeploy, then delete the old key at the provider.
 - **`GUEST_SESSION_SECRET`:** changing it signs every guest out. Do it if you think it leaked.
