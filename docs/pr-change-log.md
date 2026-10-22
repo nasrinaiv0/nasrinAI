@@ -1,3 +1,10 @@
+## Historical reply token display follow-up (2026-10-23)
+
+- Fix the current `main` behavior: restored assistant messages without saved provider usage metadata now show approximate input/output/total token counts instead of `Not reported`.
+- Historical estimates use saved user and assistant text lengths and are explicitly marked estimated; exact provider usage cannot be reconstructed when it was not persisted originally.
+- Live replies continue to use response usage from the server. Added regression assertions for the fallback and explanatory tooltip.
+- **Validation:** changes committed on a fresh branch from current `main`; CI must pass before merge and deployment.
+
 ## PR #539 follow-up — Refresh-safe conversation restoration (2026-10-23)
 
 - Restore saved conversation messages on startup without marking historical assistant replies as fresh, so automated pull-request actions remain restricted to newly generated replies.
