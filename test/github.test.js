@@ -412,6 +412,9 @@ test('coding chat page: PR description from the reply, many-file card, automatic
   assert.match(js, /data\.messages\.forEach\(\(m, i\) => show\([^)]*\{ animate: false, id: m\.id/, 'history replies are not fresh');
   assert.match(js, /const estimateHistoricalTokens = \(value\) => Math\.max\(1, Math\.ceil\(String\(value \|\| ''\)\.length \/ 4\)\)/, 'historical replies get a token estimate when provider usage is missing');
   assert.match(js, /input_tokens: estimateHistoricalTokens\(precedingUser\),\s*output_tokens: estimateHistoricalTokens\(message\.content\),\s*estimated: true/s, 'historical token estimates are marked as estimates');
+  assert.match(js, /const elapsedMs = Number\.isFinite\(assistantCreatedAt\) && Number\.isFinite\(userCreatedAt\) && assistantCreatedAt >= userCreatedAt\s*\? assistantCreatedAt - userCreatedAt : null/, 'historical replies estimate elapsed time from saved message timestamps');
+  assert.match(js, /duration_estimated: elapsedMs !== null/, 'historical elapsed time is explicitly marked estimated');
+  assert.match(js, /Approximate elapsed time between the saved user message and assistant reply; exact generation latency was not persisted\./, 'duration estimate tooltip explains its limits');
   assert.match(js, /Text-length estimate; original provider token usage was not saved for this historical reply\./, 'estimate tooltip explains missing historical provider usage');
 });
 
