@@ -343,7 +343,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (webAnswers && webSources.length && reply) {
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
       }
-      // Quick/Guest learning is opt-in and review-gated. Never delay a reply or fail chat if learning storage is unavailable.
+      // Quick/Guest learning is opt-in and review-gated. One bounded, failure-isolated insert follows answer generation.
       if (communityLearning && choice.tier === 'nasrinai') {
         await communityLearning.capture({ caller, question: typed, answer: reply, eligible: !files.length && !codeFile && !codingChat && !webSources.length && !MAY_NEED_TOOLS.test(typed) && !GITHUB_ASK.test(typed) });
       }
