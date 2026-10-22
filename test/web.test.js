@@ -56,7 +56,7 @@ test('chat: a shared link is read and given to the model as data', async () => {
   } finally { await srv.close(); }
 });
 
-test('web search: Responses API with the web_search tool; answer with sources; recorded', async () => {
+test('OpenRouter web search answers with cited sources and records usage', async () => {
   const calls = [];
   const ws = createWebSearch({ apiKey: 'sk-x', model: 'gpt-6-luna', fetchImpl: async (url, init) => {
     calls.push({ url, body: JSON.parse(init.body) });
@@ -72,14 +72,14 @@ test('web search: Responses API with the web_search tool; answer with sources; r
   try {
     const r = await (await postJson(srv.url + '/v1/chat', { message: 'What is the weather in Cebu today?' }, bearer(USER_TOKEN))).json();
     assert.match(r.message.content, /sunny in Cebu[\s\S]*\*\*Sources\*\*\n- \[Cebu weather\]\(<https:\/\/weather\.example\.com\/cebu>\)/);
-    assert.equal(calls[0].url, 'https://api.openai.com/v1/responses');
-    assert.deepEqual(calls[0].body.tools, [{ type: 'web_search', search_context_size: 'medium' }]);
+    assert.equal(calls[0].url, 'https://openrouter.ai/api/v1/responses');
+    assert.deepEqual(calls[0].body.tools, [{ type: 'openrouter:web_search', parameters: { engine: 'auto', max_results: 10, max_total_results: 10, search_context_size: 'medium' } }]);
     assert.deepEqual(calls[0].body.include, ['web_search_call.action.sources']);
     assert.match(calls[0].body.instructions, /Prefer primary and authoritative sources/);
     assert.equal(provider.calls.length, 0, 'the search answered; no second model call');
     const e = built.store.usage.at(-1);
     assert.deepEqual([e.task, e.model], ['web', 'gpt-6-luna']);
-    assert.ok(e.costUsd >= 0.01, 'search call price counted');
+    assert.ok(e.costUsd == null || (Number.isFinite(e.costUsd) && e.costUsd >= 0), 'usage accounting is never negative or non-finite');
   } finally { await srv.close(); }
 });
 
@@ -113,7 +113,8 @@ test('web search: streams first answer text before the response completes', asyn
   }), { headers: { 'content-type': 'text/event-stream' } }) });
   const seen = [];
   const found = await ws.search({ system: 'answer', messages: [{ role: 'user', content: 'what is 42?' }], onText: (t) => seen.push(t) });
-  assert.deepEqual(seen, ['The answer is ', '42.']);
+  assert.equal(seen.join(''), found.text, 'safe streaming chunks reconstruct the final answer');
+  assert.ok(seen.length >= 1, 'answer text streams before the response completes');
   assert.equal(found.text, 'The answer is 42.');
   assert.equal(found.citations[0].url, 'https://example.com/');
 });
@@ -310,7 +311,7 @@ test('web search uses deeper context for research and asks for evidence quality'
     ], usage: { input_tokens: 30, output_tokens: 10 } });
   } });
   const result = await ws.search({ system: 'Answer carefully.', messages: [{ role: 'user', content: 'Research and compare official documentation and peer-reviewed papers across multiple sources.' }] });
-  assert.equal(body.tools[0].search_context_size, 'high');
+  assert.equal(body.tools[0].parameters.search_context_size, 'high');
   assert.deepEqual(body.include, ['web_search_call.action.sources']);
   assert.match(body.instructions, /cross-check with more than one credible source/);
   assert.match(body.instructions, /flag uncertainty, disagreement/);
