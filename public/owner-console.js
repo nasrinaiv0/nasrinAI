@@ -21,7 +21,7 @@
     security_audit: ['Owner action audit events', 'Session and export events only'],
     automation: ['Automation & jobs', 'Aggregate workflow run states'],
     finance: ['Finance & costs', 'Settled billing and provider-cost reconciliation'],
-    plan_entitlements: ['Paid plan entitlements', 'Current active Max/Ultra periods; not revenue'],
+    plan_entitlements: ['Paid plan entitlements', 'Current active Pro/Max/Ultra periods; not revenue'],
     incidents: ['Incidents & alerts', 'Durable incident states and alert delivery']
   };
   let data = null;
@@ -73,7 +73,7 @@
     return list;
   }
   function renderOverview() {
-    const c = $('content'), u = data && data.usage_24h;
+    const c = $('content'), u = data && data.usage_24h, userSummary = data && data.user_summary;
     const hasUsage = Boolean(u), requests = hasUsage ? Number(u.request_count) : NaN;
     const noData = hasUsage && requests === 0;
     c.replaceChildren();
@@ -101,7 +101,7 @@
     c.append(grid);
     const lower = el('div', 'lower-grid'), readiness = el('section', 'panel'), statusPanel = el('section', 'panel');
     readiness.append(el('h3', '', 'Data-source readiness'), el('p', 'panel-copy', 'A source is marked available only when its server-side query succeeds. No placeholder zeros are shown.'), sourceRows());
-    statusPanel.append(el('h3', '', 'Implementation status'), el('p', 'panel-copy', 'The owner access boundary and responsive shell are implemented. Usage, automation, and owner-action audit summaries require migration 042 to be applied and verified. Other panels remain unavailable until their source and permission boundaries are audited.'));
+    statusPanel.append(el('h3', '', 'Implementation status'), el('p', 'panel-copy', 'The owner access boundary and responsive shell are implemented. Usage, automation, and owner-action audit summaries require migration 057 to be applied and verified. Other panels remain unavailable until their source and permission boundaries are audited.'));
     const list = el('div', 'source-list');
     [
       ['Owner identity & IP allowlist', 'Server-only Vercel environment variables', 'Guard implemented'],
