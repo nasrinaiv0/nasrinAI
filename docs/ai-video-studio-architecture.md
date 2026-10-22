@@ -1,6 +1,6 @@
 # NasrinAI Video Studio — Architecture & Implementation Specification
 
-**Status:** Authenticated cloud project CRUD, private media asset upload/download, and browser-side timeline export are implemented in code. Production migration application and real signed-in cross-device/browser validation remain pending. Browser rendering is device/browser-dependent and is not a server render worker.  
+**Status:** Authenticated cloud project CRUD, private media assets, and a durable detached server-side timeline render worker are implemented in code. Production migration application, live Sandbox execution, and signed-in end-to-end validation must pass before promotion. Server rendering supports video/image clips, text overlays, basic color filters, fade/dissolve transitions, and saved audio tracks; keyframe animation and wipe transitions are not yet reproduced server-side.  
 **Last updated:** 2026-10-20  
 **Owner:** NasrinAI product engineering  
 **Scope:** Full AI Video Studio combining provider and original templates, a timeline-based editor, and AI-generated footage.
@@ -294,3 +294,11 @@ Video Studio now includes a floating, collapsible **Ask NasrinAI** panel so user
 ## ElevenLabs audio integration
 
 Video Studio includes an authenticated developer-plugin integration for voice discovery, generated voiceovers and sound effects, private owner-scoped audio assets, project audio timeline placement, and MP4 export of one completed video with timeline audio. See [`docs/elevenlabs-plugin.md`](./elevenlabs-plugin.md) for API contracts, access checks, storage, limits, and validation details.
+
+
+## 17. Durable server-side timeline rendering (2026-10-23)
+
+- Migration `056_video_studio_render_jobs.sql` adds a private render-job queue, atomic claim function, tenant/owner scoping, idempotency, status/progress, and output metadata.
+- The main Export timeline button now saves the project, snapshots private media, and queues FFmpeg rendering in an isolated persistent Vercel Sandbox. The scheduled worker polls the detached job and stores completed MP4s privately.
+- Server render supports landscape/portrait canvas, uploaded images, video clips, title/text overlays, basic color filters, fade/dissolve transitions, source-video audio, and up to eight saved audio timeline clips. Output is limited to 60 seconds and 50 MB.
+- Keyframe animation and wipe transitions still need server-side parity. The browser preview remains client-side; production migration and live Sandbox validation are required before this feature is promoted.
