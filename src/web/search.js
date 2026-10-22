@@ -122,7 +122,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
             const markdownStart = text.lastIndexOf('[', boundary);
             if (markdownStart >= streamedLength && text.slice(markdownStart, boundary).endsWith('](')) boundary = markdownStart;
           } else {
-            // Keep a partial URL scheme buffered across SSE chunk boundaries.
+            // Keep a partial URL scheme and an unfinished Markdown link buffered
+            // across SSE chunk boundaries.
             const lower = text.toLowerCase();
             let partialLength = 0;
             for (const scheme of ['https://', 'http://']) {
@@ -131,6 +132,14 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
               }
             }
             boundary = text.length - partialLength;
+            const markdownStart = text.lastIndexOf('[');
+            if (markdownStart >= streamedLength) {
+              const candidate = text.slice(markdownStart);
+              const close = candidate.indexOf(']');
+              if (close < 0 || (candidate.slice(close).startsWith('](') && !candidate.slice(close + 2).includes(')'))) {
+                boundary = Math.min(boundary, markdownStart);
+              }
+            }
           }
           if (boundary > streamedLength) {
             onText(text.slice(streamedLength, boundary));
