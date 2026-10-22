@@ -414,7 +414,7 @@ begin
     or p_severity not in ('low','medium','high','critical')
     or p_source not in ('manual','ai_usage','automation','infrastructure','security')
     or p_actor_id is null or char_length(p_actor_id) not between 1 and 80
-    or p_ip_hash is null or p_ip_hash !~ '^[a-f0-9]{64} then
+    or p_ip_hash is null or p_ip_hash !~ '^[a-f0-9]{64}$'$' then
     raise exception 'invalid owner incident';
   end if;
   insert into public.owner_console_incidents (title, description, severity, source, created_by)
@@ -436,7 +436,7 @@ declare
   v_event text;
 begin
   if p_action not in ('acknowledge','resolve') or p_actor_id is null or char_length(p_actor_id) not between 1 and 80
-    or p_ip_hash is null or p_ip_hash !~ '^[a-f0-9]{64}
+    or p_ip_hash is null or p_ip_hash !~ '^[a-f0-9]{64}$'
     or coalesce(char_length(p_resolution_note), 0) > 1200
     or (p_action = 'resolve' and char_length(btrim(coalesce(p_resolution_note, ''))) < 3) then
     raise exception 'invalid owner incident update';
