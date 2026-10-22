@@ -161,7 +161,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     if (idempotencyKey != null && !/^[A-Za-z0-9_-]{8,100}$/.test(String(idempotencyKey))) {
       const error = new Error('The render request identifier is invalid.'); error.status = 400; error.code = 'invalid_idempotency_key'; throw error;
     }
-    if (!Array.isArray(clips) || clips.length < 1 || clips.length > 30 || !Array.isArray(mediaAssets) || mediaAssets.length > 30) {
+    if (!Array.isArray(clips) || clips.length < 1 || clips.length > 38 || !Array.isArray(mediaAssets) || mediaAssets.length > 38) {
       const error = new Error('A timeline render must contain between one and 30 clips.'); error.status = 400; error.code = 'video_timeline_limit'; throw error;
     }
     const allowedTracks = new Set(['video','overlay','text','audio']);
@@ -326,7 +326,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "    const width = input.aspect === '9:16' ? 720 : 1280, height = input.aspect === '9:16' ? 1280 : 720;",
         "    args.push('-f','lavfi','-i','color=c=black:s=' + width + 'x' + height + ':r=30:d=' + duration.toFixed(3));",
         "    for (const media of input.media) { if (media.image) args.push('-loop','1','-framerate','30','-t',String(media.duration),'-i',media.path); else args.push('-i',media.path); }",
-        "    let base = '0:v:0', visual = 0;",
+        "    filters.push('[0:v:0]null[base0]'); let base = 'base0', visual = 0;",
         "    for (const clip of input.clips) {",
         "      const start = Number(clip.position), end = start + Number(clip.duration), localStart = Number(clip.start || 0);",
         "      if (clip.track === 'text' || (!clip.mediaIndex && clip.mediaIndex !== 0 && clip.title)) {",
