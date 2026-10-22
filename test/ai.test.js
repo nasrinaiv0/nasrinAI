@@ -93,7 +93,7 @@ test('explicit Gemini and Claude provider modes require their own key and use co
   assert.equal(loadConfig({ AI_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'anthropic-test-key' }).ai.tiers.nasrinai.provider, 'anthropic');
 });
 
-test('OpenRouter-primary mode routes every normal tier and smart-routing level through OpenRouter only', () => {
+test('OpenRouter-primary mode routes all tiers and intent levels through OpenRouter first', () => {
   assert.throws(() => loadConfig({ AI_PROVIDER: 'openrouter' }), ConfigError);
   const config = loadConfig({ AI_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'or-test-key' });
   assert.equal(config.ai.provider, 'openrouter');
@@ -104,8 +104,30 @@ test('OpenRouter-primary mode routes every normal tier and smart-routing level t
   );
   assert.ok(Object.values(config.ai.routing.levels).flat().length > 0);
   assert.ok(Object.values(config.ai.routing.levels).flat().every((route) => route.provider === 'openrouter'));
-  assert.deepEqual(config.ai.fallback, { mode: 'none', providers: [] });
+  assert.equal(config.ai.fallback.mode, 'auto');
+  assert.deepEqual(config.ai.fallback.providers, []);
   assert.deepEqual(providerFromConfig(config).providerIds, ['openrouter']);
+});
+
+test('auto mode with OpenRouter configured selects OpenRouter first for every tier and intent level', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'auto',
+    OPENROUTER_API_KEY: 'or-test-key',
+    OPENAI_API_KEY: KEY,
+    GEMINI_API_KEY: 'gemini-test-key',
+    ANTHROPIC_API_KEY: 'anthropic-test-key'
+  });
+  assert.deepEqual(
+    Object.values(config.ai.tiers).map((route) => route.provider),
+    ['openrouter', 'openrouter', 'openrouter', 'openrouter']
+  );
+  for (const candidates of Object.values(config.ai.routing.levels)) {
+    assert.equal(candidates[0].provider, 'openrouter');
+  }
+  assert.equal(config.ai.fallback.providers[0], 'openrouter');
+  assert.ok(config.ai.fallback.providers.includes('openai'));
+  assert.ok(config.ai.fallback.providers.includes('gemini'));
+  assert.ok(config.ai.fallback.providers.includes('anthropic'));
 });
 
 test('provider choice: none by default; openai needs a key; fake never in production', () => {
