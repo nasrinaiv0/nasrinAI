@@ -1,3 +1,12 @@
+## PR #532 follow-up — Multi-site embeds and verified search fallback (2026-10-23)
+
+- Wire the optional official Google Custom Search adapter into the OpenRouter-first web research path; when OpenRouter is unconfigured, unavailable, or rate-limited, return real provider results instead of inventing a link.
+- Keep Google candidate results as untrusted retrieval context; do not label every result as a citation unless the answer-producing search provider actually cites it.
+- Strip model-authored URLs that are not present in trusted search citations or explicitly supplied by the user. Buffer web-search output until citations are available so an invented URL is never briefly rendered during streaming.
+- Extend the existing strict social oEmbed route and client player-origin allowlist to Vimeo and Dailymotion while preserving YouTube, TikTok, and Facebook behavior.
+- Add regression tests for fallback search, source provenance, invented URLs, and multi-site player allowlists.
+- **Validation:** source edits committed to the PR branch. Run focused and full test suites plus GitHub CI before merge; live provider behavior and deployment environment remain unverified.
+
 ## Follow-up — Answer first, optional video embeds (2026-10-22)\n\n- Keep all user queries on the normal assistant response path; never replace an answer with a video-search-only response.\n- After the answer is rendered, enrich it with verified, relevant video embeds when discovery succeeds. If no playable video is available, retain the answer without an embed or a failed-search warning.\n- Preserve safe YouTube host/video-ID validation and keep specialized media discovery as an optional capability, not a substitute for broad assistant reasoning.\n- OpenRouter remains the primary model gateway when `AI_PROVIDER=openrouter` is enabled; this frontend change does not alter provider credentials or deployment environment.\n- Validation: regression test added; CI and production behavior must be verified before merge.\n\n## PR — OpenRouter-authoritative billing and reliable YouTube embeds (2026-10-22)
 
 - Stop using local OpenRouter model-price snapshots and the `MODEL_PRICES_JSON` override to block OpenRouter text calls. OpenRouter's live model catalog remains the source for capability/model selection, and its reported `usage.cost` is the source for actual billed cost.
