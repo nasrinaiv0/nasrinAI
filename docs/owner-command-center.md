@@ -1,9 +1,46 @@
 # Owner Command Center — Implementation Specification
 
-Status: proposed; documentation only until implementation PRs are reviewed and merged.
+Status: implementation in progress on `feature/owner-console-v2`; not production-enabled.
 Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
+
+## Implementation status (2026-10-23)
+
+Implementation is being delivered on `feature/owner-console-v2`, based on current `main` to avoid merging an outdated feature branch.
+
+### Configure the allowlist in Vercel
+
+1. Open the `nasrinai` project in the Vercel dashboard and go to **Settings → Environment Variables**.
+2. Add `OWNER_ALLOWED_EMAILS` with the exact owner email(s), comma-separated only if multiple owners are explicitly approved.
+3. Add `OWNER_ALLOWED_IPS` with the exact public IPv4/IPv6 address(es) allowed to open the console. Use commas between addresses; do not add CIDR ranges. Use the public egress IP, not a private LAN address. If the ISP/mobile carrier changes that address, update this variable and redeploy.
+4. Ensure `OWNER_SESSION_SECRET` is a dedicated random secret of at least 32 characters. It has been created for Production for this feature; do not reuse a provider API key or reveal the value.
+5. Select **Production** for the production console (and Preview only if a separately approved preview allowlist is desired), save, and redeploy so the server reads the new values.
+
+Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repository. If any variable is missing or malformed, the owner route intentionally fails closed and shows a generic 404. Updating `OWNER_ALLOWED_IPS` does not configure Vercel Trusted IPs and does not restrict the public NasrinAI site.
+
+Optional release telemetry: add `OWNER_VERCEL_READONLY_TOKEN` (a narrowly scoped read-only Vercel token), `OWNER_VERCEL_PROJECT_ID` (`prj_...`), and `OWNER_VERCEL_TEAM_ID` (`team_...`) to the server environment. The integration only reads the latest production deployment metadata and sanitizes the response; it does not deploy, cancel, or modify releases. If these optional values are absent or invalid, deployment status remains Unavailable. This work did not configure these optional variables; the deployment adapter remains unavailable unless all three are present and valid.
+
+### Implemented in this branch
+
+- Server-intercepted `/owner` and `/owner/api/*` routes before normal API routing and static serving; Vercel rewrites include the root, trailing slash, and nested owner paths.
+- Fail-closed Vercel environment configuration: `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS` (exact normalized IPv4/IPv6 addresses; no CIDR), and a dedicated `OWNER_SESSION_SECRET`.
+- Server-side Supabase token verification at bootstrap; exact verified email and trusted client IP checks; 10-minute HttpOnly, SameSite=Strict owner session; shared IP rate limit.
+- Generic no-store HTTP 404 for unauthorized/misconfigured routes; no owner data or allowlist diagnostics are returned.
+- Responsive read-only console with all ten navigation areas and explicit Unavailable/No data yet states.
+- Migration 057 adds aggregate-only usage/automation RPCs, active user/guest counts and a usage-based 7-day return rate, Auth account-record/sign-in signals without identifiers, Pro/Max/Ultra paid plan-entitlement counts (not revenue), derived failure/stale-job signals, and a server-role-only owner-action audit trail. Session issuance is refused if its audit event cannot be recorded; exports are refused if the export audit cannot be recorded.
+- Aggregate usage CSV export with fixed 24-hour/7-day windows and spreadsheet-formula-injection protection.
+- Regression tests for allowlist config, IPv4/IPv6 normalization, session and route authorization, Vercel rewrites, telemetry mapping, CSV exports, and SQL grants.
+
+### Not yet complete / production prerequisites
+
+- Migration 057 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
+- Retention cohorts, feature-adoption/conversion funnels, connected Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, alert delivery, and privileged controls remain pending source verification and implementation. The incident register now supports audited manual create/acknowledge/resolve workflows; derived signals do not automatically create incidents. Active-user counts currently mean distinct actor IDs with recorded model calls, and the 7-day return rate uses prior-week active user IDs as its denominator.
+- Production environment inventory was checked without decrypting values: `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS` already existed, and a dedicated sensitive `OWNER_SESSION_SECRET` has now been created. The actual allowlist values have not been read or independently confirmed, and no deployment has validated the secret yet.
+- Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
+- No production migration, environment update, merge, or deployment has been performed.
+
+The console must not be described as a complete operational control plane until the remaining modules and validation gates are complete.
 
 ## 1. Goal
 
@@ -429,7 +466,7 @@ The Owner Command Center navigation button must be rendered only when the server
 Use server-only environment variables, with names confirmed against existing repository conventions before implementation:
 
 - `OWNER_ALLOWED_EMAILS`: comma-separated exact email addresses for approved owner identities.
-- `OWNER_ALLOWED_IPS`: comma-separated exact IP addresses and, only if deliberately implemented and tested, supported CIDR ranges.
+- `OWNER_ALLOWED_IPS`: comma-separated exact IPv4/IPv6 addresses only; CIDR ranges are rejected.
 
 These are proposed names until Phase 0 verifies the existing configuration conventions. Never expose their values in browser code, HTML, API responses, client-visible configuration, logs, or error messages. Never commit real values to the repository. Configure them only through the hosting provider's protected environment settings after the owner explicitly approves the change.
 
