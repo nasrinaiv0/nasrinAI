@@ -21,6 +21,7 @@
     security_audit: ['Owner action audit events', 'Session and export events only'],
     automation: ['Automation & jobs', 'Aggregate workflow run states'],
     finance: ['Finance & costs', 'Settled billing and provider-cost reconciliation'],
+    plan_entitlements: ['Paid plan entitlements', 'Current active Max/Ultra periods; not revenue'],
     incidents: ['Incidents & alerts', 'Durable incident states and alert delivery']
   };
   let data = null;
@@ -196,14 +197,17 @@
     }
 
     if (key === 'finance') {
-      const usage = data && data.usage_24h, hasCosts = Boolean(usage && Number(usage.cost_estimate_rows) > 0), panel = el('section', 'panel');
+      const usage = data && data.usage_24h, plans = data && data.plans_24h, hasCosts = Boolean(usage && Number(usage.cost_estimate_rows) > 0), panel = el('section', 'panel');
       panel.classList.add('module-extra');
       panel.append(el('h3', '', 'Recorded AI cost estimates'), el('p', 'panel-copy', 'These are internal estimates recorded with model calls, not provider invoices, settled payments, revenue, refunds, or net margin.'));
       const grid = el('div', 'grid');
       grid.append(
         metric('Estimated AI cost · 24h', 'USD', hasCosts ? moneyText(usage.estimated_cost_usd) : 'Unavailable', hasCosts ? 'Recorded cost estimates only' : 'No recorded cost estimates'),
         metric('Requests with cost', '▤', hasCosts ? numberText(usage.cost_estimate_rows) : 'Unavailable', 'Usage events with an estimate'),
-        metric('Requests · 24h', '✳', usage ? numberText(usage.request_count) : 'Unavailable', 'Recorded usage events')
+        metric('Requests · 24h', '✳', usage ? numberText(usage.request_count) : 'Unavailable', 'Recorded usage events'),
+        metric('Active paid plan periods', '◇', plans ? numberText(plans.active_paid_periods) : 'Unavailable', 'Unexpired active periods, not unique users'),
+        metric('Max periods', 'M', plans ? numberText(plans.active_max_periods) : 'Unavailable', 'Current active Max periods'),
+        metric('Ultra periods', 'U', plans ? numberText(plans.active_ultra_periods) : 'Unavailable', 'Current active Ultra periods')
       );
       panel.append(grid, el('p', 'panel-copy', 'Billing and revenue remain unavailable until payment and refund records are reconciled against authoritative webhook state.'));
       c.append(panel);
