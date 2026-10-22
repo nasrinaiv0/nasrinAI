@@ -1,17 +1,18 @@
 # Owner Command Center — Implementation Specification
 
-Status: implementation in progress on `feature/owner-console-v2`; not production-enabled.
+Status: implementation in progress on `feature/owner-console-v2-current-main`; not production-enabled.
+Owner Console URL: https://owner.nasrinai.com (Vercel domain verified; production readiness and protected-flow validation remain pending).
 Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
 
 ## Implementation status (2026-10-23)
 
-Implementation is being delivered on `feature/owner-console-v2`, based on current `main` to avoid merging an outdated feature branch.
+Implementation is being delivered on `feature/owner-console-v2-current-main`, based on current `main` to avoid merging an outdated feature branch.
 
 ### Configure the allowlist in Vercel
 
-1. Open the `nasrinai` project in the Vercel dashboard and go to **Settings → Environment Variables**.
+1. Open the `nasrinai` project in the Vercel dashboard and go to **Settings → Environment Variables**. The `owner.nasrinai.com` domain is attached to this project and Vercel reports it as verified; its root is configured to redirect to the protected `/owner` route.
 2. Add `OWNER_ALLOWED_EMAILS` with the exact owner email(s), comma-separated only if multiple owners are explicitly approved.
 3. Add `OWNER_ALLOWED_IPS` with the exact public IPv4/IPv6 address(es) allowed to open the console. Use commas between addresses; do not add CIDR ranges. Use the public egress IP, not a private LAN address. If the ISP/mobile carrier changes that address, update this variable and redeploy.
 4. Ensure `OWNER_SESSION_SECRET` is a dedicated random secret of at least 32 characters. It has been created for Production for this feature; do not reuse a provider API key or reveal the value.
@@ -23,7 +24,7 @@ Optional release telemetry: add `OWNER_VERCEL_READONLY_TOKEN` (a narrowly scoped
 
 ### Implemented in this branch
 
-- Server-intercepted `/owner` and `/owner/api/*` routes before normal API routing and static serving; Vercel rewrites include the root, trailing slash, and nested owner paths.
+- Server-intercepted `/owner` and `/owner/api/*` routes before normal API routing and static serving; Vercel rewrites include the root, trailing slash, and nested owner paths. `owner.nasrinai.com/` redirects to `/owner` so the session cookie path and protected route stay aligned.
 - Fail-closed Vercel environment configuration: `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS` (exact normalized IPv4/IPv6 addresses; no CIDR), and a dedicated `OWNER_SESSION_SECRET`.
 - Server-side Supabase token verification at bootstrap; exact verified email and trusted client IP checks; 10-minute HttpOnly, SameSite=Strict owner session; shared IP rate limit.
 - Generic no-store HTTP 404 for unauthorized/misconfigured routes; no owner data or allowlist diagnostics are returned.
@@ -36,9 +37,9 @@ Optional release telemetry: add `OWNER_VERCEL_READONLY_TOKEN` (a narrowly scoped
 
 - Migration 057 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
 - Retention cohorts, feature-adoption/conversion funnels, connected Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, alert delivery, and privileged controls remain pending source verification and implementation. The incident register now supports audited manual create/acknowledge/resolve workflows; derived signals do not automatically create incidents. Active-user counts currently mean distinct actor IDs with recorded model calls, and the 7-day return rate uses prior-week active user IDs as its denominator.
-- Production environment inventory was checked without decrypting values: `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS` already existed, and a dedicated sensitive `OWNER_SESSION_SECRET` has now been created. The actual allowlist values have not been read or independently confirmed, and no deployment has validated the secret yet.
+- Production environment inventory was checked without decrypting values: `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and `OWNER_SESSION_SECRET` are present in the environment listing. The actual allowlist values have not been read or independently confirmed, and no deployment has validated the secret yet.
 - Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
-- No production migration, environment update, merge, or deployment has been performed.
+- The `owner.nasrinai.com` project-domain association was added and Vercel reports it as verified. No production migration, environment update, merge, or deployment has been performed.
 
 The console must not be described as a complete operational control plane until the remaining modules and validation gates are complete.
 
