@@ -21,6 +21,14 @@ Questions that need fresh facts ("today", "latest", "weather", "news",
 "price of…", "search the web…") are answered with OpenAI's web search tool
 (Responses API, `tools: [{ type: "web_search" }]`), and the answer lists its
 **Sources**. It uses `WEB_SEARCH_MODEL` (default `gpt-5.4-mini`). The model
+When both `WEB_GOOGLE_API_KEY` and `WEB_GOOGLE_CX` are configured,
+Nasrin also queries Google's official Programmable Search JSON API in parallel
+with the answer-producing search. Google results are passed to the answer model
+as supplemental candidate evidence and included in the Sources list; they are
+not treated as verified facts by themselves. This is optional and does not
+replace OpenAI web search. Obtain the API key and Programmable Search Engine ID
+from Google; no Google HTML scraping or access-control bypass is used.
+
 must have a price in `config/model-prices.json`:
 without one the spend check cannot size the call and every search would be
 skipped, so an unpriced setting falls back to the default with a start-up
