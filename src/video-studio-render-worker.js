@@ -223,7 +223,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "  child.on('error', async () => { await writeFile(marker, '127'); });",
         "  child.on('close', async (code) => { await writeFile(marker, String(code ?? 1)); });",
         "} catch { await writeFile(marker, '1'); }"
-      ].join('\\n');
+      ].join('\n');
       const bootstrapSource = [
         '#!/bin/bash',
         'set +e',
@@ -232,7 +232,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         '  if [ $? -ne 0 ]; then echo 127 > /vercel/sandbox/render.exit; exit 127; fi',
         'fi',
         'node /vercel/sandbox/runner.mjs'
-      ].join('\\n');
+      ].join('\n');
       await sandbox.writeFiles([
         { path: '/vercel/sandbox/render-input.json', content: Buffer.from(JSON.stringify({
           durationSeconds: Number(manifest.durationSeconds), audioCount: audio.length, timelineItems: manifest.timelineItems
