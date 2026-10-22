@@ -166,15 +166,18 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
   }
 
   async function handle(req, res, pathname) {
-    const ownerPath = pathname === '/owner' || pathname === '/owner/' || pathname.startsWith('/owner/api/');
+    const ownerPath = pathname === '/owner' || pathname.startsWith('/owner/');
     const bootstrapPath = pathname === '/v1/owner/session';
-    if (!ownerPath && !bootstrapPath) return false;
+    const reservedOwnerApi = pathname === '/v1/owner' || pathname.startsWith('/v1/owner/');
+    if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
 
     res.setHeader('Cache-Control', 'private, no-store, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
     res.setHeader('Content-Security-Policy', pathname === '/owner' || pathname === '/owner/' ? PAGE_CSP : API_CSP);
     res.setHeader('Vary', 'Cookie, Authorization');
+
+    if (reservedOwnerApi && !bootstrapPath) { sendNotFound(res, req.method === 'HEAD'); return true; }
 
     if (bootstrapPath) {
       if (req.method !== 'POST' || !trustedSameOrigin(req)) { jsonError(res, req.method === 'HEAD'); return true; }
