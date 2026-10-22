@@ -46,6 +46,38 @@ test('render enqueue snapshots source and audio to private storage before persis
   assert.ok(calls.every(call => !call.url.includes('example.supabase.co/rest/v1/video_studio_render_jobs') || call.method === 'GET' || call.method === 'POST'));
 });
 
+test('timeline enqueue snapshots private video/image/audio media and text overlays for detached FFmpeg rendering', async () => {
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method, body: init.body });
+    if (String(url).includes('/storage/v1/object/')) return response(null, 200);
+    if (String(url).includes('idempotency_key=eq.')) return response([]);
+    if (String(url).includes('/rest/v1/video_studio_render_jobs?select=*')) {
+      const body = JSON.parse(init.body);
+      assert.equal(body.source_video_id, null);
+      assert.equal(body.input_manifest.mode, 'timeline');
+      assert.equal(body.input_manifest.aspect, '9:16');
+      assert.equal(body.input_manifest.clips.length, 2);
+      assert.equal(body.input_manifest.media.length, 1);
+      return response([{ ...body, status: 'queued', progress: 0, created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z' }], 201);
+    }
+    throw new Error('Unexpected test request: ' + url);
+  };
+  const worker = createVideoStudioRenderWorker({ config, fetchImpl });
+  const result = await worker.enqueueTimeline(caller, {
+    projectId, aspect: '9:16',
+    clips: [
+      { name: 'Scene', title: 'Launch day', track: 'video', mediaIndex: 0, mediaType: 'video/mp4', position: 0, duration: 6, start: 0, transition: 'fade', filter: 'cinematic', opacity: 100, gain: 100 },
+      { name: 'Caption', title: 'Now available', track: 'text', mediaIndex: null, position: 2, duration: 3, opacity: 100 }
+    ],
+    mediaAssets: [{ bytes: Buffer.from('fake-mp4'), mime: 'video/mp4' }],
+    idempotencyKey: 'timeline-render-key-01'
+  });
+  assert.equal(result.status, 'queued');
+  assert.equal(result.download_url, null);
+  assert.equal(calls.filter(call => call.url.includes('/storage/v1/object/')).length, 1);
+});
+
 test('render enqueue rejects guests before making any storage or database request', async () => {
   let requests = 0;
   const worker = createVideoStudioRenderWorker({
