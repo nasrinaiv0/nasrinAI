@@ -18,14 +18,28 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
       if (googleSearch?.available && queryText.trim()) {
         try { googleResults = await googleSearch.search(queryText); } catch { googleResults = []; }
       }
-      const googleCitations = googleResults.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Google Search result' }));
+      // Search candidates are not citations until the answer-producing search tool cites them.
       const mergeCitations = (items) => {
         const merged = []; const seen = new Set();
-        for (const item of [...(Array.isArray(items) ? items : []), ...googleCitations]) {
+        for (const item of (Array.isArray(items) ? items : [])) {
           if (!item?.url || seen.has(item.url)) continue;
           seen.add(item.url); merged.push(item);
         }
         return merged.slice(0, 10);
+      };
+      const googleFallback = () => {
+        if (!googleResults.length) return null;
+        const items = googleResults.slice(0, 5);
+        const text = [
+          'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
+          ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
+            (item.snippet ? '\\n' + item.snippet : '') + '\\n' + item.url)
+        ].join('\\n\\n');
+        return {
+          text,
+          citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
+          searches: 1, inputTokens: 0, cachedTokens: 0, outputTokens: Math.ceil(text.length / 4)
+        };
       };
       const googleContext = googleResults.length
         ? '\n\nSupplemental Google Search results (candidate sources; verify before relying on them):\n' + googleResults.slice(0, 8).map((item, i) => (i + 1) + '. ' + item.title + '\nURL: ' + item.url + '\nSnippet: ' + item.snippet).join('\n\n')
@@ -52,6 +66,12 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         ] : []),
         'Cite sources that directly support the nearby claims. Do not invent sources, dates, statistics, quotations, or consensus. For substantial research, aim for up to ten distinct credible source citations when available; do not pad with duplicates, search pages, or sources that do not support the answer.'
       ].join('\n');
+      // If OpenRouter is not configured, use the official Google adapter directly.
+      if (!apiKey) {
+        const fallback = googleFallback();
+        if (fallback) return fallback;
+        throw new ProviderError('unavailable', 'web search is not configured');
+      }
       let resp;
       try {
         resp = await fetchImpl(baseUrl + '/responses', {
@@ -69,10 +89,14 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           signal: AbortSignal.timeout(timeoutMs)
         });
       } catch (err) {
+        const fallback = googleFallback();
+        if (fallback) return fallback;
         throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search could not be reached');
       }
       if (!resp.ok) {
         const s = resp.status;
+        const fallback = googleFallback();
+        if (fallback) return fallback;
         throw new ProviderError(s === 429 ? 'busy' : s >= 500 ? 'unavailable' : 'config', `web search answered ${s}`, s);
       }
       const parseResult = (data) => {
@@ -112,10 +136,10 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           let event; try { event = JSON.parse(payload); } catch { return; }
           const delta = event?.delta;
           if (event?.type === 'response.output_text.delta' && typeof delta === 'string') {
-            text += delta; onText(delta);
+            text += delta;
           }
           if (event?.type === 'response.output_text.done' && typeof event?.text === 'string' && !text) {
-            text = event.text; onText(event.text);
+            text = event.text;
           }
           if (event?.type === 'response.web_search_call.completed') calls += 1;
           const response = event?.response;
@@ -137,6 +161,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         } catch (err) {
           throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search stream could not be read');
         }
+        text = stripUnverifiedUrls(text, citations, messages);
+        if (onText && text) onText(text);
         return {
           text,
           citations,
@@ -149,8 +175,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
 
       const data = await resp.json().catch(() => null);
       const parsed = parseResult(data);
-      const text = parsed.text;
       const citations = mergeCitations(parsed.citations);
+      const text = stripUnverifiedUrls(parsed.text, citations, messages);
       const calls = (Array.isArray(data?.output) ? data.output : []).filter((i) => i?.type === 'web_search_call').length;
       return {
         text,
@@ -162,6 +188,40 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
       };
     }
   };
+}
+
+// Strip links that were authored by the model but not present in trusted search citations
+// or explicitly supplied by the user. Web-search streaming is buffered until annotations
+// arrive so a guessed URL is never briefly shown as a clickable link.
+function stripUnverifiedUrls(text, citations, messages) {
+  const allowed = new Set();
+  const add = (raw) => {
+    try {
+      const url = new URL(raw);
+      if (['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password) allowed.add(url.href);
+    } catch {}
+  };
+  for (const source of Array.isArray(citations) ? citations : []) add(source?.url || '');
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (message?.role !== 'user') continue;
+    for (const match of String(message.content || '').matchAll(/https?:\\/\\/[^\\s<>"'\\x60)\\]]+/gi)) {
+      add(match[0].replace(/[.,!?;:]+$/, ''));
+    }
+  }
+  const isTrusted = (raw) => {
+    try {
+      const url = new URL(raw);
+      return ['http:', 'https:'].includes(url.protocol) && Boolean(url.hostname) &&
+        !url.username && !url.password && allowed.has(url.href);
+    } catch { return false; }
+  };
+  let safe = String(text || '').replace(/\\[([^\\]]{0,500})\\]\\((https?:\\/\\/[^)\\s]+)(?:\\s+[^)]*)?\\)/gi,
+    (whole, label, url) => isTrusted(url) ? whole : label + ' (unverified link omitted)');
+  safe = safe.replace(/https?:\\/\\/[^\\s<>"'\\x60)\\]]+/gi, (raw) => {
+    const clean = raw.replace(/[.,!?;:]+$/, '');
+    return isTrusted(clean) ? raw : '[unverified link omitted]';
+  });
+  return safe;
 }
 
 // Messages that need fresh information from the web.
