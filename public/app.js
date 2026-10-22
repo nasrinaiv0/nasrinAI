@@ -4522,6 +4522,9 @@
     const closePanel = () => {
       panel.hidden = true;
       details.setAttribute('aria-expanded', 'false');
+      // Return the panel to its reply row after closing; while open it is
+      // portalled to body so ancestor stacking contexts cannot cover it.
+      if (panel.parentElement === document.body) row.appendChild(panel);
     };
     const positionPanel = () => {
       if (panel.hidden) return;
@@ -4557,15 +4560,16 @@
       });
       replayWave(details, 'reply-details-wave');
       if (!opening) { closePanel(); return; }
+      // Use a body-level layer while open so transformed reply containers
+      // and new messages cannot trap the panel beneath conversation content.
+      if (panel.parentElement !== document.body) document.body.appendChild(panel);
       panel.hidden = false;
       details.setAttribute('aria-expanded', 'true');
       positionPanel();
     });
-    const onScroll = () => {
-      if (window.innerWidth <= 600) closePanel();
-      else positionPanel();
-    };
+    const onScroll = () => positionPanel();
     window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
     document.addEventListener('pointerdown', (event) => {
       if (!panel.hidden && !panel.contains(event.target) && !details.contains(event.target)) closePanel();
     }, true);
