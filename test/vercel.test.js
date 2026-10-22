@@ -16,10 +16,11 @@ test('runs in Singapore', () => {
   assert.deepEqual(config.regions, ['sin1']);
 });
 
-test('retention stays hourly and the web crawler runs every five minutes', () => {
+test('retention stays hourly, web crawling runs every five minutes, and render jobs are polled every minute', () => {
   assert.deepEqual(config.crons, [
     { path: '/v1/internal/retention', schedule: '0 * * * *' },
-    { path: '/v1/internal/web-crawl', schedule: '*/5 * * * *' }
+    { path: '/v1/internal/web-crawl', schedule: '*/5 * * * *' },
+    { path: '/v1/internal/video-studio-render', schedule: '* * * * *' }
   ]);
 });
 
