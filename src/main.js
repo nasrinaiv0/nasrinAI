@@ -31,6 +31,7 @@ import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
 import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
+import { createGoogleWebSearch } from './web/google-search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
 import { createImages } from './images.js';
 import { basicTools } from './tools/basic.js';
@@ -159,9 +160,15 @@ export function buildApp({ config, logger }) {
   const policy = provider && config.ai.routing.mode === 'smart'
     ? createPolicy({ config: effective, provider, prices, budget: reasoningBudget, logger })
     : null;
-  const webSearch = policy && config.web.searchModel && config.ai.openaiApiKey
-    ? createWebSearch({ apiKey: config.ai.openaiApiKey, model: config.web.searchModel })
+  const googleWebSearch = config.web.googleApiKey && config.web.googleEngineId
+    ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
     : null;
+  if (googleWebSearch?.available) logger.info('Google web search adapter ready');
+  const openRouterSearchEnabled = Boolean(config.web.searchModel && config.ai.openrouterApiKey);
+  const webSearch = openRouterSearchEnabled || googleWebSearch?.available
+    ? createWebSearch({ apiKey: openRouterSearchEnabled ? config.ai.openrouterApiKey : '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1' })
+    : null;
+  if (webSearch) logger.info('web search ready', { primary: openRouterSearchEnabled ? 'openrouter' : 'google-fallback', fallback: googleWebSearch?.available ? 'google' : 'none' });
   if (policy) logger.info('smart routing on', { budget: config.ai.routing.budget });
   // Picture routes by tier. Everything must fit in the function's 120 s
   // (vercel.json): with a fallback, the primary (with its retries) gets 45 s

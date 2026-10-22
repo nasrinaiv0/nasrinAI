@@ -1,10 +1,9 @@
 import { ProviderError } from '../ai/provider.js';
 
-// Web search through OpenAI's Responses API built-in tool
-// (tools: [{ type: "web_search" }]), which returns an answer with url_citation
-// annotations. The model is a setting (WEB_SEARCH_MODEL); check on OpenAI's
-// web-search guide that your model supports the tool.
-export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://api.openai.com/v1' }) {
+// Web research through OpenRouter's Responses API server-side web-search tool.
+// Citations are taken from provider annotations; arbitrary model-authored URLs are
+// removed before rendering. Google Custom Search is an optional failure-only fallback.
+export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://openrouter.ai/api/v1' }) {
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
@@ -12,6 +11,33 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
       // Keep the previous user turn only to resolve short follow-ups in context.
       const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
       const queryText = userMessages.slice(-2).map((m) => String(m?.content || '')).join('\n');
+      const mergeCitations = (items) => {
+        const merged = []; const seen = new Set();
+        for (const item of (Array.isArray(items) ? items : [])) {
+          if (!item?.url || seen.has(item.url)) continue;
+          seen.add(item.url); merged.push(item);
+        }
+        return merged.slice(0, 10);
+      };
+      // Keep OpenRouter on the latency-sensitive primary path. Query Google only
+      // after a primary failure, or when OpenRouter is not configured.
+      const googleFallback = async () => {
+        if (!googleSearch?.available || !queryText.trim()) return null;
+        let items = [];
+        try { items = await googleSearch.search(queryText); } catch { items = []; }
+        if (!items.length) return null;
+        items = items.slice(0, 5);
+        const text = [
+          'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
+          ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
+            (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
+        ].join('\n\n');
+        return {
+          text,
+          citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
+          searches: 1, inputTokens: 0, cachedTokens: 0, outputTokens: Math.ceil(text.length / 4)
+        };
+      };
       const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons|sources? and resources?|references?|bibliography|citations?|cite sources|provide sources|find sources)\b/i.test(queryText);
       const socialVideoIntent = /\b(?:trending|trend|viral|popular|top|latest|public)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos?|show|find|search|any videos?)\b/i.test(queryText);
       const searchContextSize = deepResearch || socialVideoIntent ? 'high' : 'medium';
@@ -28,6 +54,12 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
         ] : []),
         'Cite sources that directly support the nearby claims. Do not invent sources, dates, statistics, quotations, or consensus. For substantial research, aim for up to ten distinct credible source citations when available; do not pad with duplicates, search pages, or sources that do not support the answer.'
       ].join('\n');
+      // If OpenRouter is not configured, use the official Google adapter directly.
+      if (!apiKey) {
+        const fallback = await googleFallback();
+        if (fallback) return fallback;
+        throw new ProviderError('unavailable', 'web search is not configured');
+      }
       let resp;
       try {
         resp = await fetchImpl(baseUrl + '/responses', {
@@ -35,20 +67,24 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
           body: JSON.stringify({
             model,
-            tools: [{ type: 'web_search', search_context_size: searchContextSize }],
+            tools: [{ type: 'openrouter:web_search', parameters: { engine: 'auto', max_results: 10, max_total_results: deepResearch ? 20 : 10, search_context_size: searchContextSize } }],
             include: ['web_search_call.action.sources'],
             instructions: String(system || '') + '\n\nWeb research quality requirements:\n' + researchInstructions,
-            input: messages.map((m) => ({ role: m.role, content: m.content })),
+            input: (Array.isArray(messages) ? messages : []).map((m) => ({ role: m.role, content: m.content })),
             max_output_tokens: maxTokens,
             ...(onText ? { stream: true } : {})
           }),
           signal: AbortSignal.timeout(timeoutMs)
         });
       } catch (err) {
+        const fallback = await googleFallback();
+        if (fallback) return fallback;
         throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search could not be reached');
       }
       if (!resp.ok) {
         const s = resp.status;
+        const fallback = await googleFallback();
+        if (fallback) return fallback;
         throw new ProviderError(s === 429 ? 'busy' : s >= 500 ? 'unavailable' : 'config', `web search answered ${s}`, s);
       }
       const parseResult = (data) => {
@@ -76,6 +112,40 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
 
       if (onText && resp.body) {
         let text = '';
+        let streamedLength = 0;
+        const flushSafeText = () => {
+          if (!onText) return;
+          let boundary = text.length;
+          const urlStart = /https?:\/\//i.exec(text);
+          if (urlStart) {
+            boundary = urlStart.index;
+            const markdownStart = text.lastIndexOf('[', boundary);
+            if (markdownStart >= streamedLength && text.slice(markdownStart, boundary).endsWith('](')) boundary = markdownStart;
+          } else {
+            // Keep a partial URL scheme and an unfinished Markdown link buffered
+            // across SSE chunk boundaries.
+            const lower = text.toLowerCase();
+            let partialLength = 0;
+            for (const scheme of ['https://', 'http://']) {
+              for (let length = 1; length < scheme.length; length++) {
+                if (lower.endsWith(scheme.slice(0, length))) partialLength = Math.max(partialLength, length);
+              }
+            }
+            boundary = text.length - partialLength;
+            const markdownStart = text.lastIndexOf('[');
+            if (markdownStart >= streamedLength) {
+              const candidate = text.slice(markdownStart);
+              const close = candidate.indexOf(']');
+              if (close < 0 || (candidate.slice(close).startsWith('](') && !candidate.slice(close + 2).includes(')'))) {
+                boundary = Math.min(boundary, markdownStart);
+              }
+            }
+          }
+          if (boundary > streamedLength) {
+            onText(text.slice(streamedLength, boundary));
+            streamedLength = boundary;
+          }
+        };
         let citations = [];
         let calls = 0;
         let usage = null;
@@ -88,18 +158,22 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
           let event; try { event = JSON.parse(payload); } catch { return; }
           const delta = event?.delta;
           if (event?.type === 'response.output_text.delta' && typeof delta === 'string') {
-            text += delta; onText(delta);
+            text += delta;
+            flushSafeText();
           }
           if (event?.type === 'response.output_text.done' && typeof event?.text === 'string' && !text) {
-            text = event.text; onText(event.text);
+            text = event.text;
+            flushSafeText();
           }
           if (event?.type === 'response.web_search_call.completed') calls += 1;
           const response = event?.response;
           if (response?.usage) usage = response.usage;
           if (response?.output) {
             const parsed = parseResult(response);
-            if (parsed.text && parsed.text !== text) text = parsed.text;
-            citations = parsed.citations;
+            if (parsed.text && parsed.text !== text) {
+              if (!text || parsed.text.startsWith(text)) text = parsed.text;
+            }
+            citations = mergeCitations(parsed.citations);
             calls = Math.max(calls, response.output.filter((i) => i?.type === 'web_search_call').length);
           }
         };
@@ -113,6 +187,8 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
         } catch (err) {
           throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search stream could not be read');
         }
+        text = stripUnverifiedUrls(text, citations, messages);
+        if (onText && text.length > streamedLength) onText(text.slice(streamedLength));
         return {
           text,
           citations,
@@ -125,8 +201,8 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
 
       const data = await resp.json().catch(() => null);
       const parsed = parseResult(data);
-      const text = parsed.text;
-      const citations = parsed.citations;
+      const citations = mergeCitations(parsed.citations);
+      const text = stripUnverifiedUrls(parsed.text, citations, messages);
       const calls = (Array.isArray(data?.output) ? data.output : []).filter((i) => i?.type === 'web_search_call').length;
       return {
         text,
@@ -138,6 +214,40 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
       };
     }
   };
+}
+
+// Strip links that were authored by the model but not present in trusted search citations
+// or explicitly supplied by the user. Web-search streaming is buffered until annotations
+// arrive so a guessed URL is never briefly shown as a clickable link.
+function stripUnverifiedUrls(text, citations, messages) {
+  const allowed = new Set();
+  const add = (raw) => {
+    try {
+      const url = new URL(raw);
+      if (['http:', 'https:'].includes(url.protocol) && url.hostname && !url.username && !url.password) allowed.add(url.href);
+    } catch {}
+  };
+  for (const source of Array.isArray(citations) ? citations : []) add(source?.url || '');
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (message?.role !== 'user') continue;
+    for (const match of String(message.content || '').matchAll(/https?:\/\/[^\s<>"'\x60)\]]+/gi)) {
+      add(match[0].replace(/[.,!?;:]+$/, ''));
+    }
+  }
+  const isTrusted = (raw) => {
+    try {
+      const url = new URL(raw);
+      return ['http:', 'https:'].includes(url.protocol) && Boolean(url.hostname) &&
+        !url.username && !url.password && allowed.has(url.href);
+    } catch { return false; }
+  };
+  let safe = String(text || '').replace(/\[([^\]]{0,500})\]\((https?:\/\/[^)\s]+)(?:\s+[^)]*)?\)/gi,
+    (whole, label, url) => isTrusted(url) ? whole : label + ' (unverified link omitted)');
+  safe = safe.replace(/https?:\/\/[^\s<>"'\x60)\]]+/gi, (raw) => {
+    const clean = raw.replace(/[.,!?;:]+$/, '');
+    return isTrusted(clean) ? raw : '[unverified link omitted]';
+  });
+  return safe;
 }
 
 // Messages that need fresh information from the web.
