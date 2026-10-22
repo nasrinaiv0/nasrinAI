@@ -79,7 +79,12 @@ begin
     raise exception 'authenticated role unexpectedly executed owner metrics';
   exception when insufficient_privilege then null;
   end;
-end $$;
+  begin
+    perform public.owner_console_automation_summary(now() - interval '1 hour');
+    raise exception 'authenticated role unexpectedly executed owner automation summary';
+  exception when insufficient_privilege then null;
+  end;
+end $;
 reset role;
 
 select 'owner console aggregate metrics checks passed' as result;
