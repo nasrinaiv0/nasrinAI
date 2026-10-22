@@ -6,7 +6,7 @@ create table if not exists public.video_studio_render_jobs (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   owner_id text not null check (owner_id ~ '^[A-Za-z0-9_-]{1,80}$'),
-  project_id uuid not null references public.projects(id) on delete cascade,
+  project_id uuid not null,
   source_video_id uuid not null,
   status text not null default 'queued'
     check (status in ('queued','starting','running','completed','failed')),
