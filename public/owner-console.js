@@ -4,25 +4,26 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
-    users: ['Users & Growth', 'Activity signals from recorded usage; registered-account totals remain separate.', '♙'],
+    users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
     automation: ['Automation & Jobs', 'Workflow health, queue state, retries, and execution outcomes.', '↗'],
-    finance: ['Finance & Costs', 'Internal AI cost estimates, distinct from invoices and settled billing.', '▤'],
-    incidents: ['Incidents & Alerts', 'Operational issues and alert delivery from verified sources.', '◎'],
+    finance: ['Finance & Costs', 'Internal AI cost estimates and gross recorded PayMongo payments, not net revenue.', '▤'],
+    incidents: ['Incidents & Alerts', 'Derived signals and the manual incident register; automatic alerts remain pending.', '◎'],
     reports: ['Reports & Exports', 'Date-scoped aggregate reports from verified data sources.', '▥'],
     settings: ['Settings', 'Owner-console access status. Allowlist values remain in Vercel.', '⚙']
   };
   const sources = {
     ai_usage: ['AI usage & tokens', 'Request-level usage events and cost-estimate coverage'],
-    users: ['Users & growth', 'Auth record counts and activity signals; retention cohorts not connected'],
+    users: ['Users & growth', 'Auth record counts and activity signals'],
+    retention: ['Usage retention cohorts', 'First-observed signed-in model-call cohorts; not signup cohorts'],
     infrastructure: ['Infrastructure & releases', 'Vercel and dependency health integrations'],
     database: ['Database connection', 'Server-side Supabase reachability check'],
     security_audit: ['Owner action audit events', 'Session and export events only'],
     automation: ['Automation & jobs', 'Aggregate workflow run states'],
-    finance: ['Finance & costs', 'Settled billing and provider-cost reconciliation'],
+    finance: ['Finance & costs', 'Gross recorded PayMongo paid checkouts; excludes refunds, fees, and settlement reconciliation'],
     plan_entitlements: ['Paid plan entitlements', 'Current active Pro/Max/Ultra periods; not revenue'],
-    incidents: ['Operational signals', 'Derived failure and stale-job signals; durable incidents and alert delivery are not connected']
+    incidents: ['Operational signals', 'Derived failure/stale-job signals and manual incident register; automatic alerts are not connected']
   };
   let data = null;
   let active = 'overview';
@@ -124,7 +125,7 @@
     c.replaceChildren();
     c.append(head(meta[0], meta[1], 'Read-only'), notice('No unverified data is shown', 'This module remains read-only. Data without a verified source is marked Unavailable rather than represented by fabricated counts or stale values.'));
     const sourceKeys = key === 'ai' ? ['ai_usage', 'infrastructure'] :
-      key === 'users' ? ['users'] :
+      key === 'users' ? ['users', 'retention'] :
       key === 'infra' ? ['database', 'infrastructure'] :
       key === 'security' ? ['security_audit'] :
       key === 'automation' ? ['automation'] :
@@ -176,9 +177,9 @@
     }
 
     if (key === 'users') {
-      const a = data && data.usage_24h, b = data && data.usage_7d, users = data && data.user_summary, growth = data && data.growth_summary, panel = el('section', 'panel');
+      const a = data && data.usage_24h, b = data && data.usage_7d, users = data && data.user_summary, growth = data && data.growth_summary, retention = data && data.retention_summary, panel = el('section', 'panel');
       panel.classList.add('module-extra');
-      panel.append(el('h3', '', 'Account and activity signals'), el('p', 'panel-copy', 'Auth record totals and signup timestamps are aggregated server-side. Activity IDs reflect recorded model calls; retention cohorts are not yet connected.'));
+      panel.append(el('h3', '', 'Account and activity signals'), el('p', 'panel-copy', 'Auth record totals and signup timestamps are aggregated server-side. Activity IDs reflect recorded model calls; retention cohorts use the first observed signed-in model-call date, not signup date.'));
       const grid = el('div', 'grid');
       const value = (summary, field) => !summary ? 'Unavailable' : Number(summary.request_count) === 0 ? 'No data yet' : numberText(summary[field]);
       grid.append(
@@ -198,6 +199,26 @@
       );
       panel.append(grid);
       c.append(panel);
+
+      const cohorts = Array.isArray(retention?.cohorts) ? retention.cohorts.slice(0, 7) : [];
+      const cohortPanel = el('section', 'panel');
+      cohortPanel.classList.add('module-extra');
+      cohortPanel.append(head('Usage-based retention cohorts', 'First-observed signed-in model-call cohorts · last 14 days', retention ? (cohorts.length ? 'Available' : 'No data yet') : 'Unavailable'));
+      cohortPanel.append(el('p', 'panel-copy', 'Day 1 and day 7 retention count a model call on exactly cohort date + 1 or + 7. Newer cohorts are not eligible for day 7 yet. These are activity cohorts, not signup cohorts.'));
+      if (cohorts.length) {
+        const cohortGrid = el('div', 'grid');
+        cohorts.forEach((cohort) => {
+          const d1 = cohort.day_1_retention_pct == null ? 'Not eligible' : Number(cohort.day_1_retention_pct).toFixed(1) + '%';
+          const d7 = cohort.day_7_retention_pct == null ? 'Not eligible' : Number(cohort.day_7_retention_pct).toFixed(1) + '%';
+          const d1Count = numberText(cohort.day_1_returned) + '/' + numberText(cohort.day_1_eligible);
+          const d7Count = numberText(cohort.day_7_returned) + '/' + numberText(cohort.day_7_eligible);
+          cohortGrid.append(metric('Cohort ' + cohort.cohort_date, '♙', numberText(cohort.cohort_size), 'D1 ' + d1 + ' (' + d1Count + ') · D7 ' + d7 + ' (' + d7Count + ')'));
+        });
+        cohortPanel.append(cohortGrid);
+      } else {
+        cohortPanel.append(notice(retention ? 'No cohort data yet' : 'Retention source unavailable', 'Cohorts appear after signed-in users have recorded model-call activity in the selected window.'));
+      }
+      c.append(cohortPanel);
     }
 
     if (key === 'infra') {
