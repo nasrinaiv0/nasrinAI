@@ -35,7 +35,40 @@ begin
   exception when raise_exception then
     if sqlerrm = 'future summary window unexpectedly accepted' then raise; end if;
   end;
-end $$;
+end $;
+
+do $
+declare
+  v_before jsonb;
+  v_after jsonb;
+  v_workflow uuid;
+begin
+  v_before := public.owner_console_automation_summary(now() - interval '1 hour');
+  insert into public.automation_workflows
+    (tenant_id, owner_type, owner_id, name, definition)
+  values
+    ('00000000-0000-0000-0000-000000000001', 'user', 'owner-metrics-automation', 'Owner metrics test workflow',
+     '{"steps":[{"id":"step-1","tool":"noop"}]}'::jsonb)
+  returning id into v_workflow;
+
+  insert into public.automation_runs
+    (tenant_id, workflow_id, owner_type, owner_id, status, trigger_type, idempotency_key, started_at, finished_at, created_at)
+  values
+    ('00000000-0000-0000-0000-000000000001', v_workflow, 'user', 'owner-metrics-automation', 'succeeded', 'manual', 'owner-run-0001', now() - interval '2 minutes', now() - interval '1 minute', now()),
+    ('00000000-0000-0000-0000-000000000001', v_workflow, 'user', 'owner-metrics-automation', 'failed', 'manual', 'owner-run-0002', now() - interval '2 minutes', now() - interval '1 minute', now()),
+    ('00000000-0000-0000-0000-000000000001', v_workflow, 'user', 'owner-metrics-automation', 'running', 'manual', 'owner-run-0003', now() - interval '40 minutes', null, now() - interval '40 minutes');
+
+  v_after := public.owner_console_automation_summary(now() - interval '1 hour');
+  if (v_after->>'run_count')::bigint <> (v_before->>'run_count')::bigint + 3 then
+    raise exception 'automation summary did not count the inserted runs';
+  end if;
+  if (v_after->>'succeeded_count')::bigint <> (v_before->>'succeeded_count')::bigint + 1
+    or (v_after->>'failed_count')::bigint <> (v_before->>'failed_count')::bigint + 1
+    or (v_after->>'running_count')::bigint <> (v_before->>'running_count')::bigint + 1
+    or (v_after->>'stale_running_count')::bigint <> (v_before->>'stale_running_count')::bigint + 1 then
+    raise exception 'automation status or stale-run counts are incorrect';
+  end if;
+end $;
 reset role;
 
 set role authenticated;
