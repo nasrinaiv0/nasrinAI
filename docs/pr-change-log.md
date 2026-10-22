@@ -1767,7 +1767,7 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added server-only exact verified email and normalized IPv4/IPv6 allowlists via `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and `OWNER_SESSION_SECRET`; missing or malformed settings fail closed without breaking the public site.
 - Added trusted IP validation, the shared IP rate limiter, generic no-store 404 responses, and sign-out cookie clearing.
 - Added a premium responsive read-only console with ten navigation areas and explicit unavailable states. The app entry appears only after a successful server bootstrap.
-- Migration 042 adds aggregate usage/automation summaries and an RLS-protected owner-action audit trail. Audit rows store one-way IP hashes, not raw addresses; summaries do not expose prompts, workflow payloads, or actor IDs.
+- Migration 042 adds aggregate usage/automation summaries, paid plan-entitlement counts (not revenue), and an RLS-protected owner-action audit trail. Audit rows store one-way IP hashes, not raw addresses; summaries do not expose prompts, workflow payloads, or actor IDs.
 - Added fixed-window aggregate usage CSV export with formula-injection protection. Session issuance and export fail closed if their audit event cannot be recorded.
 - Added config, route, session, telemetry, CSV, Vercel rewrite, and SQL permission regression tests.
 - **Not yet complete:** registered-account/retention, Vercel release telemetry, platform-wide security events, settled billing/revenue reconciliation, incidents/alerts, and privileged controls.
