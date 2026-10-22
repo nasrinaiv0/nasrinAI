@@ -127,6 +127,42 @@ revoke execute on function public.owner_console_automation_summary(timestamptz) 
 grant execute on function public.owner_console_automation_summary(timestamptz) to service_role;
 
 
+-- Growth signals from recorded usage only; counts are distinct actor IDs, not total registered accounts.
+create or replace function public.owner_console_growth_summary()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $owner_growth$
+  with active as (
+    select actor_type, actor_id,
+      bool_or(created_at >= now() - interval '24 hours') as active_24h,
+      bool_or(created_at >= now() - interval '7 days') as active_7d,
+      bool_or(created_at >= now() - interval '30 days') as active_30d,
+      bool_or(created_at >= now() - interval '14 days' and created_at < now() - interval '7 days') as active_prior_7d
+    from public.usage_events
+    where created_at >= now() - interval '30 days'
+      and actor_type in ('user','guest')
+      and actor_id is not null
+    group by actor_type, actor_id
+  )
+  select jsonb_build_object(
+    'active_user_ids_24h', count(*) filter (where actor_type = 'user' and active_24h),
+    'active_guest_ids_24h', count(*) filter (where actor_type = 'guest' and active_24h),
+    'active_user_ids_7d', count(*) filter (where actor_type = 'user' and active_7d),
+    'active_guest_ids_7d', count(*) filter (where actor_type = 'guest' and active_7d),
+    'active_user_ids_30d', count(*) filter (where actor_type = 'user' and active_30d),
+    'active_guest_ids_30d', count(*) filter (where actor_type = 'guest' and active_30d),
+    'returning_user_ids_7d', count(*) filter (where actor_type = 'user' and active_prior_7d and active_7d),
+    'prior_week_user_ids', count(*) filter (where actor_type = 'user' and active_prior_7d),
+    'return_rate_pct', case when count(*) filter (where actor_type = 'user' and active_prior_7d) = 0 then null else round(100.0 * count(*) filter (where actor_type = 'user' and active_prior_7d and active_7d) / count(*) filter (where actor_type = 'user' and active_prior_7d), 1) end
+  ) from active;
+$owner_growth$;
+
+revoke execute on function public.owner_console_growth_summary() from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_growth_summary() to service_role;
+
 -- Paid plan entitlement counts only; these are not revenue or payment-settlement figures.
 create index if not exists plan_periods_created_at_idx on public.plan_periods (created_at desc);
 create index if not exists plan_periods_active_expiry_idx on public.plan_periods (ends_at) where status = 'active';
