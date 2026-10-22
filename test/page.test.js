@@ -575,3 +575,13 @@ test('owner console overview binds aggregate account metrics and current migrati
   assert.match(js, /OWNER_VERCEL_READONLY_TOKEN/);
   assert.match(migration, /owner_console_growth_summary/);
 });
+
+
+test('owner subdomain root redirects to the protected Owner Command Center route', async () => {
+  const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  const route = config.redirects.find((item) => item.source === '/' && item.has?.some((condition) => condition.type === 'host' && condition.value === 'owner.nasrinai.com'));
+  assert.ok(route, 'owner.nasrinai.com has a host-specific root redirect');
+  assert.equal(route.destination, '/owner');
+  assert.equal(route.permanent, false);
+  assert.ok(config.rewrites.some((item) => item.source === '/owner' && item.destination === '/api/index?__path=/owner'), 'the protected /owner route is handled by the server function');
+});
