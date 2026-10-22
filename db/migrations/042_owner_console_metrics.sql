@@ -172,6 +172,26 @@ $owner_plan$;
 
 revoke execute on function public.owner_console_plan_summary(timestamptz) from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_plan_summary(timestamptz) to service_role;
+-- Aggregate-only registration signals. No email, auth ID, or user metadata is returned.
+create or replace function public.owner_console_user_summary()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $owner_users$
+  select jsonb_build_object(
+    'registered_accounts', count(*),
+    'new_accounts_24h', count(*) filter (where created_at >= now() - interval '24 hours'),
+    'new_accounts_7d', count(*) filter (where created_at >= now() - interval '7 days'),
+    'active_signins_30d', count(*) filter (where last_sign_in_at >= now() - interval '30 days'),
+    'last_signup_at', max(created_at)
+  )
+  from auth.users;
+$owner_users$;
+
+revoke execute on function public.owner_console_user_summary() from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_user_summary() to service_role;
 -- Minimal owner-action audit trail. Store a one-way IP hash, never the raw address.
 create table if not exists public.owner_audit_events (
   id uuid primary key default gen_random_uuid(),
