@@ -43,21 +43,31 @@ function trustedSameOrigin(req) {
   }
 }
 
+function normalizeIp(value) {
+  const ip = String(value || '').trim().replace(/^::ffff:/, '');
+  if (isIP(ip) === 4) return ip;
+  if (isIP(ip) === 6) {
+    try { return new URL('http://[' + ip + ']/').hostname.slice(1, -1).toLowerCase(); } catch { return null; }
+  }
+  return null;
+}
+
 function configuredAllowlist(config) {
   const source = config?.ownerConsole;
   if (!source || source.enabled !== true || typeof source.sessionSecret !== 'string' || source.sessionSecret.length < 32) return null;
   if (!Array.isArray(source.emails) || !source.emails.length || !Array.isArray(source.ips) || !source.ips.length) return null;
   if (source.emails.some((email) => !/^[^\s@]{1,64}@[^\s@]{1,190}\.[A-Za-z]{2,63}$/.test(email))) return null;
-  if (source.ips.some((ip) => isIP(ip) !== 4)) return null;
-  return source;
+  const ips = source.ips.map(normalizeIp);
+  if (ips.some((ip) => !ip)) return null;
+  return { ...source, ips };
 }
 
 function allowedRequest(req, config, clientIp) {
   const allowlist = configuredAllowlist(config);
   if (!allowlist) return null;
   let ip = '';
-  try { ip = String(clientIp(req) || '').replace(/^::ffff:/, ''); } catch { return null; }
-  if (isIP(ip) !== 4 || !allowlist.ips.includes(ip)) return null;
+  try { ip = normalizeIp(clientIp(req)); } catch { return null; }
+  if (!ip || !allowlist.ips.includes(ip)) return null;
   return allowlist;
 }
 
