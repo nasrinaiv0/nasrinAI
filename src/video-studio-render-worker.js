@@ -282,60 +282,108 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     try {
       const { Sandbox } = sandboxApi || await import('@vercel/sandbox');
       const manifest = row.input_manifest;
-      const source = await storage('GET', manifest.source);
-      if (!source.length || source.length > MAX_VIDEO_BYTES) throw new Error('Stored source video failed validation.');
+      const source = manifest.source ? await storage('GET', manifest.source) : null;
+      if (source && (!source.length || source.length > MAX_VIDEO_BYTES)) throw new Error('Stored source video failed validation.');
       const audio = [];
-      for (const path of manifest.audio) {
+      for (const path of manifest.audio || []) {
         const bytes = await storage('GET', path);
         if (!bytes.length || bytes.length > MAX_AUDIO_BYTES) throw new Error('Stored audio input failed validation.');
         audio.push(bytes);
       }
+      const media = [];
+      for (const path of manifest.media || []) {
+        const bytes = await storage('GET', path);
+        if (!bytes.length || bytes.length > MAX_VIDEO_BYTES) throw new Error('Stored timeline media failed validation.');
+        media.push({ path, bytes });
+      }
       const name = 'nasrinai-render-' + row.id;
       sandbox = await Sandbox.create({ name, runtime: 'node22', timeout: 2700000, persistent: true, resources: { vcpus: 2 } });
-      // Install the fixed renderer before any user media enters the VM. Once
-      // FFmpeg is ready, lock down egress so parsing hostile media cannot call out.
       const check = await sandbox.runCommand({ cmd: 'bash', args: ['-lc', 'command -v ffmpeg'] });
       if (check.exitCode !== 0) {
-        const install = await sandbox.runCommand({
-          cmd: 'bash', args: ['-c', 'apt-get update -qq && apt-get install -y -qq ffmpeg'], sudo: true
-        });
+        const install = await sandbox.runCommand({ cmd: 'bash', args: ['-c', 'apt-get update -qq && apt-get install -y -qq ffmpeg fonts-dejavu-core'], sudo: true });
         if (install.exitCode !== 0) throw new Error('The isolated renderer could not install FFmpeg.');
       }
       await sandbox.update({ networkPolicy: 'deny-all' });
-      const files = [{ path: '/vercel/sandbox/source.mp4', content: source }];
+      const files = [];
+      if (source) files.push({ path: '/vercel/sandbox/source.mp4', content: source });
       for (let i = 0; i < audio.length; i++) files.push({ path: '/vercel/sandbox/audio-' + i + '.mp3', content: audio[i] });
-      await sandbox.writeFiles(files);
+      for (let i = 0; i < media.length; i++) {
+        const ext = media[i].path.split('.').pop().replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'bin';
+        files.push({ path: '/vercel/sandbox/media-' + i + '.' + ext, content: media[i].bytes });
+        media[i].sandboxPath = '/vercel/sandbox/media-' + i + '.' + ext;
+      }
       const runnerSource = [
         "import { spawn, spawnSync } from 'node:child_process';",
         "import { readFile, writeFile } from 'node:fs/promises';",
         "const marker = '/vercel/sandbox/render.exit';",
-        "const source = '/vercel/sandbox/source.mp4';",
+        "const run = (args) => new Promise((resolve) => { const child = spawn('ffmpeg', args, { stdio: 'ignore' }); child.on('error', () => resolve(127)); child.on('close', code => resolve(code ?? 1)); });",
         "try {",
         "  const input = JSON.parse(await readFile('/vercel/sandbox/render-input.json', 'utf8'));",
         "  const duration = Number(input.durationSeconds);",
-        "  const probe = spawnSync('ffmpeg', ['-hide_banner', '-i', source], { encoding: 'utf8', maxBuffer: 1048576 });",
-        "  const hasSourceAudio = /Stream #\\d+:\\d+[^\\n]*Audio:/i.test(probe.stderr || '');",
-        "  const filters = [], labels = [];",
-        "  if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); labels.push('[source_audio]'); }",
-        "  for (let i = 0; i < input.audioCount; i++) {",
-        "    const item = input.timelineItems[i], delay = Math.round(item.startSeconds * 1000);",
-        "    const trim = item.trimEndSeconds == null ? 'atrim=start=' + item.trimStartSeconds.toFixed(3) : 'atrim=start=' + item.trimStartSeconds.toFixed(3) + ':end=' + item.trimEndSeconds.toFixed(3);",
-        "    filters.push('[' + (i + 1) + ':a:0]' + trim + ',asetpts=PTS-STARTPTS,adelay=' + delay + '|' + delay + ',volume=' + item.gain.toFixed(3) + ',apad=pad_dur=' + duration.toFixed(3) + '[audio_' + i + ']');",
-        "    labels.push('[audio_' + i + ']');",
+        "  const args = ['-nostdin','-y','-hide_banner','-loglevel','error'];",
+        "  const filters = [], audioLabels = [];",
+        "  if (input.mode === 'timeline') {",
+        "    const width = input.aspect === '9:16' ? 720 : 1280, height = input.aspect === '9:16' ? 1280 : 720;",
+        "    args.push('-f','lavfi','-i','color=c=black:s=' + width + 'x' + height + ':r=30:d=' + duration.toFixed(3));",
+        "    for (const media of input.media) { if (media.image) args.push('-loop','1','-framerate','30','-t',String(media.duration),'-i',media.path); else args.push('-i',media.path); }",
+        "    let base = '0:v:0', visual = 0;",
+        "    for (const clip of input.clips) {",
+        "      const start = Number(clip.position), end = start + Number(clip.duration), localStart = Number(clip.start || 0);",
+        "      if (clip.track === 'text' || (!clip.mediaIndex && clip.mediaIndex !== 0 && clip.title)) {",
+        "        if (clip.title) { const textPath = '/vercel/sandbox/text-' + visual + '.txt'; await writeFile(textPath, String(clip.title).replace(/[\\r\\n]/g,' ').slice(0,200));",
+        "          const next = 'v' + visual++; const font = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';",
+        "          filters.push('[' + base + ']drawtext=fontfile=' + font + ':textfile=' + textPath + ':fontcolor=white:fontsize=' + Math.round(width * .035) + ':box=1:boxcolor=black@0.48:boxborderw=18:x=(w-text_w)/2:y=h*0.78:alpha=' + (Number(clip.opacity ?? 100)/100).toFixed(3) + ':enable=\\'between(t,' + start.toFixed(3) + ',' + end.toFixed(3) + ')\\'[' + next + ']'); base = next; }",
+        "        continue;",
+        "      }",
+        "      if (clip.mediaIndex == null) continue;",
+        "      const media = input.media[clip.mediaIndex], index = Number(clip.mediaIndex) + 1;",
+        "      if (clip.track === 'audio' || media.audio) {",
+        "        if (media.audio) { const label = 'aud' + audioLabels.length; const trim = 'atrim=start=' + localStart.toFixed(3) + ':duration=' + Number(clip.duration).toFixed(3);",
+        "          filters.push('[' + index + ':a:0]' + trim + ',asetpts=PTS-STARTPTS,adelay=' + Math.round(start*1000) + '|' + Math.round(start*1000) + ',volume=' + (Number(clip.gain ?? 100)/100).toFixed(3) + ',apad=pad_dur=' + duration.toFixed(3) + '[' + label + ']'); audioLabels.push('[' + label + ']'); }",
+        "        continue;",
+        "      }",
+        "      const label = 'clip' + visual, next = 'v' + (visual++);",
+        "      const colors = { none:'', cinematic:',eq=contrast=1.12:saturation=0.88', warm:',colorbalance=rs=0.08:gs=0.02:bs=-0.05', cool:',colorbalance=rs=-0.03:bs=0.08', mono:',hue=s=0', vivid:',eq=saturation=1.35:contrast=1.05' };",
+        "      const fade = (clip.transition === 'fade' || clip.transition === 'dissolve') ? Math.min(0.6, Number(clip.duration)/2) : 0;",
+        "      const chain = '[' + index + ':v:0]trim=start=' + localStart.toFixed(3) + ':duration=' + Number(clip.duration).toFixed(3) + ',setpts=PTS-STARTPTS,scale=' + width + ':' + height + ':force_original_aspect_ratio=increase,crop=' + width + ':' + height + ',fps=30,setsar=1,format=rgba' + colors[clip.filter || 'none'] + ',colorchannelmixer=aa=' + (Number(clip.opacity ?? 100)/100).toFixed(3) + (fade ? ',fade=t=in:st=0:d=' + fade.toFixed(3) + ':alpha=1,fade=t=out:st=' + Math.max(0,Number(clip.duration)-fade).toFixed(3) + ':d=' + fade.toFixed(3) + ':alpha=1' : '') + '[' + label + ']';",
+        "      filters.push(chain);",
+        "      const composite = 'base' + visual; filters.push('[' + base + '][' + label + ']overlay=0:0:eof_action=pass:enable=\\'between(t,' + start.toFixed(3) + ',' + end.toFixed(3) + ')\\'[' + composite + ']'); base = composite;",
+        "      if (clip.title) { const textPath = '/vercel/sandbox/title-' + visual + '.txt'; await writeFile(textPath, String(clip.title).replace(/[\\r\\n]/g,' ').slice(0,200)); const titled = 'title' + visual;",
+        "        filters.push('[' + base + ']drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:textfile=' + textPath + ':fontcolor=white:fontsize=' + Math.round(width*.035) + ':box=1:boxcolor=black@0.48:boxborderw=18:x=(w-text_w)/2:y=h*0.78:enable=\\'between(t,' + start.toFixed(3) + ',' + end.toFixed(3) + ')\\'[' + titled + ']'); base = titled; }",
+        "      const probe = spawnSync('ffprobe',['-v','error','-select_streams','a:0','-show_entries','stream=index','-of','csv=p=0',media.path],{encoding:'utf8',timeout:5000});",
+        "      if (probe.status === 0 && String(probe.stdout || '').trim()) { const labelAudio='aud'+audioLabels.length; filters.push('['+index+':a:0]atrim=start='+localStart.toFixed(3)+':duration='+Number(clip.duration).toFixed(3)+',asetpts=PTS-STARTPTS,adelay='+Math.round(start*1000)+'|'+Math.round(start*1000)+',volume='+(Number(clip.gain??100)/100).toFixed(3)+',apad=pad_dur='+duration.toFixed(3)+'['+labelAudio+']'); audioLabels.push('['+labelAudio+']'); }",
+        "    }",
+        "    if (audioLabels.length) { filters.push(audioLabels.join('') + 'amix=inputs=' + audioLabels.length + ':duration=longest:dropout_transition=0,alimiter=limit=0.95[aout]'); args.push('-filter_complex',filters.join(';'),'-map','['+base+']','-map','[aout]'); }",
+        "    else args.push('-filter_complex',filters.join(';'),'-map','['+base+']','-an');",
+        "    args.push('-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
+        "  } else {",
+        "    const source = '/vercel/sandbox/source.mp4'; const probe = spawnSync('ffmpeg',['-hide_banner','-i',source],{encoding:'utf8',maxBuffer:1048576});",
+        "    const hasSourceAudio = /Stream #\\d+:\\d+[^\\n]*Audio:/i.test(probe.stderr || '');",
+        "    if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); audioLabels.push('[source_audio]'); }",
+        "    for (let i=0;i<input.audioCount;i++) { const item=input.timelineItems[i],delay=Math.round(item.startSeconds*1000); const trim=item.trimEndSeconds==null?'atrim=start='+item.trimStartSeconds.toFixed(3):'atrim=start='+item.trimStartSeconds.toFixed(3)+':end='+item.trimEndSeconds.toFixed(3); filters.push('['+(i+1)+':a:0]'+trim+',asetpts=PTS-STARTPTS,adelay='+delay+'|'+delay+',volume='+item.gain.toFixed(3)+',apad=pad_dur='+duration.toFixed(3)+'[audio_'+i+']'); audioLabels.push('[audio_'+i+']'); }",
+        "    if (!audioLabels.length) throw new Error('No audio tracks');",
+        "    filters.push(audioLabels.join('')+'amix=inputs='+audioLabels.length+':duration=longest:dropout_transition=0,alimiter=limit=0.95[aout]');",
+        "    args.push('-i',source); for(let i=0;i<input.audioCount;i++)args.push('-i','/vercel/sandbox/audio-'+i+'.mp3');",
+        "    args.push('-filter_complex',filters.join(';'),'-map','0:v:0','-map','[aout]','-c:v','copy','-c:a','aac','-b:a','192k','-map_metadata','0','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
         "  }",
-        "  if (!labels.length) throw new Error('No audio tracks');",
-        "  filters.push(labels.join('') + 'amix=inputs=' + labels.length + ':duration=longest:dropout_transition=0,alimiter=limit=0.95[aout]');",
-        "  const args = ['-nostdin','-y','-hide_banner','-loglevel','error','-i',source];",
-        "  for (let i = 0; i < input.audioCount; i++) args.push('-i','/vercel/sandbox/audio-' + i + '.mp3');",
-        "  args.push('-filter_complex',filters.join(';'),'-map','0:v:0','-map','[aout]','-c:v','copy','-c:a','aac','-b:a','192k','-map_metadata','0','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
-        "  const child = spawn('ffmpeg', args, { stdio: 'ignore' });",
-        "  child.on('error', async () => { await writeFile(marker, '127'); });",
-        "  child.on('close', async (code) => { await writeFile(marker, String(code ?? 1)); });",
+        "  await writeFile(marker, String(await run(args)));",
         "} catch { await writeFile(marker, '1'); }"
-      ].join('\n');
+      ].join('\\n');
       await sandbox.writeFiles([
+        ...files,
         { path: '/vercel/sandbox/render-input.json', content: Buffer.from(JSON.stringify({
-          durationSeconds: Number(manifest.durationSeconds), audioCount: audio.length, timelineItems: manifest.timelineItems
+          mode: manifest.mode || 'audio',
+          durationSeconds: Number(manifest.durationSeconds),
+          audioCount: audio.length,
+          timelineItems: manifest.timelineItems || [],
+          aspect: manifest.aspect,
+          clips: (manifest.clips || []).map(clip => ({ ...clip, mediaIndex: clip.mediaIndex, mediaType: clip.mediaType })),
+          media: media.map((item, i) => ({
+            path: item.sandboxPath,
+            image: /image\\//i.test(String(manifest.clips?.find(clip => clip.mediaIndex === i)?.mediaType || '')) || /\\.(png|jpe?g|webp|gif)$/i.test(item.path),
+            audio: /audio\\//i.test(String(manifest.clips?.find(clip => clip.mediaIndex === i)?.mediaType || '')),
+            duration: Math.max(1, ...((manifest.clips || []).filter(clip => clip.mediaIndex === i).map(clip => clip.duration)))
+          }))
         })) },
         { path: '/vercel/sandbox/runner.mjs', content: Buffer.from(runnerSource) }
       ]);
