@@ -206,7 +206,7 @@
       panel.classList.add('module-extra');
       panel.append(el('h3', '', 'Database reachability'), el('p', 'panel-copy', 'This is a bounded server-side connectivity check; it does not expose database rows.'));
       panel.append(state(db === 'available' ? 'Available' : 'Unavailable', db === 'available' ? 'available' : 'unavailable'));
-      panel.append(el('div', 'section-head'), el('h3', '', 'Recent production deployments'), el('p', 'panel-copy', 'Read-only Vercel metadata. This integration requires a dedicated read-only token and project identifiers; missing credentials are shown as unavailable.'));
+      panel.append(el('h3', '', 'Recent production deployments'), el('p', 'panel-copy', 'Read-only Vercel metadata. This integration requires a dedicated read-only token and project identifiers; missing credentials are shown as unavailable.'));
       if (!deployments) {
         panel.append(notice('Deployment source unavailable', 'Set OWNER_VERCEL_READONLY_TOKEN, OWNER_VERCEL_PROJECT_ID, and OWNER_VERCEL_TEAM_ID on the server to connect this read-only source.'));
       } else {
