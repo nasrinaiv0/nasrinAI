@@ -32,7 +32,7 @@ try {
 
 // Vercel's rewrite also passes the original path as ?__path=. If the request
 // arrives addressed to /api/index, put the original path back so the app's
-// router sees /v1/... . Only /v1 and /healthz paths are accepted.
+// router sees /v1/... . Only known API, owner-console, and health paths are accepted.
 export function restorePath(url) {
   const u = new URL(url || '/', 'http://local');
   const original = u.searchParams.get('__path');
