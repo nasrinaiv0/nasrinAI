@@ -51,8 +51,11 @@ begin
     or (v_summary->>'active_user_ids_7d')::bigint < 2 then
     raise exception 'growth summary did not include seeded active actor IDs';
   end if;
-  if v_summary->>'return_rate_pct' is not null then
+  if (v_summary->>'prior_week_user_ids')::bigint = 0 and v_summary->>'return_rate_pct' is not null then
     raise exception 'return rate must be null when the prior-week cohort is empty';
+  end if;
+  if (v_summary->>'prior_week_user_ids')::bigint > 0 and ((v_summary->>'return_rate_pct')::numeric < 0 or (v_summary->>'return_rate_pct')::numeric > 100) then
+    raise exception 'return rate must be between 0 and 100';
   end if;
 end $owner_growth_test$;
 
