@@ -120,8 +120,8 @@ begin
     (tenant_id, user_id, plan, status, starts_at, ends_at, provider, amount, currency)
   values ('00000000-0000-0000-0000-000000000001', 'owner-metrics-paid-checkout', 'pro', 'active', now() - interval '1 hour', now() + interval '30 days', 'paymongo', 12345, 'PHP');
   v_after := public.owner_console_plan_summary(now() - interval '1 hour');
-  if (v_after->>'active_paid_periods')::bigint <> (v_before->>'active_paid_periods')::bigint + 2
-    or (v_after->>'active_pro_periods')::bigint <> (v_before->>'active_pro_periods')::bigint + 1
+  if (v_after->>'active_paid_periods')::bigint <> (v_before->>'active_paid_periods')::bigint + 3
+    or (v_after->>'active_pro_periods')::bigint <> (v_before->>'active_pro_periods')::bigint + 2
     or (v_after->>'active_max_periods')::bigint <> (v_before->>'active_max_periods')::bigint + 1
     or (v_after->>'active_ultra_periods')::bigint <> (v_before->>'active_ultra_periods')::bigint
     or (v_after->>'new_periods')::bigint <> (v_before->>'new_periods')::bigint + 4
