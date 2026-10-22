@@ -4229,13 +4229,15 @@
     try {
       let videos = [];
       try {
-        const token = account?.token || await guestToken(false);
-        const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+        if (!sourceOnly) {
+          const token = account?.token || await guestToken(false);
+          const response = await net('/v1/youtube/search?q=' + encodeURIComponent(query), {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+          }
         }
       } catch {
         // Fall back to a validated, direct YouTube source link below.
