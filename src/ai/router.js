@@ -100,12 +100,6 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
         .find((candidate) => candidate.provider === provider && candidate.provider !== key);
       const candidate = sameLevel || { provider, model: providers[provider].model, effort: null };
       if (candidate && canHandle(providers[provider], attachments)) {
-        // Never let internal failover bypass policy.js pricing preflight.
-        // Unknown-price fallbacks are skipped before any provider call.
-        if (typeof req.spendHooks?.canPrice === 'function' && !req.spendHooks.canPrice(provider, candidate.model)) {
-          logger.warn('skipping unpriced AI fallback model', { provider, model: candidate.model });
-          continue;
-        }
         fallbackSpecs.push([provider, candidate]);
       }
     }
