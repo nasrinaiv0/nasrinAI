@@ -127,6 +127,50 @@ revoke execute on function public.owner_console_automation_summary(timestamptz) 
 grant execute on function public.owner_console_automation_summary(timestamptz) to service_role;
 
 
+-- Paid plan entitlement counts only; these are not revenue or payment-settlement figures.
+create index if not exists plan_periods_created_at_idx on public.plan_periods (created_at desc);
+create index if not exists plan_periods_active_expiry_idx on public.plan_periods (ends_at) where status = 'active';
+
+create or replace function public.owner_console_plan_summary(p_since timestamptz)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $owner_plan$
+declare
+  v_result jsonb;
+begin
+  if p_since is null or p_since > now() or p_since < now() - interval '90 days' then
+    raise exception 'p_since must be within the last 90 days';
+  end if;
+  select jsonb_build_object(
+    'window_start', p_since,
+    'window_end', now(),
+    'active_paid_periods', count(*) filter (where status = 'active' and ends_at > now()),
+    'active_max_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'max'),
+    'active_ultra_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'ultra'),
+    'new_periods', count(*) filter (where created_at >= p_since),
+    'last_period_at', max(created_at),
+    'recent_by_status', coalesce((
+      select jsonb_agg(jsonb_build_object('status', p.status, 'plan', p.plan, 'periods', p.periods) order by p.status, p.plan)
+      from (
+        select status, plan, count(*) as periods
+        from public.plan_periods
+        where created_at >= p_since
+        group by status, plan
+      ) p
+    ), '[]'::jsonb)
+  )
+  into v_result
+  from public.plan_periods
+  where created_at >= p_since or (status = 'active' and ends_at > now());
+  return v_result;
+end;
+$owner_plan$;
+
+revoke execute on function public.owner_console_plan_summary(timestamptz) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_plan_summary(timestamptz) to service_role;
 -- Minimal owner-action audit trail. Store a one-way IP hash, never the raw address.
 create table if not exists public.owner_audit_events (
   id uuid primary key default gen_random_uuid(),
