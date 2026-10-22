@@ -1647,3 +1647,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for live-price conversion, missing/empty/invalid pricing, zero-cost models, and removal of stale static OpenRouter prices.
 - Implementation commits: `4aaa160` (share pricing preflight), `af626d4` (skip unpriced failover), `8e8caf0` (failover regression), `76b07b3` (live catalog conversion), `a4732be` (refresh before routing), `9b6b576` (runtime catalog refresh), `425e65e` (price verification tests), `b0d6b7a` (no free-list bypass), `f4c8ef4` (reject empty price fields), `df80f51` (empty-price regression), and `dc0c4db` (initial changelog entry).
 - **Validation:** Vercel status passed on the prior implementation commit. Latest CI and Documentation Gate checks need to finish; full test results and production behavior remain pending.
+
+
+## PR #520 — OpenRouter-primary routing (2026-10-22)
+
+- Add `AI_PROVIDER=openrouter` as an explicit primary-provider mode that requires `OPENROUTER_API_KEY`.
+- Route all four normal chat tiers and all five smart-routing levels through exact OpenRouter model IDs; no direct-provider fallback is enabled in this mode.
+- Preserve the existing policy checks, live OpenRouter model catalog verification, privacy redaction, budget reservation, and provider-reported billing.
+- Add regression coverage asserting every tier and smart-routing level uses OpenRouter and that the provider registry contains only OpenRouter.
+- This mode applies to normal text-model inference. Dedicated integrations such as YouTube Data API search and platform-specific media/voice endpoints remain separately configured capabilities; they are not silently converted into chat completions.
+- **Validation:** CI must pass on the final PR head. Production deployment and live-provider verification remain pending.
