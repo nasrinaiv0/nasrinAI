@@ -41,6 +41,21 @@ begin
   end;
 end $owner_test$;
 
+do $owner_growth_test$
+declare
+  v_summary jsonb;
+begin
+  v_summary := public.owner_console_growth_summary();
+  if (v_summary->>'active_user_ids_24h')::bigint < 2
+    or (v_summary->>'active_guest_ids_24h')::bigint < 1
+    or (v_summary->>'active_user_ids_7d')::bigint < 2 then
+    raise exception 'growth summary did not include seeded active actor IDs';
+  end if;
+  if v_summary->>'return_rate_pct' is not null then
+    raise exception 'return rate must be null when the prior-week cohort is empty';
+  end if;
+end $owner_growth_test$;
+
 do $owner_test$
 declare
   v_before jsonb;
@@ -150,6 +165,11 @@ begin
   begin
     perform public.owner_console_automation_summary(now() - interval '1 hour');
     raise exception 'authenticated role unexpectedly executed owner automation summary';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.owner_console_growth_summary();
+    raise exception 'authenticated role unexpectedly executed owner growth summary';
   exception when insufficient_privilege then null;
   end;
   begin
