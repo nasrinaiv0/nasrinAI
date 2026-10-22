@@ -222,7 +222,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     const uploaded = [];
     try {
       for (let i = 0; i < mediaAssets.length; i++) {
-        const ext = /image\\/(png|jpeg|webp|gif)/.test(mediaAssets[i].mime || '') ? (mediaAssets[i].mime.includes('png') ? 'png' : mediaAssets[i].mime.includes('webp') ? 'webp' : mediaAssets[i].mime.includes('gif') ? 'gif' : 'jpg')
+        const ext = String(mediaAssets[i].mime || '').startsWith('image/') ? (mediaAssets[i].mime.includes('png') ? 'png' : mediaAssets[i].mime.includes('webp') ? 'webp' : mediaAssets[i].mime.includes('gif') ? 'gif' : 'jpg') : String(mediaAssets[i].mime || '').startsWith('audio/') ? 'mp3' : 'mp4';
           : /audio\\//.test(mediaAssets[i].mime || '') ? 'mp3' : 'mp4';
         const path = root + '/media-' + i + '.' + ext;
         await storage('POST', path, mediaAssets[i].bytes, mediaAssets[i].mime || 'application/octet-stream');
