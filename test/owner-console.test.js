@@ -6,13 +6,13 @@ const SECRET = 'test-owner-console-session-secret-32-bytes-minimum';
 const EMAIL = 'owner@example.com';
 const IP = '203.0.113.42';
 
-function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser } = {}) {
+function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null } = {}) {
   const config = {
     isProduction: true,
     ownerConsole: ownerConsole || { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET }
   };
   const verifier = verifyUser || (async (token) => token === 'valid-access-token-1234567890' ? { id: 'user-1', email } : null);
-  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, clientIp: (req) => req.testIp ?? ip, now });
+  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store, clientIp: (req) => req.testIp ?? ip, now });
   return { config, consoleHandler };
 }
 
@@ -150,4 +150,37 @@ test('IPv6 allowlist entries are normalized before exact comparison', async () =
   const { consoleHandler } = setup({ ownerConsole, ip: '2001:db8::1' });
   const out = await bootstrap(consoleHandler, { testIp: '2001:db8::1' });
   assert.equal(out.res.statusCode, 204);
+});
+
+test('usage export is bounded, aggregate-only, and unavailable when its source is not connected', async () => {
+  const summary = {
+    window_start: '2026-10-22T00:00:00.000Z',
+    window_end: '2026-10-23T00:00:00.000Z',
+    request_count: 2, success_count: 2, failure_count: 0,
+    input_tokens: 100, output_tokens: 40, total_tokens: 140,
+    active_user_ids: 1, active_guest_ids: 0, latency_p50_ms: 80, latency_p95_ms: 120,
+    estimated_cost_usd: 0.01, cost_estimate_rows: 2,
+    providers: [{ provider: 'fake-provider', model: 'fake-model', requests: 2, successes: 2, input_tokens: 100, output_tokens: 40, estimated_cost_usd: 0.01 }]
+  };
+  const store = { kind: 'supabase', request: async (method, path, options) => {
+    assert.equal(method, 'POST');
+    assert.equal(path, 'rpc/owner_console_usage_summary');
+    assert.ok(options.body.p_since);
+    return summary;
+  } };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/export?window=24h', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/export');
+  assert.equal(out.res.statusCode, 200);
+  assert.match(out.res.headers['content-type'], /text\/csv/);
+  assert.match(out.res.headers['content-disposition'], /nasrinai-owner-usage-24h\.csv/);
+  assert.match(out.res.body, /fake-provider/);
+  assert.match(out.res.body, /140/);
+  assert.ok(!out.res.body.includes('prompt') && !out.res.body.includes('message content'));
+
+  const invalid = request('GET', '/owner/api/export?window=all', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/export');
+  assert.equal(invalid.res.statusCode, 400);
 });
