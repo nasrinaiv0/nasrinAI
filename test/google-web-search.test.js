@@ -57,7 +57,7 @@ test('web research combines Google candidates with answer citations and provides
   });
   const result = await search({ messages: [{ role: 'user', content: 'latest public video' }] });
   assert.match(JSON.stringify(requestBody.input), /Google excerpt/);
-  assert.ok(result.citations.some((source) => source.url === 'https://example.com/source'));
+  assert.ok(!result.citations.some((source) => source.url === 'https://example.com/source'), 'candidate results must not be mislabeled as cited evidence');
   assert.ok(result.citations.some((source) => source.url === 'https://official.example/page'));
 });
 
@@ -89,4 +89,73 @@ test('OpenRouter web research uses the server web-search tool and validates cita
   assert.equal(requestBody.tools[0].parameters.max_results, 10);
   assert.equal(result.text, 'Verified answer.');
   assert.deepEqual(result.citations.map((source) => source.url), ['https://example.com/source']);
+});
+
+
+test('Google fallback returns real search results when OpenRouter web search fails', async () => {
+  const googleSearch = {
+    available: true,
+    async search() {
+      return [{ url: 'https://example.com/real-result', title: 'Real result', snippet: 'Provider-returned snippet', displayLink: 'example.com' }];
+    }
+  };
+  const search = createWebSearch({
+    apiKey: 'openrouter-test-key',
+    model: 'openrouter/auto',
+    googleSearch,
+    fetchImpl: async () => new Response('unavailable', { status: 503 })
+  });
+  const result = await search({ messages: [{ role: 'user', content: 'latest public video' }] });
+  assert.match(result.text, /Real result/);
+  assert.match(result.text, /Provider-returned snippet/);
+  assert.deepEqual(result.citations.map((source) => source.url), ['https://example.com/real-result']);
+});
+
+test('Google fallback works without an OpenRouter key and does not call OpenRouter', async () => {
+  let called = false;
+  const search = createWebSearch({
+    apiKey: '',
+    model: 'openrouter/auto',
+    googleSearch: {
+      available: true,
+      async search() { return [{ url: 'https://example.org/result', title: 'Fallback result', snippet: 'Verified search provider result' }]; }
+    },
+    fetchImpl: async () => { called = true; throw new Error('must not call OpenRouter'); }
+  });
+  const result = await search({ messages: [{ role: 'user', content: 'latest update' }] });
+  assert.equal(called, false);
+  assert.deepEqual(result.citations.map((source) => source.url), ['https://example.org/result']);
+});
+
+test('model-authored URLs are stripped unless cited by search or supplied by the user', async () => {
+  const search = createWebSearch({
+    apiKey: 'openrouter-test-key',
+    model: 'openrouter/auto',
+    fetchImpl: async () => Response.json({
+      output: [{ type: 'message', content: [{ type: 'output_text',
+        text: 'Read [the official page](https://official.example/page) or https://invented.example/fake',
+        annotations: [{ type: 'url_citation', url: 'https://official.example/page', title: 'Official page' }]
+      }] }],
+      usage: { input_tokens: 8, output_tokens: 6 }
+    })
+  });
+  const result = await search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
+  assert.match(result.text, /\\[the official page\\]\\(https:\\/\\/official\\.example\\/page\\)/);
+  assert.doesNotMatch(result.text, /invented\\.example/);
+  assert.match(result.text, /unverified link omitted/);
+});
+
+test('explicit user-supplied URLs remain available in the answer', async () => {
+  const search = createWebSearch({
+    apiKey: 'openrouter-test-key',
+    model: 'openrouter/auto',
+    fetchImpl: async () => Response.json({
+      output: [{ type: 'message', content: [{ type: 'output_text',
+        text: 'This is the link you gave me: https://example.com/your-link'
+      }] }],
+      usage: { input_tokens: 8, output_tokens: 6 }
+    })
+  });
+  const result = await search({ messages: [{ role: 'user', content: 'Please check https://example.com/your-link' }] });
+  assert.match(result.text, /https:\\/\\/example\\.com\\/your-link/);
 });
