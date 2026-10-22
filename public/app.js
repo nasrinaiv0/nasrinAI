@@ -4510,8 +4510,9 @@
     const duration = document.createElement('div');
     const elapsedMs = Number(responseMetadata?.duration_ms);
     duration.textContent = Number.isFinite(elapsedMs) && elapsedMs >= 0
-      ? (elapsedMs >= 60000 ? (elapsedMs / 60000).toFixed(1) + ' min' : (elapsedMs / 1000).toFixed(1) + ' sec')
+      ? (responseMetadata?.duration_estimated ? '≈ ' : '') + (elapsedMs >= 60000 ? (elapsedMs / 60000).toFixed(1) + ' min' : (elapsedMs / 1000).toFixed(1) + ' sec')
       : 'Not reported';
+    if (responseMetadata?.duration_estimated) durationLabel.title = 'Approximate elapsed time between the saved user message and assistant reply; exact generation latency was not persisted.';
     const inputLabel = document.createElement('div');
     inputLabel.className = 'reply-detail-label reply-detail-spaced';
     inputLabel.textContent = 'Input tokens';
@@ -9945,15 +9946,22 @@
         const supplied = message.response_metadata || message.responseMetadata;
         if (supplied || message.role !== 'assistant') return supplied || null;
         let precedingUser = '';
+        let precedingUserMessage = null;
         for (let j = index - 1; j >= 0; j -= 1) {
           if (messages[j]?.role === 'user') {
+            precedingUserMessage = messages[j];
             precedingUser = messages[j].content || '';
             break;
           }
         }
+        const assistantCreatedAt = Date.parse(message.created_at || message.createdAt || '');
+        const userCreatedAt = Date.parse(precedingUserMessage?.created_at || precedingUserMessage?.createdAt || '');
+        const elapsedMs = Number.isFinite(assistantCreatedAt) && Number.isFinite(userCreatedAt) && assistantCreatedAt >= userCreatedAt
+          ? assistantCreatedAt - userCreatedAt : null;
         return {
           timestamp: message.created_at || message.createdAt || null,
-          duration_ms: null,
+          duration_ms: elapsedMs,
+          duration_estimated: elapsedMs !== null,
           usage: {
             input_tokens: estimateHistoricalTokens(precedingUser),
             output_tokens: estimateHistoricalTokens(message.content),
