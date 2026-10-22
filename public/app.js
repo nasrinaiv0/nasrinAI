@@ -773,11 +773,32 @@
     return refreshing;
   }
 
+  let ownerBootstrapToken = '';
+  async function syncOwnerConsoleEntry(token) {
+    if (!token || ownerBootstrapToken === token) return;
+    ownerBootstrapToken = token;
+    try {
+      const response = await fetch('/v1/owner/session', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+      const existing = $('ownerConsoleEntry');
+      if (response.status === 204) {
+        if (!existing) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.id = 'ownerConsoleEntry';
+          button.className = 'menu-row';
+          button.textContent = 'Owner Command Center';
+          button.addEventListener('click', () => { window.location.href = '/owner'; });
+          $('pageMain')?.appendChild(button);
+        }
+      } else if (existing) existing.remove();
+    } catch { /* Owner access is optional; never disrupt normal sign-in or chat. */ }
+  }
+
   async function credential(fresh) {
     if (account) {
       const hadSignedInAccount = account;
       if (fresh || account.until - Date.now() < 60_000) await refreshAccount();
-      if (account) return account.token;
+      if (account) { void syncOwnerConsoleEntry(account.token); return account.token; }
       if (hadSignedInAccount) {
         // Preserve the distinction between an expired account and a real guest.
         // A protected settings call must not be retried using a guest credential.
