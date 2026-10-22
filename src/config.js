@@ -3,6 +3,7 @@
 
 import { parseKey as parseConnectorKey } from './connectors/secret.js';
 import { loadPrices, priceOf } from './ai/pricing.js';
+import { isIP } from 'node:net';
 
 export class ConfigError extends Error {}
 
@@ -124,6 +125,22 @@ export function loadConfig(env = process.env) {
   if (ownerDiagnosticsToken && ownerDiagnosticsToken.length < 32) {
     throw new ConfigError('OWNER_DIAGNOSTICS_TOKEN: use at least 32 random characters');
   }
+  // Owner Console access is optional, but is disabled unless every server-only
+  // allowlist and the dedicated session signing secret are valid. Invalid values
+  // fail closed for this feature without taking down the public product.
+  const ownerEmails = String(env.OWNER_ALLOWED_EMAILS || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+  const ownerIps = String(env.OWNER_ALLOWED_IPS || '').split(',').map((value) => value.trim()).filter(Boolean);
+  const ownerSessionSecret = String(env.OWNER_SESSION_SECRET || '');
+  const ownerEmailValid = (value) => /^[^\\s@]{1,64}@[^^\\s@]{1,190}\\.[A-Za-z]{2,63}$/.test(value);
+  const ownerConsoleValid = ownerEmails.length > 0 && ownerIps.length > 0
+    && ownerEmails.every(ownerEmailValid) && ownerIps.every((value) => isIP(value) === 4)
+    && ownerSessionSecret.length >= 32;
+  const ownerConsole = Object.freeze({
+    enabled: ownerConsoleValid,
+    emails: Object.freeze(ownerConsoleValid ? [...new Set(ownerEmails)] : []),
+    ips: Object.freeze(ownerConsoleValid ? [...new Set(ownerIps)] : []),
+    sessionSecret: ownerConsoleValid ? ownerSessionSecret : ''
+  });
   if (isProduction && !retentionCronSecret) throw new ConfigError('CRON_SECRET is required in production for scheduled retention cleanup');
   if (retentionCronSecret && retentionCronSecret.length < 32) throw new ConfigError('CRON_SECRET: use at least 32 random characters');
   if (supabasePublishableKey && (supabasePublishableKey === supabaseSecretKey || supabaseKeyKind(supabasePublishableKey) === 'secret')) {
@@ -639,6 +656,7 @@ export function loadConfig(env = process.env) {
     guestSecret,
     retentionCronSecret,
     ownerDiagnosticsToken,
+    ownerConsole,
     deploymentEnvironment: String(env.VERCEL_ENV || (isProduction ? 'production' : nodeEnv)),
     publicUrl,
     auth: Object.freeze({ email: authEmail, google: authGoogle }),
