@@ -15,7 +15,7 @@ Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and th
 - Dedicated `OWNER_SESSION_SECRET` signs a 10-minute HttpOnly, SameSite=Strict cookie scoped to `/owner`; protected requests re-check the current IP and allowlists.
 - Unauthorized, invalid-session, unlisted-IP, unlisted-email, and missing/invalid configuration cases fail closed with a generic HTTP 404 and no-store headers.
 - Responsive, premium console shell with all ten navigation areas; unverified modules explicitly say Unavailable rather than showing fabricated values.
-- Additive migration `042_owner_console_metrics.sql` defines a server-role-only aggregate RPC for request counts, outcomes, tokens, latency percentiles, active user IDs with recorded model calls, estimated costs, and provider/model breakdowns. The RPC does not read prompts or message content and does not broaden browser grants or RLS.
+- Additive migration `042_owner_console_metrics.sql` defines server-role-only aggregate RPCs for usage and automation run states, plus a minimal owner-action audit table/RPC. Usage telemetry does not read prompts or message content; automation summaries omit workflow definitions and step payloads; audit records store a one-way IP hash instead of the raw address. Browser grants/RLS are not broadened.
 - Regression tests cover owner config, session bootstrap, identity/IP mismatch, expiry/tampering, no-store/404 behavior, route rewrites, and server interception before static serving.
 
 ### Not yet complete
