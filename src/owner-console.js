@@ -58,6 +58,24 @@ function trustedSameOrigin(req) {
   }
 }
 
+// The signed-in main site bootstraps a host-only session cookie on the owner
+// subdomain. Cross-origin bootstrap is limited to the two canonical site
+// origins, the exact owner host, and same-site browser requests.
+function trustedBootstrapOrigin(req, res, config) {
+  if (trustedSameOrigin(req)) return true;
+  if (!config?.isProduction) return false;
+  const origin = String(req.headers.origin || '').trim();
+  const host = String(req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  if (host !== 'owner.nasrinai.com' ||
+      !['https://nasrinai.com', 'https://www.nasrinai.com'].includes(origin) ||
+      (fetchSite && fetchSite !== 'same-site')) return false;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin, Cookie, Authorization');
+  return true;
+}
+
 function normalizeIp(value) {
   const ip = String(value || '').trim().replace(/^::ffff:/, '');
   if (isIP(ip) === 4) return ip;
@@ -332,7 +350,17 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     if (reservedOwnerApi && !bootstrapPath) { sendNotFound(res, req.method === 'HEAD'); return true; }
 
     if (bootstrapPath) {
-      if (req.method !== 'POST' || !trustedSameOrigin(req)) { jsonError(res, req.method === 'HEAD'); return true; }
+      const trustedOrigin = trustedBootstrapOrigin(req, res, config);
+      if (req.method === 'OPTIONS') {
+        if (!trustedOrigin) { jsonError(res); return true; }
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+        res.setHeader('Access-Control-Max-Age', '600');
+        res.statusCode = 204;
+        res.end();
+        return true;
+      }
+      if (req.method !== 'POST' || !trustedOrigin) { jsonError(res, req.method === 'HEAD'); return true; }
       const allowlist = allowedRequest(req, config, clientIp);
       if (!allowlist || !(await rateAllowed(req))) { jsonError(res); return true; }
       const token = bearer(req);
