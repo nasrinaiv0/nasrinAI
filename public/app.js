@@ -5309,8 +5309,8 @@
       improvementConsentValue = result.enabled === true;
       control.checked = improvementConsentValue;
       status.textContent = improvementConsentValue
-        ? 'Preference saved. No chat content is currently collected for improvement.'
-        : 'Preference saved. Improvement consent is off.';
+        ? 'Preference saved. Eligible Quick conversations may be screened for community learning.'
+        : 'Preference saved. Help improve NasrinAI is off; no new examples will be collected.';
     } catch (err) {
       improvementConsentValue = previous;
       control.checked = previous;
@@ -10064,6 +10064,9 @@
       return loadConversation();
     })
     .then(() => {
+      // Check the server-side contribution preference after identity restoration.
+      // This may show the optional learning notice on first visit; it never opts in automatically.
+      loadImprovementConsent().catch(() => {});
       // Back in the coding chat after a reload, while still signed in.
       const sc = saved.get(KEYS.coding);
       if (sc && typeof sc.id === 'string' && account && projectsOn) {
