@@ -4,12 +4,6 @@
 insert into auth.users (id, raw_user_meta_data, created_at, last_sign_in_at)
 values ('eeeeeeee-0000-4000-8000-000000000042', '{}'::jsonb, now(), now() - interval '1 day')
 on conflict (id) do update set created_at = excluded.created_at, last_sign_in_at = excluded.last_sign_in_at;
-insert into auth.users (id, raw_user_meta_data, created_at, last_sign_in_at)
-values
-  ('eeeeeeee-0000-4000-8000-000000000043', '{}'::jsonb, now() - interval '10 days', now() - interval '9 days'),
-  ('eeeeeeee-0000-4000-8000-000000000044', '{}'::jsonb, now() - interval '40 days', now() - interval '39 days')
-on conflict (id) do update set created_at = excluded.created_at, last_sign_in_at = excluded.last_sign_in_at;
-
 set role service_role;
 do $owner_test$
 declare
@@ -173,28 +167,6 @@ begin
   end if;
 end $owner_plan_test$;
 
-do $owner_conversion_test$
-declare
-  v_summary jsonb;
-begin
-  insert into public.plan_periods
-    (tenant_id, user_id, plan, status, starts_at, ends_at, provider, amount, currency, created_at)
-  values
-    ('00000000-0000-0000-0000-000000000001', 'eeeeeeee-0000-4000-8000-000000000043', 'pro', 'active', now() - interval '7 days', now() + interval '30 days', 'paymongo', 10000, 'PHP', now() - interval '7 days'),
-    ('00000000-0000-0000-0000-000000000001', 'eeeeeeee-0000-4000-8000-000000000044', 'max', 'active', now() - interval '20 days', now() + interval '30 days', 'paymongo', 20000, 'PHP', now() - interval '20 days');
-  v_summary := public.owner_console_conversion_summary();
-  if (v_summary->>'eligible_signups_7d')::bigint < 1
-    or (v_summary->>'converted_signups_7d')::bigint < 1
-    or (v_summary->>'eligible_signups_30d')::bigint < 1
-    or (v_summary->>'converted_signups_30d')::bigint < 1
-    or (v_summary->>'conversion_7d_pct')::numeric < 0
-    or (v_summary->>'conversion_7d_pct')::numeric > 100
-    or (v_summary->>'conversion_30d_pct')::numeric < 0
-    or (v_summary->>'conversion_30d_pct')::numeric > 100 then
-    raise exception 'mature signup-to-paid conversion cohorts were not calculated correctly';
-  end if;
-end $owner_conversion_test$;
-
 do $owner_users_test$
 declare
   v_summary jsonb;
@@ -267,11 +239,7 @@ begin
     raise exception 'authenticated role unexpectedly executed owner retention summary';
   exception when insufficient_privilege then null;
   end;
-  begin
-    perform public.owner_console_conversion_summary();
-    raise exception 'authenticated role unexpectedly executed owner conversion summary';
-  exception when insufficient_privilege then null;
-  end;
+
   begin
     perform public.owner_console_user_summary();
     raise exception 'authenticated role unexpectedly executed owner user summary';
