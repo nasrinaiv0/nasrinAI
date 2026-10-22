@@ -56,7 +56,7 @@ test('successful OpenRouter search stays primary and does not promote unused Goo
       });
     }
   });
-  const result = await search({ messages: [{ role: 'user', content: 'latest public video' }] });
+  const result = await search.search({ messages: [{ role: 'user', content: 'latest public video' }] });
   assert.doesNotMatch(JSON.stringify(requestBody.input), /Google excerpt/);
   assert.equal(googleCalls, 0, 'fallback search should not add latency to a successful primary request');
   assert.ok(!result.citations.some((source) => source.url === 'https://example.com/source'), 'candidate results must not be mislabeled as cited evidence');
@@ -83,7 +83,7 @@ test('OpenRouter web research uses the server web-search tool and validates cita
       });
     }
   });
-  const result = await search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
+  const result = await search.search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
   assert.equal(requestUrl, 'https://openrouter.ai/api/v1/responses');
   assert.equal(requestBody.model, 'openrouter/auto');
   assert.equal(requestBody.tools[0].type, 'openrouter:web_search');
@@ -107,7 +107,7 @@ test('Google fallback returns real search results when OpenRouter web search fai
     googleSearch,
     fetchImpl: async () => new Response('unavailable', { status: 503 })
   });
-  const result = await search({ messages: [{ role: 'user', content: 'latest public video' }] });
+  const result = await search.search({ messages: [{ role: 'user', content: 'latest public video' }] });
   assert.match(result.text, /Real result/);
   assert.match(result.text, /Provider-returned snippet/);
   assert.deepEqual(result.citations.map((source) => source.url), ['https://example.com/real-result']);
@@ -124,7 +124,7 @@ test('Google fallback works without an OpenRouter key and does not call OpenRout
     },
     fetchImpl: async () => { called = true; throw new Error('must not call OpenRouter'); }
   });
-  const result = await search({ messages: [{ role: 'user', content: 'latest update' }] });
+  const result = await search.search({ messages: [{ role: 'user', content: 'latest update' }] });
   assert.equal(called, false);
   assert.deepEqual(result.citations.map((source) => source.url), ['https://example.org/result']);
 });
@@ -141,7 +141,7 @@ test('model-authored URLs are stripped unless cited by search or supplied by the
       usage: { input_tokens: 8, output_tokens: 6 }
     })
   });
-  const result = await search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
+  const result = await search.search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
   assert.ok(result.text.includes('[the official page](https://official.example/page)'));
   assert.equal(result.text.includes('invented.example'), false);
   assert.ok(result.text.includes('unverified link omitted'));
@@ -158,6 +158,6 @@ test('explicit user-supplied URLs remain available in the answer', async () => {
       usage: { input_tokens: 8, output_tokens: 6 }
     })
   });
-  const result = await search({ messages: [{ role: 'user', content: 'Please check https://example.com/your-link' }] });
+  const result = await search.search({ messages: [{ role: 'user', content: 'Please check https://example.com/your-link' }] });
   assert.ok(result.text.includes('https://example.com/your-link'));
 });
