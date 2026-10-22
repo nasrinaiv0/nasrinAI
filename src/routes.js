@@ -1822,9 +1822,6 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      method: 'POST',
-,
-    {
       // Server-side composition render for the full visual timeline. Only owner-scoped
       // video IDs and private media asset IDs are resolved; arbitrary URLs are never fetched.
       method: 'POST',
