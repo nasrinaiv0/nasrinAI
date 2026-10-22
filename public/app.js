@@ -5161,6 +5161,9 @@
     activeAccountEmail = null;
     account = null;
     saved.del(KEYS.account);
+    document.getElementById('ownerConsoleEntry')?.remove();
+    // Clear the short-lived owner cookie on normal sign-out when it is valid.
+    void fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }).catch(() => {});
     renderAccount();
     renderImageHint();
   }
