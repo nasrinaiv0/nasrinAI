@@ -1,3 +1,4 @@
+import { PLATFORM_TENANT_ID } from '../tenants.js';
 import { redactForProvider } from '../ai/redact.js';
 import { looksSecret } from './secrets.js';
 import { searchTerms } from './index.js';
@@ -27,7 +28,7 @@ export function buildCommunityExample({ question, answer }) {
 export function createCommunityLearning({ store, logger, now = () => Date.now() }) {
   return {
     async capture({ caller, question, answer, eligible = true }) {
-      if (!eligible || caller?.tenantId !== '00000000-0000-4000-8000-000000000001'
+      if (!eligible || caller?.tenantId !== PLATFORM_TENANT_ID
           || !['user', 'guest'].includes(caller?.actor?.type) || !caller.actor.id
           || typeof store?.getImprovementConsent !== 'function'
           || typeof store?.addImprovementExample !== 'function') return false;
@@ -49,7 +50,7 @@ export function createCommunityLearning({ store, logger, now = () => Date.now() 
     },
 
     async context({ tenantId, query, limit = 3 }) {
-      if (tenantId !== '00000000-0000-4000-8000-000000000001'
+      if (tenantId !== PLATFORM_TENANT_ID
           || typeof store?.searchApprovedImprovementExamples !== 'function') return null;
       const terms = searchTerms(query).slice(0, 8);
       if (terms.length < 2) return null;
