@@ -14,7 +14,7 @@ Implementation is being delivered on `feature/owner-console-v2`, based on curren
 1. Open the `nasrinai` project in the Vercel dashboard and go to **Settings → Environment Variables**.
 2. Add `OWNER_ALLOWED_EMAILS` with the exact owner email(s), comma-separated only if multiple owners are explicitly approved.
 3. Add `OWNER_ALLOWED_IPS` with the exact public IPv4/IPv6 address(es) allowed to open the console. Use commas between addresses; do not add CIDR ranges. Use the public egress IP, not a private LAN address. If the ISP/mobile carrier changes that address, update this variable and redeploy.
-4. Add `OWNER_SESSION_SECRET` as a dedicated random secret of at least 32 characters. Generate it in a trusted password/secret manager; never reuse a provider API key.
+4. Ensure `OWNER_SESSION_SECRET` is a dedicated random secret of at least 32 characters. It has been created for Production for this feature; do not reuse a provider API key or reveal the value.
 5. Select **Production** for the production console (and Preview only if a separately approved preview allowlist is desired), save, and redeploy so the server reads the new values.
 
 Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repository. If any variable is missing or malformed, the owner route intentionally fails closed and shows a generic 404. Updating `OWNER_ALLOWED_IPS` does not configure Vercel Trusted IPs and does not restrict the public NasrinAI site.
@@ -34,7 +34,7 @@ Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repos
 
 - Migration 057 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
 - Retention cohorts and daily/weekly active-user definitions, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, durable incident records/alert delivery, and privileged controls remain pending source verification and implementation.
-- Vercel environment variables have not been changed. The actual owner email, public IP list, and dedicated signing secret are intentionally not guessed.
+- Production environment inventory was checked without decrypting values: `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS` already existed, and a dedicated sensitive `OWNER_SESSION_SECRET` has now been created. The actual allowlist values have not been read or independently confirmed, and no deployment has validated the secret yet.
 - Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
 - No production migration, environment update, merge, or deployment has been performed.
 
