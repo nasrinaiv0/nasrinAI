@@ -782,15 +782,15 @@
     const existing = $('ownerConsoleEntry');
     if (existing) existing.remove();
     try {
-      const response = await fetch('/v1/owner/session', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      const response = await fetch('https://owner.nasrinai.com/v1/owner/session', {
+        method: 'POST', credentials: 'include', mode: 'cors', cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
       if (response.status === 204 && !document.getElementById('ownerConsoleEntry')) {
         const button = document.createElement('button');
         button.type = 'button'; button.id = 'ownerConsoleEntry'; button.className = 'menu-row';
         button.textContent = 'Owner Command Center';
-        button.addEventListener('click', async () => { await syncOwnerConsoleEntry(account && account.token); window.location.href = '/owner'; });
+        button.addEventListener('click', async () => { await syncOwnerConsoleEntry(account && account.token); window.location.href = 'https://owner.nasrinai.com/owner'; });
         $('pageMain')?.appendChild(button);
       } else if (response.status !== 204) $('ownerConsoleEntry')?.remove();
     } catch {
