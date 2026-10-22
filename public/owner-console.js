@@ -179,7 +179,7 @@
     if (key === 'users') {
       const a = data && data.usage_24h, b = data && data.usage_7d, users = data && data.user_summary, growth = data && data.growth_summary, retention = data && data.retention_summary, panel = el('section', 'panel');
       panel.classList.add('module-extra');
-      panel.append(el('h3', '', 'Account and activity signals'), el('p', 'panel-copy', 'Auth record totals and signup timestamps are aggregated server-side. Activity IDs reflect recorded model calls; retention cohorts use the first observed signed-in model-call date, not signup date.'));
+      panel.append(el('h3', '', 'Account and activity signals'), el('p', 'panel-copy', 'Auth record totals and signup timestamps are aggregated server-side. Activity IDs reflect recorded model calls; retention cohorts use the first observed signed-in model-call date within a 45-day lookback, not signup date.'));
       const grid = el('div', 'grid');
       const value = (summary, field) => !summary ? 'Unavailable' : Number(summary.request_count) === 0 ? 'No data yet' : numberText(summary[field]);
       grid.append(
@@ -203,8 +203,8 @@
       const cohorts = Array.isArray(retention?.cohorts) ? retention.cohorts.slice(0, 7) : [];
       const cohortPanel = el('section', 'panel');
       cohortPanel.classList.add('module-extra');
-      cohortPanel.append(head('Usage-based retention cohorts', 'First-observed signed-in model-call cohorts · last 14 days', retention ? (cohorts.length ? 'Available' : 'No data yet') : 'Unavailable'));
-      cohortPanel.append(el('p', 'panel-copy', 'Day 1 and day 7 retention count a model call on exactly cohort date + 1 or + 7. Newer cohorts are not eligible for day 7 yet. These are activity cohorts, not signup cohorts.'));
+      cohortPanel.append(head('Usage-based retention cohorts', 'First-observed signed-in model-call cohorts · 45-day lookback · last 14 days', retention ? (cohorts.length ? 'Available' : 'No data yet') : 'Unavailable'));
+      cohortPanel.append(el('p', 'panel-copy', 'Day 1 and day 7 retention count a model call on exactly cohort date + 1 or + 7. Newer cohorts are not eligible for day 7 yet. These are activity cohorts, not signup cohorts. Older activity outside the 45-day lookback is not used to establish a cohort.'));
       if (cohorts.length) {
         const cohortGrid = el('div', 'grid');
         cohorts.forEach((cohort) => {
