@@ -10,7 +10,7 @@ test('owner console is disabled unless all server-side allowlist settings are va
   assert.equal(disabled.ownerConsole.sessionSecret, '');
 });
 
-test('owner console accepts exact email and IPv4 allowlists from environment', () => {
+test('owner console accepts exact email and normalized IPv4/IPv6 allowlists from environment', () => {
   const config = loadConfig({
     NODE_ENV: 'test',
     OWNER_ALLOWED_EMAILS: 'Owner@example.com, second@example.org',
