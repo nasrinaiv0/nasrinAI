@@ -3088,7 +3088,13 @@
     } catch (error) {
       pendingReply.remove();
       show('assistant', 'I couldn’t complete the job search because the search service returned an error: ' + (error.message || 'Unknown error') + '. No results were fabricated. Please try again.');
-    } finally {   async function runYouTubeFirst(query) {
+    } finally {
+      busy = false;
+      refreshSendButton();
+    }
+  }
+
+  async function runYouTubeFirst(query) {
     if (busy || preparing || editing || pending.length) return;
     busy = true;
     notice.textContent = '';
@@ -3101,29 +3107,30 @@
     autosize();
     show('user', query);
     const assistant = show('assistant', 'Searching YouTube for videos matching your request…');
+    const showSearchFallback = () => {
+      const body = assistant.querySelector('.msg-body') || assistant;
+      body.replaceChildren();
+      const note = document.createElement('p');
+      note.textContent = 'I couldn’t load embedded results right now. You can still search directly on YouTube.';
+      const link = document.createElement('a');
+      link.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query.slice(0, 180));
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'Search on YouTube';
+      body.append(note, link);
+    };
     try {
       const rendered = await renderYouTubeVideos(assistant, query);
-      if (!rendered) {
-        const body = assistant.querySelector('.msg-body') || assistant;
-        body.replaceChildren();
-        const note = document.createElement('p');
-        note.textContent = 'I couldn’t load embedded results right now. You can still search directly on YouTube.';
-        const link = document.createElement('a');
-        link.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query.slice(0, 180));
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'Search on YouTube';
-        body.append(note, link);
-      }
+      if (!rendered) showSearchFallback();
+    } catch (error) {
+      console.warn('YouTube embed search failed; showing direct search fallback.', error);
+      showSearchFallback();
     } finally {
       busy = false;
       refreshSendButton();
       refreshTurnControls();
       Nasrin.mood('idle');
     }
-  }
-
-busy = false; refreshSendButton(); }
   }
 
   async function send(raw) {
