@@ -774,6 +774,34 @@
 
   let ownerBootstrapToken = '';
 
+  async function syncOwnerConsoleEntry(token) {
+    if (!token || ownerBootstrapToken === token) return;
+    ownerBootstrapToken = token;
+    const existing = $('ownerConsoleEntry');
+    if (existing) existing.remove();
+    try {
+      const response = await fetch('/v1/owner/session', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (response.status === 204 && !$('ownerConsoleEntry')) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'ownerConsoleEntry';
+        button.className = 'menu-row';
+        button.textContent = 'Owner Command Center';
+        button.addEventListener('click', () => { window.location.href = '/owner'; });
+        $('pageMain')?.appendChild(button);
+      } else if (response.status !== 204) {
+        $('ownerConsoleEntry')?.remove();
+      }
+    } catch {
+      $('ownerConsoleEntry')?.remove();
+    }
+  }
+
   async function credential(fresh) {
     if (account) {
       const hadSignedInAccount = account;
