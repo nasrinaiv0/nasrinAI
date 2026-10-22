@@ -63,24 +63,24 @@ test('provider model-list results and missing tier overrides never hide the tier
 test('resolve: default, allowed, sign-in needed, unknown', async () => {
   const { c } = catalog();
   assert.deepEqual(await c.resolve(guest, undefined), { tier: 'nasrinai', provider: 'openai', model: 'gpt-4o-mini', effort: null });
-  await assert.rejects(c.resolve(guest, 'pro'), { code: 'model_not_allowed' });
-  await assert.rejects(c.resolve(guest, 'ultra'), { code: 'model_not_allowed', message: 'Sign in to use Ultra.' });
+  await assert.rejects(c.resolve(guest, 'pro'), { code: 'sign_in_required', message: 'Sign in to use the Pro tier.' });
+  await assert.rejects(c.resolve(guest, 'ultra'), { code: 'sign_in_required', message: 'Sign in to use the Ultra tier.' });
   assert.deepEqual(await c.resolve(user, 'ultra'), { tier: 'ultra', provider: 'openai', model: 'gpt-5', effort: 'high' });
   for (const bad of ['gpt-5', 'ULTRA', 42, {}]) await assert.rejects(c.resolve(user, bad), { code: 'invalid_model' });
 });
 
-test('the key\'s model list is cached; if it cannot be read, the settings are trusted', async () => {
+test('the tier catalog never calls provider model-list endpoints to decide visibility', async () => {
   const ok = catalog();
   await ok.c.listFor(user); await ok.c.listFor(guest); await ok.c.resolve(user, 'max');
-  assert.equal(ok.calls(), 1);
+  assert.equal(ok.calls(), 0);
   assert.deepEqual(names(await catalog({ fail: true }).c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
 });
 
-test('a refused tier is set aside; the default cannot be', async () => {
+test('provider refusal never removes a tier from the catalog', async () => {
   const { c } = catalog();
   c.markUnusable('max');
   c.markUnusable('nasrinai');
-  assert.deepEqual(names(await c.listFor(user)), ['Quick', 'Pro', 'Ultra']);
+  assert.deepEqual(names(await c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
 });
 
 test('OpenAI: effort per tier, a bigger allowance for more thinking, no temperature for reasoning', async () => {
@@ -115,7 +115,7 @@ test('end to end: tiers in /v1/models and /v1/chat; usage keeps the real model',
     await giveUltra(built.store);
     const g = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
     const forGuest = await (await fetch(srv.url + '/v1/models', { headers: bearer(g) })).json();
-    assert.deepEqual(names(forGuest), ['Quick']);
+    assert.deepEqual(forGuest.models.map((m) => m.id), ['nasrinai', 'pro', 'max', 'ultra']);
     assert.deepEqual(forGuest.models.filter((m) => m.locked).map((m) => [m.id, m.needs, m.plan]), [['pro', 'sign_in', 'pro'], ['max', 'sign_in', 'max'], ['ultra', 'sign_in', 'ultra']]);
     assert.equal((await fetch(srv.url + '/v1/models')).status, 401);
 
@@ -134,7 +134,7 @@ test('end to end: tiers in /v1/models and /v1/chat; usage keeps the real model',
   } finally { await srv.close(); }
 });
 
-test('end to end: a tier refused by the provider is set aside and the caller is told', async () => {
+test('end to end: provider failure does not hide the selected tier from the catalog', async () => {
   const provider = createFakeProvider({
     models: KEY_MODELS,
     failWith: (req) => (req.model === 'gpt-5' ? new ProviderError('config', 'not for chat', 400) : null)
@@ -146,7 +146,7 @@ test('end to end: a tier refused by the provider is set aside and the caller is 
     const r = await postJson(srv.url + '/v1/chat', { message: 'hi', model: 'max' }, bearer(USER_TOKEN));
     assert.equal(r.status, 400);
     assert.equal((await r.json()).error.code, 'model_unavailable');
-    assert.deepEqual(names(await (await fetch(srv.url + '/v1/models', { headers: bearer(USER_TOKEN) })).json()), ['Quick', 'Pro', 'Ultra']);
+    assert.deepEqual(names(await (await fetch(srv.url + '/v1/models', { headers: bearer(USER_TOKEN) })).json()), ['Quick', 'Pro', 'Max', 'Ultra']);
     assert.equal((await postJson(srv.url + '/v1/chat', { message: 'hi' }, bearer(USER_TOKEN))).status, 200);
   } finally { await srv.close(); }
 });
