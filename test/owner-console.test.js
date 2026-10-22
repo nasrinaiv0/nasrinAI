@@ -262,3 +262,41 @@ test('Vercel deployment telemetry is sanitized and appears only when the optiona
   assert.equal(payload.deployment_summary.failed_count, 1);
   assert.equal(Object.hasOwn(payload.deployment_summary.deployments[0], 'privateThing'), false);
 });
+
+
+test('cross-origin bootstrap sets a host-only owner cookie only for canonical same-site origins', async () => {
+  const { consoleHandler } = setup();
+  const headers = {
+    origin: 'https://www.nasrinai.com',
+    host: 'owner.nasrinai.com',
+    'sec-fetch-site': 'same-site',
+    authorization: 'Bearer ' + TOKEN
+  };
+  const preflight = request('OPTIONS', '/v1/owner/session', { headers, testIp: IP });
+  await consoleHandler.handle(preflight.req, preflight.res, '/v1/owner/session');
+  assert.equal(preflight.res.statusCode, 204);
+  assert.equal(preflight.res.headers['access-control-allow-origin'], 'https://www.nasrinai.com');
+  assert.equal(preflight.res.headers['access-control-allow-credentials'], 'true');
+  assert.match(preflight.res.headers['access-control-allow-headers'], /Authorization/);
+
+  const post = request('POST', '/v1/owner/session', { headers, testIp: IP });
+  await consoleHandler.handle(post.req, post.res, '/v1/owner/session');
+  assert.equal(post.res.statusCode, 204);
+  assert.equal(post.res.headers['access-control-allow-origin'], 'https://www.nasrinai.com');
+  assert.match(post.res.headers['set-cookie'], /^nasrin_owner=.*; Path=\\/owner; HttpOnly; SameSite=Strict; Max-Age=600; Secure$/);
+});
+
+test('cross-origin owner bootstrap rejects unapproved origins and host combinations', async () => {
+  const { consoleHandler } = setup();
+  for (const headers of [
+    { origin: 'https://evil.example', host: 'owner.nasrinai.com', 'sec-fetch-site': 'cross-site', authorization: 'Bearer ' + TOKEN },
+    { origin: 'https://www.nasrinai.com', host: 'nasrinai.com', 'sec-fetch-site': 'same-site', authorization: 'Bearer ' + TOKEN },
+    { origin: 'https://nasrinai.com', host: 'owner.nasrinai.com', 'sec-fetch-site': 'cross-site', authorization: 'Bearer ' + TOKEN }
+  ]) {
+    const out = request('POST', '/v1/owner/session', { headers, testIp: IP });
+    await consoleHandler.handle(out.req, out.res, '/v1/owner/session');
+    assert.equal(out.res.statusCode, 404);
+    assert.equal(out.res.body, 'Page not found.');
+    assert.equal(out.res.headers['set-cookie'], undefined);
+  }
+});
