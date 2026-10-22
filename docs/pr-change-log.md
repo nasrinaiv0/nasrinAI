@@ -1,3 +1,19 @@
+## Multi-site video coverage follow-up (2026-10-23)
+
+- Extend the safe social embed route and strict frontend player-origin allowlist to public Instagram posts and Reels.
+- Add the official Instagram player origin to both application and Vercel Content Security Policy frame-src directives.
+- Keep private or blocked content provider-controlled; retain the source link if playback is unavailable.
+- **Validation:** GitHub CI passed (919 tests passed, 0 failed, 1 skipped); dependency audit, database checks, and Documentation Gate passed. Live provider quota behavior, public-post playback, and mobile/browser smoke tests remain pending.
+
+## PR #532 follow-up — Multi-site embeds and verified search fallback (2026-10-23)
+
+- Wire the optional official Google Custom Search adapter into the OpenRouter-first web research path; when OpenRouter is unconfigured, unavailable, or rate-limited, return real provider results instead of inventing a link.
+- Keep Google candidate results as untrusted retrieval context; do not label every result as a citation unless the answer-producing search provider actually cites it.
+- Strip model-authored URLs that are not present in trusted search citations or explicitly supplied by the user. Buffer web-search output until citations are available so an invented URL is never briefly rendered during streaming.
+- Extend the existing strict social oEmbed route and client player-origin allowlist to Vimeo and Dailymotion while preserving YouTube, TikTok, and Facebook behavior.
+- Add regression tests for fallback search, source provenance, invented URLs, and multi-site player allowlists.
+- **Validation:** GitHub CI passed (919 tests passed, 0 failed, 1 skipped); dependency audit, database checks, and Documentation Gate passed. Production provider behavior, deployment configuration, and real-device playback still need verification.
+
 ## Video Studio — durable detached MP4 render worker (2026-10-23)
 
 - Add a private, tenant-owned render job queue with an atomic PostgreSQL `SKIP LOCKED` claim function, idempotency keys, durable status, progress, and failure metadata.
@@ -1734,3 +1750,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Set implementation and acceptance standards for Chat, Code, Studio render jobs, API validation, Supabase ownership/RLS, mobile accessibility, environment variables, migrations, and honest verification reporting.
 - Update `CLAUDE.md` and `README.md` to point all future feature work at the shared contract.
 - **Validation:** documentation-only change. Automated tests, secret scan, CI, Preview, and production behavior have not been run or verified for this change yet.
+
+
+## Intent-aware interactive chat visualizations (2026-10-23)
+
+- Add a chart widget selected by user intent and data shape, with bar, line, area, donut, and data-table views.
+- Let users switch chart type and standard, compact, or editorial presentation in the chat without another model call.
+- Validate chart categories and numeric series, constrain payload size, build output from safe DOM/SVG nodes, and display source/notes when provided.
+- Instruct NasrinAI to use verified, user-supplied, retrieved, or explicitly calculated values and never fabricate data; add prompt regression coverage.
+- **Validation:** CI is running; production deployment and live-browser behavior have not been verified.
