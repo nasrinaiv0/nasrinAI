@@ -31,6 +31,7 @@ import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
 import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
+import { createGoogleWebSearch } from './web/google-search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
 import { createImages } from './images.js';
 import { basicTools } from './tools/basic.js';
@@ -159,8 +160,12 @@ export function buildApp({ config, logger }) {
   const policy = provider && config.ai.routing.mode === 'smart'
     ? createPolicy({ config: effective, provider, prices, budget: reasoningBudget, logger })
     : null;
+  const googleWebSearch = config.web.googleApiKey && config.web.googleEngineId
+    ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
+    : null;
+  if (googleWebSearch?.available) logger.info('Google web search adapter ready');
   const webSearch = policy && config.web.searchModel && config.ai.openaiApiKey
-    ? createWebSearch({ apiKey: config.ai.openaiApiKey, model: config.web.searchModel })
+    ? createWebSearch({ apiKey: config.ai.openaiApiKey, model: config.web.searchModel, googleSearch: googleWebSearch })
     : null;
   if (policy) logger.info('smart routing on', { budget: config.ai.routing.budget });
   // Picture routes by tier. Everything must fit in the function's 120 s
