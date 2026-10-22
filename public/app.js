@@ -4219,10 +4219,10 @@
     // this intent to order by date and filters to playable video IDs.
     const buildVideoSearchQuery = (raw) => {
       const original = String(raw || '').trim();
-      const latest = /\\b(?:latest|newest|most recent|recent)\\b/i.test(original);
-      const creatorMatch = original.match(/\\b(?:video|videos|upload|uploads)\\s+(?:of|from|by)\\s+(.+?)(?:\\s+(?:on|in)\\s+youtube)?[?!.,]*$/i)
-        || original.match(/\\b(?:of|from|by)\\s+(.+?)(?:\\s+(?:on|in)\\s+youtube)?[?!.,]*$/i);
-      const creator = creatorMatch?.[1]?.replace(/\\b(?:the|latest|newest|most recent|recent|video|videos|youtube|please)\\b/ig, ' ').replace(/[?!.,]/g, ' ').replace(/\\s+/g, ' ').trim();
+      const latest = /\b(?:latest|newest|most recent|recent)\b/i.test(original);
+      const creatorMatch = original.match(/\b(?:video|videos|upload|uploads)\s+(?:of|from|by)\s+(.+?)(?:\s+(?:on|in)\s+youtube)?[?!.,]*$/i)
+        || original.match(/\b(?:of|from|by)\s+(.+?)(?:\s+(?:on|in)\s+youtube)?[?!.,]*$/i);
+      const creator = creatorMatch?.[1]?.replace(/\b(?:the|latest|newest|most recent|recent|video|videos|youtube|please)\b/ig, ' ').replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
       if (creator && latest) return (creator + ' official channel latest uploads video').slice(0, 180);
       if (creator) return (creator + ' official channel videos').slice(0, 180);
       const base = original + (nav ? ' route directions travel guide' : tutorialIntent ? ' tutorial walkthrough' : '');
