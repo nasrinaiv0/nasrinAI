@@ -126,4 +126,84 @@ grant execute on function public.owner_console_usage_summary(timestamptz) to ser
 revoke execute on function public.owner_console_automation_summary(timestamptz) from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_automation_summary(timestamptz) to service_role;
 
+
+-- Minimal owner-action audit trail. Store a one-way IP hash, never the raw address.
+create table if not exists public.owner_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  event_type text not null check (event_type in ('session_issued','session_revoked','usage_export')),
+  actor_id text not null check (char_length(actor_id) between 1 and 80),
+  ip_hash text not null check (ip_hash ~ '^[a-f0-9]{64}$'),
+  outcome text not null default 'success' check (outcome = 'success'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists owner_audit_events_created_at_idx
+  on public.owner_audit_events (created_at desc);
+
+alter table public.owner_audit_events enable row level security;
+drop policy if exists server_only_deny_browser on public.owner_audit_events;
+create policy server_only_deny_browser on public.owner_audit_events
+  for all to anon, authenticated using (false) with check (false);
+revoke all on public.owner_audit_events from public, anon, authenticated;
+grant select, insert on public.owner_audit_events to service_role;
+
+create or replace function public.owner_console_record_audit(
+  p_event_type text, p_actor_id text, p_ip_hash text, p_outcome text default 'success'
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if p_event_type not in ('session_issued','session_revoked','usage_export')
+     or p_actor_id is null or char_length(p_actor_id) not between 1 and 80
+     or p_ip_hash !~ '^[a-f0-9]{64}$' or p_outcome <> 'success' then
+    raise exception 'invalid owner audit event';
+  end if;
+  insert into public.owner_audit_events (event_type, actor_id, ip_hash, outcome)
+  values (p_event_type, p_actor_id, p_ip_hash, p_outcome);
+end;
+$$;
+
+create or replace function public.owner_console_audit_summary(p_since timestamptz)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_result jsonb;
+begin
+  if p_since is null or p_since > now() or p_since < now() - interval '90 days' then
+    raise exception 'p_since must be within the last 90 days';
+  end if;
+  select jsonb_build_object(
+    'window_start', p_since,
+    'window_end', now(),
+    'event_count', count(*),
+    'last_event_at', max(created_at),
+    'by_type', coalesce((
+      select jsonb_agg(jsonb_build_object('event_type', a.event_type, 'events', a.events) order by a.event_type)
+      from (
+        select event_type, count(*) as events
+        from public.owner_audit_events
+        where created_at >= p_since
+        group by event_type
+      ) a
+    ), '[]'::jsonb)
+  )
+  into v_result
+  from public.owner_audit_events
+  where created_at >= p_since;
+  return v_result;
+end;
+$$;
+
+revoke execute on function public.owner_console_record_audit(text, text, text, text) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_record_audit(text, text, text, text) to service_role;
+revoke execute on function public.owner_console_audit_summary(timestamptz) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_audit_summary(timestamptz) to service_role;
+
 commit;
