@@ -524,7 +524,7 @@
       <p class="menu-label">Privacy controls</p>
       <div class="menu-card setting-row"><label for="memoryPref">Memory<span class="setting-hint">Nasrin may offer to remember useful things you share. You confirm each saved note. Turn off to stop memory use; saved notes remain until deleted.</span></label><input type="checkbox" role="switch" class="switch" id="memoryPref"></div>
       <div class="menu-card setting-row" id="libraryPrefRow" hidden><label for="libraryPref">Use my Library in chats<span class="setting-hint">Matching Library content can be used to answer your message. Turn this off to keep Library content out of chats.</span></label><input type="checkbox" role="switch" class="switch" id="libraryPref"></div>
-      <div class="menu-card setting-row"><label for="improvementConsent">Contribute eligible examples<span class="setting-hint">Optional and separate from Memory. Only examples you explicitly submit could be considered for NasrinAI improvement, after screening and human review. This records your preference only; no chat content is currently collected for improvement. You can withdraw at any time.</span></label><input type="checkbox" role="switch" class="switch" id="improvementConsent" disabled></div>
+      <div class="menu-card setting-row"><label for="improvementConsent">Help improve NasrinAI<span class="setting-hint">Separate from Memory. When enabled, eligible Quick conversations may be screened and stored as learning examples for future improvement. Examples are redacted, reviewed before reuse, and expire after 30 days. You can turn this off at any time.</span></label><input type="checkbox" role="switch" class="switch" id="improvementConsent"></div>
       <p class="data-status" id="improvementConsentStatus" role="status" aria-live="polite"></p>
       <p class="data-status" id="privacyStatus" role="status" aria-live="polite"></p>
       <div class="menu-card"><p class="card-title">Data privacy</p><p class="setting-hint">NasrinAI does not sell your information or use tracking cookies. Your chats are not used to train AI models automatically. When an outside AI service is needed, the Privacy Notice explains what is shared and why.</p></div>
@@ -579,6 +579,25 @@
         <p class="account-hint">Created by Nasrin Abubakar.</p>
         <p class="legal-notes" id="settingsNotes">Replies come from an AI and can be wrong. Check anything important.</p>
         <p class="legal-links"><a href="mailto:support@nasrinai.com">support@nasrinai.com</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="learning-notice-backdrop" id="learningNotice" role="dialog" aria-modal="true" aria-labelledby="learningNoticeTitle" aria-describedby="learningNoticeDescription" hidden>
+    <div class="learning-notice-card">
+      <button type="button" class="learning-notice-close" id="learningNoticeClose" aria-label="Close learning notice">×</button>
+      <div class="learning-notice-art" aria-hidden="true"><div class="learning-notice-orb"><span class="learning-notice-spark">✦</span><div class="learning-notice-bot"><span class="learning-notice-eye"></span><span class="learning-notice-eye"></span><span class="learning-notice-smile"></span></div><span class="learning-notice-heart">♥</span></div></div>
+      <div class="learning-notice-content">
+        <p class="learning-notice-eyebrow">COMMUNITY LEARNING</p>
+        <h2 id="learningNoticeTitle">Help improve NasrinAI <span aria-hidden="true">✦</span></h2>
+        <p class="learning-notice-lead" id="learningNoticeDescription">Your contribution can help make future NasrinAI answers more useful for everyone.</p>
+        <div class="learning-notice-benefit"><span class="learning-notice-icon learning-notice-blue" aria-hidden="true">↗</span><div><strong>Better answers over time</strong><p>Eligible examples can help NasrinAI learn from real questions and feedback.</p></div></div>
+        <div class="learning-notice-benefit"><span class="learning-notice-icon learning-notice-purple" aria-hidden="true">◎</span><div><strong>Helps the community</strong><p>Reviewed examples may help improve responses to similar questions.</p></div></div>
+        <div class="learning-notice-benefit"><span class="learning-notice-icon learning-notice-green" aria-hidden="true">✓</span><div><strong>Privacy comes first</strong><p>Examples are screened and redacted; only approved examples can be reused.</p></div></div>
+        <p class="learning-notice-fineprint">Optional and separate from Memory. Nothing is contributed through this feature unless you enable it. You can turn it off anytime in Settings. This feature does not itself fine-tune an AI model.</p>
+        <p class="learning-notice-status" id="learningNoticeStatus" role="status" aria-live="polite"></p>
+        <div class="learning-notice-actions"><button type="button" class="learning-notice-secondary" id="learningNoticeLater">Not now</button><button type="button" class="learning-notice-primary" id="learningNoticeEnable">✦ &nbsp; Help improve NasrinAI</button></div>
+        <p class="learning-notice-privacy">Learn more in our <a href="/legal.html?doc=privacy" id="learningNoticePrivacy">Privacy Notice</a></p>
       </div>
     </div>
   </section>
