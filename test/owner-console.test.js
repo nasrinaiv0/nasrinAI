@@ -283,7 +283,7 @@ test('cross-origin bootstrap sets a host-only owner cookie only for canonical sa
   await consoleHandler.handle(post.req, post.res, '/v1/owner/session');
   assert.equal(post.res.statusCode, 204);
   assert.equal(post.res.headers['access-control-allow-origin'], 'https://www.nasrinai.com');
-  assert.match(post.res.headers['set-cookie'], /^nasrin_owner=.*; Path=\\/owner; HttpOnly; SameSite=Strict; Max-Age=600; Secure$/);
+  assert.match(post.res.headers['set-cookie'], /^nasrin_owner=.*; Path=\/owner; HttpOnly; SameSite=Strict; Max-Age=600; Secure$/);
 });
 
 test('cross-origin owner bootstrap rejects unapproved origins and host combinations', async () => {
