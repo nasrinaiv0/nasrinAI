@@ -418,6 +418,34 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       }
       await request('POST', 'improvement_consent_events', { prefer: 'return=minimal', body: { tenant_id: tenantId, subject_type: subjectType, subject_id: subjectId, version, decision } });
     },
+    async addImprovementExample({ tenantId, subjectType, subjectId, consentVersion, exampleText, expiresAt }) {
+      if (!UUID.test(String(tenantId)) || !['user', 'guest'].includes(subjectType) || !OWNER_ID.test(String(subjectId))
+          || !/^[A-Za-z0-9._-]{1,40}$/.test(String(consentVersion)) || consentVersion === '2026-10-10-preference-only'
+          || typeof exampleText !== 'string' || !exampleText.trim() || exampleText.length > 12000
+          || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()) throw new Error('invalid improvement example');
+      const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
+      if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
+      const rows = await request('POST', 'improvement_examples?select=id', {
+        prefer: 'return=representation',
+        body: { tenant_id: tenantId, subject_type: subjectType, subject_id: subjectId, consent_version: consentVersion, example_text: exampleText, status: 'pending_review', expires_at: expiresAt }
+      });
+      if (!Array.isArray(rows) || !rows[0]?.id) throw new UpstreamError('improvement example insert returned no id');
+      return rows[0].id;
+    },
+    async searchApprovedImprovementExamples({ tenantId, terms, limit = 3 }) {
+      if (!UUID.test(String(tenantId)) || !Array.isArray(terms)) return [];
+      const wanted = [...new Set(terms.map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
+      if (!wanted.length) return [];
+      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=example_text,created_at&order=created_at.desc&limit=100`);
+      return (rows || []).map((row) => {
+        const text = String(row.example_text || '');
+        const lower = text.toLowerCase();
+        return { exampleText: text, rank: wanted.reduce((n, term) => n + (lower.includes(term) ? 1 : 0), 0), createdAt: row.created_at || '' };
+      }).filter((row) => row.rank >= 2)
+        .sort((a, b) => b.rank - a.rank || b.createdAt.localeCompare(a.createdAt))
+        .slice(0, Math.max(1, Math.min(3, Number(limit) || 3)));
+    },
+
     // Delete all examples for a server-verified subject and record a content-free tombstone.
     async deleteImprovementExamplesForSubject({ tenantId, subjectType, subjectId, reasonCode }) {
       if (!UUID.test(String(tenantId)) || !['user', 'guest'].includes(subjectType) || !OWNER_ID.test(String(subjectId)) ||

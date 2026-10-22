@@ -378,6 +378,28 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
     improvementConsentEvents,
     improvementExamples,
     improvementExampleDeletions,
+    async addImprovementExample({ tenantId, subjectType, subjectId, consentVersion, exampleText, expiresAt }) {
+      if (!['user', 'guest'].includes(subjectType) || typeof subjectId !== 'string' || !subjectId || subjectId.length > 80
+          || !/^[A-Za-z0-9._-]{1,40}$/.test(String(consentVersion)) || consentVersion === '2026-10-10-preference-only'
+          || typeof exampleText !== 'string' || !exampleText.trim() || exampleText.length > 12000
+          || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= now()) throw new Error('invalid improvement example');
+      const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
+      if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
+      const row = { id: randomUUID(), tenantId, subjectType, subjectId, consentVersion, exampleText, status: 'pending_review', createdAt: iso(), expiresAt };
+      improvementExamples.push(row);
+      return row.id;
+    },
+    async searchApprovedImprovementExamples({ tenantId, terms, limit = 3 }) {
+      const wanted = [...new Set((Array.isArray(terms) ? terms : []).map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
+      if (!wanted.length) return [];
+      const score = (row) => wanted.reduce((n, term) => n + (row.exampleText.toLowerCase().includes(term) ? 1 : 0), 0);
+      return improvementExamples.filter((row) => row.tenantId === tenantId && row.status === 'approved'
+          && Date.parse(row.expiresAt) > now())
+        .map((row) => ({ exampleText: row.exampleText, rank: score(row), createdAt: row.createdAt }))
+        .filter((row) => row.rank >= 2)
+        .sort((a, b) => b.rank - a.rank || b.createdAt.localeCompare(a.createdAt))
+        .slice(0, Math.max(1, Math.min(3, Number(limit) || 3)));
+    },
     async deleteImprovementExamplesForSubject({ tenantId, subjectType, subjectId, reasonCode }) {
       if (!['user', 'guest'].includes(subjectType) || typeof subjectId !== 'string' || !subjectId || subjectId.length > 80 ||
           !['consent_withdrawal', 'account_deletion', 'privacy_request'].includes(reasonCode)) {

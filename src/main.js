@@ -41,6 +41,7 @@ import { createConfirmations } from './tools/confirm.js';
 import { createFacebook } from './channels/facebook.js';
 import { createKnowledge } from './knowledge/index.js';
 import { createMemory, memoryTools } from './knowledge/memory.js';
+import { createCommunityLearning } from './knowledge/community-learning.js';
 import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
 import { imagePrice } from './ai/pricing.js';
@@ -209,6 +210,7 @@ export function buildApp({ config, logger }) {
   // Tools: the basic ones for everyone, plus each business's own connectors.
   const knowledge = createKnowledge({ store, logger });
   const memory = createMemory({ store, logger });
+  const communityLearning = createCommunityLearning({ store, logger });
   const library = createLibrary({ store, limiter, config: effective, logger });
   const projects = createProjects({ store, conversations, limiter, config: effective, logger });
   const ncc = createNcc({ store, limiter, config: effective, logger });
@@ -238,7 +240,7 @@ export function buildApp({ config, logger }) {
   const coding = createCoding({ store, config: effective });
   const crawler = config.supabaseUrl ? createWebCrawler({ store, logger }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;

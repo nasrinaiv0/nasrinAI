@@ -1,6 +1,6 @@
 # Consented improvement cache: implementation contract
 
-Status: the isolated private example table, redaction/eligibility helper, service-role-only review decisions, and content-free deletion lineage are implemented on review branches. No capture route, reviewer UI, export route, or chat ingestion path exists. This work does not collect chat content, and the preference-only consent version is explicitly rejected by the example table. The database functions are foundations, not a complete operational review console. Do not enable ingestion until a separately authenticated reviewer workflow, withdrawal integration, account-deletion integration, tests, and browser verification pass. Do not add a data-ingestion path before the deletion, expiry, redaction, review, and isolation checks below are complete.
+Status: the isolated private example table, versioned consent, service-role-only review decisions, and content-free deletion lineage are in place. The Community Learning System now adds a limited, opt-in Quick-tier capture path for redacted, eligible examples, stores them as `pending_review`, and retrieves only approved examples. It does not fine-tune foundation models. The reviewer workflow remains an operational gate: do not approve examples until the reviewer identity/access path, audit trail, and review UI or controlled owner workflow have been verified. Keep ingestion disabled for anyone who has not explicitly granted the current consent version. The preference-only consent version is rejected by the example table.
 
 ## Goal
 
