@@ -5045,6 +5045,7 @@
   }
 
   function renderAccount() {
+    if (account && account.token) void syncOwnerConsoleEntry(account.token);
     // Until the server has said sign-in is off, keep Sign in on screen: a slow
     // or failed /v1/status must never leave a guest with no way to sign in.
     const can = signInMethods.email || signInMethods.google || !authMethodsLoaded;
