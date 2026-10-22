@@ -164,9 +164,10 @@ export function buildApp({ config, logger }) {
     ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
     : null;
   if (googleWebSearch?.available) logger.info('Google web search adapter ready');
-  const webSearch = policy && config.web.searchModel && config.ai.openaiApiKey
-    ? createWebSearch({ apiKey: config.ai.openaiApiKey, model: config.web.searchModel, googleSearch: googleWebSearch })
+  const webSearch = config.web.searchModel && config.ai.openrouterApiKey
+    ? createWebSearch({ apiKey: config.ai.openrouterApiKey, model: config.web.searchModel, baseUrl: 'https://openrouter.ai/api/v1' })
     : null;
+  if (webSearch) logger.info('OpenRouter web search ready', { model: config.web.searchModel });
   if (policy) logger.info('smart routing on', { budget: config.ai.routing.budget });
   // Picture routes by tier. Everything must fit in the function's 120 s
   // (vercel.json): with a fallback, the primary (with its retries) gets 45 s
