@@ -141,6 +141,11 @@ begin
   exception when insufficient_privilege then null;
   end;
   begin
+    perform public.owner_console_user_summary();
+    raise exception 'authenticated role unexpectedly executed owner user summary';
+  exception when insufficient_privilege then null;
+  end;
+  begin
     perform public.owner_console_plan_summary(now() - interval '1 hour');
     raise exception 'authenticated role unexpectedly executed owner plan summary';
   exception when insufficient_privilege then null;
