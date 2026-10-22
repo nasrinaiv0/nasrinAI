@@ -1,3 +1,11 @@
+## Video Studio — durable detached MP4 render worker (2026-10-23)
+
+- Add a private, tenant-owned render job queue with an atomic PostgreSQL `SKIP LOCKED` claim function, idempotency keys, durable status, progress, and failure metadata.
+- Snapshot the authenticated source MP4 and selected project's saved audio timeline into the private `video-studio-assets` bucket before accepting the job; the browser no longer needs to remain open for rendering to continue.
+- Run FFmpeg in an isolated Vercel Sandbox as a detached process, poll its durable job marker from a scheduled worker, and save completed MP4s back to private storage. Owner-check status and download endpoints.
+- Update the Studio export control to enqueue and poll the job and download the private result. Existing browser-side timeline renderer remains available for full multitrack visual previews/exports.
+- Apply migration `056_video_studio_render_jobs.sql` before enabling the feature in production. Sandbox execution and production storage require live environment verification; CI results are pending.
+
 ## PR #531 follow-up — preserve user intent in Video Studio chat (2026-10-23)
 
 - Put the user's actual request before the project metadata in Video Studio's shared `/v1/chat` payload, and explicitly label project details as reference-only context. This reduces the chance that a long project prompt or clip list overshadows the task the user actually asked for during intent classification.
