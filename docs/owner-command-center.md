@@ -24,7 +24,7 @@ Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and th
 - User registration/retention, infrastructure/releases, security/audit events, automation execution, billing/revenue reconciliation, incidents/alerts, and reports/exports remain unavailable until their source schemas, writers, freshness, permissions, and semantics are audited.
 - Privileged controls are not implemented; the console remains read-only.
 - Browser verification at desktop and iPhone widths, full unit/database/secret-scan CI, GitGuardian, and Vercel preview inspection must be confirmed before the implementation PR is ready.
-- Vercel environment variables have not been changed by this implementation. Configure the three `OWNER_*` variables using `docs/owner-allowlist-vercel-setup.md` only after choosing the actual owner email and public IPv4 allowlist.
+- Vercel environment variables have not been changed by this implementation. Configure the three `OWNER_*` variables using `docs/owner-allowlist-vercel-setup.md` only after choosing the actual owner email and public IP allowlist.
 
 Do not treat the console shell as proof that every panel is connected. This status is intentionally explicit about what is live, unavailable, and pending.
 
