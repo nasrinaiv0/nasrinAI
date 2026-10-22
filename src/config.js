@@ -320,7 +320,22 @@ export function loadConfig(env = process.env) {
     const list = raw !== undefined && String(raw).trim() !== '' ? String(raw).split(',') : defaultsByLevel[n];
     const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
     const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
-    levels[n] = Object.freeze(normalCandidates);
+    // In auto mode, intent classification always checks OpenRouter's
+    // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
+    const openRouterDefaults = {
+      1: 'openai/gpt-6-luna',
+      2: 'openai/gpt-6-luna',
+      3: 'openai/gpt-6-sol',
+      4: 'openai/gpt-6.1-sol',
+      5: 'openai/gpt-6.1-sol'
+    };
+    const openRouterFirst = has('openrouter')
+      ? tierSpec('ROUTE_LEVEL_' + n, 'openrouter:' + openRouterDefaults[n])
+      : null;
+    const orderedCandidates = openRouterFirst
+      ? [openRouterFirst, ...normalCandidates.filter((spec) => spec.provider !== 'openrouter' || spec.model !== openRouterFirst.model)]
+      : normalCandidates;
+    levels[n] = Object.freeze(orderedCandidates);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
