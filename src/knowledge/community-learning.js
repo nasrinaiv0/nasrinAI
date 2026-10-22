@@ -13,7 +13,7 @@ const CONTACT = /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:\+?\d[\d ().-]{
 // Learning is opt-in, platform-only, and review-gated. This function creates a
 // candidate example, never a model-training record or an immediately trusted fact.
 export function buildCommunityExample({ question, answer }) {
-  if (typeof question !== 'string' || typeof answer !== 'string') return null;
+  if (typeof question !== 'string' || typeof answer !== 'string' || CONTACT.test(question) || CONTACT.test(answer)) return null;
   let q = redactForProvider(question).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim().slice(0, MAX_QUESTION_CHARS);
   let a = redactForProvider(answer).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim().slice(0, MAX_ANSWER_CHARS);
   if (q.length < 8 || a.length < 20 || BLOCKED.test(q) || BLOCKED.test(a) || CONTACT.test(q) || CONTACT.test(a)) return null;
