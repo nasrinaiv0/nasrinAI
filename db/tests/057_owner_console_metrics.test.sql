@@ -41,6 +41,36 @@ begin
   end;
 end $owner_test$;
 
+do $owner_retention_test$
+declare
+  v_summary jsonb;
+  v_cohort jsonb;
+  v_cohort_date text := ((now() at time zone 'UTC')::date - 10)::text;
+begin
+  insert into public.usage_events
+    (tenant_id, actor_type, actor_id, provider, model, input_tokens, output_tokens, latency_ms, outcome, task, created_at)
+  values
+    ('00000000-0000-0000-0000-000000000001', 'user', 'owner-metrics-retention-d7', 'owner-test-provider', 'owner-test-model', 1, 1, 1, 'ok', 'chat', now() - interval '10 days'),
+    ('00000000-0000-0000-0000-000000000001', 'user', 'owner-metrics-retention-d7', 'owner-test-provider', 'owner-test-model', 1, 1, 1, 'ok', 'chat', now() - interval '3 days'),
+    ('00000000-0000-0000-0000-000000000001', 'user', 'owner-metrics-retention-d1', 'owner-test-provider', 'owner-test-model', 1, 1, 1, 'ok', 'chat', now() - interval '4 days'),
+    ('00000000-0000-0000-0000-000000000001', 'user', 'owner-metrics-retention-d1', 'owner-test-provider', 'owner-test-model', 1, 1, 1, 'ok', 'chat', now() - interval '3 days');
+  v_summary := public.owner_console_retention_summary();
+  select item into v_cohort
+    from jsonb_array_elements(v_summary->'cohorts') item
+   where item->>'cohort_date' = v_cohort_date;
+  if v_cohort is null
+    or (v_cohort->>'cohort_size')::bigint < 1
+    or (v_cohort->>'day_7_eligible')::bigint < 1
+    or (v_cohort->>'day_7_returned')::bigint < 1
+    or (v_cohort->>'day_7_retention_pct')::numeric < 0
+    or (v_cohort->>'day_7_retention_pct')::numeric > 100 then
+    raise exception 'usage-based day-7 retention cohort was not calculated correctly';
+  end if;
+  if v_summary->>'definition' not like 'First observed signed-in model-call activity date%' then
+    raise exception 'retention cohort definition must be explicit';
+  end if;
+end $owner_retention_test$;
+
 do $owner_growth_test$
 declare
   v_summary jsonb;
