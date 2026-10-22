@@ -241,6 +241,45 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
       });
       return true;
     }
+    if (pathname === '/owner/api/export' && req.method === 'GET') {
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '24h';
+      if (!['24h', '7d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 24h or 7d.' } });
+        return true;
+      }
+      const at = now();
+      const summary = await usageSince(at - (windowName === '24h' ? 24 : 168) * 60 * 60 * 1000);
+      if (!summary) {
+        sendJson(res, 503, { error: { code: 'data_unavailable', message: 'Usage telemetry is unavailable until its verified data source is connected.' } });
+        return true;
+      }
+      const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','estimated_cost_usd','cost_estimate_rows'];
+      const rows = [columns, [
+        'summary', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end, '',
+        '', summary.request_count, summary.success_count, summary.failure_count, summary.input_tokens,
+        summary.output_tokens, summary.total_tokens, summary.active_user_ids, summary.active_guest_ids,
+        summary.latency_p50_ms, summary.latency_p95_ms, summary.estimated_cost_usd, summary.cost_estimate_rows
+      ]];
+      for (const item of Array.isArray(summary.providers) ? summary.providers : []) {
+        rows.push([
+          'provider', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end,
+          item.provider, item.model, item.requests, item.successes, null, item.input_tokens,
+          item.output_tokens, Number(item.input_tokens || 0) + Number(item.output_tokens || 0),
+          null, null, null, null, item.estimated_cost_usd, null
+        ]);
+      }
+      const csv = rows.map((row) => row.map((value) => {
+        const cell = value === null || value === undefined ? '' : String(value);
+        return '"' + cell.replace(/"/g, '""') + '"';
+      }).join(',')).join('\r\n') + '\r\n';
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="nasrinai-owner-usage-' + windowName + '.csv"');
+      res.setHeader('Content-Length', Buffer.byteLength(csv));
+      res.end(csv);
+      return true;
+    }
     jsonError(res, req.method === 'HEAD');
     return true;
   }
