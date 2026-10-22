@@ -3902,7 +3902,7 @@ body.coding-mode:not(.has-chat) .coding-empty-sphere {
 .reply-actions { justify-content:flex-start!important; align-self:flex-start; width:fit-content; max-width:100%; gap:0!important; column-gap:0!important; margin-left:0!important; padding-left:0!important; }
 .reply-actions > .act { flex:0 0 1.55rem!important; width:1.55rem!important; min-width:1.55rem!important; max-width:1.55rem!important; padding-left:0!important; padding-right:0!important; margin:0!important; }
 .reply-actions > .sources-toggle { flex:0 0 auto!important; margin:0 0 0 .12rem!important; padding-left:.18rem!important; padding-right:.22rem!important; }
-.reply-details-panel { position:absolute!important; z-index:1000!important; width:min(15.5rem,calc(100vw - 40px))!important; min-width:0!important; max-width:calc(100vw - 40px)!important; max-height:calc(100dvh - var(--dock-h, 7rem) - env(safe-area-inset-bottom) - 2rem)!important; padding:.55rem .6rem!important; box-sizing:border-box!important; overflow:auto!important; overscroll-behavior:contain; }
+.reply-details-panel { position:fixed!important; z-index:1000!important; width:min(15.5rem,calc(100vw - 40px))!important; min-width:0!important; max-width:calc(100vw - 40px)!important; max-height:calc(100dvh - var(--dock-h, 7rem) - env(safe-area-inset-bottom) - 2rem)!important; padding:.55rem .6rem!important; box-sizing:border-box!important; overflow:auto!important; overscroll-behavior:contain; }
 @media(max-width:600px){ .reply-actions{gap:0!important;column-gap:0!important} .reply-actions > .act{flex-basis:1.5rem!important;width:1.5rem!important;min-width:1.5rem!important;max-width:1.5rem!important} }
 
 
