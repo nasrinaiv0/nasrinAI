@@ -4,23 +4,20 @@ import { loadConfig } from '../src/config.js';
 import { createWebSearch, needsWeb } from '../src/web/search.js';
 import { buildSystemPrompt } from '../src/ai/prompt.js';
 
-// 2026-10-12: news questions got "I can't check live news". The web search
-// model had no price, so the spend check skipped every search in production.
-const ENV = { NODE_ENV: 'test', AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-only' };
+// Web search now routes through OpenRouter's server-side web-search tool.
+// Provider-owned pricing means local per-model price snapshots must not gate search.
+const ENV = { NODE_ENV: 'test', AI_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'sk-test-only' };
 
-test('web search uses a priced model by default', () => {
+test('OpenRouter web search is enabled by default when its key is configured', () => {
   const cfg = loadConfig(ENV);
-  assert.equal(cfg.web.searchModel, 'gpt-5.4-mini');
-  assert.deepEqual(cfg.warnings.filter((w) => w.startsWith('WEB_SEARCH_MODEL')), []);
+  assert.equal(cfg.web.searchModel, 'openrouter/auto');
+  assert.deepEqual(cfg.warnings.filter((w) => w.startsWith('OPENROUTER_WEB_SEARCH_MODEL')), []);
 });
 
-test('an unpriced WEB_SEARCH_MODEL falls back with a warning; empty turns search off', () => {
-  const cfg = loadConfig({ ...ENV, WEB_SEARCH_MODEL: 'gpt-6-luna' });
-  assert.equal(cfg.web.searchModel, 'gpt-5.4-mini');
-  assert.match(cfg.warnings.join(' '), /WEB_SEARCH_MODEL: gpt-6-luna has no price/);
-  assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: 'gpt-5.4' }).web.searchModel, 'gpt-5.4');
-  assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: '' }).web.searchModel, '');
-  assert.equal(loadConfig({ ...ENV, WEB_SEARCH_MODEL: 'gpt-6-luna', MODEL_PRICES_JSON: '{"openai":{"gpt-6-luna":{"input":0.1,"output":0.5}}}' }).web.searchModel, 'gpt-5.4-mini', 'the removed environment override cannot change local model prices');
+test('custom OpenRouter search model is accepted without local price verification; empty disables primary search', () => {
+  assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: 'openrouter/some-model' }).web.searchModel, 'openrouter/some-model');
+  assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: '' }).web.searchModel, '');
+  assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: 'openrouter/some-model', MODEL_PRICES_JSON: '{}' }).web.searchModel, 'openrouter/some-model');
 });
 
 test('news questions search; questions about browsing itself do not', () => {
@@ -103,11 +100,11 @@ test('research routing ignores old assistant prose and uses the latest user inte
     { role: 'assistant', content: 'Here is a bibliography with many references and sources.' },
     { role: 'user', content: 'What is the capital of France?' }
   ] });
-  assert.equal(requests[0].tools[0].search_context_size, 'medium');
+  assert.equal(requests[0].tools[0].parameters.search_context_size, 'medium');
   await search.search({ system: 'test', messages: [
     { role: 'user', content: 'Give me a comprehensive research report with sources and citations.' }
   ] });
-  assert.equal(requests[1].tools[0].search_context_size, 'high');
+  assert.equal(requests[1].tools[0].parameters.search_context_size, 'high');
 });
 
 test('substantial research returns up to ten unique citations; ordinary lookups stay concise', async () => {
