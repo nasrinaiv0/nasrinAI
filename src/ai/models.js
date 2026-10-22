@@ -51,12 +51,12 @@ export function createModelCatalog({ provider, config, logger, now = () => Date.
   return {
     // Always return all four choices. Lock metadata controls the UI only;
     // resolve() independently enforces sign-in and plan access server-side.
-    async listFor(caller, { showLocked = true, plan = 'free' } = {}) {
-      const models = TIERS.map((t) => {
-        const lock = lockedState(caller, t.id, plan);
-        if (lock && !showLocked) return null;
-        return { id: t.id, name: t.name, ...(lock || {}) };
-      }).filter(Boolean);
+    async listFor(caller, { plan = 'free' } = {}) {
+      const models = TIERS.map((t) => ({
+        id: t.id,
+        name: t.name,
+        ...(lockedState(caller, t.id, plan) || {})
+      }));
       return { models, default: DEFAULT_TIER };
     },
 
