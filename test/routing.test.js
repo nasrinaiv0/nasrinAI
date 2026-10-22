@@ -76,26 +76,29 @@ test('routing: cheapest capable model; tiers cap the level; private data never g
   assert.equal(a.gemini.calls.length, 1);
 });
 
-test('budget: over a limit downgrades; nothing affordable blocks; unknown spend stays cheap', async () => {
-  const a = setup({ env: { GEMINI_API_KEY: '', MAX_REQUEST_COST_ULTRA_USD: '0.05' } });
-  const plan = a.policy.plan({ tier: 'ultra', message: 'Plan an end-to-end architecture redesign of the entire codebase' });
+test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
+  const limited = setup({ env: { GEMINI_API_KEY: '', MAX_REQUEST_COST_ULTRA_USD: '0.05' } });
+  const plan = limited.policy.plan({ tier: 'ultra', message: 'Plan an end-to-end architecture redesign of the entire codebase' });
   assert.equal(plan.level, 5);
-  const run = await a.policy.run(plan, req('x'));
-  assert.ok(run.level < 5, 'astra is over the $0.05 per-request limit, so it downgrades');
-  assert.ok(run.costUsd < 0.05);
+  const routed = await limited.policy.run(plan, req('x'));
+  assert.equal(routed.level, 5, 'configured high-level model remains eligible regardless of local USD estimates');
+  assert.ok(routed.spec.provider, 'a configured provider handles billing');
 
-  const broke = setup({ env: { GEMINI_API_KEY: '', DAILY_BUDGET_USD: '0' } });
-  await assert.rejects(broke.policy.run(broke.policy.plan({ tier: 'pro', message: 'hello' }), req('hello')), { code: 'budget_reached' });
+  const zeroDailyBudget = setup({ env: { GEMINI_API_KEY: '', DAILY_BUDGET_USD: '0' } });
+  const zeroBudgetRun = await zeroDailyBudget.policy.run(
+    zeroDailyBudget.policy.plan({ tier: 'pro', message: 'hello' }),
+    req('hello')
+  );
+  assert.ok(zeroBudgetRun.spec.provider, 'provider billing is not blocked by a local USD budget');
 
-  const free = setup({ env: { DAILY_BUDGET_USD: '0' } });
-  const ok = await free.policy.run(free.policy.plan({ tier: 'pro', message: 'hello' }), req('hello'));
-  assert.equal(ok.spec.provider, 'gemini', 'a free model still answers when the budget is used up');
-
-  const unknown = setup({ env: { GEMINI_API_KEY: '' } });
-  unknown.store.costSince = async () => { throw new Error('db down'); };
-  const u = unknown.policy.plan({ tier: 'ultra', message: 'Design a scalable distributed system architecture' });
-  const ur = await unknown.policy.run(u, req('x'));
-  assert.equal(ur.level, 1, 'only the cheapest level until spend can be read');
+  const unavailableSpendStore = setup({ env: { GEMINI_API_KEY: '' } });
+  unavailableSpendStore.store.costSince = async () => { throw new Error('db down'); };
+  const highTierPlan = unavailableSpendStore.policy.plan({
+    tier: 'ultra',
+    message: 'Design a scalable distributed system architecture'
+  });
+  const highTierRun = await unavailableSpendStore.policy.run(highTierPlan, req('x'));
+  assert.equal(highTierRun.level, highTierPlan.level, 'a local spend lookup failure does not force a cheaper model');
 });
 
 test('escalation is bounded; failover respects privacy', async () => {
@@ -160,7 +163,7 @@ test('end to end: logic answers without a model; smart routing records telemetry
   } finally { await srv.close(); }
 });
 
-test('unpriced route and tier model fall back to an explicitly priced safe model', async () => {
+test('configured route and tier models remain eligible without local price metadata', async () => {
   const a = setup({ env: {
     GEMINI_API_KEY: '',
     ROUTE_LEVEL_1: 'openai:gpt-6-luna',
@@ -169,7 +172,7 @@ test('unpriced route and tier model fall back to an explicitly priced safe model
   const plan = { tier: 'nasrinai', task: 'chat', level: 1, floor: 1, ceiling: 1, sensitive: false };
   const run = await a.policy.run(plan, req('Plan a week of meals on a budget'));
   assert.equal(run.spec.provider, 'openai');
-  assert.equal(run.spec.model, 'gpt-4o-mini');
+  assert.equal(run.spec.model, 'gpt-6-luna', 'the configured tier model is used instead of a local-price-driven fallback');
   assert.ok(run.costUsd >= 0);
 });
 
