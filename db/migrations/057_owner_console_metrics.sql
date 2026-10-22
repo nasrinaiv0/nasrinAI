@@ -191,12 +191,12 @@ as $owner_retention$
     select
       f.cohort_date,
       count(*)::bigint as cohort_size,
-      count(*) filter (where f.cohort_date < t.day)::bigint as day_1_eligible,
-      count(*) filter (where f.cohort_date < t.day and exists (
+      count(*) filter (where f.cohort_date < t.day - 1)::bigint as day_1_eligible,
+      count(*) filter (where f.cohort_date < t.day - 1 and exists (
         select 1 from activity a where a.actor_id = f.actor_id and a.active_date = f.cohort_date + 1
       ))::bigint as day_1_returned,
-      count(*) filter (where f.cohort_date <= t.day - 7)::bigint as day_7_eligible,
-      count(*) filter (where f.cohort_date <= t.day - 7 and exists (
+      count(*) filter (where f.cohort_date < t.day - 7)::bigint as day_7_eligible,
+      count(*) filter (where f.cohort_date < t.day - 7 and exists (
         select 1 from activity a where a.actor_id = f.actor_id and a.active_date = f.cohort_date + 7
       ))::bigint as day_7_returned
     from first_activity f
