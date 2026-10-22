@@ -163,6 +163,68 @@ $owner_growth$;
 revoke execute on function public.owner_console_growth_summary() from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_growth_summary() to service_role;
 
+-- Usage-based retention cohorts. These are first-observed model-call cohorts, not signup cohorts.
+create or replace function public.owner_console_retention_summary()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $owner_retention$
+  with today as (
+    select (now() at time zone 'UTC')::date as day
+  ),
+  activity as (
+    select actor_id, (created_at at time zone 'UTC')::date as active_date
+    from public.usage_events
+    where created_at >= now() - interval '45 days'
+      and actor_type = 'user'
+      and actor_id is not null
+    group by actor_id, (created_at at time zone 'UTC')::date
+  ),
+  first_activity as (
+    select actor_id, min(active_date) as cohort_date
+    from activity
+    group by actor_id
+  ),
+  cohort_rows as (
+    select
+      f.cohort_date,
+      count(*)::bigint as cohort_size,
+      count(*) filter (where f.cohort_date < t.day)::bigint as day_1_eligible,
+      count(*) filter (where f.cohort_date < t.day and exists (
+        select 1 from activity a where a.actor_id = f.actor_id and a.active_date = f.cohort_date + 1
+      ))::bigint as day_1_returned,
+      count(*) filter (where f.cohort_date <= t.day - 7)::bigint as day_7_eligible,
+      count(*) filter (where f.cohort_date <= t.day - 7 and exists (
+        select 1 from activity a where a.actor_id = f.actor_id and a.active_date = f.cohort_date + 7
+      ))::bigint as day_7_returned
+    from first_activity f
+    cross join today t
+    where f.cohort_date >= t.day - 13 and f.cohort_date < t.day
+    group by f.cohort_date
+  )
+  select jsonb_build_object(
+    'window_days', 14,
+    'generated_at', now(),
+    'definition', 'First observed signed-in model-call activity date; day-N return means a model call on exactly cohort date + N.',
+    'cohorts', coalesce(jsonb_agg(jsonb_build_object(
+      'cohort_date', c.cohort_date,
+      'cohort_size', c.cohort_size,
+      'day_1_eligible', c.day_1_eligible,
+      'day_1_returned', c.day_1_returned,
+      'day_1_retention_pct', case when c.day_1_eligible = 0 then null else round(100.0 * c.day_1_returned / c.day_1_eligible, 1) end,
+      'day_7_eligible', c.day_7_eligible,
+      'day_7_returned', c.day_7_returned,
+      'day_7_retention_pct', case when c.day_7_eligible = 0 then null else round(100.0 * c.day_7_returned / c.day_7_eligible, 1) end
+    ) order by c.cohort_date desc), '[]'::jsonb)
+  )
+  from cohort_rows c;
+$owner_retention$;
+
+revoke execute on function public.owner_console_retention_summary() from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_retention_summary() to service_role;
+
 -- Plan entitlements plus gross recorded PayMongo paid checkout amounts. This is not net revenue: refunds, fees, reversals, and settlement reconciliation are not represented.
 create index if not exists plan_periods_created_at_idx on public.plan_periods (created_at desc);
 create index if not exists plan_periods_active_expiry_idx on public.plan_periods (ends_at) where status = 'active';
