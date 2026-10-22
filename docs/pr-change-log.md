@@ -1673,3 +1673,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Preserve the behavior that local USD price snapshots and spend lookups do not block configured model routing; keep capability, privacy, retry, authentication, and token-usage controls.
 - Replace stale conflicted PR #523 with this main-based branch so the change can be reviewed against the latest mainline.
 - **Validation:** CI is pending. No production secrets, environment variables, or deployment settings changed.
+
+## PR #525 — Reply details panel layering and composer clearance (2026-10-22)
+
+- Set `.reply-details-panel` to `position: absolute` and `z-index: 1000` so it layers above conversation content.
+- Constrain the panel's maximum height using the chat dock height and device safe area, while retaining scrolling so it can stay clear of the composer.
+- Validation: CI passed on the previous head; re-run the Documentation Gate and verify mobile positioning before merge.
+
