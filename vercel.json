@@ -78,7 +78,7 @@
   ],
   "headers": [
     {
-      "source": "/((?!v1(?:/|$)|healthz$).*)",
+      "source": "/((?!v1(?:/|$)|healthz$|owner(?:/|$)).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
