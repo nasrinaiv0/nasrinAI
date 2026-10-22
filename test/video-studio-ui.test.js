@@ -13,6 +13,9 @@ test('existing Video Studio exposes ElevenLabs generation, saved assets, timelin
   assert.match(js,/\/v1\/video-studio\/audio-assets/);
   assert.match(js,/\/v1\/video-studio\/timeline/);
   assert.match(js,/\/v1\/video-studio\/render-jobs/);
+  assert.match(js,/\/v1\/video-studio\/render-timeline/);
+  assert.match(js,/queueServerTimelineRender/);
+  assert.match(js,/timelineRenderFingerprint/);
   assert.match(js,/job\.status==='completed'/);
   assert.match(js,/idempotency_key:crypto\.randomUUID\(\)/);
   assert.match(js,/nasrinai\.videoStudio\.lastRenderJobId/);
