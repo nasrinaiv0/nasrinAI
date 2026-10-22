@@ -181,9 +181,9 @@ security definer
 set search_path = public, pg_temp
 as $owner_users$
   select jsonb_build_object(
-    'registered_accounts', count(*),
-    'new_accounts_24h', count(*) filter (where created_at >= now() - interval '24 hours'),
-    'new_accounts_7d', count(*) filter (where created_at >= now() - interval '7 days'),
+    'auth_user_records', count(*),
+    'new_auth_records_24h', count(*) filter (where created_at >= now() - interval '24 hours'),
+    'new_auth_records_7d', count(*) filter (where created_at >= now() - interval '7 days'),
     'active_signins_30d', count(*) filter (where last_sign_in_at >= now() - interval '30 days'),
     'last_signup_at', max(created_at)
   )
