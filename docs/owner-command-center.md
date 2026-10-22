@@ -5,6 +5,31 @@ Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
 
+## Implementation status (2026-10-23)
+
+Implementation is being delivered on `feature/owner-console-v2`, based on current `main` to avoid merging an outdated feature branch.
+
+### Implemented in this branch
+
+- Server-intercepted `/owner` and `/owner/api/*` routes before normal API routing and static serving; Vercel rewrites include the root, trailing slash, and nested owner paths.
+- Fail-closed Vercel environment configuration: `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS` (exact normalized IPv4/IPv6 addresses; no CIDR), and a dedicated `OWNER_SESSION_SECRET`.
+- Server-side Supabase token verification at bootstrap; exact verified email and trusted client IP checks; 10-minute HttpOnly, SameSite=Strict owner session; shared IP rate limit.
+- Generic no-store HTTP 404 for unauthorized/misconfigured routes; no owner data or allowlist diagnostics are returned.
+- Responsive read-only console with all ten navigation areas and explicit Unavailable/No data yet states.
+- Migration 042 adds aggregate-only usage/automation RPCs and a server-role-only owner-action audit trail. Session issuance is refused if its audit event cannot be recorded; exports are refused if the export audit cannot be recorded.
+- Aggregate usage CSV export with fixed 24-hour/7-day windows and spreadsheet-formula-injection protection.
+- Regression tests for allowlist config, IPv4/IPv6 normalization, session and route authorization, Vercel rewrites, telemetry mapping, CSV exports, and SQL grants.
+
+### Not yet complete / production prerequisites
+
+- Migration 042 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
+- Registered-account totals/retention cohorts, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, incidents/alerts, and privileged controls remain pending source verification and implementation.
+- Vercel environment variables have not been changed. The actual owner email, public IP list, and dedicated signing secret are intentionally not guessed.
+- Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
+- No production migration, environment update, merge, or deployment has been performed.
+
+The console must not be described as a complete operational control plane until the remaining modules and validation gates are complete.
+
 ## 1. Goal
 
 Build an owner-only operations dashboard inside NasrinAI that gives the owner trustworthy visibility into adoption, AI operations, infrastructure, security, automation, and platform economics. It must work well on mobile Safari and remain useful when some integrations are unavailable.
