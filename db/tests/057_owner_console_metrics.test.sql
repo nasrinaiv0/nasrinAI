@@ -155,6 +155,24 @@ begin
     raise exception 'owner audit event types are missing from summary';
   end if;
 end $owner_test$;
+do $owner_incident_test$
+declare
+  v_id uuid;
+  v_result jsonb;
+  v_list jsonb;
+begin
+  v_id := public.owner_console_incident_create('Owner console test incident', 'Test lifecycle and audit behavior.', 'high', 'manual', 'owner-metrics-incident', repeat('c', 64));
+  v_list := public.owner_console_incidents_list(10);
+  if (v_list->'counts'->>'open')::bigint < 1 then raise exception 'incident list did not count the new open incident'; end if;
+  v_result := public.owner_console_incident_update(v_id, 'acknowledge', 'owner-metrics-incident', repeat('c', 64), '');
+  if v_result->>'status' <> 'acknowledged' then raise exception 'incident acknowledgement failed'; end if;
+  v_result := public.owner_console_incident_update(v_id, 'resolve', 'owner-metrics-incident', repeat('c', 64), 'Verified and resolved for test');
+  if v_result->>'status' <> 'resolved' then raise exception 'incident resolution failed'; end if;
+  v_list := public.owner_console_incidents_list(10);
+  if not (v_list->'incidents' @> jsonb_build_array(jsonb_build_object('id', v_id, 'status', 'resolved'))) then raise exception 'resolved incident was not returned'; end if;
+  if not exists (select 1 from public.owner_audit_events where actor_id = 'owner-metrics-incident' and event_type in ('incident_created','incident_acknowledged','incident_resolved') group by actor_id having count(*) = 3) then raise exception 'incident lifecycle audit trail is incomplete'; end if;
+end $owner_incident_test$;
+
 reset role;
 
 set role authenticated;
