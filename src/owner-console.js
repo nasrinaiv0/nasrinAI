@@ -24,6 +24,21 @@ function readCookie(req, name) {
   return '';
 }
 
+async function readOwnerJson(req, maxBytes = 8192) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) throw new Error('body too large');
+    chunks.push(buffer);
+  }
+  if (!size) throw new Error('body required');
+  const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('object required');
+  return value;
+}
+
 function bearer(req) {
   const match = /^Bearer ([A-Za-z0-9._~-]{20,4096})$/.exec(String(req.headers.authorization || ''));
   return match ? match[1] : '';
