@@ -117,16 +117,25 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         let spec = null; let at = level; const why = [];
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
-          // Coding gets a dedicated Claude lane only on Max/Ultra. It is tried
-          // before the general model pool at the classified level, so a coding
-          // request does not accidentally land on a generic cheap model.
+          const ordered = prioritizeOpenRouterCandidates(plan.task, r.levels[l]);
+          const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
+          const otherCandidates = ordered.filter((candidate) => candidate.provider !== 'openrouter');
+
+          // Intent is classified and the tier's level ceiling is applied before
+          // this point. Within that permitted level, configured OpenRouter models
+          // are always attempted first. The dedicated Max/Ultra coding lane is a
+          // fallback after OpenRouter, but before generic non-OpenRouter candidates.
+          candidates.push(...openRouterCandidates);
           if ((plan.task === 'coding' || plan.task === 'debugging') && l === level) {
             const codingSpec = plan.tier === 'ultra' && l >= 4
               ? (r.coding?.ultraDeep || r.coding?.ultra)
               : r.coding?.[plan.tier];
-            if (codingSpec) candidates.push(codingSpec);
+            if (codingSpec && !candidates.some((candidate) =>
+              candidate.provider === codingSpec.provider && candidate.model === codingSpec.model && candidate.effort === codingSpec.effort)) {
+              candidates.push(codingSpec);
+            }
           }
-          candidates.push(...prioritizeOpenRouterCandidates(plan.task, r.levels[l]));
+          candidates.push(...otherCandidates);
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
