@@ -1,3 +1,10 @@
+## Multi-site video coverage follow-up (2026-10-23)
+
+- Extend the safe social embed route and strict frontend player-origin allowlist to public Instagram posts and Reels.
+- Add the official Instagram player origin to both application and Vercel Content Security Policy frame-src directives.
+- Keep private or blocked content provider-controlled; retain the source link if playback is unavailable.
+- Validation: regression assertions added; CI and live public-post playback checks pending.
+
 ## PR #532 follow-up — Multi-site embeds and verified search fallback (2026-10-23)
 
 - Wire the optional official Google Custom Search adapter into the OpenRouter-first web research path; when OpenRouter is unconfigured, unavailable, or rate-limited, return real provider results instead of inventing a link.
