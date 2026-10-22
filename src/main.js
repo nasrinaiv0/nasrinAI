@@ -164,8 +164,8 @@ export function buildApp({ config, logger }) {
     ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
     : null;
   if (googleWebSearch?.available) logger.info('Google web search adapter ready');
-  const webSearch = config.web.searchModel && config.ai.openrouterApiKey
-    ? createWebSearch({ apiKey: config.ai.openrouterApiKey, model: config.web.searchModel, googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1' })
+  const webSearch = (config.web.searchModel && config.ai.openrouterApiKey) || googleWebSearch?.available
+    ? createWebSearch({ apiKey: config.ai.openrouterApiKey || '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1' })
     : null;
   if (webSearch) logger.info('OpenRouter web search ready', { model: config.web.searchModel });
   if (policy) logger.info('smart routing on', { budget: config.ai.routing.budget });
