@@ -14,12 +14,12 @@ test('owner console accepts exact email and IPv4 allowlists from environment', (
   const config = loadConfig({
     NODE_ENV: 'test',
     OWNER_ALLOWED_EMAILS: 'Owner@example.com, second@example.org',
-    OWNER_ALLOWED_IPS: '203.0.113.7,198.51.100.8',
+    OWNER_ALLOWED_IPS: '203.0.113.7,2001:0db8:0:0:0:0:0:1',
     OWNER_SESSION_SECRET: 's'.repeat(40)
   });
   assert.equal(config.ownerConsole.enabled, true);
   assert.deepEqual(config.ownerConsole.emails, ['owner@example.com', 'second@example.org']);
-  assert.deepEqual(config.ownerConsole.ips, ['203.0.113.7', '198.51.100.8']);
+  assert.deepEqual(config.ownerConsole.ips, ['203.0.113.7', '2001:db8::1']);
   assert.equal(config.ownerConsole.sessionSecret, 's'.repeat(40));
 });
 
@@ -27,6 +27,7 @@ test('malformed entries or a short session secret disable the owner console with
   for (const env of [
     { OWNER_ALLOWED_EMAILS: 'not-an-email', OWNER_ALLOWED_IPS: '203.0.113.7', OWNER_SESSION_SECRET: 's'.repeat(40) },
     { OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: '203.0.113.0/24', OWNER_SESSION_SECRET: 's'.repeat(40) },
+    { OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: 'not-an-ip', OWNER_SESSION_SECRET: 's'.repeat(40) },
     { OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: '203.0.113.7', OWNER_SESSION_SECRET: 'short' },
     { OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: '203.0.113.7,invalid', OWNER_SESSION_SECRET: 's'.repeat(40) }
   ]) {
