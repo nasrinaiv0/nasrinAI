@@ -169,7 +169,7 @@ export function loadConfig(env = process.env) {
     const configuredFreeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
     const freeModels = configuredFreeModels.length ? configuredFreeModels : [...(p.freeModels || [])];
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, models: p.models || null, trainsOnData: true, vision: false, tools: false };
-  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
+  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && aiProvider !== 'openrouter' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', openrouter: 'openrouter', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : openrouterApiKey ? 'openrouter' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
@@ -249,7 +249,7 @@ export function loadConfig(env = process.env) {
   // providers as emergency-only fallbacks. A provider failure never changes the
   // user's selected tier; the router picks the best available model for the same route level.
   const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai', 'anthropic'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.length > 0);
-  const fallbackMode = String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
+  const fallbackMode = aiProvider === 'openrouter' ? 'none' : String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
   if (!['auto', 'free', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, free, openai, gemini, claude, anthropic or none');
   }
