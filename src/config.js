@@ -802,8 +802,8 @@ export function loadConfig(env = process.env) {
     web: Object.freeze({
       links: String(env.WEB_LINKS ?? 'true').toLowerCase() !== 'false',
       searchModel: webSearchModel(),
-      // Optional official Google Programmable Search API. Configure both values
-      // to add an independent search index; core OpenAI web search remains available.
+      // Optional official Google Custom Search API. Configure both values
+      // to enable a failure-only fallback for the primary OpenRouter web search.
       googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),
       googleEngineId: String(env.WEB_GOOGLE_CX || '').trim()
     }),
