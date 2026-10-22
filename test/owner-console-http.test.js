@@ -9,7 +9,8 @@ const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 
 async function start(t) {
   const config = {
-    isProduction: true,
+    // This HTTP integration suite runs on a local ephemeral host; production-host policy is covered by unit tests.
+    isProduction: false,
     maxBodyBytes: 16384,
     ownerConsole: { enabled: true, emails: ['owner@example.com'], ips: ['127.0.0.1'], sessionSecret: SECRET }
   };
