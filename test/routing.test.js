@@ -249,9 +249,10 @@ test('coding falls back to the dedicated tier provider when OpenRouter is unavai
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
   const message = 'Fix this TypeScript bug and explain the regression';
   const run = await policy.run(policy.plan({ tier: 'max', message }), req(message));
-  assert.deepEqual([run.spec.provider, run.spec.model], ['anthropic', 'claude-sonnet-5-5']);
+  assert.deepEqual([run.spec.provider, run.spec.model], ['openai', 'gpt-5.4-nano']);
   assert.ok(openrouter.calls.length >= 1, 'OpenRouter was attempted before fallback');
-  assert.equal(anthropic.calls.length, 1, 'the configured tier-specific coding provider answers after OpenRouter fails');
+  assert.equal(openai.calls.length, 1, 'the router uses the configured compatible provider after OpenRouter fails');
+  assert.equal(anthropic.calls.length, 0, 'the router fallback avoids an unnecessary second provider switch');
 });
 
 test('Claude is isolated to Max/Ultra coding, with Opus reserved for deep Ultra work', async () => {
