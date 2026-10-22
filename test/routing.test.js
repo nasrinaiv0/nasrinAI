@@ -30,6 +30,16 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, reply } = {}) {
 }
 const req = (content) => ({ system: 'S', messages: [{ role: 'user', content }], attachments: [] });
 
+test('intent classification identifies YouTube/video lookup before model routing', () => {
+  for (const message of ['youtube video of mr beast', 'show me YouTube videos about NASA', 'find videos from MrBeast']) {
+    const plan = classify({ message });
+    assert.equal(plan.task, 'research', message);
+    assert.equal(plan.level, 2, message);
+    assert.ok(plan.reasons.includes('video discovery or media lookup'), message);
+  }
+  assert.equal(classify({ message: 'hi' }).level, 1);
+});
+
 test('logic tier: arithmetic, percentages and email checks need no model', () => {
   assert.equal(answerWithLogic('Calculate 20% of 500').text, '20% of 500 is 100.');
   assert.equal(answerWithLogic('what is (12.5 + 3) * 4?').text, '(12.5 + 3) * 4 = 62');
