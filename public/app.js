@@ -4555,7 +4555,10 @@
         if (other !== panel) {
           other.hidden = true;
           const otherButton = document.querySelector('[aria-controls="' + other.id + '"]');
-          if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
+          if (otherButton) {
+            otherButton.setAttribute('aria-expanded', 'false');
+            if (other.parentElement === document.body) otherButton.parentElement.appendChild(other);
+          }
         }
       });
       replayWave(details, 'reply-details-wave');
