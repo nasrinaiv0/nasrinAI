@@ -51,7 +51,7 @@ export function createModelCatalog({ config, logger }) {
   return {
     // Always return all four choices. Lock metadata controls the UI only;
     // resolve() independently enforces sign-in and plan access server-side.
-    async listFor(caller, { plan = 'free' } = {}) {
+    async listFor(caller, { plan = 'ultra' } = {}) {
       const models = TIERS.map((t) => ({
         id: t.id,
         name: t.name,
@@ -60,14 +60,14 @@ export function createModelCatalog({ config, logger }) {
       return { models, default: DEFAULT_TIER };
     },
 
-    async resolve(caller, requested, { plan = 'free' } = {}) {
+    async resolve(caller, requested, { plan = 'ultra' } = {}) {
       const id = requested === undefined || requested === null || requested === '' ? DEFAULT_TIER : requested;
       const tier = TIERS.find((t) => t.id === id);
       if (typeof id !== 'string' || !tier) {
         throw new HttpError(400, 'invalid_model', 'Choose Quick, Pro, Max or Ultra.');
       }
       if (id !== DEFAULT_TIER && caller.actor.type === 'guest') {
-        throw new HttpError(403, 'sign_in_required', `Sign in to use the ${tier.name} tier.`);
+        throw new HttpError(400, 'model_not_allowed', `Sign in to use ${tier.name}.`);
       }
       if (id !== DEFAULT_TIER && !allowed(caller, id)) {
         throw new HttpError(403, 'model_not_allowed', `${tier.name} is not available for this account.`);
