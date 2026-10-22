@@ -98,7 +98,7 @@ test('provider-owned billing: local USD limits and spend-read failures do not ga
     message: 'Design a scalable distributed system architecture'
   });
   const highTierRun = await unavailableSpendStore.policy.run(highTierPlan, req('x'));
-  assert.equal(highTierRun.level, 5, 'a local spend lookup failure does not force a cheaper model');
+  assert.equal(highTierRun.level, highTierPlan.level, 'a local spend lookup failure does not force a cheaper model');
 });
 
 test('escalation is bounded; failover respects privacy', async () => {
