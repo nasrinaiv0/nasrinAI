@@ -12,6 +12,7 @@ const CODE = /\`\`\`|\b(function|class|const|let|var|def|import|export|return|se
 const DEBUG = /\b(bug|debug|error|fails?|failing|broken|crash(es|ing)?|doesn'?t work|not working|exception|stack ?trace|why does .* (fail|break)|regression|incident)\b/i;
 const ANALYSIS = /\b(analy[sz]e|compare|comparison|trade-?offs?|pros and cons|evaluate|step[- ]by[- ]step|explain (why|how)|prove|derive|optimi[sz]e|strategy|forecast|benchmark|interpret|assess|review)\b/i;
 const RESEARCH = /\b(research|investigate|literature|sources?|citations?|evidence|study|survey|market research|find out|look up|verify|fact[- ]check)\b/i;
+const VIDEO_DISCOVERY = /\b(?:youtube|latest video|newest video|trending videos?|videos?\s+(?:of|from|by|about|on)|watch\s+(?:the\s+)?(?:latest|newest|top)|show\s+me\s+(?:the\s+)?videos?|find\s+videos?)\b/i;
 const PLANNING = /\b(plan|roadmap|implementation plan|action plan|strategy|timeline|milestones?|requirements?|specification|spec|project plan|how should i build|how do i build)\b/i;
 const DECISION = /\b(should i|which (one|is better)|recommend|recommendation|best|choose|pick|worth it|buy|versus|vs\.?|alternative|option)\b/i;
 const HARD = /\b(architecture|architect|system design|design (a|the) (system|platform|service|database)|scalab(le|ility)|distributed|security (model|architecture|review)|threat model|refactor|migration plan|database (design|schema|redesign)|authentication (flow|architecture)|multi-?tenant|orchestrat|zero trust|disaster recovery|high availability|performance engineering)\b/i;
@@ -47,6 +48,11 @@ export function classify({ message, history = [], attachments = [] }) {
     if (has(CODE, text)) {
       task = has(DEBUG, text) ? 'debugging' : 'coding';
       raise(has(DEBUG, text) ? 3 : 2, has(DEBUG, text) ? 'debugging code' : 'code');
+    }
+
+    if (has(VIDEO_DISCOVERY, text)) {
+      if (task === 'chat') task = 'research';
+      raise(2, 'video discovery or media lookup');
     }
 
     if (has(RESEARCH, text) || has(CURRENT, text)) {
