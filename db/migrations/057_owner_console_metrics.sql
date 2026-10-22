@@ -163,7 +163,7 @@ $owner_growth$;
 revoke execute on function public.owner_console_growth_summary() from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_growth_summary() to service_role;
 
--- Paid plan entitlement counts only; these are not revenue or payment-settlement figures.
+-- Plan entitlements plus gross recorded PayMongo paid checkout amounts. This is not net revenue: refunds, fees, reversals, and settlement reconciliation are not represented.
 create index if not exists plan_periods_created_at_idx on public.plan_periods (created_at desc);
 create index if not exists plan_periods_active_expiry_idx on public.plan_periods (ends_at) where status = 'active';
 
@@ -188,6 +188,16 @@ begin
     'active_max_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'max'),
     'active_ultra_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'ultra'),
     'new_periods', count(*) filter (where created_at >= p_since),
+    'paid_payment_count', (select count(*) from public.plan_periods paid where paid.created_at >= p_since and paid.provider = 'paymongo' and paid.amount is not null and paid.currency is not null),
+    'gross_paid_by_currency', coalesce((
+      select jsonb_agg(jsonb_build_object('currency', paid.currency, 'payment_count', paid.payment_count, 'gross_amount_minor', paid.gross_amount_minor) order by paid.currency)
+      from (
+        select currency, count(*) as payment_count, sum(amount)::bigint as gross_amount_minor
+        from public.plan_periods
+        where created_at >= p_since and provider = 'paymongo' and amount is not null and currency is not null
+        group by currency
+      ) paid
+    ), '[]'::jsonb),
     'last_period_at', max(created_at),
     'recent_by_status', coalesce((
       select jsonb_agg(jsonb_build_object('status', p.status, 'plan', p.plan, 'periods', p.periods) order by p.status, p.plan)
