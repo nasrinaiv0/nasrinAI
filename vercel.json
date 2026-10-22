@@ -52,6 +52,18 @@
       "destination": "/chat.html"
     },
     {
+      "source": "/owner",
+      "destination": "/api/index?__path=/owner"
+    },
+    {
+      "source": "/owner/",
+      "destination": "/api/index?__path=/owner/"
+    },
+    {
+      "source": "/owner/:path*",
+      "destination": "/api/index?__path=/owner/:path*"
+    },
+    {
       "source": "/v1",
       "destination": "/api/index?__path=/v1"
     },
@@ -66,7 +78,7 @@
   ],
   "headers": [
     {
-      "source": "/((?!v1(?:/|$)|healthz$).*)",
+      "source": "/((?!v1(?:/|$)|healthz$|owner(?:/|$)).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
