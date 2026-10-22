@@ -1,6 +1,10 @@
 -- Aggregate-only Owner Console RPC stays server-role only and counts exact rows.
 \set ON_ERROR_STOP on
 
+insert into auth.users (id, raw_user_meta_data, created_at, last_sign_in_at)
+values ('eeeeeeee-0000-4000-8000-000000000042', '{}'::jsonb, now(), now() - interval '1 day')
+on conflict (id) do update set created_at = excluded.created_at, last_sign_in_at = excluded.last_sign_in_at;
+
 set role service_role;
 do $owner_test$
 declare
