@@ -74,6 +74,18 @@ begin
   end if;
 end $owner_test$;
 
+do $owner_signals_test$
+declare
+  v_summary jsonb;
+begin
+  v_summary := public.owner_console_incident_summary(now() - interval '1 hour');
+  if (v_summary->>'ai_failed_requests')::bigint < 1
+    or (v_summary->>'automation_failed_runs')::bigint < 1
+    or (v_summary->>'stale_running_runs')::bigint < 1 then
+    raise exception 'derived operational signals did not include the seeded failures and stale run';
+  end if;
+end $owner_signals_test$;
+
 do $owner_plan_test$
 declare
   v_before jsonb;
@@ -143,6 +155,11 @@ begin
   begin
     perform public.owner_console_user_summary();
     raise exception 'authenticated role unexpectedly executed owner user summary';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.owner_console_incident_summary(now() - interval '1 hour');
+    raise exception 'authenticated role unexpectedly executed owner incident summary';
   exception when insufficient_privilege then null;
   end;
   begin
