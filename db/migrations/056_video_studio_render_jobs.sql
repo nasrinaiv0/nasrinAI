@@ -7,7 +7,7 @@ create table if not exists public.video_studio_render_jobs (
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   owner_id text not null check (owner_id ~ '^[A-Za-z0-9_-]{1,80}$'),
   project_id uuid not null,
-  source_video_id uuid not null,
+  source_video_id uuid,
   status text not null default 'queued'
     check (status in ('queued','starting','running','completed','failed')),
   progress integer not null default 0 check (progress between 0 and 100),
