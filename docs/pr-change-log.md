@@ -1,3 +1,10 @@
+## PR #539 follow-up — Historical token display (2026-10-23)
+
+- Restored assistant replies now display clearly marked text-based input/output token estimates when historical message records lack persisted provider usage metadata; total is calculated from both estimates.
+- Live replies continue to prefer actual provider token usage when available, with the server's estimate fallback otherwise.
+- Added source-contract assertions for restored-message token fallback.
+- **Validation:** Awaiting CI after this commit; historical estimates are approximate and do not reconstruct exact provider/system-prompt token usage.
+
 ## PR #539 follow-up — Refresh-safe conversation restoration (2026-10-23)
 
 - Restore saved conversation messages on startup without marking historical assistant replies as fresh, so automated pull-request actions remain restricted to newly generated replies.
