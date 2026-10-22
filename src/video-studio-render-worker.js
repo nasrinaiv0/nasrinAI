@@ -196,6 +196,14 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       const files = [{ path: '/vercel/sandbox/source.mp4', content: source }];
       for (let i = 0; i < audio.length; i++) files.push({ path: '/vercel/sandbox/audio-' + i + '.mp3', content: audio[i] });
       await sandbox.writeFiles(files);
+      // Install FFmpeg in the isolated worker image, then detach the actual render.
+      let check = await sandbox.runCommand({ cmd: 'bash', args: ['-lc', 'command -v ffmpeg'] });
+      if (check.exitCode !== 0) {
+        const install = await sandbox.runCommand({ cmd: 'apt-get', args: ['update', '-qq'], sudo: true });
+        if (install.exitCode !== 0) throw new Error('The isolated renderer could not prepare FFmpeg.');
+        const installed = await sandbox.runCommand({ cmd: 'apt-get', args: ['install', '-y', '-qq', 'ffmpeg'], sudo: true });
+        if (installed.exitCode !== 0) throw new Error('The isolated renderer could not install FFmpeg.');
+      }
       let probe;
       try { probe = await sandbox.runCommand({ cmd: 'ffmpeg', args: ['-hide_banner', '-i', '/vercel/sandbox/source.mp4'] }); }
       catch (err) { probe = err; }
@@ -224,14 +232,6 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         { path: '/vercel/sandbox/ffmpeg-args.json', content: Buffer.from(JSON.stringify(args)) },
         { path: '/vercel/sandbox/runner.mjs', content: Buffer.from(`import { spawn } from 'node:child_process';\nimport { readFile, writeFile } from 'node:fs/promises';\nconst args = JSON.parse(await readFile('/vercel/sandbox/ffmpeg-args.json', 'utf8'));\nconst child = spawn('ffmpeg', args, { stdio: 'ignore' });\nchild.on('error', async () => { await writeFile('/vercel/sandbox/render.exit', '127'); });\nchild.on('close', async (code) => { await writeFile('/vercel/sandbox/render.exit', String(code ?? 1)); });\n`) }
       ]);
-      // Install FFmpeg in the isolated worker image, then detach the actual render.
-      let check = await sandbox.runCommand({ cmd: 'bash', args: ['-lc', 'command -v ffmpeg'] });
-      if (check.exitCode !== 0) {
-        const install = await sandbox.runCommand({ cmd: 'apt-get', args: ['update', '-qq'], sudo: true });
-        if (install.exitCode !== 0) throw new Error('The isolated renderer could not prepare FFmpeg.');
-        const installed = await sandbox.runCommand({ cmd: 'apt-get', args: ['install', '-y', '-qq', 'ffmpeg'], sudo: true });
-        if (installed.exitCode !== 0) throw new Error('The isolated renderer could not install FFmpeg.');
-      }
       const detached = await sandbox.runCommand({ cmd: 'node', args: ['/vercel/sandbox/runner.mjs'], detached: true });
       await updateJob(row.id, { status: 'running', progress: 15, sandbox_name: name, error_code: null, error_message: null });
       logger?.info?.('Video Studio render detached', { renderId: row.id, commandId: detached?.commandId || null });
