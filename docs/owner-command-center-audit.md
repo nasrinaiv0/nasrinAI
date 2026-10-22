@@ -1,4 +1,17 @@
-# Owner Command Center — Phase 0 repository audit
+# Owner Command Center — Phase 0 repository audit (historical snapshot)
+
+Historical audit date: 2026-10-14. The findings below describe the repository at that time and must not be read as the current implementation status. Current implementation status is maintained in [Owner Command Center specification](owner-command-center.md) and [PR #543](https://github.com/primusco20/nasrinAI/pull/543).
+
+## Status update — 2026-10-23
+
+- The Owner Command Center is being implemented on draft PR #543; it is not merged or deployed to production.
+- `owner.nasrinai.com` is added to the existing Vercel project and verified. The branch contains the host-specific root redirect, server-intercepted owner routes, strict CSP allowance for the credentialed bootstrap, and regression tests.
+- The current branch includes server-side email/IP allowlist checks, a short-lived owner session, aggregate-only usage and Auth metrics, 14-day first-observed activity retention cohorts (45-day lookback), gross recorded PayMongo paid-checkout amounts (not net revenue), a manual incident register, and owner-action audit records.
+- Latest verified GitHub Actions CI at commit `ad8bf9e44b26e542058b13023345a8ed91f3870a`: 956 passed, 0 failed, 1 skipped; database tests, dependency audit, and Documentation Gate passed.
+- Remaining production gates include applying and verifying migration 057 through the approved process, validating the actual owner allowlist values without exposing them, enabling optional Vercel release telemetry, source verification for platform-wide security events and settled billing/refunds, alert delivery and feature-conversion analytics, and a visual preview. Vercel preview builds are currently canceled by the project's ignored-build step.
+- No production migration, merge, or production deployment has been performed.
+
+---
 
 Date: 2026-10-14  
 Branch reviewed: `feature/owner-command-center`  
