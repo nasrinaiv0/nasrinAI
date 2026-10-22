@@ -1,6 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
-import { sendJson } from './http/headers.js';
+import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
@@ -11,7 +11,7 @@ function sendNotFound(res, head = false) {
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Vary', 'Cookie');
+  res.setHeader('Vary', 'Cookie, Authorization');
   res.end(head ? undefined : NOT_FOUND);
 }
 
@@ -137,12 +137,7 @@ const panels = {
   settings: { title: 'Settings', description: 'Owner-console preferences and access status. Allowlist values stay in Vercel.' }
 };
 
-function jsonError(res) {
-  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Vary', 'Cookie, Authorization');
-  sendJson(res, 404, { error: { code: 'not_found', message: NOT_FOUND } });
-}
+function jsonError(res, head = false) { sendNotFound(res, head); }
 
 export function createOwnerConsole({ config, verifyUser, clientIp = () => '', now = () => Date.now(), logger = null }) {
   async function handle(req, res, pathname) {
@@ -153,10 +148,11 @@ export function createOwnerConsole({ config, verifyUser, clientIp = () => '', no
     res.setHeader('Cache-Control', 'private, no-store, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    res.setHeader('Content-Security-Policy', pathname === '/owner' || pathname === '/owner/' ? PAGE_CSP : API_CSP);
     res.setHeader('Vary', 'Cookie, Authorization');
 
     if (bootstrapPath) {
-      if (req.method !== 'POST' || !trustedSameOrigin(req)) { jsonError(res); return true; }
+      if (req.method !== 'POST' || !trustedSameOrigin(req)) { jsonError(res, req.method === 'HEAD'); return true; }
       const allowlist = allowedRequest(req, config, clientIp);
       const token = bearer(req);
       if (!allowlist || !token || typeof verifyUser !== 'function') { jsonError(res); return true; }
@@ -213,7 +209,7 @@ export function createOwnerConsole({ config, verifyUser, clientIp = () => '', no
       });
       return true;
     }
-    jsonError(res);
+    jsonError(res, req.method === 'HEAD');
     return true;
   }
   return { handle };
