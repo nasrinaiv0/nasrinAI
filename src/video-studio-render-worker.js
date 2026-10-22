@@ -309,10 +309,19 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
   async function processBatch({ limit = 1 } = {}) {
     if (!enabled) throw new Error('Video Studio render worker is not configured.');
     const polled = await pollRunning();
+    const staleBefore = new Date(now() - 10 * 60 * 1000).toISOString();
+    const staleStarting = await db('GET', 'video_studio_render_jobs?status=eq.starting&updated_at=lt.' +
+      encodeURIComponent(staleBefore) + '&select=id,input_manifest&limit=10');
+    let recovered = 0;
+    for (const row of staleStarting || []) {
+      await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_start_timeout', error_message: 'The render worker could not start in time. Retry the export.' });
+      await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
+      recovered++;
+    }
     const claimed = await db('POST', 'rpc/claim_video_studio_render_jobs', { p_limit: Math.max(1, Math.min(1, Number(limit) || 1)) });
     let started = 0;
     for (const row of Array.isArray(claimed) ? claimed : []) { await launch(row); started++; }
-    return { enabled: true, started, ...polled };
+    return { enabled: true, started, recovered, ...polled };
   }
 
   return { enabled, enqueue, status, readOutput, processBatch };
