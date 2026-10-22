@@ -20,6 +20,8 @@ To deploy, see [docs/deploy-vercel.md](docs/deploy-vercel.md); for sign-in,
 your own model, see [docs/local-model.md](docs/local-model.md).
 
 **Change documentation:** Every PR must update relevant Markdown documentation and the [PR change log](docs/pr-change-log.md), including scope and observed validation results.
+**Platform-wide engineering contract:** [Chat, Code, Video Studio, and shared services](docs/architecture/unified-platform-engineering.md) — acceptance criteria, security, routing, testing, mobile UX, and definition of done.
+
 
 ## API
 
