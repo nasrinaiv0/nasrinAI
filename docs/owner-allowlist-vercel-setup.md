@@ -1,6 +1,6 @@
 # Owner Console — Vercel Environment Allowlist
 
-Status: configuration guide for the Owner Command Center on `feature/owner-command-center`. The runtime guard is implemented in the feature branch; this document does not change Vercel settings or production configuration.
+Status: configuration guide for the Owner Command Center on `feature/owner-console-v2`. The runtime guard is implemented in the feature branch; this document does not change Vercel settings or production configuration.
 
 ## Configure in Vercel
 
