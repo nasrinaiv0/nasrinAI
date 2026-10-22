@@ -4560,3 +4560,18 @@ body.has-chat .galaxy-play-sun { display:none !important; }
   -webkit-backdrop-filter: blur(3px) saturate(100%);
   backdrop-filter: blur(3px) saturate(100%);
 }
+
+
+/* Reply-details glass: requested 10% surface opacity, with theme-aware contrast. */
+.reply-details-panel {
+  --reply-detail-bg: rgba(248, 249, 252, 0.10) !important;
+  background: var(--reply-detail-bg) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+:root[data-theme="dark"] .reply-details-panel,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .reply-details-panel {
+    --reply-detail-bg: rgba(30, 30, 34, 0.10) !important;
+  }
+}
