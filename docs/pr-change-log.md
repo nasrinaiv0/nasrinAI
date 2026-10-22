@@ -9,6 +9,28 @@
 - Production environment inventory confirmed owner email/IP keys exist without decrypting them; a dedicated sensitive `OWNER_SESSION_SECRET` was created. The values were not read or committed. Migration 057 has not been applied to production, and no merge or deployment was performed.
 - **Validation:** the earlier implementation passed `npm test`, JavaScript syntax checks, `npm run check:secrets`, `db/tests/run.sh`, and `npm audit --audit-level=high`. The latest growth/release-adapter/incident-lifecycle changes are awaiting the current CI run; the latest documentation gate is also pending. Vercel preview builds remain canceled by the configured ignored-build step, so visual desktop/iPhone verification is not yet available.
 
+## Historical reply metadata follow-up — tokens and completion time (2026-10-23)
+
+- Restored assistant replies without saved usage metadata now show approximate input/output/total token counts.
+- Restored replies now show an approximate elapsed time between the saved user message and assistant reply when both timestamps exist, rather than `Not reported`; the UI labels this as an estimate and explains that exact generation latency was not persisted.
+- Live replies and historical replies with stored provider metadata continue to use their supplied usage and duration values.
+- Regression assertions cover the token fallback and estimated elapsed-time fallback.
+- **Validation:** Vercel commit status was successful on the previous PR head; new CI checks are required for this update before merge.
+
+## Historical reply token display follow-up (2026-10-23)
+
+- Fix the current `main` behavior: restored assistant messages without saved provider usage metadata now show approximate input/output/total token counts instead of `Not reported`.
+- Historical estimates use saved user and assistant text lengths and are explicitly marked estimated; exact provider usage cannot be reconstructed when it was not persisted originally.
+- Live replies continue to use response usage from the server. Added regression assertions for the fallback and explanatory tooltip.
+- **Validation:** changes committed on a fresh branch from current `main`; CI must pass before merge and deployment.
+
+## PR #539 follow-up — Refresh-safe conversation restoration (2026-10-23)
+
+- Restore saved conversation messages on startup without marking historical assistant replies as fresh, so automated pull-request actions remain restricted to newly generated replies.
+- Preserve the saved conversation pointer and visible chat during temporary restore failures; clear it only when the server explicitly reports the conversation is missing or expired.
+- Restore response metadata when supplied by the server.
+- **Validation:** CI identified a source-contract regression because the history rendering call no longer matched the established data.messages.forEach form. Restored that form while keeping metadata restoration. Re-run CI to verify all tests and documentation gate.
+
 ## Multi-site video coverage follow-up (2026-10-23)
 
 - Extend the safe social embed route and strict frontend player-origin allowlist to public Instagram posts and Reels.
