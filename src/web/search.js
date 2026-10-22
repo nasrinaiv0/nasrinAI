@@ -12,44 +12,25 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
       // Keep the previous user turn only to resolve short follow-ups in context.
       const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
       const queryText = userMessages.slice(-2).map((m) => String(m?.content || '')).join('\n');
-      // Google is an independent discovery index, not a replacement for the
-      // answer-producing web search. If it is unavailable, continue normally.
-      let googleResults = [];
-      if (googleSearch?.available && queryText.trim()) {
-        try { googleResults = await googleSearch.search(queryText); } catch { googleResults = []; }
-      }
-      // Search candidates are not citations until the answer-producing search tool cites them.
-      const mergeCitations = (items) => {
-        const merged = []; const seen = new Set();
-        for (const item of (Array.isArray(items) ? items : [])) {
-          if (!item?.url || seen.has(item.url)) continue;
-          seen.add(item.url); merged.push(item);
-        }
-        return merged.slice(0, 10);
-      };
-      const googleFallback = () => {
-        if (!googleResults.length) return null;
-        const items = googleResults.slice(0, 5);
+      // Keep OpenRouter on the latency-sensitive primary path. Query Google only
+      // after a primary failure, or when OpenRouter is not configured.
+      const googleFallback = async () => {
+        if (!googleSearch?.available || !queryText.trim()) return null;
+        let items = [];
+        try { items = await googleSearch.search(queryText); } catch { items = []; }
+        if (!items.length) return null;
+        items = items.slice(0, 5);
         const text = [
           'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
           ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
-            (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
-        ].join('\n\n');
+            (item.snippet ? '\\n' + item.snippet : '') + '\\n' + item.url)
+        ].join('\\n\\n');
         return {
           text,
           citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
           searches: 1, inputTokens: 0, cachedTokens: 0, outputTokens: Math.ceil(text.length / 4)
         };
       };
-      const googleContext = googleResults.length
-        ? '\n\nSupplemental Google Search results (candidate sources; verify before relying on them):\n' + googleResults.slice(0, 8).map((item, i) => (i + 1) + '. ' + item.title + '\nURL: ' + item.url + '\nSnippet: ' + item.snippet).join('\n\n')
-        : '';
-      const inputMessages = (Array.isArray(messages) ? messages : []).map((m, i, all) => {
-        if (googleContext && m?.role === 'user' && i === all.map((x) => x?.role).lastIndexOf('user')) {
-          return { role: m.role, content: String(m.content || '') + googleContext };
-        }
-        return { role: m.role, content: m.content };
-      });
       const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons|sources? and resources?|references?|bibliography|citations?|cite sources|provide sources|find sources)\b/i.test(queryText);
       const socialVideoIntent = /\b(?:trending|trend|viral|popular|top|latest|public)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos?|show|find|search|any videos?)\b/i.test(queryText);
       const searchContextSize = deepResearch || socialVideoIntent ? 'high' : 'medium';
@@ -68,7 +49,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
       ].join('\n');
       // If OpenRouter is not configured, use the official Google adapter directly.
       if (!apiKey) {
-        const fallback = googleFallback();
+        const fallback = await googleFallback();
         if (fallback) return fallback;
         throw new ProviderError('unavailable', 'web search is not configured');
       }
@@ -82,20 +63,20 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
             tools: [{ type: 'openrouter:web_search', parameters: { engine: 'auto', max_results: 10, max_total_results: deepResearch ? 20 : 10, search_context_size: searchContextSize } }],
             include: ['web_search_call.action.sources'],
             instructions: String(system || '') + '\n\nWeb research quality requirements:\n' + researchInstructions,
-            input: inputMessages,
+            input: (Array.isArray(messages) ? messages : []).map((m) => ({ role: m.role, content: m.content })),
             max_output_tokens: maxTokens,
             ...(onText ? { stream: true } : {})
           }),
           signal: AbortSignal.timeout(timeoutMs)
         });
       } catch (err) {
-        const fallback = googleFallback();
+        const fallback = await googleFallback();
         if (fallback) return fallback;
         throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search could not be reached');
       }
       if (!resp.ok) {
         const s = resp.status;
-        const fallback = googleFallback();
+        const fallback = await googleFallback();
         if (fallback) return fallback;
         throw new ProviderError(s === 429 ? 'busy' : s >= 500 ? 'unavailable' : 'config', `web search answered ${s}`, s);
       }
