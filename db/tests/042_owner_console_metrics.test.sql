@@ -69,6 +69,23 @@ begin
     raise exception 'automation status or stale-run counts are incorrect';
   end if;
 end $owner_test$;
+
+do $owner_test$
+declare
+  v_before jsonb;
+  v_after jsonb;
+begin
+  v_before := public.owner_console_audit_summary(now() - interval '1 hour');
+  perform public.owner_console_record_audit('session_issued', 'owner-metrics-audit', repeat('a', 64), 'success');
+  perform public.owner_console_record_audit('usage_export', 'owner-metrics-audit', repeat('b', 64), 'success');
+  v_after := public.owner_console_audit_summary(now() - interval '1 hour');
+  if (v_after->>'event_count')::bigint <> (v_before->>'event_count')::bigint + 2 then
+    raise exception 'owner audit summary did not count the inserted events';
+  end if;
+  if not (v_after->'by_type' @> '[{"event_type":"session_issued","events":1},{"event_type":"usage_export","events":1}]'::jsonb) then
+    raise exception 'owner audit event types are missing from summary';
+  end if;
+end $owner_test$;
 reset role;
 
 set role authenticated;
@@ -82,6 +99,16 @@ begin
   begin
     perform public.owner_console_automation_summary(now() - interval '1 hour');
     raise exception 'authenticated role unexpectedly executed owner automation summary';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.owner_console_audit_summary(now() - interval '1 hour');
+    raise exception 'authenticated role unexpectedly executed owner audit summary';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.owner_console_record_audit('session_issued', 'owner-metrics-audit', repeat('a', 64), 'success');
+    raise exception 'authenticated role unexpectedly wrote owner audit events';
   exception when insufficient_privilege then null;
   end;
 end $owner_test$;
