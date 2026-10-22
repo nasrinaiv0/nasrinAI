@@ -294,7 +294,7 @@
         register.replaceChildren(el('p', 'panel-copy', 'Loading incident records…'));
         try {
           const response = await fetch('/owner/api/incidents', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
-          if (response.status === 404) { window.location.href = '/'; return; }
+          if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
           if (!response.ok) throw new Error('incident list unavailable');
           const payload = await response.json();
           register.replaceChildren();
@@ -328,7 +328,7 @@
                   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                   body: JSON.stringify({ confirm: action === 'acknowledge' ? 'ACKNOWLEDGE' : 'RESOLVE', resolution_note: resolutionNote || '' })
                 });
-                if (response.status === 404) { window.location.href = '/'; return; }
+                if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
                 if (!response.ok) throw new Error('incident update failed');
                 await refreshIncidents();
               } catch {
@@ -360,7 +360,7 @@
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify({ confirm: 'CREATE INCIDENT', title: titleInput.value, description: descriptionInput.value, severity: severityInput.value, source: sourceInput.value })
           });
-          if (response.status === 404) { window.location.href = '/'; return; }
+          if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
           if (!response.ok) throw new Error('incident create failed');
           form.reset();
           await refreshIncidents();
@@ -452,7 +452,7 @@
     $('freshness').textContent = 'Checking data sources…';
     try {
       const response = await fetch('/owner/api/overview', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
-      if (response.status === 404) { window.location.href = '/'; return; }
+      if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
       if (!response.ok) throw new Error('refresh failed');
       data = await response.json();
       $('freshness').textContent = 'Checked ' + new Date(data.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · sources pending';
@@ -473,7 +473,7 @@
   $('signout').addEventListener('click', async () => {
     $('signout').disabled = true;
     try { await fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }); } catch {}
-    window.location.href = '/';
+    window.location.href = 'https://www.nasrinai.com/';
   });
   show('overview');
   refresh();
