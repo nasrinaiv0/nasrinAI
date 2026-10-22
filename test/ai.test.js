@@ -73,6 +73,7 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
     AI_PROVIDER: 'auto',
     OPENROUTER_API_KEY: 'or-test-key',
     OPENAI_API_KEY: KEY,
+    GEMINI_API_KEY: 'gemini-test-key',
     ROUTE_LEVEL_1: 'openai:gpt-5-mini,gemini:gemini-3.1-flash-lite'
   });
   assert.equal(customized.ai.routing.levels[1][0].provider, 'openrouter', 'custom route lists must not bypass OpenRouter-first intent scanning');
