@@ -1175,7 +1175,7 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 ## Proposed PR — Upgrade docs status cleanup (`docs/status-cleanup`)
 
-- **Change:** documentation only. `docs/claude-code-handoff.md` backlog statuses now match merged PRs (#316, #317, #318, #319); `docs/nasrinai-slash-commands-attachments-composer-upgrade.md` states what is and is not implemented (client-side registry, not the database-backed one; paste trigger is composer height, not 2,000 characters); `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` drops a duplicated section and records that migration 042 is live.
+- **Change:** documentation only. `docs/claude-code-handoff.md` backlog statuses now match merged PRs (#316, #317, #318, #319); `docs/nasrinai-slash-commands-attachments-composer-upgrade.md` states what is and is not implemented (client-side registry, not the database-backed one; paste trigger is composer height, not 2,000 characters); `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` drops a duplicated section and records that migration 057 is live.
 - **Evidence for 042:** read-only Supabase query on 2026-10-18 showed the `google_connections` primary key is `(tenant_id, user_id, service)`. No data was read and nothing was changed.
 - **Validation:** `npm test` and `npm run check:secrets` run locally; CI pending. No app code, schema or settings changed.
 
@@ -1767,9 +1767,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added server-only exact verified email and normalized IPv4/IPv6 allowlists via `OWNER_ALLOWED_EMAILS`, `OWNER_ALLOWED_IPS`, and `OWNER_SESSION_SECRET`; missing or malformed settings fail closed without breaking the public site.
 - Added trusted IP validation, the shared IP rate limiter, generic no-store 404 responses, and sign-out cookie clearing.
 - Added a premium responsive read-only console with ten navigation areas and explicit unavailable states. The app entry appears only after a successful server bootstrap.
-- Migration 042 adds aggregate usage/automation summaries, Auth account-record/sign-in aggregates without identifiers, Pro/Max/Ultra paid plan-entitlement counts (not revenue), and an RLS-protected owner-action audit trail. Audit rows store one-way IP hashes, not raw addresses; summaries do not expose prompts, workflow payloads, or actor IDs.
+- Migration 057 adds aggregate usage/automation summaries, Auth account-record/sign-in aggregates without identifiers, Pro/Max/Ultra paid plan-entitlement counts (not revenue), and an RLS-protected owner-action audit trail. Audit rows store one-way IP hashes, not raw addresses; summaries do not expose prompts, workflow payloads, or actor IDs.
 - Added fixed-window aggregate usage CSV export with formula-injection protection. Session issuance and export fail closed if their audit event cannot be recorded.
 - Added config, route, session, telemetry, CSV, Vercel rewrite, and SQL permission regression tests.
 - **Not yet complete:** registered-account/retention, Vercel release telemetry, platform-wide security events, settled billing/revenue reconciliation, incidents/alerts, and privileged controls.
-- **Production boundary:** migration 042 and Vercel environment variables have not been applied/changed. Do not enable production owner access until migration and permission checks pass. No merge or deployment has been performed.
+- **Production boundary:** migration 057 and Vercel environment variables have not been applied/changed. Do not enable production owner access until migration and permission checks pass. No merge or deployment has been performed.
 - **Validation:** production module/frontend syntax checks passed. Full test suite, database tests, secret scan, GitGuardian, and desktop/iPhone preview inspection remain unconfirmed. Vercel preview was canceled by the project's ignored-build step.
