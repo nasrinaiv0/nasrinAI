@@ -1665,3 +1665,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Remove local USD price metadata as a prerequisite for selecting and calling configured chat models. Provider accounts own billing; provider-reported costs remain authoritative, with local estimates used only for fallback telemetry where necessary.
 - Local USD budget/price snapshots no longer downgrade or block chat routing. Token reservations/limits and hourly anti-abuse limits remain separate controls.
 - **Validation:** PR #522's CI unit tests passed; the Documentation Gate failed because this changelog was absent from the diff. PR #523's follow-up updates legacy tests that still expected local USD budget downgrades and price-based safe-model substitution. Re-run CI and Documentation Gate before merge. No production environment variables or secrets were changed.
+
+
+## PR #524 — Rebase provider-owned pricing changes after #522 (2026-10-22)
+
+- Reapply the provider-owned billing changes on top of current `main`, which already contains the OpenRouter auto-fallback merge from PR #522.
+- Preserve the behavior that local USD price snapshots and spend lookups do not block configured model routing; keep capability, privacy, retry, authentication, and token-usage controls.
+- Replace stale conflicted PR #523 with this main-based branch so the change can be reviewed against the latest mainline.
+- **Validation:** CI is pending. No production secrets, environment variables, or deployment settings changed.
