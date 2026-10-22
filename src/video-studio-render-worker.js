@@ -153,6 +153,99 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     }
   }
 
+  async function enqueueTimeline(caller, { projectId, aspect = '16:9', clips, mediaAssets, idempotencyKey = null }) {
+    owner(caller);
+    if (!UUID.test(String(projectId))) {
+      const error = new Error('Save this Video Studio project to the cloud before rendering.'); error.status = 400; error.code = 'video_project_required'; throw error;
+    }
+    if (idempotencyKey != null && !/^[A-Za-z0-9_-]{8,100}$/.test(String(idempotencyKey))) {
+      const error = new Error('The render request identifier is invalid.'); error.status = 400; error.code = 'invalid_idempotency_key'; throw error;
+    }
+    if (!Array.isArray(clips) || clips.length < 1 || clips.length > 30 || !Array.isArray(mediaAssets) || mediaAssets.length > 30) {
+      const error = new Error('A timeline render must contain between one and 30 clips.'); error.status = 400; error.code = 'video_timeline_limit'; throw error;
+    }
+    const allowedTracks = new Set(['video','overlay','text','audio']);
+    const allowedFilters = new Set(['none','cinematic','warm','cool','mono','vivid']);
+    const normalized = [];
+    let durationSeconds = 0;
+    for (const raw of clips) {
+      if (!raw || typeof raw !== 'object' || !allowedTracks.has(raw.track || 'video')) {
+        const error = new Error('A timeline clip has an unsupported track.'); error.status = 400; error.code = 'video_timeline_invalid'; throw error;
+      }
+      const position = Number(raw.position), duration = Number(raw.duration), start = Number(raw.start || 0);
+      if (![position,duration,start].every(Number.isFinite) || position < 0 || duration <= 0 || duration > 60 || start < 0) {
+        const error = new Error('A timeline clip has invalid timing.'); error.status = 400; error.code = 'video_timeline_invalid'; throw error;
+      }
+      const mediaIndex = raw.mediaIndex == null ? null : Number(raw.mediaIndex);
+      if (mediaIndex != null && (!Number.isInteger(mediaIndex) || mediaIndex < 0 || mediaIndex >= mediaAssets.length)) {
+        const error = new Error('A timeline clip refers to missing media.'); error.status = 400; error.code = 'video_timeline_invalid'; throw error;
+      }
+      if ((raw.track || 'video') !== 'text' && (raw.track || 'video') !== 'overlay' && mediaIndex == null) {
+        const error = new Error('Save or generate every video, image, and audio clip before server rendering.'); error.status = 400; error.code = 'video_asset_required'; throw error;
+      }
+      const item = {
+        name: safeText(raw.name, 120), title: safeText(raw.title, 200), track: raw.track || 'video',
+        mediaIndex, mediaType: safeText(raw.mediaType, 100).toLowerCase(),
+        position, duration, start, transition: ['cut','fade','dissolve','wipe'].includes(raw.transition) ? raw.transition : 'cut',
+        filter: allowedFilters.has(raw.filter) ? raw.filter : 'none',
+        opacity: Math.max(0, Math.min(100, Number(raw.opacity ?? 100))),
+        gain: Math.max(0, Math.min(200, Number(raw.gain ?? 100))),
+        keyframes: Array.isArray(raw.keyframes) ? raw.keyframes.slice(0, 30).map(k => ({
+          time: Math.max(0, Math.min(duration, Number(k.time) || 0)),
+          opacity: Math.max(0, Math.min(100, Number(k.opacity ?? 100))),
+          scale: Math.max(.5, Math.min(2, Number(k.scale ?? 1)))
+        })) : []
+      };
+      normalized.push(item);
+      durationSeconds = Math.max(durationSeconds, position + duration);
+    }
+    if (durationSeconds < 1 || durationSeconds > 60) {
+      const error = new Error('Server-side timeline exports must be between 1 and 60 seconds.'); error.status = 400; error.code = 'video_export_duration'; throw error;
+    }
+    let totalBytes = 0;
+    for (const asset of mediaAssets) {
+      if (!Buffer.isBuffer(asset?.bytes) || asset.bytes.length < 1 || asset.bytes.length > MAX_VIDEO_BYTES) {
+        const error = new Error('One of the timeline media files is empty or exceeds the 50 MB limit.'); error.status = 413; error.code = 'video_export_input_size'; throw error;
+      }
+      totalBytes += asset.bytes.length;
+    }
+    if (totalBytes > MAX_TOTAL_INPUT_BYTES) {
+      const error = new Error('Timeline source media exceeds the combined 100 MB render limit.'); error.status = 413; error.code = 'video_render_input_total_size'; throw error;
+    }
+    if (idempotencyKey) {
+      const prior = await db('GET', 'video_studio_render_jobs?tenant_id=eq.' + caller.tenantId +
+        '&owner_id=eq.' + encodeURIComponent(caller.actor.id) + '&idempotency_key=eq.' + encodeURIComponent(idempotencyKey) + '&limit=1&select=*');
+      if (prior?.[0]) return { ...publicJob(prior[0]), reused: true };
+    }
+    const id = randomUUID(), root = 'renders/' + caller.tenantId + '/' + caller.actor.id + '/' + id;
+    const inputManifest = { mode: 'timeline', aspect: aspect === '9:16' ? '9:16' : '16:9', durationSeconds, clips: normalized, media: [] };
+    const uploaded = [];
+    try {
+      for (let i = 0; i < mediaAssets.length; i++) {
+        const ext = /image\\/(png|jpeg|webp|gif)/.test(mediaAssets[i].mime || '') ? (mediaAssets[i].mime.includes('png') ? 'png' : mediaAssets[i].mime.includes('webp') ? 'webp' : mediaAssets[i].mime.includes('gif') ? 'gif' : 'jpg')
+          : /audio\\//.test(mediaAssets[i].mime || '') ? 'mp3' : 'mp4';
+        const path = root + '/media-' + i + '.' + ext;
+        await storage('POST', path, mediaAssets[i].bytes, mediaAssets[i].mime || 'application/octet-stream');
+        uploaded.push(path); inputManifest.media.push(path);
+      }
+      const rows = await db('POST', 'video_studio_render_jobs?select=*', {
+        id, tenant_id: caller.tenantId, owner_id: caller.actor.id, project_id: projectId,
+        source_video_id: null, status: 'queued', progress: 0, input_manifest: inputManifest,
+        idempotency_key: idempotencyKey || null
+      }, 'return=representation');
+      if (!rows?.[0]) throw new Error('The render job could not be saved.');
+      return { ...publicJob(rows[0]), reused: false };
+    } catch (err) {
+      await Promise.all(uploaded.map(path => storage('DELETE', path).catch(() => {})));
+      if (String(err?.message || '').includes('(409)') && idempotencyKey) {
+        const prior = await db('GET', 'video_studio_render_jobs?tenant_id=eq.' + caller.tenantId +
+          '&owner_id=eq.' + encodeURIComponent(caller.actor.id) + '&idempotency_key=eq.' + encodeURIComponent(idempotencyKey) + '&limit=1&select=*').catch(() => []);
+        if (prior?.[0]) return { ...publicJob(prior[0]), reused: true };
+      }
+      throw err;
+    }
+  }
+
   async function getJob(caller, id) {
     owner(caller);
     if (!UUID.test(String(id))) return null;
@@ -338,5 +431,5 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     return { enabled: true, started, recovered, expired, ...polled };
   }
 
-  return { enabled, enqueue, status, readOutput, processBatch };
+  return { enabled, enqueue, enqueueTimeline, status, readOutput, processBatch };
 }
