@@ -37,7 +37,7 @@ export function restorePath(url) {
   const u = new URL(url || '/', 'http://local');
   const original = u.searchParams.get('__path');
   if (!original) return url;
-  if (!/^\\/(v1(\\/[A-Za-z0-9_\\-/]*)?|owner(\\/[A-Za-z0-9_\\-/]*)?|healthz)$/.test(original)) return url;
+  if (!/^\/(v1(\/[A-Za-z0-9_\-/]*)?|owner(\/[A-Za-z0-9_\-/]*)?|healthz)$/.test(original)) return url;
   u.searchParams.delete('__path');
   const rest = u.searchParams.toString();
   return original + (rest ? '?' + rest : '');
