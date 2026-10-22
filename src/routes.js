@@ -35,14 +35,23 @@ function cleanVideoStudioDocument(raw) {
   const arr = (v) => Array.isArray(v) ? v.slice(0, 200) : [];
   const clips = arr(raw.clips).filter((c) => c && typeof c === 'object' && !Array.isArray(c)).map((c) => {
     const id = text(c.id, 100);
-    const kind = ['generated', 'upload', 'template'].includes(c.kind) ? c.kind : 'template';
+    const kind = ['generated', 'upload', 'template', 'text'].includes(c.kind) ? c.kind : 'template';
     const videoId = typeof c.videoId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.videoId) ? c.videoId : null;
     const assetId = typeof c.assetId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c.assetId) ? c.assetId : null;
     if (kind === 'upload' && !assetId) throw new HttpError(400, 'video_asset_required', 'Re-add this uploaded media and save again so its file is included in the cloud project.');
     const mediaType = kind === 'upload' && typeof c.mediaType === 'string' && /^(video|image|audio)\//i.test(c.mediaType) ? c.mediaType.slice(0, 100) : null;
-    return { id, name:text(c.name, 120, 'Clip'), title:text(c.title, 200), kind,
-      duration:Math.max(0, Math.min(3600, Number(c.duration) || 0)),
+    const track = ['video','overlay','text','audio'].includes(c.track) ? c.track : kind === 'text' ? 'text' : c.title ? 'overlay' : mediaType?.startsWith('audio/') ? 'audio' : 'video';
+    const filter = ['none','cinematic','warm','cool','mono','vivid'].includes(c.filter) ? c.filter : 'none';
+    const transition = ['cut','fade','dissolve','wipe'].includes(c.transition) ? c.transition : 'cut';
+    const keyframes = Array.isArray(c.keyframes) ? c.keyframes.slice(0,30).filter(k => k && Number.isFinite(Number(k.time))).map(k => ({
+      time:Math.max(0,Math.min(3600,Number(k.time))),opacity:Math.max(0,Math.min(100,Number(k.opacity ?? 100))),scale:Math.max(.5,Math.min(2,Number(k.scale ?? 1)))
+    })) : [];
+    return { id, name:text(c.name, 120, 'Clip'), title:text(c.title, 200), kind, track,
+      duration:Math.max(0, Math.min(60, Number(c.duration) || 0)),
       start:Math.max(0, Math.min(3600, Number(c.start) || 0)),
+      position:Math.max(0, Math.min(3600, Number(c.position) || 0)),
+      transition, filter, opacity:Math.max(0,Math.min(100,Number(c.opacity ?? 100))),
+      gain:Math.max(0,Math.min(200,Number(c.gain ?? 100))), keyframes,
       videoId, download:videoId && kind === 'generated' ? '/v1/videos/' + videoId + '/content' : null,
       assetId:kind === 'upload' ? assetId : null, mediaType,
       createdAt:text(c.createdAt, 40) };
