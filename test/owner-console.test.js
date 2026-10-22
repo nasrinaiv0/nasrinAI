@@ -7,14 +7,14 @@ const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 const EMAIL = 'owner@example.com';
 const IP = '203.0.113.42';
 
-function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null } = {}) {
+function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null, fetchImpl } = {}) {
   const config = {
     isProduction: true,
     ownerConsole: ownerConsole || { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET }
   };
   const verifier = verifyUser || (async (token) => token === TOKEN ? { id: 'user-1', email } : null);
   const activeStore = store || { kind: 'supabase', request: async (_method, path) => { if (path === 'rpc/owner_console_record_audit') return null; throw new Error('source unavailable'); } };
-  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now });
+  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now, fetchImpl });
   return { config, consoleHandler };
 }
 
@@ -235,4 +235,30 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.usage_24h.total_tokens, 15);
   assert.equal(payload.automation_24h.pending_approval_count, 1);
   assert.equal(Object.hasOwn(payload, 'prompt'), false);
+});
+
+
+test('Vercel deployment telemetry is sanitized and appears only when the optional source is configured', async () => {
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, vercel: { enabled: true, token: 'v'.repeat(32), projectId: 'prj_test123', teamId: 'team_test123' } };
+  let requestedUrl = '';
+  const fetchImpl = async (url, options) => {
+    requestedUrl = String(url);
+    assert.match(options.headers.Authorization, /^Bearer /);
+    return { ok: true, json: async () => ({ deployments: [
+      { state: 'READY', url: 'nasrinai.example.vercel.app', target: 'production', created: 1792700000000, meta: { githubCommitRef: 'main', githubCommitSha: 'abcdef1234567890', privateThing: 'must-not-leak' } },
+      { state: 'ERROR', url: 'bad-build.example.vercel.app', target: 'production', created: 1792690000000, meta: { githubCommitRef: 'main', githubCommitSha: '1234567890abcdef' } }
+    ] }) };
+  };
+  const { consoleHandler } = setup({ ownerConsole, fetchImpl });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/overview', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/overview');
+  const payload = JSON.parse(out.res.body);
+  assert.match(requestedUrl, /^https:\/\/api\.vercel\.com\/v6\/deployments\?/);
+  assert.equal(payload.data_sources.infrastructure, 'available');
+  assert.equal(payload.deployment_summary.deployment_count, 2);
+  assert.equal(payload.deployment_summary.ready_count, 1);
+  assert.equal(payload.deployment_summary.failed_count, 1);
+  assert.equal(Object.hasOwn(payload.deployment_summary.deployments[0], 'privateThing'), false);
 });
