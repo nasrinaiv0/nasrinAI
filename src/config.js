@@ -214,10 +214,10 @@ export function loadConfig(env = process.env) {
     max: tierSpec('TIER_MAX', env.TIER_MAX),
     ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA)
   } : aiProvider === 'auto' ? {
-    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (local ? 'local:' + local.model : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey && !env.OPENAI_API_KEY ? 'anthropic:claude-haiku-5-5' : 'gpt-4o-mini')),
-    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (env.OPENAI_API_KEY ? 'gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : 'anthropic:claude-haiku-5-5')),
-    max: tierSpec('TIER_MAX', env.TIER_MAX ?? (env.OPENAI_API_KEY ? 'gpt-5' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : 'anthropic:claude-sonnet-5-5')),
-    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (env.OPENAI_API_KEY ? 'gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : 'anthropic:claude-sonnet-5-5'))
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (local ? 'local:' + local.model : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey && !env.OPENAI_API_KEY ? 'anthropic:claude-haiku-5-5' : !env.OPENAI_API_KEY && !geminiKey && !anthropicKey && openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : 'gpt-4o-mini')),
+    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (env.OPENAI_API_KEY ? 'gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-haiku-5-5' : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : 'gpt-5-mini')),
+    max: tierSpec('TIER_MAX', env.TIER_MAX ?? (env.OPENAI_API_KEY ? 'gpt-5' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : openrouterApiKey ? 'openrouter:openai/gpt-6-sol' : 'gpt-5')),
+    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (env.OPENAI_API_KEY ? 'gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : openrouterApiKey ? 'openrouter:openai/gpt-6.1-sol' : 'gpt-5:high'))
   } : aiProvider === 'gemini' ? {
     nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? 'gemini:gemini-3.1-flash-lite'),
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'gemini:gemini-3.1-flash-lite'),
