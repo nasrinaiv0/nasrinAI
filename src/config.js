@@ -440,21 +440,14 @@ export function loadConfig(env = process.env) {
   // taking the whole site down: off is the safe state for an optional feature.
   const warnings = [];
 
-  // Web search model. It must have a price in config/model-prices.json:
-  // without one the spend check cannot size the call and every search is skipped.
-  // An unpriced setting falls back to the default.
-  const WEB_SEARCH_DEFAULT = 'gpt-5.4-mini';
+  // OpenRouter web search uses the server-side OpenRouter key and live tool pricing.
+  // It is independent of the selected chat provider and does not require Google credentials.
+  const WEB_SEARCH_DEFAULT = 'openrouter/auto';
   function webSearchModel() {
-    const set = String(env.WEB_SEARCH_MODEL ?? '').trim();
-    if (env.WEB_SEARCH_MODEL !== undefined && !set) return '';   // empty = web search off
-    if (!env.OPENAI_API_KEY && !set) return '';
-    if (!set && (aiProvider === 'fake' || aiProvider === 'none')) return '';
-    if (!set) return WEB_SEARCH_DEFAULT;
-    let table = {};
-    try { table = loadPrices(); } catch { table = loadPrices(); }
-    if (priceOf(table, 'openai', set)) return set;
-    warnings.push(`WEB_SEARCH_MODEL: ${set} has no price in config/model-prices.json, so web search could not run. Using ${WEB_SEARCH_DEFAULT}.`);
-    return WEB_SEARCH_DEFAULT;
+    const set = String(env.OPENROUTER_WEB_SEARCH_MODEL ?? '').trim();
+    if (env.OPENROUTER_WEB_SEARCH_MODEL !== undefined && !set) return '';
+    if (!openrouterApiKey || aiProvider === 'fake' || aiProvider === 'none') return '';
+    return set || WEB_SEARCH_DEFAULT;
   }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
@@ -808,7 +801,11 @@ export function loadConfig(env = process.env) {
     // that need fresh information (OpenAI web search tool).
     web: Object.freeze({
       links: String(env.WEB_LINKS ?? 'true').toLowerCase() !== 'false',
-      searchModel: webSearchModel()
+      searchModel: webSearchModel(),
+      // Optional official Google Custom Search API. Configure both values
+      // to enable a failure-only fallback for the primary OpenRouter web search.
+      googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),
+      googleEngineId: String(env.WEB_GOOGLE_CX || '').trim()
     }),
     tools: Object.freeze({ enabled: toolsEnabled }),
     professional: Object.freeze({ enabled: professionalEnabled }),
