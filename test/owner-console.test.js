@@ -190,7 +190,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
   const store = {
     kind: 'supabase',
     request: async (method, path) => {
-      assert.equal(method, 'POST', path.startsWith('rpc/') ? method : method);
+      assert.equal(method, path.startsWith('rpc/') ? 'POST' : 'GET');
       if (path === 'rpc/owner_console_usage_summary') return {
         request_count: 3, success_count: 2, failure_count: 1, input_tokens: 10, output_tokens: 5,
         total_tokens: 15, active_user_ids: 1, active_guest_ids: 1, latency_p50_ms: 100,
