@@ -2099,7 +2099,7 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Resolve public TikTok/Facebook URLs using their official oEmbed APIs.
+      // Resolve public social/video URLs using provider-specific official embed formats and oEmbed APIs.
       // Only allowlisted provider hosts are accepted; upstream HTML is never
       // returned to the client or injected into the page.
       method: 'GET',
