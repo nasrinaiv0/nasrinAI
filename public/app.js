@@ -9937,7 +9937,30 @@
       const data = await api(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`);
       setChatProject(data.project && typeof data.project.id === 'string' ? data.project : null);
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: m.response_metadata || m.responseMetadata || null }));
+      // Historical message endpoints do not currently persist per-reply provider
+      // usage metadata. Provide a clearly marked text-based estimate instead of
+      // showing "Not reported" for existing replies; live replies still prefer
+      // authoritative provider usage from /v1/chat.
+      const estimateHistoricalTokens = (value) => Math.max(1, Math.ceil(String(value || '').length / 4));
+      const historicalResponseMetadata = (message, index) => {
+        const supplied = message.response_metadata || message.responseMetadata;
+        if (supplied) return supplied;
+        if (message.role !== 'assistant') return null;
+        let precedingUser = '';
+        for (let j = index - 1; j >= 0; j -= 1) {
+          if (messages[j]?.role === 'user') { precedingUser = messages[j].content || ''; break; }
+        }
+        return {
+          timestamp: message.created_at || message.createdAt || null,
+          duration_ms: null,
+          usage: {
+            input_tokens: estimateHistoricalTokens(precedingUser),
+            output_tokens: estimateHistoricalTokens(message.content),
+            estimated: true
+          }
+        };
+      };
+      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: historicalResponseMetadata(m, i) }));
       if (messages.length) {
         startChat();
         refreshTurnControls();
