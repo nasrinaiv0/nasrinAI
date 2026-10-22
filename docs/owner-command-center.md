@@ -19,6 +19,8 @@ Implementation is being delivered on `feature/owner-console-v2`, based on curren
 
 Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repository. If any variable is missing or malformed, the owner route intentionally fails closed and shows a generic 404. Updating `OWNER_ALLOWED_IPS` does not configure Vercel Trusted IPs and does not restrict the public NasrinAI site.
 
+Optional release telemetry: add `OWNER_VERCEL_READONLY_TOKEN` (a narrowly scoped read-only Vercel token), `OWNER_VERCEL_PROJECT_ID` (`prj_...`), and `OWNER_VERCEL_TEAM_ID` (`team_...`) to the server environment. The integration only reads the latest production deployment metadata and sanitizes the response; it does not deploy, cancel, or modify releases. If these optional values are absent or invalid, deployment status remains Unavailable. These variables have not been configured in Production.
+
 ### Implemented in this branch
 
 - Server-intercepted `/owner` and `/owner/api/*` routes before normal API routing and static serving; Vercel rewrites include the root, trailing slash, and nested owner paths.
@@ -33,7 +35,7 @@ Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repos
 ### Not yet complete / production prerequisites
 
 - Migration 057 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
-- Retention cohorts, feature-adoption/conversion funnels, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, durable incident records/alert delivery, and privileged controls remain pending source verification and implementation. Active-user counts currently mean distinct actor IDs with recorded model calls, and the 7-day return rate uses prior-week active user IDs as its denominator.
+- Retention cohorts, feature-adoption/conversion funnels, connected Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, durable incident records/alert delivery, and privileged controls remain pending source verification and implementation. Active-user counts currently mean distinct actor IDs with recorded model calls, and the 7-day return rate uses prior-week active user IDs as its denominator.
 - Production environment inventory was checked without decrypting values: `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS` already existed, and a dedicated sensitive `OWNER_SESSION_SECRET` has now been created. The actual allowlist values have not been read or independently confirmed, and no deployment has validated the secret yet.
 - Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
 - No production migration, environment update, merge, or deployment has been performed.
