@@ -788,7 +788,7 @@
         cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
-      if (response.status === 204 && !$('ownerConsoleEntry')) {
+      if (response.status === 204 && !document.getElementById('ownerConsoleEntry')) {
         const button = document.createElement('button');
         button.type = 'button';
         button.id = 'ownerConsoleEntry';
