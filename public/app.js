@@ -772,6 +772,8 @@
     return refreshing;
   }
 
+  let ownerBootstrapToken = '';
+
   async function credential(fresh) {
     if (account) {
       const hadSignedInAccount = account;
