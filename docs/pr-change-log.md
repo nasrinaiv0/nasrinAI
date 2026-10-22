@@ -1,3 +1,11 @@
+## Historical reply metadata follow-up — tokens and completion time (2026-10-23)
+
+- Restored assistant replies without saved usage metadata now show approximate input/output/total token counts.
+- Restored replies now show an approximate elapsed time between the saved user message and assistant reply when both timestamps exist, rather than `Not reported`; the UI labels this as an estimate and explains that exact generation latency was not persisted.
+- Live replies and historical replies with stored provider metadata continue to use their supplied usage and duration values.
+- Regression assertions cover the token fallback and estimated elapsed-time fallback.
+- **Validation:** Vercel commit status was successful on the previous PR head; new CI checks are required for this update before merge.
+
 ## Historical reply token display follow-up (2026-10-23)
 
 - Fix the current `main` behavior: restored assistant messages without saved provider usage metadata now show approximate input/output/total token counts instead of `Not reported`.
