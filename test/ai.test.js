@@ -68,6 +68,15 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
   assert.ok(config.ai.fallback.providers.includes('openai'));
   assert.ok(config.ai.fallback.providers.includes('gemini'));
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
+
+  const customized = loadConfig({
+    AI_PROVIDER: 'auto',
+    OPENROUTER_API_KEY: 'or-test-key',
+    OPENAI_API_KEY: KEY,
+    ROUTE_LEVEL_1: 'openai:gpt-5-mini,gemini:gemini-3.1-flash-lite'
+  });
+  assert.equal(customized.ai.routing.levels[1][0].provider, 'openrouter', 'custom route lists must not bypass OpenRouter-first intent scanning');
+  assert.deepEqual(customized.ai.routing.levels[1].slice(1).map((route) => route.provider), ['openai', 'gemini']);
 });
 
 test('Groq registers as an OpenAI-compatible provider and participates in allowlisted free-model failover', () => {
