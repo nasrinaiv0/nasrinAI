@@ -55,7 +55,7 @@ without unnecessary search.
 
 NasrinAI can render a supported public video inline when a direct video URL is
 returned by the web-search provider: YouTube uses its privacy-enhanced player;
-TikTok and Facebook use their official player/embed URLs; Vimeo and Dailymotion
+TikTok and Facebook use their official player/embed URLs; public Instagram posts and Reels use Instagram's embed URL; Vimeo and Dailymotion
 use provider-specific player URLs. All source URLs must be HTTPS and match a
 strict provider host/path allowlist before an embed is constructed. The server
 uses each provider's oEmbed endpoint for metadata where available, but does not
