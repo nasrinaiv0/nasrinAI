@@ -218,6 +218,21 @@ begin
     raise exception 'authenticated role unexpectedly wrote owner audit events';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform public.owner_console_incidents_list(10);
+    raise exception 'authenticated role unexpectedly read owner incidents';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.owner_console_incident_create('Unauthorized incident', '', 'low', 'manual', 'auth-test', repeat('d', 64));
+    raise exception 'authenticated role unexpectedly created owner incidents';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.owner_console_incident_update(gen_random_uuid(), 'acknowledge', 'auth-test', repeat('d', 64), '');
+    raise exception 'authenticated role unexpectedly updated owner incidents';
+  exception when insufficient_privilege then null;
+  end;
 end $owner_test$;
 reset role;
 
