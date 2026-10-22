@@ -140,14 +140,15 @@ export function loadConfig(env = process.env) {
   const aiProvider = String(env.AI_PROVIDER || 'none').trim().toLowerCase();
   // GPT (openai), LOCAL (local) or AUTO (auto: own model first, GPT when it
   // is down or a tier asks for GPT).
-  if (!['none', 'openai', 'gemini', 'claude', 'local', 'auto', 'fake'].includes(aiProvider)) throw new ConfigError('AI_PROVIDER: use none, openai, gemini, claude, local, auto or fake');
+  if (!['none', 'openai', 'gemini', 'claude', 'openrouter', 'local', 'auto', 'fake'].includes(aiProvider)) throw new ConfigError('AI_PROVIDER: use none, openai, gemini, claude, openrouter, local, auto or fake');
   if (aiProvider === 'fake' && isProduction) throw new ConfigError('AI_PROVIDER=fake is not allowed in production');
   if ((aiProvider === 'openai' || aiProvider === 'auto') && !env.OPENAI_API_KEY && aiProvider === 'openai') throw new ConfigError(`AI_PROVIDER=${aiProvider} needs OPENAI_API_KEY`);
   if (aiProvider === 'gemini' && !env.GEMINI_API_KEY) throw new ConfigError('AI_PROVIDER=gemini needs GEMINI_API_KEY');
   if (aiProvider === 'claude' && !env.ANTHROPIC_API_KEY) throw new ConfigError('AI_PROVIDER=claude needs ANTHROPIC_API_KEY');
+  if (aiProvider === 'openrouter' && !env.OPENROUTER_API_KEY) throw new ConfigError('AI_PROVIDER=openrouter needs OPENROUTER_API_KEY');
   const local = aiProvider === 'local' ? localSettings(env, isProduction, false) : (aiProvider === 'auto' && env.LOCAL_AI_URL && env.LOCAL_AI_MODEL ? localSettings(env, isProduction, true) : null);
   // Which providers tiers may name, and the one an unprefixed tier uses.
-  const providerKeys = { openai: ['openai'], gemini: ['gemini'], claude: ['anthropic'], local: ['local'], auto: [], fake: ['fake'], none: ['openai'] }[aiProvider].slice();
+  const providerKeys = { openai: ['openai'], gemini: ['gemini'], claude: ['anthropic'], openrouter: ['openrouter'], local: ['local'], auto: [], fake: ['fake'], none: ['openai'] }[aiProvider].slice();
   if (local && aiProvider === 'auto' && !providerKeys.includes('local')) providerKeys.push('local');
   const anthropicKey = String(env.ANTHROPIC_API_KEY || '').trim();
   if (anthropicKey && aiProvider !== 'fake' && aiProvider !== 'none' && !providerKeys.includes('anthropic')) providerKeys.push('anthropic');
@@ -170,7 +171,7 @@ export function loadConfig(env = process.env) {
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, models: p.models || null, trainsOnData: true, vision: false, tools: false };
   }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
-  const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
+  const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', openrouter: 'openrouter', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : openrouterApiKey ? 'openrouter' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
   if (env.OPENAI_TEMPERATURE !== undefined && env.OPENAI_TEMPERATURE !== '') {
     temperature = Number(env.OPENAI_TEMPERATURE);
@@ -227,6 +228,11 @@ export function loadConfig(env = process.env) {
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'anthropic:claude-sonnet-5-5'),
     max: tierSpec('TIER_MAX', env.TIER_MAX ?? 'anthropic:claude-sonnet-5-5'),
     ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? 'anthropic:claude-opus-5-5')
+  } : aiProvider === 'openrouter' ? {
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? 'openai/gpt-6-luna'),
+    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'openai/gpt-6-luna'),
+    max: tierSpec('TIER_MAX', env.TIER_MAX ?? 'openai/gpt-6-sol'),
+    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? 'openai/gpt-6.1-sol')
   } : {
     nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? env.OPENAI_MODEL ?? 'gpt-4o-mini'),
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'gpt-5-mini'),
@@ -279,9 +285,9 @@ export function loadConfig(env = process.env) {
   // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
   // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
-  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) ? 'smart' : 'fixed')).trim().toLowerCase();
+  const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'openrouter', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
-  const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY));
+  const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY)) && (k !== 'openrouter' || Boolean(openrouterApiKey));
   // Last-resort, explicitly priced model choices for when an operator's custom
   // ROUTE_LEVEL_n and TIER_* names are absent from the price registry.
   // Every candidate still passes the full policy checks before it can run.
@@ -298,12 +304,13 @@ export function loadConfig(env = process.env) {
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
       has('openai') ? 'openai:gpt-5.4-nano:none' : '',
-      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
+      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '',
+      aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6-luna' : ''
     ],
-    2: [has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
-    3: [has('openai') ? 'openai:gpt-5.4:medium' : ''],
-    4: [has('openai') ? 'openai:gpt-5.4:high' : ''],
-    5: [has('openai') ? 'openai:gpt-5.4:high' : '']
+    2: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6-luna' : has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
+    3: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6-sol' : has('openai') ? 'openai:gpt-5.4:medium' : ''],
+    4: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : has('openai') ? 'openai:gpt-5.4:high' : ''],
+    5: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
