@@ -15,7 +15,7 @@
   };
   const sources = {
     ai_usage: ['AI usage & tokens', 'Request-level usage events and cost-estimate coverage'],
-    users: ['Users & growth', 'Registered-account and retention sources not connected'],
+    users: ['Users & growth', 'Auth record counts and activity signals; retention cohorts not connected'],
     infrastructure: ['Infrastructure & releases', 'Vercel and dependency health integrations'],
     database: ['Database connection', 'Server-side Supabase reachability check'],
     security_audit: ['Owner action audit events', 'Session and export events only'],
@@ -92,7 +92,8 @@
     grid.append(
       metric('AI requests', '✳', requestValue, 'Recorded model-call events'),
       metric('Success rate', '✓', successValue, 'Successful outcomes / recorded requests'),
-      metric('Active user IDs', '♙', activeValue, 'Distinct signed-in IDs with calls; not total accounts'),
+      metric('Active user IDs', '♙', activeValue, 'Distinct signed-in IDs with calls'),
+      metric('Auth user records', '♧', userSummary ? numberText(userSummary.auth_user_records) : 'Unavailable', 'Aggregate count only; no user IDs or emails returned'),
       metric('Tokens recorded', '↗', tokenValue, 'Input plus output tokens'),
       metric('Estimated AI cost', 'USD', costValue, Number(u && u.cost_estimate_rows) > 0 ? 'Internal estimate; not an invoice' : 'No cost estimates recorded'),
       metric('p95 latency', '◷', latencyValue, 'Successful-call latency, when observations exist')
@@ -172,12 +173,16 @@
     }
 
     if (key === 'users') {
-      const a = data && data.usage_24h, b = data && data.usage_7d, panel = el('section', 'panel');
+      const a = data && data.usage_24h, b = data && data.usage_7d, users = data && data.user_summary, panel = el('section', 'panel');
       panel.classList.add('module-extra');
-      panel.append(el('h3', '', 'Recorded activity signals'), el('p', 'panel-copy', 'These are distinct actor IDs with recorded model calls, not registered-account totals, signup counts, or retention cohorts.'));
+      panel.append(el('h3', '', 'Account and activity signals'), el('p', 'panel-copy', 'Auth record totals and signup timestamps are aggregated server-side. Activity IDs reflect recorded model calls; retention cohorts are not yet connected.'));
       const grid = el('div', 'grid');
       const value = (summary, field) => !summary ? 'Unavailable' : Number(summary.request_count) === 0 ? 'No data yet' : numberText(summary[field]);
       grid.append(
+        metric('Auth user records', '♧', users ? numberText(users.auth_user_records) : 'Unavailable', 'Aggregate count; no user identifiers returned'),
+        metric('New Auth records · 24h', '↗', users ? numberText(users.new_auth_records_24h) : 'Unavailable', 'Records created in the last day'),
+        metric('New Auth records · 7d', '↗', users ? numberText(users.new_auth_records_7d) : 'Unavailable', 'Records created in the last week'),
+        metric('Sign-ins · 30d', '◷', users ? numberText(users.active_signins_30d) : 'Unavailable', 'Auth records with a recent sign-in'),
         metric('Active user IDs · 24h', '♙', value(a, 'active_user_ids'), 'Signed-in actors with recorded calls'),
         metric('Active guest IDs · 24h', '◌', value(a, 'active_guest_ids'), 'Guest actors with recorded calls'),
         metric('Active user IDs · 7d', '♙', value(b, 'active_user_ids'), 'Distinct signed-in actors'),
