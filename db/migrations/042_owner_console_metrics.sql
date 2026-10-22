@@ -100,8 +100,8 @@ begin
     'stale_running_count', count(*) filter (
       where status = 'running' and coalesce(started_at, created_at) < now() - interval '30 minutes'
     ),
-    'avg_duration_ms', round(avg(extract(epoch from (finished_at - started_at)) * 1000)::numeric, 1)
-      filter (where started_at is not null and finished_at is not null and finished_at >= started_at),
+    'avg_duration_ms', round((avg(extract(epoch from (finished_at - started_at)) * 1000)
+      filter (where started_at is not null and finished_at is not null and finished_at >= started_at))::numeric, 1),
     'last_run_at', max(created_at),
     'by_status', coalesce((
       select jsonb_agg(jsonb_build_object('status', s.status, 'runs', s.runs) order by s.status)
