@@ -298,7 +298,7 @@ Video Studio includes an authenticated developer-plugin integration for voice di
 
 ## 17. Durable server-side render worker — implementation checkpoint (2026-10-23)
 
-The authenticated Audio Studio export flow now submits a durable job rather than holding an HTTP request open for FFmpeg. Migration `056_video_studio_render_jobs.sql` adds the server-only job table, owner/tenant fields, idempotency key, status/progress, output metadata, and an atomic `SKIP LOCKED` claim function. The API snapshots the source MP4 and saved audio assets into the private `video-studio-assets` bucket, and the worker launches FFmpeg in an isolated persistent Vercel Sandbox as a detached process. A one-minute Vercel Cron polls the job marker, stores completed output privately, and exposes authenticated status/download endpoints.
+The authenticated Audio Studio export flow now submits a durable job rather than holding an HTTP request open for FFmpeg. Migration `056_video_studio_render_jobs.sql` adds the server-only job table, owner/tenant fields, idempotency key, status/progress, output metadata, and an atomic `SKIP LOCKED` claim function. The API snapshots the source MP4 and saved audio assets into the private `video-studio-assets` bucket, and the worker installs FFmpeg before loading user media, disables sandbox egress, and launches the render as a detached process in an isolated persistent Vercel Sandbox. A one-minute Vercel Cron polls the job marker, stores completed output privately, and exposes authenticated status/download endpoints.
 
 Operational requirements:
 - Apply migration 056 in the production Supabase project before enabling the worker.
