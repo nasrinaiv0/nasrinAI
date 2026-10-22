@@ -19,7 +19,7 @@ function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000
 }
 
 function request(method, url, { headers = {}, testIp } = {}) {
-  const req = { method, url, headers, testIp, socket: { remoteAddress: testIp || IP } };
+  const req = { method, url, headers: { host: 'owner.nasrinai.com', ...headers }, testIp, socket: { remoteAddress: testIp || IP } };
   const res = {
     headers: {},
     statusCode: 200,
@@ -30,11 +30,11 @@ function request(method, url, { headers = {}, testIp } = {}) {
   return { req, res };
 }
 
-const sameOrigin = { origin: 'https://nasrinai.com', host: 'nasrinai.com', 'sec-fetch-site': 'same-origin' };
+const sameOrigin = { origin: 'https://owner.nasrinai.com', host: 'owner.nasrinai.com', 'sec-fetch-site': 'same-origin' };
 
 async function bootstrap(handler, options = {}) {
   const pair = request('POST', '/v1/owner/session', {
-    headers: { ...sameOrigin, authorization: 'Bearer ' + TOKEN, ...(options.headers || {}) },
+    headers: { origin: 'https://nasrinai.com', host: 'owner.nasrinai.com', 'sec-fetch-site': 'same-site', authorization: 'Bearer ' + TOKEN, ...(options.headers || {}) },
     testIp: options.testIp
   });
   await handler.handle(pair.req, pair.res, '/v1/owner/session');
@@ -128,14 +128,14 @@ test('tampered and expired owner cookies are denied', async () => {
 test('bootstrap rejects cross-origin requests and owner sign-out clears its cookie', async () => {
   const { consoleHandler } = setup();
   const cross = request('POST', '/v1/owner/session', {
-    headers: { ...sameOrigin, origin: 'https://evil.example', authorization: 'Bearer ' + TOKEN }
+    headers: { origin: 'https://evil.example', host: 'owner.nasrinai.com', 'sec-fetch-site': 'cross-site', authorization: 'Bearer ' + TOKEN }
   });
   await consoleHandler.handle(cross.req, cross.res, '/v1/owner/session');
   assert.equal(cross.res.statusCode, 404);
 
   const opened = await bootstrap(consoleHandler);
   const cookie = opened.res.headers['set-cookie'].split(';')[0];
-  const signout = request('DELETE', '/owner/api/session', { headers: { ...sameOrigin, cookie }, testIp: IP });
+  const signout = request('DELETE', '/owner/api/session', { headers: { origin: 'https://owner.nasrinai.com', host: 'owner.nasrinai.com', 'sec-fetch-site': 'same-origin', cookie }, testIp: IP });
   await consoleHandler.handle(signout.req, signout.res, '/owner/api/session');
   assert.equal(signout.res.statusCode, 204);
   assert.match(signout.res.headers['set-cookie'], /Max-Age=0/);
