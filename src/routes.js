@@ -387,6 +387,22 @@ return { body: { sites: await connect.list(caller) } }; }
         return { body: { ok: true, ...result } };
       }
     },
+,
+    {
+      // Vercel Cron: launch queued Video Studio renders and collect finished MP4s.
+      method: 'GET',
+      path: '/v1/internal/video-studio-render',
+      public: true,
+      handler: async ({ req }) => {
+        if (!retentionAuthorized(req)) throw new HttpError(401, 'unauthorized', 'Unauthorized.');
+        if (!videoStudioRenderWorker?.enabled) throw new HttpError(503, 'video_render_unavailable', 'Video Studio render worker is not configured.');
+        try { return { body: { ok: true, ...await videoStudioRenderWorker.processBatch({ limit: 1 }) } }; }
+        catch (err) {
+          logger?.warn?.('Video Studio render worker tick failed', { error: err?.message });
+          throw new HttpError(503, 'video_render_worker_failed', 'The render worker could not process its queue. It will retry on the next scheduled run.');
+        }
+      }
+    },
     {
       // Vercel Cron: automatic retention enforcement for inactive users.
       // This route is public at the HTTP layer but protected by CRON_SECRET.
