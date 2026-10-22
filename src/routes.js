@@ -1812,6 +1812,77 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
+      // Server-side composition render for the full visual timeline. Only owner-scoped
+      // video IDs and private media asset IDs are resolved; arbitrary URLs are never fetched.
+      method: 'POST',
+      path: '/v1/video-studio/render-timeline',
+      scope: 'chat',
+      body: true,
+      maxBody: 64 * 1024,
+      handler: async ({ caller, body }) => {
+        await requireVideoStudioAccess(caller);
+        if (!videoStudioRenderWorker?.enabled || !videoStudioRenderWorker.enqueueTimeline) throw new HttpError(503, 'video_render_unavailable', 'The server-side timeline renderer is not configured.');
+        if (!store?.getVideoStudioProject || !videoStudioAssets?.read || !videos?.read) throw new HttpError(503, 'video_render_unavailable', 'Video Studio media storage is not ready.');
+        const projectId = body?.project_id;
+        const project = await store.getVideoStudioProject({ tenantId: caller.tenantId, userId: caller.actor.id, id: projectId });
+        if (!project) throw new HttpError(404, 'not_found', 'Video Studio project not found.');
+        await limiter.signIn('video-studio-render:' + caller.actor.id, config.video?.perHour || 10);
+        const rawClips = body?.clips;
+        if (!Array.isArray(rawClips) || rawClips.length < 1 || rawClips.length > 30) throw new HttpError(400, 'video_timeline_limit', 'Add between one and 30 timeline clips before rendering.');
+        const mediaAssets = [];
+        const clips = [];
+        for (const raw of rawClips) {
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new HttpError(400, 'video_timeline_invalid', 'A timeline clip is invalid.');
+          const track = ['video','overlay','text','audio'].includes(raw.track) ? raw.track : 'video';
+          let mediaIndex = null, mediaType = typeof raw.mediaType === 'string' ? raw.mediaType.slice(0,100) : '';
+          if (raw.videoId) {
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.videoId)) throw new HttpError(400, 'invalid_video_id', 'A generated video clip identifier is invalid.');
+            const asset = await videos.read(caller, raw.videoId);
+            mediaIndex = mediaAssets.length; mediaAssets.push({ bytes: asset.bytes, mime: 'video/mp4' }); mediaType = 'video/mp4';
+          } else if (raw.assetId) {
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.assetId)) throw new HttpError(400, 'invalid_asset_id', 'A timeline media identifier is invalid.');
+            const asset = await videoStudioAssets.read(caller, raw.assetId);
+            mediaIndex = mediaAssets.length; mediaAssets.push({ bytes: asset.bytes, mime: asset.mime }); mediaType = asset.mime;
+          } else if (track !== 'text' && !(track === 'overlay' && String(raw.title || '').trim())) {
+            throw new HttpError(400, 'video_asset_required', 'Save your project and upload or generate every video, image, and audio clip before server rendering.');
+          }
+          clips.push({
+            name: raw.name, title: raw.title, kind: raw.kind, track, mediaIndex, mediaType,
+            position: raw.position, duration: raw.duration, start: raw.start,
+            transition: raw.transition, filter: raw.filter, opacity: raw.opacity, gain: raw.gain, keyframes: raw.keyframes
+          });
+        }
+        // Include the separately saved AI voiceover/sound-effect timeline, if selected.
+        const audioProjectId = body?.audio_project_id;
+        if (audioProjectId) {
+          if (!store?.listVideoStudioTimelineItems || !store?.readVideoStudioAudioAsset) throw new HttpError(503, 'video_audio_unavailable', 'Saved audio timeline storage is not ready.');
+          const audioItems = await store.listVideoStudioTimelineItems({ tenantId: caller.tenantId, ownerId: caller.actor.id, projectId: audioProjectId });
+          if (audioItems.length > 8) throw new HttpError(400, 'video_timeline_limit', 'The saved audio timeline supports up to eight clips.');
+          for (const item of audioItems) {
+            const asset = await store.readVideoStudioAudioAsset({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId });
+            if (!asset) throw new HttpError(404, 'audio_asset_missing', 'A saved audio clip could not be found.');
+            const mediaIndex = mediaAssets.length;
+            mediaAssets.push({ bytes: asset.bytes, mime: 'audio/mpeg' });
+            clips.push({
+              name: asset.label || 'Audio clip', title: '', track: 'audio', mediaIndex, mediaType: 'audio/mpeg',
+              position: Number(item.startSeconds) || 0,
+              duration: Math.max(.1, Number(item.trimEndSeconds) > Number(item.trimStartSeconds) ? Number(item.trimEndSeconds) - Number(item.trimStartSeconds) : Number(asset.durationSeconds) || 8),
+              start: Number(item.trimStartSeconds) || 0, gain: (Number(item.gain) || 0) * 100, transition: 'cut', filter: 'none', opacity: 100
+            });
+          }
+        }
+        try {
+          return { status: 202, body: await videoStudioRenderWorker.enqueueTimeline(caller, {
+            projectId, aspect: body?.aspect, clips, mediaAssets, idempotencyKey: body?.idempotency_key || null
+          }) };
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          if (Number.isInteger(err?.status) && err.status >= 400 && err.status < 600) throw new HttpError(err.status, err.code || 'video_render_rejected', err.message || 'The render request could not be accepted.');
+          throw err;
+        }
+      }
+    },
+    {
       // Enqueue a durable MP4 render. Inputs are snapshotted to private storage
       // before returning, so browser disconnects cannot cancel the render.
       method: 'POST',
