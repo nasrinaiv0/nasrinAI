@@ -442,7 +442,59 @@
     }catch(error){if(recorder&&recorder.state!=='inactive'){try{recorder.stop();}catch{}}status.textContent=error.message||'Timeline rendering failed.';notice(status.textContent,true);}
     finally{cancelAnimationFrame(raf);resources.forEach(r=>{try{if(r.media){r.media.pause();if(!r.isImage){r.media.removeAttribute('src');r.media.load();}}}catch{}});temporaryUrls.forEach(url=>URL.revokeObjectURL(url));if(audioContext)await audioContext.close().catch(()=>{});button.disabled=false;button.textContent='Render timeline video';}
   }
-  $('renderTimeline').addEventListener('click',renderTimelineVideo);
+  async function queueServerTimelineRender(){
+    const button=$('renderTimeline'),status=$('renderStatus'),progress=$('renderProgress'),download=$('renderDownload');
+    button.disabled=true;button.textContent='Preparing server render…';progress.hidden=false;progress.value=0;download.hidden=true;
+    try{
+      if(!state.cloudProjectId)throw new Error('Save this timeline to a cloud project first. Choose Save to cloud, then render again.');
+      await saveCloudProject();
+      if(!state.cloudProjectId)throw new Error('The cloud project could not be saved. Resolve the save error before rendering.');
+      const clips=state.clips.map(c=>({
+        id:c.id,name:c.name,title:c.title||'',kind:c.kind,track:c.track||inferTrack(c),
+        duration:Number(c.duration)||0,start:Number(c.start)||0,position:Number(c.position)||0,
+        transition:c.transition||'cut',filter:c.filter||'none',opacity:Number(c.opacity??100),gain:Number(c.gain??100),
+        keyframes:Array.isArray(c.keyframes)?c.keyframes:[],videoId:c.videoId||null,assetId:c.assetId||null,
+        mediaType:c.mediaType||c.file?.type||null
+      }));
+      if(clips.some(c=>c.kind==='upload'&&!c.assetId))throw new Error('One or more imported clips are not uploaded yet. Save to cloud again and retry.');
+      const fingerprint=JSON.stringify({project:state.cloudProjectId,aspect:$('aspect').value,clips,audioProject:$('audioProjectSelect').value});
+      let job=null,jobId=localStorage.getItem('nasrinai.videoStudio.timelineRenderJobId')||'';
+      if(jobId&&localStorage.getItem('nasrinai.videoStudio.timelineRenderFingerprint')===fingerprint){
+        job=await api('/v1/video-studio/render-jobs/'+encodeURIComponent(jobId));
+        if(job.status==='failed'){localStorage.removeItem('nasrinai.videoStudio.timelineRenderJobId');job=null;jobId='';}
+      }else{jobId='';}
+      if(!job){
+        job=await api('/v1/video-studio/render-timeline',{method:'POST',body:JSON.stringify({
+          project_id:state.cloudProjectId,aspect:$('aspect').value,audio_project_id:$('audioProjectSelect').value,
+          clips,idempotency_key:crypto.randomUUID()
+        })});
+        if(!job.render_id)throw new Error('The render queue did not return a job identifier.');
+        jobId=job.render_id;localStorage.setItem('nasrinai.videoStudio.timelineRenderJobId',jobId);
+        localStorage.setItem('nasrinai.videoStudio.timelineRenderFingerprint',fingerprint);
+      }
+      let ready=job.status==='completed';
+      for(let i=0;!ready&&i<180;i++){
+        if(i>0)await new Promise(resolve=>setTimeout(resolve,3000));
+        job=await api('/v1/video-studio/render-jobs/'+encodeURIComponent(jobId));
+        progress.value=Number(job.progress)||0;
+        status.textContent=(job.status==='running'?'Rendering your timeline on the server…':job.status==='starting'?'Starting isolated render worker…':'Waiting in the render queue…')+' '+progress.value+'%';
+        if(job.status==='completed'){ready=true;break;}
+        if(job.status==='failed')throw new Error(job.error?.message||'The server-side timeline render failed.');
+      }
+      if(!ready)throw new Error('The render is still running in the background. Your job is saved; tap Render timeline video again later to resume.');
+      const response=await audioFetch(job.download_url),blob=await response.blob();
+      if(!blob.size||blob.size>50*1024*1024)throw new Error('The rendered MP4 is empty or exceeds the 50 MB download limit.');
+      if(renderObjectUrl)URL.revokeObjectURL(renderObjectUrl);
+      renderObjectUrl=URL.createObjectURL(blob);download.href=renderObjectUrl;download.download='nasrinai-timeline.mp4';download.textContent='Download rendered MP4';download.hidden=false;
+      status.textContent='Server render complete · '+Math.round(blob.size/1024/1024*10)/10+' MB · MP4. Play it back before sharing.';
+      localStorage.removeItem('nasrinai.videoStudio.timelineRenderJobId');localStorage.removeItem('nasrinai.videoStudio.timelineRenderFingerprint');
+      notice('Your timeline was rendered on the server and is ready to download.');
+    }catch(error){
+      status.textContent=error.message||'Timeline rendering failed.';notice(status.textContent,true);
+      if((error.message||'').includes('Render job not found.')){localStorage.removeItem('nasrinai.videoStudio.timelineRenderJobId');localStorage.removeItem('nasrinai.videoStudio.timelineRenderFingerprint');}
+    }finally{button.disabled=false;button.textContent='Render timeline video';}
+  }
+  $('renderTimeline').addEventListener('click',queueServerTimelineRender);
 
   // Keep the full project workspace mounted: creation, timeline, and export are sections of one page.
   $('createPanel').hidden=false;$('editPanel').hidden=false;$('exportPanel').hidden=false;document.body.classList.add('editor-mode');
