@@ -32,12 +32,13 @@ test('Google Custom Search is an optional, failure-tolerant adapter', async () =
   assert.deepEqual(await google.search('query'), []);
 });
 
-test('web research combines Google candidates with answer citations and provides snippets as context', async () => {
+test('successful OpenRouter search stays primary and does not promote unused Google candidates to citations', async () => {
   let requestBody;
+  let googleCalls = 0;
   const googleSearch = {
     available: true,
-    async search(query) {
-      assert.match(query, /latest public video/i);
+    async search() {
+      googleCalls += 1;
       return [{ url: 'https://example.com/source', title: 'Google source', snippet: 'Google excerpt', displayLink: 'example.com' }];
     }
   };
@@ -56,7 +57,8 @@ test('web research combines Google candidates with answer citations and provides
     }
   });
   const result = await search({ messages: [{ role: 'user', content: 'latest public video' }] });
-  assert.match(JSON.stringify(requestBody.input), /Google excerpt/);
+  assert.doesNotMatch(JSON.stringify(requestBody.input), /Google excerpt/);
+  assert.equal(googleCalls, 0, 'fallback search should not add latency to a successful primary request');
   assert.ok(!result.citations.some((source) => source.url === 'https://example.com/source'), 'candidate results must not be mislabeled as cited evidence');
   assert.ok(result.citations.some((source) => source.url === 'https://official.example/page'));
 });
