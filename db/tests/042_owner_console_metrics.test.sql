@@ -79,13 +79,15 @@ begin
   insert into public.plan_periods
     (tenant_id, user_id, plan, status, starts_at, ends_at, provider, amount, currency)
   values
+    ('00000000-0000-0000-0000-000000000001', 'owner-metrics-plan-pro', 'pro', 'active', now() - interval '1 day', now() + interval '30 days', 'manual', null, null),
     ('00000000-0000-0000-0000-000000000001', 'owner-metrics-plan-max', 'max', 'active', now() - interval '1 day', now() + interval '30 days', 'manual', null, null),
     ('00000000-0000-0000-0000-000000000001', 'owner-metrics-plan-ultra', 'ultra', 'canceled', now() - interval '30 days', now() - interval '1 day', 'manual', null, null);
   v_after := public.owner_console_plan_summary(now() - interval '1 hour');
-  if (v_after->>'active_paid_periods')::bigint <> (v_before->>'active_paid_periods')::bigint + 1
+  if (v_after->>'active_paid_periods')::bigint <> (v_before->>'active_paid_periods')::bigint + 2
+    or (v_after->>'active_pro_periods')::bigint <> (v_before->>'active_pro_periods')::bigint + 1
     or (v_after->>'active_max_periods')::bigint <> (v_before->>'active_max_periods')::bigint + 1
     or (v_after->>'active_ultra_periods')::bigint <> (v_before->>'active_ultra_periods')::bigint
-    or (v_after->>'new_periods')::bigint <> (v_before->>'new_periods')::bigint + 2 then
+    or (v_after->>'new_periods')::bigint <> (v_before->>'new_periods')::bigint + 3 then
     raise exception 'plan entitlement summary counts are incorrect';
   end if;
 end $owner_plan_test$;
