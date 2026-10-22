@@ -1830,6 +1830,13 @@ return { body: { sites: await connect.list(caller) } }; }
         const rawClips = body?.clips;
         if (!Array.isArray(rawClips) || rawClips.length < 1 || rawClips.length > 30) throw new HttpError(400, 'video_timeline_limit', 'Add between one and 30 timeline clips before rendering.');
         const mediaAssets = [];
+        let totalMediaBytes = 0;
+        const pushMedia = (asset) => {
+          if (!asset?.bytes?.length || totalMediaBytes + asset.bytes.length > 100 * 1024 * 1024) throw new HttpError(413, 'video_render_input_total_size', 'The combined timeline media exceeds the 100 MB server-render limit.');
+          totalMediaBytes += asset.bytes.length;
+          mediaAssets.push(asset);
+          return mediaAssets.length - 1;
+        };
         const clips = [];
         for (const raw of rawClips) {
           if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new HttpError(400, 'video_timeline_invalid', 'A timeline clip is invalid.');
@@ -1838,11 +1845,11 @@ return { body: { sites: await connect.list(caller) } }; }
           if (raw.videoId) {
             if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.videoId)) throw new HttpError(400, 'invalid_video_id', 'A generated video clip identifier is invalid.');
             const asset = await videos.read(caller, raw.videoId);
-            mediaIndex = mediaAssets.length; mediaAssets.push({ bytes: asset.bytes, mime: 'video/mp4' }); mediaType = 'video/mp4';
+            mediaIndex = pushMedia({ bytes: asset.bytes, mime: 'video/mp4' }); mediaType = 'video/mp4';
           } else if (raw.assetId) {
             if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.assetId)) throw new HttpError(400, 'invalid_asset_id', 'A timeline media identifier is invalid.');
             const asset = await videoStudioAssets.read(caller, raw.assetId);
-            mediaIndex = mediaAssets.length; mediaAssets.push({ bytes: asset.bytes, mime: asset.mime }); mediaType = asset.mime;
+            mediaIndex = pushMedia({ bytes: asset.bytes, mime: asset.mime }); mediaType = asset.mime;
           } else if (track !== 'text' && !(track === 'overlay' && String(raw.title || '').trim())) {
             throw new HttpError(400, 'video_asset_required', 'Save your project and upload or generate every video, image, and audio clip before server rendering.');
           }
@@ -1861,8 +1868,7 @@ return { body: { sites: await connect.list(caller) } }; }
           for (const item of audioItems) {
             const asset = await store.readVideoStudioAudioAsset({ tenantId: caller.tenantId, ownerId: caller.actor.id, id: item.audioAssetId });
             if (!asset) throw new HttpError(404, 'audio_asset_missing', 'A saved audio clip could not be found.');
-            const mediaIndex = mediaAssets.length;
-            mediaAssets.push({ bytes: asset.bytes, mime: 'audio/mpeg' });
+            const mediaIndex = pushMedia({ bytes: asset.bytes, mime: 'audio/mpeg' });
             clips.push({
               name: asset.label || 'Audio clip', title: '', track: 'audio', mediaIndex, mediaType: 'audio/mpeg',
               position: Number(item.startSeconds) || 0,
