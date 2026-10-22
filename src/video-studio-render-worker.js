@@ -355,9 +355,9 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "    }",
         "    if (audioLabels.length) { filters.push(audioLabels.join('') + 'amix=inputs=' + audioLabels.length + ':duration=longest:dropout_transition=0,alimiter=limit=0.95[aout]'); args.push('-filter_complex',filters.join(';'),'-map','['+base+']','-map','[aout]'); }",
         "    else args.push('-filter_complex',filters.join(';'),'-map','['+base+']','-an');",
-        "    args.push('-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
+        "    args.push('-c:v','libx264','-preset','veryfast','-crf','24','-maxrate','5M','-bufsize','10M','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart','-t',duration.toFixed(3),'-f','mp4','/vercel/sandbox/output.mp4');",
         "  } else {",
-        "    const source = '/vercel/sandbox/source.mp4'; const probe = spawnSync('ffmpeg',['-hide_banner','-i',source],{encoding:'utf8',maxBuffer:1048576});",
+        "    const source = '/vercel/sandbox/source.mp4'; const probe = spawnSync('ffprobe',['-v','error','-select_streams','a:0','-show_entries','stream=index','-of','csv=p=0',source],{encoding:'utf8',timeout:5000});",
         "    const hasSourceAudio = probe.status === 0 && String(probe.stdout || '').trim().length > 0;",
         "    if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); audioLabels.push('[source_audio]'); }",
         "    for (let i=0;i<input.audioCount;i++) { const item=input.timelineItems[i],delay=Math.round(item.startSeconds*1000); const trim=item.trimEndSeconds==null?'atrim=start='+item.trimStartSeconds.toFixed(3):'atrim=start='+item.trimStartSeconds.toFixed(3)+':end='+item.trimEndSeconds.toFixed(3); filters.push('['+(i+1)+':a:0]'+trim+',asetpts=PTS-STARTPTS,adelay='+delay+'|'+delay+',volume='+item.gain.toFixed(3)+',apad=pad_dur='+duration.toFixed(3)+'[audio_'+i+']'); audioLabels.push('[audio_'+i+']'); }",
@@ -434,7 +434,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
             completed++;
           }
         }
-        await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
+        await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || [], row.input_manifest?.media || []).map(path => storage('DELETE', path).catch(() => {})));
         await (typeof sandbox.delete === 'function' ? sandbox.delete() : sandbox.stop()).catch(() => {});
       } catch (err) {
         // A not-yet-resumable sandbox may be temporarily unavailable. Leave it
@@ -470,7 +470,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
     let recovered = 0;
     for (const row of staleStarting || []) {
       await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_start_timeout', error_message: 'The render worker could not start in time. Retry the export.' });
-      await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || []).map(path => storage('DELETE', path).catch(() => {})));
+      await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || [], row.input_manifest?.media || []).map(path => storage('DELETE', path).catch(() => {})));
       recovered++;
     }
     const claimed = await db('POST', 'rpc/claim_video_studio_render_jobs', { p_limit: Math.max(1, Math.min(1, Number(limit) || 1)) });
