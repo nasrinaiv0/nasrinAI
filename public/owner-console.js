@@ -201,11 +201,31 @@
     }
 
     if (key === 'infra') {
-      const panel = el('section', 'panel');
+      const panel = el('section', 'panel'), db = data && data.database_health ? data.database_health.status : 'unavailable';
+      const deployments = data && data.deployment_summary;
       panel.classList.add('module-extra');
-      const db = data && data.database_health ? data.database_health.status : 'unavailable';
       panel.append(el('h3', '', 'Database reachability'), el('p', 'panel-copy', 'This is a bounded server-side connectivity check; it does not expose database rows.'));
       panel.append(state(db === 'available' ? 'Available' : 'Unavailable', db === 'available' ? 'available' : 'unavailable'));
+      panel.append(el('div', 'section-head'), el('h3', '', 'Recent production deployments'), el('p', 'panel-copy', 'Read-only Vercel metadata. This integration requires a dedicated read-only token and project identifiers; missing credentials are shown as unavailable.'));
+      if (!deployments) {
+        panel.append(notice('Deployment source unavailable', 'Set OWNER_VERCEL_READONLY_TOKEN, OWNER_VERCEL_PROJECT_ID, and OWNER_VERCEL_TEAM_ID on the server to connect this read-only source.'));
+      } else {
+        const grid = el('div', 'grid');
+        grid.append(
+          metric('Deployments returned', '⌘', numberText(deployments.deployment_count), 'Latest production deployments'),
+          metric('Ready', '✓', numberText(deployments.ready_count), 'State reported by Vercel'),
+          metric('Failed or canceled', '!', numberText(deployments.failed_count), 'Error/canceled states reported by Vercel')
+        );
+        panel.append(grid);
+        const list = el('div', 'source-list');
+        (Array.isArray(deployments.deployments) ? deployments.deployments : []).forEach((item) => {
+          const row = el('div', 'source-row'), left = el('div'), status = String(item.state || 'unknown');
+          left.append(el('div', 'source-name', item.url || 'Deployment URL unavailable'), el('div', 'source-detail', [item.branch || 'branch unknown', item.commit ? item.commit.slice(0, 12) : 'commit unknown', item.created_at ? new Date(item.created_at).toLocaleString() : 'time unknown'].join(' · ')));
+          row.append(left, state(status.toUpperCase(), status === 'ready' ? 'available' : ['error','canceled','cancelled'].includes(status) ? 'unavailable' : ''));
+          list.append(row);
+        });
+        panel.append(list);
+      }
       c.append(panel);
     }
 
