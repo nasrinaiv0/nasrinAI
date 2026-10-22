@@ -23,7 +23,10 @@ create table if not exists public.video_studio_render_jobs (
   updated_at timestamptz not null default now(),
   started_at timestamptz,
   completed_at timestamptz,
-  unique (tenant_id, owner_id, idempotency_key)
+  unique (tenant_id, owner_id, idempotency_key),
+  constraint video_studio_render_jobs_project_owner_fk
+    foreign key (tenant_id, owner_id, project_id)
+    references public.video_studio_projects (tenant_id, user_id, id) on delete cascade
 );
 
 create index if not exists video_studio_render_jobs_queue_idx
