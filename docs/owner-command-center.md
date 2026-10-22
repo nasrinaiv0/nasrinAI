@@ -16,7 +16,7 @@ Implementation is being delivered on `feature/owner-console-v2`, based on curren
 - Server-side Supabase token verification at bootstrap; exact verified email and trusted client IP checks; 10-minute HttpOnly, SameSite=Strict owner session; shared IP rate limit.
 - Generic no-store HTTP 404 for unauthorized/misconfigured routes; no owner data or allowlist diagnostics are returned.
 - Responsive read-only console with all ten navigation areas and explicit Unavailable/No data yet states.
-- Migration 042 adds aggregate-only usage/automation RPCs and a server-role-only owner-action audit trail. Session issuance is refused if its audit event cannot be recorded; exports are refused if the export audit cannot be recorded.
+- Migration 042 adds aggregate-only usage/automation RPCs, paid plan-entitlement counts (not revenue), and a server-role-only owner-action audit trail. Session issuance is refused if its audit event cannot be recorded; exports are refused if the export audit cannot be recorded.
 - Aggregate usage CSV export with fixed 24-hour/7-day windows and spreadsheet-formula-injection protection.
 - Regression tests for allowlist config, IPv4/IPv6 normalization, session and route authorization, Vercel rewrites, telemetry mapping, CSV exports, and SQL grants.
 
