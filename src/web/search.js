@@ -33,8 +33,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         const text = [
           'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
           ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
-            (item.snippet ? '\\n' + item.snippet : '') + '\\n' + item.url)
-        ].join('\\n\\n');
+            (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
+        ].join('\n\n');
         return {
           text,
           citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
@@ -204,7 +204,7 @@ function stripUnverifiedUrls(text, citations, messages) {
   for (const source of Array.isArray(citations) ? citations : []) add(source?.url || '');
   for (const message of Array.isArray(messages) ? messages : []) {
     if (message?.role !== 'user') continue;
-    for (const match of String(message.content || '').matchAll(/https?:\\/\\/[^\\s<>"'\\x60)\\]]+/gi)) {
+    for (const match of String(message.content || '').matchAll(/https?:\/\/[^\s<>"'\x60)\]]+/gi)) {
       add(match[0].replace(/[.,!?;:]+$/, ''));
     }
   }
@@ -215,9 +215,9 @@ function stripUnverifiedUrls(text, citations, messages) {
         !url.username && !url.password && allowed.has(url.href);
     } catch { return false; }
   };
-  let safe = String(text || '').replace(/\\[([^\\]]{0,500})\\]\\((https?:\\/\\/[^)\\s]+)(?:\\s+[^)]*)?\\)/gi,
+  let safe = String(text || '').replace(/\[([^\]]{0,500})\]\((https?:\/\/[^)\s]+)(?:\s+[^)]*)?\)/gi,
     (whole, label, url) => isTrusted(url) ? whole : label + ' (unverified link omitted)');
-  safe = safe.replace(/https?:\\/\\/[^\\s<>"'\\x60)\\]]+/gi, (raw) => {
+  safe = safe.replace(/https?:\/\/[^\s<>"'\x60)\]]+/gi, (raw) => {
     const clean = raw.replace(/[.,!?;:]+$/, '');
     return isTrusted(clean) ? raw : '[unverified link omitted]';
   });
