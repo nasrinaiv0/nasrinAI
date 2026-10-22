@@ -4560,3 +4560,60 @@ body.has-chat .galaxy-play-sun { display:none !important; }
   -webkit-backdrop-filter: blur(3px) saturate(100%);
   backdrop-filter: blur(3px) saturate(100%);
 }
+
+
+/* Reply details: translucent background only. Never lower panel/content opacity,
+   so token counts and other usage metadata remain fully readable. */
+.reply-details-panel {
+  --reply-detail-bg: rgba(255, 255, 255, 0.10);
+  --reply-detail-border: rgba(60, 64, 72, 0.20);
+  --reply-detail-text: #202124;
+  --reply-detail-muted: #555a63;
+  background: var(--reply-detail-bg) !important;
+  color: var(--reply-detail-text) !important;
+  border: 1px solid var(--reply-detail-border) !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+.reply-details-panel .reply-detail-label,
+.reply-details-panel time,
+.reply-details-panel > div:not(.reply-detail-label) {
+  opacity: 1 !important;
+  color: var(--reply-detail-text) !important;
+  text-shadow: none !important;
+}
+.reply-details-panel .reply-detail-label {
+  color: var(--reply-detail-muted) !important;
+}
+/* Explicit Light selection and System resolving to Light: 10% white surface. */
+:root[data-theme="light"] .reply-details-panel,
+html[data-theme="light"] .reply-details-panel,
+body[data-theme="light"] .reply-details-panel,
+.light .reply-details-panel {
+  --reply-detail-bg: rgba(255, 255, 255, 0.10);
+  --reply-detail-border: rgba(55, 60, 68, 0.20);
+  --reply-detail-text: #202124;
+  --reply-detail-muted: #555a63;
+}
+/* Explicit Dark selection: 5% dark surface. */
+:root[data-theme="dark"] .reply-details-panel,
+html[data-theme="dark"] .reply-details-panel,
+body[data-theme="dark"] .reply-details-panel,
+.dark .reply-details-panel {
+  --reply-detail-bg: rgba(30, 30, 34, 0.05);
+  --reply-detail-border: rgba(255, 255, 255, 0.18);
+  --reply-detail-text: #f5f5f7;
+  --reply-detail-muted: #c1c3ca;
+}
+/* System theme fallback when the app has not stamped a resolved theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .reply-details-panel,
+  html:not([data-theme="light"]):not([data-theme="dark"]) .reply-details-panel,
+  body:not([data-theme="light"]):not([data-theme="dark"]) .reply-details-panel {
+    --reply-detail-bg: rgba(30, 30, 34, 0.05);
+    --reply-detail-border: rgba(255, 255, 255, 0.18);
+    --reply-detail-text: #f5f5f7;
+    --reply-detail-muted: #c1c3ca;
+  }
+}
