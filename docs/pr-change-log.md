@@ -1695,3 +1695,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for persistent tier visibility and OpenRouter-first routing/failover.
 - Validation: CI pending.
 
+
+## Unified platform engineering contract (2026-10-23)
+
+- Define the engineering scope across Chat, Code, Video Studio, and shared platform services; Video Studio is not the only surface covered by the quality bar.
+- Specify shared AI orchestration order, OpenRouter-first routing when enabled, privacy/tier/quota gates, safe fallback behavior, and separation of dedicated integrations from model inference.
+- Set implementation and acceptance standards for Chat, Code, Studio render jobs, API validation, Supabase ownership/RLS, mobile accessibility, environment variables, migrations, and honest verification reporting.
+- Update `CLAUDE.md` and `README.md` to point all future feature work at the shared contract.
+- **Validation:** documentation-only change. Automated tests, secret scan, CI, Preview, and production behavior have not been run or verified for this change yet.
