@@ -5958,7 +5958,10 @@
   function signedOut() {
     activeAccountEmail = null;
     account = null;
+    ownerBootstrapToken = '';
     saved.del(KEYS.account);
+    $('ownerConsoleEntry')?.remove();
+    void fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }).catch(() => {});
     renderAccount();
     renderImageHint();
   }
