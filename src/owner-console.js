@@ -207,7 +207,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     try {
       const value = await store.request('POST', 'rpc/owner_console_user_summary', { body: {} });
       const summary = Array.isArray(value) ? value[0] : value;
-      return summary && typeof summary === 'object' && Number.isFinite(Number(summary.registered_accounts)) ? summary : null;
+      return summary && typeof summary === 'object' && Number.isFinite(Number(summary.auth_user_records)) ? summary : null;
     } catch {
       logger?.warn?.('owner account summary unavailable', { source: 'auth.users' });
       return null;
@@ -329,7 +329,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         mode: 'read_only',
         data_sources: {
           ai_usage: usage24h || usage7d ? ((Number(usage24h?.request_count || 0) + Number(usage7d?.request_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
-          users: users ? (Number(users.registered_accounts || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
+          users: users ? (Number(users.auth_user_records || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
           infrastructure: 'unavailable',
           database: databaseHealth,
           security_audit: audit24h ? (Number(audit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
