@@ -142,9 +142,9 @@ test('model-authored URLs are stripped unless cited by search or supplied by the
     })
   });
   const result = await search({ messages: [{ role: 'user', content: 'What is the latest update?' }] });
-  assert.match(result.text, /\\[the official page\\]\\(https:\\/\\/official\\.example\\/page\\)/);
-  assert.doesNotMatch(result.text, /invented\\.example/);
-  assert.match(result.text, /unverified link omitted/);
+  assert.ok(result.text.includes('[the official page](https://official.example/page)'));
+  assert.equal(result.text.includes('invented.example'), false);
+  assert.ok(result.text.includes('unverified link omitted'));
 });
 
 test('explicit user-supplied URLs remain available in the answer', async () => {
@@ -159,5 +159,5 @@ test('explicit user-supplied URLs remain available in the answer', async () => {
     })
   });
   const result = await search({ messages: [{ role: 'user', content: 'Please check https://example.com/your-link' }] });
-  assert.match(result.text, /https:\\/\\/example\\.com\\/your-link/);
+  assert.ok(result.text.includes('https://example.com/your-link'));
 });
