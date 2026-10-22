@@ -18,7 +18,13 @@ async function start(t) {
   const ownerConsole = createOwnerConsole({
     config,
     verifyUser: async (token) => token === TOKEN ? { id: 'owner-id', email: 'owner@example.com' } : null,
-    store: { kind: 'supabase', request: async (_method, path) => path === 'rpc/owner_console_record_audit' ? null : [], },
+    store: { kind: 'supabase', request: async (_method, path, options = {}) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      if (path === 'rpc/owner_console_incidents_list') return { counts: { open: 0, acknowledged: 0, resolved: 0, critical_open: 0, high_open: 0 }, incidents: [] };
+      if (path === 'rpc/owner_console_incident_create') return 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      if (path === 'rpc/owner_console_incident_update') return { id: options.body.p_incident_id, status: options.body.p_action === 'resolve' ? 'resolved' : 'acknowledged' };
+      return [];
+    } },
     clientIp: () => '127.0.0.1'
   });
   const app = createApp({
@@ -76,4 +82,29 @@ test('unknown owner route variants are intercepted and do not fall through to pu
     assert.equal(await response.text(), 'Page not found.', path);
   }
   assert.equal(app.getStaticCalls(), 0);
+});
+
+
+test('durable incident APIs require an owner session, same-origin confirmation, and audit-backed RPCs', async (t) => {
+  const app = await start(t);
+  const origin = app.url;
+  const boot = await fetch(app.url + '/v1/owner/session', { method: 'POST', headers: { Origin: origin, 'Sec-Fetch-Site': 'same-origin', Authorization: 'Bearer ' + TOKEN } });
+  assert.equal(boot.status, 204);
+  const cookie = boot.headers.get('set-cookie').split(';')[0];
+  const list = await fetch(app.url + '/owner/api/incidents', { headers: { Cookie: cookie, Accept: 'application/json' } });
+  assert.equal(list.status, 200);
+  assert.deepEqual((await list.json()).incidents, []);
+  const payload = { confirm: 'CREATE INCIDENT', title: 'Provider timeout spike', description: 'Several requests timed out.', severity: 'high', source: 'ai_usage' };
+  const denied = await fetch(app.url + '/owner/api/incidents', { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  assert.equal(denied.status, 404, 'missing same-origin header fails closed');
+  const created = await fetch(app.url + '/owner/api/incidents', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  assert.equal(created.status, 201);
+  const incident = await created.json();
+  assert.equal(incident.status, 'open');
+  const ack = await fetch(app.url + '/owner/api/incidents/' + incident.id + '/acknowledge', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'ACKNOWLEDGE' }) });
+  assert.equal(ack.status, 200);
+  assert.equal((await ack.json()).status, 'acknowledged');
+  const resolved = await fetch(app.url + '/owner/api/incidents/' + incident.id + '/resolve', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'RESOLVE', resolution_note: 'Verified and mitigated.' }) });
+  assert.equal(resolved.status, 200);
+  assert.equal((await resolved.json()).status, 'resolved');
 });
