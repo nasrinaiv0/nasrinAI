@@ -18,6 +18,7 @@ async function start(t) {
   const ownerConsole = createOwnerConsole({
     config,
     verifyUser: async (token) => token === TOKEN ? { id: 'owner-id', email: 'owner@example.com' } : null,
+    store: { kind: 'supabase', request: async (_method, path) => path === 'rpc/owner_console_record_audit' ? null : [], },
     clientIp: () => '127.0.0.1'
   });
   const app = createApp({
