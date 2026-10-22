@@ -148,6 +148,7 @@ begin
     'window_start', p_since,
     'window_end', now(),
     'active_paid_periods', count(*) filter (where status = 'active' and ends_at > now()),
+    'active_pro_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'pro'),
     'active_max_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'max'),
     'active_ultra_periods', count(*) filter (where status = 'active' and ends_at > now() and plan = 'ultra'),
     'new_periods', count(*) filter (where created_at >= p_since),
