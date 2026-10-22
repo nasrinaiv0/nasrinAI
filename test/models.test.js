@@ -56,15 +56,15 @@ test('all four tiers are always visible; guest paid tiers are marked locked', as
 
 test('provider model-list results and missing tier overrides never hide the tier catalog', async () => {
   assert.deepEqual(names(await catalog({ ids: ['gpt-4o-mini', 'gpt-5-mini'] }).c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
-  assert.deepEqual(names(await catalog({ ids: [] }).c.listFor(guest)), ['Quick', 'Pro', 'Max', 'Ultra']);
+  assert.deepEqual((await catalog({ ids: [] }).c.listFor(guest)).models.map((m) => m.id), ['nasrinai', 'pro', 'max', 'ultra']);
   assert.deepEqual(names(await catalog({ env: { TIER_MAX: '' } }).c.listFor(user)), ['Quick', 'Pro', 'Max', 'Ultra']);
 });
 
 test('resolve: default, allowed, sign-in needed, unknown', async () => {
   const { c } = catalog();
   assert.deepEqual(await c.resolve(guest, undefined), { tier: 'nasrinai', provider: 'openai', model: 'gpt-4o-mini', effort: null });
-  await assert.rejects(c.resolve(guest, 'pro'), { code: 'sign_in_required', message: 'Sign in to use the Pro tier.' });
-  await assert.rejects(c.resolve(guest, 'ultra'), { code: 'sign_in_required', message: 'Sign in to use the Ultra tier.' });
+  await assert.rejects(c.resolve(guest, 'pro'), { code: 'model_not_allowed', message: 'Sign in to use Pro.' });
+  await assert.rejects(c.resolve(guest, 'ultra'), { code: 'model_not_allowed', message: 'Sign in to use Ultra.' });
   assert.deepEqual(await c.resolve(user, 'ultra'), { tier: 'ultra', provider: 'openai', model: 'gpt-5', effort: 'high' });
   for (const bad of ['gpt-5', 'ULTRA', 42, {}]) await assert.rejects(c.resolve(user, bad), { code: 'invalid_model' });
 });
