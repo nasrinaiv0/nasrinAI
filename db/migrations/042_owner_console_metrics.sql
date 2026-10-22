@@ -79,7 +79,7 @@ language plpgsql
 stable
 security definer
 set search_path = public, pg_temp
-as $
+as $owner_automation$
 declare
   v_result jsonb;
 begin
@@ -119,7 +119,7 @@ begin
 
   return v_result;
 end;
-$;
+$owner_automation$;
 
 revoke execute on function public.owner_console_usage_summary(timestamptz) from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_usage_summary(timestamptz) to service_role;
