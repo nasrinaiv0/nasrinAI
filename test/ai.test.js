@@ -133,7 +133,8 @@ test('auto mode with OpenRouter configured selects OpenRouter first for every ti
   for (const candidates of Object.values(config.ai.routing.levels)) {
     assert.equal(candidates[0].provider, 'openrouter');
   }
-  assert.equal(config.ai.fallback.providers[0], 'openrouter');
+  assert.equal(config.ai.fallback.providers[0], 'gemini', 'after the primary OpenRouter attempt, direct providers are fallback targets');
+  assert.ok(!config.ai.fallback.providers.includes('openrouter'), 'do not retry OpenRouter as its own fallback');
   assert.ok(config.ai.fallback.providers.includes('openai'));
   assert.ok(config.ai.fallback.providers.includes('gemini'));
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
