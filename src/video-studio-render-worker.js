@@ -300,7 +300,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
       sandbox = await Sandbox.create({ name, runtime: 'node22', timeout: 2700000, persistent: true, resources: { vcpus: 2 } });
       const check = await sandbox.runCommand({ cmd: 'bash', args: ['-lc', 'command -v ffmpeg'] });
       if (check.exitCode !== 0) {
-        const install = await sandbox.runCommand({ cmd: 'bash', args: ['-c', 'apt-get update -qq && apt-get install -y -qq ffmpeg fonts-dejavu-core'], sudo: true });
+        const install = await sandbox.runCommand({ cmd: 'bash', args: ['-c', 'sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core'] });
         if (install.exitCode !== 0) throw new Error('The isolated renderer could not install FFmpeg.');
       }
       await sandbox.update({ networkPolicy: 'deny-all' });
@@ -410,7 +410,9 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         failed++; continue;
       }
       if (!row.sandbox_name || !/^nasrinai-render-[0-9a-f-]{36}$/.test(row.sandbox_name)) {
-        await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_worker_lost', error_message: 'The render worker stopped unexpectedly. Retry the export.' }); failed++; continue;
+        await updateJob(row.id, { status: 'failed', progress: 100, error_code: 'render_worker_lost', error_message: 'The render worker stopped unexpectedly. Retry the export.' });
+        await Promise.all((row.input_manifest?.source ? [row.input_manifest.source] : []).concat(row.input_manifest?.audio || [], row.input_manifest?.media || []).map(path => storage('DELETE', path).catch(() => {})));
+        failed++; continue;
       }
       let sandbox;
       try {
