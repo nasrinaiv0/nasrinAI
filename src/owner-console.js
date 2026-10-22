@@ -62,14 +62,19 @@ function trustedSameOrigin(req) {
 // subdomain. Cross-origin bootstrap is limited to the two canonical site
 // origins, the exact owner host, and same-site browser requests.
 function trustedBootstrapOrigin(req, res, config) {
-  if (trustedSameOrigin(req)) return true;
-  if (!config?.isProduction) return false;
   const origin = String(req.headers.origin || '').trim();
   const host = String(req.headers.host || '').split(',')[0].trim().toLowerCase();
   const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
-  if (host !== 'owner.nasrinai.com' ||
-      !['https://nasrinai.com', 'https://www.nasrinai.com'].includes(origin) ||
+
+  // Production bootstrap must terminate on the dedicated owner host. A same-origin
+  // request to nasrinai.com must not mint a cookie for the main application host.
+  if (!config?.isProduction) return trustedSameOrigin(req);
+  if (host !== 'owner.nasrinai.com') return false;
+  if (origin === 'https://owner.nasrinai.com' &&
+      (!fetchSite || fetchSite === 'same-origin' || fetchSite === 'none')) return true;
+  if (!['https://nasrinai.com', 'https://www.nasrinai.com'].includes(origin) ||
       (fetchSite && fetchSite !== 'same-site')) return false;
+
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin, Cookie, Authorization');
@@ -352,6 +357,14 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
+
+    // In production the console UI/API exists only on the dedicated subdomain.
+    // Keep the bootstrap endpoint separate because it is called cross-origin by the main site.
+    const requestHost = String(req.headers.host || '').split(',')[0].trim().toLowerCase();
+    if (ownerPath && config?.isProduction && requestHost !== 'owner.nasrinai.com') {
+      sendNotFound(res, req.method === 'HEAD');
+      return true;
+    }
 
     res.setHeader('Cache-Control', 'private, no-store, max-age=0');
     res.setHeader('Pragma', 'no-cache');
