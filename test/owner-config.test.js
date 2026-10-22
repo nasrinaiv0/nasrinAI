@@ -38,3 +38,16 @@ test('malformed entries or a short session secret disable the owner console with
     assert.equal(config.ownerConsole.sessionSecret, '');
   }
 });
+
+
+test('optional Vercel deployment telemetry requires a token and exact project/team identifiers', () => {
+  const base = { NODE_ENV: 'test', OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: '203.0.113.7', OWNER_SESSION_SECRET: 's'.repeat(40) };
+  const disabled = loadConfig({ ...base });
+  assert.equal(disabled.ownerConsole.vercel.enabled, false);
+  const enabled = loadConfig({ ...base, OWNER_VERCEL_READONLY_TOKEN: 'v'.repeat(32), OWNER_VERCEL_PROJECT_ID: 'prj_ih4baHcswf8P9TuNNZGtb7ScEYwh', OWNER_VERCEL_TEAM_ID: 'team_KthCrTNwdIvA7rh12L0tB7Mh' });
+  assert.equal(enabled.ownerConsole.vercel.enabled, true);
+  assert.equal(enabled.ownerConsole.vercel.projectId, 'prj_ih4baHcswf8P9TuNNZGtb7ScEYwh');
+  const malformed = loadConfig({ ...base, OWNER_VERCEL_READONLY_TOKEN: 'v'.repeat(32), OWNER_VERCEL_PROJECT_ID: 'not-a-project', OWNER_VERCEL_TEAM_ID: 'team_KthCrTNwdIvA7rh12L0tB7Mh' });
+  assert.equal(malformed.ownerConsole.vercel.enabled, false);
+  assert.equal(malformed.ownerConsole.vercel.token, '');
+});
