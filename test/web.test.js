@@ -311,7 +311,7 @@ test('web search uses deeper context for research and asks for evidence quality'
     ], usage: { input_tokens: 30, output_tokens: 10 } });
   } });
   const result = await ws.search({ system: 'Answer carefully.', messages: [{ role: 'user', content: 'Research and compare official documentation and peer-reviewed papers across multiple sources.' }] });
-  assert.equal(body.tools[0].search_context_size, 'high');
+  assert.equal(body.tools[0].parameters.search_context_size, 'high');
   assert.deepEqual(body.include, ['web_search_call.action.sources']);
   assert.match(body.instructions, /cross-check with more than one credible source/);
   assert.match(body.instructions, /flag uncertainty, disagreement/);
