@@ -783,22 +783,16 @@
     if (existing) existing.remove();
     try {
       const response = await fetch('/v1/owner/session', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
       if (response.status === 204 && !document.getElementById('ownerConsoleEntry')) {
         const button = document.createElement('button');
-        button.type = 'button';
-        button.id = 'ownerConsoleEntry';
-        button.className = 'menu-row';
+        button.type = 'button'; button.id = 'ownerConsoleEntry'; button.className = 'menu-row';
         button.textContent = 'Owner Command Center';
         button.addEventListener('click', async () => { await syncOwnerConsoleEntry(account && account.token); window.location.href = '/owner'; });
         $('pageMain')?.appendChild(button);
-      } else if (response.status !== 204) {
-        $('ownerConsoleEntry')?.remove();
-      }
+      } else if (response.status !== 204) $('ownerConsoleEntry')?.remove();
     } catch {
       ownerBootstrapAt = Date.now();
       $('ownerConsoleEntry')?.remove();
@@ -4543,8 +4537,9 @@
     const duration = document.createElement('div');
     const elapsedMs = Number(responseMetadata?.duration_ms);
     duration.textContent = Number.isFinite(elapsedMs) && elapsedMs >= 0
-      ? (elapsedMs >= 60000 ? (elapsedMs / 60000).toFixed(1) + ' min' : (elapsedMs / 1000).toFixed(1) + ' sec')
+      ? (responseMetadata?.duration_estimated ? '≈ ' : '') + (elapsedMs >= 60000 ? (elapsedMs / 60000).toFixed(1) + ' min' : (elapsedMs / 1000).toFixed(1) + ' sec')
       : 'Not reported';
+    if (responseMetadata?.duration_estimated) durationLabel.title = 'Approximate elapsed time between the saved user message and assistant reply; exact generation latency was not persisted.';
     const inputLabel = document.createElement('div');
     inputLabel.className = 'reply-detail-label reply-detail-spaced';
     inputLabel.textContent = 'Input tokens';
@@ -4553,7 +4548,7 @@
     inputTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens)
       ? (responseMetadata.usage.estimated ? '≈ ' : '') + responseMetadata.usage.input_tokens.toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
-    if (responseMetadata?.usage?.estimated) inputLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
+    if (responseMetadata?.usage?.estimated) inputLabel.title = 'Text-length estimate; original provider token usage was not saved for this historical reply.';
     const outputLabel = document.createElement('div');
     outputLabel.className = 'reply-detail-label reply-detail-spaced';
     outputLabel.textContent = 'Output tokens';
@@ -4562,7 +4557,7 @@
     outputTokens.textContent = Number.isFinite(responseMetadata?.usage?.output_tokens)
       ? (responseMetadata.usage.estimated ? '≈ ' : '') + responseMetadata.usage.output_tokens.toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
-    if (responseMetadata?.usage?.estimated) outputLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
+    if (responseMetadata?.usage?.estimated) outputLabel.title = 'Text-length estimate; original provider token usage was not saved for this historical reply.';
     const totalLabel = document.createElement('div');
     totalLabel.className = 'reply-detail-label reply-detail-spaced';
     totalLabel.textContent = 'Total tokens';
@@ -4571,7 +4566,7 @@
     totalTokens.textContent = Number.isFinite(responseMetadata?.usage?.input_tokens) && Number.isFinite(responseMetadata?.usage?.output_tokens)
       ? (responseMetadata.usage.estimated ? '≈ ' : '') + (responseMetadata.usage.input_tokens + responseMetadata.usage.output_tokens).toLocaleString() + (responseMetadata.usage.estimated ? ' estimated' : '')
       : 'Not reported';
-    if (responseMetadata?.usage?.estimated) totalLabel.title = 'Word-based estimate; actual model token usage was not returned by the provider.';
+    if (responseMetadata?.usage?.estimated) totalLabel.title = 'Text-length estimate; original provider token usage was not saved for this historical reply.';
     panel.append(dateLabel, date, durationLabel, duration, inputLabel, inputTokens, outputLabel, outputTokens, totalLabel, totalTokens);
     details.setAttribute('aria-controls', 'reply-details-' + id);
     panel.id = 'reply-details-' + id;
@@ -9974,12 +9969,57 @@
     try {
       const data = await api(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`);
       setChatProject(data.project && typeof data.project.id === 'string' ? data.project : null);
-      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1 }));
-      refreshTurnControls();
-    } catch {
-      conversationId = null;
-      saved.del(identityKey(KEYS.conversation));
-      clearScreen();
+      const messages = Array.isArray(data.messages) ? data.messages : [];
+      // Historical messages may not include provider usage. Estimate from the
+      // saved user/assistant text so the panel remains useful after a refresh.
+      // This is explicitly marked estimated and never presented as provider usage.
+      const estimateHistoricalTokens = (value) => Math.max(1, Math.ceil(String(value || '').length / 4));
+      const historicalResponseMetadata = (message, index) => {
+        const supplied = message.response_metadata || message.responseMetadata;
+        if (supplied || message.role !== 'assistant') return supplied || null;
+        let precedingUser = '';
+        let precedingUserMessage = null;
+        for (let j = index - 1; j >= 0; j -= 1) {
+          if (messages[j]?.role === 'user') {
+            precedingUserMessage = messages[j];
+            precedingUser = messages[j].content || '';
+            break;
+          }
+        }
+        const assistantCreatedAt = Date.parse(message.created_at || message.createdAt || '');
+        const userCreatedAt = Date.parse(precedingUserMessage?.created_at || precedingUserMessage?.createdAt || '');
+        const elapsedMs = Number.isFinite(assistantCreatedAt) && Number.isFinite(userCreatedAt) && assistantCreatedAt >= userCreatedAt
+          ? assistantCreatedAt - userCreatedAt : null;
+        return {
+          timestamp: message.created_at || message.createdAt || null,
+          duration_ms: elapsedMs,
+          duration_estimated: elapsedMs !== null,
+          usage: {
+            input_tokens: estimateHistoricalTokens(precedingUser),
+            output_tokens: estimateHistoricalTokens(message.content),
+            estimated: true
+          }
+        };
+      };
+      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: historicalResponseMetadata(m, i) }));
+      if (messages.length) {
+        startChat();
+        refreshTurnControls();
+      }
+    } catch (err) {
+      // A transient network/server error must never erase the locally saved
+      // conversation pointer or clear the visible chat. Only discard a pointer
+      // when the server explicitly confirms that this conversation no longer
+      // exists or is no longer accessible.
+      if (err && (err.status === 404 || err.status === 410)) {
+        conversationId = null;
+        saved.del(identityKey(KEYS.conversation));
+        clearScreen();
+        notice.textContent = 'This conversation is no longer available. You can find other saved chats in Your chats.';
+      } else {
+        notice.textContent = 'Could not restore this conversation right now. Your saved chat has been kept; check your connection and refresh to try again.';
+        console.warn('NasrinAI: conversation restore failed; keeping saved conversation pointer.', err);
+      }
     }
   }
 
@@ -10038,7 +10078,9 @@
         history.replaceState(null, '', location.pathname);
         openPlans('Thank you! Your plan is active once the payment is confirmed (usually within a minute).');
       }
-      if (awayLong() && conversationId) { conversationId = null; saved.del(identityKey(KEYS.conversation)); notice.textContent = 'Started a new chat. Your last one is in Your chats.'; }
+      // Do not silently start a blank chat after a refresh or a long absence.
+      // Restore the last conversation; server-side retention decides whether it
+      // still exists, and loadConversation handles a confirmed 404/410 safely.
       saved.del(KEYS.left);
       return loadConversation();
     })
