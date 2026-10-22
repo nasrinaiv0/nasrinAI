@@ -86,3 +86,22 @@ The latest commit for this documentation audit is `a94de2fb6f19abf1bd6eb8ac2fbbc
 - Do not change Vercel deployment protection or project settings without owner approval.
 - Before final review, the owner or authorized project administrator must resolve the deployment-policy block, or explicitly confirm the accepted alternative preview-validation path.
 - The dashboard implementation must still pass unit/database/secret checks and be inspected in a working preview at desktop and iPhone widths before the PR is considered ready.
+
+
+## Implementation follow-up (2026-10-23)
+
+The follow-up implementation is being ported to `feature/owner-console-v2`, created from current `main` so it does not bring unrelated, outdated commits from the earlier feature branch.
+
+- `src/owner-console.js` implements owner bootstrap/session, exact normalized IPv4/IPv6 allowlists, shared IP rate limiting, generic 404/no-store behavior, server-side usage/automation summaries, CSV export, and minimized owner-action audit writes.
+- `src/config.js` adds fail-closed server-only environment configuration. `src/http/app.js`, `src/main.js`, `api/index.js`, and `vercel.json` route protected owner paths to the server before static serving.
+- `public/owner-console.css` and `public/owner-console.js` implement a responsive read-only shell and honest data states; the main app exposes the entry only after server bootstrap succeeds.
+- Migration 057 adds aggregate-only usage/automation functions, active user/guest counts and a usage-based 7-day return rate, derived failure/stale-job signals, Auth account-record/sign-in aggregates without identifiers, Pro/Max/Ultra paid plan-entitlement counts, an RLS-protected owner audit table, and service-role-only audit RPCs. Session issuance and exports fail closed when their audit writes fail.
+- Tests cover config validation, IPv4/IPv6 normalization, protected HTTP routing, usage/automation/audit data mapping, CSV export, Vercel path rewrites, and SQL grants.
+
+### Validation boundaries
+
+- The migration has not been applied to production, and Vercel environment variables have not been changed.
+- Production module and frontend syntax compilation checks passed during implementation. Full unit/database/secret-scan CI has not been confirmed.
+- Vercel's latest preview deployment is canceled due to the project's configured ignored-build step. No desktop/iPhone preview has been visually verified.
+- The remaining operational modules are still partial: retention cohorts and feature-adoption metrics, connected release telemetry, broader security events, billing/revenue reconciliation, alert delivery, and privileged controls. Aggregate Auth record totals, usage-based active-user/return-rate signals, and audited manual incident lifecycle APIs are implemented in code but require migration 057 to be applied in the target environment.
+- No production changes, merge, or deployment have been performed.
