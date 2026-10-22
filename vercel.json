@@ -37,6 +37,10 @@
       "destination": "/api/index?__path=/owner"
     },
     {
+      "source": "/owner/",
+      "destination": "/api/index?__path=/owner/"
+    },
+    {
       "source": "/owner/:path*",
       "destination": "/api/index?__path=/owner/:path*"
     },
