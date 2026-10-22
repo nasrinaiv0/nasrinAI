@@ -11,7 +11,7 @@ Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and th
 
 - Server-intercepted `/owner` and `/owner/api/*` routes; protected HTML is generated only after server authorization and cannot fall through to static serving.
 - Vercel rewrites send the owner route family to the server function.
-- Owner bootstrap verifies the Supabase access token server-side, then checks the exact verified email and trusted client IPv4 against `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS`.
+- Owner bootstrap verifies the Supabase access token server-side, then checks the exact verified email and normalized trusted client IPv4/IPv6 address against `OWNER_ALLOWED_EMAILS` and `OWNER_ALLOWED_IPS`.
 - Dedicated `OWNER_SESSION_SECRET` signs a 10-minute HttpOnly, SameSite=Strict cookie scoped to `/owner`; protected requests re-check the current IP and allowlists.
 - Unauthorized, invalid-session, unlisted-IP, unlisted-email, and missing/invalid configuration cases fail closed with a generic HTTP 404 and no-store headers.
 - Responsive, premium console shell with all ten navigation areas; unverified modules explicitly say Unavailable rather than showing fabricated values.
