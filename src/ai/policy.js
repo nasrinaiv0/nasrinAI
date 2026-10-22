@@ -4,7 +4,6 @@ import { classify } from './classify.js';
 import { priceOf, costOf, estimateTokens } from './pricing.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
-import { createProviderSpendHooks } from './budget.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 
 // The cost-aware routing policy (Phase 4.1), between the chat and the router:
@@ -12,9 +11,8 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 //   classify -> level within the tier's range -> privacy -> cheapest candidate
 //   that fits the budget -> call -> validate -> (escalate once, bounded) -> done
 //
-// Candidates per level come from config (ROUTE_LEVEL_n). OpenRouter validates
-// model capabilities and published prices through its live catalog; its reported
-// usage cost is authoritative. Other providers retain the existing price table.
+// Candidates per level come from config (ROUTE_LEVEL_n). Provider accounts own
+// their billing and pricing; local price snapshots must never block model routing.
 
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
@@ -42,21 +40,14 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     if (!c) return 'not configured';
     // Claude is allowed wherever the owner put it: in a ROUTE_LEVEL_n list (any
     // tier, any task) or in the Max/Ultra coding lane. With no ROUTE_LEVEL_n
-    // naming it, the defaults never route to it. It still has to pass the
-    // privacy, capability (it takes no tools yet), price and budget checks below.
+    // naming it, the defaults never route to it. It still has to pass privacy
+    // and capability checks below.
     if (sensitive && c.trainsOnData) return 'private data must not go to a service that trains on it';
     if (attachments.some((a) => a.kind === 'pdf') && c.pdf === false) return 'cannot read PDFs';
     if (attachments.some((a) => a.kind === 'image') && c.vision === false) return 'cannot see photos';
     if (attachments.length && c.pdf === false) return 'cannot read attachments';
     if (reqToolsCount > 0 && c.tools === false) return 'does not support tools';
     const cost = estimate(spec, inputTokens, level, minOut);
-    // OpenRouter's live catalog selects priced models, and usage.cost reports
-    // the actual billed amount. Do not gate its models on local price snapshots.
-    if (cost === null && spec.provider !== 'openrouter') return 'no price on file';
-    const requestCap = r.budget.maxRequestUsdByTier?.[tier] ?? budget.maxRequestUsd;
-    if (cost !== null && cost > 0 && requestCap !== null && cost > requestCap) return 'over the per-tier request limit';
-    // Unknown spend: the cheapest level only (set in run), within the per-request cap.
-    if (cost !== null && cost > 0 && !left.unknown && cost > left.usd) return `over the ${left.limitedBy} budget`;
     return null;
   }
 
@@ -111,13 +102,10 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
         // Images/audio attachments can consume tokens even though their binary
         // payload is not ordinary text; reserve a conservative allowance per file.
         + attachments.reduce((n, a) => n + (a.kind === 'image' ? 8192 : a.kind === 'pdf' ? 16000 : 4000), 0);
-      const spendHooks = createProviderSpendHooks({ budget, config, prices, caller, tier: plan.tier });
-      // Let the provider router preflight internal failover models against the same
-      // exact pricing rules used by the budget reservation hook.
-      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => providerId === 'openrouter' || Boolean(priceFor({ provider: providerId, model: modelId }));
-      let left = await budget.remaining();
-      // If spend cannot be read, stay on the cheapest level.
-      let level = left.unknown ? plan.floor : plan.level;
+      // Provider accounts own pricing and billing. Local USD snapshots are
+      // reporting estimates only and never gate routing or model selection.
+      let left = { usd: Infinity, limitedBy: null, unknown: false };
+      let level = plan.level;
       let escalations = 0;
       let calls = 0;   // model calls made so far that failed, counting any failover the router made itself
       const tried = new Set();
@@ -216,7 +204,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, ...(spendHooks ? { spendHooks, spendTier: plan.tier } : {}) });
+          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
             const actual = hasUsage && result.fallback !== true
@@ -252,7 +240,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           if (escalations >= r.maxEscalations || at >= plan.ceiling || left.unknown) return { result, spec: actualSpec, level: at, escalated: escalations > 0, costUsd, cachedTokens, reservationId: reservation?.id || null };
           escalations += 1;
           level = at + 1;
-          left = await budget.remaining();
+          left = { usd: Infinity, limitedBy: null, unknown: false };
           logger.info('escalating', { from: at, to: level, reason: text ? 'cut off' : 'empty answer' });
         } catch (err) {
           // If the provider threw after invocation, its actual consumption may be
