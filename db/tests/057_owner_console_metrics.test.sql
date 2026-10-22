@@ -230,6 +230,11 @@ begin
   exception when insufficient_privilege then null;
   end;
   begin
+    perform public.owner_console_retention_summary();
+    raise exception 'authenticated role unexpectedly executed owner retention summary';
+  exception when insufficient_privilege then null;
+  end;
+  begin
     perform public.owner_console_user_summary();
     raise exception 'authenticated role unexpectedly executed owner user summary';
   exception when insufficient_privilege then null;
