@@ -1,0 +1,40 @@
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const names={
+overview:['Good to have you back.','A clear view of platform health, AI operations, and business signals.','◫'],
+ai:['AI Operations','Provider performance, routing, latency, and token usage from verified telemetry.','✳'],
+users:['Users & Growth','Adoption and account trends, with personal data minimized by default.','♙'],
+infra:['Infrastructure & Releases','Deployment and dependency status from connected sources.','⌘'],
+security:['Security & Audit','Authorization health, security events, and owner-action history.','◇'],
+automation:['Automation & Jobs','Workflow health, queue state, retries, and execution outcomes.','↗'],
+finance:['Finance & Costs','Separate provider estimates, reservations, settled costs, and verified billing.','▤'],
+incidents:['Incidents & Alerts','Operational issues and alert delivery, with clear ownership.','◎'],
+reports:['Reports & Exports','Date-scoped reports from verified data sources.','▥'],
+settings:['Settings','Owner-console preferences and access status. Allowlist values stay in Vercel.','⚙']
+};
+const sources={
+ai_usage:['AI usage & tokens','Request-level usage events and provider cost semantics'],
+users:['Users & growth','Verified account and activity definitions'],
+infrastructure:['Infrastructure & releases','Vercel and dependency health integrations'],
+security_audit:['Security & audit','Owner audit events and security telemetry'],
+automation:['Automation & jobs','Verified workflow and run-state mappings'],
+finance:['Finance & costs','Settled billing and provider-cost reconciliation'],
+incidents:['Incidents & alerts','Durable incident states and alert delivery']
+};
+let data=null,active='overview';
+function el(tag,cls,txt){const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n}
+function state(label,kind){return el('span','state '+(kind||'unavailable'),label)}
+function head(title,desc){const h=el('div','section-head'),left=el('div');left.append(el('h2','',title),el('p','',desc));h.append(left,state('Read-only'));return h}
+function metric(title,icon,value,note){const c=el('article','metric'),t=el('div','metric-top');t.append(el('span','',title),el('span','metric-icon',icon));c.append(t,el('div','metric-value',value),el('div','metric-note',note));return c}
+function sourceRows(){const list=el('div','source-list');Object.keys(sources).forEach(k=>{const r=el('div','source-row'),left=el('div');left.append(el('div','source-name',sources[k][0]),el('div','source-detail',sources[k][1]));r.append(left,state(data&&data.data_sources&&data.data_sources[k]==='available'?'Available':'Unavailable'));list.append(r)});return list}
+function notice(title,copy){const n=el('div','notice');n.append(el('div','notice-icon','i'));const b=el('div');b.append(el('strong','',title),el('p','',copy));n.append(b);return n}
+function renderOverview(){const c=$('content');c.replaceChildren();c.append(notice('Telemetry connections are not verified yet','The secure console is in place, but this view deliberately does not invent metrics. Each panel will show real figures only after its server-side source, definitions, and access checks are verified.'));c.append(head('Platform snapshot','No placeholder zeros: unavailable data stays clearly marked.'));const g=el('div','grid');g.append(metric('AI requests','✳','Unavailable','Usage-event source not connected'),metric('Active accounts','♙','Unavailable','Account and activity definition pending'),metric('Estimated AI cost','$','Unavailable','Cost reconciliation not verified'),metric('Open incidents','◎','Unavailable','Incident source not connected'));c.append(g);const lower=el('div','lower-grid'),a=el('section','panel'),b=el('section','panel');a.append(el('h3','','Data-source readiness'),el('p','panel-copy','Every source needs a verified schema, definition, and freshness policy before it can drive an owner KPI.'),sourceRows());b.append(el('h3','','Implementation status'),el('p','panel-copy','Access guard and responsive shell are implemented in this branch. Live metrics remain unavailable until source audits and data access checks are complete.'));const list=el('div','source-list');[['Owner identity & IP allowlist','Server-side environment variables','Guard implemented'],['Short-lived owner session','HttpOnly cookie and strict same-site policy','Guard implemented'],['Responsive dashboard shell','Desktop and mobile layout','Shell implemented'],['Verified metrics and controls','Source audits and regression tests required','Pending']].forEach(x=>{const r=el('div','source-row'),l=el('div');l.append(el('div','source-name',x[0]),el('div','source-detail',x[1]));r.append(l,state(x[2],x[2]==='Pending'?'unavailable':'available'));list.append(r)});b.append(list);lower.append(a,b);c.append(lower)}
+function renderModule(k){const c=$('content'),m=names[k];c.replaceChildren();c.append(head(m[0],m[1]),notice('No unverified data is shown','This module is present in navigation, but its data source is not yet verified and connected. It remains unavailable rather than display fabricated counts, stale values as current, or unsafe controls.'));const g=el('div','module-grid'),keys=k==='ai'?['ai_usage','infrastructure']:k==='users'?['users']:k==='infra'?['infrastructure']:k==='security'?['security_audit']:k==='automation'?['automation']:k==='finance'?['finance','ai_usage']:k==='incidents'?['incidents','security_audit']:k==='reports'?['ai_usage','users','finance']:['security_audit','infrastructure'];keys.forEach(key=>{const s=sources[key],card=el('article','module-card');card.append(el('div','module-symbol',m[2]));const body=el('div');body.append(el('h3','',s[0]),el('p','',s[1]+'. Source verification and freshness checks are required before this becomes actionable.'));const foot=el('div','module-meta');foot.append(state('Unavailable'),el('small','','No data displayed'));body.append(foot);card.append(body);g.append(card)});c.append(g);if(k==='settings'){const p=el('section','panel');p.style.marginTop='14px';p.append(el('h3','','Access configuration'),el('p','panel-copy','Manage OWNER_ALLOWED_EMAILS, OWNER_ALLOWED_IPS, and OWNER_SESSION_SECRET in Vercel Project → Settings → Environment Variables. Changes apply after redeploy. The console never displays the allowlist or session secret.'));c.append(p)}}
+function show(k){active=names[k]?k:'overview';$('page-title').textContent=names[active][0];$('page-description').textContent=names[active][1];$('crumb').textContent=active==='overview'?'Overview':names[active][0];document.querySelectorAll('.nav-item').forEach(b=>{const yes=b.dataset.panel===active;b.classList.toggle('active',yes);b.setAttribute('aria-current',yes?'page':'false')});if(active==='overview')renderOverview();else renderModule(active)}
+async function refresh(){ $('freshness').textContent='Checking data sources…';try{const r=await fetch('/owner/api/overview',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});if(r.status===404){window.location.href='/';return}if(!r.ok)throw new Error('refresh');data=await r.json();$('freshness').textContent='Checked '+new Date(data.generated_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' · sources pending';show(active)}catch{$('freshness').textContent='Could not refresh';$('content').replaceChildren(el('div','error-state','The secure overview could not be refreshed. No data was cached. Try again, or sign out and open the console again.'))}}
+document.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>show(b.dataset.panel)));
+const refreshBtn=el('button','quiet-button','Refresh');refreshBtn.type='button';refreshBtn.addEventListener('click',()=>{refreshBtn.disabled=true;refresh().finally(()=>{refreshBtn.disabled=false})});$('signout').parentElement.insertBefore(refreshBtn,$('signout'));
+$('signout').addEventListener('click',async()=>{ $('signout').disabled=true;try{await fetch('/owner/api/session',{method:'DELETE',credentials:'same-origin',cache:'no-store'})}catch(e){}window.location.href='/'});
+show('overview');refresh();
+})();
