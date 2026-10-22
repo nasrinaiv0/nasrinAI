@@ -2,7 +2,7 @@
 \set ON_ERROR_STOP on
 
 set role service_role;
-do $$
+do $owner_test$
 declare
   v_before jsonb;
   v_after jsonb;
@@ -35,9 +35,9 @@ begin
   exception when raise_exception then
     if sqlerrm <> 'p_since must be within the last 90 days' then raise; end if;
   end;
-end $;
+end $owner_test$;
 
-do $
+do $owner_test$
 declare
   v_before jsonb;
   v_after jsonb;
@@ -68,11 +68,11 @@ begin
     or (v_after->>'stale_running_count')::bigint <> (v_before->>'stale_running_count')::bigint + 1 then
     raise exception 'automation status or stale-run counts are incorrect';
   end if;
-end $;
+end $owner_test$;
 reset role;
 
 set role authenticated;
-do $$
+do $owner_test$
 begin
   begin
     perform public.owner_console_usage_summary(now() - interval '1 hour');
@@ -84,7 +84,7 @@ begin
     raise exception 'authenticated role unexpectedly executed owner automation summary';
   exception when insufficient_privilege then null;
   end;
-end $;
+end $owner_test$;
 reset role;
 
 select 'owner console aggregate metrics checks passed' as result;
