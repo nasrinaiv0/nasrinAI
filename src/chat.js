@@ -22,7 +22,6 @@ import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 import { runPlanningCouncil } from './ai/planning-council.js';
 import { estimateTextTokenCount } from './ai/text-image.js';
-import { COMMUNITY_LEARNING_CONSENT_VERSION } from './knowledge/community-learning.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
