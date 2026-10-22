@@ -377,19 +377,13 @@ test('OpenRouter TTS exposes Google voice IDs and selects a provider-scoped defa
 });
 
 
-test('premium coding and TTS price snapshots include provider cache-read rates', async () => {
+test('OpenRouter text prices are not duplicated locally; speech keeps its conservative reservation fallback', async () => {
   const fs = await import('node:fs/promises');
   const prices = JSON.parse(await fs.readFile(new URL('../config/model-prices.json', import.meta.url), 'utf8'));
-  assert.deepEqual(
-    [prices.openrouter['openai/gpt-6-sol'].input, prices.openrouter['openai/gpt-6-sol'].output, prices.openrouter['openai/gpt-6-sol'].cached_input],
-    [2, 10, 0.2]
-  );
-  assert.deepEqual(
-    [prices.openrouter['openai/gpt-6.1-sol'].input, prices.openrouter['openai/gpt-6.1-sol'].output, prices.openrouter['openai/gpt-6.1-sol'].cached_input],
-    [2, 10, 0.1]
-  );
-  assert.deepEqual(
-    [prices.openrouter['google/gemini-3.8-flash-lite-tts'].input, prices.openrouter['google/gemini-3.8-flash-lite-tts'].output],
-    [0.5, 6]
+  assert.equal(prices.openrouter, undefined, 'OpenRouter text model prices must come from the live provider catalog');
+  assert.equal(
+    prices.speech.openrouter['google/gemini-3.8-flash-lite-tts'].worst_case_per_character,
+    0.00003,
+    'TTS keeps its separate conservative reservation fallback until provider usage is available'
   );
 });

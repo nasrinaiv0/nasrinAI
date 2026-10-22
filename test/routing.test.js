@@ -4,8 +4,8 @@ import { classify } from '../src/ai/classify.js';
 import { answerWithLogic } from '../src/ai/logic.js';
 import { createPolicy } from '../src/ai/policy.js';
 import { createRouter } from '../src/ai/router.js';
-import { createBudget } from '../src/ai/budget.js';
-import { loadPrices, priceOf, costOf, replaceOpenRouterPrices } from '../src/ai/pricing.js';
+import { createBudget, createProviderSpendHooks } from '../src/ai/budget.js';
+import { loadPrices, priceOf, costOf } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { ProviderError } from '../src/ai/provider.js';
@@ -286,33 +286,42 @@ test('routing excludes models already used by the planning council', async () =>
 });
 
 
-test('pricing resolves provider-qualified model IDs without guessing unknown prices', () => {
+test('OpenRouter model calls do not depend on local price snapshots', () => {
   const prices = loadPrices();
-  assert.equal(priceOf(prices, 'openrouter', 'openai/gpt-6-luna').input, 0.1);
-  assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/gpt-6-luna').input, 0.1);
+  assert.equal(priceOf(prices, 'openrouter', 'openai/gpt-6-luna'), null);
+  assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/gpt-6-luna'), null);
   assert.equal(priceOf(prices, 'openrouter', 'openrouter:openai/not-a-real-model'), null);
 });
 
 
-test('OpenRouter pricing is replaced by exact live catalog prices and unpriced models are excluded', () => {
-  const prices = loadPrices();
-  const models = [
-    { id: 'vendor/model-a', pricing: { prompt: '0.000002', completion: '0.000006', input_cache_read: '0.0000005' } },
-    { id: 'vendor/free-model', pricing: { prompt: '0', completion: '0' } },
-    { id: 'vendor/missing-output', pricing: { prompt: '0.000001' } },
-    { id: 'vendor/invalid-price', pricing: { prompt: 'not-a-price', completion: '0.000001' } },
-    { id: 'vendor/empty-price', pricing: { prompt: '', completion: '0.000001' } },
-    { id: 'invalid-id', pricing: { prompt: '0', completion: '0' } }
-  ];
-  const result = replaceOpenRouterPrices(prices, models);
-  assert.equal(result.verified, 2);
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/model-a').input, 2);
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/model-a').output, 6);
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/model-a').cachedInput, 0.5);
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/free-model').input, 0);
-  assert.equal(priceOf(prices, 'openrouter', 'deepseek/deepseek-v4.1-flash'), null,
-    'static prices must not survive replacement by the live catalog');
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/missing-output'), null);
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/invalid-price'), null);
-  assert.equal(priceOf(prices, 'openrouter', 'vendor/empty-price'), null, 'an empty string must not be interpreted as a zero-cost model');
+test('OpenRouter spend reservations do not require local model-price entries', async () => {
+  let reserved = null;
+  let settled = null;
+  const budget = {
+    maxRequestUsd: 0.05,
+    async remaining() { return { usd: 0.04, unknown: false, limitedBy: 'daily' }; },
+    async reserveSpend(args) { reserved = args; return { id: 'reservation-1', reservedUsd: args.amountUsd }; },
+    async settleSpend(_reservation, amount) { settled = amount; return amount; },
+    async releaseSpend() {}
+  };
+  const config = {
+    isProduction: true,
+    ai: {
+      maxReplyTokens: 256,
+      routing: { geminiFreeTier: false, budget: { maxRequestUsdByTier: { pro: 0.05 } } }
+    }
+  };
+  const hooks = createProviderSpendHooks({
+    budget, config, prices: {}, tier: 'pro',
+    caller: { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } }
+  });
+  const reservation = await hooks.reserve({
+    provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices',
+    request: { system: 'You are helpful', messages: [{ role: 'user', content: 'hello' }], maxTokens: 64 }
+  });
+  assert.equal(reserved.amountUsd, 0.04);
+  assert.equal(reservation.openRouter, true);
+  const result = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8, actualCostUsd: 0.0017 });
+  assert.equal(result.costUsd, 0.0017);
+  assert.equal(settled, 0.0017);
 });

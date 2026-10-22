@@ -29,7 +29,7 @@ import { createVideoStudioExporter } from './video-studio-export.js';
 import { createPayMongo } from './payments/paymongo.js';
 import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
-import { loadPrices, replaceOpenRouterPrices } from './ai/pricing.js';
+import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
 import { createImages } from './images.js';
@@ -130,35 +130,11 @@ export function buildApp({ config, logger }) {
   const videoStudioAssets = config.supabaseUrl && config.supabaseSecretKey ? createVideoStudioAssets({ config: effective, limiter, logger }) : null;
   const usageLog = createUsageLog({ store, logger });
   const conversations = createConversations({ store, config: effective, logger });
-  const prices = loadPrices(config.ai.routing.pricesJson);
-  // OpenRouter prices are never trusted from the static snapshot: the live
-  // OpenRouter catalog is the source of truth for every OpenRouter model.
-  prices.openrouter = {};
-  let openRouterPricesCheckedAt = 0;
-  let openRouterPriceRefresh = null;
-  const refreshOpenRouterPrices = async () => {
-    if (!openRouterClient) { prices.openrouter = {}; return false; }
-    if (Date.now() - openRouterPricesCheckedAt < 60_000) return Object.keys(prices.openrouter).length > 0;
-    if (openRouterPriceRefresh) return openRouterPriceRefresh;
-    openRouterPriceRefresh = (async () => {
-      try {
-        const models = await openRouterClient.listModels();
-        const result = replaceOpenRouterPrices(prices, models);
-        openRouterPricesCheckedAt = Date.now();
-        logger.info('OpenRouter model prices verified against live catalog', result);
-        return result.verified > 0;
-      } catch (err) {
-        // Fail closed for OpenRouter, but leave other configured providers usable.
-        prices.openrouter = {};
-        openRouterPricesCheckedAt = 0;
-        logger.warn('OpenRouter live pricing verification failed; OpenRouter routes disabled until verification succeeds', { error: err.message });
-        return false;
-      } finally {
-        openRouterPriceRefresh = null;
-      }
-    })();
-    return openRouterPriceRefresh;
-  };
+  const prices = loadPrices();
+  // OpenRouter model selection reads the official live catalog in its adapter;
+  // actual billing comes from OpenRouter usage.cost. Do not use local OpenRouter
+  // snapshots or MODEL_PRICES_JSON to gate calls.
+  delete prices.openrouter;
   const reasoningBudget = createBudget({ store, config: effective, logger });
   // Optional acceleration only: cache errors never make chat unavailable.
   // Embeddings come from OpenAI's API (src/ai/embeddings.js): the earlier
@@ -181,7 +157,7 @@ export function buildApp({ config, logger }) {
   const legal = createLegal({ store, config: effective, logger, deleteAuthUser: admin ? (id) => admin.deleteUser(id) : null });
   const payments = config.paymongo ? createPayMongo(config.paymongo) : null;
   const policy = provider && config.ai.routing.mode === 'smart'
-    ? createPolicy({ config: effective, provider, prices, budget: reasoningBudget, logger, refreshOpenRouterPrices })
+    ? createPolicy({ config: effective, provider, prices, budget: reasoningBudget, logger })
     : null;
   const webSearch = policy && config.web.searchModel && config.ai.openaiApiKey
     ? createWebSearch({ apiKey: config.ai.openaiApiKey, model: config.web.searchModel })

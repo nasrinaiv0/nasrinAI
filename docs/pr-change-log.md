@@ -1,3 +1,14 @@
+## PR — OpenRouter-authoritative billing and reliable YouTube embeds (2026-10-22)
+
+- Stop using local OpenRouter model-price snapshots and the `MODEL_PRICES_JSON` override to block OpenRouter text calls. OpenRouter's live model catalog remains the source for capability/model selection, and its reported `usage.cost` is the source for actual billed cost.
+- Reserve the configured per-request/remaining-budget ceiling before OpenRouter calls and reconcile it with the provider-reported cost; retain budget enforcement without a local per-model price table.
+- Skip OpenRouter catalog refreshes in the ordinary chat policy path to avoid adding a network round-trip to every message.
+- Keep ordinary greetings on a deterministic path before project, Library, memory, and semantic-context lookups.
+- Keep bare `youtube`, `MrBeast`, and `mr beast` in ordinary chat so they cannot silently divert submission; explicit video/embed requests continue to use YouTube discovery.
+- For vague embed follow-ups, reuse the title from the assistant's cited video; when API search returns no results, safely embed only exact YouTube-host URLs with valid 11-character video IDs.
+- Add regression coverage for provider-reported OpenRouter cost, bare-keyword submission routing, embed follow-up query extraction, and fast greeting behavior.
+- **Validation:** CI and preview/device checks pending. No API keys or production environment variables are changed.
+
 ## PR #504 — Fix provider-qualified model pricing (2026-10-21)
 
 - Normalize an exact provider prefix before resolving a selected model against the existing price registry, fixing known priced models being treated as unknown when the router passes a qualified model ID.

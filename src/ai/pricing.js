@@ -1,9 +1,9 @@
 // Imported (not read from disk) so Vercel bundles it with the function.
 import BASE_PRICES from '../../config/model-prices.json' with { type: 'json' };
 
-// Prices come from config/model-prices.json (USD per 1M tokens), optionally
-// overridden by the MODEL_PRICES_JSON setting with the same shape. Routing and
-// budget code only ask this module; no price is written anywhere else.
+// Static prices are retained only for direct providers and non-OpenRouter
+// tools. OpenRouter model selection uses its live catalog, and text billing uses
+// the provider-reported usage.cost rather than a local model-price snapshot.
 
 export function loadPrices(overrideJson = '') {
   const base = BASE_PRICES;
@@ -81,39 +81,4 @@ export function speechCostPerChar(provider, model) {
 export function videoCostPerSecond(model, resolution, override = null) {
   const n = Number(override ?? BASE_PRICES.video?.[model]?.[resolution]);
   return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-
-// Replace the static OpenRouter snapshot with exact live catalog prices.
-// OpenRouter reports USD per token; this application's shared price table uses
-// USD per 1M tokens. Missing or malformed price fields are deliberately omitted.
-export function replaceOpenRouterPrices(table, models) {
-  if (!table || typeof table !== 'object') throw new TypeError('price table is required');
-  const verified = {};
-  for (const model of Array.isArray(models) ? models : []) {
-    if (typeof model?.id !== 'string' || !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:/-]*$/i.test(model.id)) continue;
-    const pricing = model.pricing;
-    if (!pricing || typeof pricing !== 'object') continue;
-    const readPrice = (value) => {
-      if (typeof value !== 'number' && typeof value !== 'string') return null;
-      if (typeof value === 'string' && value.trim() === '') return null;
-      const number = Number(value);
-      return Number.isFinite(number) && number >= 0 ? number : null;
-    };
-    const inputPerToken = readPrice(pricing.prompt);
-    const outputPerToken = readPrice(pricing.completion);
-    if (inputPerToken === null || outputPerToken === null) continue;
-    const cachedPerToken = pricing.input_cache_read == null
-      ? inputPerToken
-      : readPrice(pricing.input_cache_read);
-    if (cachedPerToken === null) continue;
-    verified[model.id] = {
-      input: inputPerToken * 1e6,
-      cachedInput: cachedPerToken * 1e6,
-      output: outputPerToken * 1e6,
-      source: 'openrouter-live-catalog'
-    };
-  }
-  table.openrouter = verified;
-  return { verified: Object.keys(verified).length, omitted: (Array.isArray(models) ? models.length : 0) - Object.keys(verified).length };
 }

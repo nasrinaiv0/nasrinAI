@@ -21,7 +21,7 @@ Questions that need fresh facts ("today", "latest", "weather", "news",
 "price of…", "search the web…") are answered with OpenAI's web search tool
 (Responses API, `tools: [{ type: "web_search" }]`), and the answer lists its
 **Sources**. It uses `WEB_SEARCH_MODEL` (default `gpt-5.4-mini`). The model
-must have a price in `config/model-prices.json` (or `MODEL_PRICES_JSON`):
+must have a price in `config/model-prices.json`:
 without one the spend check cannot size the call and every search would be
 skipped, so an unpriced setting falls back to the default with a start-up
 warning. If the model does not support the tool, the log says

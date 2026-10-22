@@ -34,8 +34,7 @@ node scripts/teacher/cli.js build --name nasrin-sft
 node scripts/teacher/cli.js eval --dataset datasets/nasrin-sft/v1 --provider local --model <local model> [--judge <openai model>]
 ```
 
-The teacher model id must have a price in `config/model-prices.json` (or
-`MODEL_PRICES_JSON`); an unknown price stops the run. `data/` and
+The teacher model id must have a price in `config/model-prices.json`; an unknown price stops the run. `data/` and
 `datasets/` are not committed.
 
 Each dataset folder has `train.jsonl` and `eval.jsonl` (chat format:

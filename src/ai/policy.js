@@ -12,14 +12,14 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 //   classify -> level within the tier's range -> privacy -> cheapest candidate
 //   that fits the budget -> call -> validate -> (escalate once, bounded) -> done
 //
-// Candidates per level come from config (ROUTE_LEVEL_n), prices from
-// config/model-prices.json, budgets from the budget controller. Nothing here
-// names a model or a price.
+// Candidates per level come from config (ROUTE_LEVEL_n). OpenRouter validates
+// model capabilities and published prices through its live catalog; its reported
+// usage cost is authoritative. Other providers retain the existing price table.
 
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, prices, budget, logger, refreshOpenRouterPrices = async () => {}, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
+export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500 }) {
   const r = config.ai.routing;
   const cache = new Map();   // key -> { at, value }
 
@@ -50,11 +50,13 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
     if (attachments.length && c.pdf === false) return 'cannot read attachments';
     if (reqToolsCount > 0 && c.tools === false) return 'does not support tools';
     const cost = estimate(spec, inputTokens, level, minOut);
-    if (cost === null) return 'no price on file';
+    // OpenRouter's live catalog selects priced models, and usage.cost reports
+    // the actual billed amount. Do not gate its models on local price snapshots.
+    if (cost === null && spec.provider !== 'openrouter') return 'no price on file';
     const requestCap = r.budget.maxRequestUsdByTier?.[tier] ?? budget.maxRequestUsd;
-    if (cost > 0 && requestCap !== null && cost > requestCap) return 'over the per-tier request limit';
+    if (cost !== null && cost > 0 && requestCap !== null && cost > requestCap) return 'over the per-tier request limit';
     // Unknown spend: the cheapest level only (set in run), within the per-request cap.
-    if (cost > 0 && !left.unknown && cost > left.usd) return `over the ${left.limitedBy} budget`;
+    if (cost !== null && cost > 0 && !left.unknown && cost > left.usd) return `over the ${left.limitedBy} budget`;
     return null;
   }
 
@@ -99,9 +101,6 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
     // `onFailure(entry)` is told about each attempt that did not produce the
     // answer (for usage records). Resolves { result, spec, level, escalated, costUsd }.
     async run(plan, req, { onFailure = async () => {}, reserveTokens = null, settleTokens = null, caller = null } = {}) {
-      // Refresh exact OpenRouter prices before selecting a route. The callback
-      // fails closed by clearing stale OpenRouter prices if the live catalog is unavailable.
-      await refreshOpenRouterPrices();
       // `minTokens`: a request for a file or long document may use more reply tokens than its level allows.
       const { minTokens = 0, maxTokens: requestedMaxTokens = null, excludeModels = [], ...modelReq } = req;
       const excluded = new Set(Array.isArray(excludeModels) ? excludeModels.map((x) => String(x)) : []);
@@ -115,7 +114,7 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
       const spendHooks = createProviderSpendHooks({ budget, config, prices, caller, tier: plan.tier });
       // Let the provider router preflight internal failover models against the same
       // exact pricing rules used by the budget reservation hook.
-      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => Boolean(priceFor({ provider: providerId, model: modelId }));
+      if (spendHooks) spendHooks.canPrice = (providerId, modelId) => providerId === 'openrouter' || Boolean(priceFor({ provider: providerId, model: modelId }));
       let left = await budget.remaining();
       // If spend cannot be read, stay on the cheapest level.
       let level = left.unknown ? plan.floor : plan.level;
@@ -172,7 +171,7 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
             sensitive: plan.sensitive, attachments, inputTokens, level: plan.floor, left, minOut: minTokens,
             reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
           })) {
-            logger.error('configured route models have no price on file; using the tier model instead. Add their prices to config/model-prices.json or MODEL_PRICES_JSON', { tier: plan.tier, using: `${own.provider}:${own.model}`, reasons: why });
+            logger.error('configured route models have no price on file; using the tier model instead. Add their prices to config/model-prices.json', { tier: plan.tier, using: `${own.provider}:${own.model}`, reasons: why });
             spec = own; at = plan.floor;
           }
         }
@@ -193,7 +192,7 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
         }
         if (!spec) {
           if (why.some((w) => /no price on file/.test(w))) {
-            logger.error('no price on file for the routed models; add them to config/model-prices.json or MODEL_PRICES_JSON', { reasons: why });
+            logger.error('no price on file for the routed models; add them to config/model-prices.json', { reasons: why });
           }
           logger.warn('no model can take this request', { level, reasons: why });
           if (why.length && why.every((w) => /cannot (read|see)/.test(w))) {
@@ -239,7 +238,11 @@ export function createPolicy({ config, provider, prices, budget, logger, refresh
             ? { ...spec, provider: result.provider, model: result.model, effort: result.effort ?? spec.effort }
             : spec);
           const cachedTokens = Number(result.cachedTokens) || 0;
-          const costUsd = costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0;
+          const costUsd = Number.isFinite(result.actualCostUsd) && result.actualCostUsd >= 0
+            ? result.actualCostUsd
+            : Number.isFinite(result.costUsd) && result.costUsd >= 0
+              ? result.costUsd
+              : (costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0);
           const text = String(result.text || '').trim();
           const asksTools = Array.isArray(result.toolCalls) && result.toolCalls.length > 0;
           const valid = asksTools || (text.length > 0 && !(result.finishReason === 'length' && text.length < 40));

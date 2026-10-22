@@ -53,6 +53,9 @@ test('video discovery queries route directly to YouTube instead of generating a 
     'show me YouTube videos about MrBeast',
     'watch the newest video from NASA'
   ]) assert.equal(isYouTubeSearchRequest(query), true, query);
+  for (const query of ['youtube', 'MrBeast', 'mr beast', 'show me embedded videos', 'embed the video player']) {
+    assert.equal(isYouTubeSearchRequest(query), false, query);
+  }
   for (const query of [
     'create a video about MrBeast',
     'generate a video intro',
@@ -69,6 +72,10 @@ test('affirmative follow-ups preserve the assistant reply YouTube search context
   assert.equal(youtubeQueryForReply('Sure, please do', reply), reply);
   assert.equal(youtubeQueryForReply('Yes', 'Hello! How can I help you today?'), '');
   assert.equal(youtubeQueryForReply('show me YouTube videos about MrBeast', reply), 'show me YouTube videos about MrBeast');
+  assert.equal(
+    youtubeQueryForReply('embedded videos', 'Watch "I Survived 100 Days In A Circle, Win $500,000" on YouTube'),
+    'I Survived 100 Days In A Circle, Win $500,000'
+  );
 });
 
 test('send button remains actionable for typed messages even when AI is unavailable', () => {
