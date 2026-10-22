@@ -13,7 +13,7 @@ Add these server-side variables:
 | Variable | Value format | Purpose |
 | --- | --- | --- |
 | `OWNER_ALLOWED_EMAILS` | Comma-separated exact email addresses | Verified Supabase user emails allowed to enter the Owner Console |
-| `OWNER_ALLOWED_IPS` | Comma-separated IPv4 addresses | Public client IPv4 addresses allowed to enter the Owner Console |
+| `OWNER_ALLOWED_IPS` | Comma-separated exact public IPv4 or IPv6 addresses | Public client IPv4 or IPv6 addresses allowed to enter the Owner Console |
 
 Example format only (do not copy the documentation IP as your real address):
 
@@ -22,7 +22,7 @@ OWNER_ALLOWED_EMAILS=owner@example.com
 OWNER_ALLOWED_IPS=203.0.113.24,198.51.100.17
 ```
 
-The addresses in the example are reserved for documentation and will not work as real public client addresses. Enter the actual public IPv4 address(es) you want to allow. Do not put these values in `NEXT_PUBLIC_*` or any browser-exposed variable.
+The addresses in the example are reserved for documentation and will not work as real public client addresses. Enter the actual public IPv4 or IPv6 address(es) you want to allow. IPv6 entries are normalized before exact comparison. Do not put these values in `NEXT_PUBLIC_*` or any browser-exposed variable.
 
 Choose the Vercel environment(s) intentionally. Use a separate, tightly restricted list for Preview if previews are enabled; never allow all IPs or a broad network range just to make preview access easier. After changing a variable, redeploy the relevant environment so the runtime receives the updated value.
 
@@ -30,7 +30,7 @@ Choose the Vercel environment(s) intentionally. Use a separate, tightly restrict
 
 - Parse and validate both variables on the server for every protected request. Blank, missing, malformed, or empty allowlists deny access.
 - Normalize email addresses to lowercase and compare exact entries against the email returned by the existing server-side Supabase Auth verifier. Never trust an email sent by browser code.
-- Compare the trusted client IP obtained through the existing `clientIpFrom(req, config.trustProxyHops)` resolver against exact allowlisted IPv4 entries. Do not read raw `X-Forwarded-For` or `X-Real-IP` directly.
+- Compare the trusted client IP obtained through the existing `clientIpFrom(req, config.trustProxyHops)` resolver against exact allowlisted IPv4 or IPv6 entries. Do not read raw `X-Forwarded-For` or `X-Real-IP` directly.
 - Unknown client IP, invalid IP, missing trusted proxy configuration, or an allowlist mismatch must fail closed.
 - A visitor who is not authorized must receive a genuine HTTP `404 Not Found` with the same generic response whether they are signed out, have the wrong email/IP, or the configuration is invalid. Never return allowlist diagnostics to the browser.
 - Enforce the policy on the owner page, session bootstrap, every owner API, export, and control route. A hidden navigation link or frontend-only check is not security.
