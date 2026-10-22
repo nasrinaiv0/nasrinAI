@@ -11,6 +11,14 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
       // Keep the previous user turn only to resolve short follow-ups in context.
       const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
       const queryText = userMessages.slice(-2).map((m) => String(m?.content || '')).join('\n');
+      const mergeCitations = (items) => {
+        const merged = []; const seen = new Set();
+        for (const item of (Array.isArray(items) ? items : [])) {
+          if (!item?.url || seen.has(item.url)) continue;
+          seen.add(item.url); merged.push(item);
+        }
+        return merged.slice(0, 10);
+      };
       // Keep OpenRouter on the latency-sensitive primary path. Query Google only
       // after a primary failure, or when OpenRouter is not configured.
       const googleFallback = async () => {
@@ -104,6 +112,31 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
 
       if (onText && resp.body) {
         let text = '';
+        let streamedLength = 0;
+        const flushSafeText = () => {
+          if (!onText) return;
+          let boundary = text.length;
+          const urlStart = /https?:\/\//i.exec(text);
+          if (urlStart) {
+            boundary = urlStart.index;
+            const markdownStart = text.lastIndexOf('[', boundary);
+            if (markdownStart >= streamedLength && text.slice(markdownStart, boundary).endsWith('](')) boundary = markdownStart;
+          } else {
+            // Keep a partial URL scheme buffered across SSE chunk boundaries.
+            const lower = text.toLowerCase();
+            let partialLength = 0;
+            for (const scheme of ['https://', 'http://']) {
+              for (let length = 1; length < scheme.length; length++) {
+                if (lower.endsWith(scheme.slice(0, length))) partialLength = Math.max(partialLength, length);
+              }
+            }
+            boundary = text.length - partialLength;
+          }
+          if (boundary > streamedLength) {
+            onText(text.slice(streamedLength, boundary));
+            streamedLength = boundary;
+          }
+        };
         let citations = [];
         let calls = 0;
         let usage = null;
@@ -117,16 +150,20 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           const delta = event?.delta;
           if (event?.type === 'response.output_text.delta' && typeof delta === 'string') {
             text += delta;
+            flushSafeText();
           }
           if (event?.type === 'response.output_text.done' && typeof event?.text === 'string' && !text) {
             text = event.text;
+            flushSafeText();
           }
           if (event?.type === 'response.web_search_call.completed') calls += 1;
           const response = event?.response;
           if (response?.usage) usage = response.usage;
           if (response?.output) {
             const parsed = parseResult(response);
-            if (parsed.text && parsed.text !== text) text = parsed.text;
+            if (parsed.text && parsed.text !== text) {
+              if (!text || parsed.text.startsWith(text)) text = parsed.text;
+            }
             citations = mergeCitations(parsed.citations);
             calls = Math.max(calls, response.output.filter((i) => i?.type === 'web_search_call').length);
           }
@@ -142,7 +179,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search stream could not be read');
         }
         text = stripUnverifiedUrls(text, citations, messages);
-        if (onText && text) onText(text);
+        if (onText && text.length > streamedLength) onText(text.slice(streamedLength));
         return {
           text,
           citations,
