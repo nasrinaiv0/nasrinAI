@@ -138,9 +138,10 @@ const panels = {
 };
 
 function jsonError(res) {
-  sendJson(res, 404, { error: { code: 'not_found', message: NOT_FOUND } });
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
-  res.setHeader('Vary', 'Cookie');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Vary', 'Cookie, Authorization');
+  sendJson(res, 404, { error: { code: 'not_found', message: NOT_FOUND } });
 }
 
 export function createOwnerConsole({ config, verifyUser, clientIp = () => '', now = () => Date.now(), logger = null }) {
@@ -181,6 +182,7 @@ export function createOwnerConsole({ config, verifyUser, clientIp = () => '', no
     }
 
     if (pathname === '/owner/api/session' && req.method === 'DELETE') {
+      if (!trustedSameOrigin(req)) { sendNotFound(res); return true; }
       const secure = config?.isProduction === true || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
       res.setHeader('Set-Cookie', sessionCookie('', 0, secure));
       res.statusCode = 204;
