@@ -559,3 +559,14 @@ test('social video embeds allow only supported provider player origins', async (
   assert.ok(routes.includes("https://www.dailymotion.com/services/oembed"));
   assert.ok(routes.includes('Only TikTok, Facebook, Instagram, Vimeo, and Dailymotion URLs are supported'));
 });
+
+
+test('owner console overview binds aggregate account metrics and current migration number', async () => {
+  const js = await readFile(new URL('../public/owner-console.js', import.meta.url), 'utf8');
+  const migration = await readFile(new URL('../db/migrations/057_owner_console_metrics.sql', import.meta.url), 'utf8');
+  const overview = js.slice(js.indexOf('function renderOverview'), js.indexOf('function renderModule'));
+  assert.match(overview, /userSummary\s*=\s*data\s*&&\s*data\.user_summary/, 'overview defines its aggregate account summary before rendering');
+  assert.match(overview, /userSummary\s*\?\s*numberText\(userSummary\.auth_user_records\)/);
+  assert.match(overview, /migration 057/);
+  assert.match(migration, /owner_console_user_summary/);
+});
