@@ -26,6 +26,7 @@ import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/open
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
+import { createVideoStudioRenderWorker } from './video-studio-render-worker.js';
 import { createPayMongo } from './payments/paymongo.js';
 import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
@@ -196,6 +197,8 @@ export function buildApp({ config, logger }) {
   const videos = createVideos({ store, plans, provider: videoProviders, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
   const elevenlabs = createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY || '' });
   const videoStudioExporter = createVideoStudioExporter();
+  const videoStudioRenderWorker = config.supabaseUrl && config.supabaseSecretKey
+    ? createVideoStudioRenderWorker({ config: effective, logger }) : null;
   // Tools: the basic ones for everyone, plus each business's own connectors.
   const knowledge = createKnowledge({ store, logger });
   const memory = createMemory({ store, logger });
@@ -262,7 +265,7 @@ export function buildApp({ config, logger }) {
     config: effective,
     logger,
     gateway,
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, budget: reasoningBudget, logger }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, budget: reasoningBudget, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });
