@@ -4522,6 +4522,9 @@
     const closePanel = () => {
       panel.hidden = true;
       details.setAttribute('aria-expanded', 'false');
+      // While open, the panel is portalled to body to escape ancestor
+      // stacking contexts. Restore it to its reply row when dismissed.
+      if (panel.parentElement === document.body) row.appendChild(panel);
     };
     const positionPanel = () => {
       if (panel.hidden) return;
@@ -4552,20 +4555,24 @@
         if (other !== panel) {
           other.hidden = true;
           const otherButton = document.querySelector('[aria-controls="' + other.id + '"]');
-          if (otherButton) otherButton.setAttribute('aria-expanded', 'false');
+          if (otherButton) {
+            otherButton.setAttribute('aria-expanded', 'false');
+            if (other.parentElement === document.body) otherButton.parentElement.appendChild(other);
+          }
         }
       });
       replayWave(details, 'reply-details-wave');
       if (!opening) { closePanel(); return; }
+      // A body-level layer prevents transformed reply containers and new
+      // messages from trapping the panel underneath conversation content.
+      if (panel.parentElement !== document.body) document.body.appendChild(panel);
       panel.hidden = false;
       details.setAttribute('aria-expanded', 'true');
       positionPanel();
     });
-    const onScroll = () => {
-      if (window.innerWidth <= 600) closePanel();
-      else positionPanel();
-    };
+    const onScroll = () => positionPanel();
     window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
     document.addEventListener('pointerdown', (event) => {
       if (!panel.hidden && !panel.contains(event.target) && !details.contains(event.target)) closePanel();
     }, true);

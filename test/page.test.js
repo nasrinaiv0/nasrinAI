@@ -439,6 +439,7 @@ test('transcript text is joined with real blank lines, not the characters backsl
 
 test('reply details popover positions on mobile and includes a three-dot wave', async () => {
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
   const start = js.indexOf("const positionPanel = () => {");
   const end = js.indexOf("details.addEventListener('click'", start);
   assert.ok(start >= 0 && end > start);
@@ -449,6 +450,10 @@ test('reply details popover positions on mobile and includes a three-dot wave', 
   assert.match(positioner, /panel\.style\.top =/);
   assert.match(js, /reply-details-dot/);
   assert.match(js, /replayWave\(details, 'reply-details-wave'\)/);
+  assert.match(js, /document\.body\.appendChild\(panel\)/, 'open panel must escape reply stacking contexts');
+  assert.match(js, /const onScroll = \(\) => positionPanel\(\)/, 'scrolling must reposition rather than dismiss the panel on mobile');
+  assert.match(js, /window\.addEventListener\('resize', onScroll/, 'viewport changes must reposition the panel');
+  assert.match(css, /position:fixed!important; z-index:1000!important/, 'panel must use viewport coordinates and a high stacking level');
 });
 
 test('sources animate left-to-right and respect reduced-motion preferences', async () => {
