@@ -353,4 +353,120 @@ grant execute on function public.owner_console_record_audit(text, text, text, te
 revoke execute on function public.owner_console_audit_summary(timestamptz) from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_audit_summary(timestamptz) to service_role;
 
+-- Durable owner-managed incident log. This does not imply notification delivery or automatic remediation.
+create table if not exists public.owner_console_incidents (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 1 and 160),
+  description text not null default '' check (char_length(description) <= 1200),
+  severity text not null check (severity in ('low','medium','high','critical')),
+  source text not null check (source in ('manual','ai_usage','automation','infrastructure','security')),
+  status text not null default 'open' check (status in ('open','acknowledged','resolved')),
+  created_by text not null check (char_length(created_by) between 1 and 80),
+  acknowledged_by text,
+  resolved_by text,
+  resolution_note text not null default '' check (char_length(resolution_note) <= 1200),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  acknowledged_at timestamptz,
+  resolved_at timestamptz
+);
+create index if not exists owner_console_incidents_status_created_idx on public.owner_console_incidents (status, created_at desc);
+alter table public.owner_console_incidents enable row level security;
+drop policy if exists server_only_deny_browser on public.owner_console_incidents;
+create policy server_only_deny_browser on public.owner_console_incidents for all to anon, authenticated using (false) with check (false);
+revoke all on public.owner_console_incidents from public, anon, authenticated;
+grant select, insert, update on public.owner_console_incidents to service_role;
+
+create or replace function public.owner_console_incidents_list(p_limit integer default 25)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp
+as $owner_incident_list$
+declare
+  v_limit integer := least(greatest(coalesce(p_limit, 25), 1), 50);
+  v_result jsonb;
+begin
+  select jsonb_build_object(
+    'counts', jsonb_build_object(
+      'open', count(*) filter (where status = 'open'),
+      'acknowledged', count(*) filter (where status = 'acknowledged'),
+      'resolved', count(*) filter (where status = 'resolved'),
+      'critical_open', count(*) filter (where status = 'open' and severity = 'critical'),
+      'high_open', count(*) filter (where status = 'open' and severity = 'high')
+    ),
+    'incidents', coalesce((select jsonb_agg(jsonb_build_object(
+      'id', item.id, 'title', item.title, 'description', item.description, 'severity', item.severity, 'source', item.source,
+      'status', item.status, 'created_at', item.created_at, 'updated_at', item.updated_at,
+      'acknowledged_at', item.acknowledged_at, 'resolved_at', item.resolved_at, 'resolution_note', item.resolution_note
+    ) order by item.created_at desc) from (select * from public.owner_console_incidents order by created_at desc limit v_limit) item), '[]'::jsonb)
+  ) into v_result from public.owner_console_incidents;
+  return v_result;
+end;
+$owner_incident_list$;
+
+create or replace function public.owner_console_incident_create(
+  p_title text, p_description text, p_severity text, p_source text, p_actor_id text, p_ip_hash text
+) returns uuid language plpgsql security definer set search_path = public, pg_temp
+as $owner_incident_create$
+declare
+  v_id uuid;
+begin
+  if p_title is null or char_length(btrim(p_title)) not between 1 and 160
+    or coalesce(char_length(p_description), 0) > 1200
+    or p_severity not in ('low','medium','high','critical')
+    or p_source not in ('manual','ai_usage','automation','infrastructure','security')
+    or p_actor_id is null or char_length(p_actor_id) not between 1 and 80
+    or p_ip_hash is null or p_ip_hash !~ '^[a-f0-9]{64} then
+    raise exception 'invalid owner incident';
+  end if;
+  insert into public.owner_console_incidents (title, description, severity, source, created_by)
+  values (btrim(p_title), coalesce(p_description, ''), p_severity, p_source, p_actor_id)
+  returning id into v_id;
+  insert into public.owner_audit_events (event_type, actor_id, ip_hash, outcome)
+  values ('incident_created', p_actor_id, p_ip_hash, 'success');
+  return v_id;
+end;
+$owner_incident_create$;
+
+create or replace function public.owner_console_incident_update(
+  p_incident_id uuid, p_action text, p_actor_id text, p_ip_hash text, p_resolution_note text default ''
+) returns jsonb language plpgsql security definer set search_path = public, pg_temp
+as $owner_incident_update$
+declare
+  v_status text;
+  v_updated timestamptz;
+  v_event text;
+begin
+  if p_action not in ('acknowledge','resolve') or p_actor_id is null or char_length(p_actor_id) not between 1 and 80
+    or p_ip_hash is null or p_ip_hash !~ '^[a-f0-9]{64}
+    or coalesce(char_length(p_resolution_note), 0) > 1200
+    or (p_action = 'resolve' and char_length(btrim(coalesce(p_resolution_note, ''))) < 3) then
+    raise exception 'invalid owner incident update';
+  end if;
+  select status into v_status from public.owner_console_incidents where id = p_incident_id for update;
+  if not found then raise exception 'incident not found' using errcode = 'P0002'; end if;
+  if v_status = 'resolved' then
+    if p_action = 'resolve' then return jsonb_build_object('id', p_incident_id, 'status', v_status); end if;
+    raise exception 'resolved incident cannot be acknowledged';
+  end if;
+  if p_action = 'acknowledge' and v_status = 'open' then
+    update public.owner_console_incidents set status = 'acknowledged', acknowledged_by = p_actor_id, acknowledged_at = now(), updated_at = now() where id = p_incident_id returning status, updated_at into v_status, v_updated;
+    v_event := 'incident_acknowledged';
+  elsif p_action = 'resolve' then
+    update public.owner_console_incidents set status = 'resolved', resolved_by = p_actor_id, resolved_at = now(), resolution_note = btrim(p_resolution_note), updated_at = now() where id = p_incident_id returning status, updated_at into v_status, v_updated;
+    v_event := 'incident_resolved';
+  elsif p_action = 'acknowledge' and v_status = 'acknowledged' then
+    return jsonb_build_object('id', p_incident_id, 'status', v_status);
+  else
+    raise exception 'invalid incident status transition';
+  end if;
+  insert into public.owner_audit_events (event_type, actor_id, ip_hash, outcome) values (v_event, p_actor_id, p_ip_hash, 'success');
+  return jsonb_build_object('id', p_incident_id, 'status', v_status, 'updated_at', v_updated);
+end;
+$owner_incident_update$;
+
+revoke execute on function public.owner_console_incidents_list(integer) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_incidents_list(integer) to service_role;
+revoke execute on function public.owner_console_incident_create(text,text,text,text,text,text) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_incident_create(text,text,text,text,text,text) to service_role;
+revoke execute on function public.owner_console_incident_update(uuid,text,text,text,text) from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_incident_update(uuid,text,text,text,text) to service_role;
 commit;
