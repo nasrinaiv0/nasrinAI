@@ -267,7 +267,7 @@ export function loadConfig(env = process.env) {
     ...eligibleFreeProviderIds.filter((id) => !freeFallbackPriority.includes(id))
   ];
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['openrouter', 'gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter')].filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
+    ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter')].filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
     : fallbackMode === 'free'
       ? freeFallbackProviders.filter((p) => providerKeys.includes(p))
       : fallbackMode === 'none' ? [] : [fallbackMode === 'claude' ? 'anthropic' : fallbackMode];
@@ -306,13 +306,13 @@ export function loadConfig(env = process.env) {
       has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
-      has('openai') ? 'openai:gpt-5.4-nano:none' : '',
-      has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
+      has('openai') ? 'openai:gpt-5.4-nano' : '',
+      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
     ],
     2: [has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
-    3: [has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '', has('openai') ? 'openai:gpt-5.4:medium' : '', has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    4: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '', has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    5: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '', has('anthropic') ? 'anthropic:claude-opus-5-5' : '']
+    3: [has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '', has('openai') ? 'openai:gpt-5.4:medium' : ''],
+    4: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : ''],
+    5: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
