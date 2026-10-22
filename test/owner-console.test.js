@@ -205,6 +205,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
         by_status: []
       };
       if (path === 'rpc/owner_console_user_summary') return { auth_user_records: 12, new_auth_records_24h: 2, new_auth_records_7d: 4, active_signins_30d: 7, last_signup_at: '2026-10-22T00:00:00.000Z' };
+      if (path === 'rpc/owner_console_incident_summary') return { ai_failed_requests: 1, automation_failed_runs: 1, stale_running_runs: 1, last_failure_at: '2026-10-23T00:00:00.000Z' };
       if (path === 'rpc/owner_console_audit_summary') return { event_count: 2, last_event_at: '2026-10-23T00:00:00.000Z', by_type: [] };
       if (path === 'rpc/owner_console_record_audit') return null;
       if (path === 'tenants?select=id&limit=1') return [];
@@ -221,6 +222,8 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.data_sources.automation, 'available');
   assert.equal(payload.data_sources.database, 'available');
   assert.equal(payload.data_sources.security_audit, 'available');
+  assert.equal(payload.data_sources.incidents, 'available');
+  assert.equal(payload.incidents_24h.stale_running_runs, 1);
   assert.equal(payload.audit_24h.event_count, 2);
   assert.equal(payload.user_summary.auth_user_records, 12);
   assert.equal(payload.user_summary.new_auth_records_24h, 2);
