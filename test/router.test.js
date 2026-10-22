@@ -121,22 +121,17 @@ test('provider failover: continues to the next free provider when a fallback is 
 });
 
 
-test('provider failover: skips a fallback whose exact model has no verified price', async () => {
+test('provider failover: local price metadata does not block a configured fallback', async () => {
   const local = own({ fail: 'unavailable' });
   const openai = gpt();
   const r = createRouter({ providers: { local, openai }, config: loadConfig(AUTO), logger: quiet });
   const spendHooks = {
-    canPrice(provider, model) {
-      return provider === 'local' && model === 'llama3.1:8b';
-    },
-    // The router reserves spend for the primary attempt before checking failover.
+    canPrice() { return false; },
     reserve: async () => null,
     settle: async () => ({})
   };
-  await assert.rejects(
-    ask(r, { provider: 'local', model: 'llama3.1:8b' }, { spendHooks }),
-    (error) => error instanceof ProviderError && error.provider === 'local'
-  );
+  const out = await ask(r, { provider: 'local', model: 'llama3.1:8b' }, { spendHooks });
+  assert.equal(out.fallback, true);
   assert.equal(local.calls.length, 1);
-  assert.equal(openai.calls.length, 0, 'an unpriced fallback must never reach a provider');
+  assert.equal(openai.calls.length, 1, 'fallback proceeds even when local pricing metadata is absent');
 });
