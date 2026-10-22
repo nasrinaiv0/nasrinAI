@@ -255,17 +255,122 @@
       const staleJobs = signals ? Number(signals.stale_running_runs || 0) : null;
       const hasSignals = signals && (failedAi + failedJobs + staleJobs > 0);
       panel.append(head('Derived operational signals', 'Last 24 hours of recorded model-call failures and automation-run health.', hasSignals ? 'Attention' : signals ? 'No signals' : 'Unavailable'));
-      panel.append(el('p', 'panel-copy', 'These are read-only signals derived from existing telemetry, not durable incident records or delivered notifications. No automatic remediation is performed.'));
+      panel.append(el('p', 'panel-copy', 'These are read-only signals derived from existing telemetry. They do not automatically create incidents, send notifications, or perform remediation.'));
       const grid = el('div', 'grid');
       grid.append(
         metric('Failed AI requests', '✳', signals ? numberText(failedAi) : 'Unavailable', 'Recorded outcomes other than ok'),
-        metric('Failed automation runs', '↗', signals ? numberText(failedJobs) : 'Unavailable', 'Failed runs in the selected window'),
+        metric('Failed automation runs', '↗', signals ? numberText(failedJobs) : 'Unavailable', 'Failed executions in the selected window'),
         metric('Stale running jobs', '◷', signals ? numberText(staleJobs) : 'Unavailable', 'Running over 30 minutes')
       );
       panel.append(grid);
       if (signals && signals.last_failure_at) panel.append(el('p', 'panel-copy', 'Most recent failure: ' + new Date(signals.last_failure_at).toLocaleString()));
       if (signals && !hasSignals) panel.append(el('p', 'panel-copy', 'No matching failures or stale runs were recorded in this window.'));
       c.append(panel);
+
+      const manager = el('section', 'panel');
+      manager.classList.add('module-extra');
+      manager.append(el('h3', '', 'Incident register'), el('p', 'panel-copy', 'Create and track operational incidents. All changes require explicit confirmation and are recorded in the owner audit trail. This register does not deliver alerts.'));
+      const form = el('form', 'incident-form');
+      const titleLabel = el('label', '', 'Incident title'), titleInput = el('input');
+      titleInput.name = 'title'; titleInput.maxLength = 160; titleInput.required = true; titleInput.placeholder = 'Short, actionable summary';
+      titleLabel.append(titleInput);
+      const descriptionLabel = el('label', '', 'Description'), descriptionInput = el('textarea');
+      descriptionInput.name = 'description'; descriptionInput.maxLength = 1200; descriptionInput.rows = 3; descriptionInput.placeholder = 'Context without secrets or private user content';
+      descriptionLabel.append(descriptionInput);
+      const severityLabel = el('label', '', 'Severity'), severityInput = el('select');
+      [['low','Low'],['medium','Medium'],['high','High'],['critical','Critical']].forEach(([value,label]) => { const option = el('option','',label); option.value = value; severityInput.append(option); });
+      severityInput.name = 'severity'; severityLabel.append(severityInput);
+      const sourceLabel = el('label', '', 'Source'), sourceInput = el('select');
+      [['manual','Manual'],['ai_usage','AI usage'],['automation','Automation'],['infrastructure','Infrastructure'],['security','Security']].forEach(([value,label]) => { const option = el('option','',label); option.value = value; sourceInput.append(option); });
+      sourceInput.name = 'source'; sourceLabel.append(sourceInput);
+      const submit = el('button', 'quiet-button', 'Create incident'); submit.type = 'submit';
+      const message = el('p', 'panel-copy', 'Incidents are private to the owner console. Do not include credentials, prompts, or unnecessary personal data.');
+      form.append(titleLabel, descriptionLabel, severityLabel, sourceLabel, submit, message);
+      const register = el('div', 'incident-register');
+      manager.append(form, register);
+      c.append(manager);
+
+      async function refreshIncidents() {
+        register.replaceChildren(el('p', 'panel-copy', 'Loading incident records…'));
+        try {
+          const response = await fetch('/owner/api/incidents', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          if (response.status === 404) { window.location.href = '/'; return; }
+          if (!response.ok) throw new Error('incident list unavailable');
+          const payload = await response.json();
+          register.replaceChildren();
+          const counts = payload.counts || {};
+          const countGrid = el('div', 'grid');
+          countGrid.append(
+            metric('Open', '!', numberText(counts.open || 0), 'Needs attention'),
+            metric('Acknowledged', '✓', numberText(counts.acknowledged || 0), 'Owner has acknowledged'),
+            metric('Resolved', '✓', numberText(counts.resolved || 0), 'Resolution recorded'),
+            metric('Critical open', '⚠', numberText(counts.critical_open || 0), 'Open critical incidents')
+          );
+          register.append(countGrid);
+          const items = Array.isArray(payload.incidents) ? payload.incidents : [];
+          if (!items.length) register.append(notice('No incidents recorded', 'Create an incident above when an operational issue needs a durable owner record.'));
+          const list = el('div', 'source-list');
+          items.forEach((item) => {
+            const row = el('article', 'incident-item'), body = el('div', 'incident-item-body'), top = el('div', 'incident-item-top');
+            top.append(el('strong', '', item.title || 'Untitled incident'), state(String(item.severity || 'unknown').toUpperCase(), item.severity === 'critical' || item.severity === 'high' ? 'unavailable' : ''));
+            body.append(top, el('p', 'panel-copy', item.description || 'No description provided.'));
+            body.append(el('p', 'source-detail', [String(item.source || 'manual'), String(item.status || 'open'), item.created_at ? new Date(item.created_at).toLocaleString() : 'time unknown'].join(' · ')));
+            if (item.resolution_note) body.append(el('p', 'panel-copy', 'Resolution: ' + item.resolution_note));
+            const actions = el('div', 'incident-actions');
+            async function changeStatus(action) {
+              const resolutionNote = action === 'resolve' ? window.prompt('Add a resolution note (3–1200 characters):') : '';
+              if (action === 'resolve' && (typeof resolutionNote !== 'string' || resolutionNote.trim().length < 3 || resolutionNote.trim().length > 1200)) return;
+              const confirmation = action === 'acknowledge' ? 'Acknowledge this incident?' : 'Resolve this incident with the provided note?';
+              if (!window.confirm(confirmation)) return;
+              try {
+                const response = await fetch('/owner/api/incidents/' + encodeURIComponent(item.id) + '/' + action, {
+                  method: 'POST', credentials: 'same-origin', cache: 'no-store',
+                  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                  body: JSON.stringify({ confirm: action === 'acknowledge' ? 'ACKNOWLEDGE' : 'RESOLVE', resolution_note: resolutionNote || '' })
+                });
+                if (response.status === 404) { window.location.href = '/'; return; }
+                if (!response.ok) throw new Error('incident update failed');
+                await refreshIncidents();
+              } catch {
+                register.prepend(notice('Update failed', 'The incident could not be updated. Refresh the list and try again.'));
+              }
+            }
+            if (item.status === 'open') {
+              const acknowledge = el('button', 'quiet-button', 'Acknowledge'); acknowledge.type = 'button';
+              acknowledge.addEventListener('click', () => changeStatus('acknowledge')); actions.append(acknowledge);
+            }
+            if (item.status !== 'resolved') {
+              const resolve = el('button', 'quiet-button', 'Resolve'); resolve.type = 'button';
+              resolve.addEventListener('click', () => changeStatus('resolve')); actions.append(resolve);
+            }
+            row.append(body, actions); list.append(row);
+          });
+          register.append(list);
+        } catch {
+          register.replaceChildren(notice('Incident storage unavailable', 'Apply and verify migration 057 before using the incident register. No changes were made.'));
+        }
+      }
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!window.confirm('Create a durable incident record? This does not send a notification.')) return;
+        submit.disabled = true;
+        try {
+          const response = await fetch('/owner/api/incidents', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ confirm: 'CREATE INCIDENT', title: titleInput.value, description: descriptionInput.value, severity: severityInput.value, source: sourceInput.value })
+          });
+          if (response.status === 404) { window.location.href = '/'; return; }
+          if (!response.ok) throw new Error('incident create failed');
+          form.reset();
+          await refreshIncidents();
+        } catch {
+          register.prepend(notice('Incident could not be recorded', 'Incident storage may be unavailable until migration 057 is applied and verified.'));
+        } finally {
+          submit.disabled = false;
+        }
+      });
+      void refreshIncidents();
     }
 
     if (key === 'security') {
