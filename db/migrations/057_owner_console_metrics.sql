@@ -207,7 +207,7 @@ as $owner_retention$
   select jsonb_build_object(
     'window_days', 14,
     'generated_at', now(),
-    'definition', 'First observed signed-in model-call activity date; day-N return means a model call on exactly cohort date + N.',
+    'definition', 'First observed signed-in model-call activity date within a 45-day lookback; day-N return means a model call on exactly cohort date + N.',
     'cohorts', coalesce(jsonb_agg(jsonb_build_object(
       'cohort_date', c.cohort_date,
       'cohort_size', c.cohort_size,
