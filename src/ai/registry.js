@@ -10,9 +10,10 @@ import { createCohereProvider } from './cohere.js';
 import { assertProvider } from './provider.js';
 
 // Builds the providers the settings ask for and puts the router in front.
-//   AI_PROVIDER=openai  GPT only (needs OPENAI_API_KEY)
-//   AI_PROVIDER=local   NasrinAI's own model only (LOCAL_AI_URL, LOCAL_AI_MODEL)
-//   AI_PROVIDER=auto    both: own model first, GPT for GPT tiers and as fallback
+//   AI_PROVIDER=openrouter  route all normal text-model tiers through OpenRouter (OPENROUTER_API_KEY)
+//   AI_PROVIDER=openai      GPT direct (needs OPENAI_API_KEY)
+//   AI_PROVIDER=local       NasrinAI's own model only (LOCAL_AI_URL, LOCAL_AI_MODEL)
+//   AI_PROVIDER=auto        configured local/direct providers with explicit fallback
 //   AI_PROVIDER=fake    local echo, not allowed in production
 //   AI_PROVIDER=none    chat answers "unavailable" (the default)
 export function providerFromConfig(config, { logger = { info() {}, warn() {} } } = {}) {
