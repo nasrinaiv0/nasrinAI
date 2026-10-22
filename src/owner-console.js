@@ -188,6 +188,20 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     }
   }
 
+  async function incidentSince(since) {
+    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
+    try {
+      const value = await store.request('POST', 'rpc/owner_console_incident_summary', {
+        body: { p_since: new Date(since).toISOString() }
+      });
+      const summary = Array.isArray(value) ? value[0] : value;
+      return summary && typeof summary === 'object' && Number.isFinite(Number(summary.ai_failed_requests)) ? summary : null;
+    } catch {
+      logger?.warn?.('owner operational signals unavailable', { source: 'usage_events,automation_runs' });
+      return null;
+    }
+  }
+
   async function plansSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -315,14 +329,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           logger?.warn?.('owner database health check unavailable', { source: 'database' });
         }
       }
-      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users] = await Promise.all([
+      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users, incidents24h] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000),
         automationSince(at - 24 * 60 * 60 * 1000),
         automationSince(at - 7 * 24 * 60 * 60 * 1000),
         auditSince(at - 24 * 60 * 60 * 1000),
         plansSince(at - 24 * 60 * 60 * 1000),
-        userSummary()
+        userSummary(),
+        incidentSince(at - 24 * 60 * 60 * 1000)
       ]);
       sendJson(res, 200, {
         generated_at: new Date(at).toISOString(),
@@ -336,7 +351,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           automation: automation24h || automation7d ? ((Number(automation24h?.run_count || 0) + Number(automation7d?.run_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           finance: 'unavailable',
           plan_entitlements: plans24h ? ((Number(plans24h.active_paid_periods || 0) + Number(plans24h.new_periods || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
-          incidents: 'unavailable'
+          incidents: incidents24h ? ((Number(incidents24h.ai_failed_requests || 0) + Number(incidents24h.automation_failed_runs || 0) + Number(incidents24h.stale_running_runs || 0)) > 0 ? 'available' : 'no_data') : 'unavailable'
         },
         database_health: { status: databaseHealth, checked_at: new Date(at).toISOString() },
         usage_24h: usage24h,
@@ -346,6 +361,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         audit_24h: audit24h,
         plans_24h: plans24h,
         user_summary: users,
+        incidents_24h: incidents24h,
         panels
       });
       return true;
