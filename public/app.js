@@ -773,10 +773,12 @@
   }
 
   let ownerBootstrapToken = '';
+  let ownerBootstrapAt = 0;
 
   async function syncOwnerConsoleEntry(token) {
-    if (!token || ownerBootstrapToken === token) return;
+    if (!token || (ownerBootstrapToken === token && Date.now() - ownerBootstrapAt < 8 * 60 * 1000)) return;
     ownerBootstrapToken = token;
+    ownerBootstrapAt = Date.now();
     const existing = $('ownerConsoleEntry');
     if (existing) existing.remove();
     try {
@@ -792,12 +794,13 @@
         button.id = 'ownerConsoleEntry';
         button.className = 'menu-row';
         button.textContent = 'Owner Command Center';
-        button.addEventListener('click', () => { window.location.href = '/owner'; });
+        button.addEventListener('click', async () => { await syncOwnerConsoleEntry(account && account.token); window.location.href = '/owner'; });
         $('pageMain')?.appendChild(button);
       } else if (response.status !== 204) {
         $('ownerConsoleEntry')?.remove();
       }
     } catch {
+      ownerBootstrapAt = Date.now();
       $('ownerConsoleEntry')?.remove();
     }
   }
@@ -5990,6 +5993,7 @@
     activeAccountEmail = null;
     account = null;
     ownerBootstrapToken = '';
+    ownerBootstrapAt = 0;
     saved.del(KEYS.account);
     $('ownerConsoleEntry')?.remove();
     void fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }).catch(() => {});
