@@ -78,6 +78,14 @@ test('affirmative follow-ups preserve the assistant reply YouTube search context
   );
 });
 
+test('YouTube send handler is top-level and failed searches recover visibly', () => {
+  const handler = app.indexOf('  async function runYouTubeFirst(query) {');
+  const send = app.indexOf('  async function send(raw) {');
+  assert.ok(handler >= 0 && send > handler, 'runYouTubeFirst must be in send() scope, not nested in runChatJobSearch()');
+  assert.ok(app.includes("YouTube embed search failed; showing direct search fallback."), 'a thrown search/embed error must produce a visible fallback');
+  assert.ok(app.includes("link.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query.slice(0, 180));"), 'fallback must link to a real YouTube search');
+});
+
 test('send button remains actionable for typed messages even when AI is unavailable', () => {
   assert.match(app, /sendBtn\.disabled = !stopping && \(busy \|\| preparing > 0 \|\| \(!hasText && !Recognition\)\)/);
   assert.doesNotMatch(app, /sendBtn\.disabled = !stopping && \(busy \|\| \(!aiAvailable && !isYouTubeSearchRequest\(input\.value\)\)/);
