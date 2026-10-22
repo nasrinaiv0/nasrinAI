@@ -33,7 +33,7 @@ begin
     perform public.owner_console_usage_summary(now() + interval '1 minute');
     raise exception 'future summary window unexpectedly accepted';
   exception when raise_exception then
-    if sqlerrm = 'future summary window unexpectedly accepted' then raise; end if;
+    if sqlerrm <> 'p_since must be within the last 90 days' then raise; end if;
   end;
 end $;
 
