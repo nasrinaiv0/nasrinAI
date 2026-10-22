@@ -128,7 +128,7 @@ test('tampered and expired owner cookies are denied', async () => {
 test('bootstrap rejects cross-origin requests and owner sign-out clears its cookie', async () => {
   const { consoleHandler } = setup();
   const cross = request('POST', '/v1/owner/session', {
-    headers: { ...sameOrigin, origin: 'https://evil.example', authorization: 'Bearer valid-access-token-1234567890' }
+    headers: { ...sameOrigin, origin: 'https://evil.example', authorization: 'Bearer ' + TOKEN }
   });
   await consoleHandler.handle(cross.req, cross.res, '/v1/owner/session');
   assert.equal(cross.res.statusCode, 404);
