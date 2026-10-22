@@ -28,6 +28,17 @@
       "has": [
         {
           "type": "host",
+          "value": "owner.nasrinai.com"
+        }
+      ],
+      "destination": "/owner",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
           "value": "ncc.nasrinai.com"
         }
       ],
