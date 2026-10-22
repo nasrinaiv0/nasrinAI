@@ -13,7 +13,7 @@ export const TIERS = Object.freeze([
 ]);
 export const DEFAULT_TIER = 'nasrinai';
 
-export function createModelCatalog({ provider, config, logger, now = () => Date.now(), cacheMs = 3600_000 }) {
+export function createModelCatalog({ config, logger }) {
   const { tiers, guestTiers, userTiers } = config.ai;
 
   function tierSpec(id) {
