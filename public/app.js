@@ -5323,7 +5323,8 @@
 
   // The notice is informational until the user explicitly enables contribution.
   // Store dismissal locally only; the actual preference remains server-side.
-  const learningNoticeDismissKey = 'nasrinai-learning-notice-dismissed-v1';
+  const learningNoticeDismissKey = 'nasrinai-learning-notice-dismissed-at-v1';
+  const learningNoticeReminderMs = 30 * 24 * 60 * 60 * 1000;
   const learningNotice = $('learningNotice');
   let learningNoticePreviouslyFocused = null;
   function closeLearningNotice({ remember = true } = {}) {
@@ -5331,13 +5332,17 @@
     learningNotice.hidden = true;
     document.body.classList.remove('learning-notice-open');
     if (remember) {
-      try { localStorage.setItem(learningNoticeDismissKey, '1'); } catch {}
+      try { localStorage.setItem(learningNoticeDismissKey, String(Date.now())); } catch {}
     }
     if (learningNoticePreviouslyFocused?.isConnected) learningNoticePreviouslyFocused.focus();
   }
   function openLearningNotice() {
     if (!learningNotice || improvementConsentValue) return;
-    try { if (localStorage.getItem(learningNoticeDismissKey) === '1') return; } catch {}
+    try {
+      const dismissedAt = Number(localStorage.getItem(learningNoticeDismissKey));
+      if (Number.isFinite(dismissedAt) && dismissedAt > 0 && Date.now() - dismissedAt < learningNoticeReminderMs) return;
+      if (dismissedAt > 0) localStorage.removeItem(learningNoticeDismissKey);
+    } catch {}
     learningNoticePreviouslyFocused = document.activeElement;
     learningNotice.hidden = false;
     document.body.classList.add('learning-notice-open');
