@@ -1,6 +1,6 @@
 # Owner Command Center — Implementation Specification
 
-Status: proposed; documentation only until implementation PRs are reviewed and merged.
+Status: implementation in progress on `feature/owner-console-v2`; not production-enabled.
 Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
