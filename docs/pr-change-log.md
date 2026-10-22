@@ -1,3 +1,11 @@
+## Video Studio — detached server timeline renderer (2026-10-23)
+
+- Add a tenant/owner-scoped durable queue and atomic claim function for detached FFmpeg jobs, including idempotency, progress, stale-job recovery, and retention cleanup.
+- Queue saved visual timeline clips and private uploaded/generated media; render video/image layers, text/title overlays, basic color filters, fade/dissolve transitions, source audio, and saved AI audio tracks in a persistent Vercel Sandbox.
+- Route the main timeline Export button through the server queue and preserve its render ID so polling can resume after a reload or leaving Studio.
+- Add the one-minute worker cron, database security tests, UI/cron regression coverage, and architecture notes. Keyframe animation and wipe transitions are not yet rendered server-side.
+- **Validation:** automated tests and a real Preview render must pass before production rollout; migration 056 must be applied first.
+
 ## Multi-site video coverage follow-up (2026-10-23)
 
 - Extend the safe social embed route and strict frontend player-origin allowlist to public Instagram posts and Reels.
