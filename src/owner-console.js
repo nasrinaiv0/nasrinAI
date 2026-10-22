@@ -151,6 +151,20 @@ const panels = {
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
 export function createOwnerConsole({ config, verifyUser, store = null, clientIp = () => '', now = () => Date.now(), logger = null }) {
+  async function usageSince(since) {
+    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
+    try {
+      const value = await store.request('POST', 'rpc/owner_console_usage_summary', {
+        body: { p_since: new Date(since).toISOString() }
+      });
+      const summary = Array.isArray(value) ? value[0] : value;
+      return summary && typeof summary === 'object' && Number.isFinite(Number(summary.request_count)) ? summary : null;
+    } catch {
+      logger?.warn?.('owner metrics source unavailable', { source: 'usage_events' });
+      return null;
+    }
+  }
+
   async function handle(req, res, pathname) {
     const ownerPath = pathname === '/owner' || pathname === '/owner/' || pathname.startsWith('/owner/api/');
     const bootstrapPath = pathname === '/v1/owner/session';
@@ -205,19 +219,6 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
     }
     if (pathname === '/owner/api/overview') {
       const at = now();
-      async function usageSince(since) {
-        if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
-        try {
-          const value = await store.request('POST', 'rpc/owner_console_usage_summary', {
-            body: { p_since: new Date(since).toISOString() }
-          });
-          const summary = Array.isArray(value) ? value[0] : value;
-          return summary && typeof summary === 'object' && Number.isFinite(Number(summary.request_count)) ? summary : null;
-        } catch {
-          logger?.warn?.('owner metrics source unavailable', { source: 'usage_events' });
-          return null;
-        }
-      }
       const [usage24h, usage7d] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000)
