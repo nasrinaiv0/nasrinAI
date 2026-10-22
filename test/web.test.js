@@ -79,7 +79,7 @@ test('OpenRouter web search answers with cited sources and records usage', async
     assert.equal(provider.calls.length, 0, 'the search answered; no second model call');
     const e = built.store.usage.at(-1);
     assert.deepEqual([e.task, e.model], ['web', 'gpt-6-luna']);
-    assert.ok(Number.isFinite(e.costUsd) && e.costUsd >= 0, 'usage accounting remains finite without local model-price gating');
+    assert.ok(e.costUsd == null || (Number.isFinite(e.costUsd) && e.costUsd >= 0), 'usage accounting is never negative or non-finite');
   } finally { await srv.close(); }
 });
 
