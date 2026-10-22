@@ -353,7 +353,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       }
       const csv = rows.map((row) => row.map((value) => {
         const cell = value === null || value === undefined ? '' : String(value);
-        const safeCell = typeof value === 'string' && /^[=+@\\t\\r-]/.test(cell) ? "'" + cell : cell;
+        const safeCell = typeof value === 'string' && /^[=+@\t\r-]/.test(cell) ? "'" + cell : cell;
         return '"' + safeCell.replace(/"/g, '""') + '"';
       }).join(',')).join('\r\n') + '\r\n';
       res.statusCode = 200;
