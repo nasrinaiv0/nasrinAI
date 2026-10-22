@@ -103,5 +103,5 @@ The follow-up implementation is being ported to `feature/owner-console-v2`, crea
 - The migration has not been applied to production, and Vercel environment variables have not been changed.
 - Production module and frontend syntax compilation checks passed during implementation. Full unit/database/secret-scan CI has not been confirmed.
 - Vercel's latest preview deployment is canceled due to the project's configured ignored-build step. No desktop/iPhone preview has been visually verified.
-- The remaining operational modules are still partial: registered-account/retention metrics, release telemetry, broader security events, billing/revenue reconciliation, incidents/alerts, and privileged controls.
+- The remaining operational modules are still partial: retention cohorts and feature-adoption metrics, release telemetry, broader security events, billing/revenue reconciliation, durable incident records/alert delivery, and privileged controls. Aggregate Auth record totals and usage-based active-user/return-rate signals are now implemented in code but require migration 057 to be applied in the target environment.
 - No production changes, merge, or deployment have been performed.
