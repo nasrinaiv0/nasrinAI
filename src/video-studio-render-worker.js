@@ -205,7 +205,7 @@ export function createVideoStudioRenderWorker({ config, fetchImpl = fetch, logge
         "  const input = JSON.parse(await readFile('/vercel/sandbox/render-input.json', 'utf8'));",
         "  const duration = Number(input.durationSeconds);",
         "  const probe = spawnSync('ffmpeg', ['-hide_banner', '-i', source], { encoding: 'utf8', maxBuffer: 1048576 });",
-        "  const hasSourceAudio = /Stream #\\\\d+:\\\\d+[^\\\\n]*Audio:/i.test(probe.stderr || '');",
+        "  const hasSourceAudio = /Stream #\\d+:\\d+[^\\n]*Audio:/i.test(probe.stderr || '');",
         "  const filters = [], labels = [];",
         "  if (hasSourceAudio) { filters.push('[0:a:0]apad=pad_dur=' + duration.toFixed(3) + '[source_audio]'); labels.push('[source_audio]'); }",
         "  for (let i = 0; i < input.audioCount; i++) {",
