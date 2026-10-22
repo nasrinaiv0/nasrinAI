@@ -214,10 +214,12 @@ export function loadConfig(env = process.env) {
     max: tierSpec('TIER_MAX', env.TIER_MAX),
     ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA)
   } : aiProvider === 'auto' ? {
-    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (local ? 'local:' + local.model : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey && !env.OPENAI_API_KEY ? 'anthropic:claude-haiku-5-5' : !env.OPENAI_API_KEY && !geminiKey && !anthropicKey && openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : 'gpt-4o-mini')),
-    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (env.OPENAI_API_KEY ? 'gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-haiku-5-5' : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : 'gpt-5-mini')),
-    max: tierSpec('TIER_MAX', env.TIER_MAX ?? (env.OPENAI_API_KEY ? 'gpt-5' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : openrouterApiKey ? 'openrouter:openai/gpt-6-sol' : 'gpt-5')),
-    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (env.OPENAI_API_KEY ? 'gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : openrouterApiKey ? 'openrouter:openai/gpt-6.1-sol' : 'gpt-5:high'))
+    // OpenRouter is the primary model catalog for every tier when configured.
+    // Direct providers remain registered as failover targets, not first choice.
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : local ? 'local:' + local.model : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey && !env.OPENAI_API_KEY ? 'anthropic:claude-haiku-5-5' : 'gpt-4o-mini')),
+    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : env.OPENAI_API_KEY ? 'gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-5-mini')),
+    max: tierSpec('TIER_MAX', env.TIER_MAX ?? (openrouterApiKey ? 'openrouter:openai/gpt-6-sol' : env.OPENAI_API_KEY ? 'gpt-5' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5')),
+    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (openrouterApiKey ? 'openrouter:openai/gpt-6.1-sol' : env.OPENAI_API_KEY ? 'gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5:high'))
   } : aiProvider === 'gemini' ? {
     nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? 'gemini:gemini-3.1-flash-lite'),
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'gemini:gemini-3.1-flash-lite'),
@@ -249,7 +251,7 @@ export function loadConfig(env = process.env) {
   // providers as emergency-only fallbacks. A provider failure never changes the
   // user's selected tier; the router picks the best available model for the same route level.
   const hasExternalFailover = providerKeys.some((p) => ['gemini', 'openai', 'anthropic'].includes(p)) || freeProviderSettings.some((p) => p.freeModels.length > 0);
-  const fallbackMode = aiProvider === 'openrouter' ? 'none' : String(env.AI_FALLBACK ?? (aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
+  const fallbackMode = String(env.AI_FALLBACK ?? (aiProvider === 'openrouter' || aiProvider === 'auto' || hasExternalFailover ? 'auto' : 'none')).trim().toLowerCase();
   if (!['auto', 'free', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, free, openai, gemini, claude, anthropic or none');
   }
@@ -265,7 +267,7 @@ export function loadConfig(env = process.env) {
     ...eligibleFreeProviderIds.filter((id) => !freeFallbackPriority.includes(id))
   ];
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter'), 'openrouter'].filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
+    ? ['openrouter', 'gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter')].filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
     : fallbackMode === 'free'
       ? freeFallbackProviders.filter((p) => providerKeys.includes(p))
       : fallbackMode === 'none' ? [] : [fallbackMode === 'claude' ? 'anthropic' : fallbackMode];
@@ -301,16 +303,16 @@ export function loadConfig(env = process.env) {
     // routing candidates. Level 1 uses configured general-purpose models; the
     // fallback pool may still try allowlisted free models after paid providers fail.
     1: [
+      has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
       has('openai') ? 'openai:gpt-5.4-nano:none' : '',
-      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '',
-      aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6-luna' : ''
+      has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
     ],
-    2: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6-luna' : has('openai') ? 'openai:gpt-5.4-mini:low' : ''],
-    3: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6-sol' : has('openai') ? 'openai:gpt-5.4:medium' : ''],
-    4: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : has('openai') ? 'openai:gpt-5.4:high' : ''],
-    5: [aiProvider === 'openrouter' && has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : has('openai') ? 'openai:gpt-5.4:high' : '']
+    2: [has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
+    3: [has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '', has('openai') ? 'openai:gpt-5.4:medium' : '', has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    4: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '', has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    5: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '', has('anthropic') ? 'anthropic:claude-opus-5-5' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
