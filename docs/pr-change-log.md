@@ -4,9 +4,10 @@
 - Add a responsive read-only console with aggregate AI usage/cost estimates, Auth record totals, active user/guest IDs and a usage-based 7-day return rate, paid plan-period counts, automation health, database reachability, and derived AI-failure/stale-job signals.
 - Renumber the Owner Console database migration and SQL tests to `057_owner_console_metrics.sql` and `057_owner_console_metrics.test.sql`. RPCs are restricted to `service_role`; browser table grants/RLS are not broadened.
 - Add an optional read-only Vercel production-deployment adapter that stays unavailable unless a dedicated server token and exact project/team IDs are configured. No deploy/cancel action is exposed.
+- Add a durable incident register with confirmed create/acknowledge/resolve actions, server-role-only RPCs, an RLS-protected table, and an audit event for every state change. Derived failure signals do not automatically create incidents, and alert delivery is not yet connected.
 - Add aggregate usage CSV exports with fixed windows, audit requirements, and spreadsheet-formula-injection protection.
 - Production environment inventory confirmed owner email/IP keys exist without decrypting them; a dedicated sensitive `OWNER_SESSION_SECRET` was created. The values were not read or committed. Migration 057 has not been applied to production, and no merge or deployment was performed.
-- **Validation:** the earlier implementation passed `npm test`, JavaScript syntax checks, `npm run check:secrets`, `db/tests/run.sh`, and `npm audit --audit-level=high`. The latest growth/release-adapter changes are awaiting the current CI run; the latest documentation gate is also pending. Vercel preview builds remain canceled by the configured ignored-build step, so visual desktop/iPhone verification is not yet available.
+- **Validation:** the earlier implementation passed `npm test`, JavaScript syntax checks, `npm run check:secrets`, `db/tests/run.sh`, and `npm audit --audit-level=high`. The latest growth/release-adapter/incident-lifecycle changes are awaiting the current CI run; the latest documentation gate is also pending. Vercel preview builds remain canceled by the configured ignored-build step, so visual desktop/iPhone verification is not yet available.
 
 ## Multi-site video coverage follow-up (2026-10-23)
 
