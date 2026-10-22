@@ -1,3 +1,10 @@
+## PR #531 follow-up — transient model cooldown for faster failover (2026-10-23)
+
+- Add a bounded, per-model cooldown after retryable provider outages (unavailable, timeout, busy) so subsequent requests can use healthy fallback models without repeating the same failing attempt.
+- Cooldowns expire automatically, are isolated by provider/model/effort, and are capped at five minutes. Tier selection, privacy/capability checks, spend controls, and provider retry behavior remain authoritative.
+- Add a regression test covering first-attempt OpenRouter priority and subsequent-request fallback during the cooldown.
+- Validation: pending CI for this follow-up.
+
 ## PR #531 — Unified runtime implementation: OpenRouter-first orchestration across Chat and Code (2026-10-23)
 
 - Enforce the requested routing sequence in the shared model policy: classify intent and apply the selected tier's level ceiling first, then attempt configured OpenRouter candidates before dedicated coding providers and other configured providers.
