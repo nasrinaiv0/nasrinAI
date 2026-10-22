@@ -232,3 +232,8 @@ Before the first real-site test, the branch must deploy to a Vercel Preview/Stag
 The staging test requires distinct Vercel environment variables for the staging Supabase URL/publishable key/secret key, guest-session secret, cron secret, and any enabled AI/provider secrets. Never commit or print their values.
 
 `CLAUDE.md` and `docs/nasrinai-connect.md` must stay synchronized whenever Connect architecture, lifecycle, API, provider behavior, security guarantees, or staging requirements change.
+
+
+## Unified platform engineering scope — 2026-10-23
+
+The production-quality engineering rules apply to the entire platform, not only Video Studio: **Chat, Code, Video Studio, and shared services**. Use `docs/architecture/unified-platform-engineering.md` as the cross-surface acceptance contract. For any change, identify every affected surface, reuse shared auth/tier/quota/privacy/orchestration services, test all affected consumers, and report only verified test/CI/Preview/deployment results. Studio must not be treated as a separate app or quality bar; Code must use the approved isolated runner for execution; Chat must preserve answer-first behavior and route model inference through the configured shared policy. Keep this contract synchronized with the implementation and changelog.
