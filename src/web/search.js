@@ -4,7 +4,7 @@ import { ProviderError } from '../ai/provider.js';
 // (tools: [{ type: "web_search" }]), which returns an answer with url_citation
 // annotations. The model is a setting (WEB_SEARCH_MODEL); check on OpenAI's
 // web-search guide that your model supports the tool.
-export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://api.openai.com/v1' }) {
+export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://api.openai.com/v1' }) {
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
@@ -12,6 +12,30 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
       // Keep the previous user turn only to resolve short follow-ups in context.
       const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
       const queryText = userMessages.slice(-2).map((m) => String(m?.content || '')).join('\n');
+      // Google is an independent discovery index, not a replacement for the
+      // answer-producing web search. If it is unavailable, continue normally.
+      let googleResults = [];
+      if (googleSearch?.available && queryText.trim()) {
+        try { googleResults = await googleSearch.search(queryText); } catch { googleResults = []; }
+      }
+      const googleCitations = googleResults.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Google Search result' }));
+      const mergeCitations = (items) => {
+        const merged = []; const seen = new Set();
+        for (const item of [...(Array.isArray(items) ? items : []), ...googleCitations]) {
+          if (!item?.url || seen.has(item.url)) continue;
+          seen.add(item.url); merged.push(item);
+        }
+        return merged.slice(0, 10);
+      };
+      const googleContext = googleResults.length
+        ? '\\n\\nSupplemental Google Search results (candidate sources; verify before relying on them):\\n' + googleResults.slice(0, 8).map((item, i) => (i + 1) + '. ' + item.title + '\\nURL: ' + item.url + '\\nSnippet: ' + item.snippet).join('\\n\\n')
+        : '';
+      const inputMessages = (Array.isArray(messages) ? messages : []).map((m, i, all) => {
+        if (googleContext && m?.role === 'user' && i === all.map((x) => x?.role).lastIndexOf('user')) {
+          return { role: m.role, content: String(m.content || '') + googleContext };
+        }
+        return { role: m.role, content: m.content };
+      });
       const deepResearch = /\b(research|in[- ]depth|comprehensive|compare|comparison|peer[- ]reviewed|academic papers?|systematic review|market analysis|industry report|multiple sources|cross[- ]check|verify claims|pros and cons|sources? and resources?|references?|bibliography|citations?|cite sources|provide sources|find sources)\b/i.test(queryText);
       const socialVideoIntent = /\b(?:trending|trend|viral|popular|top|latest|public)\b.{0,100}\b(?:tiktok|tik tok|facebook|instagram|youtube|reels?|shorts?)\b|\b(?:tiktok|tik tok|facebook|instagram|youtube)\b.{0,100}\b(?:trending|trends|viral|popular|top|public videos?|videos?|show|find|search|any videos?)\b/i.test(queryText);
       const searchContextSize = deepResearch || socialVideoIntent ? 'high' : 'medium';
@@ -38,7 +62,7 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
             tools: [{ type: 'web_search', search_context_size: searchContextSize }],
             include: ['web_search_call.action.sources'],
             instructions: String(system || '') + '\n\nWeb research quality requirements:\n' + researchInstructions,
-            input: messages.map((m) => ({ role: m.role, content: m.content })),
+            input: inputMessages,
             max_output_tokens: maxTokens,
             ...(onText ? { stream: true } : {})
           }),
@@ -99,7 +123,7 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
           if (response?.output) {
             const parsed = parseResult(response);
             if (parsed.text && parsed.text !== text) text = parsed.text;
-            citations = parsed.citations;
+            citations = mergeCitations(parsed.citations);
             calls = Math.max(calls, response.output.filter((i) => i?.type === 'web_search_call').length);
           }
         };
@@ -126,7 +150,7 @@ export function createWebSearch({ apiKey, model, fetchImpl = fetch, timeoutMs = 
       const data = await resp.json().catch(() => null);
       const parsed = parseResult(data);
       const text = parsed.text;
-      const citations = parsed.citations;
+      const citations = mergeCitations(parsed.citations);
       const calls = (Array.isArray(data?.output) ? data.output : []).filter((i) => i?.type === 'web_search_call').length;
       return {
         text,
