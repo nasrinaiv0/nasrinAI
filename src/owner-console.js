@@ -318,6 +318,9 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const ownerPath = pathname === '/owner' || pathname.startsWith('/owner/');
     const bootstrapPath = pathname === '/v1/owner/session';
     const reservedOwnerApi = pathname === '/v1/owner' || pathname.startsWith('/v1/owner/');
+    const incidentCollectionPath = pathname === '/owner/api/incidents';
+    const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
+    const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
 
     res.setHeader('Cache-Control', 'private, no-store, max-age=0');
@@ -347,7 +350,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE')) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -366,6 +369,60 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       res.end();
       return true;
     }
+    if (incidentCollectionPath && (req.method === 'GET' || req.method === 'HEAD')) {
+      try {
+        const value = await store.request('POST', 'rpc/owner_console_incidents_list', { body: { p_limit: 50 } });
+        const result = Array.isArray(value) ? value[0] : value;
+        if (!result || typeof result !== 'object') throw new Error('invalid incident response');
+        sendJson(res, 200, result);
+      } catch {
+        logger?.warn?.('owner incident list unavailable', { source: 'owner_console_incidents' });
+        sendJson(res, 503, { error: { code: 'incident_source_unavailable', message: 'Incident storage is unavailable.' } });
+      }
+      return true;
+    }
+    if (incidentWrite) {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') { sendNotFound(res); return true; }
+      if (!store || typeof store.request !== 'function') { sendJson(res, 503, { error: { code: 'incident_source_unavailable', message: 'Incident storage is unavailable.' } }); return true; }
+      let body;
+      try { body = await readOwnerJson(req); } catch { sendJson(res, 400, { error: { code: 'invalid_request', message: 'A valid JSON request is required.' } }); return true; }
+      let ip = '';
+      try { ip = normalizeIp(clientIp(req)); } catch {}
+      if (!ip) { sendNotFound(res); return true; }
+      const ipHash = createHash('sha256').update(ip).digest('hex');
+      if (incidentCollectionPath) {
+        const title = typeof body.title === 'string' ? body.title.trim() : '';
+        const description = typeof body.description === 'string' ? body.description.trim() : '';
+        const severity = typeof body.severity === 'string' ? body.severity : '';
+        const source = typeof body.source === 'string' ? body.source : 'manual';
+        if (body.confirm !== 'CREATE INCIDENT' || !title || title.length > 160 || description.length > 1200 || !['low','medium','high','critical'].includes(severity) || !['manual','ai_usage','automation','infrastructure','security'].includes(source)) {
+          sendJson(res, 400, { error: { code: 'invalid_incident', message: 'Confirm the action and provide a valid title, severity, source, and description.' } }); return true;
+        }
+        try {
+          const value = await store.request('POST', 'rpc/owner_console_incident_create', { body: { p_title: title, p_description: description, p_severity: severity, p_source: source, p_actor_id: session.sub, p_ip_hash: ipHash } });
+          const id = Array.isArray(value) ? value[0] : value;
+          if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error('invalid incident id');
+          sendJson(res, 201, { id, status: 'open' });
+        } catch {
+          logger?.warn?.('owner incident create failed', { source: 'owner_console_incidents' });
+          sendJson(res, 503, { error: { code: 'incident_write_unavailable', message: 'The incident could not be recorded. Please try again later.' } });
+        }
+        return true;
+      }
+      if (body.confirm !== (incidentAction[2] === 'acknowledge' ? 'ACKNOWLEDGE' : 'RESOLVE')) { sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Explicit confirmation is required.' } }); return true; }
+      const note = typeof body.resolution_note === 'string' ? body.resolution_note.trim() : '';
+      if (incidentAction[2] === 'resolve' && (note.length < 3 || note.length > 1200)) { sendJson(res, 400, { error: { code: 'resolution_note_required', message: 'Add a resolution note between 3 and 1200 characters.' } }); return true; }
+      try {
+        const value = await store.request('POST', 'rpc/owner_console_incident_update', { body: { p_incident_id: incidentAction[1], p_action: incidentAction[2], p_actor_id: session.sub, p_ip_hash: ipHash, p_resolution_note: note } });
+        const result = Array.isArray(value) ? value[0] : value;
+        sendJson(res, 200, result && typeof result === 'object' ? result : { id: incidentAction[1], status: incidentAction[2] === 'resolve' ? 'resolved' : 'acknowledged' });
+      } catch {
+        logger?.warn?.('owner incident update failed', { source: 'owner_console_incidents', action: incidentAction[2] });
+        sendJson(res, 409, { error: { code: 'incident_transition_failed', message: 'The incident status could not be changed. Refresh and try again.' } });
+      }
+      return true;
+    }
+
     if (pathname === '/owner' || pathname === '/owner/') {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
