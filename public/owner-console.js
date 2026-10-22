@@ -222,6 +222,27 @@
       c.append(panel);
     }
 
+    if (key === 'incidents') {
+      const signals = data && data.incidents_24h, panel = el('section', 'panel');
+      panel.classList.add('module-extra');
+      const failedAi = signals ? Number(signals.ai_failed_requests || 0) : null;
+      const failedJobs = signals ? Number(signals.automation_failed_runs || 0) : null;
+      const staleJobs = signals ? Number(signals.stale_running_runs || 0) : null;
+      const hasSignals = signals && (failedAi + failedJobs + staleJobs > 0);
+      panel.append(head('Derived operational signals', 'Last 24 hours of recorded model-call failures and automation-run health.', hasSignals ? 'Attention' : signals ? 'No signals' : 'Unavailable'));
+      panel.append(el('p', 'panel-copy', 'These are read-only signals derived from existing telemetry, not durable incident records or delivered notifications. No automatic remediation is performed.'));
+      const grid = el('div', 'grid');
+      grid.append(
+        metric('Failed AI requests', '✳', signals ? numberText(failedAi) : 'Unavailable', 'Recorded outcomes other than ok'),
+        metric('Failed automation runs', '↗', signals ? numberText(failedJobs) : 'Unavailable', 'Failed runs in the selected window'),
+        metric('Stale running jobs', '◷', signals ? numberText(staleJobs) : 'Unavailable', 'Running over 30 minutes')
+      );
+      panel.append(grid);
+      if (signals && signals.last_failure_at) panel.append(el('p', 'panel-copy', 'Most recent failure: ' + new Date(signals.last_failure_at).toLocaleString()));
+      if (signals && !hasSignals) panel.append(el('p', 'panel-copy', 'No matching failures or stale runs were recorded in this window.'));
+      c.append(panel);
+    }
+
     if (key === 'security') {
       const panel = el('section', 'panel'), audit = data && data.audit_24h;
       panel.classList.add('module-extra');
