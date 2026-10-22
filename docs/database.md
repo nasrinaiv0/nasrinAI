@@ -27,7 +27,7 @@ server-side authorization.
 
 ## Owner Console metrics (migration 042)
 
-Migration [`042_owner_console_metrics.sql`](../db/migrations/042_owner_console_metrics.sql) adds a time index and `owner_console_usage_summary(timestamptz)`, an aggregate-only function used by the Owner Command Center. It summarizes usage events without reading prompts or message bodies. Execution is granted only to `service_role`; no browser-role table grants or RLS policies are changed. The function accepts a window from the last 90 days only.
+Migration [`042_owner_console_metrics.sql`](../db/migrations/042_owner_console_metrics.sql) adds aggregate-only usage and automation summaries plus a minimal owner-action audit trail. The usage RPC reports request counts, tokens, latency, actor counts, estimated costs, and provider/model totals without reading prompts or message bodies. The automation RPC returns run-state counts without workflow definitions or step payloads. The audit table stores owner session/export event types, the actor ID, and a one-way IP hash; the summary never returns actor IDs or hashes. RPC execution is granted only to `service_role`; the audit table has RLS enabled and an explicit deny policy for browser roles. The summary functions accept windows from the last 90 days only.
 
 The migration is part of the repository and CI scratch-database tests, but **it has not been applied to production**. The dashboard must show usage metrics as Unavailable until the migration is applied through the approved database migration process and verified against the live schema.
 
