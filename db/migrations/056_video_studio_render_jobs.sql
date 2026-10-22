@@ -34,6 +34,9 @@ create index if not exists video_studio_render_jobs_owner_idx
 create index if not exists video_studio_render_jobs_running_idx
   on public.video_studio_render_jobs (updated_at)
   where status in ('starting','running');
+create index if not exists video_studio_render_jobs_retention_idx
+  on public.video_studio_render_jobs (updated_at)
+  where status in ('completed','failed');
 
 alter table public.video_studio_render_jobs enable row level security;
 revoke all on public.video_studio_render_jobs from anon, authenticated;
