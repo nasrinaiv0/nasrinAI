@@ -33,7 +33,7 @@ Do not add these values to `NEXT_PUBLIC_*`, client variables, HTML, or the repos
 ### Not yet complete / production prerequisites
 
 - Migration 057 has not been applied to production. Do not configure production owner access until it is applied and verified; the session bootstrap fails closed without the audit RPC.
-- Retention cohorts and daily/weekly active-user definitions, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, incidents/alerts, and privileged controls remain pending source verification and implementation.
+- Retention cohorts and daily/weekly active-user definitions, Vercel release telemetry, platform-wide security events beyond owner session/export actions, settled billing/revenue reconciliation, durable incident records/alert delivery, and privileged controls remain pending source verification and implementation.
 - Vercel environment variables have not been changed. The actual owner email, public IP list, and dedicated signing secret are intentionally not guessed.
 - Full `npm test`, `npm run check:secrets`, `db/tests/run.sh`, GitGuardian, and desktop/iPhone preview verification remain to be confirmed. The latest Vercel deployment was canceled by the configured ignored-build step, so no visual preview has been verified.
 - No production migration, environment update, merge, or deployment has been performed.
