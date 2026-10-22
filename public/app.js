@@ -5273,8 +5273,8 @@
       control.checked = improvementConsentValue;
       control.disabled = false;
       status.textContent = improvementConsentValue
-        ? 'Your optional preference is on. No chat content is currently collected for improvement.'
-        : 'Off by default. No chat content is currently collected for improvement.';
+        ? 'Help improve NasrinAI is on. Eligible Quick conversations may be screened for community learning.'
+        : 'Help improve NasrinAI is off. No new examples will be collected.';
     } catch (err) {
       improvementConsentVersion = null;
       improvementConsentValue = false;
