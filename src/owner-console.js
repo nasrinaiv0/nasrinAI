@@ -150,7 +150,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, clientIp = () => '', now = () => Date.now(), logger = null }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null }) {
   async function usageSince(since) {
     if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
     try {
@@ -163,6 +163,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
       logger?.warn?.('owner metrics source unavailable', { source: 'usage_events' });
       return null;
     }
+  }
+
+  async function rateAllowed(req) {
+    if (!limiter || typeof limiter.signIn !== 'function') return true;
+    let ip = '';
+    try { ip = normalizeIp(clientIp(req)); } catch { return false; }
+    if (!ip) return false;
+    const limit = Math.min(Number(config?.limits?.signInRefreshIpHour) || 120, 300);
+    try { await limiter.signIn('owner-console:' + ip, limit); return true; } catch { return false; }
   }
 
   async function handle(req, res, pathname) {
@@ -182,8 +191,9 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
     if (bootstrapPath) {
       if (req.method !== 'POST' || !trustedSameOrigin(req)) { jsonError(res, req.method === 'HEAD'); return true; }
       const allowlist = allowedRequest(req, config, clientIp);
+      if (!allowlist || !(await rateAllowed(req))) { jsonError(res); return true; }
       const token = bearer(req);
-      if (!allowlist || !token || typeof verifyUser !== 'function') { jsonError(res); return true; }
+      if (!token || typeof verifyUser !== 'function') { jsonError(res); return true; }
       let user;
       try { user = await verifyUser(token); } catch { jsonError(res); return true; }
       if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { jsonError(res); return true; }
@@ -204,6 +214,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, clientIp 
     if (!allowlist || !session || !allowlist.emails.includes(session.email)) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
+    if (!(await rateAllowed(req))) { sendNotFound(res, req.method === 'HEAD'); return true; }
 
     if (pathname === '/owner/api/session' && req.method === 'DELETE') {
       if (!trustedSameOrigin(req)) { sendNotFound(res); return true; }
