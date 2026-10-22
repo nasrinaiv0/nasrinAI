@@ -204,6 +204,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
         succeeded_count: 1, failed_count: 0, cancelled_count: 0, stale_running_count: 0,
         by_status: []
       };
+      if (path === 'rpc/owner_console_plan_summary') return { active_paid_periods: 3, active_pro_periods: 1, active_max_periods: 1, active_ultra_periods: 1, new_periods: 2, paid_payment_count: 1, gross_paid_by_currency: [{ currency: 'PHP', payment_count: 1, gross_amount_minor: 12345 }] };
       if (path === 'rpc/owner_console_user_summary') return { auth_user_records: 12, new_auth_records_24h: 2, new_auth_records_7d: 4, active_signins_30d: 7, last_signup_at: '2026-10-22T00:00:00.000Z' };
       if (path === 'rpc/owner_console_growth_summary') return { active_user_ids_24h: 2, active_guest_ids_24h: 1, active_user_ids_7d: 3, active_guest_ids_7d: 2, active_user_ids_30d: 5, active_guest_ids_30d: 4, returning_user_ids_7d: 1, prior_week_user_ids: 2, return_rate_pct: 50 };
       if (path === 'rpc/owner_console_incident_summary') return { ai_failed_requests: 1, automation_failed_runs: 1, stale_running_runs: 1, last_failure_at: '2026-10-23T00:00:00.000Z' };
@@ -224,6 +225,9 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.data_sources.database, 'available');
   assert.equal(payload.data_sources.security_audit, 'available');
   assert.equal(payload.data_sources.incidents, 'available');
+  assert.equal(payload.data_sources.finance, 'available');
+  assert.equal(payload.plans_24h.paid_payment_count, 1);
+  assert.equal(payload.plans_24h.gross_paid_by_currency[0].gross_amount_minor, 12345);
   assert.equal(payload.incidents_24h.stale_running_runs, 1);
   assert.equal(payload.audit_24h.event_count, 2);
   assert.equal(payload.user_summary.auth_user_records, 12);
