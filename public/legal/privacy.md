@@ -104,7 +104,7 @@ We do not intentionally request sensitive personal information as a requirement 
 - Replies are written by AI models, not people. To keep costs down, software picks which model answers each message (simple questions go to a smaller model). It also checks messages for contact details, which are removed before text leaves our servers, and keeps such messages away from any free AI service that may learn from what it receives. NasrinAI's own Memory feature is separate from third-party AI-provider data-use practices; turning Memory off prevents NasrinAI from saving and using new memory notes but does not change the applicable terms of a third-party provider that receives a message to generate an answer.
 - Fair-use limits and spending limits can stop or delay answers.
 - None of this makes decisions about you that have legal or similarly significant effects.
-- **We do not use your chats to train AI models.** Data we prepare to improve NasrinAI's own model is written by us and checked by a person; it contains no customer conversations. Using customer data would require your explicit permission first.
+- **Community learning is separate from model training.** When a person explicitly enables Help improve NasrinAI, eligible Quick-tier conversations may be screened and stored as redacted learning examples. New examples remain pending human review and are not automatically used to train a model; approved examples may be used as reference material to improve future answers. The contribution setting can be turned off at any time. A separate model-training pipeline is not enabled by this feature.
 
 ## 4. Who receives information
 
