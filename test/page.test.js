@@ -543,3 +543,16 @@ test('cited YouTube links render inline even when the user did not explicitly as
   assert.match(renderer, /if \(!sourceOnly\)/, 'direct cited videos should not trigger an unrelated YouTube search');
   assert.match(renderer, /youtube-nocookie\.com\/embed\//);
 });
+
+
+test('social video embeds allow only supported provider player origins', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  assert.match(app, /host === 'vimeo\\.com'/);
+  assert.match(app, /host === 'dailymotion\\.com'/);
+  assert.match(app, /embedUrl\\.origin === 'https:\\/\\/player\\.vimeo\\.com'/);
+  assert.match(app, /embedUrl\\.origin === 'https:\\/\\/www\\.dailymotion\\.com'/);
+  assert.match(routes, /https:\\/\\/vimeo\\.com\\/api\\/oembed\\.json/);
+  assert.match(routes, /https:\\/\\/www\\.dailymotion\\.com\\/services\\/oembed/);
+  assert.match(routes, /Only TikTok, Facebook, Vimeo, and Dailymotion URLs are supported/);
+});
