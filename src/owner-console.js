@@ -33,7 +33,7 @@ function trustedSameOrigin(req) {
   const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
   if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') return false;
   const origin = String(req.headers.origin || '');
-  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const host = String(req.headers.host || '').split(',')[0].trim().toLowerCase();
   if (!origin || !host) return false;
   try {
     const parsed = new URL(origin);
@@ -55,7 +55,8 @@ function configuredAllowlist(config) {
 function allowedRequest(req, config, clientIp) {
   const allowlist = configuredAllowlist(config);
   if (!allowlist) return null;
-  const ip = String(clientIp(req) || '').replace(/^::ffff:/, '');
+  let ip = '';
+  try { ip = String(clientIp(req) || '').replace(/^::ffff:/, ''); } catch { return null; }
   if (isIP(ip) !== 4 || !allowlist.ips.includes(ip)) return null;
   return allowlist;
 }
