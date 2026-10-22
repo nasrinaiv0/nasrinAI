@@ -808,7 +808,11 @@ export function loadConfig(env = process.env) {
     // that need fresh information (OpenAI web search tool).
     web: Object.freeze({
       links: String(env.WEB_LINKS ?? 'true').toLowerCase() !== 'false',
-      searchModel: webSearchModel()
+      searchModel: webSearchModel(),
+      // Optional official Google Programmable Search API. Configure both values
+      // to add an independent search index; core OpenAI web search remains available.
+      googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),
+      googleEngineId: String(env.WEB_GOOGLE_CX || '').trim()
     }),
     tools: Object.freeze({ enabled: toolsEnabled }),
     professional: Object.freeze({ enabled: professionalEnabled }),
