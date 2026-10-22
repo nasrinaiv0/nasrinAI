@@ -42,7 +42,7 @@ test('general video search does not force tutorial keywords into the YouTube que
   assert.ok(start >= 0, 'renderYouTubeVideos should exist');
   const snippet = app.slice(start, start + 1100);
   assert.match(snippet, /tutorialIntent/);
-  assert.match(snippet, /tutorialIntent \? ' tutorial walkthrough' : ''/);
+  assert.match(snippet, /tutorialIntent/);\n  assert.match(snippet, /tutorialIntent \\? ' tutorial walkthrough' : ''/);
 });
 
 test('video discovery queries route directly to YouTube instead of generating a video', () => {
