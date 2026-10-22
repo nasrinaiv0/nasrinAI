@@ -257,6 +257,53 @@ $owner_retention$;
 revoke execute on function public.owner_console_retention_summary() from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_retention_summary() to service_role;
 
+-- Signup-to-paid conversion counts only successful PayMongo-paid periods, not manual plan grants.
+-- Mature cohorts: 7-day conversion uses signups 7–37 days old; 30-day conversion uses signups 30–90 days old.
+create or replace function public.owner_console_conversion_summary()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $owner_conversion$
+  with cohort as (
+    select
+      count(*) filter (where u.created_at >= now() - interval '7 days') as signups_7d,
+      count(*) filter (where u.created_at >= now() - interval '30 days') as signups_30d,
+      count(*) filter (where u.created_at >= now() - interval '37 days' and u.created_at < now() - interval '7 days') as eligible_signups_7d,
+      count(*) filter (where u.created_at >= now() - interval '37 days' and u.created_at < now() - interval '7 days' and exists (
+        select 1 from public.plan_periods p
+        where p.user_id = u.id::text and p.provider = 'paymongo'
+          and p.amount is not null and p.currency is not null
+          and p.created_at >= u.created_at and p.created_at < u.created_at + interval '7 days'
+      )) as converted_signups_7d,
+      count(*) filter (where u.created_at >= now() - interval '90 days' and u.created_at < now() - interval '30 days') as eligible_signups_30d,
+      count(*) filter (where u.created_at >= now() - interval '90 days' and u.created_at < now() - interval '30 days' and exists (
+        select 1 from public.plan_periods p
+        where p.user_id = u.id::text and p.provider = 'paymongo'
+          and p.amount is not null and p.currency is not null
+          and p.created_at >= u.created_at and p.created_at < u.created_at + interval '30 days'
+      )) as converted_signups_30d
+    from auth.users u
+    where u.created_at >= now() - interval '90 days'
+  )
+  select jsonb_build_object(
+    'generated_at', now(),
+    'signups_7d', signups_7d,
+    'signups_30d', signups_30d,
+    'eligible_signups_7d', eligible_signups_7d,
+    'converted_signups_7d', converted_signups_7d,
+    'conversion_7d_pct', case when eligible_signups_7d = 0 then null else round(100.0 * converted_signups_7d / eligible_signups_7d, 1) end,
+    'eligible_signups_30d', eligible_signups_30d,
+    'converted_signups_30d', converted_signups_30d,
+    'conversion_30d_pct', case when eligible_signups_30d = 0 then null else round(100.0 * converted_signups_30d / eligible_signups_30d, 1) end
+  )
+  from cohort;
+$owner_conversion$;
+
+revoke execute on function public.owner_console_conversion_summary() from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_conversion_summary() to service_role;
+
 -- Plan entitlements plus gross recorded PayMongo paid checkout amounts. This is not net revenue: refunds, fees, reversals, and settlement reconciliation are not represented.
 create index if not exists plan_periods_created_at_idx on public.plan_periods (created_at desc);
 create index if not exists plan_periods_active_expiry_idx on public.plan_periods (ends_at) where status = 'active';
