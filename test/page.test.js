@@ -571,4 +571,7 @@ test('owner console overview binds aggregate account metrics and current migrati
   assert.match(migration, /owner_console_user_summary/);
   assert.match(migration, /owner_console_growth_summary/);
   assert.match(js, /7d return rate/);
+  assert.match(js, /Recent production deployments/);
+  assert.match(js, /OWNER_VERCEL_READONLY_TOKEN/);
+  assert.match(migration, /owner_console_growth_summary/);
 });
