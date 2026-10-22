@@ -28,7 +28,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         return merged.slice(0, 10);
       };
       const googleContext = googleResults.length
-        ? '\\n\\nSupplemental Google Search results (candidate sources; verify before relying on them):\\n' + googleResults.slice(0, 8).map((item, i) => (i + 1) + '. ' + item.title + '\\nURL: ' + item.url + '\\nSnippet: ' + item.snippet).join('\\n\\n')
+        ? '\n\nSupplemental Google Search results (candidate sources; verify before relying on them):\n' + googleResults.slice(0, 8).map((item, i) => (i + 1) + '. ' + item.title + '\nURL: ' + item.url + '\nSnippet: ' + item.snippet).join('\n\n')
         : '';
       const inputMessages = (Array.isArray(messages) ? messages : []).map((m, i, all) => {
         if (googleContext && m?.role === 'user' && i === all.map((x) => x?.role).lastIndexOf('user')) {
