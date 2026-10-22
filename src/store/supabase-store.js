@@ -434,7 +434,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     },
     async searchApprovedImprovementExamples({ tenantId, terms, limit = 3 }) {
       if (!UUID.test(String(tenantId)) || !Array.isArray(terms)) return [];
-      const wanted = [...new Set(terms.map((x) => String(x).toLowerCase()).filter((x) => /^[\\p{L}\\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
+      const wanted = [...new Set(terms.map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
       if (!wanted.length) return [];
       const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=example_text,created_at&order=created_at.desc&limit=100`);
       return (rows || []).map((row) => {
