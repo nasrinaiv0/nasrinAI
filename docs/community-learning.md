@@ -17,7 +17,7 @@ This release uses the existing improvement-consent and improvement-example table
 
 - Consent defaults to off. The previous `2026-10-10-preference-only` value is not accepted for collection.
 - Platform-only: business tenant content is never collected or used as community learning.
-- Sample capture is best-effort and must not delay or fail a chat response.
+- Sample capture is best-effort and must never fail an otherwise valid chat response; it performs a bounded storage operation after answer generation, so a database request may add a small amount of latency.
 - Existing RLS and service-role-only database permissions remain in force.
 - This is an MVP retrieval layer, not model training. Fine-tuning would require a separate reviewed dataset/export pipeline, evaluation gates, and explicit approval.
 - The current retrieval is bounded lexical matching over the latest 100 approved examples. Embedding-backed retrieval using `nvidia/nemotron-3.5-embed-8b:free` is a follow-up step after validating the live OpenRouter embeddings endpoint and model availability.
