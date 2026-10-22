@@ -101,9 +101,9 @@ begin
   insert into auth.users (id, raw_user_meta_data, created_at, last_sign_in_at)
   values ('eeeeeeee-0000-4000-8000-000000000042', '{}'::jsonb, now(), now() - interval '1 day');
   v_after := public.owner_console_user_summary();
-  if (v_after->>'registered_accounts')::bigint <> (v_before->>'registered_accounts')::bigint + 1
-    or (v_after->>'new_accounts_24h')::bigint <> (v_before->>'new_accounts_24h')::bigint + 1
-    or (v_after->>'new_accounts_7d')::bigint <> (v_before->>'new_accounts_7d')::bigint + 1
+  if (v_after->>'auth_user_records')::bigint <> (v_before->>'registered_accounts')::bigint + 1
+    or (v_after->>'new_auth_records_24h')::bigint <> (v_before->>'new_accounts_24h')::bigint + 1
+    or (v_after->>'new_auth_records_7d')::bigint <> (v_before->>'new_accounts_7d')::bigint + 1
     or (v_after->>'active_signins_30d')::bigint <> (v_before->>'active_signins_30d')::bigint + 1 then
     raise exception 'owner user summary counts are incorrect';
   end if;
