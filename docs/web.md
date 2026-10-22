@@ -27,12 +27,19 @@ available and falls back to Exa otherwise. Set the server-side
 `OPENROUTER_API_KEY` is reused, so no Google Custom Search key or engine ID is
 required.
 
-Search results and URL-citation annotations are parsed server-side, validated
-to allow only HTTP(S) URLs, and shown as source links. Search failures do not
-break ordinary chat; the app falls back to its normal answer path. Browsing
-costs depend on the OpenRouter model and search engine selected, in addition
-to any model token charges. See the
-[OpenRouter Web Search documentation](https://openrouter.ai/docs/guides/features/server-tools/web-search).
+Search results and URL-citation annotations are parsed server-side. Only HTTP(S)
+URLs from provider citations (or URLs the user supplied) may remain clickable in
+the answer; guessed model-authored URLs are removed. Google candidate results
+are treated as untrusted context and are not mislabeled as cited evidence.
+
+OpenRouter is the primary search path. To enable an independent fallback, set
+server-only `WEB_GOOGLE_API_KEY` and `WEB_GOOGLE_CX`; if OpenRouter search is
+unconfigured, unavailable, or rate-limited, Nasrin can return real Google result
+titles, snippets, and links instead of inventing an answer. Google fallback
+results are identified as search results, not as a synthesized research answer.
+Keep both keys out of browser code. Browsing costs depend on the OpenRouter
+model/search engine or Google API quota, in addition to model token charges.
+See the [OpenRouter Web Search documentation](https://openrouter.ai/docs/guides/features/server-tools/web-search).
 
 The sources stay in the saved reply as a "**Sources**" list of links (so
 history, copy, share and Library keep them). The page takes that list out of
@@ -43,6 +50,19 @@ If a question did not look current but the model's draft says it lacks current
 facts, Nasrin can trigger web research instead of presenting the uncertainty
 as a verified live answer. Questions about browsing itself are answered
 without unnecessary search.
+
+## Inline video and source embeds
+
+NasrinAI can render a supported public video inline when a direct video URL is
+returned by the web-search provider: YouTube uses its privacy-enhanced player;
+TikTok and Facebook use their official player/embed URLs; Vimeo and Dailymotion
+use provider-specific player URLs. All source URLs must be HTTPS and match a
+strict provider host/path allowlist before an embed is constructed. The server
+uses each provider's oEmbed endpoint for metadata where available, but does not
+return upstream HTML to the browser. Private, removed, restricted, or blocked
+videos may still refuse playback; in that case the verified source link remains
+available. YouTube API quota exhaustion does not disable general web research
+or the other providers.
 
 ## Site logos
 
