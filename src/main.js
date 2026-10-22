@@ -230,7 +230,7 @@ export function buildApp({ config, logger }) {
     ? createSupabaseAuth({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey })
     : null;
 
-  const ownerConsole = createOwnerConsole({ config: effective, verifyUser, store, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger });
+  const ownerConsole = createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger });
 
   return createApp({
     config: effective,
