@@ -11,6 +11,10 @@
     {
       "path": "/v1/internal/web-crawl",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/v1/internal/video-studio-render",
+      "schedule": "* * * * *"
     }
   ],
   "functions": {
