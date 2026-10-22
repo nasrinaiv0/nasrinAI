@@ -9937,12 +9937,7 @@
       const data = await api(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`);
       setChatProject(data.project && typeof data.project.id === 'string' ? data.project : null);
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, {
-        animate: false,
-        id: m.id,
-        asks: i === messages.length - 1,
-        responseMetadata: m.response_metadata || m.responseMetadata || null
-      }));
+      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: m.response_metadata || m.responseMetadata || null }));
       if (messages.length) {
         startChat();
         refreshTurnControls();
