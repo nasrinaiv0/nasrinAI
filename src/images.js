@@ -101,7 +101,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
         onFailure: (f) => usageLog.record(caller, {
           provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
           inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
-          outcome: f.outcome, task: 'image_brief', level: f.level, costUsd: f.costUsd, escalated: f.escalated, spendReservationId: f.spendReservationId
+          outcome: f.outcome, task: 'image_brief', level: f.level, costUsd: f.costUsd, costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null, escalated: f.escalated, spendReservationId: f.spendReservationId
         })
       });
       return { ...run.result, provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model, costUsd: run.costUsd, level: run.level, spendReservationId: run.spendReservationId };
@@ -192,7 +192,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
       const read = readPlan(out.text, { answered });
       await usageLog.record(caller, {
         provider: out.provider, model: out.model, inputTokens: out.inputTokens, outputTokens: out.outputTokens,
-        latencyMs: now() - started, outcome: read ? 'ok' : 'rejected_output', task: 'image_brief', level: out.level, costUsd: out.costUsd, spendReservationId: out.spendReservationId
+        latencyMs: now() - started, outcome: read ? 'ok' : 'rejected_output', task: 'image_brief', level: out.level, costUsd: out.costUsd, costSource: Number.isFinite(out.costUsd) ? 'provider_reported' : null, spendReservationId: out.spendReservationId
       });
       if (!read) logger.warn('image brief did not fit the format; using the idea as the brief');
       const result = read?.questions ? { questions: read.questions } : done(read?.brief || fallbackBrief(prompt, { photo: photos.length > 0 }));
@@ -311,7 +311,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
         tenantId: caller.tenantId, conversationId: conv.id, ownerType: caller.actor.type, ownerId: caller.actor.id,
         mime: out.mime, bytes: out.bytes, provider: used.p.id, model: used.p.model
       });
-      await usageLog.record(caller, { provider: used.p.id, model: used.p.model, latencyMs: now() - started, outcome: 'ok', task: 'image', level: tier, costUsd: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? out.costUsd : null });
+      await usageLog.record(caller, { provider: used.p.id, model: used.p.model, latencyMs: now() - started, outcome: 'ok', task: 'image', level: tier, costUsd: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? out.costUsd : null, costSource: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? 'provider_reported' : null });
       if (store.setMarketingCache) {
         await store.setMarketingCache({
           tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id,
