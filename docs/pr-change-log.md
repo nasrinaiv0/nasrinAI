@@ -1,3 +1,17 @@
+## Platform-wide intent understanding and action routing (2026-10-23)
+
+- Extend the fix beyond photo recall: the shared chat system prompt now directs every task to infer desired outcome, target, existing-vs-new resource, conversation continuity, and the correct available tool/workflow.
+- Add clarification discipline so retrieval, factual questions, troubleshooting, and continuation do not trigger irrelevant creative questionnaires; preserve user constraints and ask only for materially missing inputs.
+- Keep action safety server-enforced: ownership, permissions, tier/quota, privacy, and confirmation requirements remain mandatory. The model must not claim tool actions or verification that did not happen.
+- Add a regression test for the shared platform prompt contract. Full CI and deployed behavior verification remain pending.
+
+## Photo Library intent routing regression (2026-10-23)
+
+- Fix the generated-image recall detector to recognize “photo/photos” alongside “picture(s)” and “image(s)”. The previous detector silently missed the natural wording shown in the owner screenshots (“I want to see all the photos generated” and “show me my photos in my library”), allowing the request to fall through to the image-creation flow or a generic response.
+- Add regression cases for both phrases, related photo-retrieval phrasings, and ordinary requests to create or find photos of subjects so retrieval intent does not swallow new image requests.
+- Keep retrieval server-side, signed-in-user-only, and owner-scoped; the image endpoint still independently checks ownership. No auth, storage, retention, budget, or generation controls are weakened.
+- **Validation:** source-level tests added; CI and deployed iPhone Safari verification are pending.
+
 ## PR #543 — Owner Command Center security and read-only telemetry (2026-10-23)
 
 - Add a server-enforced `/owner` boundary with verified Supabase identity, exact IPv4/IPv6 allowlists, trusted client IP resolution, short-lived HttpOnly/SameSite=Strict session cookies, shared IP rate limiting, generic no-store 404 responses, and server-only audit writes.

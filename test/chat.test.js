@@ -332,3 +332,19 @@ test('simple greetings skip model routing and expensive context lookups', async 
     assert.ok(store.usage.some((entry) => entry.task === 'small_talk' && entry.provider === 'logic'));
   });
 });
+
+test('system prompt enforces platform-wide intent understanding and action routing', async () => {
+  const provider = createFakeProvider();
+  await withApp({ provider }, async ({ url }) => {
+    const token = await guestToken(url);
+    const response = await send(url, token, { message: 'Find my existing file and summarize it.' });
+    assert.equal(response.status, 200);
+    assert.equal(provider.calls.length, 1);
+    const system = provider.calls[0].system;
+    assert.match(system, /UNIVERSAL INTENT UNDERSTANDING AND ACTION ROUTING/i);
+    assert.match(system, /Distinguish requests about existing user-owned resources from requests to create new content/i);
+    assert.match(system, /Clarification discipline/i);
+    assert.match(system, /Conversation continuity/i);
+    assert.match(system, /Action and safety discipline/i);
+  });
+});
