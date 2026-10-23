@@ -324,7 +324,10 @@ test('OpenRouter TTS pins the request to the configured Google AI Studio provide
 });
 
 test('task catalog discovery includes specialized models without leaking them into chat fallbacks', async () => {
-  const imageModels = [{ id: 'provider/image-gen', supported_parameters: { aspect_ratio: { values: ['1:1'] } } }];
+  const imageModels = [
+    { id: 'provider/image-gen', supported_parameters: { aspect_ratio: { values: ['1:1'] } } },
+    { id: 'provider/not-image', architecture: { output_modalities: ['text'] }, supported_parameters: { aspect_ratio: { values: ['1:1'] } } }
+  ];
   const videoModels = [{ id: 'provider/video-gen', supported_durations: [4], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'] }];
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url) => {
     const href = String(url);
