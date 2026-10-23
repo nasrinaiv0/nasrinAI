@@ -31,7 +31,6 @@ import { createVideoStudioRenderWorker } from './video-studio-render-worker.js';
 import { createPayMongo } from './payments/paymongo.js';
 import { createPolicy } from './ai/policy.js';
 import { createBudget } from './ai/budget.js';
-import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
 import { createGoogleWebSearch } from './web/google-search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
@@ -133,11 +132,6 @@ export function buildApp({ config, logger }) {
   const videoStudioAssets = config.supabaseUrl && config.supabaseSecretKey ? createVideoStudioAssets({ config: effective, limiter, logger }) : null;
   const usageLog = createUsageLog({ store, logger });
   const conversations = createConversations({ store, config: effective, logger });
-  const prices = loadPrices();
-  // OpenRouter model selection reads the official live catalog in its adapter;
-  // actual billing comes from OpenRouter usage.cost. Do not use local OpenRouter
-  // snapshots or MODEL_PRICES_JSON to gate calls.
-  delete prices.openrouter;
   const reasoningBudget = createBudget({ store, config: effective, logger });
   // Optional acceleration only: cache errors never make chat unavailable.
   // Embeddings come from OpenAI's API (src/ai/embeddings.js): the earlier
@@ -160,7 +154,7 @@ export function buildApp({ config, logger }) {
   const legal = createLegal({ store, config: effective, logger, deleteAuthUser: admin ? (id) => admin.deleteUser(id) : null });
   const payments = config.paymongo ? createPayMongo(config.paymongo) : null;
   const policy = provider && config.ai.routing.mode === 'smart'
-    ? createPolicy({ config: effective, provider, prices, budget: reasoningBudget, logger })
+    ? createPolicy({ config: effective, provider, budget: reasoningBudget, logger })
     : null;
   const googleWebSearch = config.web.googleApiKey && config.web.googleEngineId
     ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
@@ -238,7 +232,7 @@ export function buildApp({ config, logger }) {
   const coding = createCoding({ store, config: effective });
   const crawler = config.supabaseUrl ? createWebCrawler({ store, logger }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, budget: reasoningBudget, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
