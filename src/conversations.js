@@ -90,7 +90,7 @@ export function createConversations({ store, config, logger, now = () => Date.no
       if (caller.actor.type !== 'user' || caller.prefs?.memory !== true || !query || !store.listConversations) return null;
       const request = String(query);
       const explicitRecall = isPastIntent(request);
-      const continuityIntent = /\\b(?:continue|pick up where we left off|carry on|where did we leave off|resume|keep going|as we discussed|based on our previous|from the last chat|continue our work)\\b/i.test(request);
+      const continuityIntent = /\b(?:continue|pick up where we left off|carry on|where did we leave off|resume|keep going|as we discussed|based on our previous|from the last chat|continue our work)\b/i.test(request);
       if (isMemoryCapabilityCheck(request)) return null;
       try {
         const windowDays = recallWindowDays(request);
