@@ -9,7 +9,7 @@ import { parseAttachmentsWithOfficeParser } from './ai/document-parser.js';
 import { answerWithLogic } from './ai/logic.js';
 import { readLink, linksIn } from './web/read-link.js';
 import { needsWeb, GAP } from './web/search.js';
-import { estimateTokens } from './ai/pricing.js';
+import { estimateTokens } from './ai/token-estimate.js';
 import { createProviderSpendHooks } from './ai/budget.js';
 import { redactForProvider } from './ai/redact.js';
 import { ToolError } from './tools/registry.js';
