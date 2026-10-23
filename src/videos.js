@@ -79,7 +79,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const fpsCandidates = [preferredFps, ...allowedFrameRates.filter((x) => x !== preferredFps)];
     let requestedResolution = null;
     let requestedFps = null;
-    if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
+    if (routeProvider.id === 'openrouter' && typeof routeProvider.validateOptions === 'function') {
       for (const resolution of resolutionCandidates) {
         if (!allowedResolutions.includes(resolution)) continue;
         for (const fps of fpsCandidates) {
