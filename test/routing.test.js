@@ -79,6 +79,13 @@ test('routing: compatible model; tiers cap the level; private data never goes to
   assert.equal(a.gemini.calls.length, 1);
 });
 
+test('OpenRouter configuration preserves non-Nemotron candidates for paid tiers', () => {
+  const config = loadConfig({ OPENROUTER_API_KEY: 'or-test-key', AI_PROVIDER: 'auto' });
+  const paid = [2, 3, 4, 5].flatMap((level) => config.ai.routing.levels[level]);
+  assert.ok(paid.some((candidate) => candidate.provider === 'openrouter' && !candidate.model.startsWith('nvidia/nemotron-')));
+  assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model.startsWith('nvidia/nemotron-')));
+});
+
 test('Quick and guest routes use only OpenRouter Nemotron candidates, including after failures', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
@@ -267,7 +274,7 @@ test('coding falls back to the dedicated tier provider when OpenRouter is unavai
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
   const message = 'Fix this TypeScript bug and explain the regression';
   const run = await policy.run(policy.plan({ tier: 'max', message }), req(message));
-  assert.deepEqual([run.spec.provider, run.spec.model], ['openai', 'gpt-5.4-nano']);
+  assert.deepEqual([run.spec.provider, run.spec.model], ['openai', 'gpt-5.4-mini']);
   assert.ok(openrouter.calls.length >= 1, 'OpenRouter was attempted before fallback');
   assert.equal(openai.calls.length, 1, 'the router uses the configured compatible provider after OpenRouter fails');
   assert.equal(anthropic.calls.length, 0, 'the router fallback avoids an unnecessary second provider switch');
