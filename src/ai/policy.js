@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { ProviderError } from './provider.js';
 import { classify } from './classify.js';
-import { priceOf, costOf, estimateTokens } from './pricing.js';
+import { estimateTokens } from './pricing.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
@@ -26,17 +26,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
   const failureCooldowns = new Map(); // provider:model:effort -> epoch ms
 
   const capsOf = (spec) => (provider.capsOf ? provider.capsOf(spec.provider) : provider.capabilities());
-  const priceFor = (spec) => {
-    // Only exact model IDs explicitly allowlisted in the environment are treated as free.
-    // A provider can offer both free and paid models; never infer zero cost from provider name.
-    if (spec.provider !== 'openrouter' && (r.freeModels?.[spec.provider] || []).includes(spec.model)) return { input: 0, cachedInput: 0, output: 0, free: true };
-    return priceOf(prices, spec.provider, spec.model, { freeTier: spec.provider === 'gemini' && r.geminiFreeTier });
-  };
 
-  function estimate(spec, inputTokens, level, minOut = 0) {
-    const out = Math.max(r.maxTokens[level], minOut) * (1 + (EFFORT_FACTOR[spec.effort] ?? 1));
-    return costOf(priceFor(spec), { inputTokens, outputTokens: out });
-  }
 
   // Why a candidate cannot be used for this request, or null if it can.
   function blocker(spec, { sensitive, attachments, inputTokens, level, left, minOut = 0, reqToolsCount = 0, tier, task }) {
@@ -51,7 +41,6 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     if (attachments.some((a) => a.kind === 'image') && c.vision === false) return 'cannot see photos';
     if (attachments.length && c.pdf === false) return 'cannot read attachments';
     if (reqToolsCount > 0 && c.tools === false) return 'does not support tools';
-    const cost = estimate(spec, inputTokens, level, minOut);
     return null;
   }
 
@@ -163,41 +152,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           logger.info('retrying the same model once', { provider: spec.provider, waitMs: retryWaitMs });
           await sleep(retryWaitMs);
         }
-        // Every routed candidate lacks a price (for example ROUTE_LEVEL_n names a
-        // model that is not in config/model-prices.json). Unpriced models stay
-        // blocked, but the tier's own configured model is still a safe choice when
-        // it has a price and passes every privacy, capability and budget rule.
-        // Budget or capability blocks never reach this: only a missing price does.
-        if (!spec && why.some((w) => /no price on file/.test(w))) {
-          const own = config.ai.tiers?.[plan.tier];
-          const k = own && `${own.provider}:${own.model}:${own.effort}`;
-          if (own && !tried.has(k) && !blocker(own, {
-            sensitive: plan.sensitive, attachments, inputTokens, level: plan.floor, left, minOut: minTokens,
-            reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
-          })) {
-            logger.error('configured route models have no price on file; using the tier model instead. Add their prices to config/model-prices.json', { tier: plan.tier, using: `${own.provider}:${own.model}`, reasons: why });
-            spec = own; at = plan.floor;
-          }
-        }
-        if (!spec && why.some((w) => /no price on file/.test(w))) {
-          // Last-resort models are explicitly configured and still pass every
-          // privacy, capability, price, per-request and remaining-budget check.
-          for (const safe of (r.safeFallbacks || [])) {
-            const k = `${safe.provider}:${safe.model}:${safe.effort}`;
-            if (tried.has(k)) continue;
-            const b = blocker(safe, {
-              sensitive: plan.sensitive, attachments, inputTokens, level: plan.floor, left, minOut: minTokens,
-              reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
-            });
-            if (b) { why.push(`${safe.provider}:${safe.model} (safe fallback: ${b})`); continue; }
-            logger.warn('using explicitly priced safe fallback', { tier: plan.tier, provider: safe.provider, model: safe.model });
-            spec = safe; at = plan.floor; break;
-          }
-        }
         if (!spec) {
-          if (why.some((w) => /no price on file/.test(w))) {
-            logger.error('no price on file for the routed models; add them to config/model-prices.json', { reasons: why });
-          }
           logger.warn('no model can take this request', { level, reasons: why });
           if (why.length && why.every((w) => /cannot (read|see)/.test(w))) {
             throw new HttpError(400, 'attachment_unsupported', 'NasrinAI cannot read that kind of file right now. Try another file, or remove it.');
@@ -207,7 +162,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
               ? 'NasrinAI has reached its spending limit for now. Please try again later.'
               : 'NasrinAI cannot answer this right now. Please try again in a moment.', { retryAfter: 600 });
         }
-        if (at < level) logger.info('downgraded to fit the budget', { from: level, to: at });
+        if (at < level) logger.info('downgraded to a compatible configured route', { from: level, to: at });
 
         const started = now();
         const normalMaxTokens = Math.max(r.maxTokens[at], minTokens);
@@ -246,7 +201,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
             ? result.actualCostUsd
             : Number.isFinite(result.costUsd) && result.costUsd >= 0
               ? result.costUsd
-              : (costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0);
+              : null;
           const text = String(result.text || '').trim();
           const asksTools = Array.isArray(result.toolCalls) && result.toolCalls.length > 0;
           const valid = asksTools || (text.length > 0 && !(result.finishReason === 'length' && text.length < 40));
