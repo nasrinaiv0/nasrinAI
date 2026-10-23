@@ -13,7 +13,7 @@ message ─▶ can code answer it? ──yes──▶ answer (no model, no cost)
            cheapest candidate at that level that is allowed:
              • within the tier's range (Quick 1–2, Pro 1–3, Max 1–4, Ultra 1–5)
              • private data never goes to a service that trains on it
-             • the price is known and fits the budget (else a lower level)
+             • the model is compatible with task, privacy, tools, and attachments
               ▼
            call ─▶ answer empty or cut off? ─▶ one level up (bounded)
               │      model down? ─▶ next candidate at the same level, or the same
@@ -45,7 +45,7 @@ The tier a person picks sets **how high** routing may go, not where it starts.
 
 ## Budgets
 
-Spending is estimated from provider prices and recorded in a shared PostgreSQL
+Provider billing is authoritative; application routing does not require local model prices. Usage telemetry records provider-reported costs when available and leaves unknown costs null.
 ledger (`spend_reservations`) before a paid provider call. `usage_events` links
 to the reservation for audit and avoids double-counting. A transaction-scoped
 advisory lock serializes reservations across serverless instances; local cached
@@ -64,7 +64,7 @@ spending never blocks pictures. A picture with a fallback reserves for both prov
 
 The router tries cheaper candidates during preflight, then the database checks
 each provider attempt again atomically before it starts. If no reservation fits,
-the price is unknown, or the ledger is unavailable, paid work is refused rather
+a compatible configured model is unavailable, or token/abuse controls reject the request, work is refused rather
 than sent to a provider. Configured free-tier and local zero-cost models may
 still answer public questions.
 
@@ -78,7 +78,7 @@ Quick / Pro / Max / Ultra; these are independent of the shared period ceilings.
 - Server-generated speech reserves a conservative per-character amount before synthesis.
 - Video generation reserves the full provider chunk duration for the requested clip before job creation. The per-video guard is `VIDEO_MAX_COST_USD` (default 32 USD); because the default shared daily budget is $3 and video jobs reserve up to $32, video requests may be refused until the operator configures budgets appropriate for the selected model/resolution. Cached video reuse does not reserve new spend.
 - Realtime voice reserves a shared daily allowance atomically per account (across sessions/devices), resetting at Manila midnight: Quick 5 minutes, Pro 15, Max 20, Ultra 30. It also reserves `REALTIME_TOKEN_RESERVE_PER_MINUTE` token-quota units per started minute (default 10,000) against the paid actor allowance and configured business-tenant ceiling where applicable, because browser-direct sessions do not provide independently verified per-turn usage. These token units are conservative accounting reservations, not provider-reported token counts. A session is shortened to the remaining tier allowance where possible. The global estimated-spend limits still apply ($3 daily / $21 rolling 7 days / $90 rolling 30 days), so higher-cost sessions may be shorter or refused if the spend ledger cannot cover the conservative reservation. OpenAI sessions are capped to whole minutes within the configured USD ceilings; Gemini retains a 30-minute maximum exposure reservation because credential expiry does not prove an established session has ended. Keep provider-side spending limits enabled.
-- Media estimates are intentionally conservative. They may overcount short sessions/jobs; they are not a substitute for provider-side account spending limits. Unknown model/resolution prices fail closed.
+- Media operations are governed by plan allowances, supported provider capabilities, per-hour limits, and conservative token reservations where applicable. Provider account billing and spend controls determine actual USD cost.
 
 ## Saving tokens
 
@@ -143,4 +143,4 @@ Privacy is a routing constraint, not a pricing optimization. Sensitive content m
 
 Image and video are separate capability routes. Image generation keeps its own tier/budget controls. Video remains asynchronous and is available only on Max and Ultra plans and uses Gemini Veo 3.1 Standard by default for final quality; Veo 3.1 Fast is the lower-cost operator choice. OpenAI's Sora 2 API is not a production option because OpenAI removed the Sora 2 API/Videos API on September 24, 2026.
 
-Provider pricing is stored in config/model-prices.json; production budgets must be reviewed whenever provider pricing changes. Claude Sonnet 5.5 is $2/$10 and Opus 5.5 is $4/$20 per million input/output tokens. Gemini's Veo 3.1 Standard is $0.40/sec at 720p/1080p, while Veo 3.1 Fast is $0.10/sec at 720p. Gemini's current pricing page also lists Gemini Omni Flash at about $0.10/sec for 720p video, but NasrinAI's current production adapter is Veo-based, so Omni should be introduced through a dedicated adapter rather than by swapping a model string.
+Provider-side billing dashboards and spend caps are the source of truth for actual costs; `config/model-prices.json` is retained only for legacy offline tooling and is not loaded by the production runtime. Claude Sonnet 5.5 is $2/$10 and Opus 5.5 is $4/$20 per million input/output tokens. Gemini's Veo 3.1 Standard is $0.40/sec at 720p/1080p, while Veo 3.1 Fast is $0.10/sec at 720p. Gemini's current pricing page also lists Gemini Omni Flash at about $0.10/sec for 720p video, but NasrinAI's current production adapter is Veo-based, so Omni should be introduced through a dedicated adapter rather than by swapping a model string.
