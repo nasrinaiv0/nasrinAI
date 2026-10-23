@@ -1894,3 +1894,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests in `test/routing.test.js` for greeting-prefix bypass, generic troubleshooting, continuation complexity inheritance, and standalone greetings.
 - PR: https://github.com/primusco20/nasrinAI/pull/551
 - Validation is pending CI; do not merge until all required checks pass. No production services or settings changed.
+
+
+## Phase 3 — Supabase foreign-key performance indexes (2026-10-23)
+
+- Add migration 061 with idempotent indexes for eight foreign-key columns reported by the live Supabase performance advisor: NCC activities/outbox/tasks and Video Studio audio/timeline relations.
+- Add database regression checks that each column has a valid, ready, non-partial index with the foreign-key column first.
+- Keep the advisor's 24 unused-index candidates intact until query workload and maintenance paths are reviewed; an unused-index warning alone is not sufficient evidence for safe deletion.
+- **Validation:** production migration 061 has not been applied. CI is running; no production performance improvement is claimed until the migration is approved, applied, and the advisor is rechecked.
