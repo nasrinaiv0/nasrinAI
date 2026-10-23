@@ -21,6 +21,15 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
   }
 
+  const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
+
+  function providerForVideo(video) {
+    if (provider && typeof provider.create === 'function') return provider;
+    // A job must always poll/download/extend through the exact tier adapter
+    // that created it. Never silently cross-fallback into another paid tier.
+    return provider?.[video?.requestTier] || provider?.[video?.providerTier] || null;
+  }
+
   async function requireVideoPlan(caller, requestedTier) {
     if (caller.actor.type !== 'user') throw new HttpError(403, 'video_plan_required', 'Video creation requires an eligible paid plan.');
     if (!plans) throw unavailable();
