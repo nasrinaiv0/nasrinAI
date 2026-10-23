@@ -1,3 +1,9 @@
+## PR #565 — community learning auto-approval after screening (2026-10-24)
+
+- Update the regression test to require explicit current consent, then assert that screened eligible examples are approved with automated-screen reviewer metadata; capture remains disabled without consent.
+- Record the required PR changelog entry for the Documentation Gate.
+- **Validation:** CI must pass all tests, database checks, security/dependency checks, and Documentation Gate before merge. Approval applies to screened examples eligible for retrieval only, not model-weight training.
+
 ## PR #561 — image provider/model default pairing (2026-10-24)
 
 - Fix image-tier configuration so an explicit provider override receives a model ID belonging to that provider when no model override is supplied. This prevents mismatched adapters and model IDs when tier defaults originate from another provider.
