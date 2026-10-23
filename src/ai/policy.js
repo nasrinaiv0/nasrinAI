@@ -104,6 +104,23 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       const tried = new Set();
       let lastFailed = null;   // { spec, level } of a retryable failure, for one same-model retry
       let sameRetried = false;
+      // Live catalog candidates extend paid-tier routing without changing the
+      // Quick/guest allowlist. Failure to read the catalog must not block static
+      // configured routes.
+      let liveOpenRouterModels = [];
+      if (plan.tier !== 'nasrinai' && typeof provider.listModelsForTask === 'function') {
+        try {
+          liveOpenRouterModels = await provider.listModelsForTask('openrouter', {
+            task: plan.task,
+            requiresTools: Array.isArray(req.tools) && req.tools.length > 0,
+            attachments
+          });
+        } catch (catalogError) {
+          logger.warn('OpenRouter live model discovery failed; using configured routes', {
+            task: plan.task, error: catalogError?.message || 'unknown'
+          });
+        }
+      }
 
       for (;;) {
         // The cheapest usable candidate at this level, else lower levels (downgrade).
@@ -111,15 +128,26 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
           const tierCandidates = r.levels[l];
+          // New live-listed text models become eligible fallbacks at the selected
+          // level. They remain subject to tier ceiling, privacy, and retry limits.
+          const configuredOpenRouterIds = new Set((tierCandidates || [])
+            .filter((candidate) => candidate.provider === 'openrouter')
+            .map((candidate) => candidate.model));
+          const dynamicOpenRouterCandidates = liveOpenRouterModels
+            .filter((model) => !configuredOpenRouterIds.has(model))
+            .map((model) => ({ provider: 'openrouter', model, effort: null }));
+          const expandedTierCandidates = plan.tier === 'nasrinai'
+            ? tierCandidates
+            : [...tierCandidates, ...dynamicOpenRouterCandidates];
           // Quick/guest prefer Nemotron first, but keep an OpenRouter-only emergency model
           // at the end of the candidate list. This prevents a free Nemotron outage
           // from making the entire chat unavailable without allowing cross-provider
           // routing to bypass the guest/Quick provider policy.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
-            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
+            ? expandedTierCandidates.filter((candidate) => candidate.provider === 'openrouter'
               && (/^nvidia\/nemotron-[a-z0-9.-]+(?::free)?$/i.test(candidate.model)
                 || candidate.model === 'openai/gpt-6-luna'))
-            : tierCandidates;
+            : expandedTierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
