@@ -2001,3 +2001,4 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a regression test that verifies Nemotron remains first choice and the emergency route is attempted only after model failures.
 - Production logs and live smoke tests must be checked after deployment; CI alone does not prove upstream model availability.
 - Test fixture follow-up: register the configured OpenRouter emergency model in the fake provider's supported-model list so the regression test exercises failover rather than rejecting an unregistered fixture model.
+- Retry-budget correction: Quick/guest now has a bounded attempt budget equal to its configured OpenRouter candidate count, allowing the emergency candidate to be reached after Nemotron failures; other tiers retain the existing retry cap.
