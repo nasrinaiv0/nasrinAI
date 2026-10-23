@@ -114,14 +114,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Quick (tier key: nasrinai) is restricted to NVIDIA Nemotron models on
           // OpenRouter. This is enforced at runtime, so ROUTE_LEVEL_* overrides,
           // coding specialists, and cross-provider failover cannot escape it.
-          const eligibleCandidates = plan.tier === 'nasrinai'
+          const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
             ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
               && candidate.model.toLowerCase().startsWith('nvidia/nemotron-')
               && /^(?:nvidia\/nemotron-[a-z0-9.-]+(?::free)?)$/i.test(candidate.model))
             : tierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
+          const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
           // Intent is classified and the tier's level ceiling is applied before
           // this point. Within that permitted level, configured OpenRouter models
@@ -132,7 +132,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             const codingSpec = plan.tier === 'ultra' && l >= 4
               ? (r.coding?.ultraDeep || r.coding?.ultra)
               : r.coding?.[plan.tier];
-            if (plan.tier !== 'nasrinai' && codingSpec && !candidates.some((candidate) =>
+            if (!(r.quickNemotronOnly && plan.tier === 'nasrinai') && codingSpec && !candidates.some((candidate) =>
               candidate.provider === codingSpec.provider && candidate.model === codingSpec.model && candidate.effort === codingSpec.effort)) {
               candidates.push(codingSpec);
             }
