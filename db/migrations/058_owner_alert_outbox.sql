@@ -82,6 +82,12 @@ begin
     raise exception 'p_limit must be between 1 and 50';
   end if;
 
+  -- A worker may disappear after claiming its eighth attempt. Expire that
+  -- lease into a terminal failure instead of leaving it stuck forever.
+  update public.owner_alert_outbox
+     set status = 'failed', lock_until = null, last_error_code = 'attempt_limit_reached', updated_at = now()
+   where status = 'delivering' and lock_until < now() and attempts >= 8;
+
   return query
   with due as (
     select q.id
