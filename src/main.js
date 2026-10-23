@@ -163,7 +163,7 @@ export function buildApp({ config, logger }) {
     ? createWebSearch({ apiKey: openRouterSearchEnabled ? config.ai.openrouterApiKey : '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1' })
     : null;
   if (webSearch) logger.info('web search ready', { primary: openRouterSearchEnabled ? 'openrouter' : 'google-fallback', fallback: googleWebSearch?.available ? 'google' : 'none' });
-  if (policy) logger.info('smart routing on', { budget: config.ai.routing.budget });
+  if (policy) logger.info('smart routing on; provider billing is authoritative');
   // Picture routes by tier. Everything must fit in the function's 120 s
   // (vercel.json): with a fallback, the primary (with its retries) gets 45 s
   // and the fallback 70 s; alone, the primary gets 105 s.
@@ -182,7 +182,7 @@ export function buildApp({ config, logger }) {
     imageRoutes[n] = { primary, fallback: t.fallback ? make(t.fallback, 70_000) : null };
     logger.info('picture route ready', { tier: Number(n), primary: t.primary.model, fallback: t.fallback ? t.fallback.model : null });
   }
-  const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, budget: imageBudget, provider, policy, legal, config: effective, logger });
+  const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, provider, policy, legal, config: effective, logger });
   const videoProviders = effective.video?.enabled
     ? effective.video.provider === 'openrouter'
       ? Object.fromEntries(Object.entries(effective.video.tierRoutes || {}).map(([tier, route]) => [tier, createOpenRouterVideoProvider({
