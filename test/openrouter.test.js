@@ -10,6 +10,39 @@ const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion
   ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
 });
 
+
+test('vision route converts validated image attachments into OpenAI-compatible multimodal content', async () => {
+  let captured;
+  const client = createOpenRouterClient({
+    apiKey: 'test-key',
+    fetchImpl: async (url, init) => {
+      if (String(url).endsWith('/models?output_modalities=all')) {
+        return response({ data: [{ ...model('deepseek/deepseek-v4-flash-vision-exp'), architecture: { output_modalities: ['text'], input_modalities: ['text', 'image'] } }] });
+      }
+      captured = JSON.parse(init.body);
+      return response({ id: 'chatcmpl-test', model: 'deepseek/deepseek-v4-flash-vision-exp', choices: [{ message: { content: 'A screenshot of a dashboard.' }, finish_reason: 'stop' }], usage: {} });
+    }
+  });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'deepseek/deepseek-v4-flash-vision-exp', client });
+  const result = await provider.generate({
+    task: 'vision',
+    model: 'deepseek/deepseek-v4-flash-vision-exp',
+    messages: [{ role: 'user', content: 'Describe this screenshot.' }],
+    attachments: ['https://example.com/screenshot.png']
+  });
+  assert.equal(result.text, 'A screenshot of a dashboard.');
+  assert.equal(captured.messages[1].content[0].text, 'Describe this screenshot.');
+  assert.deepEqual(captured.messages[1].content[1], { type: 'image_url', image_url: { url: 'https://example.com/screenshot.png' } });
+  assert.equal(captured.provider.data_collection, 'deny');
+});
+
+test('vision route rejects unsupported attachment URLs and non-vision attachment use', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [model('deepseek/deepseek-v4-flash-vision-exp')] }) });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'deepseek/deepseek-v4-flash-vision-exp', client });
+  await assert.rejects(provider.generate({ task: 'vision', messages: [{ role: 'user', content: 'Check this' }], attachments: ['http://unsafe.example/image.png'] }), /HTTPS image URLs/);
+  await assert.rejects(provider.generate({ task: 'chat', messages: [{ role: 'user', content: 'Check this' }], attachments: ['https://example.com/image.png'] }), /dedicated OpenRouter vision task/);
+});
+
 test('OpenRouter routes tasks to modality-specific endpoints', () => {
   assert.equal(OPENROUTER_TASK_ENDPOINTS.image, '/images');
   assert.equal(OPENROUTER_TASK_ENDPOINTS.video, '/videos');
