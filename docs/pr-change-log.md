@@ -2033,3 +2033,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Instrumented the shared OpenRouter client and Responses API web-search path with sanitized request/response summaries, latency, HTTP status, provider IDs, usage tokens, and provider-reported costs when present.
 - Added tests for success/error telemetry, prompt/completion redaction, and non-disruptive Supabase failures.
 - Added setup and privacy documentation in `docs/openrouter-telemetry.md`.
+
+
+## OpenRouter image catalog filtering (2026-10-24)
+
+- Reject image-catalog entries whose advertised output modalities explicitly exclude images, even when they contain generic supported-parameter metadata.
+- Preserve entries from the dedicated image catalog when architecture metadata is absent.
+- Added a regression case for a text-only model incorrectly advertised in the image catalog.
