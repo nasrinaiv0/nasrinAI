@@ -1950,3 +1950,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Image fallback candidates must pass the image catalog and requested capability checks; text-only models are never used for image generation.
 - Add regression tests for retired image model fallback and HTTP 404 classification.
 - Missing local price metadata is not an eligibility gate. Existing plan entitlements, quotas, privacy checks, and provider-side billing remain unchanged.
+
+## PR #562 — NasrinAI audit status and provider routing (2026-10-24)
+
+- Add a consolidated audit-status document describing audit phases, capability-aware provider routing and failover requirements, evidence limitations, and production verification criteria.
+- **Validation:** CI passed on the PR head; Documentation Gate initially failed because this changelog entry was missing. Re-run the Documentation Gate and full required checks before merge.
