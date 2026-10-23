@@ -313,6 +313,9 @@ export function loadConfig(env = process.env) {
       has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
       has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
+      has('openrouter') ? 'openrouter:anthropic/claude-haiku-5.5' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-27b' : '',
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
       has('openai') ? 'openai:gpt-5.4-nano' : '',
@@ -327,6 +330,9 @@ export function loadConfig(env = process.env) {
       has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
       has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
+      has('openrouter') ? 'openrouter:anthropic/claude-haiku-5.5' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-27b' : '',
       has('openai') ? 'openai:gpt-5.4-mini:low' : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''
     ],
@@ -338,6 +344,8 @@ export function loadConfig(env = process.env) {
       has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-27b' : '',
       has('openai') ? 'openai:gpt-5.4:medium' : ''
     ],
     4: [
@@ -345,6 +353,7 @@ export function loadConfig(env = process.env) {
       has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
       has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
       has('openai') ? 'openai:gpt-5.4:high' : ''
     ],
     5: [
