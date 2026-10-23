@@ -133,3 +133,8 @@ Privacy is a routing constraint, not a pricing optimization. Sensitive content m
 Image and video are separate capability routes. Image generation keeps its own tier/budget controls. Video remains asynchronous and is available only on Max and Ultra plans and uses Gemini Veo 3.1 Standard by default for final quality; Veo 3.1 Fast is the lower-cost operator choice. OpenAI's Sora 2 API is not a production option because OpenAI removed the Sora 2 API/Videos API on September 24, 2026.
 
 Provider-side billing dashboards and invoices are authoritative for actual costs. Do not add per-model USD prices to runtime routing policy; model availability is governed by explicit route configuration, capabilities, privacy policy, plan, token quotas and abuse controls. Keep `config/model-prices.json` out of production runtime imports.
+
+
+## Quick and guest Nemotron policy
+
+Quick and guest chat requests use only the explicitly named NVIDIA Nemotron models served through OpenRouter: `nvidia/nemotron-3.5-lightning:free`, `nvidia/nemotron-3-super-120b-a12b:free`, and `nvidia/nemotron-3-ultra-550b-a55b:free`. Runtime policy enforces the provider and model-family allowlist even when `ROUTE_LEVEL_n` is overridden. It does not use `openrouter/free`, Gemini, OpenAI, Anthropic, local models, or direct NVIDIA NIM as a fallback for Quick. If every allowed Nemotron route is unavailable, the request fails closed with the normal temporary-unavailability response rather than silently switching model families. Provider availability and free eligibility can change; verify the exact IDs against the OpenRouter catalog before production rollout.

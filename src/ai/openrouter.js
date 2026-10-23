@@ -331,13 +331,13 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
 // emergency-only by config.js.
 export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fallbackProvider = null, client = null }) {
   const openrouter = client || createOpenRouterClient({ apiKey });
-  const supportedTasks = new Set(['chat', 'research', 'coding', 'debugging', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis']);
+  const supportedTasks = new Set(['chat', 'research', 'coding', 'debugging', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis', 'vision']);
   const normalizeTask = (task) => task === 'debugging' ? 'coding' : supportedTasks.has(task) ? task : 'chat';
   return {
     id: 'openrouter',
     model,
     capabilities() {
-      return { local: false, dataLeavesServer: true, vision: false, pdf: false, tools: true, trainsOnData: false };
+      return { local: false, dataLeavesServer: true, vision: true, pdf: false, tools: true, trainsOnData: false };
     },
     async listModels() {
       const models = await openrouter.listModels();
@@ -347,15 +347,38 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
     },
     async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [] }) {
-      if (Array.isArray(attachments) && attachments.length) throw new ProviderError('config', 'OpenRouter text route does not accept attachments; choose a verified vision or file-capable route');
+      const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+      if (hasAttachments && task !== 'vision') throw new ProviderError('config', 'Attachments require the dedicated OpenRouter vision task');
+      if (hasAttachments && attachments.length > 8) throw new ProviderError('config', 'At most 8 image attachments are supported per vision request');
+      const imageUrls = hasAttachments ? attachments.map((attachment) => {
+        const value = typeof attachment === 'string' ? attachment : attachment?.url || attachment?.dataUrl;
+        if (typeof value !== 'string' || (!/^https:\/\//i.test(value) && !/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value))) {
+          throw new ProviderError('config', 'Vision attachments must be HTTPS image URLs or PNG/JPEG/WebP base64 data URLs');
+        }
+        return value;
+      }) : [];
       if (requestedModel === 'openrouter/free' && fallbackProvider) {
         if (normalizeTask(task) !== 'chat' || tools.length) throw new ProviderError('config', 'OpenRouter free routing cannot guarantee task-specific capabilities or tool support');
-        if (attachments.length) throw new ProviderError('config', 'OpenRouter free routing does not accept attachments');
+        if (hasAttachments || task === 'vision') throw new ProviderError('config', 'OpenRouter free routing cannot be used for vision tasks');
       }
       if (task === 'decisions') throw new ProviderError('config', 'Structured decisions require the dedicated decide({state, questions}) API');
+      const normalizedMessages = messages.map((message) => ({ ...message }));
+      if (hasAttachments) {
+        let target = -1;
+        for (let i = normalizedMessages.length - 1; i >= 0; i--) {
+          if (normalizedMessages[i]?.role === 'user') { target = i; break; }
+        }
+        if (target < 0) throw new ProviderError('config', 'Vision requests require a user message');
+        const current = normalizedMessages[target].content;
+        const blocks = typeof current === 'string'
+          ? [{ type: 'text', text: current }]
+          : Array.isArray(current) ? current.slice() : [];
+        for (const url of imageUrls) blocks.push({ type: 'image_url', image_url: { url } });
+        normalizedMessages[target] = { ...normalizedMessages[target], content: blocks };
+      }
       const result = await openrouter.chat({
         task: normalizeTask(task), model: requestedModel,
-        messages: [{ role: 'system', content: system }, ...messages],
+        messages: [{ role: 'system', content: system }, ...normalizedMessages],
         tools, maxTokens, signal, includeUsage: true,
         provider: { data_collection: 'deny', allow_fallbacks: true }
       });

@@ -302,21 +302,19 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
+  // Quick/guest use the explicit Nemotron family whenever OpenRouter is configured.
+  // Never use openrouter/free, which does not guarantee a model family.
+  const nemotronDefaults = has('openrouter') ? [
+    'openrouter:nvidia/nemotron-3.5-lightning:free',
+    'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
+    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
+  ] : [];
   const defaultsByLevel = {
-    // Free-tier providers are emergency-only fallback targets, never normal
-    // routing candidates. Level 1 uses configured general-purpose models; the
-    // fallback pool may still try allowlisted free models after paid providers fail.
-    1: [
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
-      has('local') && local ? 'local:' + local.model : '',
-      has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
-      has('openai') ? 'openai:gpt-5.4-nano' : '',
-      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
-    ],
-    2: [has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
-    3: [has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '', has('openai') ? 'openai:gpt-5.4:medium' : ''],
-    4: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : ''],
-    5: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '']
+    1: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    3: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    4: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    5: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
@@ -326,20 +324,13 @@ export function loadConfig(env = process.env) {
     const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     // In auto mode, intent classification always checks OpenRouter's
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
-    const openRouterDefaults = {
-      1: 'openai/gpt-6-luna',
-      2: 'openai/gpt-6-luna',
-      3: 'openai/gpt-6-sol',
-      4: 'openai/gpt-6.1-sol',
-      5: 'openai/gpt-6.1-sol'
-    };
-    const openRouterFirst = has('openrouter')
-      ? tierSpec('ROUTE_LEVEL_' + n, 'openrouter:' + openRouterDefaults[n])
-      : null;
-    const orderedCandidates = openRouterFirst
-      ? [openRouterFirst, ...normalCandidates.filter((spec) => spec.provider !== 'openrouter' || spec.model !== openRouterFirst.model)]
-      : normalCandidates;
-    levels[n] = Object.freeze(orderedCandidates);
+    // In auto mode, put the configured OpenRouter tier model first for intent
+    // scanning. Quick/guest policy filters this to the Nemotron allowlist later.
+    const openRouterFirst = aiProvider === 'auto' && has('openrouter')
+      ? [Object.freeze({ provider: 'openrouter', model: n === 1 ? tiers.nasrinai.model : n === 2 ? tiers.pro.model : n === 3 ? tiers.max.model : tiers.ultra.model, effort: null })]
+      : [];
+    const combined = [...openRouterFirst, ...normalCandidates.filter((candidate) => !openRouterFirst.some((first) => first.provider === candidate.provider && first.model === candidate.model))];
+    levels[n] = Object.freeze(combined);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
@@ -387,6 +378,7 @@ export function loadConfig(env = process.env) {
   };
   const routing = Object.freeze({
     mode: routingMode,
+    quickNemotronOnly: has('openrouter'),
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
