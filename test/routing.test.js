@@ -98,6 +98,21 @@ test('Quick and guest prefer Nemotron, then use OpenRouter emergency fallback wi
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna'), 'tries OpenRouter emergency model after Nemotron failures');
+  assert.ok(!down.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna-pro' || call.model === 'xiaomi/mimo-v2.6-pro'), 'Quick never tries paid-only OpenRouter models');
+
+  // Runtime policy must enforce the Quick allowlist even if an operator supplies a
+  // ROUTE_LEVEL_1 override containing paid-only models before the approved candidates.
+  const overridden = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
+    },
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(overridden.openrouter.calls.some((call) => call.model === 'nvidia/nemotron-3.5-lightning:free'));
+  assert.ok(overridden.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna'));
+  assert.ok(!overridden.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna-pro' || call.model === 'xiaomi/mimo-v2.6-pro'));
   assert.equal(down.openai.calls.length, 0, 'no cross-provider fallback for Quick');
   assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Quick');
 });
