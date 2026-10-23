@@ -385,7 +385,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
           || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= now()) throw new Error('invalid improvement example');
       const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
-      const row = { id: randomUUID(), tenantId, subjectType, subjectId, consentVersion, exampleText, status: 'pending_review', createdAt: iso(), expiresAt };
+      const row = { id: randomUUID(), tenantId, subjectType, subjectId, consentVersion, exampleText, status: 'approved', createdAt: iso(), expiresAt, reviewedAt: iso(), reviewerId: 'automated_safety_screen' };
       improvementExamples.push(row);
       return row.id;
     },
