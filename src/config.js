@@ -310,11 +310,11 @@ export function loadConfig(env = process.env) {
     'openrouter:nvidia/nemotron-3-ultra:free'
   ] : [];
   const defaultsByLevel = {
-    1: nemotronDefaults.length ? nemotronDefaults : [has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
-    2: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
-    3: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4:medium' : ''],
-    4: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4:high' : ''],
-    5: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4:high' : '']
+    1: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
+    3: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : ''],
+    4: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : ''],
+    5: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
@@ -324,10 +324,13 @@ export function loadConfig(env = process.env) {
     const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     // In auto mode, intent classification always checks OpenRouter's
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
-    // Nemotron-only defaults are already explicitly ordered in defaultsByLevel.
-    // Never inject a different-family OpenRouter model ahead of that allowlist.
-    const openRouterFirst = null;
-    levels[n] = Object.freeze(normalCandidates);
+    // In auto mode, put the configured OpenRouter tier model first for intent
+    // scanning. Quick/guest policy filters this to the Nemotron allowlist later.
+    const openRouterFirst = aiProvider === 'auto' && has('openrouter')
+      ? [Object.freeze({ provider: 'openrouter', model: n === 1 ? tiers.nasrinai.model : n === 2 ? tiers.pro.model : n === 3 ? tiers.max.model : tiers.ultra.model, effort: null })]
+      : [];
+    const combined = [...openRouterFirst, ...normalCandidates.filter((candidate) => !openRouterFirst.some((first) => first.provider === candidate.provider && first.model === candidate.model))];
+    levels[n] = Object.freeze(combined);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
