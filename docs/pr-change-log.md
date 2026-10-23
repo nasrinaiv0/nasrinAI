@@ -1816,3 +1816,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Security:** browser roles cannot read or claim outbox records; alert RPCs are service-role-only. No prompts, email addresses, workflow payloads, raw IP addresses, webhook responses, or credentials are included in alerts.
 - **Migration:** 059 (migration 058 is already used by the Owner Console Auth audit feature). Apply 057, 058, then 059 in order after review.
 - **Validation:** CI is running on the draft PR. Production migration, webhook configuration, alert delivery, settlement reconciliation, and privileged controls are not yet verified.
+
+
+## PR #546 — Owner Command Center bootstrap retry fix (2026-10-23)
+
+- Fix the frontend bootstrap cache so a failed owner-session request does not suppress retries for eight minutes; only cache a successful `204` response and use a short retry cooldown after failures.
+- Refresh the signed-in access token and repeat the server-side bootstrap before opening the protected Owner Command Center. Keep the owner entry hidden unless the owner host confirms session creation.
+- Security impact: no change to the server-side email/IP allowlists, HttpOnly owner-session cookie, or generic 404 behavior. No secrets or allowlist values are added to source control.
+- **Validation:** GitHub Actions CI passed for commit `1627d05a1e6509b9d15910ba2bf122a321bc2fea`. Documentation Gate initially failed because this required changelog file was absent from the PR diff; this entry is the remediation. Recheck the gate after this commit. Production deployment and owner-session end-to-end verification remain pending.

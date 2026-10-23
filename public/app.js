@@ -776,24 +776,44 @@
   let ownerBootstrapAt = 0;
 
   async function syncOwnerConsoleEntry(token) {
-    if (!token || (ownerBootstrapToken === token && Date.now() - ownerBootstrapAt < 8 * 60 * 1000)) return;
-    ownerBootstrapToken = token;
-    ownerBootstrapAt = Date.now();
-    const existing = $('ownerConsoleEntry');
-    if (existing) existing.remove();
+    if (!token) return;
+    const now = Date.now();
+    // Cache successful bootstraps only. A failed request must not suppress
+    // retries for eight minutes; this is especially important on first sign-in
+    // when the owner subdomain or its allowlist may still be warming up.
+    if (ownerBootstrapToken === token && now - ownerBootstrapAt < 8 * 60 * 1000) return;
+    if (now - ownerBootstrapAt < 10 * 1000) return;
+    ownerBootstrapAt = now;
+    $('ownerConsoleEntry')?.remove();
     try {
       const response = await fetch('https://owner.nasrinai.com/v1/owner/session', {
         method: 'POST', credentials: 'include', mode: 'cors', cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
-      if (response.status === 204 && !document.getElementById('ownerConsoleEntry')) {
+      if (response.status !== 204) {
+        ownerBootstrapToken = '';
+        $('ownerConsoleEntry')?.remove();
+        return;
+      }
+      ownerBootstrapToken = token;
+      ownerBootstrapAt = Date.now();
+      if (!document.getElementById('ownerConsoleEntry')) {
         const button = document.createElement('button');
         button.type = 'button'; button.id = 'ownerConsoleEntry'; button.className = 'menu-row';
         button.textContent = 'Owner Command Center';
-        button.addEventListener('click', async () => { await syncOwnerConsoleEntry(account && account.token); window.location.href = 'https://owner.nasrinai.com/owner'; });
+        button.addEventListener('click', async () => {
+          const freshToken = await credential(true).catch(() => null);
+          if (!freshToken) { ownerBootstrapToken = ''; ownerBootstrapAt = 0; return; }
+          ownerBootstrapToken = '';
+          ownerBootstrapAt = 0;
+          await syncOwnerConsoleEntry(freshToken);
+          if (ownerBootstrapToken === freshToken) window.location.href = 'https://owner.nasrinai.com/owner';
+        });
         $('pageMain')?.appendChild(button);
-      } else if (response.status !== 204) $('ownerConsoleEntry')?.remove();
+      }
     } catch {
+      ownerBootstrapToken = '';
+      // Keep a short retry cooldown to avoid hammering the cross-origin endpoint.
       ownerBootstrapAt = Date.now();
       $('ownerConsoleEntry')?.remove();
     }
