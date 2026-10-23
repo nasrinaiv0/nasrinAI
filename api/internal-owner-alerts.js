@@ -104,9 +104,8 @@ export function createOwnerAlertHandler({ env = process.env, fetchImpl = fetch, 
             failed++;
             continue;
           }
-          const message = {
-            text: '[NasrinAI Owner Console] [' + String(alert.severity).toUpperCase() + '] ' + String(alert.summary).slice(0, 240)
-          };
+          const text = '[NasrinAI Owner Console] [' + String(alert.severity).toUpperCase() + '] ' + String(alert.summary).slice(0, 240);
+          const message = new URL(webhook).hostname === 'discord.com' ? { content: text } : { text };
           try {
             const response = await fetchImpl(webhook, {
               method: 'POST',
