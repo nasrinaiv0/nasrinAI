@@ -332,6 +332,23 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     }
   }
 
+  async function authAuditSince(since) {
+    if (store?.kind !== 'supabase' || typeof store.request !== 'function') return null;
+    try {
+      const value = await store.request('POST', 'rpc/owner_console_auth_audit_summary', {
+        body: { p_since: new Date(since).toISOString() }
+      });
+      const summary = Array.isArray(value) ? value[0] : value;
+      return summary && typeof summary === 'object' &&
+        typeof summary.available === 'boolean' &&
+        Number.isFinite(Number(summary.event_count)) &&
+        Array.isArray(summary.by_category) ? summary : null;
+    } catch {
+      logger?.warn?.('owner platform auth audit source unavailable', { source: 'auth.audit_log_entries' });
+      return null;
+    }
+  }
+
   async function recordAudit(eventType, actorId, req) {
     if (typeof store?.request !== 'function') return false;
     let ip = '';
@@ -494,12 +511,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           logger?.warn?.('owner database health check unavailable', { source: 'database' });
         }
       }
-      const [usage24h, usage7d, automation24h, automation7d, audit24h, plans24h, users, incidents24h, growth, retention, deployments] = await Promise.all([
+      const [usage24h, usage7d, automation24h, automation7d, audit24h, authAudit24h, plans24h, users, incidents24h, growth, retention, deployments] = await Promise.all([
         usageSince(at - 24 * 60 * 60 * 1000),
         usageSince(at - 7 * 24 * 60 * 60 * 1000),
         automationSince(at - 24 * 60 * 60 * 1000),
         automationSince(at - 7 * 24 * 60 * 60 * 1000),
         auditSince(at - 24 * 60 * 60 * 1000),
+        authAuditSince(at - 24 * 60 * 60 * 1000),
         plansSince(at - 24 * 60 * 60 * 1000),
         userSummary(),
         incidentSince(at - 24 * 60 * 60 * 1000),
@@ -517,6 +535,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           infrastructure: deployments ? (deployments.deployment_count > 0 ? 'available' : 'no_data') : 'unavailable',
           database: databaseHealth,
           security_audit: audit24h ? (Number(audit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
+          platform_security: authAudit24h?.available === true ? (Number(authAudit24h.event_count || 0) > 0 ? 'available' : 'no_data') : 'unavailable',
           automation: automation24h || automation7d ? ((Number(automation24h?.run_count || 0) + Number(automation7d?.run_count || 0)) > 0 ? 'available' : 'no_data') : 'unavailable',
           finance: plans24h && Number.isFinite(Number(plans24h.paid_payment_count))
             ? (Number(plans24h.paid_payment_count) > 0 ? 'available' : 'no_data') : 'unavailable',
@@ -529,6 +548,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         automation_24h: automation24h,
         automation_7d: automation7d,
         audit_24h: audit24h,
+        platform_auth_audit_24h: authAudit24h,
         plans_24h: plans24h,
         user_summary: users,
         growth_summary: growth,
