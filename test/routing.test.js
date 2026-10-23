@@ -86,7 +86,7 @@ test('OpenRouter configuration preserves non-Nemotron candidates for paid tiers'
   assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model.startsWith('nvidia/nemotron-')));
 });
 
-test('Quick and guest routes use only OpenRouter Nemotron candidates, including after failures', async () => {
+test('Quick and guest prefer Nemotron, then use OpenRouter emergency fallback without cross-provider routing', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
   const run = await a.policy.run(plan, req('hello'));
@@ -97,6 +97,7 @@ test('Quick and guest routes use only OpenRouter Nemotron candidates, including 
 
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(down.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna'), 'tries OpenRouter emergency model after Nemotron failures');
   assert.equal(down.openai.calls.length, 0, 'no cross-provider fallback for Quick');
   assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Quick');
 });
