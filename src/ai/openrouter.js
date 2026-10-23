@@ -343,6 +343,24 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
       const models = await openrouter.listModels();
       return [...new Set([...models.filter((m) => m.architecture?.output_modalities?.includes('text')).map((m) => m.id), ...(fallbackProvider ? ['openrouter/free'] : [])])];
     },
+    // Runtime eligibility comes from OpenRouter's live capability catalog, not
+    // the hand-maintained display catalog. These are candidates, not claims
+    // that every endpoint has already passed a live generation probe.
+    async listModelsForTask({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
+      if (['decisions', 'image', 'video', 'audio', 'embeddings', 'rerank'].includes(task)) return [];
+      if (Array.isArray(attachments) && attachments.some((item) => item?.kind === 'pdf')) return [];
+      let models = await openrouter.listModels();
+      models = models.filter((m) => typeof m.id === 'string'
+        && Array.isArray(m.architecture?.output_modalities)
+        && m.architecture.output_modalities.includes('text'));
+      if (Array.isArray(attachments) && attachments.length) {
+        models = models.filter((m) => Array.isArray(m.architecture?.input_modalities)
+          && m.architecture.input_modalities.includes('image'));
+      }
+      if (requiresTools) models = models.filter((m) => Array.isArray(m.supported_parameters)
+        && m.supported_parameters.includes('tools'));
+      return [...new Set(models.map((m) => m.id))];
+    },
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
     },
