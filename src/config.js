@@ -302,67 +302,14 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
+  // Quick/guest general chat is intentionally Nemotron-only through OpenRouter.
+  // Do not use openrouter/free: it may select a different model family.
   const defaultsByLevel = {
-    // Free-tier providers are emergency-only fallback targets, never normal
-    // routing candidates. Level 1 uses configured general-purpose models; the
-    // fallback pool may still try allowlisted free models after paid providers fail.
-    1: [
-      has('openrouter') ? 'openrouter:z-ai/glm-5.3-flash' : '',
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
-      has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
-      has('openrouter') ? 'openrouter:anthropic/claude-haiku-5.5' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-27b' : '',
-      has('local') && local ? 'local:' + local.model : '',
-      has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
-      has('openai') ? 'openai:gpt-5.4-nano' : '',
-      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
-    ],
-    2: [
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash-1017' : '',
-      has('openrouter') ? 'openrouter:z-ai/glm-5.3-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
-      has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
-      has('openrouter') ? 'openrouter:anthropic/claude-haiku-5.5' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-27b' : '',
-      has('openai') ? 'openai:gpt-5.4-mini:low' : '',
-      has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''
-    ],
-    3: [
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4-flash-0731' : '',
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash-1017' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
-      has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-27b' : '',
-      has('openai') ? 'openai:gpt-5.4:medium' : ''
-    ],
-    4: [
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna-pro' : '',
-      has('openai') ? 'openai:gpt-5.4:high' : ''
-    ],
-    5: [
-      has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
-      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
-      has('openai') ? 'openai:gpt-5.4:high' : ''
-    ]
+    1: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
+    2: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
+    3: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
+    4: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
+    5: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"]
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
@@ -372,19 +319,9 @@ export function loadConfig(env = process.env) {
     const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     // In auto mode, intent classification always checks OpenRouter's
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
-    const openRouterDefaults = {
-      1: 'openai/gpt-6-luna',
-      2: 'openai/gpt-6-luna',
-      3: 'openai/gpt-6-sol',
-      4: 'openai/gpt-6.1-sol',
-      5: 'openai/gpt-6.1-sol'
-    };
-    const openRouterFirst = has('openrouter')
-      ? tierSpec('ROUTE_LEVEL_' + n, 'openrouter:' + openRouterDefaults[n])
-      : null;
-    const orderedCandidates = openRouterFirst
-      ? [openRouterFirst, ...normalCandidates.filter((spec) => spec.provider !== 'openrouter' || spec.model !== openRouterFirst.model)]
-      : normalCandidates;
+    // Nemotron-only defaults are already explicitly ordered in defaultsByLevel.
+    // Never inject a different-family OpenRouter model ahead of that allowlist.
+    const openRouterFirst = null;
     levels[n] = Object.freeze(orderedCandidates);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
