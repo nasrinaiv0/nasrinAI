@@ -301,7 +301,7 @@ export function createOpenRouterClient({
     return request('/embeddings', { body: { model: selected.id, input }, signal });
   }
 
-  return Object.freeze({ listModels, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
+  return Object.freeze({ listModels, listModelsForTask, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
 }
 
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;
