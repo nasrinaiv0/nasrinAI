@@ -422,7 +422,8 @@
     }
 
     if (key === 'security') {
-      const panel = el('section', 'panel'), audit = data && data.audit_24h;
+      const panel = el('section', 'panel'), audit = data && data.audit_24h, platformAudit = data && data.platform_auth_audit_24h;
+      const platformReady = Boolean(platformAudit && platformAudit.available === true);
       panel.classList.add('module-extra');
       panel.append(el('h3', '', 'Access boundary'), el('p', 'panel-copy', 'The current page is visible only after server-side email/IP validation. Allowlist values and the signing secret are never returned to the browser.'));
       const rows = el('div', 'source-list');
@@ -430,7 +431,8 @@
         ['Owner session', '10-minute HttpOnly, SameSite=Strict cookie', 'Enabled'],
         ['Email and IP validation', 'Rechecked on protected requests', 'Enabled'],
         ['Shared IP rate limit', 'Uses the existing server-side limiter', 'Enabled'],
-        ['Owner action audit history', 'Session and export events; raw IP values are not returned', audit ? (Number(audit.event_count) > 0 ? 'Available' : 'No data yet') : 'Unavailable']
+        ['Owner action audit history', 'Session, export, and incident actions; raw IP values are not returned', audit ? (Number(audit.event_count) > 0 ? 'Available' : 'No data yet') : 'Unavailable'],
+        ['Platform Auth audit source', 'Aggregate Supabase Auth event categories only; no email, IP, actor IDs, or raw payloads', platformReady ? (Number(platformAudit.event_count) > 0 ? 'Available' : 'No data yet') : 'Unavailable']
       ].forEach((item) => {
         const row = el('div', 'source-row'), left = el('div');
         left.append(el('div', 'source-name', item[0]), el('div', 'source-detail', item[1]));
@@ -439,7 +441,14 @@
       });
       panel.append(rows);
       const grid = el('div', 'grid');
-      grid.append(metric('Owner audit events · 24h', '◇', audit ? numberText(audit.event_count) : 'Unavailable', audit && audit.last_event_at ? 'Last event ' + new Date(audit.last_event_at).toLocaleString() : 'No audit events recorded'));
+      grid.append(
+        metric('Owner audit events · 24h', '◇', audit ? numberText(audit.event_count) : 'Unavailable', audit && audit.last_event_at ? 'Last event ' + new Date(audit.last_event_at).toLocaleString() : 'No audit events recorded'),
+        metric('Platform Auth events · 24h', '⌁', platformReady ? numberText(platformAudit.event_count) : 'Unavailable', platformReady && platformAudit.last_event_at ? 'Last event ' + new Date(platformAudit.last_event_at).toLocaleString() : platformReady ? 'No Auth audit events recorded' : 'Auth audit source unavailable'),
+        metric('Sign-in events', '↗', platformReady ? numberText(platformAudit.sign_in_events) : 'Unavailable', 'Coarse event categories only'),
+        metric('Account recovery events', '◇', platformReady ? numberText(platformAudit.account_recovery_events) : 'Unavailable', 'No identities or recovery payloads returned'),
+        metric('Password change events', '⚿', platformReady ? numberText(platformAudit.password_change_events) : 'Unavailable', 'Aggregate event count'),
+        metric('Sign-out events', '↙', platformReady ? numberText(platformAudit.sign_out_events) : 'Unavailable', 'Aggregate event count')
+      );
       panel.append(grid);
       c.append(panel);
     }
