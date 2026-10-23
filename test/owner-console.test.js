@@ -187,8 +187,8 @@ test('usage export is bounded, aggregate-only, and unavailable when its source i
     request_count: 2, success_count: 2, failure_count: 0,
     input_tokens: 100, output_tokens: 40, total_tokens: 140,
     active_user_ids: 1, active_guest_ids: 0, latency_p50_ms: 80, latency_p95_ms: 120,
-    estimated_cost_usd: 0.01, cost_estimate_rows: 2,
-    providers: [{ provider: 'fake-provider', model: 'fake-model', requests: 2, successes: 2, input_tokens: 100, output_tokens: 40, estimated_cost_usd: 0.01 }]
+    provider_reported_cost_usd: 0.01, cost_known_rows: 2, cost_unknown_rows: 0,
+    providers: [{ provider: 'fake-provider', model: 'fake-model', requests: 2, successes: 2, input_tokens: 100, output_tokens: 40, provider_reported_cost_usd: 0.01, cost_known_rows: 2, cost_unknown_rows: 0 }]
   };
   const store = { kind: 'supabase', request: async (method, path, options) => {
     assert.equal(method, 'POST');
@@ -222,7 +222,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
       if (path === 'rpc/owner_console_usage_summary') return {
         request_count: 3, success_count: 2, failure_count: 1, input_tokens: 10, output_tokens: 5,
         total_tokens: 15, active_user_ids: 1, active_guest_ids: 1, latency_p50_ms: 100,
-        latency_p95_ms: 200, estimated_cost_usd: 0.02, cost_estimate_rows: 2,
+        latency_p95_ms: 200, provider_reported_cost_usd: 0.02, cost_known_rows: 2,
         last_event_at: '2026-10-23T00:00:00.000Z', providers: [], features: [{ feature: 'conversation', requests: 3, active_user_ids: 2, active_guest_ids: 1, total_tokens: 45, estimated_cost_usd: 0.02 }]
       };
       if (path === 'rpc/owner_console_automation_summary') return {
