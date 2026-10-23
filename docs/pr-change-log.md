@@ -1968,3 +1968,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Update the regression test to require explicit current consent, then assert that screened eligible examples are approved with automated-screen reviewer metadata; capture remains disabled without consent.
 - Record the required PR changelog entry for the Documentation Gate.
 - **Validation:** CI must pass all tests, database checks, security/dependency checks, and Documentation Gate before merge. Approval applies to screened examples eligible for retrieval only, not model-weight training.
+
+
+## OpenRouter multi-model routing expansion (2026-10-24)
+
+- Respect operator verification of OpenRouter model IDs/provider access/billing; distinguish that from NasrinAI integration readiness.
+- Expand default general chat routes across levels 1–5 to include additional configured chat-capable OpenRouter candidates: Ling 3.1 Flash, Qwen3.8 Flash, DeepSeek V4.1 Flash 1017, and MiMo-V2.6-Pro.
+- Keep specialized decisions IDs out of ordinary chat routing and keep vision payload work separately gated until its adapter is confirmed.
+- Provider-reported usage/billing remains authoritative; local model-price metadata is not a text-routing gate.
+- Validation: CI and authenticated live smoke tests are required before merge/deployment; no production verification is claimed here.
