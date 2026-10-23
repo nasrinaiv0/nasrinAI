@@ -310,6 +310,8 @@ export function loadConfig(env = process.env) {
       has('openrouter') ? 'openrouter:z-ai/glm-5.3-flash' : '',
       has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
       has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
@@ -318,8 +320,12 @@ export function loadConfig(env = process.env) {
     ],
     2: [
       has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash-1017' : '',
       has('openrouter') ? 'openrouter:z-ai/glm-5.3-flash' : '',
       has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
+      has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
       has('openai') ? 'openai:gpt-5.4-mini:low' : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''
@@ -327,20 +333,25 @@ export function loadConfig(env = process.env) {
     3: [
       has('openrouter') ? 'openrouter:deepseek/deepseek-v4-flash-0731' : '',
       has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash-1017' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
+      has('openrouter') ? 'openrouter:inclusionai/ling-3.1-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '',
       has('openai') ? 'openai:gpt-5.4:medium' : ''
     ],
     4: [
       has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
       has('openai') ? 'openai:gpt-5.4:high' : ''
     ],
     5: [
       has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-pro' : '',
       has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
-      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:qwen/qwen3.8-flash' : '',
       has('openai') ? 'openai:gpt-5.4:high' : ''
     ]
   };
