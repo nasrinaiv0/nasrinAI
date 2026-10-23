@@ -2026,3 +2026,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Kept catalog-listed chat models available for candidate ordering; the label does not imply endpoint health.
 - Added an opt-in authenticated OpenRouter text endpoint verifier and `npm run verify:openrouter`.
 - The verifier records model ID, advertised modalities/parameters, endpoint result, returned model ID, latency, usage, and sanitized provider error; it does not expose credentials.
+
+## OpenRouter image catalog filtering (2026-10-24)
+
+- Reject image-catalog entries whose advertised output modalities explicitly exclude images, even when they contain generic supported-parameter metadata.
+- Preserve entries from the dedicated image catalog when architecture metadata is absent.
+- Added a regression case for a text-only model incorrectly advertised in the image catalog.
