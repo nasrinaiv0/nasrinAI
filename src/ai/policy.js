@@ -184,7 +184,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens });
+          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens,
+            disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
             const actual = hasUsage && result.fallback !== true
