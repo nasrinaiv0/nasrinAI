@@ -4,6 +4,7 @@ import { classify } from '../src/ai/classify.js';
 import { answerWithLogic } from '../src/ai/logic.js';
 import { createPolicy } from '../src/ai/policy.js';
 import { createRouter } from '../src/ai/router.js';
+import { createBudget } from '../src/ai/budget.js';
 import { createProviderSpendHooks } from '../src/ai/provider-billing.js';
 import { loadPrices, priceOf, costOf } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
