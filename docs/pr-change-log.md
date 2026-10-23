@@ -1847,3 +1847,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - fb9ba526706557758309bbc02d36501884c0906e: add the required PR changelog and commit coverage.
 - **Validation history:** the 395a5c8f4d run passed 969 tests with zero failures, but the secret scan correctly rejected a realistic-looking key in the test fixture. The fixture was redacted in 13c7ef6ae145ba9fbe9bed45cc5cc43a30d889ff; the resulting CI run is pending at time of this entry. The database job and dependency audit have passed on the latest run; full CI must be green before merge.
 - **This entry:** documents the follow-up fixes, validation findings, and the current changelog update as part of PR #547.
+
+
+### PR #547 final validation and merge preparation (2026-10-23)
+
+- 20429304c6fcc175d09bc94e45aab1a0a5309bec: merge the latest main branch into this feature branch, preserving the Owner Command Center bootstrap fix and resolving the changelog conflict.
+- f867d9ec58c39c048fc37dbf0a5df1eb6df543ae: record follow-up fixes and CI findings in the changelog.
+- **Final CI evidence before this documentation update:** run 39924297923 passed all three jobs: dependency audit, tests/syntax/secret scan, and database tests. The test job reports 969 passed, 0 failed, 1 skipped. Documentation Gate passed on run 39924298010.
+- **Deployment boundary:** Vercel's status check reports success, but its bot marks the deployment as ignored by the project's build-ignore rule. No live preview or production runtime has been verified, and no production deployment is claimed.
+- **Merge gate:** all automated CI and changelog checks are green. Merge only after confirming the latest head checks remain green; re-run CI if any source changes are made.
