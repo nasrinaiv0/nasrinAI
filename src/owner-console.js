@@ -378,7 +378,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const reservedOwnerApi = pathname === '/v1/owner' || pathname.startsWith('/v1/owner/');
     const incidentCollectionPath = pathname === '/owner/api/incidents';
     const communityCollectionPath = pathname === '/owner/api/community-learning';
-    const communityAction = /^\\/owner\\/api\\/community-learning\\/([0-9a-f-]{36})\\/(approve|reject)$/.exec(pathname);
+    const communityAction = /^\/owner\/api\/community-learning\/([0-9a-f-]{36})\/(approve|reject)$/.exec(pathname);
     const communityWrite = req.method === 'POST' && Boolean(communityAction);
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
