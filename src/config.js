@@ -322,7 +322,7 @@ export function loadConfig(env = process.env) {
     // Nemotron-only defaults are already explicitly ordered in defaultsByLevel.
     // Never inject a different-family OpenRouter model ahead of that allowlist.
     const openRouterFirst = null;
-    levels[n] = Object.freeze(orderedCandidates);
+    levels[n] = Object.freeze(normalCandidates);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
