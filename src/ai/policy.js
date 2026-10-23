@@ -6,10 +6,9 @@ import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 
-// The cost-aware routing policy (Phase 4.1), between the chat and the router:
+// The routing policy (Phase 4.1), between chat and the router:
 //
-//   classify -> level within the tier's range -> privacy -> cheapest candidate
-//   that fits the budget -> call -> validate -> (escalate once, bounded) -> done
+//   classify -> level within the tier's range -> privacy/capability checks -> call -> validate -> bounded escalation
 //
 // Candidates per level come from config (ROUTE_LEVEL_n). Provider accounts own
 // their billing and pricing; local price snapshots must never block model routing.
