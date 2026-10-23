@@ -16,7 +16,7 @@ test('community examples are bounded and reject secrets, contact details, and se
   assert.equal(buildCommunityExample({ question: 'hi', answer: 'hello' }), null);
 });
 
-test('capture is off without current explicit consent and records pending-review examples only', async () => {
+test('capture requires current explicit consent and auto-approves screened examples', async () => {
   const store = createMemoryStore();
   const learning = createCommunityLearning({ store, logger: { warn() {} } });
   const sample = { question: 'How do I learn JavaScript basics?', answer: 'Start with variables, functions, arrays, and small projects. Practice each concept before combining them.' };
@@ -24,7 +24,9 @@ test('capture is off without current explicit consent and records pending-review
   await store.recordImprovementConsent({ tenantId: PLATFORM_TENANT_ID, subjectType: 'guest', subjectId: 'guest-session-1', version: COMMUNITY_LEARNING_CONSENT_VERSION, decision: 'granted' });
   assert.equal(await learning.capture({ caller: caller(), ...sample }), true);
   assert.equal(store.improvementExamples.length, 1);
-  assert.equal(store.improvementExamples[0].status, 'pending_review');
+  assert.equal(store.improvementExamples[0].status, 'approved');
+  assert.equal(store.improvementExamples[0].reviewerId, 'automated_safety_screen');
+  assert.ok(store.improvementExamples[0].reviewedAt);
   assert.equal(store.improvementExamples[0].consentVersion, COMMUNITY_LEARNING_CONSENT_VERSION);
   assert.equal(await learning.capture({ caller: caller('guest', 'guest-session-2'), ...sample }), false);
 });

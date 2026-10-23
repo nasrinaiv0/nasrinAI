@@ -1962,3 +1962,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Add a consolidated audit-status document describing audit phases, capability-aware provider routing and failover requirements, evidence limitations, and production verification criteria.
 - **Validation:** CI passed on the PR head; Documentation Gate initially failed because this changelog entry was missing. Re-run the Documentation Gate and full required checks before merge.
+
+## PR #565 — community learning auto-approval after screening (2026-10-24)
+
+- Update the regression test to require explicit current consent, then assert that screened eligible examples are approved with automated-screen reviewer metadata; capture remains disabled without consent.
+- Record the required PR changelog entry for the Documentation Gate.
+- **Validation:** CI must pass all tests, database checks, security/dependency checks, and Documentation Gate before merge. Approval applies to screened examples eligible for retrieval only, not model-weight training.
