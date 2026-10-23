@@ -43,7 +43,7 @@ export function recallWindowDays(text) {
   return null;
 }
 
-const RECALL_STOP = new Set(('what when where which would could about from with that this have has had been were was did does do you your yours our ours my mine me we us the and for are can please tell show give summarize summarise summary recap review chat chats conversation conversations history talk talked talking discuss discussed discussing working work worked ask asked last past previous earlier recent recently lately days day week weeks month months yesterday today night few couple remember recall saved all every entire any anything something everything know on').split(' '));
+const RECALL_STOP = new Set(('what when where which would could about from with that this have has had been were was did does do you your yours our ours my mine me we us the and for are can please tell show give summarize summarise summary recap review chat chats conversation conversations history talk talked talking discuss discussed discussing working work worked ask asked last past previous earlier recent recently lately days day week weeks month months yesterday today night few couple remember recall continue resume carry pick going leave off previous based discussed saved all every entire any anything something everything know on').split(' '));
 export const recallTopicTerms = (text) => [...new Set(String(text || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [])].filter((w) => !RECALL_STOP.has(w)).slice(0, 8);
 
 export const publicConversation = (c) => ({ id: c.id, title: c.title, created_at: c.createdAt, updated_at: c.updatedAt });
