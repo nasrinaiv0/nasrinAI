@@ -1878,3 +1878,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add acceptance criteria for panel-to-report navigation, consistent metric definitions, server-side authorization, privacy minimization, safe exports, auditing, and tests.
 - **Scope:** documentation only. No application code, UI, APIs, SQL/migrations, environment variables, or production settings changed; this entry does not claim the features are implemented.
 
+## Phase 1 — explicit server-only RLS deny policies (2026-10-23)
+
+- Add `db/migrations/060_server_only_rls_deny_policies.sql` to enforce explicit `USING (false)` / `WITH CHECK (false)` policies and revoke browser-role table privileges for `user_provider_credentials`, `video_studio_audio_assets`, `video_studio_projects`, `video_studio_render_jobs`, and `video_studio_timeline_items`. Existing `service_role` privileges are preserved.
+- Add `db/tests/060_server_only_rls_deny_policies.test.sql` to verify RLS, deny-policy conditions, no browser-role table privileges, and required service-role CRUD privileges.
+- Implementation commit: `94b842645f50664e29d9c4044bcc06d3e49696eb`. Regression-test commit: `70411f7d1fdeefbb97a0be56c5dc134e877bcc5d`.
+- **Validation:** GitHub CI was queued/in progress when recorded; Documentation Gate initially failed because the changelog was missing. CI result remains pending until rechecked after this changelog update. No local test run was performed by the assistant and no production migration was applied.
+- **Deployment requirement:** review and merge only after all required checks pass; apply the migration to production only through an explicitly approved rollout and re-run the Supabase security advisor.
