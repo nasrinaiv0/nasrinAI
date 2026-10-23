@@ -676,6 +676,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                     provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
                     inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
                     outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd,
+                    costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null,
                     reservationId: f.reservationId, spendReservationId: f.spendReservationId
                   })
                 });
