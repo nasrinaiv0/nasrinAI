@@ -154,7 +154,6 @@ export function createOpenRouterClient({
         try { validateRequirements(candidate); return [candidate]; }
         catch { return []; }
       });
-      capable.sort((a, b) => a.id.localeCompare(b.id));
       if (capable.length) return capable[0];
       throw new ProviderError('config', 'No OpenRouter video model advertises the requested duration, resolution, aspect ratio, and audio capabilities');
     }
@@ -168,12 +167,12 @@ export function createOpenRouterClient({
     return eligible[0];
   }
 
-  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, includeUsage = false, provider = {}, signal }) {
+  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, includeUsage = false, provider = {}, signal }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
     const selected = model === 'openrouter/free' && task === 'chat' && !(Array.isArray(tools) && tools.length)
       ? { id: 'openrouter/free' }
-      : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens, maxPromptUsdPerMillion });
+      : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: 'deny', allow_fallbacks: provider.allow_fallbacks !== false } };
     if (includeUsage) payload.usage = { include: true };
