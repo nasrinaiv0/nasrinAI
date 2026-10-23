@@ -1808,3 +1808,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Not yet complete:** registered-account/retention, Vercel release telemetry, platform-wide security events, settled billing/revenue reconciliation, incidents/alerts, and privileged controls.
 - **Production boundary:** migration 057 and Vercel environment variables have not been applied/changed. Do not enable production owner access until migration and permission checks pass. No merge or deployment has been performed.
 - **Validation:** production module/frontend syntax checks passed. Full test suite, database tests, secret scan, GitGuardian, and desktop/iPhone preview inspection remain unconfirmed. Vercel preview was canceled by the project's ignored-build step.
+
+
+## Owner Command Center — Phase 3 operational alerts (PR #545)
+
+- **Change:** add a server-only alert outbox and a five-minute CRON_SECRET-protected monitor for AI failure spikes, automation failure spikes, and stale automation. Optional Slack/Discord delivery uses strict HTTPS webhook host/path validation, rejects redirects, and stores only fixed-category summaries. Retries use leases, bounded backoff, and an eight-attempt cap.
+- **Security:** browser roles cannot read or claim outbox records; alert RPCs are service-role-only. No prompts, email addresses, workflow payloads, raw IP addresses, webhook responses, or credentials are included in alerts.
+- **Migration:** 059 (migration 058 is already used by the Owner Console Auth audit feature). Apply 057, 058, then 059 in order after review.
+- **Validation:** CI is running on the draft PR. Production migration, webhook configuration, alert delivery, settlement reconciliation, and privileged controls are not yet verified.
