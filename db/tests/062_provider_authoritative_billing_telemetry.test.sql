@@ -15,7 +15,8 @@ begin
   if position('cost_source' in v_definition) = 0
      or position('provider_reported_cost_usd' in v_definition) = 0
      or position('cost_known_rows' in v_definition) = 0
-     or position('cost_unknown_rows' in v_definition) = 0 then
+     or position('cost_unknown_rows' in v_definition) = 0
+     or position('filter (where cost_source' in v_definition) = 0 then
     raise exception 'owner-console usage summary must expose provenance-filtered provider cost and known/unknown coverage';
   end if;
   if position('estimated_cost_usd' in v_definition) > 0
