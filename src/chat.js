@@ -287,19 +287,30 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     let pending = null;   // an action waiting for the person's Confirm
     let fromLibrary = [];   // titles of the person's Library files used for this answer
     const live = opts.stream ? liveText(opts.stream) : null;
+    let activeReq = null;
+    let activePlan = null;
+    let activeStartedAt = requestStartedAt;
+    let stopUsagePromise = null;
     const streamReq = live ? { onText: (t) => live.push(t) } : {};
     // The person pressed Stop (or left): keep what was written so far and count
     // the tokens used so stopping cannot bypass token allowances.
-    async function stopped(err, req, startedAt, plan) {
+    async function recordStoppedUsage(err, req, startedAt, plan) {
+      if (stopUsagePromise) return stopUsagePromise;
       const sofar = live ? live.text() : '';
-      const inputTokens = Math.ceil(((req.system || '').length + (req.messages || []).reduce((n, m) => n + String(m.content || '').length, 0)) / 4);
+      if (!sofar) return null;
+      const inputTokens = Math.ceil(((req?.system || '').length + (req?.messages || []).reduce((n, m) => n + String(m.content || '').length, 0)) / 4);
       const outputTokens = Math.ceil(sofar.length / 4);
       const providerId = err?.provider || provider.id;
       const costUsd = Number.isFinite(err?.actualCostUsd) && err.actualCostUsd >= 0 ? err.actualCostUsd : null;
-      await usageLog.record(caller, {
-        provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt,
-        outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, reservationId: err?.reservationId, spendReservationId: err?.spendReservationId
-      });
+      stopUsagePromise = usageLog.record(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'stopped', task: plan?.task, level: err?.level ?? plan?.level, costUsd, reservationId: err?.reservationId, spendReservationId: null });
+      return stopUsagePromise;
+    }
+    opts.signal?.addEventListener('abort', () => {
+      if (live?.text()) void recordStoppedUsage({ kind: 'stopped' }, activeReq, activeStartedAt, activePlan);
+    }, { once: true });
+    async function stopped(err, req, startedAt, plan) {
+      const sofar = live ? live.text() : '';
+      await recordStoppedUsage(err, req, startedAt, plan);
       logger.info('reply stopped by the person', { chars: sofar.length });
       const partial = clean(keepIdentity(sofar));
       if (!partial) return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: null, stopped: true };
