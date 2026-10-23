@@ -66,6 +66,47 @@ export function createMemory({ store, logger }) {
         return null;
       }
     },
+    // Consolidate only explicit, durable first-person facts from the user's own
+    // message. Never infer personal facts from assistant output or tool results.
+    // This runs only when the user has enabled Memory and is failure-isolated by chat.
+    async consolidate(caller, rawUserMessage) {
+      if (!memoryOn(caller) || typeof rawUserMessage !== 'string') return { saved: false, reason: 'memory_off' };
+      try {
+        const source = cleanUserText(rawUserMessage, 2000);
+        if (!source || looksSecret(source)) return { saved: false, reason: 'not_safe' };
+        const candidateLine = source.split(/\r?\n/).map((line) => line.trim()).find((line) =>
+          /^(?:please )?remember that\b|^i (?:prefer|usually prefer|always prefer|like|use|am working on|am building|am developing|want to|plan to|need to)\b|^my (?:project|app|platform|workflow|preference|goal|plan|role|business) (?:is|uses|should|needs)\b/i.test(line)
+        );
+        if (!candidateLine) return { saved: false, reason: 'no_durable_fact' };
+        const text = cleanUserText(candidateLine.replace(/^(?:please )?remember that\s*/i, ''), 300);
+        if (text.length < 12 || looksSecret(text) || /(?:password|passcode|api[_ -]?key|secret|token|credit card|ssn|social security)/i.test(text)) {
+          return { saved: false, reason: 'not_safe' };
+        }
+        const who = { tenantId: caller.tenantId, userId: caller.actor.id };
+        const list = await store.listMemories(who);
+        const terms = (value) => new Set((value.toLowerCase().match(/[a-z0-9]{4,}/g) || [])
+          .filter((word) => !new Set(['that','this','with','from','have','will','your','about','into','when','then','they','them','their','want','need','plan','project']).has(word)));
+        const incoming = terms(text);
+        const similarity = (old) => {
+          const prior = terms(old.text);
+          if (!incoming.size || !prior.size) return 0;
+          let common = 0;
+          for (const word of incoming) if (prior.has(word)) common++;
+          return common / Math.max(incoming.size, prior.size);
+        };
+        const duplicate = list.find((item) => item.text.toLowerCase() === text.toLowerCase());
+        if (duplicate) return { saved: false, reason: 'duplicate' };
+        // Replace only a near-duplicate fact; unrelated notes are never removed.
+        const stale = list.find((item) => similarity(item) >= 0.7);
+        if (list.length >= MAX_NOTES && !stale) return { saved: false, reason: 'memory_full' };
+        const id = await store.addMemory({ ...who, text });
+        if (stale) await store.deleteMemory({ ...who, id: stale.id });
+        return { saved: true, id, replaced: Boolean(stale) };
+      } catch (err) {
+        logger.warn('automatic memory consolidation failed', { error: err?.message });
+        return { saved: false, reason: 'unavailable' };
+      }
+    },
     async list(caller) {
       return (await store.listMemories(mine(caller))).map((m) => ({ id: m.id, text: m.text, created_at: m.createdAt }));
     },
