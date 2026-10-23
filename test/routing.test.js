@@ -24,7 +24,7 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, reply } = {}) {
   const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: geminiFail, reply });
   gemini.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: false, trainsOnData: true });
   const openai = createFakeProvider({ models: ['gpt-5.4-nano'], dataLeavesServer: true, failWith: openaiFail, reply });
-  const openrouter = createFakeProvider({ models: ['nvidia/nemotron-3.5-lightning:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'nvidia/nemotron-3-ultra-550b-a55b:free'], reply });
+  const openrouter = createFakeProvider({ models: ['nvidia/nemotron-3.5-lightning:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'openai/gpt-6-luna'], reply });
   const router = createRouter({ providers: { gemini, openai, openrouter }, config, logger: quiet });
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
