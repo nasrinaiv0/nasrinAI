@@ -116,7 +116,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // coding specialists, and cross-provider failover cannot escape it.
           const eligibleCandidates = plan.tier === 'nasrinai'
             ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && /^nvidia\\/nemotron-[a-z0-9.-]+(?::free)?$/i.test(candidate.model))
+              && candidate.model.toLowerCase().startsWith('nvidia/nemotron-')
+              && /^(?:nvidia\/nemotron-[a-z0-9.-]+(?::free)?)$/i.test(candidate.model))
             : tierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
