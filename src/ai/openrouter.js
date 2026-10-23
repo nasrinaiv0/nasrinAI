@@ -166,7 +166,7 @@ export function createOpenRouterClient({
         catch { return []; }
       });
       if (capable.length) return capable[0];
-      throw new ProviderError('unavailable', 'No accessible OpenRouter image model supports the requested settings');
+      throw new ProviderError('unavailable', 'No verified OpenRouter image model is available for the requested settings');
     }
     if (['video', 'rerank', 'decisions'].includes(task)) {
       throw new ProviderError('unavailable', `No verified OpenRouter model is available for task: ${task}`);
