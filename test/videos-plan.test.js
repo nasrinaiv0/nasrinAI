@@ -5,7 +5,7 @@ import { createBudget } from '../src/ai/budget.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { testConfig } from './helpers.js';
 
-function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null) {
+function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null, usageLogOverride = null) {
   const created = [];
   const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10', VIDEO_MAX_COST_USD: '100000' });
   const store = createMemoryStore();
@@ -26,6 +26,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null,
     plans: { async current() { return { plan, open }; } },
     provider: providerOverride || { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', costPerSecondUsd: 0.05, ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
     limiter: limiterOverride || { async signIn() {} },
+    usageLog: usageLogOverride,
     budget,
     config,
     logger: { info() {} }
@@ -159,7 +160,8 @@ test('completed OpenRouter video records provider-reported usage cost without a 
     extract(result) { return { done: true, failed: false, uri: result.id, actualCostUsd: result.usage?.cost ?? null }; },
     async download() { return Buffer.from('fake-mp4'); }
   };
-  const { videos, created, store } = service('max', false, 8, provider);
+  const usageEvents = [];
+  const { videos, created, store } = service('max', false, 8, provider, null, { async record(_caller, event) { usageEvents.push(event); } });
   const createdResult = await videos.create(caller, body);
   assert.equal(createdResult.status, 'in_progress');
   const before = await store.getVideo({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, id: createdResult.video_id });
@@ -171,9 +173,11 @@ test('completed OpenRouter video records provider-reported usage cost without a 
   const completed = await store.getVideo({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, id: createdResult.video_id });
   assert.equal(completed.actualCostUsd, 0.04);
   assert.ok(completed.costReconciledAt);
+  assert.deepEqual(usageEvents.filter((event) => event.task === 'video_cost_reconciliation').map((event) => [event.costUsd, event.costSource]), [[0.04, 'provider_reported']]);
   assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0, 'provider cost is not inserted into the local spend ledger');
 
   await videos.status(caller, createdResult.video_id);
+  assert.equal(usageEvents.filter((event) => event.task === 'video_cost_reconciliation').length, 1, 'repeated status polling must not duplicate provider cost telemetry');
   assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0, 'repeat status polling must not invent or double-count provider spend');
 });
 
