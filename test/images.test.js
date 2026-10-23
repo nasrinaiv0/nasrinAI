@@ -139,6 +139,36 @@ test('picture backup settings require a valid model and provider key, not a loca
   assert.ok(testConfig({ GEMINI_API_KEY: 'g'.repeat(39), IMAGE_FALLBACK_MODEL: 'gpt-image-x' }).warnings.some((w) => /needs OPENAI_API_KEY/.test(w)));
 });
 
+test('image provider overrides use a model ID belonging to the selected provider', () => {
+  const env = {
+    OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30),
+    GEMINI_API_KEY: 'g'.repeat(39),
+    OPENROUTER_API_KEY: 'or-test-' + 'r'.repeat(30),
+    IMAGE_TIER_1_PRIMARY_PROVIDER: 'google',
+    IMAGE_TIER_2_PRIMARY_PROVIDER: 'openai',
+    IMAGE_TIER_2_FALLBACK_PROVIDER: 'google',
+    IMAGE_TIER_3_PRIMARY_PROVIDER: 'openai',
+    IMAGE_TIER_3_FALLBACK_PROVIDER: 'openrouter'
+  };
+  const c = testConfig(env);
+  assert.deepEqual(
+    { provider: c.images.tiers[1].primary.provider, model: c.images.tiers[1].primary.model },
+    { provider: 'gemini', model: 'gemini-3.1-flash-lite-image' }
+  );
+  assert.deepEqual(
+    { provider: c.images.tiers[2].primary.provider, model: c.images.tiers[2].primary.model },
+    { provider: 'openai', model: 'gpt-image-1' }
+  );
+  assert.deepEqual(
+    { provider: c.images.tiers[2].fallback.provider, model: c.images.tiers[2].fallback.model },
+    { provider: 'gemini', model: 'gemini-3.1-flash-lite-image' }
+  );
+  assert.deepEqual(
+    { provider: c.images.tiers[3].fallback.provider, model: c.images.tiers[3].fallback.model },
+    { provider: 'openrouter', model: 'openai/gpt-image-2' }
+  );
+});
+
 test('GPT Image request shape: generations without a photo, edits with one; safety blocks are refusals', async () => {
   const calls = [];
   const p = createOpenAIImage({ apiKey: 'sk-x', model: 'gpt-image-x', fetchImpl: async (url, init) => {
