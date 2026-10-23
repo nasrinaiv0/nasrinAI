@@ -4,6 +4,7 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
+    learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
@@ -491,6 +492,83 @@
       c.append(panel);
     }
   }
+  async function renderLearning() {
+    const c = $('content');
+    c.replaceChildren();
+    c.append(head('Community Learning Review', 'Only approved examples can be retrieved by NasrinAI. Review decisions are recorded.', 'Owner review'));
+    const toolbar = el('div', 'module-meta');
+    const statusSelect = el('select', 'quiet-button');
+    [['pending_review','Pending review'],['approved','Approved'],['rejected','Rejected']].forEach(([value,label]) => {
+      const option = el('option', '', label); option.value = value; statusSelect.append(option);
+    });
+    const historyButton = el('button', 'quiet-button', 'View review history'); historyButton.type = 'button';
+    toolbar.append(statusSelect, historyButton); c.append(toolbar);
+    const list = el('div', 'source-list');
+    c.append(list);
+    async function load() {
+      list.replaceChildren(notice('Loading examples…', 'Fetching eligible examples from the protected review queue.'));
+      try {
+        const response = await fetch('/owner/api/community-learning?status=' + encodeURIComponent(statusSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('queue unavailable');
+        const payload = await response.json();
+        list.replaceChildren();
+        const examples = Array.isArray(payload.examples) ? payload.examples : [];
+        if (!examples.length) { list.append(notice('No examples in this queue', statusSelect.value === 'pending_review' ? 'New eligible examples appear here only when collection is permitted and screening passes.' : 'There are no examples in this status.')); return; }
+        examples.forEach((item) => {
+          const card = el('article', 'panel'), top = el('div', 'source-row'), left = el('div');
+          left.append(el('div', 'source-name', (item.subject_type === 'guest' ? 'Guest' : 'Signed-in user') + ' · ' + new Date(item.created_at).toLocaleString()));
+          left.append(el('div', 'source-detail', 'Expires ' + new Date(item.expires_at).toLocaleString() + ' · ID ' + String(item.id).slice(0,8)));
+          top.append(left, state(String(item.status || statusSelect.value).replace('_',' ').toUpperCase(), item.status === 'approved' ? 'available' : item.status === 'rejected' ? 'unavailable' : ''));
+          card.append(top);
+          const content = el('pre', 'learning-example', String(item.example_text || '')); content.setAttribute('tabindex','0'); content.setAttribute('aria-label','Example question and answer');
+          card.append(content);
+          if (item.status === 'pending_review') {
+            const actions = el('div', 'module-meta');
+            const reason = el('select', 'quiet-button');
+            [['meets_quality_bar','Meets quality bar'],['unclear','Unclear'],['sensitive_content','Sensitive content'],['possible_identifier','Possible identifier'],['duplicate','Duplicate'],['out_of_scope','Out of scope'],['other','Other']].forEach(([value,label]) => { const option=el('option','','' + label); option.value=value; reason.append(option); });
+            const approve = el('button','quiet-button','Approve example'); approve.type='button';
+            const reject = el('button','quiet-button','Reject example'); reject.type='button';
+            approve.addEventListener('click', () => decide(item.id,'approve',reason.value));
+            reject.addEventListener('click', () => decide(item.id,'reject',reason.value));
+            actions.append(reason,approve,reject); card.append(actions);
+          } else {
+            card.append(el('p','panel-copy','Reviewed ' + (item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : 'at an earlier time') + (item.reviewer_id ? ' · reviewer ' + item.reviewer_id : '')));
+          }
+          list.append(card);
+        });
+      } catch {
+        list.replaceChildren(notice('Review queue unavailable', 'Check that the latest deployment and database migrations are applied. No review action was taken.'));
+      }
+    }
+    async function decide(id, action, reason) {
+      const expected = action === 'approve' ? 'APPROVE' : 'REJECT';
+      if (!window.confirm((action === 'approve' ? 'Approve' : 'Reject') + ' this example? ' + (action === 'approve' ? 'NasrinAI may retrieve it in future answers.' : 'It will be excluded from retrieval.'))) return;
+      try {
+        const response = await fetch('/owner/api/community-learning/' + encodeURIComponent(id) + '/' + action, { method:'POST', credentials:'same-origin', cache:'no-store', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify({ confirm: expected, reason_code: reason }) });
+        if (!response.ok) { const result=await response.json().catch(()=>({})); throw new Error(result?.error?.message || 'Review action failed.'); }
+        await load();
+      } catch (error) { list.prepend(notice('Could not save review', error.message || 'Refresh and try again.')); }
+    }
+    historyButton.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/owner/api/community-learning/history', { credentials:'same-origin', cache:'no-store', headers:{Accept:'application/json'} });
+        if (!response.ok) throw new Error('history unavailable');
+        const payload = await response.json();
+        const history = el('section','panel'); history.append(el('h3','','Recent review history'),el('p','panel-copy','Last 50 owner review decisions.'));
+        const rows = el('div','source-list');
+        (Array.isArray(payload.events)?payload.events:[]).forEach((event) => {
+          const row=el('div','source-row'), left=el('div');
+          left.append(el('div','source-name',String(event.decision).toUpperCase()+' · '+String(event.reason_code).replaceAll('_',' ')));
+          left.append(el('div','source-detail',new Date(event.created_at).toLocaleString()+' · example '+String(event.example_id).slice(0,8)+' · reviewer '+String(event.reviewer_id)));
+          row.append(left); rows.append(row);
+        });
+        if (!payload.events?.length) rows.append(notice('No review history yet','Review decisions will appear here.'));
+        history.append(rows); c.append(history);
+      } catch { c.append(notice('History unavailable','The review history source is not available.')); }
+    });
+    statusSelect.addEventListener('change', load);
+    await load();
+  }
   function show(key) {
     active = names[key] ? key : 'overview';
     const meta = names[active];
@@ -503,6 +581,7 @@
       button.setAttribute('aria-current', selected ? 'page' : 'false');
     });
     if (active === 'overview') renderOverview();
+    else if (active === 'learning') renderLearning();
     else renderModule(active);
   }
   async function refresh() {
