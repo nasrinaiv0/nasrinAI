@@ -1984,3 +1984,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Default general routing levels use explicitly named NVIDIA Nemotron models through OpenRouter when OpenRouter is configured.
 - Enforce a Quick/guest Nemotron-only candidate allowlist at runtime, including custom route overrides, and disable router cross-provider fallback for those requests.
 - Add regression coverage for Nemotron selection and fail-closed behavior; CI and live provider smoke tests remain required before merge.
+
+## PR #567 — Restore paid-tier model routing (2026-10-24)
+
+- Restrict the default Nemotron-only model pool to Quick/guest routing instead of applying it to every configured routing level when OpenRouter is enabled.
+- Restore each paid tier's configured OpenRouter model and compatible configured-provider fallback candidates.
+- Add regression coverage that checks paid tiers retain non-Nemotron candidates while Quick keeps Nemotron defaults.
+- Align the coding fallback test expectation with the configured Max-tier fallback model after OpenRouter failure.
+- Validation: full CI and production live smoke tests must pass before merge; no production recovery is claimed by this change alone.
