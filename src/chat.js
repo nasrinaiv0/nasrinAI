@@ -791,7 +791,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
         await usageLog.record(caller, {
           provider: err?.provider || 'router', model: err?.model || 'unknown', latencyMs: now() - started,
-          outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: plan.task, level: err?.level ?? plan.level, costUsd: 0
+          outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: plan.task, level: err?.level ?? plan.level, costUsd: null
         });
         if (kind === 'config' && err.status === 400 && media.length) {
           throw new HttpError(400, 'attachment_unsupported', 'NasrinAI could not read that file. Try another file, or remove it.');
