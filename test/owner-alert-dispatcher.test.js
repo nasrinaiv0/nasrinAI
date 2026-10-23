@@ -99,3 +99,16 @@ test('unsupported webhook URLs never receive alert data and queued monitoring st
   assert.equal(JSON.parse(out.body).alert_delivery, 'not_configured');
   assert.equal(calls.some((call) => call.url.startsWith('https://attacker.example/')), false);
 });
+
+test('Vercel schedules the protected alert monitor and routes it before the general API rewrite', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, resolve } = await import('node:path');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const config = JSON.parse(await readFile(resolve(here, '../vercel.json'), 'utf8'));
+  assert.ok(config.crons.some((cron) => cron.path === '/v1/internal/owner-alerts' && cron.schedule === '*/5 * * * *'));
+  const alertRoute = config.rewrites.findIndex((route) => route.source === '/v1/internal/owner-alerts');
+  const generalRoute = config.rewrites.findIndex((route) => route.source === '/v1/:path*');
+  assert.ok(alertRoute >= 0 && generalRoute >= 0 && alertRoute < generalRoute);
+  assert.equal(config.rewrites[alertRoute].destination, '/api/internal-owner-alerts');
+});
