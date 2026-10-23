@@ -19,6 +19,10 @@ begin
      or position('filter (where cost_source' in v_definition) = 0 then
     raise exception 'owner-console usage summary must expose provenance-filtered provider cost and known/unknown coverage';
   end if;
+  if position('video_cost_reconciliation' in v_definition) = 0
+     or position('task <> ''video_cost_reconciliation''' in v_definition) = 0 then
+    raise exception 'video cost-only events must contribute cost without inflating request metrics';
+  end if;
   if position('estimated_cost_usd' in v_definition) > 0
      or position('coalesce(sum(cost_usd), 0)' in v_definition) > 0 then
     raise exception 'owner-console usage summary must not label estimates as actual or coalesce unknown costs to zero';
