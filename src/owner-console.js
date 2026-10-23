@@ -184,7 +184,7 @@ const panels = {
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
   security: { title: 'Security & Audit', description: 'Authorization health, security events, and a traceable record of owner actions.' },
   automation: { title: 'Automation & Jobs', description: 'Workflow health, queue state, retries, and execution outcomes.' },
-  finance: { title: 'Finance & Costs', description: 'Separate provider estimates, reservations, settled costs, and verified billing.' },
+  finance: { title: 'Finance & Costs', description: 'Provider-reported costs, unknown-cost coverage, and verified provider billing.' },
   incidents: { title: 'Incidents & Alerts', description: 'Operational issues and alert delivery, with clear status and ownership.' },
   reports: { title: 'Reports & Exports', description: 'Date-scoped reports from verified data sources.' },
   settings: { title: 'Settings', description: 'Owner-console preferences and access status. Allowlist values stay in Vercel.' }
