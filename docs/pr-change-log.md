@@ -1856,3 +1856,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Final CI evidence before this documentation update:** run 39924297923 passed all three jobs: dependency audit, tests/syntax/secret scan, and database tests. The test job reports 969 passed, 0 failed, 1 skipped. Documentation Gate passed on run 39924298010.
 - **Deployment boundary:** Vercel's status check reports success, but its bot marks the deployment as ignored by the project's build-ignore rule. No live preview or production runtime has been verified, and no production deployment is claimed.
 - **Merge gate:** all automated CI and changelog checks are green. Merge only after confirming the latest head checks remain green; re-run CI if any source changes are made.
+
+## Owner Command Center Reports — full-report specification (2026-10-23)
+
+- Document the required **View Full Report** action for every Reports panel and define the detailed report behavior, shared filters/date comparisons, source freshness/provenance, explicit unavailable/estimated states, drill-down, and export safeguards.
+- Specify full-report contents for Users & Growth, Revenue & Payments, Token Usage, Media Generation, AI Provider Analytics, System & Infrastructure, Security & Threats, Automation (n8n), Support & Engagement, Recent Activity Summary, and Custom Reports & Exports.
+- Add acceptance criteria for panel-to-report navigation, consistent metric definitions, server-side authorization, privacy minimization, safe exports, auditing, and tests.
+- **Scope:** documentation only. No application code, UI, APIs, SQL/migrations, environment variables, or production settings changed; this entry does not claim the features are implemented.
+
