@@ -2018,3 +2018,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Preserve Quick/guest Nemotron-first and emergency-model restrictions.
 - Catalog discovery errors fall back to configured routes; dynamic candidates remain subject to tier, privacy, and bounded retry policy.
 - **Verification caveat:** discovery makes models eligible to be attempted; it does not prove every endpoint succeeds. Authenticated live smoke tests and production telemetry are required before calling a model live-verified.
+
+
+## OpenRouter verification integrity (2026-10-24)
+
+- Changed static model entries from an unsupported `verified` claim to `catalog-listed` with `verificationStatus: 'not-tested'`.
+- Kept catalog-listed chat models available for candidate ordering; the label does not imply endpoint health.
+- Added an opt-in authenticated OpenRouter text endpoint verifier and `npm run verify:openrouter`.
+- The verifier records model ID, advertised modalities/parameters, endpoint result, returned model ID, latency, usage, and sanitized provider error; it does not expose credentials.
