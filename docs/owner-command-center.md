@@ -312,7 +312,7 @@ Verify actual schema and migration history before writing SQL. The operations gu
 
 First reuse verified current sources. The operations guide references `public.usage_events`, `public.routing_daily`, and `public.spend_reservations`; verify live schema, migration status, grants, and semantic meaning before use. Reuse verified auth/account, payment, NCC execution and outbox data where available. Never create duplicate ledgers.
 
-Where required data is missing, instrument only the minimum safe events. A common event envelope should include UTC timestamp, opaque event ID, schema version, event type, correlation/request ID when available, actor class, validated feature/task/provider/model dimensions where useful, outcome category, latency, provider-reported token counts and estimated cost only when available, and a sanitized error code. Use idempotency to prevent retries from inflating logical-request counts. Do not store message content, prompts, completions, credentials, auth headers, or unnecessary PII.
+Where required data is missing, instrument only the minimum safe events. A common event envelope should include UTC timestamp, opaque event ID, schema version, event type, correlation/request ID when available, actor class, validated feature/task/provider/model dimensions where useful, outcome category, latency, provider-reported token counts and provider-reported cost only when available; keep cost provenance explicit and unknown costs null, and a sanitized error code. Use idempotency to prevent retries from inflating logical-request counts. Do not store message content, prompts, completions, credentials, auth headers, or unnecessary PII.
 
 Definitions:
 - Registered users: verified accounts in the authoritative auth source; guests are separate.
