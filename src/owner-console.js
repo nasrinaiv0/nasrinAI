@@ -122,6 +122,10 @@ function verifySession(token, secret, now) {
   const expected = createHmac('sha256', secret).update(parts[0]).digest();
   let supplied;
   try { supplied = Buffer.from(parts[1], 'base64url'); } catch { return null; }
+  // Buffer's base64url decoder accepts non-canonical final characters whose unused bits differ.
+  // Require a canonical round-trip so signature mutations cannot decode to the same bytes.
+  if (supplied.toString('base64url') !== parts[1]) return null;
+  if (Buffer.from(parts[0], 'base64url').toString('base64url') !== parts[0]) return null;
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
   let payload;
   try { payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')); } catch { return null; }
