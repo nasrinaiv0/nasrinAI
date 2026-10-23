@@ -136,9 +136,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           const dynamicOpenRouterCandidates = liveOpenRouterModels
             .filter((model) => !configuredOpenRouterIds.has(model))
             .map((model) => ({ provider: 'openrouter', model, effort: null }));
+          // Try live-discovered candidates before the static shortlist so
+          // bounded retries do not starve newly listed models behind stale IDs.
+          // Task prioritization still orders the full eligible candidate set.
           const expandedTierCandidates = plan.tier === 'nasrinai'
             ? tierCandidates
-            : [...tierCandidates, ...dynamicOpenRouterCandidates];
+            : [...dynamicOpenRouterCandidates, ...tierCandidates];
           // Quick/guest prefer Nemotron first, but keep an OpenRouter-only emergency model
           // at the end of the candidate list. This prevents a free Nemotron outage
           // from making the entire chat unavailable without allowing cross-provider
