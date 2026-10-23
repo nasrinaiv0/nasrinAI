@@ -1,8 +1,9 @@
-## PR #565 — community learning auto-approval after screening (2026-10-24)
+## PR #564 — Live OpenRouter model pricing lookup (2026-10-24)
 
-- Update the regression test to require explicit current consent, then assert that screened eligible examples are approved with automated-screen reviewer metadata; capture remains disabled without consent.
-- Record the required PR changelog entry for the Documentation Gate.
-- **Validation:** CI must pass all tests, database checks, security/dependency checks, and Documentation Gate before merge. Approval applies to screened examples eligible for retrieval only, not model-weight training.
+- Add a server-side helper for OpenRouter's `GET /api/v1/model/{author}/{slug}` endpoint, with strict slug validation, bounded request timeout, five-minute cache, and safe handling of missing/invalid pricing.
+- Add unit coverage for model ID validation, cache behavior, forced refresh, malformed responses, missing models, and text-cost estimation.
+- Pricing rates are estimates for planning only; actual incurred cost must continue to use provider-reported usage cost when available. This helper is not yet wired into all billing/Owner Console paths.
+- **Validation:** CI unit, syntax, secrets, dependency-audit, and database jobs passed on the implementation commit. Documentation Gate failed because this required changelog entry was missing; this commit adds it and must rerun that gate.
 
 ## PR #561 — image provider/model default pairing (2026-10-24)
 
@@ -1956,3 +1957,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Image fallback candidates must pass the image catalog and requested capability checks; text-only models are never used for image generation.
 - Add regression tests for retired image model fallback and HTTP 404 classification.
 - Missing local price metadata is not an eligibility gate. Existing plan entitlements, quotas, privacy checks, and provider-side billing remain unchanged.
+
+## PR #565 — community learning auto-approval after screening (2026-10-24)
+
+- Update the regression test to require explicit current consent, then assert that screened eligible examples are approved with automated-screen reviewer metadata; capture remains disabled without consent.
+- Record the required PR changelog entry for the Documentation Gate.
+- **Validation:** CI must pass all tests, database checks, security/dependency checks, and Documentation Gate before merge. Approval applies to screened examples eligible for retrieval only, not model-weight training.
