@@ -30,17 +30,18 @@ test('catalog selection validates actual output modality and caches catalog', as
   assert.equal(calls, 2);
 });
 
-test('video pricing is looked up from the live catalog SKU map', async () => {
+test('video route lookup uses advertised capabilities without requiring price metadata', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/video', 'video'), supported_durations: [4, 8], supported_resolutions: ['720p'],
     supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: { generate: { unit: 'USD/second', cost_usd: '0.09' } }
   }] }) });
-  const pricing = await client.getVideoPricing({ model: 'provider/video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
-  assert.equal(pricing.costPerSecondUsd, 0.09);
-  assert.equal(pricing.source, 'openrouter-live-catalog');
+  const route = await client.getVideoRoute({ model: 'provider/video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
+  assert.equal(route.model, 'provider/video');
+  assert.equal(route.source, 'openrouter-live-capability-catalog');
+  assert.equal('costPerSecondUsd' in route, false);
 });
 
-test('video auto-routing selects only priced compatible models per tier', async () => {
+test('video auto-routing selects compatible models regardless of published price metadata', async () => {
   const catalog = [
     { ...model('provider/cheap-video', 'video'), pricing_skus: [{ unit: 'USD/second', cost_usd: 0.03 }] },
     { ...model('provider/premium-video', 'video'), pricing_skus: [{ unit: 'USD/second', cost_usd: 0.18 }] },
@@ -49,22 +50,21 @@ test('video auto-routing selects only priced compatible models per tier', async 
   ];
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
   const common = { resolution: '720p', duration: 8, aspectRatio: '16:9', generateAudio: true };
-  const max = await client.getVideoPricing({ ...common, tier: 'max' });
-  const ultra = await client.getVideoPricing({ ...common, tier: 'ultra' });
+  const max = await client.getVideoRoute({ ...common, tier: 'max' });
+  const ultra = await client.getVideoRoute({ ...common, tier: 'ultra' });
   assert.equal(max.model, 'provider/cheap-video');
-  assert.equal(max.costPerSecondUsd, 0.03);
-  assert.equal(ultra.model, 'provider/premium-video');
-  assert.equal(ultra.costPerSecondUsd, 0.18);
+  assert.equal(ultra.model, 'provider/cheap-video');
+  assert.equal('costPerSecondUsd' in max, false);
 });
 
-test('OpenRouter default generate SKU is treated as the documented per-second video rate', async () => {
+test('OpenRouter default video route works without a local or catalog price gate', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/default-video', 'video'),
     supported_durations: [4, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'],
     pricing_skus: { generate: '0.07' }
   }] }) });
-  const pricing = await client.getVideoPricing({ model: 'provider/default-video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
-  assert.equal(pricing.costPerSecondUsd, 0.07);
+  const route = await client.getVideoRoute({ model: 'provider/default-video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
+  assert.equal(route.model, 'provider/default-video');
 });
 
 test('specialized tasks fail closed when no model is verified', async () => {
@@ -149,26 +149,26 @@ test('image and video model discovery use dedicated catalogs and reject unsuppor
   await client.createVideo({ model: 'provider/video-maker', prompt: 'A calm lake', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.12 });
   assert.equal(requests[0].duration, 8);
   await assert.rejects(client.createVideo({ model: 'provider/video-maker', prompt: 'Unsupported duration', duration: 5, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.12 }), /does not advertise the requested duration/);
-  await assert.rejects(client.createVideo({ model: 'provider/video-maker', prompt: 'Underbudget', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.01 }), /below the live catalog rate/);
+  const noPriceGate = await client.createVideo({ model: 'provider/video-maker', prompt: 'Provider billed', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.01 });
+  assert.equal(noPriceGate.id, 'job-abc123', 'legacy local cost caps are ignored');
   assert.ok(urls.some((url) => url.endsWith('/images/models')));
   assert.ok(urls.some((url) => url.endsWith('/videos/models')));
 });
 
 
-test('OpenRouter video adapter looks up live catalog pricing and pins model and duration', async () => {
+test('OpenRouter video adapter validates capabilities and pins model and duration', async () => {
   const calls = [];
   const client = {
-    getVideoPricing: async ({ model, tier, resolution }) => ({ model: model || (tier === 'ultra' ? 'provider/premium-video' : 'provider/cheap-video'), resolution, costPerSecondUsd: 0.12, source: 'openrouter-live-catalog' }),
+    getVideoRoute: async ({ model, tier, resolution }) => ({ model: model || (tier === 'ultra' ? 'provider/premium-video' : 'provider/cheap-video'), resolution, source: 'openrouter-live-capability-catalog' }),
     createVideo: async (body) => { calls.push(body); return { id: 'job_123' }; },
     videoStatus: async (id) => ({ id, status: 'completed' }),
     videoContent: async (id) => Buffer.from('video'),
   };
   const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', tier: 'max', maxSeconds: 8, resolution: '720p' });
-  assert.equal(provider.costPerSecondUsd, null);
-  assert.equal(await provider.getCostPerSecondUsd(), 0.12);
+  assert.equal(await provider.validateOptions(), true);
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
-  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true, maxCostPerSecondUsd: 0.12 });
+  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true });
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
@@ -185,19 +185,19 @@ test('image catalog schema without chat architecture is accepted, but editing re
     const path = new URL(url).pathname;
     calls.push({ path, body: init.body ? JSON.parse(init.body) : null });
     if (path === '/api/v1/images/models') return response({ data: [imageModel] });
-    if (path === '/api/v1/images/models/openai/gpt-image-2/endpoints') return response({ endpoints: [{ pricing: [{ billable: 'output_image', cost_usd: 0.04, unit: 'image' }] }] });
     if (path === '/api/v1/images') return response({ data: [{ b64_json: Buffer.from('fake-image').toString('base64') }], usage: { cost: 0.04 } });
     throw new Error('unexpected endpoint');
   } });
-  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high', maxCostUsd: 0.05 });
+  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high' });
   assert.equal(result.data[0].b64_json, Buffer.from('fake-image').toString('base64'));
   const generated = calls.find((x) => x.path === '/api/v1/images');
   assert.equal(generated.body.quality, 'high');
-  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'], maxCostUsd: 0.05 });
+  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'] });
   const edited = calls.filter((x) => x.path === '/api/v1/images').at(-1);
   assert.equal(edited.body.input_references.length, 1);
   assert.ok(!('images' in edited.body));
-  await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Underbudget', maxCostUsd: 0.01 }), /below the live catalog price/);
+  const noImagePriceGate = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Provider billed' });
+  assert.equal(noImagePriceGate.data[0].b64_json, Buffer.from('fake-image').toString('base64'));
   await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Unsupported quality', quality: 'xhigh', maxCostUsd: 0.05 }), /does not advertise the requested quality/);
   await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Unsupported aspect ratio', aspect_ratio: '9:16', maxCostUsd: 0.05 }), /does not advertise the requested aspect_ratio/);
 });
