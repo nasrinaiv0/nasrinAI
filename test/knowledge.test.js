@@ -82,7 +82,7 @@ test('memory: saved only after the person confirms; used later; listed, exported
     assert.equal((await fetch(a.url + '/v1/memories', { headers: bearer(guest) })).status, 403, 'guests have no memory');
 
     assert.equal((await fetch(a.url + '/v1/memories/' + list[0].id, { method: 'DELETE', headers: bearer(USER_TOKEN) })).status, 200);
-    assert.doesNotMatch((await (await postJson(a.url + '/v1/chat', { message: 'Suggest a dish' }, bearer(USER_TOKEN))).json()).message.content, /vegetarian/);
+    assert.doesNotMatch((await (await postJson(a.url + '/v1/chat', { message: 'Explain the Fibonacci sequence' }, bearer(USER_TOKEN))).json()).message.content, /vegetarian/, 'deleted memory is not injected into unrelated future chats');
 
     await a.store.addMemory({ tenantId: '00000000-0000-0000-0000-000000000001', userId: 'user-1', text: 'Lives in Cebu' });
     assert.equal((await postJson(a.url + '/v1/account/delete', { confirm: 'DELETE' }, bearer(USER_TOKEN))).status, 200);
