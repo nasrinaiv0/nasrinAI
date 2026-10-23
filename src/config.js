@@ -385,12 +385,6 @@ export function loadConfig(env = process.env) {
     if (!m || Number(m[1]) > Number(m[2])) throw new ConfigError(`${name}: use a range like 1-3`);
     return Object.freeze([Number(m[1]), Number(m[2])]);
   };
-  const usd = (name, value, fallbackValue) => {
-    const v = value === undefined || String(value).trim() === '' ? fallbackValue : Number(String(value).trim());
-    if (v === null) return null;
-    if (!Number.isFinite(v) || v < 0 || v > 100000) throw new ConfigError(`${name}: a dollar amount, for example 1 or 0.25`);
-    return v;
-  };
   const routing = Object.freeze({
     mode: routingMode,
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
@@ -789,11 +783,6 @@ export function loadConfig(env = process.env) {
       // decision: 30; 0 keeps them). Guests' go with their chats (24 hours).
       retentionDays: toInt('IMAGE_RETENTION_DAYS', env.IMAGE_RETENTION_DAYS, 30, 0, 3650),
       // Picture spending limits (USD, estimated), separate from chat budgets.
-      budget: Object.freeze({
-        dailyUsd: usd('IMAGE_DAILY_BUDGET_USD', env.IMAGE_DAILY_BUDGET_USD, 1),
-        weeklyUsd: usd('IMAGE_WEEKLY_BUDGET_USD', env.IMAGE_WEEKLY_BUDGET_USD, 5),
-        monthlyUsd: usd('IMAGE_MONTHLY_BUDGET_USD', env.IMAGE_MONTHLY_BUDGET_USD, 15)
-      }),
       // Picture routes by tier: { n: { primary, fallback } } (see above).
       tiers: Object.freeze(imageTiers),
       // Tier 1's fallback (kept for older code and tests), or null.
