@@ -546,10 +546,17 @@ export function loadConfig(env = process.env) {
       : env.OPENAI_API_KEY
         ? { provider: 'openai', model: 'gpt-image-1' }
         : {};
+  const defaultImageFallback = defaultImageRoute.provider === 'gemini'
+    ? (openrouterApiKey ? { provider: 'openrouter', model: 'openai/gpt-image-2' } : env.OPENAI_API_KEY ? { provider: 'openai', model: 'gpt-image-1' } : {})
+    : defaultImageRoute.provider === 'openrouter'
+      ? (env.OPENAI_API_KEY ? { provider: 'openai', model: 'gpt-image-1' } : geminiKey ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' } : {})
+      : defaultImageRoute.provider === 'openai' && geminiKey
+        ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' }
+        : {};
   for (const n of [1, 2, 3, 4]) {
-    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, n === 1 ? defaultImageRoute : defaultImageRoute);
+    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, defaultImageRoute);
     const legacy = n === 1 && env.IMAGE_FALLBACK_MODEL
-      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : {};
+      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : defaultImageFallback;
     const fallback = imageSlot(`IMAGE_TIER_${n}_FALLBACK`, legacy);
     if (primary) imageTiers[n] = Object.freeze({ primary, fallback });
     else if (fallback) warnings.push(`IMAGE_TIER_${n}_FALLBACK is set without a primary. Tier ${n} pictures are off.`);
