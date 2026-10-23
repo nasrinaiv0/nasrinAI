@@ -423,7 +423,7 @@ export function loadConfig(env = process.env) {
   // taking the whole site down: off is the safe state for an optional feature.
   const warnings = [];
 
-  // OpenRouter web search uses the server-side OpenRouter key and live tool pricing.
+  // OpenRouter web search uses the server-side OpenRouter key and provider billing.
   // It is independent of the selected chat provider and does not require Google credentials.
   const WEB_SEARCH_DEFAULT = 'openrouter/auto';
   function webSearchModel() {
@@ -670,7 +670,7 @@ export function loadConfig(env = process.env) {
   const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
   if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
   // HeyGen Video 1 is the primary OpenRouter video model. Per-tier model
-  // overrides remain available, but must pass live capability and pricing checks.
+  // overrides remain available, but must pass live capability checks.
   const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || 'heygen/heygen-video-1').trim();
   const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
@@ -782,7 +782,6 @@ export function loadConfig(env = process.env) {
       // Signed-in users' pictures are deleted after this many days (owner's
       // decision: 30; 0 keeps them). Guests' go with their chats (24 hours).
       retentionDays: toInt('IMAGE_RETENTION_DAYS', env.IMAGE_RETENTION_DAYS, 30, 0, 3650),
-      // Picture spending limits (USD, estimated), separate from chat budgets.
       // Picture routes by tier: { n: { primary, fallback } } (see above).
       tiers: Object.freeze(imageTiers),
       // Tier 1's fallback (kept for older code and tests), or null.
