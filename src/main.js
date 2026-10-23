@@ -24,6 +24,7 @@ import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
 import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/openrouter.js';
+import { createOpenRouterTelemetry } from './ai/openrouter-telemetry.js';
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
@@ -122,7 +123,8 @@ export function buildApp({ config, logger }) {
   }
 
   const effective = { ...config, guestSecret };
-  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
+  const openRouterTelemetry = createOpenRouterTelemetry({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, logger });
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
