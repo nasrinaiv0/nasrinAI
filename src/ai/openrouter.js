@@ -88,6 +88,33 @@ export function createOpenRouterClient({
     return modelCache.data;
   }
 
+  // Return the live catalog for the requested capability. This is discovery only;
+  // callers must still use the task-specific request method and handle provider errors.
+  async function listModelsForTask({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
+    const output = TASK_OUTPUT[task];
+    if (!output) return [];
+    let models;
+    if (task === 'image' || task === 'video') {
+      const result = await request(task === 'image' ? '/images/models' : '/videos/models', { method: 'GET' });
+      if (!Array.isArray(result.data)) throw new ProviderError('unavailable', 'OpenRouter specialized model catalog response is invalid');
+      models = result.data;
+    } else {
+      models = await listModels();
+    }
+    models = models.filter((item) => typeof item.id === 'string');
+    if (task === 'image') models = models.filter((item) => !item.architecture || item.architecture.output_modalities?.includes('image') || item.supported_parameters);
+    else if (task === 'video') { /* dedicated video catalog is already task-scoped */ }
+    else if (task === 'decisions') return [];
+    else models = models.filter((item) => item.architecture?.output_modalities?.includes(output));
+    const input = TASK_INPUT[task];
+    if (input) models = models.filter((item) => item.architecture?.input_modalities?.includes(input));
+    if (requiresTools) models = models.filter((item) => Array.isArray(item.supported_parameters) && item.supported_parameters.includes('tools'));
+    if (Array.isArray(attachments) && attachments.some((item) => item?.kind === 'pdf')) return [];
+    if (Array.isArray(attachments) && attachments.length && !['vision', 'pdf', 'audio_understanding', 'video_understanding'].includes(task)) return [];
+    if (task === 'vision' && attachments.length) models = models.filter((item) => item.architecture?.input_modalities?.includes('image'));
+    return [...new Set(models.map((item) => item.id))];
+  }
+
   async function selectModel(task, preferred = [], requirements = {}) {
     const modality = TASK_OUTPUT[task];
     if (!modality) throw new ProviderError('config', 'Unsupported OpenRouter task');
@@ -343,23 +370,10 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
       const models = await openrouter.listModels();
       return [...new Set([...models.filter((m) => m.architecture?.output_modalities?.includes('text')).map((m) => m.id), ...(fallbackProvider ? ['openrouter/free'] : [])])];
     },
-    // Runtime eligibility comes from OpenRouter's live capability catalog, not
-    // the hand-maintained display catalog. These are candidates, not claims
-    // that every endpoint has already passed a live generation probe.
+    // Capability-aware live discovery across OpenRouter's task-specific catalogs.
+    // Discovery is not verification; each route must still make a valid endpoint call.
     async listModelsForTask({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
-      if (['decisions', 'image', 'video', 'audio', 'embeddings', 'rerank'].includes(task)) return [];
-      if (Array.isArray(attachments) && attachments.some((item) => item?.kind === 'pdf')) return [];
-      let models = await openrouter.listModels();
-      models = models.filter((m) => typeof m.id === 'string'
-        && Array.isArray(m.architecture?.output_modalities)
-        && m.architecture.output_modalities.includes('text'));
-      if (Array.isArray(attachments) && attachments.length) {
-        models = models.filter((m) => Array.isArray(m.architecture?.input_modalities)
-          && m.architecture.input_modalities.includes('image'));
-      }
-      if (requiresTools) models = models.filter((m) => Array.isArray(m.supported_parameters)
-        && m.supported_parameters.includes('tools'));
-      return [...new Set(models.map((m) => m.id))];
+      return openrouter.listModelsForTask({ task, requiresTools, attachments });
     },
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
