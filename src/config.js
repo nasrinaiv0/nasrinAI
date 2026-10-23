@@ -310,11 +310,13 @@ export function loadConfig(env = process.env) {
     'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
   ] : [];
   const defaultsByLevel = {
+    // Nemotron is the explicit Quick/guest pool. Do not replace paid-tier candidates
+    // with free-tier models just because OpenRouter is configured.
     1: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
-    2: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
-    3: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    4: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    5: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
+    2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    5: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
