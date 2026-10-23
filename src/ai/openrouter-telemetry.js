@@ -10,6 +10,7 @@ function safeCount(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 function safeCost(value) {
+  if (value === null || value === undefined || value === '') return null;
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
