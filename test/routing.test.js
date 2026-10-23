@@ -84,7 +84,7 @@ test('Quick and guest routes use only OpenRouter Nemotron candidates, including 
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
   const run = await a.policy.run(plan, req('hello'));
   assert.equal(run.spec.provider, 'openrouter');
-  assert.match(run.spec.model, /^nvidia\\/nemotron-/);
+  assert.ok(run.spec.model.startsWith('nvidia/nemotron-'));
   assert.equal(a.openai.calls.length, 0);
   assert.equal(a.gemini.calls.length, 0);
 
