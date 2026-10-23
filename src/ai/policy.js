@@ -116,7 +116,9 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // from making the entire chat unavailable without allowing cross-provider
           // routing to bypass the guest/Quick provider policy.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
-            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter')
+            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
+              && (/^nvidia\/nemotron-[a-z0-9.-]+(?::free)?$/i.test(candidate.model)
+                || candidate.model === 'openai/gpt-6-luna'))
             : tierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
