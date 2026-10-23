@@ -2000,3 +2000,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep the emergency fallback within OpenRouter; do not silently send Quick/guest requests to another provider.
 - Add a regression test that verifies Nemotron remains first choice and the emergency route is attempted only after model failures.
 - Production logs previously showed provider errors for the Nemotron free endpoints. Confirm CI and perform a live smoke test after deployment.
+
+
+## OpenRouter model route activation (2026-10-24)
+
+- Wire the requested DeepSeek, GLM, MiMo, GPT-6 Luna, Claude Haiku, Qwen, and Ling chat models into default paid-tier candidate pools.
+- Keep Quick/guest Nemotron-first and restrict emergency fallback to OpenRouter GPT-6 Luna only.
+- Add regression coverage for requested IDs in paid-tier routes and Quick exclusion of paid-only models.
+- Provider-reported billing remains authoritative. Full CI and authenticated live model smoke tests are required before merge/release.
