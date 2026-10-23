@@ -169,11 +169,13 @@ test('usage records hold numbers, not text; a failed write is logged, not thrown
   const logger = memoryLogger();
   const store = createMemoryStore();
   const log = createUsageLog({ store, logger });
-  await log.record(user(), { provider: 'fake', model: 'm', inputTokens: 12.4, outputTokens: 3, latencyMs: 40, outcome: 'ok', text: 'secret question' });
+  await log.record(user(), { provider: 'fake', model: 'm', inputTokens: 12.4, outputTokens: 3, latencyMs: 40, outcome: 'ok', costUsd: 0.002, costSource: 'provider_reported', text: 'secret question' });
   assert.deepEqual(Object.keys(store.usage[0]).sort(),
     ['actorId', 'actorType', 'at', 'inputTokens', 'latencyMs', 'model', 'outcome', 'outputTokens', 'provider', 'tenantId',
-      'task', 'level', 'costUsd', 'cachedTokens', 'escalated', 'cacheHit', 'reservationId', 'spendReservationId'].sort());
+      'task', 'level', 'costUsd', 'costSource', 'cachedTokens', 'escalated', 'cacheHit', 'reservationId', 'spendReservationId'].sort());
   assert.equal(store.usage[0].inputTokens, 12);
+  assert.equal(store.usage[0].costSource, 'provider_reported');
+  assert.equal(store.usage[0].costUsd, 0.002);
   assert.ok(!JSON.stringify(logger.lines).includes('secret question'));
 
   const failing = createUsageLog({ store: { recordUsage: async () => { throw new UpstreamError('db down'); } }, logger });
@@ -203,6 +205,7 @@ test('Supabase store: rate_hit and usage calls are shaped for the database funct
   assert.equal(calls[2].url, 'https://p.supabase.co/rest/v1/usage_events');
   assert.equal(calls[2].prefer, 'return=minimal');
   assert.equal(calls[2].body.output_tokens, 2);
+  assert.equal(calls[2].body.cost_source, null);
 
   const reservation = await store.reserveDailyTokens({
     reservationId: '00000000-0000-0000-0000-000000000123', tenantId: PLATFORM, actorType: 'user', actorId: 'u',
