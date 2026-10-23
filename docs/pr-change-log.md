@@ -1828,3 +1828,15 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Commit-by-commit coverage:** 508fc1a51ad4401a300917a75be0e6d0f879b1ea (implicit recall); 3cc8849ae8dab3df49a52137f0bef8e1d88897c4 (continuation intent); 7dbfd95a0bad90ea8176156d432b80c025c0770a (recall regression tests); 00ab23bf7a7263470f9ae80e910523ba6e83510b (initial intent matcher fix); 940ccc3a9d86299fbe914b1ece2be4466295c3d0 (regex boundary fix); 18b52c5914cddff5ba8be0a145157eb993efe579 (memory consolidation service); db3dd21293f35c252d478a7e3de73b4883720a77 (chat persistence integration); b08ce521a886f1829f7ead8dcdf5961f3a103a2d (memory unit tests); 3506bd4f4afd94b8b7624e8305b139845cf25161 (preserve explicit confirmation); 0ab769ed899816363314f7c57d3027ba0a9ea727 (confirmation guard); 31a29c5bed113a396f3d4560565e0a74b12cc61e (regex correction); 6d4f1cee7ceb99f7aa0d9651ab3b7976a26d40c0 (confirmation regression test); f8790c070175064ad6dd49c341219483ac89c542 (stricter extraction); 422e2f65b18456147c4b840f4b0e26a8b7513422 (bounded history reads); da9767837ad0fd73eed137b93de564ef8d30b18c (natural continuation stopwords); 7842aa93daaf912348233c6cadd5f5c871a6c448 (continuation phrase tests).
 - **Validation:** Vercel preview status succeeded on implementation commits. Dependency audit passed for CI run 39922830525; test and database jobs were in progress when this entry was authored. No production deployment or merge is claimed.
 - **Rollback:** revert PR #547 if post-merge regressions occur; no database rollback is needed because this change adds no migration.
+
+
+### PR #547 follow-up fixes and validation (2026-10-23)
+
+- 844a20d866f11f746c44dcf843c83d534e02310a: do not inject a “no matching chats” notice into unrelated ordinary prompts.
+- 2ba8b4b2a595edfd662c21268b182c9b63b1c56b: score cross-chat recall by exact words instead of substring matches, reducing false-positive retrieval.
+- e8ddd0a1081b26da7f2d5a6b9ba4b7c0de666c61: update cache regression coverage to require bypass when private prior-chat context is retrieved.
+- 395a5c8f4d33a144656db42791b45801b2acd1e0: verify deleted memory against an unrelated future prompt, since saved conversation history remains separately available for relevant recall.
+- 13c7ef6ae145ba9fbe9bed45cc5cc43a30d889ff: replace a realistic-looking API key test fixture with a redacted placeholder after the secret scanner correctly flagged the fixture.
+- fb9ba526706557758309bbc02d36501884c0906e: add the required PR changelog and commit coverage.
+- **Validation history:** the 395a5c8f4d run passed 969 tests with zero failures, but the secret scan correctly rejected a realistic-looking key in the test fixture. The fixture was redacted in 13c7ef6ae145ba9fbe9bed45cc5cc43a30d889ff; the resulting CI run is pending at time of this entry. The database job and dependency audit have passed on the latest run; full CI must be green before merge.
+- **This entry:** documents the follow-up fixes, validation findings, and the current changelog update as part of PR #547.
