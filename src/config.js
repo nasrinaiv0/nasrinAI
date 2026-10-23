@@ -2,7 +2,6 @@
 // Invalid or missing values stop the server in production instead of failing later.
 
 import { parseKey as parseConnectorKey } from './connectors/secret.js';
-import { loadPrices, priceOf } from './ai/pricing.js';
 import { FREE_LLM_CATALOG } from './ai/free-provider-catalog.js';
 import { isIP } from 'node:net';
 
@@ -291,18 +290,13 @@ export function loadConfig(env = process.env) {
     providers: Object.freeze(fallbackProviders)
   });
 
-  // Cost-aware routing (Phase 4.1). ROUTING=smart picks the cheapest capable
-  // level for each message; ROUTING=fixed keeps one model per tier (TIER_*).
-  // Levels: 1 cheapest/free, 2 low-cost GPT, 3 professional GPT, 4 advanced
-  // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
-  // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
+  // Smart routing classifies intent and selects a compatible model from configured
+  // candidates. Provider billing owns model cost; ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
   const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'openrouter', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
   const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY)) && (k !== 'openrouter' || Boolean(openrouterApiKey));
-  // Last-resort, explicitly priced model choices for when an operator's custom
-  // ROUTE_LEVEL_n and TIER_* names are absent from the price registry.
-  // Every candidate still passes the full policy checks before it can run.
+  // Last-resort compatible model choices for when custom ROUTE_LEVEL_n and TIER_* routes fail.
   const safeFallbacks = Object.freeze([
     ...(has('local') && local ? [{ provider: 'local', model: local.model, effort: null }] : []),
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
@@ -421,21 +415,6 @@ export function loadConfig(env = process.env) {
     // Coding answers (including Claude's Max/Ultra coding lane) are remembered too, per person.
     cacheCoding: String(env.CACHE_CODING ?? 'true').toLowerCase() !== 'false',
     geminiFreeTier: String(env.GEMINI_FREE_TIER ?? 'true').toLowerCase() !== 'false',
-    // Spending limits in USD (estimated). Empty = no limit for that period.
-    budget: Object.freeze({
-      dailyUsd: usd('DAILY_BUDGET_USD', env.DAILY_BUDGET_USD, 3),
-      weeklyUsd: usd('WEEKLY_BUDGET_USD', env.WEEKLY_BUDGET_USD, 21),
-      monthlyUsd: usd('MONTHLY_BUDGET_USD', env.MONTHLY_BUDGET_USD, 90),
-      maxRequestUsd: usd('MAX_REQUEST_COST_USD', env.MAX_REQUEST_COST_USD, 0.05),
-      // Per-tier caps prevent expensive Max/Ultra coding from being blocked by
-      // the Quick/Pro ceiling while preserving a hard global default.
-      maxRequestUsdByTier: Object.freeze({
-        nasrinai: usd('MAX_REQUEST_COST_NASRINAI_USD', env.MAX_REQUEST_COST_NASRINAI_USD, 0.02),
-        pro: usd('MAX_REQUEST_COST_PRO_USD', env.MAX_REQUEST_COST_PRO_USD, 0.05),
-        max: usd('MAX_REQUEST_COST_MAX_USD', env.MAX_REQUEST_COST_MAX_USD, 0.10),
-        ultra: usd('MAX_REQUEST_COST_ULTRA_USD', env.MAX_REQUEST_COST_ULTRA_USD, 0.25)
-      })
-    })
   });
   const tierList = (name, value) => {
     const ids = String(value).split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
@@ -726,8 +705,7 @@ export function loadConfig(env = process.env) {
     tierRoutes: videoTierRoutes,
     resolution: String(env.VIDEO_RESOLUTION || (videoProviderName === 'openrouter' ? '720p' : '1080p')).trim().toLowerCase(),
     perHour: toInt('VIDEO_PER_HOUR', env.VIDEO_PER_HOUR, 1, 1, 10),
-    maxSeconds: 60,
-    maxCostUsd: usd('VIDEO_MAX_COST_USD', env.VIDEO_MAX_COST_USD, 32)
+    maxSeconds: 60
   });
 
   const effort = String(env.OPENAI_REASONING_EFFORT || 'low').trim().toLowerCase();
