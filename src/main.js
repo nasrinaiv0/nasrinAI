@@ -45,7 +45,6 @@ import { createMemory, memoryTools } from './knowledge/memory.js';
 import { createCommunityLearning } from './knowledge/community-learning.js';
 import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
-import { imagePrice } from './ai/pricing.js';
 import { createOpenAISpeech, createGeminiSpeech, createOpenRouterSpeech, createResponsiveSpeech } from './ai/speech.js';
 import { createVoice } from './voice.js';
 import { createStorage } from './storage.js';
@@ -179,14 +178,12 @@ export function buildApp({ config, logger }) {
   const imageRoutes = {};
   for (const [n, t] of Object.entries(config.images.tiers)) {
     const make = (slot, ms) => {
-      const price = slot.price ?? imagePrice(slot.provider, slot.model);
-      if (price === null) { logger.warn('picture route has no price; it is off', { tier: Number(n), provider: slot.provider, model: slot.model }); return null; }
       const p = slot.provider === 'gemini'
         ? createGeminiImage({ apiKey: config.ai.geminiApiKey, model: slot.model, totalMs: ms })
         : slot.provider === 'openrouter'
-          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, price, timeoutMs: ms })
+          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, timeoutMs: ms })
           : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
-      return { p, price };
+      return { p };
     };
     const primary = make(t.primary, t.fallback ? 45_000 : 105_000);
     if (!primary) continue;
