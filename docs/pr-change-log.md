@@ -1992,3 +1992,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage that checks paid tiers retain non-Nemotron candidates while Quick keeps Nemotron defaults.
 - Align the coding fallback test expectation with the configured Max-tier fallback model after OpenRouter failure.
 - Validation: full CI and production live smoke tests must pass before merge; no production recovery is claimed by this change alone.
+
+## Quick/guest model outage resilience (2026-10-24)
+
+- Keep Nemotron models as the first-choice routes for Quick and guest chat.
+- Add an OpenRouter-hosted GPT-6 Luna emergency candidate after Nemotron candidates so temporary free Nemotron endpoint failures do not immediately make Quick/guest chat unavailable.
+- Keep the emergency fallback within OpenRouter; do not silently send Quick/guest requests to another provider.
+- Add a regression test that verifies Nemotron remains first choice and the emergency route is attempted only after model failures.
+- Production logs previously showed provider errors for the Nemotron free endpoints. Confirm CI and perform a live smoke test after deployment.
