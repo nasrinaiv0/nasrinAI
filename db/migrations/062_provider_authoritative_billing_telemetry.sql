@@ -90,7 +90,9 @@ begin
                count(*) filter (where outcome = 'ok') as successes,
                coalesce(sum(input_tokens), 0) as input_tokens,
                coalesce(sum(output_tokens), 0) as output_tokens,
-               sum(cost_usd) as estimated_cost_usd
+               sum(cost_usd) as provider_reported_cost_usd,
+               count(*) filter (where cost_usd is not null) as cost_known_rows,
+               count(*) filter (where cost_usd is null) as cost_unknown_rows
           from public.usage_events
          where created_at >= p_since
          group by provider, model
