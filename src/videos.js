@@ -174,7 +174,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (state.actualCostUsd !== null && state.actualCostUsd !== undefined) {
       Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd)));
     } else if (routeProviderOrJobIsOpenRouter(jobProvider) && (state.done || state.failed)) {
-      logger.warn('OpenRouter video poll omitted final usage cost; conservative estimate retained', { id: v.id });
+      logger.warn('OpenRouter video poll omitted final usage cost; cost remains unknown', { id: v.id });
     }
     if (state.failed || !state.uri) {
       await store.updateVideo(v.id, { status:'failed', errorCode:'provider_failed', errorMessage:state.error || 'Video generation failed.' });
