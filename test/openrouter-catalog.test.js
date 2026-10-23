@@ -36,9 +36,9 @@ test('catalog-only decision and provider-alias entries are never prioritized as 
   ];
   const routed = prioritizeOpenRouterCandidates('coding', candidates);
   assert.equal(routed[0].model, 'deepseek/deepseek-v4-flash-0731');
-  assert.equal(routed[1].model, 'openai/gpt-6-luna-decisions');
-  assert.equal(routed[2].model, 'google-vertex/global');
-  assert.equal(routed[3].model, 'qwen/qwen3.8-27b');
+  assert.equal(routed[1].model, 'qwen/qwen3.8-27b');
+  assert.equal(routed[2].model, 'openai/gpt-6-luna-decisions');
+  assert.equal(routed[3].model, 'google-vertex/global');
 });
 
 test('task aliases select appropriate verified general chat models', () => {
