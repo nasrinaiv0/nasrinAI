@@ -1885,3 +1885,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Implementation commit: `94b842645f50664e29d9c4044bcc06d3e49696eb`. Regression-test commit: `70411f7d1fdeefbb97a0be56c5dc134e877bcc5d`.
 - **Validation:** GitHub CI was queued/in progress when recorded; Documentation Gate initially failed because the changelog was missing. CI result remains pending until rechecked after this changelog update. No local test run was performed by the assistant and no production migration was applied.
 - **Deployment requirement:** review and merge only after all required checks pass; apply the migration to production only through an explicitly approved rollout and re-run the Supabase security advisor.
+
+## Phase 2 — intent classification regressions (2026-10-23)
+
+- Require a complete standalone greeting before the simple-chat fast path; prompts that start with “Hi” but contain a task continue through classification.
+- Classify troubleshooting and CI/build/deployment failures as debugging even when the prompt contains no programming-language keyword.
+- For short affirmative/continuation follow-ups, reuse the latest prior user request as classification context without replacing the actual current message.
+- Add regression tests in `test/routing.test.js` for greeting-prefix bypass, generic troubleshooting, continuation complexity inheritance, and standalone greetings.
+- PR: https://github.com/primusco20/nasrinAI/pull/551
+- Validation is pending CI; do not merge until all required checks pass. No production services or settings changed.
