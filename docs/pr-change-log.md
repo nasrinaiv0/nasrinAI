@@ -1,3 +1,9 @@
+## PR #561 — image provider/model default pairing (2026-10-24)
+
+- Fix image-tier configuration so an explicit provider override receives a model ID belonging to that provider when no model override is supplied. This prevents mismatched adapters and model IDs when tier defaults originate from another provider.
+- Add regression coverage for Gemini, OpenAI, and OpenRouter primary/fallback routes.
+- **Validation:** CI passed for the implementation and regression test. Documentation Gate is rerunning after this required changelog entry. Live image generation still requires a production smoke test with provider credentials; video enablement is configured separately.
+
 ## PR #559 follow-up — image routing CI fixes (2026-10-24)
 
 - Keep credential-backed image defaults for all four tiers without requiring local model-price metadata; preserve explicit per-tier overrides and provider capability checks.

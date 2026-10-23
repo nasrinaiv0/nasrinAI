@@ -520,7 +520,16 @@ export function loadConfig(env = process.env) {
   const imageSlot = (prefix, d = {}) => {
     const named = String(env[prefix + '_PROVIDER'] || d.provider || '').trim().toLowerCase();
     const provider = named === 'google' ? 'gemini' : named;   // google = gemini
-    const model = String(env[prefix + '_MODEL'] || d.model || '').trim();
+    // Provider overrides must carry a model for that same provider. Previously,
+    // selecting e.g. openai while the default route was Gemini could silently
+    // pair the OpenAI adapter with a Gemini model ID, making generation fail.
+    const defaultModelByProvider = {
+      gemini: String(env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image').trim(),
+      openai: 'gpt-image-1',
+      openrouter: 'openai/gpt-image-2'
+    };
+    const providerChanged = Boolean(named) && provider !== d.provider;
+    const model = String(env[prefix + '_MODEL'] || (providerChanged ? defaultModelByProvider[provider] : d.model) || defaultModelByProvider[provider] || '').trim();
     if (!provider && !model) return null;
     const off = (why) => { warnings.push(`${prefix}: ${why} This picture route is off.`); return null; };
     if (!(provider in imageKeys)) return off('_PROVIDER must be google (gemini), openai or openrouter.');
