@@ -9,16 +9,31 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export function createVideos({ store, plans, provider, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
   const unavailable = () => new HttpError(503, 'videos_unavailable', 'Video creation is not available right now.');
 
-  async function reconcileActualVideoCost(video, actualCostUsd) {
+  async function reconcileActualVideoCost(video, actualCostUsd, caller = null) {
     if (!video?.id || video.costReconciledAt ||
         !Number.isFinite(actualCostUsd) || actualCostUsd < 0 || actualCostUsd > 100000) return video;
+    const costReconciledAt = new Date(now()).toISOString();
     try {
-      await store.updateVideo(video.id, { actualCostUsd, costReconciledAt: new Date(now()).toISOString() });
-      return { ...video, actualCostUsd, costReconciledAt: new Date(now()).toISOString() };
+      await store.updateVideo(video.id, { actualCostUsd, costReconciledAt });
     } catch (err) {
       logger.warn('provider-reported video cost could not be recorded', { id: video.id, error: err.message });
       return video;
     }
+    if (caller && usageLog?.record) {
+      try {
+        await usageLog.record(caller, {
+          provider: video.provider || 'unknown',
+          model: video.providerModel || 'unknown',
+          outcome: 'ok',
+          task: 'video_cost_reconciliation',
+          costUsd: actualCostUsd,
+          costSource: 'provider_reported'
+        });
+      } catch (err) {
+        logger.warn('provider-reported video cost telemetry could not be recorded', { id: video.id, error: err.message });
+      }
+    }
+    return { ...video, actualCostUsd, costReconciledAt };
   }
 
   const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
@@ -157,7 +172,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!v) throw new HttpError(404, 'not_found', 'Video not found.');
     if (v.status === 'completed' || v.status === 'failed') {
       if (v.actualCostUsd !== null && v.actualCostUsd !== undefined && !v.costReconciledAt) {
-        return await reconcileActualVideoCost(v, Number(v.actualCostUsd));
+        return await reconcileActualVideoCost(v, Number(v.actualCostUsd), caller);
       }
       return v;
     }
@@ -172,7 +187,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     if (!state.done && !state.failed) return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
     if (state.actualCostUsd !== null && state.actualCostUsd !== undefined) {
-      Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd)));
+      Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd), caller));
     } else if (routeProviderOrJobIsOpenRouter(jobProvider) && (state.done || state.failed)) {
       logger.warn('OpenRouter video poll omitted final usage cost; cost remains unknown', { id: v.id });
     }
