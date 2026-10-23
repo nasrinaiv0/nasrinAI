@@ -1,4 +1,4 @@
-// OpenRouter skill catalog. Provider/model identity and billing were verified by the operator.
+// OpenRouter skill catalog. Provider/model identity is tracked separately from runtime integration readiness.
 // integrationStatus describes NasrinAI integration separately; catalog verification alone
 // never makes a model usable for an unsupported endpoint or payload shape.
 export const OPENROUTER_SKILL_CATALOG = Object.freeze([
@@ -7,7 +7,7 @@ export const OPENROUTER_SKILL_CATALOG = Object.freeze([
   { name: 'MiMo-V2.6-Flash', id: 'xiaomi/mimo-v2.6-flash', status: 'verified', integrationStatus: 'chat-route', skills: ['chat','coding','research','vision','agent_workflows'], preferredTasks: ['chat','coding','research','analysis'] },
   { name: 'DeepSeek V4.1 Flash 1017', id: 'deepseek/deepseek-v4.1-flash-1017', status: 'verified', integrationStatus: 'chat-route', skills: ['chat','coding','debugging','research','analysis','agent_workflows','vision'], preferredTasks: ['chat','coding','debugging','research','analysis'] },
   { name: 'DeepSeek V4 Flash 0731', id: 'deepseek/deepseek-v4-flash-0731', status: 'verified', integrationStatus: 'chat-route', skills: ['coding','reasoning','agent_workflows'], preferredTasks: ['coding','debugging','analysis'] },
-  { name: 'DeepSeek V4 Flash Vision Exp', id: 'deepseek/deepseek-v4-flash-vision-exp', status: 'verified', integrationStatus: 'vision-payload-required', skills: ['image_understanding','chart_analysis','document_understanding','vision','agent_workflows'], preferredTasks: ['vision','pdf','research','analysis'] },
+  { name: 'DeepSeek V4 Flash Vision Exp (legacy alias)', id: 'deepseek/deepseek-v4-flash-vision-exp', status: 'verified', integrationStatus: 'chat-route', skills: ['image_understanding','chart_analysis','document_understanding','vision','agent_workflows'], preferredTasks: ['vision','pdf','research','analysis'] },
   { name: 'Jev1.13', id: 'typesafe/jev-1.13', status: 'verified', integrationStatus: 'decisions-api-required', skills: ['brainstorming','decision_support'], preferredTasks: ['planning','analysis','decision'] },
   { name: 'GPT-6 Luna', id: 'openai/gpt-6-luna', status: 'verified', integrationStatus: 'chat-route', skills: ['fast_chat','classification','tool_calling','coding'], preferredTasks: ['chat','coding','research'] },
   { name: 'GPT-6 Luna Pro', id: 'openai/gpt-6-luna-pro', status: 'verified', integrationStatus: 'chat-route', skills: ['deep_reasoning','complex_analysis'], preferredTasks: ['analysis','design','coding'] },
@@ -18,7 +18,7 @@ export const OPENROUTER_SKILL_CATALOG = Object.freeze([
   { name: 'Qwen3.8 27B', id: 'qwen/qwen3.8-27b', status: 'verified', integrationStatus: 'chat-route', skills: ['vision_language','coding','research','agents'], preferredTasks: ['vision','coding','research'] },
   { name: 'Ling 3.1 Flash', id: 'inclusionai/ling-3.1-flash', status: 'verified', integrationStatus: 'chat-route', skills: ['fast_reasoning','coding','tool_enabled_agents'], preferredTasks: ['coding','chat','research','analysis'] },
   { name: 'Decider V1.2', id: 'perplexity/pplx-decider-v1.2', status: 'verified', integrationStatus: 'decisions-api-required', skills: ['decision_selection','rubric_scoring','moderation'], preferredTasks: ['decision','decisions'] },
-  { name: 'Google Vertex Global', id: 'google-vertex/global', status: 'verified', integrationStatus: 'provider-alias-not-chat-model', skills: ['general_generation'], preferredTasks: [] }
+  { name: 'Google Vertex Global', id: 'google-vertex/global', status: 'provider-alias', integrationStatus: 'provider-alias-not-chat-model', skills: ['general_generation'], preferredTasks: [] }
 ]);
 
 const byId = new Map(OPENROUTER_SKILL_CATALOG
