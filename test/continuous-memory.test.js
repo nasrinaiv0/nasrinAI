@@ -35,6 +35,7 @@ test('consolidation ignores ordinary chat, secrets, and duplicate facts', async 
   const memory = createMemory({ store, logger });
   const who = caller();
   assert.equal((await memory.consolidate(who, 'Can you help me fix this bug?')).saved, false);
+  assert.equal((await memory.consolidate(who, 'Please remember that I am vegetarian.')).saved, false, 'explicit remember actions still require confirmation');
   assert.equal((await memory.consolidate(who, 'I prefer this API key sk-123456789012345678901234')).saved, false);
   assert.equal((await memory.consolidate(who, 'I prefer dark mode in NasrinAI.')).saved, true);
   assert.equal((await memory.consolidate(who, 'I prefer dark mode in NasrinAI.')).reason, 'duplicate');
