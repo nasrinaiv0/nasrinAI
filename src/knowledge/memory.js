@@ -73,7 +73,7 @@ export function createMemory({ store, logger }) {
       if (!memoryOn(caller) || typeof rawUserMessage !== 'string') return { saved: false, reason: 'memory_off' };
       try {
         const source = cleanUserText(rawUserMessage, 2000);
-        if (!source || looksSecret(source) || /\\bremember\\s+(?:that|this)\\b/i.test(source)) return { saved: false, reason: 'not_safe' };
+        if (!source || looksSecret(source) || /\bremember\s+(?:that|this)\b/i.test(source)) return { saved: false, reason: 'not_safe' };
         const candidateLine = source.split(/\r?\n/).map((line) => line.trim()).find((line) =>
           /^i (?:prefer|usually prefer|always prefer|like|use|am working on|am building|am developing|want to|plan to|need to)\b|^my (?:project|app|platform|workflow|preference|goal|plan|role|business) (?:is|uses|should|needs)\b/i.test(line)
         );
