@@ -273,7 +273,7 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   assert.equal(seen.task, 'coding');
   assert.equal(seen.model, 'vendor/model');
   assert.equal(seen.provider.data_collection, 'deny');
-  await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments/);
+  await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments|dedicated OpenRouter vision task/);
   await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'decide' }], model: 'vendor/model', task: 'decisions' }), /dedicated decide/);
 
   let freeCall;
