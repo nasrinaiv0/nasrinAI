@@ -438,3 +438,33 @@ test('OpenRouter spend reservations do not require local model-price entries', a
   assert.equal(result.costUsd, 0.0017);
   assert.equal(settled, 0.0017);
 });
+
+test('classifier does not mistake a greeting prefix for the whole request', () => {
+  const plan = classify({ message: 'Hi, fix the CI failure and investigate the broken build.' });
+  assert.equal(plan.task, 'debugging');
+  assert.ok(plan.level >= 3);
+});
+
+test('classifier routes generic troubleshooting without code keywords', () => {
+  for (const message of ['Fix this bug', 'The deployment failed', 'This is not working', 'CI failed']) {
+    const plan = classify({ message });
+    assert.equal(plan.task, 'debugging', message);
+    assert.ok(plan.level >= 3, message);
+  }
+});
+
+test('classifier inherits intent for short continuation follow-ups', () => {
+  const history = [
+    { role: 'user', content: 'Audit the entire codebase and design a secure multi-tenant architecture.' },
+    { role: 'assistant', content: 'I will break this into phases. Should I continue?' }
+  ];
+  const plan = classify({ message: 'Yes, continue.', history });
+  assert.equal(plan.task, 'design');
+  assert.equal(plan.level, 5);
+  assert.ok(plan.reasons.includes('continuation inherits previous user task'));
+});
+
+test('classifier keeps a standalone greeting simple', () => {
+  assert.equal(classify({ message: 'Hi!' }).level, 1);
+  assert.equal(classify({ message: 'Hello.' }).level, 1);
+});
