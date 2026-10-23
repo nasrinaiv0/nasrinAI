@@ -5,7 +5,7 @@ import { createBudget } from '../src/ai/budget.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { testConfig } from './helpers.js';
 
-function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null) {
+function service(plan, open = false, maxSeconds = null, providerOverride = null, limiterOverride = null, usageLogOverride = null) {
   const created = [];
   const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10', VIDEO_MAX_COST_USD: '100000' });
   const store = createMemoryStore();
@@ -26,6 +26,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null,
     plans: { async current() { return { plan, open }; } },
     provider: providerOverride || { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', costPerSecondUsd: 0.05, ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
     limiter: limiterOverride || { async signIn() {} },
+    usageLog: usageLogOverride,
     budget,
     config,
     logger: { info() {} }
@@ -150,7 +151,7 @@ test('video creation defaults to the configured provider clip limit when duratio
 });
 
 
-test('completed OpenRouter video reconciles the estimate to authoritative provider usage idempotently', async () => {
+test('completed OpenRouter video records provider-reported usage cost without a local estimate', async () => {
   const provider = {
     id: 'openrouter', model: 'provider/video', resolution: '720p', maxSeconds: 8,
     async getCostPerSecondUsd() { return 0.08; },
@@ -159,26 +160,29 @@ test('completed OpenRouter video reconciles the estimate to authoritative provid
     extract(result) { return { done: true, failed: false, uri: result.id, actualCostUsd: result.usage?.cost ?? null }; },
     async download() { return Buffer.from('fake-mp4'); }
   };
-  const { videos, created, store } = service('max', false, 8, provider);
+  const usageEvents = [];
+  const { videos, created, store } = service('max', false, 8, provider, null, { async record(_caller, event) { usageEvents.push(event); } });
   const createdResult = await videos.create(caller, body);
   assert.equal(createdResult.status, 'in_progress');
   const before = await store.getVideo({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, id: createdResult.video_id });
-  assert.equal(before.estimatedCostUsd, 0.64);
-  assert.equal(before.spendReservationId, created[0].spendReservationId);
+  assert.equal(before.estimatedCostUsd, null);
+  assert.equal(before.spendReservationId, null);
 
   const status = await videos.status(caller, createdResult.video_id);
   assert.equal(status.status, 'completed');
   const completed = await store.getVideo({ tenantId: caller.tenantId, ownerType: 'user', ownerId: caller.actor.id, id: createdResult.video_id });
   assert.equal(completed.actualCostUsd, 0.04);
   assert.ok(completed.costReconciledAt);
-  assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0.04);
+  assert.deepEqual(usageEvents.filter((event) => event.task === 'video_cost_reconciliation').map((event) => [event.costUsd, event.costSource]), [[0.04, 'provider_reported']]);
+  assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0, 'provider cost is not inserted into the local spend ledger');
 
   await videos.status(caller, createdResult.video_id);
-  assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0.04, 'repeat status polling must not double-count or reapply the final cost');
+  assert.equal(usageEvents.filter((event) => event.task === 'video_cost_reconciliation').length, 1, 'repeated status polling must not duplicate provider cost telemetry');
+  assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0, 'repeat status polling must not invent or double-count provider spend');
 });
 
 
-test('Ultra 4K add-on records verified provider cost delta without per-generation token charges', async () => {
+test('Ultra 4K add-on uses plan capability without local cost deltas or token surcharges', async () => {
   const tokenCalls = [];
   const provider = {
     id: 'openrouter', model: 'provider/video-4k', tier: 'ultra', resolution: '1080p',
@@ -200,17 +204,19 @@ test('Ultra 4K add-on records verified provider cost delta without per-generatio
   assert.deepEqual(tokenCalls, [], 'video seconds and provider spend—not token surcharges—govern video usage');
   assert.equal(created[0].resolution, '4k');
   assert.equal(created[0].addonTokens, 0);
-  assert.equal(created[0].addonCostUsd, 0.8);
+  assert.equal(created[0].addonCostUsd, null, 'no local 4K cost estimate is written');
 });
 
-test('4K add-on fails closed when the provider cannot price both 4K and 1080p', async () => {
+test('4K add-on is capability-gated rather than price-gated', async () => {
+  let called = false;
   const provider = {
     id: 'openrouter', model: 'provider/video', tier: 'ultra', resolution: '1080p',
     allow4kAddon: true, maxSeconds: 8,
-    async getCostPerSecondUsd({ requestedResolution }) { return requestedResolution === '4k' ? 0.20 : null; },
-    async create() { throw new Error('must not call provider without comparable prices'); }
+    async create({ requestedResolution }) { called = true; assert.equal(requestedResolution, '4k'); return 'job-4k'; }
   };
   const { videos, created } = service('ultra', false, null, provider, { async signIn() {} });
-  await assert.rejects(() => videos.create(caller, { prompt: 'Unpriced 4K', resolution: '4k' }), (err) => err.code === 'video_budget_unavailable');
-  assert.equal(created.length, 0);
+  const result = await videos.create(caller, { prompt: 'Provider billed 4K', resolution: '4k' });
+  assert.equal(result.status, 'in_progress');
+  assert.equal(called, true);
+  assert.equal(created[0].addonCostUsd, null);
 });

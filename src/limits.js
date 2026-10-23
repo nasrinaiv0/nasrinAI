@@ -259,6 +259,7 @@ export function createUsageLog({ store, logger }) {
         task: e.task || null,
         level: Number.isInteger(e.level) ? e.level : null,
         costUsd: Number.isFinite(e.costUsd) ? Math.max(0, e.costUsd) : null,
+        costSource: e.costSource === 'provider_reported' && Number.isFinite(e.costUsd) ? 'provider_reported' : null,
         cachedTokens: Number.isFinite(e.cachedTokens) ? Math.max(0, Math.round(e.cachedTokens)) : null,
         escalated: e.escalated === true,
         cacheHit: e.cacheHit === true

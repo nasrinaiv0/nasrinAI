@@ -53,8 +53,8 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
       ? req.messages.map((m) => (m.role === 'tool' ? m : { ...m, content: redactForProvider(m.content || '') }))
       : req.messages;
     const { spendHooks, spendTier, ...providerReq } = req;
-    // The spend reservation is made for each actual provider attempt, including
-    // failover. Private callbacks never cross the provider boundary.
+    // Billing metadata is attached to each actual provider attempt, including
+    // failover. No estimated USD reservation is made; private callbacks never cross the provider boundary.
     let spendReservation = null;
     try {
       spendReservation = spendHooks

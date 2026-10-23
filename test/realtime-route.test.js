@@ -34,7 +34,7 @@ test('realtime session follows the selected NasrinAI tier and never accepts a ra
 });
 
 
-test('realtime session refuses to mint credentials when its maximum-duration reservation exceeds the shared budget', async () => {
+test('realtime session uses tier/token allowances without local USD price estimates', async () => {
   let calls = 0;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
@@ -45,16 +45,15 @@ test('realtime session refuses to mint credentials when its maximum-duration res
   try {
     const token = (await (await fetch(srv.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
     const response = await postJson(srv.url + '/v1/realtime/session', { model: 'nasrinai', voice: 'coral' }, bearer(token));
-    assert.equal(response.status, 503);
-    assert.notEqual(response.status, 200, 'a budget too small for the conservative Gemini session reservation must refuse the session');
-    assert.equal(calls, 0, 'provider credentials must not be minted before a reservation succeeds');
+    assert.equal(response.status, 200, 'local USD budget settings no longer gate provider sessions');
+    assert.equal(calls, 1, 'the provider session is created within the tier and token allowances');
   } finally {
     await srv.close();
   }
 });
 
 
-test('default global budgets permit Quick realtime up to its five-minute daily allowance', async () => {
+test('Quick realtime remains capped by its five-minute daily allowance', async () => {
   let receivedOptions;
   const built = buildTestApp({
     provider: createFakeProvider({ models: ['gpt-realtime-2.1-mini'], reply: () => 'ok' }),
@@ -69,7 +68,7 @@ test('default global budgets permit Quick realtime up to its five-minute daily a
     const body = await response.json();
     assert.equal(receivedOptions.maxSeconds, 300);
     assert.equal(body.max_seconds, 300);
-    assert.ok(0.06 * (body.max_seconds / 60) <= 3, 'reservation fits the configured $3 default daily ceiling');
+    assert.equal(body.max_seconds, 300, 'the tier seconds allowance—not a local price estimate—caps the session');
   } finally {
     await srv.close();
   }

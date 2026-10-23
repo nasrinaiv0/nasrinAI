@@ -580,19 +580,19 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         sendJson(res, 503, { error: { code: 'audit_unavailable', message: 'The export audit service is unavailable. Please try again later.' } });
         return true;
       }
-      const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','estimated_cost_usd','cost_estimate_rows'];
+      const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','provider_reported_cost_usd','cost_known_rows','cost_unknown_rows'];
       const rows = [columns, [
         'summary', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end, '',
         '', summary.request_count, summary.success_count, summary.failure_count, summary.input_tokens,
         summary.output_tokens, summary.total_tokens, summary.active_user_ids, summary.active_guest_ids,
-        summary.latency_p50_ms, summary.latency_p95_ms, summary.estimated_cost_usd, summary.cost_estimate_rows
+        summary.latency_p50_ms, summary.latency_p95_ms, summary.provider_reported_cost_usd, summary.cost_known_rows, summary.cost_unknown_rows
       ]];
       for (const item of Array.isArray(summary.providers) ? summary.providers : []) {
         rows.push([
           'provider', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end,
           item.provider, item.model, item.requests, item.successes, null, item.input_tokens,
           item.output_tokens, Number(item.input_tokens || 0) + Number(item.output_tokens || 0),
-          null, null, null, null, item.estimated_cost_usd, null
+          null, null, null, null, item.provider_reported_cost_usd, item.cost_known_rows, item.cost_unknown_rows
         ]);
       }
       const csv = rows.map((row) => row.map((value) => {

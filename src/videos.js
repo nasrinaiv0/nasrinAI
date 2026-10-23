@@ -2,7 +2,6 @@ import { HttpError, notFound } from './http/errors.js';
 import { marketingCacheKey } from './marketing-cache.js';
 import { owns } from './conversations.js';
 import { safePrompt, MAX_SECONDS, STEP_SECONDS, EXTEND_SECONDS, videoStepSeconds } from './ai/video.js';
-import { videoCostPerSecond } from './ai/pricing.js';
 import { resolveRequestTier } from './ai/request-tier.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,30 +9,31 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export function createVideos({ store, plans, provider, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
   const unavailable = () => new HttpError(503, 'videos_unavailable', 'Video creation is not available right now.');
 
-  async function reconcileActualVideoCost(video, actualCostUsd) {
-    if (!video?.spendReservationId || video.costReconciledAt ||
+  async function reconcileActualVideoCost(video, actualCostUsd, caller = null) {
+    if (!video?.id || video.costReconciledAt ||
         !Number.isFinite(actualCostUsd) || actualCostUsd < 0 || actualCostUsd > 100000) return video;
-    const expectedUsd = Number(video.estimatedCostUsd);
-    if (!Number.isFinite(expectedUsd) || expectedUsd < 0 || typeof budget?.reconcileSpend !== 'function') {
-      logger.warn('video final cost could not be reconciled; conservative estimate retained', { id: video.id });
+    const costReconciledAt = new Date(now()).toISOString();
+    try {
+      await store.updateVideo(video.id, { actualCostUsd, costReconciledAt });
+    } catch (err) {
+      logger.warn('provider-reported video cost could not be recorded', { id: video.id, error: err.message });
       return video;
     }
-    try {
-      // Persist provider usage first. If the RPC or timestamp write fails, a
-      // later status poll can retry reconciliation without losing the invoice.
-      await store.updateVideo(video.id, { actualCostUsd });
-      await budget.reconcileSpend({ id: video.spendReservationId, reservedUsd: expectedUsd }, actualCostUsd);
-      await store.updateVideo(video.id, { actualCostUsd, costReconciledAt: new Date(now()).toISOString() });
-      logger.info('video provider cost reconciled', {
-        id: video.id, provider: video.provider, model: video.providerModel,
-        estimatedCostUsd: expectedUsd, actualCostUsd
-      });
-    } catch (err) {
-      logger.warn('video final cost reconciliation pending retry', { id: video.id, code: err?.code || 'reconciliation_failed' });
+    if (caller && usageLog?.record) {
+      try {
+        await usageLog.record(caller, {
+          provider: video.provider || 'unknown',
+          model: video.providerModel || 'unknown',
+          outcome: 'ok',
+          task: 'video_cost_reconciliation',
+          costUsd: actualCostUsd,
+          costSource: 'provider_reported'
+        });
+      } catch (err) {
+        logger.warn('provider-reported video cost telemetry could not be recorded', { id: video.id, error: err.message });
+      }
     }
-    return await store.getVideo({
-      tenantId: video.tenantId, ownerType: video.ownerType, ownerId: video.ownerId, id: video.id
-    }) || video;
+    return { ...video, actualCostUsd, costReconciledAt };
   }
 
   const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
@@ -80,8 +80,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     // Default to 720p/30 FPS. Honor a user-selected value only when the
     // plan permits it; if the model cannot provide it, fall back to the
     // highest available quality within that plan, preferring 60 FPS.
-    // Keep the existing 4K add-on route for Max/Ultra. Provider pricing and
-    // capability checks below remain authoritative; unsupported combinations fail closed.
+    // Keep the existing 4K add-on route for Max/Ultra. Provider capability
+    // checks remain authoritative; unsupported combinations fail closed.
     const tierResolutions = selected === 'pro'
       ? ['480p', '360p']
       : ['4k', '1080p', '720p', '480p', '360p'];
@@ -103,15 +103,13 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const fpsCandidates = [preferredFps, ...allowedFrameRates.filter((x) => x !== preferredFps)];
     let requestedResolution = null;
     let requestedFps = null;
-    let perSecond = null;
-    let basePerSecond = null;
-    if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
+    if (routeProvider.id === 'openrouter' && typeof routeProvider.validateOptions === 'function') {
       for (const resolution of resolutionCandidates) {
         if (!allowedResolutions.includes(resolution)) continue;
         for (const fps of fpsCandidates) {
           if (!allowedFrameRates.includes(fps)) continue;
           try {
-            perSecond = await routeProvider.getCostPerSecondUsd({
+            await routeProvider.validateOptions({
               generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
             });
             requestedResolution = resolution;
@@ -122,12 +120,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         if (requestedResolution) break;
       }
       if (!requestedResolution) {
-        throw new HttpError(503, 'video_quality_unavailable', 'This model has no supported, priced video quality for your plan.');
+        throw new HttpError(503, 'video_quality_unavailable', 'This model has no supported video quality for your plan.');
       }
     } else {
       requestedResolution = allowedResolutions.includes(preferredResolution) ? preferredResolution : (allowedResolutions[0] || config.video.resolution);
       requestedFps = allowedFrameRates.includes(preferredFps) ? preferredFps : 30;
-      perSecond = videoCostPerSecond(routeProvider.model, requestedResolution, routeProvider.costPerSecondUsd ?? null);
     }
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
@@ -146,69 +143,23 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
     }
-    // Provider generation is chunked (8 seconds initially, then 7-second
-    // extensions), so its billable duration can exceed the requested clip.
-    const estimatedSeconds = targetSeconds <= STEP_SECONDS
-      ? STEP_SECONDS
-      : STEP_SECONDS + Math.ceil((targetSeconds - STEP_SECONDS) / EXTEND_SECONDS) * EXTEND_SECONDS;
-    const estimatedCost = Math.round(estimatedSeconds * perSecond * 1e6) / 1e6;
-    if (!Number.isFinite(estimatedCost) || estimatedCost <= 0 || estimatedCost > config.video.maxCostUsd) {
-      throw new HttpError(503, 'budget_reached', 'This video exceeds the configured per-video spending limit.');
-    }
-    // 4K is a provider-cost add-on, not a user-token surcharge. Verify a
-    // comparable 1080p price before accepting it and account for the delta
-    // separately while reserving the full 4K operating cost above.
-    let addonCostUsd = 0;
-    const addonTokens = 0;
-    if (requestedResolution === '4k') {
-      if (!['max', 'ultra'].includes(selected) || routeProvider.allow4kAddon !== true ||
-          routeProvider.id !== 'openrouter' || typeof routeProvider.getCostPerSecondUsd !== 'function') {
-        throw new HttpError(403, 'video_resolution_not_in_plan', '4K video requires an eligible Max/Ultra add-on route.');
-      }
-      try {
-        basePerSecond = await routeProvider.getCostPerSecondUsd({
-          generateAudio: true, duration: targetSeconds, aspectRatio,
-          requestedResolution: '1080p', fps: requestedFps
-        });
-      } catch {
-        throw new HttpError(503, 'video_budget_unavailable', '4K video pricing could not be verified. Choose a lower resolution.');
-      }
-      if (!Number.isFinite(basePerSecond) || basePerSecond <= 0 ||
-          !Number.isFinite(perSecond) || perSecond <= basePerSecond) {
-        throw new HttpError(503, 'video_budget_unavailable', '4K video requires verified, comparable 4K and 1080p prices.');
-      }
-      addonCostUsd = Math.round(estimatedSeconds * (perSecond - basePerSecond) * 1e6) / 1e6;
-      if (!Number.isFinite(addonCostUsd) || addonCostUsd <= 0) {
-        throw new HttpError(503, 'video_budget_unavailable', '4K add-on pricing is invalid.');
-      }
-    }
-    let spendReservation;
-    try {
-      spendReservation = await budget.reserveSpend({ caller, amountUsd: estimatedCost, maxRequestUsd: null });
-    } catch (err) {
-      throw err;
-    }
     const started = now();
     let operation;
     try {
       operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution, fps: requestedFps });
     } catch (err) {
-      // Provider failures can still incur charges; settle both reservations conservatively.
-      await budget.settleSpend(spendReservation, estimatedCost).catch(() => {});
       await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'provider_error',
-        task: 'video', latencyMs: now() - started, costUsd: estimatedCost, inputTokens: addonTokens, spendReservationId: spendReservation.id });
+        task: 'video', latencyMs: now() - started, costUsd: null });
       throw err;
     }
-    // No final invoice is available at job creation; settle the conservative estimate.
-    await budget.settleSpend(spendReservation, estimatedCost);
     await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'ok',
-      task: 'video', latencyMs: now() - started, costUsd: estimatedCost, inputTokens: addonTokens, spendReservationId: spendReservation.id });
+      task: 'video', latencyMs: now() - started, costUsd: null });
     const id = await store.addVideo({
       tenantId: caller.tenantId, conversationId: b.conversation_id || null,
       ownerType: caller.actor.type, ownerId: caller.actor.id, prompt,
       targetSeconds, producedSeconds: 0, status: 'in_progress', requestTier: selected,
       provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey, resolution: requestedResolution, fps: requestedFps,
-      spendReservationId: spendReservation.id, estimatedCostUsd: estimatedCost, addonTokens, addonCostUsd, actualCostUsd: null, costReconciledAt: null
+      spendReservationId: null, estimatedCostUsd: null, addonTokens: 0, addonCostUsd: null, actualCostUsd: null, costReconciledAt: null
     });
     logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
     return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
@@ -221,7 +172,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!v) throw new HttpError(404, 'not_found', 'Video not found.');
     if (v.status === 'completed' || v.status === 'failed') {
       if (v.actualCostUsd !== null && v.actualCostUsd !== undefined && !v.costReconciledAt) {
-        return await reconcileActualVideoCost(v, Number(v.actualCostUsd));
+        return await reconcileActualVideoCost(v, Number(v.actualCostUsd), caller);
       }
       return v;
     }
@@ -235,10 +186,10 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
     }
     if (!state.done && !state.failed) return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
-    if (state.actualCostUsd !== null && state.actualCostUsd !== undefined && v.spendReservationId) {
-      Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd)));
+    if (state.actualCostUsd !== null && state.actualCostUsd !== undefined) {
+      Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd), caller));
     } else if (routeProviderOrJobIsOpenRouter(jobProvider) && (state.done || state.failed)) {
-      logger.warn('OpenRouter video poll omitted final usage cost; conservative estimate retained', { id: v.id });
+      logger.warn('OpenRouter video poll omitted final usage cost; cost remains unknown', { id: v.id });
     }
     if (state.failed || !state.uri) {
       await store.updateVideo(v.id, { status:'failed', errorCode:'provider_failed', errorMessage:state.error || 'Video generation failed.' });

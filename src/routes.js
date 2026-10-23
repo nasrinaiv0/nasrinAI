@@ -12,7 +12,6 @@ import { authRoutes } from './auth/routes.js';
 import { paymentRoutes } from './payments/routes.js';
 import { manilaDayStart, manilaWeekStart, userWeeklyTokenLimit } from './limits.js';
 import { publicCatalog } from './ai/professions.js';
-import { realtimeCostPerMinute } from './ai/pricing.js';
 import { createNotices, WHENS } from './notices.js';
 import { COMMUNITY_LEARNING_CONSENT_VERSION } from './knowledge/community-learning.js';
 
@@ -465,33 +464,9 @@ return { body: { sites: await connect.list(caller) } }; }
         await limiter.budget(caller);
         const started = now();
         const instructions = 'You are NasrinAI in a realtime voice conversation. Keep replies very short by default: usually one sentence and under 20 words. Answer directly; avoid greetings, repetition, long explanations, and unsolicited details. Ask only essential clarifying questions. Expand only when the user asks or when needed for accuracy, safety, or a clear next step. Be natural and interruptible. Never claim to have performed actions you did not perform. If a request needs fresh information or an external action, direct the user to normal NasrinAI chat.';
-        const perMinute = realtimeCostPerMinute(tier.provider, tier.model);
-        if (!budget || perMinute === null) {
-          throw new HttpError(503, 'realtime_budget_unavailable', 'Realtime voice is paused because a safe spending estimate is not configured for this model.');
-        }
-        // Browser-direct sessions cannot report every turn to the server. Reserve
-        // and charge a conservative maximum-duration estimate before returning a token.
-        // The model-price table includes headroom and unknown models fail closed.
-        // OpenAI sessions can be capped to the largest whole-minute duration that
-        // fits the smallest configured global budget ceiling. The atomic ledger
-        // still checks actual remaining daily/weekly/monthly headroom at reservation
-        // time, so concurrent spend or earlier usage can still reject the session.
-        // Gemini's ephemeral token expiry does not prove an established browser
-        // session ends at that moment; preserve the full 30-minute exposure reserve.
+        // Provider billing is authoritative; session exposure is controlled by
+        // the plan's daily seconds allowance and conservative token reservation.
         let sessionMaxSeconds = Math.min(tier.maxSeconds, tier.dailySeconds);
-        const globalBudgetCaps = [
-          config.ai.routing.budget.dailyUsd,
-          config.ai.routing.budget.weeklyUsd,
-          config.ai.routing.budget.monthlyUsd
-        ].filter(Number.isFinite);
-        if (tier.provider !== 'gemini' && globalBudgetCaps.length) {
-          const configuredCeilingUsd = Math.min(...globalBudgetCaps);
-          const affordableWholeMinutes = Math.floor(configuredCeilingUsd / perMinute);
-          sessionMaxSeconds = Math.min(sessionMaxSeconds, affordableWholeMinutes * 60);
-          if (sessionMaxSeconds < 60) {
-            throw new HttpError(503, 'realtime_budget_unavailable', 'Realtime voice is paused because the configured global budget cannot cover one safe minute for this model.');
-          }
-        }
         if (!store?.reserveDailyRealtimeVoice || !store?.settleDailyRealtimeVoiceReservation || !store?.releaseDailyRealtimeVoiceReservation) {
           throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice is paused because the daily allowance cannot be verified safely.');
         }
@@ -548,18 +523,6 @@ return { body: { sites: await connect.list(caller) } }; }
           logger?.warn?.('realtime token reservation failed', { error: err?.message });
           throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice is paused because token capacity cannot be verified safely.');
         }
-        // Gemini's credential expiry does not prove an established browser session ends
-        // at expiry, so retain the conservative 30-minute USD exposure reservation.
-        const reservationSeconds = tier.provider === 'gemini' ? Math.max(tier.maxSeconds, 1800) : sessionMaxSeconds;
-        const sessionCost = Math.round((perMinute * reservationSeconds / 60) * 1e6) / 1e6;
-        let spendReservation;
-        try {
-          spendReservation = await budget.reserveSpend({ caller, amountUsd: sessionCost, maxRequestUsd: null });
-        } catch (err) {
-          await store.releaseDailyTokenReservation({ reservationId: tokenReservation.id }).catch(() => {});
-          await store.releaseDailyRealtimeVoiceReservation({ reservationId: voiceReservation.id }).catch(() => {});
-          throw err;
-        }
         try {
           let session;
           let provider = tier.provider;
@@ -590,15 +553,12 @@ return { body: { sites: await connect.list(caller) } }; }
           if (!tokensSettled) throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice token usage could not be reconciled safely.');
           const voiceSettled = await store.settleDailyRealtimeVoiceReservation({ reservationId: voiceReservation.id });
           if (!voiceSettled) throw new HttpError(503, 'realtime_quota_unavailable', 'Realtime voice usage could not be reconciled safely.');
-          await budget.settleSpend(spendReservation, sessionCost);
           await usageLog?.record?.(caller, { provider, model: tier.model, outcome: 'ok', task: 'realtime', latencyMs: now() - started,
-            costUsd: sessionCost, spendReservationId: spendReservation.id });
+            costUsd: null });
           return { body: { ...session, provider, tier: choice.tier, effort: tier.effort, voices: provider === 'gemini' ? GEMINI_REALTIME_VOICES : REALTIME_VOICES_LIST, max_seconds: tier.provider === 'gemini' ? tier.maxSeconds : sessionMaxSeconds } };
         } catch (err) {
           await store.releaseDailyTokenReservation({ reservationId: tokenReservation.id }).catch(() => {});
           await store.releaseDailyRealtimeVoiceReservation({ reservationId: voiceReservation.id }).catch(() => {});
-          await budget.releaseSpend(spendReservation).catch(() => {});
-          if (err instanceof HttpError && err.code === 'budget_reached') throw err;
           logger?.warn?.('realtime session failed', { kind: err?.kind, provider: tier.provider, model: tier.model });
           throw new HttpError(503, 'realtime_unavailable', 'Realtime voice could not be started. Please try again.');
         }
@@ -2522,10 +2482,13 @@ return { body: { sites: await connect.list(caller) } }; }
       // voice turn with `speak_voice`), then { type: 'done', ...the usual reply, audio? } or
       // { type: 'error', error }. Problems found before the model starts (checks,
       // limits, plan) are normal JSON errors. Closing the connection stops the reply.
-      handler: async ({ caller, body, ip, res, requestId }) => {
+      handler: async ({ req, caller, body, ip, res, requestId }) => {
         if (body.stream !== true) return { body: await chat(caller, body, ip) };
         const stop = new AbortController();
-        res.on('close', () => { if (!res.writableEnded) stop.abort(); });
+        const abortOnDisconnect = () => { if (!res.writableEnded && !stop.signal.aborted) stop.abort(); };
+        res.on('close', abortOnDisconnect);
+        req.socket?.on('close', abortOnDisconnect);
+        res.on('finish', () => req.socket?.off('close', abortOnDisconnect));
         let started = false;
         const send = (event) => {
           if (res.destroyed || res.writableEnded) return;

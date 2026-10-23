@@ -82,10 +82,11 @@ push and PR. Vercel builds a preview for every PR.
   body parsing, static files (strict CSP: `'self'` only, no inline scripts).
 - `src/ai/` — providers (`openai`, `local`, `gemini`, `fake`), `router.js`
   (fallback, redaction for outside models), smart routing: `classify.js`
-  (levels 1–5), `logic.js` (tier 0, no model), `policy.js`, `budget.js`,
-  `pricing.js` + `config/model-prices.json`. See `docs/routing.md`.
+  (levels 1–5), `logic.js` (tier 0, no model), `policy.js`, and `provider-billing.js`.
+  Production model billing comes from providers; `pricing.js` + `config/model-prices.json`
+  remain for legacy offline tooling only. See `docs/routing.md`.
 - `src/web/` — SSRF-safe link reader and web search (`docs/web.md`); `cite.js` + `public/cite.js` — citations, facts only, 7 styles (`docs/citations.md`).
-- `src/images.js`, `src/ai/image.js` — pictures: tiers (`IMAGE_TIER_n_*`), Gemini / GPT Image, own budget.
+- `src/images.js`, `src/ai/image.js` — pictures: tiers (`IMAGE_TIER_n_*`), Gemini / GPT Image / OpenRouter; provider billing with plan/rate limits.
 - `src/ai/professions.js`, `src/ai/professional.js` — Professional AI registry and orchestrator (`docs/professional.md`).
 - `src/chat.js` — one chat turn: streaming (NDJSON), Stop, Regenerate, Edit (`docs/chat.md`).
 - `src/notices.js` + `config/notices.json` — in-app notices (`docs/notices.md`).
