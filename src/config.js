@@ -302,14 +302,19 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
-  // Quick/guest general chat is intentionally Nemotron-only through OpenRouter.
-  // Do not use openrouter/free: it may select a different model family.
+  // Quick/guest use the explicit Nemotron family whenever OpenRouter is configured.
+  // Never use openrouter/free, which does not guarantee a model family.
+  const nemotronDefaults = has('openrouter') ? [
+    'openrouter:nvidia/nemotron-3.5-lightning:free',
+    'openrouter:nvidia/nemotron-3-super:free',
+    'openrouter:nvidia/nemotron-3-ultra:free'
+  ] : [];
   const defaultsByLevel = {
-    1: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
-    2: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
-    3: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
-    4: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"],
-    5: ["openrouter:nvidia/nemotron-3.5-lightning:free","openrouter:nvidia/nemotron-3-super:free","openrouter:nvidia/nemotron-3-ultra:free"]
+    1: nemotronDefaults.length ? nemotronDefaults : [has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
+    3: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4:medium' : ''],
+    4: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4:high' : ''],
+    5: nemotronDefaults.length ? nemotronDefaults : [has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
@@ -370,6 +375,7 @@ export function loadConfig(env = process.env) {
   };
   const routing = Object.freeze({
     mode: routingMode,
+    quickNemotronOnly: has('openrouter'),
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
