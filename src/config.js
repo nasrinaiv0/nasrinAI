@@ -540,20 +540,14 @@ export function loadConfig(env = process.env) {
     authGoogle = false;
   }
 
-  // Picture routing by tier (Phase 4.2). Each tier has a primary and an
-  // optional fallback: IMAGE_TIER_n_{PRIMARY,FALLBACK}_{PROVIDER,MODEL,PRICE}.
-  // Tier 1 defaults to Gemini (GEMINI_API_KEY, IMAGE_MODEL) with the older
-  // IMAGE_FALLBACK_MODEL / IMAGE_FALLBACK_PRICE as its fallback. Tiers 2-4
-  // exist only when set. Model names and prices (USD per picture) come from
-  // the providers' pricing pages; a Gemini price may come from
-  // config/model-prices.json instead. A wrong slot is switched off with a
-  // warning; the site keeps working.
+  // Picture routing by tier. Providers own image pricing and billing; this
+  // config validates provider credentials and model IDs only. Legacy *_PRICE
+  // environment variables are ignored and are not required to enable a route.
   const imageKeys = { gemini: geminiKey, openai: String(env.OPENAI_API_KEY || ''), openrouter: String(env.OPENROUTER_API_KEY || '') };
   const imageSlot = (prefix, d = {}) => {
     const named = String(env[prefix + '_PROVIDER'] || d.provider || '').trim().toLowerCase();
     const provider = named === 'google' ? 'gemini' : named;   // google = gemini
     const model = String(env[prefix + '_MODEL'] || d.model || '').trim();
-    const priceRaw = String(env[prefix + '_PRICE'] ?? d.price ?? '').trim();
     if (!provider && !model) return null;
     const off = (why) => { warnings.push(`${prefix}: ${why} This picture route is off.`); return null; };
     if (!(provider in imageKeys)) return off('_PROVIDER must be google (gemini), openai or openrouter.');
@@ -561,21 +555,16 @@ export function loadConfig(env = process.env) {
     if (!(provider === 'openrouter' ? /^[a-z0-9][a-z0-9._-]{0,79}\/[a-z0-9][a-z0-9._:/-]{0,99}$/i.test(model) : /^[a-z0-9][a-z0-9.-]{1,79}$/i.test(model))) return off('_MODEL: use the exact model ID from the provider catalog.');
     if (provider === 'openai' && !/^gpt-image/.test(model)) return off('_MODEL: use the GPT Image model name from OpenAI, for example gpt-image-….');
     if (provider === 'openrouter' && !['openai/gpt-image-2', 'openai/gpt-image-2.5-flare', 'openai/gpt-image-2.5-sunburst'].includes(model)) return off('_MODEL: use a verified OpenRouter image model, such as openai/gpt-image-2 or openai/gpt-image-2.5-flare.');
-    let price = null;
-    if (priceRaw) {
-      price = Number(priceRaw);
-      if (!Number.isFinite(price) || price <= 0 || price > 1) return off('_PRICE: the price of one picture in US dollars, for example 0.04.');
-    } else if (provider !== 'gemini') return off('_PRICE: the price of one picture in US dollars is needed, for example 0.04.');
     // OpenAI's quality setting drives its price (OpenAI's default is high).
     const quality = String(env[prefix + '_QUALITY'] || '').trim().toLowerCase() || null;
     if (quality && (provider !== 'openai' || !['low', 'medium', 'high', 'xhigh', 'max', 'auto'].includes(quality))) return off('_QUALITY: low, medium, high, xhigh, max or auto (OpenAI only).');
-    return Object.freeze({ provider, model, price, ...(quality ? { quality } : {}) });
+    return Object.freeze({ provider, model, ...(quality ? { quality } : {}) });
   };
   const imageTiers = {};
   for (const n of [1, 2, 3, 4]) {
     const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, n === 1 && geminiKey ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' } : {});
-    const legacy = n === 1 && (env.IMAGE_FALLBACK_MODEL || env.IMAGE_FALLBACK_PRICE)
-      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL, price: env.IMAGE_FALLBACK_PRICE } : {};
+    const legacy = n === 1 && env.IMAGE_FALLBACK_MODEL
+      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : {};
     const fallback = imageSlot(`IMAGE_TIER_${n}_FALLBACK`, legacy);
     if (primary) imageTiers[n] = Object.freeze({ primary, fallback });
     else if (fallback) warnings.push(`IMAGE_TIER_${n}_FALLBACK is set without a primary. Tier ${n} pictures are off.`);
