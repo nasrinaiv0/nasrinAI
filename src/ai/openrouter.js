@@ -90,7 +90,7 @@ export function createOpenRouterClient({
 
   // Return the live catalog for the requested capability. This is discovery only;
   // callers must still use the task-specific request method and handle provider errors.
-  async function listModelsForTask({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
+  async function listCapabilityModels({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
     const output = TASK_OUTPUT[task];
     if (!output) return [];
     let models;
@@ -113,6 +113,14 @@ export function createOpenRouterClient({
     if (Array.isArray(attachments) && attachments.length && !['vision', 'pdf', 'audio_understanding', 'video_understanding'].includes(task)) return [];
     if (task === 'vision' && attachments.length) models = models.filter((item) => item.architecture?.input_modalities?.includes('image'));
     return [...new Set(models.map((item) => item.id))];
+  }
+
+  async function listModelsForTask(options = {}) {
+    const task = options.task || 'chat';
+    // The policy router consumes these IDs as text-generation fallbacks. Do not
+    // leak specialized image/video/audio/embedding IDs into that chat lane.
+    if (['image', 'video', 'speech', 'transcription', 'audio', 'embeddings', 'rerank', 'decisions'].includes(task)) return [];
+    return listCapabilityModels(options);
   }
 
   async function selectModel(task, preferred = [], requirements = {}) {
@@ -301,7 +309,7 @@ export function createOpenRouterClient({
     return request('/embeddings', { body: { model: selected.id, input }, signal });
   }
 
-  return Object.freeze({ listModels, listModelsForTask, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
+  return Object.freeze({ listModels, listModelsForTask, listCapabilityModels, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
 }
 
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;
