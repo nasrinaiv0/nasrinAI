@@ -228,7 +228,7 @@ test('picture tiers: chosen by code, configured per tier, each with its own fall
 
   const key = { OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), GEMINI_API_KEY: 'g'.repeat(39) };
   const c = testConfig({ ...key, IMAGE_TIER_2_PRIMARY_PROVIDER: 'openai', IMAGE_TIER_2_PRIMARY_MODEL: 'gpt-image-x', IMAGE_TIER_2_PRIMARY_PRICE: '0.05', IMAGE_TIER_2_FALLBACK_PROVIDER: 'gemini', IMAGE_TIER_2_FALLBACK_MODEL: 'gemini-3.1-flash-lite-image' });
-  assert.deepEqual(Object.keys(c.images.tiers), ['1', '2']);
+  assert.deepEqual(Object.keys(c.images.tiers), ['1', '2', '3', '4']);
   assert.equal(c.images.tiers[1].primary.provider, 'gemini');
   assert.deepEqual({ ...c.images.tiers[2].primary }, { provider: 'openai', model: 'gpt-image-x' });
   assert.equal(c.images.tiers[2].fallback.provider, 'gemini');

@@ -1,3 +1,10 @@
+## PR #559 follow-up — image routing CI fixes (2026-10-24)
+
+- Keep credential-backed image defaults for all four tiers without requiring local model-price metadata; preserve explicit per-tier overrides and provider capability checks.
+- Update the existing image-tier regression expectation to reflect that configured provider credentials now enable default routes for tiers 3 and 4 as well as tiers 1 and 2.
+- Add the required PR changelog entry so the Documentation Gate can validate the change.
+- **Validation:** CI must pass on the follow-up commit, including image routing tests, syntax/secret checks, database tests, and the Documentation Gate. Live provider image generation remains a separate end-to-end check.
+
 ## Platform-wide intent understanding and action routing (2026-10-23)
 
 - Extend the fix beyond photo recall: the shared chat system prompt now directs every task to infer desired outcome, target, existing-vs-new resource, conversation continuity, and the correct available tool/workflow.
