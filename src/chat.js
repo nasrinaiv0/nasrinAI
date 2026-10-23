@@ -9,7 +9,7 @@ import { parseAttachmentsWithOfficeParser } from './ai/document-parser.js';
 import { answerWithLogic } from './ai/logic.js';
 import { readLink, linksIn } from './web/read-link.js';
 import { needsWeb, GAP } from './web/search.js';
-import { costOf, priceOf, toolPrice, estimateTokens } from './ai/pricing.js';
+import { estimateTokens } from './ai/pricing.js';
 import { createProviderSpendHooks } from './ai/budget.js';
 import { redactForProvider } from './ai/redact.js';
 import { ToolError } from './tools/registry.js';
@@ -296,9 +296,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const inputTokens = Math.ceil(((req.system || '').length + (req.messages || []).reduce((n, m) => n + String(m.content || '').length, 0)) / 4);
       const outputTokens = Math.ceil(sofar.length / 4);
       const providerId = err?.provider || provider.id;
-      const modelId = err?.model || model;
-      const costUsd = smart && prices ? (costOf(priceOf(prices, providerId, modelId), { inputTokens, outputTokens }) ?? 0) : 0;
-      if (smart && costUsd && !err?.spendReservationId) policy.spent(costUsd);
+      const costUsd = Number.isFinite(err?.actualCostUsd) && err.actualCostUsd >= 0 ? err.actualCostUsd : null;
       await usageLog.record(caller, {
         provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt,
         outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, reservationId: err?.reservationId, spendReservationId: err?.spendReservationId
@@ -502,68 +500,53 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       webTried = true;
       if (!(await limiter.web(caller))) return null;
       stage('web');
-      const left = await policy.budgetLeft();
-      const perCall = toolPrice('web_search');
-      const webPrice = priceOf(prices, 'openai', webSearch.model);
-      const modelEstimate = webPrice ? costOf(webPrice, { inputTokens: 9000, outputTokens: 1200 }) : (config.isProduction ? null : 0.01);
-      const estimate = perCall !== null && modelEstimate !== null ? perCall + modelEstimate : Infinity;
-      if (!left.unknown && Number.isFinite(estimate) && estimate <= Math.min(left.usd, policy.maxRequestUsd ?? Infinity)) {
-        const started = now();
-        let webReservation = null;
-        let webSpendReservation = null;
-        let webProviderStarted = false;
-        try {
-          if (!budget) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now.');
-          const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + imagePrompt;
-          const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
-          const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
-          webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
-          const webReserveUsd = policy.maxRequestUsd !== null && policy.maxRequestUsd !== undefined
-            ? policy.maxRequestUsd
-            : Math.max(estimate * 1.35, estimate + 0.000001);
-          webSpendReservation = await budget.reserveSpend({ caller, amountUsd: webReserveUsd, maxRequestUsd: policy.maxRequestUsd });
-          webProviderStarted = true;
-          const found = await webSearch.search({
-            system: webSystem,
-            messages: webMessages,
-            onText: live ? (delta) => live.push(delta) : null
-          });
-          const hasUsage = Number.isFinite(found.inputTokens) && found.inputTokens > 0
-            && Number.isFinite(found.outputTokens) && found.outputTokens >= 0;
-          await limiter.settleTokens(webReservation, hasUsage
-            ? Math.max(0, Math.round(found.inputTokens) + Math.round(found.outputTokens))
-            : webReservation.reservedTokens);
-          const costUsd = perCall * found.searches + (costOf(priceOf(prices, 'openai', webSearch.model), found) ?? 0);
-          await budget.settleSpend(webSpendReservation, costUsd);
-          if (!Array.isArray(found.citations) || !found.citations.length) {
-            live?.reset();
-            await usageLog.record(caller, {
-              provider: 'openai', model: webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
-              latencyMs: now() - started, outcome: 'rejected_output', task: 'web', level: plan.level, costUsd,
-              reservationId: webReservation.id, spendReservationId: webSpendReservation.id
-            });
-            return null;   // no sources: answered without the web, never a guess presented as checked
-          }
-          const sources = found.citations.length ? '\n\n**Sources**\n' + found.citations.map((c) => {
-            const title = String(c.title || new URL(c.url).hostname).replace(/[\[\]\r\n]/g, '').slice(0, 120);
-            return `- [${title}](<${c.url}>)`;
-          }).join('\n') : '';
-          const reply = clean(keepIdentity(found.text) + sources);
-          webSources = found.citations.map((c) => ({ url: c.url, title: c.title || '' }));
+      const started = now();
+      let webReservation = null;
+      let webProviderStarted = false;
+      try {
+        const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + imagePrompt;
+        const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
+        const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
+        webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
+        webProviderStarted = true;
+        const found = await webSearch.search({
+          system: webSystem,
+          messages: webMessages,
+          onText: live ? (delta) => live.push(delta) : null
+        });
+        const hasUsage = Number.isFinite(found.inputTokens) && found.inputTokens > 0
+          && Number.isFinite(found.outputTokens) && found.outputTokens >= 0;
+        await limiter.settleTokens(webReservation, hasUsage
+          ? Math.max(0, Math.round(found.inputTokens) + Math.round(found.outputTokens))
+          : webReservation.reservedTokens);
+        const costUsd = Number.isFinite(found.actualCostUsd) && found.actualCostUsd >= 0 ? found.actualCostUsd : null;
+        if (!Array.isArray(found.citations) || !found.citations.length) {
+          live?.reset();
           await usageLog.record(caller, {
-            provider: 'openai', model: webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
-            latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', task: 'web', level: plan.level, costUsd,
-            reservationId: webReservation.id, spendReservationId: webSpendReservation.id
+            provider: found.provider || 'openrouter', model: found.model || webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
+            latencyMs: now() - started, outcome: 'rejected_output', task: 'web', level: plan.level, costUsd,
+            reservationId: webReservation.id
           });
-          if (reply) return reply;
-        } catch (err) {
-          if (webReservation) await limiter.settleTokens(webReservation, webProviderStarted ? webReservation.reservedTokens : 0);
-          if (webSpendReservation) await budget.settleSpend(webSpendReservation, webSpendReservation.reservedUsd).catch(() => {});
-          await usageLog.record(caller, { provider: 'openai', model: webSearch.model, latencyMs: now() - started,
-            outcome: err?.kind === 'timeout' ? 'timeout' : 'provider_error', task: 'web', level: plan.level, costUsd: 0,
-            reservationId: webReservation?.id, spendReservationId: webSpendReservation?.id });
-          (err?.kind === 'config' ? logger.error : logger.warn)('web search failed; answering without it', { kind: err?.kind, status: err?.status, model: webSearch.model });
+          return null;
         }
+        const sources = '\\n\\n**Sources**\\n' + found.citations.map((c) => {
+          const title = String(c.title || new URL(c.url).hostname).replace(/[\\[\\]\\r\\n]/g, '').slice(0, 120);
+          return `- [${title}](<${c.url}>)`;
+        }).join('\\n');
+        const reply = clean(keepIdentity(found.text) + sources);
+        webSources = found.citations.map((c) => ({ url: c.url, title: c.title || '' }));
+        await usageLog.record(caller, {
+          provider: found.provider || 'openrouter', model: found.model || webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
+          latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', task: 'web', level: plan.level, costUsd,
+          reservationId: webReservation.id
+        });
+        if (reply) return reply;
+      } catch (err) {
+        if (webReservation) await limiter.settleTokens(webReservation, webProviderStarted ? webReservation.reservedTokens : 0);
+        await usageLog.record(caller, { provider: 'openrouter', model: webSearch.model, latencyMs: now() - started,
+          outcome: err?.kind === 'timeout' ? 'timeout' : 'provider_error', task: 'web', level: plan.level, costUsd: null,
+          reservationId: webReservation?.id });
+        (err?.kind === 'config' ? logger.error : logger.warn)('web search failed; answering without it', { kind: err?.kind, status: err?.status, model: webSearch.model });
       }
       return null;
     }
