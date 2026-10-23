@@ -7,7 +7,10 @@ import { costOf, estimateTokens, priceOf } from './pricing.js';
 // enforcement point shared by every serverless instance. Unknown prices and an
 // unavailable reservation ledger fail closed before a paid provider call.
 export function createBudget({ store, config, logger, kind = 'reasoning', now = () => Date.now(), cacheMs = 30_000 }) {
-  const b = kind === 'image' ? config.images.budget : config.ai.routing.budget;
+  // Legacy compatibility for tests and older callers only. Production runtime
+  // no longer creates this USD budget; provider dashboards own spend controls.
+  const b = (kind === 'image' ? config.images?.budget : config.ai.routing?.budget)
+    || { dailyUsd: null, weeklyUsd: null, monthlyUsd: null, maxRequestUsd: null };
   const spentSince = kind === 'image'
     ? (since) => store.imageCostSince(since)
     : async (since) => (await store.costSince(since)) - (await store.imageCostSince(since).catch(() => 0));
