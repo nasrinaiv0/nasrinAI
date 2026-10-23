@@ -136,7 +136,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, prices = null, budget = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, config, logger, now = () => Date.now() }) {
   const smart = Boolean(policy) && config.ai.routing.mode === 'smart';
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
   // so write/money tools are refused instead of proposed.
@@ -288,9 +288,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     let fromLibrary = [];   // titles of the person's Library files used for this answer
     const live = opts.stream ? liveText(opts.stream) : null;
     const streamReq = live ? { onText: (t) => live.push(t) } : {};
-    // The person pressed Stop (or left): keep what was written so far, and
-    // count the tokens spent, estimated, so stopping never gets around the
-    // daily limits or the spending budget.
+    // The person pressed Stop (or left): keep what was written so far and count
+    // the tokens used so stopping cannot bypass token allowances.
     async function stopped(err, req, startedAt, plan) {
       const sofar = live ? live.text() : '';
       const inputTokens = Math.ceil(((req.system || '').length + (req.messages || []).reduce((n, m) => n + String(m.content || '').length, 0)) / 4);
@@ -492,7 +491,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     }
 
     // Questions that need fresh facts get a web search (with sources), when it
-    // is set up, allowed by the limits and affordable within the budget.
+    // is set up and allowed by token/abuse limits.
     // Also used after a draft answer that admits it lacks current facts (GAP).
     let webTried = false;
     const webAllowed = () => smart && !only && webSearch && !files.length && !links.length && !isPastIntent(typed) && !isConversationMeta(typed);
@@ -669,7 +668,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                 await usageLog.record(caller, {
                   provider: err?.provider || 'router', model: err?.model || 'unknown',
                   outcome: err?.code === 'budget_reached' ? 'budget_blocked' : 'provider_error',
-                  task: `council_${role}`, level: councilPlan.level, costUsd: 0
+                  task: `council_${role}`, level: councilPlan.level, costUsd: null
                 });
                 throw err;
               }
@@ -770,7 +769,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       } catch (err) {
         if (err?.kind === 'stopped' || opts.signal?.aborted) return stopped(err, req, started, plan);
         if (err instanceof HttpError) {
-          await usageLog.record(caller, { provider: 'router', model: 'none', outcome: err.code === 'budget_reached' ? 'budget_blocked' : 'rejected_output', task: plan.task, level: plan.level, costUsd: 0 });
+          await usageLog.record(caller, { provider: 'router', model: 'none', outcome: err.code === 'budget_reached' ? 'budget_blocked' : 'rejected_output', task: plan.task, level: plan.level, costUsd: null });
           throw err;
         }
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
@@ -828,7 +827,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
       + media.reduce((n, a) => n + (a.kind === 'image' ? 8192 : a.kind === 'pdf' ? 16000 : 4000), 0);
     const reservation = await limiter.reserveTokens(caller, Math.ceil((legacyInputEstimate * 2 + legacyMaxTokens) * 2));
-    const spendHooks = createProviderSpendHooks({ budget, config, prices, caller, tier: choice.tier });
+    const spendHooks = createProviderSpendHooks({ config, caller, tier: choice.tier });
     try {
       result = await provider.generate({
         system: legacySystem,
