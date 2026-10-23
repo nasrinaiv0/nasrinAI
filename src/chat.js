@@ -634,7 +634,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const onFailure = (f) => { live?.reset(); return usageLog.record(caller, {
         provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
         inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
-        outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, escalated: f.escalated,
+        outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
       let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + imagePrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
@@ -694,7 +694,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                 inputTokens: specialist.result.inputTokens, outputTokens: specialist.result.outputTokens,
                 cachedTokens: specialist.cachedTokens, latencyMs: now() - started,
                 outcome: specialist.result.text ? 'ok' : 'rejected_output',
-                task: `council_${role}`, level: specialist.level, costUsd: specialist.costUsd,
+                task: `council_${role}`, level: specialist.level, costUsd: specialist.costUsd, costSource: Number.isFinite(specialist.costUsd) ? 'provider_reported' : null,
                 reservationId: specialist.reservationId, spendReservationId: specialist.spendReservationId
               });
               return { text: specialist.result.text, spec: specialist.spec, costUsd: specialist.costUsd };
@@ -736,7 +736,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           await usageLog.record(caller, {
             provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
             inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
-            latencyMs: now() - started, outcome: 'ok', task: plan.task, level: run.level, costUsd: run.costUsd, escalated: run.escalated,
+            latencyMs: now() - started, outcome: 'ok', task: plan.task, level: run.level, costUsd: run.costUsd, costSource: Number.isFinite(run.costUsd) ? 'provider_reported' : null, escalated: run.escalated,
             reservationId: run.reservationId, spendReservationId: run.spendReservationId
           });
           const calls = run.result.toolCalls;
@@ -902,7 +902,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       provider: result.provider || provider.id, model: result.model || model,
       inputTokens: result.inputTokens, outputTokens: result.outputTokens,
       latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', reservationId: reservation.id,
-      costUsd: result.costUsd, spendReservationId: result.spendReservationId
+      costUsd: result.costUsd, costSource: Number.isFinite(result.costUsd) ? 'provider_reported' : null, spendReservationId: result.spendReservationId
     });
     if (!reply) throw unavailable();
 
