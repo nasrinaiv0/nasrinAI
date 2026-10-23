@@ -156,6 +156,7 @@ const dashboardHtml = `<!doctype html>
     <nav id="navigation">
       <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
       <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
+      <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
       <button class="nav-item" data-panel="security"><span>◇</span>Security &amp; Audit</button>
@@ -180,6 +181,7 @@ const dashboardHtml = `<!doctype html>
 const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
+  learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
   security: { title: 'Security & Audit', description: 'Authorization health, security events, and a traceable record of owner actions.' },
@@ -375,6 +377,9 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const bootstrapPath = pathname === '/v1/owner/session';
     const reservedOwnerApi = pathname === '/v1/owner' || pathname.startsWith('/v1/owner/');
     const incidentCollectionPath = pathname === '/owner/api/incidents';
+    const communityCollectionPath = pathname === '/owner/api/community-learning';
+    const communityAction = /^\\/owner\\/api\\/community-learning\\/([0-9a-f-]{36})\\/(approve|reject)$/.exec(pathname);
+    const communityWrite = req.method === 'POST' && Boolean(communityAction);
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
@@ -424,7 +429,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -497,6 +502,65 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
+    if (communityCollectionPath && (req.method === 'GET' || req.method === 'HEAD')) {
+      const url = new URL(req.url, 'http://local');
+      const status = url.searchParams.get('status') || 'pending_review';
+      if (!['pending_review', 'approved', 'rejected'].includes(status)) {
+        sendJson(res, 400, { error: { code: 'invalid_status', message: 'Choose pending_review, approved, or rejected.' } });
+        return true;
+      }
+      try {
+        const tenantId = '00000000-0000-0000-0000-000000000001';
+        const rows = await store.request('GET', 'improvement_examples?select=id,subject_type,example_text,status,created_at,expires_at,reviewed_at,reviewer_id&tenant_id=eq.' + tenantId +
+          '&status=eq.' + status + '&expires_at=gt.' + encodeURIComponent(new Date(now()).toISOString()) +
+          '&order=created_at.desc&limit=50');
+        sendJson(res, 200, { status, examples: Array.isArray(rows) ? rows : [] });
+      } catch {
+        logger?.warn?.('owner community learning list unavailable', { source: 'improvement_examples' });
+        sendJson(res, 503, { error: { code: 'learning_source_unavailable', message: 'Community learning review storage is unavailable.' } });
+      }
+      return true;
+    }
+    if (communityWrite) {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') { sendNotFound(res); return true; }
+      if (typeof store?.request !== 'function') { sendJson(res, 503, { error: { code: 'learning_source_unavailable', message: 'Community learning review storage is unavailable.' } }); return true; }
+      let body;
+      try { body = await readOwnerJson(req, 4096); } catch { sendJson(res, 400, { error: { code: 'invalid_request', message: 'A valid JSON request is required.' } }); return true; }
+      const decision = communityAction[2] === 'approve' ? 'approved' : 'rejected';
+      const reason = typeof body.reason_code === 'string' ? body.reason_code : (decision === 'approved' ? 'meets_quality_bar' : 'other');
+      const validReasons = ['meets_quality_bar', 'unclear', 'sensitive_content', 'possible_identifier', 'duplicate', 'out_of_scope', 'other'];
+      if (!validReasons.includes(reason)) { sendJson(res, 400, { error: { code: 'invalid_reason', message: 'Choose a valid review reason.' } }); return true; }
+      if (body.confirm !== (decision === 'approved' ? 'APPROVE' : 'REJECT')) { sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Explicit confirmation is required.' } }); return true; }
+      let ip = '';
+      try { ip = normalizeIp(clientIp(req)); } catch {}
+      if (!ip) { sendNotFound(res); return true; }
+      const ipHash = createHash('sha256').update(ip).digest('hex');
+      try {
+        await store.request('POST', 'rpc/review_improvement_example', { body: {
+          p_tenant_id: '00000000-0000-0000-0000-000000000001',
+          p_example_id: communityAction[1], p_reviewer_id: session.sub,
+          p_decision: decision, p_reason_code: reason
+        } });
+        if (!(await recordAudit('community_learning_' + decision, session.sub, req))) {
+          logger?.warn?.('community learning review audit unavailable after decision', { decision });
+        }
+        sendJson(res, 200, { id: communityAction[1], status: decision });
+      } catch {
+        logger?.warn?.('owner community learning decision failed', { decision });
+        sendJson(res, 409, { error: { code: 'review_transition_failed', message: 'The example may be expired, already reviewed, or no longer eligible. Refresh the queue and try again.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/community-learning/history' && (req.method === 'GET' || req.method === 'HEAD')) {
+      try {
+        const rows = await store.request('GET', 'improvement_example_review_events?select=id,example_id,reviewer_id,decision,reason_code,created_at&tenant_id=eq.00000000-0000-0000-0000-000000000001&order=created_at.desc&limit=50');
+        sendJson(res, 200, { events: Array.isArray(rows) ? rows : [] });
+      } catch {
+        logger?.warn?.('owner community learning history unavailable', { source: 'improvement_example_review_events' });
+        sendJson(res, 503, { error: { code: 'learning_history_unavailable', message: 'Review history is unavailable.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner' || pathname === '/owner/') {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
