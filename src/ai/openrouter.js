@@ -331,7 +331,7 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
 // emergency-only by config.js.
 export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fallbackProvider = null, client = null }) {
   const openrouter = client || createOpenRouterClient({ apiKey });
-  const supportedTasks = new Set(['chat', 'research', 'coding', 'debugging', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis']);
+  const supportedTasks = new Set(['chat', 'research', 'coding', 'debugging', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis', 'vision']);
   const normalizeTask = (task) => task === 'debugging' ? 'coding' : supportedTasks.has(task) ? task : 'chat';
   return {
     id: 'openrouter',
