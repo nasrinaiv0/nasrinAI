@@ -119,8 +119,8 @@ export function createConversations({ store, config, logger, now = () => Date.no
           for (const { c, messages } of loaded) {
             for (const m of messages) {
               if (!inWindow(m, c)) continue;
-              const lower = String(m.content || '').toLowerCase();
-              const score = terms.reduce((n, term) => n + (lower.includes(term) ? 1 : 0), 0);
+              const words = new Set(String(m.content || '').toLowerCase().match(/[a-z0-9]+/g) || []);
+              const score = terms.reduce((n, term) => n + (words.has(term) ? 1 : 0), 0);
               if (score) hits.push({ score, c, m });
             }
           }
