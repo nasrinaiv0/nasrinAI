@@ -233,6 +233,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
       if (path === 'rpc/owner_console_retention_summary') return { window_days: 14, definition: 'First observed signed-in model-call activity date', cohorts: [{ cohort_date: '2026-10-15', cohort_size: 4, day_1_eligible: 4, day_1_returned: 2, day_1_retention_pct: 50, day_7_eligible: 0, day_7_returned: 0, day_7_retention_pct: null }] };
       if (path === 'rpc/owner_console_incident_summary') return { ai_failed_requests: 1, automation_failed_runs: 1, stale_running_runs: 1, last_failure_at: '2026-10-23T00:00:00.000Z' };
       if (path === 'rpc/owner_console_audit_summary') return { event_count: 2, last_event_at: '2026-10-23T00:00:00.000Z', by_type: [] };
+      if (path === 'rpc/owner_console_auth_audit_summary') return { available: true, event_count: 8, sign_in_events: 5, account_recovery_events: 1, password_change_events: 1, sign_out_events: 1, last_event_at: '2026-10-23T00:00:00.000Z', by_category: [] };
       if (path === 'rpc/owner_console_record_audit') return null;
       if (path === 'tenants?select=id&limit=1') return [];
       throw new Error('unexpected data source');
@@ -248,6 +249,10 @@ test('overview exposes only aggregate usage and automation data returned by serv
   assert.equal(payload.data_sources.automation, 'available');
   assert.equal(payload.data_sources.database, 'available');
   assert.equal(payload.data_sources.security_audit, 'available');
+  assert.equal(payload.data_sources.platform_security, 'available');
+  assert.equal(payload.platform_auth_audit_24h.event_count, 8);
+  assert.equal(payload.platform_auth_audit_24h.sign_in_events, 5);
+  assert.equal(Object.hasOwn(payload.platform_auth_audit_24h, 'payload'), false);
   assert.equal(payload.data_sources.incidents, 'available');
   assert.equal(payload.data_sources.finance, 'available');
   assert.equal(payload.plans_24h.paid_payment_count, 1);
