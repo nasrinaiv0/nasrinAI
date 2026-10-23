@@ -155,3 +155,22 @@ explicit Nemotron-first and emergency allowlist.
 Live discovery means a model is eligible to be attempted; it does **not** mark the
 model as live-tested or guarantee account access, provider uptime, or quota. Catalog
 failures do not interrupt configured static routes.
+
+
+## OpenRouter endpoint verification
+
+Run `npm run verify:openrouter` with `OPENROUTER_API_KEY` set in the local environment
+to make authenticated, minimal-cost text-generation probes against every model in
+the live catalog that advertises text output. Use `--model <provider/model-id>` to
+probe one model or `--json` to emit machine-readable results for CI artifacts or
+the owner monitoring pipeline. The verifier reports catalog metadata, the exact
+endpoint used, returned model ID, latency, usage fields, and provider error
+classification; it never prints the API key.
+
+A model is marked live-verified by this probe only after a successful non-empty
+text response. Catalog presence, advertised capabilities, and configured routes
+are separate from endpoint verification. Models requiring specialized media,
+embeddings, reranking, or decision endpoints are explicitly reported as not tested
+by the text probe and must be verified with their task-specific request fixtures
+before being advertised as verified. The script is opt-in because each probe sends
+a real provider request and may incur usage charges.
