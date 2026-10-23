@@ -101,10 +101,9 @@ begin
 end;
 $$;
 
--- Automation status aggregates only. Never return workflow definitions, step arguments, or payloads.
-create index if not exists automation_runs_created_at_idx
-  on public.automation_runs (created_at desc);
-
+-- Automation execution history is not available in this schema yet.
+-- Keep the dashboard honest: return explicit unavailability rather than querying a
+-- nonexistent table or treating automation definitions as execution records.
 create or replace function public.owner_console_automation_summary(p_since timestamptz)
 returns jsonb
 language plpgsql
@@ -112,44 +111,28 @@ stable
 security definer
 set search_path = public, pg_temp
 as $owner_automation$
-declare
-  v_result jsonb;
 begin
   if p_since is null or p_since > now() or p_since < now() - interval '90 days' then
     raise exception 'p_since must be within the last 90 days';
   end if;
 
-  select jsonb_build_object(
+  return jsonb_build_object(
+    'available', false,
+    'reason', 'Automation execution history is not configured',
     'window_start', p_since,
     'window_end', now(),
-    'run_count', count(*),
-    'pending_approval_count', count(*) filter (where status = 'pending_approval'),
-    'queued_count', count(*) filter (where status = 'queued'),
-    'running_count', count(*) filter (where status = 'running'),
-    'succeeded_count', count(*) filter (where status = 'succeeded'),
-    'failed_count', count(*) filter (where status = 'failed'),
-    'cancelled_count', count(*) filter (where status = 'cancelled'),
-    'stale_running_count', count(*) filter (
-      where status = 'running' and coalesce(started_at, created_at) < now() - interval '30 minutes'
-    ),
-    'avg_duration_ms', round((avg(extract(epoch from (finished_at - started_at)) * 1000)
-      filter (where started_at is not null and finished_at is not null and finished_at >= started_at))::numeric, 1),
-    'last_run_at', max(created_at),
-    'by_status', coalesce((
-      select jsonb_agg(jsonb_build_object('status', s.status, 'runs', s.runs) order by s.status)
-      from (
-        select status, count(*) as runs
-        from public.automation_runs
-        where created_at >= p_since
-        group by status
-      ) s
-    ), '[]'::jsonb)
-  )
-  into v_result
-  from public.automation_runs
-  where created_at >= p_since;
-
-  return v_result;
+    'run_count', null,
+    'pending_approval_count', null,
+    'queued_count', null,
+    'running_count', null,
+    'succeeded_count', null,
+    'failed_count', null,
+    'cancelled_count', null,
+    'stale_running_count', null,
+    'avg_duration_ms', null,
+    'last_run_at', null,
+    'by_status', '[]'::jsonb
+  );
 end;
 $owner_automation$;
 
@@ -332,7 +315,7 @@ $owner_users$;
 
 revoke execute on function public.owner_console_user_summary() from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_user_summary() to service_role;
--- Derived operational signals from existing telemetry. These are not durable incidents or delivered alerts.
+-- Derived operational signals from existing telemetry. Automation history is explicitly unavailable.
 create or replace function public.owner_console_incident_summary(p_since timestamptz)
 returns jsonb
 language plpgsql
@@ -354,17 +337,12 @@ begin
       select count(*) from public.usage_events
       where created_at >= p_since and outcome <> 'ok'
     ),
-    'automation_failed_runs', (
-      select count(*) from public.automation_runs
-      where created_at >= p_since and status = 'failed'
-    ),
-    'stale_running_runs', (
-      select count(*) from public.automation_runs
-      where status = 'running' and coalesce(started_at, created_at) < now() - interval '30 minutes'
-    ),
-    'last_failure_at', greatest(
-      (select max(created_at) from public.usage_events where created_at >= p_since and outcome <> 'ok'),
-      (select max(coalesce(finished_at, created_at)) from public.automation_runs where created_at >= p_since and status = 'failed')
+    'automation_available', false,
+    'automation_failed_runs', null,
+    'stale_running_runs', null,
+    'last_failure_at', (
+      select max(created_at) from public.usage_events
+      where created_at >= p_since and outcome <> 'ok'
     )
   )
   into v_result;
