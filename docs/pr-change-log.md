@@ -1901,8 +1901,16 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add migration 061 with idempotent indexes for eight foreign-key columns reported by the live Supabase performance advisor: NCC activities/outbox/tasks and Video Studio audio/timeline relations.
 - Add database regression checks that each column has a valid, ready, non-partial index with the foreign-key column first.
 - Keep the advisor's 24 unused-index candidates intact until query workload and maintenance paths are reviewed; an unused-index warning alone is not sufficient evidence for safe deletion.
-- **Validation:** production migration 061 has not been applied. CI is running; no production performance improvement is claimed until the migration is approved, applied, and the advisor is rechecked.
+- **Validation:** migration 061 was approved, applied to production, and verified: all eight foreign-key index checks passed. The post-migration advisor no longer reports the eight missing foreign-key indexes; 32 unused-index informational findings remain under review.
 
+
+## Phase 5 — Production audit and migration reconciliation (2026-10-23)
+
+- Add a read-only production audit report covering the current READY deployment, runtime error check, owner-host fail-closed checks, and server-only grants/RLS for Owner Console tables and RPCs.
+- Record the discrepancy between the tracked Supabase migration registry (060/061 present) and live Owner Console objects from migrations 057–059. Do not replay migrations or synthesize registry entries until SQL definitions and live state are reconciled.
+- Document production configuration warnings: Max/Ultra monthly and annual plan-price values are rejected by whole-peso validation, and the Tier 2 image route is disabled because its price is missing or invalid. Values were not retrieved or changed; operator-confirmed prices are required.
+- **Validation:** successful main CI run 39947344673; Vercel reported the latest production deployment READY and no grouped runtime errors in the preceding 24 hours. An unauthenticated owner-host request and a wrong-host request both returned generic no-store 404. The authorized owner sign-in path still needs an operator smoke test.
+- Audit report: `docs/ops/production-audit-2026-10-23.md`.
 
 ## Phase 6 — Provider-authoritative model billing (2026-10-23)
 
@@ -1911,4 +1919,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Preserve customer subscription/payment pricing; it is separate from provider operating costs. Keep token allowances/reservations, hourly abuse controls, per-plan image quotas, video capability/duration limits, and realtime daily/token quotas.
 - Remove obsolete local USD budget and per-model image price settings from `.env.example`. Keep `config/model-prices.json` only for legacy offline tooling while removing it from production runtime imports.
 - **Operational requirement:** enable spending limits, alerts, and account-level billing controls in every configured provider account. The application no longer acts as a USD spend cap based on estimated model prices.
-- **Validation:** CI is in progress. No production environment variables or Supabase migrations were changed for this phase.
+- **Validation:** pending final CI completion. No production environment variables or Supabase migrations were changed for this phase.
+
