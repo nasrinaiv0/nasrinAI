@@ -266,4 +266,9 @@ test('a bare continue request retrieves a concise digest of recent chats', async
   assert.ok(recalled);
   assert.match(recalled.text, /persistent memory and conversation continuity/);
   assert.match(recalled.text, /update saved memory safely/);
+  for (const prompt of ['Carry on', 'Pick up where we left off']) {
+    const continuation = await convs.context(caller, prompt);
+    assert.ok(continuation, prompt + ' should trigger temporal recall');
+    assert.match(continuation.text, /persistent memory and conversation continuity/);
+  }
 });
