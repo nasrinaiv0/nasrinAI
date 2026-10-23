@@ -1,3 +1,10 @@
+## Platform-wide intent understanding and action routing (2026-10-23)
+
+- Extend the fix beyond photo recall: the shared chat system prompt now directs every task to infer desired outcome, target, existing-vs-new resource, conversation continuity, and the correct available tool/workflow.
+- Add clarification discipline so retrieval, factual questions, troubleshooting, and continuation do not trigger irrelevant creative questionnaires; preserve user constraints and ask only for materially missing inputs.
+- Keep action safety server-enforced: ownership, permissions, tier/quota, privacy, and confirmation requirements remain mandatory. The model must not claim tool actions or verification that did not happen.
+- Add a regression test for the shared platform prompt contract. Full CI and deployed behavior verification remain pending.
+
 ## Photo Library intent routing regression (2026-10-23)
 
 - Fix the generated-image recall detector to recognize “photo/photos” alongside “picture(s)” and “image(s)”. The previous detector silently missed the natural wording shown in the owner screenshots (“I want to see all the photos generated” and “show me my photos in my library”), allowing the request to fall through to the image-creation flow or a generic response.
