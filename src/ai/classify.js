@@ -99,7 +99,7 @@ export function classify({ message, history = [], attachments = [] }) {
 
     if (has(HARD, signalText)) {
       if (/\b(refactor|migration)\b/i.test(text) && /\b(codebase|authentication system|source code|repository)\b/i.test(text)) task = 'coding';
-      else if (task === 'chat' || task === 'analysis' || task === 'planning') task = 'design';
+      else if (!['coding', 'debugging', 'translate', 'writing', 'data_analysis', 'research'].includes(task)) task = 'design';
       raise(4, 'architecture, security, or system design');
     }
 
