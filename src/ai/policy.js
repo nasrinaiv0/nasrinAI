@@ -17,7 +17,7 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
+export function createPolicy({ config, provider, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
   const r = config.ai.routing;
   const cache = new Map();   // key -> { at, value }
   // Brief per-model circuit breaker: after a transient outage, avoid paying the
@@ -45,9 +45,10 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
   }
 
   return {
-    budgetLeft: () => budget.remaining(),
-    spent: (usd) => budget.spend(usd),
-    maxRequestUsd: budget.maxRequestUsd,
+    // Provider invoices, not local model-price estimates, are the source of cost truth.
+    budgetLeft: async () => ({ usd: Infinity, limitedBy: null, unknown: false }),
+    spent: () => {},
+    maxRequestUsd: null,
 
     // What the message needs and where it may go. tier: nasrinai | pro | max | ultra.
     plan({ tier, message, history = [], attachments = [] }) {
