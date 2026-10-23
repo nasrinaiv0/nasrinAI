@@ -24,6 +24,7 @@ import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
 import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/openrouter.js';
+import { createOpenRouterTelemetry } from './ai/openrouter-telemetry.js';
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
@@ -122,7 +123,8 @@ export function buildApp({ config, logger }) {
   }
 
   const effective = { ...config, guestSecret };
-  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
+  const openRouterTelemetry = createOpenRouterTelemetry({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, logger });
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
@@ -144,7 +146,7 @@ export function buildApp({ config, logger }) {
         modelName: embedder.modelName
       })
     : null;
-  const provider = providerFromConfig(config, { logger });
+  const provider = providerFromConfig(config, { logger, openRouterClient });
   if (provider) logger.info('AI provider ready', { provider: provider.id, model: provider.model });
   else logger.warn('AI_PROVIDER is none: chat will answer "unavailable"');
   const models = createModelCatalog({ provider, config: effective, logger });
@@ -160,7 +162,7 @@ export function buildApp({ config, logger }) {
   if (googleWebSearch?.available) logger.info('Google web search adapter ready');
   const openRouterSearchEnabled = Boolean(config.web.searchModel && config.ai.openrouterApiKey);
   const webSearch = openRouterSearchEnabled || googleWebSearch?.available
-    ? createWebSearch({ apiKey: openRouterSearchEnabled ? config.ai.openrouterApiKey : '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1' })
+    ? createWebSearch({ apiKey: openRouterSearchEnabled ? config.ai.openrouterApiKey : '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1', onTelemetry: openRouterTelemetry })
     : null;
   if (webSearch) logger.info('web search ready', { primary: openRouterSearchEnabled ? 'openrouter' : 'google-fallback', fallback: googleWebSearch?.available ? 'google' : 'none' });
   if (policy) logger.info('smart routing on; provider billing is authoritative');

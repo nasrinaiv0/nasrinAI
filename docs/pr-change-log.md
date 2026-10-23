@@ -2026,3 +2026,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Kept catalog-listed chat models available for candidate ordering; the label does not imply endpoint health.
 - Added an opt-in authenticated OpenRouter text endpoint verifier and `npm run verify:openrouter`.
 - The verifier records model ID, advertised modalities/parameters, endpoint result, returned model ID, latency, usage, and sanitized provider error; it does not expose credentials.
+
+
+## PR #572 — OpenRouter Supabase telemetry
+- Added migration `063_openrouter_logs.sql` with service-role-only table access and indexes.
+- Instrumented the shared OpenRouter client and Responses API web-search path with sanitized request/response summaries, latency, HTTP status, provider IDs, usage tokens, and provider-reported costs when present.
+- Added tests for success/error telemetry, prompt/completion redaction, and non-disruptive Supabase failures.
+- Added setup and privacy documentation in `docs/openrouter-telemetry.md`.

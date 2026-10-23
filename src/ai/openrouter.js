@@ -1,4 +1,5 @@
 import { ProviderError } from './provider.js';
+import { randomUUID } from 'node:crypto';
 import { readToolCalls } from './tool-format.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
@@ -42,7 +43,8 @@ function responseError(status, detail) {
  */
 export function createOpenRouterClient({
   apiKey, fetchImpl = fetch, baseUrl = BASE_URL, timeoutMs = 60_000,
-  maxResponseBytes = 25 * 1024 * 1024, now = () => Date.now(), cacheMs = 5 * 60_000
+  maxResponseBytes = 25 * 1024 * 1024, now = () => Date.now(), cacheMs = 5 * 60_000,
+  onTelemetry = null
 }) {
   if (!apiKey) throw new ProviderError('config', 'OpenRouter API key is not configured');
   const root = new URL(baseUrl);
@@ -51,10 +53,34 @@ export function createOpenRouterClient({
   }
   let modelCache = null;
 
+  // Telemetry is deliberately best-effort: never await it on the inference path.
+  // The callback receives metadata summaries only, never raw prompt/response content.
+  function emitTelemetry(event) {
+    if (typeof onTelemetry !== 'function') return;
+    Promise.resolve().then(() => onTelemetry(event)).catch(() => {});
+  }
+
   async function request(path, { method = 'POST', body, headers = {}, signal, raw = false } = {}) {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('..')) throw new ProviderError('config', 'Invalid OpenRouter endpoint');
     const url = path === '/alpha/decisions' ? new URL('/api/alpha/decisions', root.origin) : new URL(root.href.replace(/\/$/, '') + path);
     if (url.origin !== root.origin) throw new ProviderError('config', 'OpenRouter endpoint origin mismatch');
+    const requestId = randomUUID();
+    const startedAt = now();
+    const requestBody = body && typeof body === 'object' && !(body instanceof FormData) && !Array.isArray(body) ? body : null;
+    const requestSummary = {
+      body_bytes: body === undefined ? 0 : typeof body === 'string' ? Buffer.byteLength(body) : requestBody ? Buffer.byteLength(JSON.stringify(body)) : null,
+      body_keys: requestBody ? Object.keys(requestBody).slice(0, 40) : [],
+      message_count: Array.isArray(requestBody?.messages) ? requestBody.messages.length : null,
+      has_tools: Array.isArray(requestBody?.tools) && requestBody.tools.length > 0,
+      raw_response: raw
+    };
+    const baseEvent = {
+      requestId,
+      endpoint: path.split('?')[0],
+      method: String(method).toUpperCase(),
+      requestedModel: typeof requestBody?.model === 'string' ? requestBody.model : null,
+      requestSummary
+    };
     let response;
     try {
       response = await fetchImpl(url, {
@@ -64,19 +90,69 @@ export function createOpenRouterClient({
         signal: signal || AbortSignal.timeout(timeoutMs), redirect: 'error'
       });
     } catch (err) {
+      emitTelemetry({
+        ...baseEvent, status: 'error', httpStatus: null, latencyMs: now() - startedAt,
+        errorCode: err?.name === 'TimeoutError' || err?.name === 'AbortError' ? 'timeout_or_aborted' : 'network_error',
+        responseSummary: { received: false }
+      });
       if (err instanceof ProviderError) throw err;
       throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'OpenRouter request failed');
     }
-    if (!response.ok) throw responseError(response.status, await response.text().catch(() => ''));
+
+    const httpStatus = response.status;
+    const providerRequestId = response.headers.get('x-request-id') || response.headers.get('x-openrouter-request-id');
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      const errorCode = response.status === 429 ? 'rate_limited'
+        : response.status === 402 ? 'payment_required'
+        : response.status === 401 || response.status === 403 ? 'provider_auth'
+        : response.status >= 500 ? 'provider_server_error' : 'provider_http_error';
+      emitTelemetry({
+        ...baseEvent, status: 'error', httpStatus, latencyMs: now() - startedAt,
+        providerRequestId, errorCode,
+        responseSummary: { body_received: Boolean(detail), body_bytes: Buffer.byteLength(detail) }
+      });
+      throw responseError(response.status, detail);
+    }
     if (raw) {
       const bytes = Buffer.from(await response.arrayBuffer());
-      if (bytes.length > maxResponseBytes) throw new ProviderError('config', 'OpenRouter response exceeded the configured size limit');
+      if (bytes.length > maxResponseBytes) {
+        emitTelemetry({ ...baseEvent, status: 'error', httpStatus, latencyMs: now() - startedAt, providerRequestId, errorCode: 'response_too_large', responseSummary: { response_bytes: bytes.length } });
+        throw new ProviderError('config', 'OpenRouter response exceeded the configured size limit');
+      }
+      emitTelemetry({
+        ...baseEvent, status: 'success', httpStatus, latencyMs: now() - startedAt,
+        providerRequestId, responseSummary: { response_bytes: bytes.length, content_type: response.headers.get('content-type') || null }
+      });
       return bytes;
     }
     const text = await response.text();
-    if (Buffer.byteLength(text) > maxResponseBytes) throw new ProviderError('config', 'OpenRouter response exceeded the configured size limit');
+    if (Buffer.byteLength(text) > maxResponseBytes) {
+      emitTelemetry({ ...baseEvent, status: 'error', httpStatus, latencyMs: now() - startedAt, providerRequestId, errorCode: 'response_too_large', responseSummary: { response_bytes: Buffer.byteLength(text) } });
+      throw new ProviderError('config', 'OpenRouter response exceeded the configured size limit');
+    }
     const parsed = asJsonOrText(text);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid response');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      emitTelemetry({ ...baseEvent, status: 'error', httpStatus, latencyMs: now() - startedAt, providerRequestId, errorCode: 'invalid_response', responseSummary: { json_or_object: false, response_bytes: Buffer.byteLength(text) } });
+      throw new ProviderError('unavailable', 'OpenRouter returned an invalid response');
+    }
+    const usage = parsed.usage || {};
+    const numeric = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+    emitTelemetry({
+      ...baseEvent, status: 'success', httpStatus, latencyMs: now() - startedAt,
+      providerRequestId, model: typeof parsed.model === 'string' ? parsed.model : baseEvent.requestedModel,
+      promptTokens: numeric(usage.prompt_tokens ?? usage.input_tokens),
+      completionTokens: numeric(usage.completion_tokens ?? usage.output_tokens),
+      totalTokens: numeric(usage.total_tokens),
+      totalCostUsd: numeric(usage.cost ?? parsed.cost ?? parsed.usage?.cost_usd),
+      responseSummary: {
+        response_bytes: Buffer.byteLength(text),
+        response_keys: Object.keys(parsed).slice(0, 40),
+        choices_count: Array.isArray(parsed.choices) ? parsed.choices.length : null,
+        has_data_array: Array.isArray(parsed.data),
+        usage_available: Object.keys(usage).length > 0
+      }
+    });
     return parsed;
   }
 

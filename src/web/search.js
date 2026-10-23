@@ -1,12 +1,32 @@
+import { randomUUID } from 'node:crypto';
 import { ProviderError } from '../ai/provider.js';
 
 // Web research through OpenRouter's Responses API server-side web-search tool.
 // Citations are taken from provider annotations; arbitrary model-authored URLs are
 // removed before rendering. Google Custom Search is an optional failure-only fallback.
-export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://openrouter.ai/api/v1' }) {
+export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://openrouter.ai/api/v1', onTelemetry = null, now = () => Date.now() }) {
   return {
     model,
     async search({ system, messages, maxTokens = 1200, onText = null }) {
+      const telemetryRequestId = randomUUID();
+      const telemetryStartedAt = now();
+      const telemetryRequestSummary = {
+        message_count: Array.isArray(messages) ? messages.length : 0,
+        max_output_tokens: maxTokens,
+        stream: Boolean(onText),
+        tool_count: 1
+      };
+      const emitTelemetry = (event) => {
+        if (typeof onTelemetry !== 'function') return;
+        Promise.resolve().then(() => onTelemetry({
+          requestId: telemetryRequestId,
+          endpoint: '/responses',
+          method: 'POST',
+          requestedModel: model,
+          requestSummary: telemetryRequestSummary,
+          ...event
+        })).catch(() => {});
+      };
       // Route by the latest user intent, not assistant prose or old unrelated turns.
       // Keep the previous user turn only to resolve short follow-ups in context.
       const userMessages = (Array.isArray(messages) ? messages : []).filter((m) => m?.role === 'user');
@@ -77,11 +97,24 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           signal: AbortSignal.timeout(timeoutMs)
         });
       } catch (err) {
+        emitTelemetry({
+          status: 'error', httpStatus: null, latencyMs: now() - telemetryStartedAt,
+          errorCode: err?.name === 'TimeoutError' || err?.name === 'AbortError' ? 'timeout_or_aborted' : 'network_error',
+          responseSummary: { received: false }
+        });
         const fallback = await googleFallback();
         if (fallback) return fallback;
         throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search could not be reached');
       }
+      const telemetryHttpStatus = resp.status;
+      const telemetryProviderRequestId = resp.headers?.get?.('x-request-id') || resp.headers?.get?.('x-openrouter-request-id');
       if (!resp.ok) {
+        emitTelemetry({
+          status: 'error', httpStatus: telemetryHttpStatus, latencyMs: now() - telemetryStartedAt,
+          providerRequestId: telemetryProviderRequestId,
+          errorCode: telemetryHttpStatus === 429 ? 'rate_limited' : telemetryHttpStatus >= 500 ? 'provider_server_error' : 'provider_http_error',
+          responseSummary: { body_received: true }
+        });
         const s = resp.status;
         const fallback = await googleFallback();
         if (fallback) return fallback;
@@ -189,13 +222,23 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         }
         text = stripUnverifiedUrls(text, citations, messages);
         if (onText && text.length > streamedLength) onText(text.slice(streamedLength));
+        const inputTokens = Number(usage?.input_tokens) || 0;
+        const outputTokens = Number(usage?.output_tokens) || Math.ceil(text.length / 4);
+        emitTelemetry({
+          status: 'success', httpStatus: telemetryHttpStatus, latencyMs: now() - telemetryStartedAt,
+          providerRequestId: telemetryProviderRequestId,
+          promptTokens: inputTokens, completionTokens: outputTokens,
+          totalTokens: inputTokens + outputTokens,
+          totalCostUsd: Number.isFinite(Number(usage?.cost)) && usage?.cost != null ? Number(usage.cost) : null,
+          responseSummary: { output_items: null, citations_count: citations.length, search_calls: Math.max(1, calls), usage_available: Boolean(usage) }
+        });
         return {
           text,
           citations,
           searches: Math.max(1, calls),
-          inputTokens: Number(usage?.input_tokens) || 0,
+          inputTokens,
           cachedTokens: Number(usage?.input_tokens_details?.cached_tokens) || 0,
-          outputTokens: Number(usage?.output_tokens) || Math.ceil(text.length / 4)
+          outputTokens
         };
       }
 
@@ -204,13 +247,23 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
       const citations = mergeCitations(parsed.citations);
       const text = stripUnverifiedUrls(parsed.text, citations, messages);
       const calls = (Array.isArray(data?.output) ? data.output : []).filter((i) => i?.type === 'web_search_call').length;
+      const inputTokens = Number(data?.usage?.input_tokens) || 0;
+      const outputTokens = Number(data?.usage?.output_tokens) || 0;
+      emitTelemetry({
+        status: 'success', httpStatus: telemetryHttpStatus, latencyMs: now() - telemetryStartedAt,
+        providerRequestId: telemetryProviderRequestId,
+        promptTokens: inputTokens, completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        totalCostUsd: Number.isFinite(Number(data?.usage?.cost)) && data?.usage?.cost != null ? Number(data.usage.cost) : null,
+        responseSummary: { output_items: Array.isArray(data?.output) ? data.output.length : 0, citations_count: citations.length, search_calls: Math.max(1, calls), usage_available: Boolean(data?.usage) }
+      });
       return {
         text,
         citations,
         searches: Math.max(1, calls),
-        inputTokens: Number(data?.usage?.input_tokens) || 0,
+        inputTokens,
         cachedTokens: Number(data?.usage?.input_tokens_details?.cached_tokens) || 0,
-        outputTokens: Number(data?.usage?.output_tokens) || 0
+        outputTokens
       };
     }
   };
