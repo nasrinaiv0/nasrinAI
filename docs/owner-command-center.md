@@ -1130,3 +1130,41 @@ For each balance record:
 - No provider keys, credits, production environment variables, schema changes, merge, or deployment were performed by this documentation update.
 - The implementation must keep the same owner-command-center branch/PR for the Owner Command Center work unless the owner explicitly changes that workflow. Update this section, `docs/owner-command-center-audit.md`, and `docs/pr-change-log.md` as each source, implementation phase, and test result changes status.
 
+
+## 16. Reports — full-report requirements (documentation only)
+
+### Purpose and shared behavior
+
+The Reports landing page is an executive overview. Every report panel must expose a clearly visible **View Full Report →** action that opens a dedicated, detailed report view for that panel. A full report expands the summary rather than merely repeating the same cards. This section specifies the intended product behavior; it does not assert that the UI, APIs, queries, exports, or scheduled delivery are implemented.
+
+All report views share:
+- Date range: today, yesterday, last 7/30/90 days, this month, this year, or a validated custom range.
+- Comparison: previous equivalent period or same period last year when data is available.
+- Relevant category filters (for example plan, provider, model, feature, environment, status, and outcome).
+- Drill-down from charts/KPIs to permitted underlying records, with server-side authorization and pagination.
+- Refresh timestamp, source/provenance, timezone, metric definitions, and explicit **Available**, **No data yet**, **Unavailable**, **Stale**, or **Estimated** states.
+- Export options appropriate to the report (CSV/Excel for structured data; PDF for formatted reports) only where the export path is implemented and verified.
+- Consistent filters and calculations between summary panels and full-report views. Never present mock values as production data or silently convert missing telemetry into zero.
+
+### Report catalog and required contents
+
+1. **Users & Growth** — registered and active users (with documented definitions), new and returning users, sign-ups by day/week/month/year, plan distribution (Quick, Pro, Max, Ultra), retention/cohort analysis, churn, engagement, and user segments. Protect identity data; mask email by default and do not analyze private conversation content.
+2. **Revenue & Payments** — gross and net revenue, refunds, payment fees, successful/failed payments, new subscriptions, renewals, upgrades, cancellations, and revenue by plan, gateway, country, and period. Reconcile against authoritative payment records and label gross recorded payments separately from settled/net revenue and estimates.
+3. **Token Usage** — input, output, and total tokens; usage by provider, model, user, feature, and plan; daily averages and peaks; allowance utilization; limit events; estimated provider cost and cost per request. Label provider-reported usage versus estimates and show source timestamps.
+4. **Media Generation** — image/video/document/audio/other generation and uploads; volume by plan/model/type; success/failure and processing time; storage growth, downloads, retention and moderation outcomes where recorded; estimated generation costs. Do not expose private file contents in analytics or exports.
+5. **AI Provider Analytics** — requests and tokens by provider/model, latency percentiles, success/error rates, timeouts, estimated cost and cost per successful request, routing decisions, fallback frequency, and provider/model comparisons. Keep prompts, completions, credentials, and raw authorization data out of telemetry.
+6. **System & Infrastructure** — API request volume, uptime, p50/p95 latency where supported, errors, database/storage/CDN/background-job metrics, deployment history, resource/capacity trends, incidents, and service-level objectives. Show each source's scope and last successful poll; unavailable integrations must remain explicitly unavailable.
+7. **Security & Threats** — blocked/rate-limited requests, failed sign-ins, suspicious activity, incident timelines/severity/resolution, privileged owner actions, and verified CI/security evidence (RLS, secret/dependency scans) when a source is connected. Avoid raw secrets, unnecessary personal data, and unsupported claims that a scan passed.
+8. **Automation (n8n)** — total/active workflows, execution volume, success/failure/retry counts, duration, failure categories, integration usage, and workflow-level run history. Show queued/running/succeeded/failed/canceled/timed-out/unknown states only when backed by durable events; redact credentials and customer payloads.
+9. **Support & Engagement** — support-ticket counts, response/resolution times, feedback and satisfaction trends, feature requests, bug reports, recurring issue categories, and breakdowns by plan/period where available. Restrict access to personal ticket contents.
+10. **Recent Activity Summary** — time-ordered, privacy-minimized events across supported categories, with timestamp, category, safe event label, outcome/impact, and source. Include a full-report action to open the searchable, paginated activity history; do not expose raw prompts, message bodies, credentials, or unnecessary identifiers.
+11. **Custom Reports & Exports** — choose a supported report type, date range, filters, columns, grouping, and export format; preview row count and data freshness before generating. Saved reports and scheduled delivery are future/optional capabilities until storage, delivery channels, permissions, and audit records are implemented and verified.
+
+### Acceptance criteria
+
+- Every report panel on the Reports overview has its own **View Full Report →** action linked to the matching detailed report.
+- The detailed view identifies its metric definitions, source, date range/timezone, comparison basis, last refresh, and estimate/unavailable status.
+- Filters, pagination, drill-down, and export are validated server-side; exports enforce row/date limits, formula-injection protection, safe filenames/content types, and owner authorization.
+- Sensitive fields are minimized/redacted; report access and export creation are audited without recording export contents.
+- No UI control appears functional unless its backend capability exists. Tests cover authorization, filters/date boundaries, metric calculations, empty/unavailable/stale sources, export safety, and each panel-to-report destination.
+- This is a documentation-only specification. Do not modify UI, application code, APIs, SQL/migrations, environment variables, or production settings as part of this documentation change.
