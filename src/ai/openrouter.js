@@ -102,7 +102,13 @@ export function createOpenRouterClient({
       models = await listModels();
     }
     models = models.filter((item) => typeof item.id === 'string');
-    if (task === 'image') models = models.filter((item) => !item.architecture || item.architecture.output_modalities?.includes('image') || item.supported_parameters);
+    if (task === 'image') models = models.filter((item) => {
+      // The dedicated /images/models catalog is authoritative when architecture
+      // metadata is absent. If metadata exists, require an explicit image output
+      // modality; the mere presence of supported_parameters proves nothing.
+      const modalities = item.architecture?.output_modalities;
+      return Array.isArray(modalities) ? modalities.includes('image') : true;
+    });
     else if (task === 'video') { /* dedicated video catalog is already task-scoped */ }
     else if (task === 'decisions') return [];
     else models = models.filter((item) => item.architecture?.output_modalities?.includes(output));
