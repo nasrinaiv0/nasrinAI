@@ -107,7 +107,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         throw new ProviderError(err?.name === 'TimeoutError' ? 'timeout' : 'unavailable', 'web search could not be reached');
       }
       const telemetryHttpStatus = resp.status;
-      const telemetryProviderRequestId = resp.headers.get('x-request-id') || resp.headers.get('x-openrouter-request-id');
+      const telemetryProviderRequestId = resp.headers?.get?.('x-request-id') || resp.headers?.get?.('x-openrouter-request-id');
       if (!resp.ok) {
         emitTelemetry({
           status: 'error', httpStatus: telemetryHttpStatus, latencyMs: now() - telemetryStartedAt,
