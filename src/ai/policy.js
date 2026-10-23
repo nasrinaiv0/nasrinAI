@@ -115,9 +115,10 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // OpenRouter. This is enforced at runtime, so ROUTE_LEVEL_* overrides,
           // coding specialists, and cross-provider failover cannot escape it.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
-            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && candidate.model.toLowerCase().startsWith('nvidia/nemotron-')
-              && /^(?:nvidia\/nemotron-[a-z0-9.-]+(?::free)?)$/i.test(candidate.model))
+            // Quick/guest prefer Nemotron first, but allow an explicitly configured
+            // OpenRouter emergency model after those candidates fail. This keeps
+            // failover inside OpenRouter without making the entire chat unavailable.
+            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter')
             : tierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
