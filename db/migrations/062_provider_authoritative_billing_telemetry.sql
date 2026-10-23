@@ -99,7 +99,7 @@ begin
       ) order by p.requests desc, p.provider, p.model)
       from (
         select provider, model,
-               count(*) as requests,
+               count(*) filter (where task <> 'video_cost_reconciliation') as requests,
                count(*) filter (where outcome = 'ok' and task <> 'video_cost_reconciliation') as successes,
                coalesce(sum(input_tokens) filter (where task <> 'video_cost_reconciliation'), 0) as input_tokens,
                coalesce(sum(output_tokens) filter (where task <> 'video_cost_reconciliation'), 0) as output_tokens,
