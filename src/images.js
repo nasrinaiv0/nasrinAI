@@ -16,7 +16,7 @@ import { BRIEF_SYSTEM, planningMessage, readPlan, fallbackBrief, cleanAnswers, c
 // Regenerate is simply `create` again with the same brief (a new, counted
 // picture). Guests get IMAGES_PER_GUEST (default 1) per guest
 // session; signed-in users IMAGES_USER_DAY per day. Each image is counted in
-// the spending budget, kept private, and shown only to its owner.
+// plan limits and provider billing, kept private, and shown only to its owner.
 
 const QUALITY = 'Create one professional, campaign-ready image. Keep any product in the attached photo exactly as it is (shape, colours, label, logo) unless asked to change it. No added text unless asked.';
 
@@ -107,7 +107,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
       return { ...run.result, provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model, costUsd: run.costUsd, level: run.level, spendReservationId: run.spendReservationId };
     }
     const result = await provider.generate({ ...req, route: config.ai.tiers.nasrinai, maxTokens: 1000 });
-    return { ...result, provider: result.provider || provider.id, model: result.model || provider.model, costUsd: 0 };
+    return { ...result, provider: result.provider || provider.id, model: result.model || provider.model, costUsd: Number.isFinite(result?.actualCostUsd) && result.actualCostUsd >= 0 ? result.actualCostUsd : null };
   }
 
   return {
@@ -180,7 +180,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
         }
       } catch (err) {
         if (err instanceof HttpError) {
-          await usageLog.record(caller, { provider: 'router', model: 'none', outcome: err.code === 'budget_reached' ? 'budget_blocked' : 'rejected_output', task: 'image_brief', costUsd: 0 });
+          await usageLog.record(caller, { provider: 'router', model: 'none', outcome: err.code === 'budget_reached' ? 'budget_blocked' : 'rejected_output', task: 'image_brief', costUsd: null });
           throw err;
         }
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
