@@ -111,13 +111,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
           const tierCandidates = r.levels[l];
-          // Quick (tier key: nasrinai) is restricted to NVIDIA Nemotron models on
-          // OpenRouter. This is enforced at runtime, so ROUTE_LEVEL_* overrides,
-          // coding specialists, and cross-provider failover cannot escape it.
+          // Quick/guest prefer Nemotron first, but keep an OpenRouter-only emergency model
+          // at the end of the candidate list. This prevents a free Nemotron outage
+          // from making the entire chat unavailable without allowing cross-provider
+          // routing to bypass the guest/Quick provider policy.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
             ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && candidate.model.toLowerCase().startsWith('nvidia/nemotron-')
-              && /^(?:nvidia\/nemotron-[a-z0-9.-]+(?::free)?)$/i.test(candidate.model))
+              && (/^nvidia\/nemotron-[a-z0-9.-]+(?::free)?$/i.test(candidate.model)
+                || candidate.model === 'openai/gpt-6-luna'))
             : tierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
@@ -241,7 +242,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             }
           }
           calls += attempts.length;
-          if (calls > r.maxRetries) throw Object.assign(err, { level: at });
+          // Quick/guest must be able to walk its configured OpenRouter-only
+          // candidate list (Nemotron first, then the emergency model). Keep this
+          // bounded to the candidates configured at the active level; other tiers
+          // retain the normal retry cap.
+          const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai'
+            ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter').length)
+            : r.maxRetries;
+          if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).
           tried.add(`${spec.provider}:${spec.model}:${spec.effort}`);
           for (const a of attempts) tried.add(`${a.provider}:${a.model}:${a.effort}`);

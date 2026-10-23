@@ -135,6 +135,8 @@ Image and video are separate capability routes. Image generation keeps its own t
 Provider-side billing dashboards and invoices are authoritative for actual costs. Do not add per-model USD prices to runtime routing policy; model availability is governed by explicit route configuration, capabilities, privacy policy, plan, token quotas and abuse controls. Keep `config/model-prices.json` out of production runtime imports.
 
 
-## Quick and guest Nemotron policy
+## OpenRouter chat model pools
 
-Quick and guest chat requests use only the explicitly named NVIDIA Nemotron models served through OpenRouter: `nvidia/nemotron-3.5-lightning:free`, `nvidia/nemotron-3-super-120b-a12b:free`, and `nvidia/nemotron-3-ultra-550b-a55b:free`. Runtime policy enforces the provider and model-family allowlist even when `ROUTE_LEVEL_n` is overridden. It does not use `openrouter/free`, Gemini, OpenAI, Anthropic, local models, or direct NVIDIA NIM as a fallback for Quick. If every allowed Nemotron route is unavailable, the request fails closed with the normal temporary-unavailability response rather than silently switching model families. Provider availability and free eligibility can change; verify the exact IDs against the OpenRouter catalog before production rollout.
+With `OPENROUTER_API_KEY` configured, the requested DeepSeek V4/V4.1 Flash, GLM 5.3 Flash, MiMo V2.6 Flash/Pro, GPT-6 Luna/Luna Pro, Claude Haiku 5.5, Qwen3.8 Flash/27B, and Ling 3.1 Flash models are active default candidates for paid tiers. Task-aware ordering and existing capability, privacy, tier, and quota checks still apply. Provider-reported usage and billing remain authoritative.
+
+Quick/guest remains Nemotron-first and is limited to those Nemotron models plus `openai/gpt-6-luna` as an emergency OpenRouter fallback. It cannot fall through to Luna Pro, MiMo Pro, or other paid-tier candidates, including with a `ROUTE_LEVEL_n` override. Catalog presence is not proof of account-level availability; authenticated live smoke tests are required before each endpoint can be called verified.

@@ -309,14 +309,32 @@ export function loadConfig(env = process.env) {
     'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
     'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
   ] : [];
+  // OpenRouter chat candidates are real routing candidates, not catalog-only metadata.
+  const openRouterProCandidates = has('openrouter') ? [
+    'openrouter:deepseek/deepseek-v4.1-flash',
+    'openrouter:deepseek/deepseek-v4.1-flash-1017',
+    'openrouter:deepseek/deepseek-v4-flash-0731',
+    'openrouter:deepseek/deepseek-v4-flash-vision-exp',
+    'openrouter:z-ai/glm-5.3-flash',
+    'openrouter:xiaomi/mimo-v2.6-flash',
+    'openrouter:openai/gpt-6-luna',
+    'openrouter:anthropic/claude-haiku-5.5',
+    'openrouter:qwen/qwen3.8-flash',
+    'openrouter:qwen/qwen3.8-27b',
+    'openrouter:inclusionai/ling-3.1-flash'
+  ] : [];
+  const openRouterMaxCandidates = has('openrouter') ? [
+    'openrouter:xiaomi/mimo-v2.6-pro',
+    'openrouter:openai/gpt-6-luna-pro',
+    ...openRouterProCandidates
+  ] : [];
   const defaultsByLevel = {
-    // Nemotron is the explicit Quick/guest pool. Do not replace paid-tier candidates
-    // with free-tier models just because OpenRouter is configured.
-    1: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
-    2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
-    3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    5: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
+    // Quick/guest stays Nemotron-first with GPT-6 Luna as the only emergency route.
+    1: nemotronDefaults.length ? [...nemotronDefaults, 'openrouter:openai/gpt-6-luna'] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', ...openRouterProCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    5: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
