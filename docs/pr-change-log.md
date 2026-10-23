@@ -2009,3 +2009,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for requested IDs in paid-tier routes and Quick exclusion of paid-only models, including custom `ROUTE_LEVEL_1` overrides.
 - Bound Quick/guest retry attempts to the configured OpenRouter candidates so the emergency model can actually be reached after Nemotron failures; other tiers keep their normal retry cap.
 - Provider-reported billing remains authoritative. Full CI and authenticated live model smoke tests are required before merge/release.
+
+
+## Live OpenRouter model discovery and capability-aware routing (2026-10-24)
+
+- Supplement paid-tier configured model shortlists with model IDs discovered from OpenRouter's live catalog, so newly listed text models can become fallback candidates without a code deployment.
+- Filter dynamic candidates by advertised text output, image input for vision attachments, and tool support when tools are requested; keep Decisions/media/embeddings/reranking and PDF work out of generic chat routing.
+- Preserve Quick/guest Nemotron-first and emergency-model restrictions.
+- Catalog discovery errors fall back to configured routes; dynamic candidates remain subject to tier, privacy, and bounded retry policy.
+- **Verification caveat:** discovery makes models eligible to be attempted; it does not prove every endpoint succeeds. Authenticated live smoke tests and production telemetry are required before calling a model live-verified.
