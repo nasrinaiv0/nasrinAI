@@ -1902,3 +1902,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add database regression checks that each column has a valid, ready, non-partial index with the foreign-key column first.
 - Keep the advisor's 24 unused-index candidates intact until query workload and maintenance paths are reviewed; an unused-index warning alone is not sufficient evidence for safe deletion.
 - **Validation:** production migration 061 has not been applied. CI is running; no production performance improvement is claimed until the migration is approved, applied, and the advisor is rechecked.
+
+## PR — production migration history reconciliation (2026-10-23)
+
+- Record the live Supabase migration registry snapshot and the verified presence/security properties of Owner Command Center objects.
+- Document that migrations 057–059 are absent from the registry despite related live objects existing; compare definitions before any replay or baseline decision.
+- No production SQL writes, migration-history edits, or synthetic history rows were made.
