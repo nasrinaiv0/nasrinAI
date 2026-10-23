@@ -43,7 +43,9 @@ begin
         'active_user_ids', f.active_user_ids,
         'active_guest_ids', f.active_guest_ids,
         'total_tokens', f.total_tokens,
-        'provider_reported_cost_usd', f.estimated_cost_usd
+        'provider_reported_cost_usd', f.provider_reported_cost_usd,
+        'cost_known_rows', f.cost_known_rows,
+        'cost_unknown_rows', f.cost_unknown_rows
       ) order by f.requests desc, f.feature)
       from (
         select
@@ -60,7 +62,9 @@ begin
           count(distinct actor_id) filter (where actor_type = 'user') as active_user_ids,
           count(distinct actor_id) filter (where actor_type = 'guest') as active_guest_ids,
           coalesce(sum(input_tokens::bigint + output_tokens::bigint), 0) as total_tokens,
-          sum(cost_usd) as estimated_cost_usd
+          sum(cost_usd) as provider_reported_cost_usd,
+          count(*) filter (where cost_usd is not null) as cost_known_rows,
+          count(*) filter (where cost_usd is null) as cost_unknown_rows
         from public.usage_events
         where created_at >= p_since
         group by 1
@@ -76,7 +80,9 @@ begin
         'successes', p.successes,
         'input_tokens', p.input_tokens,
         'output_tokens', p.output_tokens,
-        'provider_reported_cost_usd', p.estimated_cost_usd
+        'provider_reported_cost_usd', p.provider_reported_cost_usd,
+        'cost_known_rows', p.cost_known_rows,
+        'cost_unknown_rows', p.cost_unknown_rows
       ) order by p.requests desc, p.provider, p.model)
       from (
         select provider, model,
