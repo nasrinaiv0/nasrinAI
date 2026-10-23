@@ -302,7 +302,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const outputTokens = Math.ceil(sofar.length / 4);
       const providerId = err?.provider || provider.id;
       const costUsd = Number.isFinite(err?.actualCostUsd) && err.actualCostUsd >= 0 ? err.actualCostUsd : null;
-      stopUsagePromise = usageLog.record(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'stopped', task: plan?.task, level: err?.level ?? plan?.level, costUsd, reservationId: err?.reservationId, spendReservationId: null });
+      stopUsagePromise = usageLog.record(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, reservationId: err?.reservationId, spendReservationId: null });
       return stopUsagePromise;
     }
     opts.signal?.addEventListener('abort', () => {
