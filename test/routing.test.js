@@ -10,6 +10,7 @@ import { loadPrices, priceOf, costOf } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { ProviderError } from '../src/ai/provider.js';
+import { HttpError } from '../src/http/errors.js';
 import { loadConfig } from '../src/config.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
@@ -23,11 +24,12 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, reply } = {}) {
   const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: geminiFail, reply });
   gemini.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: false, trainsOnData: true });
   const openai = createFakeProvider({ models: ['gpt-5.4-nano'], dataLeavesServer: true, failWith: openaiFail, reply });
-  const router = createRouter({ providers: { gemini, openai }, config, logger: quiet });
+  const openrouter = createFakeProvider({ models: ['nvidia/nemotron-3.5-lightning:free', 'nvidia/nemotron-3-super:free', 'nvidia/nemotron-3-ultra:free'], reply });
+  const router = createRouter({ providers: { gemini, openai, openrouter }, config, logger: quiet });
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
-  return { config, gemini, openai, policy, store };
+  return { config, gemini, openai, openrouter, policy, store };
 }
 const req = (content) => ({ system: 'S', messages: [{ role: 'user', content }], attachments: [] });
 
@@ -75,6 +77,21 @@ test('routing: compatible model; tiers cap the level; private data never goes to
   run = await a.policy.run(priv, req('email me at [email]'));
   assert.equal(run.spec.provider, 'openai', 'skips the free tier that trains on data');
   assert.equal(a.gemini.calls.length, 1);
+});
+
+test('Quick and guest routes use only OpenRouter Nemotron candidates, including after failures', async () => {
+  const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
+  const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
+  const run = await a.policy.run(plan, req('hello'));
+  assert.equal(run.spec.provider, 'openrouter');
+  assert.match(run.spec.model, /^nvidia\\/nemotron-/);
+  assert.equal(a.openai.calls.length, 0);
+  assert.equal(a.gemini.calls.length, 0);
+
+  const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
+  await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.equal(down.openai.calls.length, 0, 'no cross-provider fallback for Quick');
+  assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Quick');
 });
 
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
