@@ -229,3 +229,41 @@ test('cross-chat recall never includes another account or tenant even when Memor
   assert.doesNotMatch(recalled.text, /PRIVATE_OTHER_ACCOUNT_MARKER_71c2/);
   assert.doesNotMatch(recalled.text, /PRIVATE_OTHER_TENANT_MARKER_84d3/);
 });
+
+
+test('new chats retrieve relevant prior topics without an explicit memory question', async () => {
+  const memory = createMemoryStore();
+  const convs = createConversations({ store: memory, config: testConfig(), logger: memoryLogger() });
+  const caller = {
+    tenantId: '00000000-0000-0000-0000-000000000001',
+    actor: { type: 'user', id: 'implicit-continuity-user' },
+    prefs: { memory: true }
+  };
+  const previous = await convs.create(caller);
+  await convs.add(previous, 'user', 'We are implementing the NasrinAI owner console with IP allowlisting.');
+  await convs.add(previous, 'assistant', 'The owner console should fail closed and return not found to unapproved IPs.');
+  const current = await convs.create(caller);
+
+  const recalled = await convs.context(caller, 'What did we decide about the NasrinAI owner console?', current.id);
+  assert.ok(recalled);
+  assert.match(recalled.text, /IP allowlisting/);
+  assert.match(recalled.text, /fail closed/);
+});
+
+test('a bare continue request retrieves a concise digest of recent chats', async () => {
+  const memory = createMemoryStore();
+  const convs = createConversations({ store: memory, config: testConfig(), logger: memoryLogger() });
+  const caller = {
+    tenantId: '00000000-0000-0000-0000-000000000001',
+    actor: { type: 'user', id: 'continue-recall-user' },
+    prefs: { memory: true }
+  };
+  const previous = await convs.create(caller);
+  await convs.add(previous, 'user', 'We were fixing persistent memory and conversation continuity.');
+  await convs.add(previous, 'assistant', 'Next, retrieve recent conversations and update saved memory safely.');
+
+  const recalled = await convs.context(caller, 'Continue');
+  assert.ok(recalled);
+  assert.match(recalled.text, /persistent memory and conversation continuity/);
+  assert.match(recalled.text, /update saved memory safely/);
+});
