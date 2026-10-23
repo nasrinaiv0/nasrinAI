@@ -1,7 +1,7 @@
 // OpenRouter skill catalog. This is metadata, not an authorization list.
-// Only verified exact IDs with prices may be selected by runtime routing; candidates
-// must still be explicitly configured in ROUTE_LEVEL_n and pass live capabilities,
-// privacy, budget and plan checks in policy.js.
+// Runtime candidates must be explicitly configured in ROUTE_LEVEL_n and pass live
+// capability, privacy, and plan checks in policy.js. Local price metadata is not a
+// routing prerequisite; provider billing is authoritative.
 export const OPENROUTER_SKILL_CATALOG = Object.freeze([
   { name: 'DeepSeek V4.1 Flash', id: 'deepseek/deepseek-v4.1-flash', status: 'verified', skills: ['chat','coding','debugging','research','analysis','agent_workflows','vision'], preferredTasks: ['chat','coding','debugging','research','analysis'] },
   { name: 'GLM 5.3 Flash', id: 'z-ai/glm-5.3-flash', status: 'verified', skills: ['fast_chat','coding','multimodal_understanding','agent_workflows'], preferredTasks: ['chat','coding','debugging','research'] },
