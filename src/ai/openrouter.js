@@ -162,10 +162,10 @@ export function createOpenRouterClient({
     if (['image', 'video', 'rerank', 'decisions'].includes(task)) {
       throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
     }
-    const compatible = eligible.filter((m) => typeof m.id === 'string');
-    compatible.sort((a, b) => a.id.localeCompare(b.id));
-    if (!compatible.length) throw new ProviderError('config', `No compatible OpenRouter model is available for task: ${task}`);
-    return compatible[0];
+    // Preserve the provider catalog's order after capability/privacy filtering;
+    // do not infer quality or price from model names.
+    if (!eligible.length) throw new ProviderError('config', `No compatible OpenRouter model is available for task: ${task}`);
+    return eligible[0];
   }
 
   async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, includeUsage = false, provider = {}, signal }) {
