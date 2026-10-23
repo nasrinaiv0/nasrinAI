@@ -184,7 +184,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
           throw err;
         }
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
-        await usageLog.record(caller, { provider: err?.provider || 'router', model: err?.model || 'unknown', latencyMs: now() - started, outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: 'image_brief', costUsd: 0 });
+        await usageLog.record(caller, { provider: err?.provider || 'router', model: err?.model || 'unknown', latencyMs: now() - started, outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: 'image_brief', costUsd: null });
         (kind === 'config' || kind === 'unexpected' ? logger.error : logger.warn)('image brief failed', { kind, error: err?.message });
         throw new HttpError(503, 'images_unavailable', 'NasrinAI cannot plan pictures right now. Please try again in a moment.', kind === 'busy' ? { retryAfter: 30 } : {});
       }
