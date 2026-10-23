@@ -1911,3 +1911,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Document production configuration warnings: Max/Ultra monthly and annual plan-price values are rejected by whole-peso validation, and the Tier 2 image route is disabled because its price is missing or invalid. Values were not retrieved or changed; operator-confirmed prices are required.
 - **Validation:** successful main CI run 39947344673; Vercel reported the latest production deployment READY and no grouped runtime errors in the preceding 24 hours. An unauthenticated owner-host request and a wrong-host request both returned generic no-store 404. The authorized owner sign-in path still needs an operator smoke test.
 - Audit report: `docs/ops/production-audit-2026-10-23.md`.
+
+## Production migration history reconciliation (2026-10-23)
+
+- Record the live Supabase migration registry snapshot and verified security properties of Owner Command Center objects.
+- Migration labels 057–059 are absent from the registry despite related live tables and 13 owner-console functions existing. Compare tables, constraints, indexes, policies, grants, and function definitions before deciding on a baseline or corrective migration.
+- Do not replay migrations 057–059 or create synthetic migration-history rows. Migration 062 remains unapplied pending explicit approval.
+- No production SQL writes were made for this read-only reconciliation.
