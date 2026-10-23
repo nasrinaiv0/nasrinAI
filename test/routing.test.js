@@ -4,7 +4,7 @@ import { classify } from '../src/ai/classify.js';
 import { answerWithLogic } from '../src/ai/logic.js';
 import { createPolicy } from '../src/ai/policy.js';
 import { createRouter } from '../src/ai/router.js';
-import { createBudget, createProviderSpendHooks } from '../src/ai/budget.js';
+import { createProviderSpendHooks } from '../src/ai/provider-billing.js';
 import { loadPrices, priceOf, costOf } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
@@ -58,11 +58,11 @@ test('classifier: simple, moderate, complex, extreme', () => {
   assert.equal(classify({ message: 'Plan an end-to-end architecture redesign of the entire codebase' }).level, 5);
 });
 
-test('routing: cheapest capable model; tiers cap the level; private data never goes to a free tier', async () => {
+test('routing: compatible model; tiers cap the level; private data never goes to a free tier', async () => {
   const a = setup();
   const p = a.policy.plan({ tier: 'nasrinai', message: 'hello', history: [] });
   let run = await a.policy.run(p, req('hello'));
-  assert.deepEqual([run.level, run.spec.provider, run.spec.model, run.costUsd], [1, 'gemini', 'gemini-3.1-flash-lite', 0], 'free tier first');
+  assert.deepEqual([run.level, run.spec.provider, run.spec.model, run.costUsd], [1, 'gemini', 'gemini-3.1-flash-lite', null], 'free tier first');
 
   const hard = a.policy.plan({ tier: 'nasrinai', message: 'Design the database schema architecture for a multi-tenant app' });
   assert.equal(hard.wanted, 4);
@@ -155,7 +155,7 @@ test('end to end: logic answers without a model; smart routing records telemetry
     const e = built.store.usage.at(-1);
     assert.deepEqual([e.model, e.level, e.task, e.outcome], ['gpt-5.4-nano', 1, 'chat', 'ok']);
     assert.equal(provider.calls.at(-1).maxTokens, 700, 'level 1 reply allowance');
-    assert.ok(e.costUsd > 0 && e.costUsd < 0.001);
+    assert.equal(e.costUsd, null, 'provider cost is unknown for this adapter response');
 
     await postJson(srv.url + '/v1/chat', { message: 'Tell me a fun fact about the sea' }, bearer(USER_TOKEN));
     assert.equal(built.store.usage.at(-1).cacheHit, true);
@@ -173,7 +173,7 @@ test('configured route and tier models remain eligible without local price metad
   const run = await a.policy.run(plan, req('Plan a week of meals on a budget'));
   assert.equal(run.spec.provider, 'openai');
   assert.equal(run.spec.model, 'gpt-6-luna', 'the configured tier model is used instead of a local-price-driven fallback');
-  assert.ok(run.costUsd >= 0);
+  assert.equal(run.costUsd, null);
 });
 
 test('a brief outage of the only model: one retry after a short wait, then a clear failure', async () => {
@@ -407,38 +407,20 @@ test('OpenRouter model calls do not depend on local price snapshots', () => {
 });
 
 
-test('OpenRouter spend reservations do not require local model-price entries', async () => {
-  let reserved = null;
-  let settled = null;
-  const budget = {
-    maxRequestUsd: 0.05,
-    async remaining() { return { usd: 0.04, unknown: false, limitedBy: 'daily' }; },
-    async reserveSpend(args) { reserved = args; return { id: 'reservation-1', reservedUsd: args.amountUsd }; },
-    async settleSpend(_reservation, amount) { settled = amount; return amount; },
-    async releaseSpend() {}
-  };
-  const config = {
-    isProduction: true,
-    ai: {
-      maxReplyTokens: 256,
-      routing: { geminiFreeTier: false, budget: { maxRequestUsdByTier: { pro: 0.05 } } }
-    }
-  };
-  const hooks = createProviderSpendHooks({
-    budget, config, prices: {}, tier: 'pro',
-    caller: { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } }
-  });
+test('provider billing records authoritative costs without local reservations', async () => {
+  const config = { isProduction: true };
+  const hooks = createProviderSpendHooks({ config });
   const reservation = await hooks.reserve({
     provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices',
     request: { system: 'You are helpful', messages: [{ role: 'user', content: 'hello' }], maxTokens: 64 }
   });
-  assert.equal(reserved.amountUsd, 0.04);
-  assert.equal(reservation.openRouter, true);
+  assert.deepEqual(reservation, { provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices', providerBilling: true });
   const result = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8, actualCostUsd: 0.0017 });
   assert.equal(result.costUsd, 0.0017);
-  assert.equal(settled, 0.0017);
+  assert.equal(result.spendReservationId, null);
+  const unknown = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8 });
+  assert.equal(unknown.costUsd, null, 'unknown provider cost must not be estimated locally');
 });
-
 test('classifier does not mistake a greeting prefix for the whole request', () => {
   const plan = classify({ message: 'Hi, fix the CI failure and investigate the broken build.' });
   assert.equal(plan.task, 'debugging');
