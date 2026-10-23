@@ -303,7 +303,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const providerId = err?.provider || provider.id;
       const modelId = err?.model || provider.model || 'unknown';
       const costUsd = Number.isFinite(err?.actualCostUsd) && err.actualCostUsd >= 0 ? err.actualCostUsd : null;
-      stopUsagePromise = usageLog.record(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, reservationId: err?.reservationId, spendReservationId: null });
+      stopUsagePromise = usageLog.record(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, costSource: Number.isFinite(costUsd) ? 'provider_reported' : null, reservationId: err?.reservationId, spendReservationId: null });
       return stopUsagePromise;
     }
     opts.signal?.addEventListener('abort', () => {
