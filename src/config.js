@@ -306,15 +306,15 @@ export function loadConfig(env = process.env) {
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
     'openrouter:nvidia/nemotron-3.5-lightning:free',
-    'openrouter:nvidia/nemotron-3-super:free',
-    'openrouter:nvidia/nemotron-3-ultra:free'
+    'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
+    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
   ] : [];
   const defaultsByLevel = {
-    1: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
-    2: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
-    3: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    4: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    5: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', has('anthropic') ? 'anthropic:claude-opus-5-5' : '']
+    1: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
+    3: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : ''],
+    4: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : ''],
+    5: nemotronDefaults.length ? nemotronDefaults : [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
