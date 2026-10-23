@@ -62,7 +62,7 @@ export function createOpenRouterClient({
 
   async function request(path, { method = 'POST', body, headers = {}, signal, raw = false } = {}) {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('..')) throw new ProviderError('config', 'Invalid OpenRouter endpoint');
-    const url = path === '/alpha/decisions' ? new URL('/api/alpha/decisions', root.origin) : new URL(root.href.replace(/\\/$/, '') + path);
+    const url = path === '/alpha/decisions' ? new URL('/api/alpha/decisions', root.origin) : new URL(root.href.replace(/\/$/, '') + path);
     if (url.origin !== root.origin) throw new ProviderError('config', 'OpenRouter endpoint origin mismatch');
     const requestId = randomUUID();
     const startedAt = now();
