@@ -138,7 +138,6 @@ export function createOpenRouterClient({
     if (inputModality) eligible = eligible.filter((m) => Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes(inputModality));
     if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
     if (requirements.requiresTools) eligible = eligible.filter((m) => Array.isArray(m.supported_parameters) && m.supported_parameters.includes('tools'));
-    if (requirements.maxPromptUsdPerMillion != null) eligible = eligible.filter((m) => Number(m.pricing?.prompt) * 1_000_000 <= requirements.maxPromptUsdPerMillion);
     const validateRequirements = (match) => {
       if (task === 'image') {
         const params = match.supported_parameters || {};
@@ -193,10 +192,10 @@ export function createOpenRouterClient({
     if (['image', 'video', 'rerank', 'decisions'].includes(task)) {
       throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
     }
-    const affordable = eligible.filter((m) => Number.isFinite(Number(m.pricing?.prompt)) && Number.isFinite(Number(m.pricing?.completion)));
-    affordable.sort((a, b) => Number(a.pricing.prompt) + Number(a.pricing.completion) - Number(b.pricing.prompt) - Number(b.pricing.completion));
-    if (!affordable.length) throw new ProviderError('config', `No priced OpenRouter model is available for task: ${task}`);
-    return affordable[0];
+    const compatible = eligible.filter((m) => typeof m.id === 'string');
+    compatible.sort((a, b) => a.id.localeCompare(b.id));
+    if (!compatible.length) throw new ProviderError('config', `No compatible OpenRouter model is available for task: ${task}`);
+    return compatible[0];
   }
 
   async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, maxPromptUsdPerMillion, includeUsage = false, provider = {}, signal }) {
