@@ -2482,10 +2482,13 @@ return { body: { sites: await connect.list(caller) } }; }
       // voice turn with `speak_voice`), then { type: 'done', ...the usual reply, audio? } or
       // { type: 'error', error }. Problems found before the model starts (checks,
       // limits, plan) are normal JSON errors. Closing the connection stops the reply.
-      handler: async ({ caller, body, ip, res, requestId }) => {
+      handler: async ({ req, caller, body, ip, res, requestId }) => {
         if (body.stream !== true) return { body: await chat(caller, body, ip) };
         const stop = new AbortController();
-        res.on('close', () => { if (!res.writableEnded) stop.abort(); });
+        const abortOnDisconnect = () => { if (!res.writableEnded && !stop.signal.aborted) stop.abort(); };
+        res.on('close', abortOnDisconnect);
+        req.socket?.on('close', abortOnDisconnect);
+        res.on('finish', () => req.socket?.off('close', abortOnDisconnect));
         let started = false;
         const send = (event) => {
           if (res.destroyed || res.writableEnded) return;
