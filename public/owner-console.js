@@ -14,7 +14,7 @@
     settings: ['Settings', 'Owner-console access status. Allowlist values remain in Vercel.', '⚙']
   };
   const sources = {
-    ai_usage: ['AI usage & tokens', 'Request-level usage events and cost-estimate coverage'],
+    ai_usage: ['AI usage & tokens', 'Request-level usage events and provider-reported cost coverage'],
     users: ['Users & growth', 'Auth record counts and activity signals'],
     retention: ['Usage retention cohorts', 'First-observed signed-in model-call cohorts; not signup cohorts'],
     infrastructure: ['Infrastructure & releases', 'Vercel and dependency health integrations'],
