@@ -186,6 +186,14 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
       }
       return out;
     },
+    // Optional provider-specific live catalog used to discover eligible fallback
+    // candidates. The policy layer handles discovery failures without blocking
+    // configured static routes.
+    async listModelsForTask(providerName, requirements = {}) {
+      const target = providers[providerName];
+      if (!target || typeof target.listModelsForTask !== 'function') return [];
+      return target.listModelsForTask(requirements);
+    },
 
     // True when something can answer: a GPT provider is configured, or the
     // own model is up.
