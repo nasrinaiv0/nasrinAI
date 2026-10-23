@@ -79,14 +79,13 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const fpsCandidates = [preferredFps, ...allowedFrameRates.filter((x) => x !== preferredFps)];
     let requestedResolution = null;
     let requestedFps = null;
-    let perSecond = null;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.getCostPerSecondUsd === 'function') {
       for (const resolution of resolutionCandidates) {
         if (!allowedResolutions.includes(resolution)) continue;
         for (const fps of fpsCandidates) {
           if (!allowedFrameRates.includes(fps)) continue;
           try {
-            perSecond = await routeProvider.getCostPerSecondUsd({
+            await routeProvider.validateOptions({
               generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
             });
             requestedResolution = resolution;
@@ -102,7 +101,6 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     } else {
       requestedResolution = allowedResolutions.includes(preferredResolution) ? preferredResolution : (allowedResolutions[0] || config.video.resolution);
       requestedFps = allowedFrameRates.includes(preferredFps) ? preferredFps : 30;
-      perSecond = null;
     }
     const cacheKey = marketingCacheKey('video', {
       prompt, targetSeconds, aspectRatio, requestTier: selected,
