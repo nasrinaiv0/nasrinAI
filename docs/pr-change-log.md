@@ -1927,3 +1927,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Remove obsolete local USD budget and per-model image price settings from `.env.example`. Keep `config/model-prices.json` only for legacy offline tooling while removing it from production runtime imports.
 - **Operational requirement:** enable spending limits, alerts, and account-level billing controls in every configured provider account. The application no longer acts as a USD spend cap based on estimated model prices.
 - **Validation:** pending final CI completion. No production environment variables or Supabase migrations were changed for this phase.
+
+
+## PR #558 — Provider-availability fallback and image model discovery
+
+- Remove the stale local allowlist for OpenRouter image model IDs; configured models are validated against the live image catalog and task capabilities.
+- Treat model/route HTTP 404 responses as availability failures so routing can continue to other eligible models. HTTP 401/403 remain configuration failures.
+- If a configured OpenRouter model is absent from the live catalog, continue to compatible live catalog candidates instead of stopping immediately.
+- Image fallback candidates must pass the image catalog and requested capability checks; text-only models are never used for image generation.
+- Add regression tests for retired image model fallback and HTTP 404 classification.
+- Missing local price metadata is not an eligibility gate. Existing plan entitlements, quotas, privacy checks, and provider-side billing remain unchanged.

@@ -29,9 +29,9 @@ function asJsonOrText(text) {
   try { return JSON.parse(text); } catch { return text.slice(0, 500); }
 }
 function responseError(status, detail) {
-  const kind = status === 401 || status === 403 || status === 404 ? 'config'
-    : status === 402 || status === 429 ? 'busy'
-      : status >= 500 ? 'unavailable' : 'config';
+  const kind = status === 401 || status === 403 ? 'config'
+    : status === 404 || status >= 500 ? 'unavailable'
+      : status === 402 || status === 429 ? 'busy' : 'config';
   return new ProviderError(kind, `OpenRouter returned HTTP ${status}: ${String(detail || '').slice(0, 180)}`, status);
 }
 
@@ -146,7 +146,8 @@ export function createOpenRouterClient({
       const match = eligible.find((m) => m.id === safeId);
       if (match) return validateRequirements(match);
     }
-    if (preferred.length) throw new ProviderError('config', `Configured OpenRouter model is unavailable or lacks the required capability for task: ${task}`);
+    // A configured model can be retired, inaccessible, or absent from the live
+    // catalog. Continue to compatible candidates instead of aborting the request.
     // Discover video models by advertised capabilities only. Provider accounts
     // own billing; local model-price metadata is not a routing requirement.
     if (task === 'video') {
@@ -157,9 +158,18 @@ export function createOpenRouterClient({
       if (capable.length) return capable[0];
       throw new ProviderError('config', 'No OpenRouter video model advertises the requested duration, resolution, aspect ratio, and audio capabilities');
     }
-    // Never silently choose an arbitrary model for other costly generation.
-    if (['image', 'video', 'rerank', 'decisions'].includes(task)) {
-      throw new ProviderError('config', `No verified OpenRouter model is configured for task: ${task}`);
+    // Costly generation still requires live task-specific capability verification.
+    // Never pick a generic text model for image/video generation.
+    if (task === 'image') {
+      const capable = eligible.flatMap((candidate) => {
+        try { validateRequirements(candidate); return [candidate]; }
+        catch { return []; }
+      });
+      if (capable.length) return capable[0];
+      throw new ProviderError('unavailable', 'No verified OpenRouter model is available for image task settings');
+    }
+    if (['video', 'rerank', 'decisions'].includes(task)) {
+      throw new ProviderError('unavailable', `No verified OpenRouter model is available for task: ${task}`);
     }
     // Preserve the provider catalog's order after capability/privacy filtering;
     // do not infer quality or price from model names.

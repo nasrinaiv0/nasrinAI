@@ -67,6 +67,26 @@ test('OpenRouter default video route works without a local or catalog price gate
   assert.equal(route.model, 'provider/default-video');
 });
 
+test('retired configured image model falls back to a live compatible image model', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url) => {
+    if (String(url).endsWith('/images/models')) return response({ data: [
+      { id: 'provider/current-image-model', architecture: { output_modalities: ['image'], input_modalities: ['text'] } }
+    ] });
+    throw new Error('unexpected endpoint');
+  } });
+  const selected = await client.selectModel('image', ['provider/retired-image-model']);
+  assert.equal(selected.id, 'provider/current-image-model');
+});
+
+test('OpenRouter model-not-found errors are retryable availability failures', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ error: { message: 'model not found' } }, 404) });
+  await assert.rejects(client.chat({ model: 'provider/retired-model', messages: [{ role: 'user', content: 'hello' }] }), (err) => {
+    assert.equal(err.kind, 'unavailable');
+    assert.equal(err.status, 404);
+    return true;
+  });
+});
+
 test('specialized tasks fail closed when no model is verified', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [model('provider/chat')] }) });
   await assert.rejects(client.selectModel('image'), /No verified OpenRouter model/);
