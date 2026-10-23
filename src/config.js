@@ -528,7 +528,7 @@ export function loadConfig(env = process.env) {
     if (!(provider === 'openrouter' ? /^[a-z0-9][a-z0-9._-]{0,79}\/[a-z0-9][a-z0-9._:/-]{0,99}$/i.test(model) : /^[a-z0-9][a-z0-9.-]{1,79}$/i.test(model))) return off('_MODEL: use the exact model ID from the provider catalog.');
     if (provider === 'openai' && !/^gpt-image/.test(model)) return off('_MODEL: use the GPT Image model name from OpenAI, for example gpt-image-….');
     if (provider === 'openrouter' && !['openai/gpt-image-2', 'openai/gpt-image-2.5-flare', 'openai/gpt-image-2.5-sunburst'].includes(model)) return off('_MODEL: use a verified OpenRouter image model, such as openai/gpt-image-2 or openai/gpt-image-2.5-flare.');
-    // OpenAI's quality setting drives its price (OpenAI's default is high).
+    // OpenAI's quality setting controls image output quality (default high).
     const quality = String(env[prefix + '_QUALITY'] || '').trim().toLowerCase() || null;
     if (quality && (provider !== 'openai' || !['low', 'medium', 'high', 'xhigh', 'max', 'auto'].includes(quality))) return off('_QUALITY: low, medium, high, xhigh, max or auto (OpenAI only).');
     return Object.freeze({ provider, model, ...(quality ? { quality } : {}) });
