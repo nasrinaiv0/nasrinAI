@@ -98,3 +98,18 @@ test('OpenAI direct image routing is enabled without a local price when OpenRout
   assert.equal(cfg.images.tiers['1'].primary.provider, 'openai');
   assert.equal(cfg.images.tiers['1'].primary.model, 'gpt-image-1');
 });
+
+
+test('image routing chooses a configured backup provider without price metadata', () => {
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    OPENAI_API_KEY: 'sk-test-key',
+    IMAGE_TIER_1_PRIMARY_PRICE: 'not-verified'
+  });
+  for (const tier of ['1', '2', '3', '4']) {
+    assert.equal(cfg.images.tiers[tier].primary.provider, 'openrouter');
+    assert.equal(cfg.images.tiers[tier].fallback.provider, 'openai');
+    assert.equal(cfg.images.tiers[tier].fallback.model, 'gpt-image-1');
+  }
+});
