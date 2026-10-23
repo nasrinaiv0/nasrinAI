@@ -137,7 +137,10 @@ test('tampered and expired owner cookies are denied', async () => {
   const { consoleHandler } = setup({ now: () => current });
   const opened = await bootstrap(consoleHandler);
   const cookie = opened.res.headers['set-cookie'].split(';')[0];
-  const tampered = cookie.replace(/.$/, cookie.endsWith('a') ? 'b' : 'a');
+  const [cookieName, cookieValue] = cookie.split('=');
+  const [payload, signature] = cookieValue.split('.');
+  const changedChar = signature[1] === 'a' ? 'b' : 'a';
+  const tampered = `${cookieName}=${payload}.${signature[0]}${changedChar}${signature.slice(2)}`;
   const bad = request('GET', '/owner', { headers: { cookie: tampered }, testIp: IP });
   await consoleHandler.handle(bad.req, bad.res, '/owner');
   assert.equal(bad.res.statusCode, 404);
