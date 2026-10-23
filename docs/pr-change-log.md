@@ -1,3 +1,10 @@
+## PR #564 — Live OpenRouter model pricing lookup (2026-10-24)
+
+- Add a server-side helper for OpenRouter's `GET /api/v1/model/{author}/{slug}` endpoint, with strict slug validation, bounded request timeout, five-minute cache, and safe handling of missing/invalid pricing.
+- Add unit coverage for model ID validation, cache behavior, forced refresh, malformed responses, missing models, and text-cost estimation.
+- Pricing rates are estimates for planning only; actual incurred cost must continue to use provider-reported usage cost when available. This helper is not yet wired into all billing/Owner Console paths.
+- **Validation:** CI unit, syntax, secrets, dependency-audit, and database jobs passed on the implementation commit. Documentation Gate failed because this required changelog entry was missing; this commit adds it and must rerun that gate.
+
 ## PR #561 — image provider/model default pairing (2026-10-24)
 
 - Fix image-tier configuration so an explicit provider override receives a model ID belonging to that provider when no model override is supplied. This prevents mismatched adapters and model IDs when tier defaults originate from another provider.
