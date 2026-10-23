@@ -111,13 +111,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
           const tierCandidates = r.levels[l];
-          // Quick (tier key: nasrinai) is restricted to NVIDIA Nemotron models on
-          // OpenRouter. This is enforced at runtime, so ROUTE_LEVEL_* overrides,
-          // coding specialists, and cross-provider failover cannot escape it.
+          // Quick/guest prefer Nemotron first, but keep an OpenRouter-only emergency model
+          // at the end of the candidate list. This prevents a free Nemotron outage
+          // from making the entire chat unavailable without allowing cross-provider
+          // routing to bypass the guest/Quick provider policy.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
-            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && candidate.model.toLowerCase().startsWith('nvidia/nemotron-')
-              && /^(?:nvidia\/nemotron-[a-z0-9.-]+(?::free)?)$/i.test(candidate.model))
+            ? tierCandidates.filter((candidate) => candidate.provider === 'openrouter')
             : tierCandidates;
           const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
