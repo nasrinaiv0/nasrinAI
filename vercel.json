@@ -15,6 +15,10 @@
     {
       "path": "/v1/internal/video-studio-render",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/v1/internal/owner-alerts",
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {
@@ -23,6 +27,17 @@
     }
   },
   "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "owner.nasrinai.com"
+        }
+      ],
+      "destination": "/owner",
+      "permanent": false
+    },
     {
       "source": "/",
       "has": [
@@ -52,6 +67,22 @@
       "destination": "/chat.html"
     },
     {
+      "source": "/owner",
+      "destination": "/api/index?__path=/owner"
+    },
+    {
+      "source": "/owner/",
+      "destination": "/api/index?__path=/owner/"
+    },
+    {
+      "source": "/owner/:path*",
+      "destination": "/api/index?__path=/owner/:path*"
+    },
+    {
+      "source": "/v1/internal/owner-alerts",
+      "destination": "/api/internal-owner-alerts"
+    },
+    {
       "source": "/v1",
       "destination": "/api/index?__path=/v1"
     },
@@ -66,11 +97,11 @@
   ],
   "headers": [
     {
-      "source": "/((?!v1(?:/|$)|healthz$).*)",
+      "source": "/((?!v1(?:/|$)|healthz$|owner(?:/|$)).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob: https://i.ytimg.com https://upload.wikimedia.org; connect-src 'self' https://challenges.cloudflare.com https://*.supabase.co; frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://www.tiktok.com https://www.facebook.com https://www.instagram.com https://player.vimeo.com https://www.dailymotion.com; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data: blob: https://i.ytimg.com https://upload.wikimedia.org; connect-src 'self' https://owner.nasrinai.com https://challenges.cloudflare.com https://*.supabase.co; frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://www.tiktok.com https://www.facebook.com https://www.instagram.com https://player.vimeo.com https://www.dailymotion.com; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
         },
         {
           "key": "X-Content-Type-Options",

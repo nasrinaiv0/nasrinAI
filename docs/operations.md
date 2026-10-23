@@ -110,3 +110,12 @@ Change it at its source, put the new value in Vercel (Sensitive), Redeploy.
 - Signed-in users' pictures: 30 days by default, or the user's selected retention period. The application setting is the source of truth.
 - Connector events: 30 days. Memories: until the person deletes them or the account.
 - Backups: Supabase manages database backups according to the project's plan and settings. **Application deletion does not guarantee immediate removal from provider backups.** Before launch, verify the project's backup/PITR retention and keep the verified period synchronized with the Privacy Notice.
+
+
+## Owner Console operational alerts (Phase 3)
+
+The scheduled `/v1/internal/owner-alerts` job runs every five minutes and is protected by the existing `CRON_SECRET` bearer token. It inspects aggregate operational signals from the previous 15 minutes and writes deduplicated alerts to the server-only outbox in migration 059. It never reads prompts, message bodies, emails, workflow payloads, or raw IP addresses.
+
+Optional delivery uses `OWNER_ALERT_WEBHOOK_URL` with a Slack incoming webhook (`hooks.slack.com/services/...`) or a Discord webhook (`discord.com/api/webhooks/...`). Only exact HTTPS provider hosts and expected paths are accepted; redirects are rejected. Keep the webhook URL as a Sensitive server environment variable and never expose it to the browser. Set thresholds using `OWNER_ALERT_AI_FAILURE_THRESHOLD` (default 5), `OWNER_ALERT_AUTOMATION_FAILURE_THRESHOLD` (default 3), and `OWNER_ALERT_STALE_RUN_THRESHOLD` (default 1). If no supported webhook is configured, monitoring still queues deduplicated alerts but does not dispatch them. Configure a real provider webhook before relying on delivery.
+
+Migration 057 and the existing Auth audit migration 058 must be applied before migration 059. Delivery attempts are retried with bounded exponential backoff and stop after eight attempts; inspect provider delivery and database health during rollout. This first release covers AI failure spikes, automation failure spikes, and stale automation. It does not yet reconcile settled PayMongo payouts or deliver alerts for billing/deployment/security events.
