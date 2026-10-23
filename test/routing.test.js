@@ -79,6 +79,13 @@ test('routing: compatible model; tiers cap the level; private data never goes to
   assert.equal(a.gemini.calls.length, 1);
 });
 
+test('OpenRouter configuration preserves non-Nemotron candidates for paid tiers', () => {
+  const config = loadConfig({ OPENROUTER_API_KEY: 'or-test-key', AI_PROVIDER: 'auto' });
+  const paid = [2, 3, 4, 5].flatMap((level) => config.ai.routing.levels[level]);
+  assert.ok(paid.some((candidate) => candidate.provider === 'openrouter' && !candidate.model.startsWith('nvidia/nemotron-')));
+  assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model.startsWith('nvidia/nemotron-')));
+});
+
 test('Quick and guest routes use only OpenRouter Nemotron candidates, including after failures', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
