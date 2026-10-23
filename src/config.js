@@ -307,16 +307,42 @@ export function loadConfig(env = process.env) {
     // routing candidates. Level 1 uses configured general-purpose models; the
     // fallback pool may still try allowlisted free models after paid providers fail.
     1: [
+      has('openrouter') ? 'openrouter:z-ai/glm-5.3-flash' : '',
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
       has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
       has('local') && local ? 'local:' + local.model : '',
       has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
       has('openai') ? 'openai:gpt-5.4-nano' : '',
       aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
     ],
-    2: [has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
-    3: [has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '', has('openai') ? 'openai:gpt-5.4:medium' : ''],
-    4: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : ''],
-    5: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '']
+    2: [
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
+      has('openrouter') ? 'openrouter:z-ai/glm-5.3-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
+      has('openai') ? 'openai:gpt-5.4-mini:low' : '',
+      has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''
+    ],
+    3: [
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4-flash-0731' : '',
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '',
+      has('openai') ? 'openai:gpt-5.4:medium' : ''
+    ],
+    4: [
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
+      has('openai') ? 'openai:gpt-5.4:high' : ''
+    ],
+    5: [
+      has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '',
+      has('openrouter') ? 'openrouter:deepseek/deepseek-v4.1-flash' : '',
+      has('openrouter') ? 'openrouter:xiaomi/mimo-v2.6-flash' : '',
+      has('openai') ? 'openai:gpt-5.4:high' : ''
+    ]
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
