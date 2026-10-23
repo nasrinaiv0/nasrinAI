@@ -71,7 +71,7 @@ from public.usage_events
 where created_at > now() - interval '24 hours' and outcome <> 'ok'
 group by 1, 2, 3, 4 order by 5 desc;
 
--- Held and settled estimated spend (never inspect message text; none is stored here)
+-- Historical USD reservation ledger records (legacy schema; not used as a production spend gate)
 select kind, status, count(*) as reservations,
        round(sum(case when status = 'reserved' then reserved_usd else coalesce(actual_usd, 0) end), 4) as usd
 from public.spend_reservations
