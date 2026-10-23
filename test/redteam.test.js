@@ -103,7 +103,7 @@ test('the answer cache is never shared across businesses or with private context
     const biz = (await a.call('/v1/chat', jsonPost({ message: 'how much is adobo' }, KNOW))).json();
     const user2 = (await a.call('/v1/chat', jsonPost({ message: 'how much is adobo' }, USER_TOKEN))).json();
     assert.deepEqual([user1.message.content, biz.message.content, user2.message.content], ['ANSWER for anyone', 'ANSWER for shop', 'ANSWER for anyone']);
-    assert.equal(a.fake.calls.length, 2, 'the platform answer is cached for the platform only; the shop answer is not cached');
+    assert.equal(a.fake.calls.length, 3, 'the shop answer is not shared, and the platform repeats the model call when private prior-chat context makes caching unsafe');
   } finally { await a.close(); }
 });
 

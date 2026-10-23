@@ -340,6 +340,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       reply = clean(keepIdentity(typeof reply === 'string' ? reply : ''));
       if (!reply) reply = 'I couldn’t produce a safe, readable reply. Please try again.';
       const assistant = await conversations.add(conv, 'assistant', reply);
+      // Memory is updated after the exchange is durably saved. Only the user's
+      // own message is considered; assistant output, retrieved history, and tools
+      // can never plant personal memories. The feature is opt-in and failure-isolated.
+      if (!regenerate && editId === null && memory?.consolidate) {
+        await memory.consolidate(caller, typed);
+      }
       if (webAnswers && webSources.length && reply) {
         await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
       }
