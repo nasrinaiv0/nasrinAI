@@ -11,6 +11,27 @@ const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion
 });
 
 
+test('live routing discovery filters OpenRouter models by text, vision, and tool capabilities', async () => {
+  const catalog = [
+    { ...model('provider/text-only'), supported_parameters: ['max_tokens'] },
+    { ...model('provider/vision-text'), architecture: { output_modalities: ['text'], input_modalities: ['text', 'image'] }, supported_parameters: ['tools'] },
+    { ...model('provider/image-output', 'image'), supported_parameters: ['tools'] },
+    { ...model('provider/tool-text'), supported_parameters: ['tools'] }
+  ];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', client });
+  assert.deepEqual(await provider.listModelsForTask({ task: 'chat' }), [
+    'provider/text-only', 'provider/vision-text', 'provider/tool-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'vision', attachments: [{ kind: 'image' }] }), [
+    'provider/vision-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'chat', requiresTools: true }), [
+    'provider/vision-text', 'provider/tool-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'decisions' }), []);
+});
+
 test('vision route converts validated image attachments into OpenAI-compatible multimodal content', async () => {
   let captured;
   const client = createOpenRouterClient({
