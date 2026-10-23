@@ -377,7 +377,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const reservation = e.reservationId ? { reservation_id: e.reservationId } : {};
       const spendReservation = e.spendReservationId ? { spend_reservation_id: e.spendReservationId } : {};
       const routing = {
-        task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null,
+        task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null, cost_source: e.costSource ?? null,
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
