@@ -5,6 +5,19 @@
 
 begin;
 
+-- Existing cost_usd rows may contain legacy estimates. Never infer provenance
+-- from a non-null amount; only new, explicitly marked provider costs count.
+alter table public.usage_events
+  add column if not exists cost_source text;
+alter table public.usage_events
+  drop constraint if exists usage_events_cost_source_check;
+alter table public.usage_events
+  add constraint usage_events_cost_source_check
+  check (cost_source is null or (cost_source = 'provider_reported' and cost_usd is not null));
+create index if not exists usage_events_provider_cost_time_idx
+  on public.usage_events (created_at desc)
+  where cost_source = 'provider_reported' and cost_usd is not null;
+
 create or replace function public.owner_console_usage_summary(p_since timestamptz)
 returns jsonb
 language plpgsql
@@ -32,9 +45,9 @@ begin
     'active_guest_ids', count(distinct actor_id) filter (where actor_type = 'guest'),
     'latency_p50_ms', percentile_cont(0.50) within group (order by latency_ms) filter (where outcome = 'ok'),
     'latency_p95_ms', percentile_cont(0.95) within group (order by latency_ms) filter (where outcome = 'ok'),
-    'provider_reported_cost_usd', sum(cost_usd),
-    'cost_known_rows', count(*) filter (where cost_usd is not null),
-    'cost_unknown_rows', count(*) filter (where cost_usd is null),
+    'provider_reported_cost_usd', sum(cost_usd) filter (where cost_source = 'provider_reported'),
+    'cost_known_rows', count(*) filter (where cost_source = 'provider_reported' and cost_usd is not null),
+    'cost_unknown_rows', count(*) filter (where cost_source is distinct from 'provider_reported' or cost_usd is null),
     'last_event_at', max(created_at),
     'features', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -62,9 +75,9 @@ begin
           count(distinct actor_id) filter (where actor_type = 'user') as active_user_ids,
           count(distinct actor_id) filter (where actor_type = 'guest') as active_guest_ids,
           coalesce(sum(input_tokens::bigint + output_tokens::bigint), 0) as total_tokens,
-          sum(cost_usd) as provider_reported_cost_usd,
-          count(*) filter (where cost_usd is not null) as cost_known_rows,
-          count(*) filter (where cost_usd is null) as cost_unknown_rows
+          sum(cost_usd) filter (where cost_source = 'provider_reported') as provider_reported_cost_usd,
+          count(*) filter (where cost_source = 'provider_reported' and cost_usd is not null) as cost_known_rows,
+          count(*) filter (where cost_source is distinct from 'provider_reported' or cost_usd is null) as cost_unknown_rows
         from public.usage_events
         where created_at >= p_since
         group by 1
