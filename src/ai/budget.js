@@ -7,7 +7,10 @@ import { costOf, estimateTokens, priceOf } from './pricing.js';
 // enforcement point shared by every serverless instance. Unknown prices and an
 // unavailable reservation ledger fail closed before a paid provider call.
 export function createBudget({ store, config, logger, kind = 'reasoning', now = () => Date.now(), cacheMs = 30_000 }) {
-  const b = kind === 'image' ? config.images.budget : config.ai.routing.budget;
+  // Legacy compatibility for tests and older callers only. Production runtime
+  // no longer creates this USD budget; provider dashboards own spend controls.
+  const b = (kind === 'image' ? config.images?.budget : config.ai.routing?.budget)
+    || { dailyUsd: null, weeklyUsd: null, monthlyUsd: null, maxRequestUsd: null };
   const spentSince = kind === 'image'
     ? (since) => store.imageCostSince(since)
     : async (since) => (await store.costSince(since)) - (await store.imageCostSince(since).catch(() => 0));
@@ -142,66 +145,24 @@ export function createBudget({ store, config, logger, kind = 'reasoning', now = 
 
 // Injected into the router for each authenticated request. The router invokes
 // this separately for each actual provider attempt, including failover.
+// Provider billing is authoritative. The application does not maintain per-model
+// price snapshots or reserve estimated USD for model calls. Provider-reported
+// costs are recorded when the adapter supplies them; otherwise cost remains
+// unknown (null), never fabricated from a local rate table.
 export function createProviderSpendHooks({ budget, config, prices, caller, tier }) {
-  if (!budget || !caller) return null;
-  const maxRequestUsd = config.ai.routing.budget.maxRequestUsdByTier?.[tier] ?? budget.maxRequestUsd;
-  const estimateInput = (request) => {
-    const text = estimateTokens(request.system)
-      + (request.messages || []).reduce((n, m) => n + estimateTokens(m.content || ''), 0)
-      + (request.tools?.length ? estimateTokens(JSON.stringify(request.tools)) : 0)
-      + (request.attachments || []).reduce((n, a) => n + (a.kind === 'image' ? 8192 : a.kind === 'pdf' ? 16000 : 4000), 0);
-    // Tokenization varies by language and payload. Add headroom to the estimate;
-    // actual usage is reconciled after the provider returns.
-    return Math.ceil(text * 1.35);
-  };
   return {
-    async reserve({ provider, model, request }) {
+    async reserve({ provider, model }) {
       if (provider === 'fake' && !config.isProduction) return null;
-      const price = priceOf(prices, provider, model, { freeTier: provider === 'gemini' && config.ai.routing.geminiFreeTier });
-      if (provider === 'openrouter') {
-        // OpenRouter's catalog publishes model prices and its response returns
-        // the authoritative billed usage.cost. Reserve a ceiling first so
-        // missing local model-price entries never block an otherwise valid call.
-        const balance = await budget.remaining();
-        const configuredCap = maxRequestUsd ?? budget.maxRequestUsd;
-        const cap = Number.isFinite(configuredCap) ? configuredCap : balance.usd;
-        const amountUsd = Math.min(cap, balance.usd);
-        if (balance.unknown || !Number.isFinite(amountUsd) || amountUsd < 0.000001) {
-          throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
-        }
-        const reservation = await budget.reserveSpend({ caller, amountUsd, maxRequestUsd });
-        return { ...reservation, provider, model, price: null, openRouter: true };
-      }
-      if (!price) throw new HttpError(503, 'budget_reached', 'NasrinAI cannot safely price this model call, so it was blocked.', { retryAfter: 600 });
-      const inputTokens = estimateInput(request);
-      const outputTokens = Math.max(1, Math.round(Number(request.maxTokens) || config.ai.maxReplyTokens));
-      const estimate = costOf(price, { inputTokens, outputTokens });
-      if (estimate === null || !Number.isFinite(estimate)) {
-        throw new HttpError(503, 'budget_reached', 'NasrinAI cannot safely price this model call, so it was blocked.', { retryAfter: 600 });
-      }
-      if (estimate <= 0) return null; // configured local/no-cost model
-      if (maxRequestUsd !== null && estimate > maxRequestUsd) {
-        throw new HttpError(503, 'budget_reached', 'This request exceeds the configured per-request spending limit.', { retryAfter: 600 });
-      }
-      const amountUsd = Math.min(maxRequestUsd ?? Infinity, Math.max(estimate * 1.35, estimate + 0.000001));
-      const reservation = await budget.reserveSpend({ caller, amountUsd, maxRequestUsd });
-      return { ...reservation, provider, model, price };
+      return { provider, model, providerBilling: true };
     },
     async settle(reservation, result) {
-      if (!reservation) return { costUsd: 0, spendReservationId: null };
-      const hasUsage = Number.isFinite(result?.inputTokens) && Number.isFinite(result?.outputTokens);
-      const estimatedActual = hasUsage
-        ? costOf(reservation.price, { inputTokens: result.inputTokens, cachedTokens: result.cachedTokens || 0, outputTokens: result.outputTokens })
-        : null;
-      const providerReportedCost = reservation.openRouter && Number.isFinite(result?.actualCostUsd)
-        && result.actualCostUsd >= 0 && result.actualCostUsd <= 100000
-        ? result.actualCostUsd : null;
-      const actualUsd = providerReportedCost ?? (Number.isFinite(estimatedActual) ? estimatedActual : reservation.reservedUsd);
-      const costUsd = await budget.settleSpend(reservation, actualUsd);
-      return { costUsd, spendReservationId: reservation.id };
+      if (!reservation) return { costUsd: null, spendReservationId: null };
+      const raw = result?.actualCostUsd ?? result?.costUsd;
+      const costUsd = Number.isFinite(raw) && raw >= 0 && raw <= 100000 ? raw : null;
+      return { costUsd, spendReservationId: null };
     },
-    async release(reservation) {
-      if (reservation) await budget.releaseSpend(reservation);
+    async release() {
+      // No application-side USD reservation was made.
     }
   };
 }

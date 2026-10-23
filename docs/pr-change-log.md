@@ -1918,3 +1918,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Migration labels 057–059 are absent from the registry despite related live tables and 13 owner-console functions existing. Compare tables, constraints, indexes, policies, grants, and function definitions before deciding on a baseline or corrective migration.
 - Do not replay migrations 057–059 or create synthetic migration-history rows. Migration 062 remains unapplied pending explicit approval.
 - No production SQL writes were made for this read-only reconciliation.
+
+## Phase 6 — Provider-authoritative model billing (2026-10-23)
+
+- Remove the production runtime dependency on local per-model USD price tables. Chat routing and OpenRouter text/video model selection are based on configured routes and advertised capabilities, not local or catalog price sorting.
+- Remove application-side estimated USD reservations and price-based gating for model calls, image generation, speech synthesis, realtime voice, and video generation. Provider-reported costs are recorded when available; unknown costs remain null instead of being presented as estimates.
+- Preserve customer subscription/payment pricing; it is separate from provider operating costs. Keep token allowances/reservations, hourly abuse controls, per-plan image quotas, video capability/duration limits, and realtime daily/token quotas.
+- Remove obsolete local USD budget and per-model image price settings from `.env.example`. Keep `config/model-prices.json` only for legacy offline tooling while removing it from production runtime imports.
+- **Operational requirement:** enable spending limits, alerts, and account-level billing controls in every configured provider account. The application no longer acts as a USD spend cap based on estimated model prices.
+- **Validation:** pending final CI completion. No production environment variables or Supabase migrations were changed for this phase.

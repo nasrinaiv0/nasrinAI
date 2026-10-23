@@ -154,14 +154,14 @@ test('a planning model that cannot see photos plans from the words; outages are 
   } finally { await down.close(); }
 });
 
-test('smart routing: the brief uses the cheapest level and is costed', async () => {
+test('smart routing: the brief uses a compatible level and leaves unknown provider cost null', async () => {
   const a = await app({ reply: () => BRIEF, env: { ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30) } });
   try {
     const r = await postJson(a.url + '/v1/images/brief', { prompt: 'A clear, detailed idea' }, bearer(USER_TOKEN));
     assert.equal(r.status, 200);
     const e = a.store.usage.at(-1);
     assert.deepEqual([e.task, e.level, e.outcome], ['image_brief', 1, 'ok']);
-    assert.ok(e.costUsd > 0);
+    assert.equal(e.costUsd, null, 'no local estimate is presented as provider billing');
     assert.equal(a.fake.calls.at(-1).maxTokens, 700);
   } finally { await a.close(); }
 });

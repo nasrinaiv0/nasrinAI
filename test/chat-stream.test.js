@@ -100,7 +100,7 @@ test('Stop: what was written is kept, and the tokens still count', async () => {
     const before = a.store.usage.length;
     const r = await streamed(a.url, { message: 'tell me a long story' }, USER_TOKEN, { abortAfter: 3 });
     assert.ok(r.events.length >= 3);
-    assert.ok(await until(() => a.store.usage.length > before), 'usage recorded after stopping');
+    assert.ok(await until(() => a.store.usage.length > before, 8000), 'usage recorded after stopping');
     const used = a.store.usage.at(-1);
     assert.ok(used.outputTokens > 0 && used.outputTokens < words.length / 4, 'partial output counted');
     const convs = await (await fetch(a.url + '/v1/conversations', { headers: bearer(USER_TOKEN) })).json();

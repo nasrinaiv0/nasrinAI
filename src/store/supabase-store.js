@@ -377,12 +377,19 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const reservation = e.reservationId ? { reservation_id: e.reservationId } : {};
       const spendReservation = e.spendReservationId ? { spend_reservation_id: e.spendReservationId } : {};
       const routing = {
-        task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null,
+        task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null, cost_source: e.costSource ?? null,
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
         await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...routing } });
       } catch (err) {
+        // Deploy can precede migration 062. Preserve routing telemetry when only
+        // the new provenance column is missing; old rows remain cost-unknown.
+        if (/cost_source/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { cost_source, ...legacyRouting } = routing;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...legacyRouting } });
+          return;
+        }
         // Before migration 003 the routing columns do not exist: keep the basic record.
         if (!/PGRST204|column|budget_blocked|23514/.test(err.message)) throw err;
         if (body.outcome === 'budget_blocked') return;
