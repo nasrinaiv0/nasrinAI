@@ -48,3 +48,11 @@ After migration 061, the performance advisor no longer reports the eight previou
 3. Establish the verified USD cost for the Tier 2 image route before correcting its price; test the primary/fallback path in preview before production.
 4. Run an authorized owner-console sign-in smoke test from the allowlisted email and IP. Confirm the owner page, session expiry, sign-out, audit write, and wrong-host 404 without weakening host/IP/email checks.
 5. Keep production migrations 057–059 untouched until reconciliation is reviewed. No production schema changes beyond the previously approved 060/061 work were made as part of this audit.
+
+## Phase 6 — Provider-authoritative billing (updated 2026-10-23)
+
+- PR #557 merged as `95ac977e78d71210826c2cda196ec2977863c728` after the reconciled billing branch passed CI unit tests, JavaScript syntax checks, secret scanning, dependency audit, database regression tests, and the documentation gate. Vercel reported success for the merge commit.
+- Production model routing no longer depends on local per-model USD prices. Provider-reported costs are recorded only when available; unknown cost remains unknown. Subscription prices, token/abuse limits, plan quotas, and media restrictions remain separate.
+- **Migration 062 is not applied in production yet.** Production `usage_events` currently has no `cost_source` column, so the application has a compatibility fallback that preserves telemetry but omits provenance until migration 062 is applied. Existing historical cost values must not be relabeled as provider-reported.
+- The production table currently has 3,838 usage events, of which 3,582 have non-null legacy `cost_usd` values. These values were not changed or reclassified.
+- Remaining operator actions: approve/apply migration 062 after reviewing the production DDL; confirm the intended Max/Ultra monthly and annual subscription prices for `PLAN_MAX_PRICE`, `PLAN_ULTRA_PRICE`, `PLAN_MAX_ANNUAL_PRICE`, and `PLAN_ULTRA_ANNUAL_PRICE`; perform an authenticated Owner Console sign-in/session smoke test. No subscription prices were guessed or modified.
