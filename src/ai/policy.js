@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { ProviderError } from './provider.js';
 import { classify } from './classify.js';
-import { estimateTokens } from './pricing.js';
+import { estimateTokens } from './token-estimate.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
