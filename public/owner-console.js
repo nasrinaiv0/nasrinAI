@@ -8,7 +8,7 @@
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
     automation: ['Automation & Jobs', 'Workflow health, queue state, retries, and execution outcomes.', '↗'],
-    finance: ['Finance & Costs', 'Internal AI cost estimates and gross recorded PayMongo payments, not net revenue.', '▤'],
+    finance: ['Finance & Costs', 'Provider-reported AI costs where available and gross recorded PayMongo payments, not net revenue.', '▤'],
     incidents: ['Incidents & Alerts', 'Derived signals and the manual incident register; automatic alerts remain pending.', '◎'],
     reports: ['Reports & Exports', 'Date-scoped aggregate reports from verified data sources.', '▥'],
     settings: ['Settings', 'Owner-console access status. Allowlist values remain in Vercel.', '⚙']
@@ -52,8 +52,8 @@
     return Number.isFinite(n) ? new Intl.NumberFormat().format(n) : 'Unavailable';
   }
   function moneyText(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? '~' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(n) : 'Unavailable';
+    const n = value === null || value === undefined || value === '' ? NaN : Number(value);
+    return Number.isFinite(n) ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(n) : 'Unavailable';
   }
   function notice(title, copy) {
     const n = el('div', 'notice'), body = el('div');
@@ -88,7 +88,7 @@
     const successValue = !hasUsage ? 'Unavailable' : noData ? 'No data yet' : requests > 0 ? (Number(u.success_count) / requests * 100).toFixed(1) + '%' : 'No data yet';
     const activeValue = !hasUsage ? 'Unavailable' : noData ? 'No data yet' : numberText(u.active_user_ids);
     const tokenValue = !hasUsage ? 'Unavailable' : noData ? 'No data yet' : numberText(u.total_tokens);
-    const costValue = !hasUsage || Number(u.cost_estimate_rows) === 0 ? 'Unavailable' : moneyText(u.estimated_cost_usd);
+    const costValue = !hasUsage || Number(u.cost_known_rows) === 0 ? 'Unavailable' : moneyText(u.provider_reported_cost_usd);
     const latencyValue = !hasUsage || u.latency_p95_ms === null || u.latency_p95_ms === undefined ? 'Unavailable' : numberText(Math.round(Number(u.latency_p95_ms))) + ' ms';
     grid.append(
       metric('AI requests', '✳', requestValue, 'Recorded model-call events'),
@@ -96,7 +96,7 @@
       metric('Active user IDs', '♙', activeValue, 'Distinct signed-in IDs with calls'),
       metric('Auth user records', '♧', userSummary ? numberText(userSummary.auth_user_records) : 'Unavailable', 'Aggregate count only; no user IDs or emails returned'),
       metric('Tokens recorded', '↗', tokenValue, 'Input plus output tokens'),
-      metric('Estimated AI cost', 'USD', costValue, Number(u && u.cost_estimate_rows) > 0 ? 'Internal estimate; not an invoice' : 'No cost estimates recorded'),
+      metric('Provider-reported AI cost', 'USD', costValue, Number(u && u.cost_known_rows) > 0 ? `${numberText(u.cost_known_rows)} events with cost · ${numberText(u.cost_unknown_rows)} unknown` : 'No provider-reported costs recorded'),
       metric('p95 latency', '◷', latencyValue, 'Successful-call latency, when observations exist')
     );
     c.append(grid);
@@ -169,7 +169,7 @@
         providers.forEach((item) => {
           const row = el('div', 'source-row'), left = el('div');
           left.append(el('div', 'source-name', item.provider + ' / ' + item.model), el('div', 'source-detail', numberText(item.requests) + ' requests · ' + numberText(Number(item.input_tokens) + Number(item.output_tokens)) + ' tokens'));
-          row.append(left, el('div', 'source-name', moneyText(item.estimated_cost_usd)));
+          row.append(left, el('div', 'source-name', moneyText(item.provider_reported_cost_usd)));
           list.append(row);
         });
       } else list.append(el('p', 'panel-copy', 'Provider breakdown unavailable until usage telemetry is connected.'));
@@ -272,7 +272,7 @@
     }
 
     if (key === 'finance') {
-      const usage = data && data.usage_24h, plans = data && data.plans_24h, hasCosts = Boolean(usage && Number(usage.cost_estimate_rows) > 0), panel = el('section', 'panel');
+      const usage = data && data.usage_24h, plans = data && data.plans_24h, hasCosts = Boolean(usage && Number(usage.cost_known_rows) > 0), panel = el('section', 'panel');
       const paidByCurrency = Array.isArray(plans?.gross_paid_by_currency) ? plans.gross_paid_by_currency : [];
       const phpPaid = paidByCurrency.find((item) => item && item.currency === 'PHP');
       const paidPaymentCount = plans && Number.isFinite(Number(plans.paid_payment_count)) ? Number(plans.paid_payment_count) : null;
@@ -281,8 +281,8 @@
       panel.append(el('h3', '', 'Recorded AI cost estimates'), el('p', 'panel-copy', 'These are internal estimates recorded with model calls, not provider invoices, settled payments, revenue, refunds, or net margin.'));
       const grid = el('div', 'grid');
       grid.append(
-        metric('Estimated AI cost · 24h', 'USD', hasCosts ? moneyText(usage.estimated_cost_usd) : 'Unavailable', hasCosts ? 'Recorded cost estimates only' : 'No recorded cost estimates'),
-        metric('Requests with cost', '▤', hasCosts ? numberText(usage.cost_estimate_rows) : 'Unavailable', 'Usage events with an estimate'),
+        metric('Provider-reported AI cost · 24h', 'USD', hasCosts ? moneyText(usage.provider_reported_cost_usd) : 'Unavailable', hasCosts ? `${numberText(usage.cost_known_rows)} known · ${numberText(usage.cost_unknown_rows)} unknown` : 'No provider-reported costs'),
+        metric('Requests with provider cost', '▤', hasCosts ? numberText(usage.cost_known_rows) : 'Unavailable', 'Events with provider-reported cost'),
         metric('Requests · 24h', '✳', usage ? numberText(usage.request_count) : 'Unavailable', 'Recorded usage events'),
         metric('Active paid plan periods', '◇', plans ? numberText(plans.active_paid_periods) : 'Unavailable', 'Unexpired active periods, not unique users'),
         metric('Pro periods', 'P', plans ? numberText(plans.active_pro_periods) : 'Unavailable', 'Current active Pro periods'),
