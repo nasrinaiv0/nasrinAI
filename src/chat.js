@@ -10,7 +10,7 @@ import { answerWithLogic } from './ai/logic.js';
 import { readLink, linksIn } from './web/read-link.js';
 import { needsWeb, GAP } from './web/search.js';
 import { estimateTokens } from './ai/token-estimate.js';
-import { createProviderSpendHooks } from './ai/budget.js';
+import { createProviderSpendHooks } from './ai/provider-billing.js';
 import { redactForProvider } from './ai/redact.js';
 import { ToolError } from './tools/registry.js';
 import { PLATFORM_TENANT_ID } from './tenants.js';
