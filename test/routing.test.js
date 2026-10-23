@@ -79,10 +79,11 @@ test('routing: compatible model; tiers cap the level; private data never goes to
   assert.equal(a.gemini.calls.length, 1);
 });
 
-test('OpenRouter configuration preserves non-Nemotron candidates for paid tiers', () => {
+test('requested OpenRouter chat models are wired into paid-tier routes', () => {
   const config = loadConfig({ OPENROUTER_API_KEY: 'or-test-key', AI_PROVIDER: 'auto' });
   const paid = [2, 3, 4, 5].flatMap((level) => config.ai.routing.levels[level]);
-  assert.ok(paid.some((candidate) => candidate.provider === 'openrouter' && !candidate.model.startsWith('nvidia/nemotron-')));
+  const requested = ['deepseek/deepseek-v4.1-flash','deepseek/deepseek-v4.1-flash-1017','deepseek/deepseek-v4-flash-0731','deepseek/deepseek-v4-flash-vision-exp','z-ai/glm-5.3-flash','xiaomi/mimo-v2.6-flash','xiaomi/mimo-v2.6-pro','openai/gpt-6-luna','openai/gpt-6-luna-pro','anthropic/claude-haiku-5.5','qwen/qwen3.8-flash','qwen/qwen3.8-27b','inclusionai/ling-3.1-flash'];
+  for (const model of requested) assert.ok(paid.some((candidate) => candidate.provider === 'openrouter' && candidate.model === model), model + ' must be active in paid routes');
   assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model.startsWith('nvidia/nemotron-')));
 });
 
@@ -99,6 +100,7 @@ test('Quick and guest prefer Nemotron but retain an OpenRouter-only emergency fa
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna'), 'tries the OpenRouter emergency model after Nemotron failures');
+  assert.ok(!down.openrouter.calls.some((call) => call.model === 'xiaomi/mimo-v2.6-pro' || call.model === 'openai/gpt-6-luna-pro'), 'Quick cannot reach paid-only models');
   assert.equal(down.openai.calls.length, 0, 'no cross-provider fallback for Quick');
   assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Quick');
 });
