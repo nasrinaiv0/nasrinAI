@@ -89,11 +89,16 @@ export function createConversations({ store, config, logger, now = () => Date.no
       // Cross-chat recall is private Memory functionality: fail closed unless enabled.
       if (caller.actor.type !== 'user' || caller.prefs?.memory !== true || !query || !store.listConversations) return null;
       const request = String(query);
-      if (!isPastIntent(request) || isMemoryCapabilityCheck(request)) return null;
+      const explicitRecall = isPastIntent(request);
+      const continuityIntent = /\\b(?:continue|pick up where we left off|carry on|where did we leave off|resume|keep going|as we discussed|based on our previous|from the last chat|continue our work)\\b/i.test(request);
+      if (isMemoryCapabilityCheck(request)) return null;
       try {
         const windowDays = recallWindowDays(request);
         const cutoff = windowDays ? now() - windowDays * 86400_000 : null;
         const terms = recallTopicTerms(request);
+        // Ordinary new-chat prompts also search for topic overlap. Broad, unscoped
+        // digests are reserved for explicit recall or clear continuation requests.
+        if (!terms.length && !explicitRecall && !continuityIntent) return null;
         // The list is already scoped to this tenant and actor. Read a bounded
         // number of chats concurrently rather than making sequential database calls.
         const all = await this.list(caller, 50);
