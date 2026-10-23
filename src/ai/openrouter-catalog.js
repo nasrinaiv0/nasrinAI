@@ -2,6 +2,9 @@
 // integrationStatus describes NasrinAI integration separately; catalog verification alone
 // never makes a model usable for an unsupported endpoint or payload shape.
 export const OPENROUTER_SKILL_CATALOG = Object.freeze([
+  { name: 'NVIDIA Nemotron 3.5 Lightning (free)', id: 'nvidia/nemotron-3.5-lightning:free', status: 'verified', integrationStatus: 'chat-route', skills: ['fast_chat','coding','reasoning','agent_workflows'], preferredTasks: ['chat','coding','debugging','research'] },
+  { name: 'NVIDIA Nemotron 3 Super (free)', id: 'nvidia/nemotron-3-super:free', status: 'verified', integrationStatus: 'chat-route', skills: ['chat','reasoning','coding','agent_workflows'], preferredTasks: ['chat','analysis','coding','research'] },
+  { name: 'NVIDIA Nemotron 3 Ultra (free)', id: 'nvidia/nemotron-3-ultra:free', status: 'verified', integrationStatus: 'chat-route', skills: ['deep_reasoning','planning','agent_workflows'], preferredTasks: ['analysis','planning','coding','research'] },
   { name: 'DeepSeek V4.1 Flash', id: 'deepseek/deepseek-v4.1-flash', status: 'verified', integrationStatus: 'chat-route', skills: ['chat','coding','debugging','research','analysis','agent_workflows','vision'], preferredTasks: ['chat','coding','debugging','research','analysis'] },
   { name: 'GLM 5.3 Flash', id: 'z-ai/glm-5.3-flash', status: 'verified', integrationStatus: 'chat-route', skills: ['fast_chat','coding','multimodal_understanding','agent_workflows'], preferredTasks: ['chat','coding','debugging','research'] },
   { name: 'MiMo-V2.6-Flash', id: 'xiaomi/mimo-v2.6-flash', status: 'verified', integrationStatus: 'chat-route', skills: ['chat','coding','research','vision','agent_workflows'], preferredTasks: ['chat','coding','research','analysis'] },
