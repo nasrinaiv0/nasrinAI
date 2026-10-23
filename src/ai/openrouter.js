@@ -196,17 +196,8 @@ export function createOpenRouterClient({
     return request('/alpha/decisions', { body: { model: selected.id, state, questions }, signal });
   }
 
-  async function generateImage({ model, preferred = [], prompt, images, signal, maxCostUsd, ...options }) {
+  async function generateImage({ model, preferred = [], prompt, images, signal, ...options }) {
     const selected = await selectModel('image', model ? [cleanModelId(model)] : preferred, { quality: options.quality, aspectRatio: options.aspect_ratio, inputReferences: Array.isArray(images) ? images.length : 0 });
-    if (!Number.isFinite(Number(maxCostUsd)) || Number(maxCostUsd) <= 0) throw new ProviderError('config', 'A positive per-image spending ceiling is required');
-    const [author, ...slugParts] = selected.id.split('/');
-    const endpointCatalog = await request('/images/models/' + encodeURIComponent(author) + '/' + encodeURIComponent(slugParts.join('/')) + '/endpoints', { method: 'GET' });
-    const endpoints = Array.isArray(endpointCatalog.endpoints) ? endpointCatalog.endpoints : [];
-    const imagePrices = endpoints.flatMap((endpoint) => Array.isArray(endpoint.pricing) ? endpoint.pricing : [])
-      .filter((entry) => entry?.billable === 'output_image' && String(entry?.unit || '').toLowerCase().includes('image'))
-      .map((entry) => Number(entry.cost_usd)).filter((n) => Number.isFinite(n) && n > 0);
-    if (!imagePrices.length) throw new ProviderError('config', 'OpenRouter image model has no verifiable per-image price in its live endpoint catalog');
-    if (Number(maxCostUsd) < Math.max(...imagePrices)) throw new ProviderError('config', 'Configured per-image spending ceiling is below the live catalog price');
     if (Array.isArray(images) && images.length) {
       const capability = selected;
       const refLimit = capability?.supported_parameters?.input_references;
@@ -228,7 +219,7 @@ export function createOpenRouterClient({
     return Object.freeze({ model: selected.id, resolution: resolution || null, fps: fps ?? null, source: 'openrouter-live-capability-catalog' });
   }
 
-  async function createVideo({ model, preferred = [], tier = 'max', prompt, signal, maxCostPerSecondUsd, ...options }) {
+  async function createVideo({ model, preferred = [], tier = 'max', prompt, signal, ...options }) {
     const selected = await selectModel('video', model ? [cleanModelId(model)] : preferred, {
       tier, duration: options.duration, resolution: options.resolution, fps: options.fps, aspectRatio: options.aspect_ratio,
       generateAudio: options.generate_audio === true, 
