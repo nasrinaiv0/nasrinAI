@@ -24,7 +24,7 @@ const CREATIVE = /\b(design|brainstorm|ideas?|concept|brand|logo|story|script|ca
 const TRANSLATE = /\b(translate|translation|in (english|tagalog|filipino|bisaya|cebuano|spanish|japanese|korean|chinese|french))\b/i;
 const WRITE = /\b(write|draft|rewrite|summari[sz]e|reply to|email|message|caption|post|description|resume|proposal|report)\b/i;
 const SIMPLE = /^(hi|hello|hey|thanks?|thank you|ok(ay)?|good (morning|afternoon|evening|night)|salamat|kumusta|maayong|who are you|what can you do)[.!?]*$/i;
-const CONTINUATION = /^(continue|go on|keep going|proceed|do it|yes|yes please|sure|finish|finish it|complete it|carry on|please continue|fix it|try again|same|that one)[.!?]*$/i;
+const CONTINUATION = /^(?:(?:yes|sure|okay|ok)[, ]+(?:please[, ]+)?(?:continue|go on|keep going|proceed|carry on)|continue|go on|keep going|proceed|do it|yes|yes please|sure|finish|finish it|complete it|carry on|please continue|fix it|try again|same|that one)[.!?]*$/i;
 
 export function classify({ message, history = [], attachments = [] }) {
   const text = String(message || '').trim();
