@@ -5,8 +5,8 @@ import { OPENROUTER_SKILL_CATALOG, prioritizeOpenRouterCandidates } from '../src
 test('catalog separates operator-verified provider identity from NasrinAI integration readiness', () => {
   assert.equal(OPENROUTER_SKILL_CATALOG.length, 20);
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'nvidia/nemotron-3.5-lightning:free' && m.integrationStatus === 'chat-route'));
-  assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'nvidia/nemotron-3-super:free' && m.integrationStatus === 'chat-route'));
-  assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'nvidia/nemotron-3-ultra:free' && m.integrationStatus === 'chat-route'));
+  assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'nvidia/nemotron-3-super-120b-a12b:free' && m.integrationStatus === 'chat-route'));
+  assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'nvidia/nemotron-3-ultra-550b-a55b:free' && m.integrationStatus === 'chat-route'));
   assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.integrationStatus !== 'provider-alias-not-chat-model').every((m) => m.id && m.status === 'verified'));
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'google-vertex/global' && m.status === 'provider-alias'));
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.integrationStatus === 'chat-route'));
