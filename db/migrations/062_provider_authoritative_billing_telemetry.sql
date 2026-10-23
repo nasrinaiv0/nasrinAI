@@ -35,16 +35,16 @@ begin
   select jsonb_build_object(
     'window_start', p_since,
     'window_end', now(),
-    'request_count', count(*),
-    'success_count', count(*) filter (where outcome = 'ok'),
-    'failure_count', count(*) filter (where outcome <> 'ok'),
-    'input_tokens', coalesce(sum(input_tokens), 0),
-    'output_tokens', coalesce(sum(output_tokens), 0),
-    'total_tokens', coalesce(sum(input_tokens::bigint + output_tokens::bigint), 0),
-    'active_user_ids', count(distinct actor_id) filter (where actor_type = 'user'),
-    'active_guest_ids', count(distinct actor_id) filter (where actor_type = 'guest'),
-    'latency_p50_ms', percentile_cont(0.50) within group (order by latency_ms) filter (where outcome = 'ok'),
-    'latency_p95_ms', percentile_cont(0.95) within group (order by latency_ms) filter (where outcome = 'ok'),
+    'request_count', count(*) filter (where task <> 'video_cost_reconciliation'),
+    'success_count', count(*) filter (where outcome = 'ok' and task <> 'video_cost_reconciliation'),
+    'failure_count', count(*) filter (where outcome <> 'ok' and task <> 'video_cost_reconciliation'),
+    'input_tokens', coalesce(sum(input_tokens) filter (where task <> 'video_cost_reconciliation'), 0),
+    'output_tokens', coalesce(sum(output_tokens) filter (where task <> 'video_cost_reconciliation'), 0),
+    'total_tokens', coalesce(sum(input_tokens::bigint + output_tokens::bigint) filter (where task <> 'video_cost_reconciliation'), 0),
+    'active_user_ids', count(distinct actor_id) filter (where actor_type = 'user' and task <> 'video_cost_reconciliation'),
+    'active_guest_ids', count(distinct actor_id) filter (where actor_type = 'guest' and task <> 'video_cost_reconciliation'),
+    'latency_p50_ms', percentile_cont(0.50) within group (order by latency_ms) filter (where outcome = 'ok' and task <> 'video_cost_reconciliation'),
+    'latency_p95_ms', percentile_cont(0.95) within group (order by latency_ms) filter (where outcome = 'ok' and task <> 'video_cost_reconciliation'),
     'provider_reported_cost_usd', sum(cost_usd) filter (where cost_source = 'provider_reported'),
     'cost_known_rows', count(*) filter (where cost_source = 'provider_reported' and cost_usd is not null),
     'cost_unknown_rows', count(*) filter (where cost_source is distinct from 'provider_reported' or cost_usd is null),
@@ -65,16 +65,16 @@ begin
           case
             when task in ('coding', 'debugging', 'architecture') then 'coding'
             when task in ('image', 'image_brief', 'marketing_cache_hit') then 'image_generation'
-            when task in ('video', 'video_sound_effect', 'video_studio_export', 'video_voiceover') then 'video_studio'
+            when task in ('video', 'video_cost_reconciliation', 'video_sound_effect', 'video_studio_export', 'video_voiceover') then 'video_studio'
             when task in ('realtime', 'speech', 'transcription') then 'voice'
             when task = 'tool' then 'tools'
             when task in ('chat', 'research', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis', 'planning', 'design', 'critique') then 'conversation'
             else 'other'
           end as feature,
-          count(*) as requests,
-          count(distinct actor_id) filter (where actor_type = 'user') as active_user_ids,
-          count(distinct actor_id) filter (where actor_type = 'guest') as active_guest_ids,
-          coalesce(sum(input_tokens::bigint + output_tokens::bigint), 0) as total_tokens,
+          count(*) filter (where task <> 'video_cost_reconciliation') as requests,
+          count(distinct actor_id) filter (where actor_type = 'user' and task <> 'video_cost_reconciliation') as active_user_ids,
+          count(distinct actor_id) filter (where actor_type = 'guest' and task <> 'video_cost_reconciliation') as active_guest_ids,
+          coalesce(sum(input_tokens::bigint + output_tokens::bigint) filter (where task <> 'video_cost_reconciliation'), 0) as total_tokens,
           sum(cost_usd) filter (where cost_source = 'provider_reported') as provider_reported_cost_usd,
           count(*) filter (where cost_source = 'provider_reported' and cost_usd is not null) as cost_known_rows,
           count(*) filter (where cost_source is distinct from 'provider_reported' or cost_usd is null) as cost_unknown_rows
@@ -100,9 +100,9 @@ begin
       from (
         select provider, model,
                count(*) as requests,
-               count(*) filter (where outcome = 'ok') as successes,
-               coalesce(sum(input_tokens), 0) as input_tokens,
-               coalesce(sum(output_tokens), 0) as output_tokens,
+               count(*) filter (where outcome = 'ok' and task <> 'video_cost_reconciliation') as successes,
+               coalesce(sum(input_tokens) filter (where task <> 'video_cost_reconciliation'), 0) as input_tokens,
+               coalesce(sum(output_tokens) filter (where task <> 'video_cost_reconciliation'), 0) as output_tokens,
                sum(cost_usd) filter (where cost_source = 'provider_reported') as provider_reported_cost_usd,
                count(*) filter (where cost_source = 'provider_reported' and cost_usd is not null) as cost_known_rows,
                count(*) filter (where cost_source is distinct from 'provider_reported' or cost_usd is null) as cost_unknown_rows
