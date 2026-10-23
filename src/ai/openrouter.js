@@ -25,36 +25,6 @@ function cleanModelId(id) {
   return id;
 }
 
-// Only explicit per-second catalog SKUs are safe for pre-generation budgets.
-// A per-job price must never be misinterpreted as a per-second rate.
-function videoPricingRates(model, { resolution, generateAudio = true, hasVideoInput = false } = {}) {
-  const raw = model?.pricing_skus;
-  const entries = raw && typeof raw === 'object'
-    ? (Array.isArray(raw) ? raw.map((sku, index) => [String(index), sku]) : Object.entries(raw))
-    : [];
-  return entries.flatMap(([key, sku]) => {
-    const unit = String(sku?.unit || sku?.billing_unit || sku?.metric || sku?.name || sku?.id || key || '').toLowerCase();
-    const labels = [unit, sku?.resolution, sku?.audio, sku?.input_type, sku?.modality, sku?.description].filter(Boolean).join(' ').toLowerCase();
-    const value = typeof sku === 'object' && sku !== null
-      ? (sku.cost_usd ?? sku.price_usd ?? sku.price ?? sku.cost ?? sku.rate ?? sku.amount)
-      : sku;
-    const rate = Number(value);
-    // OpenRouter's documented video catalog uses "generate" for the default
-    // per-video-second rate; more specific SKUs name the seconds basis and
-    // may add audio/resolution modifiers. Never accept a job/request SKU.
-    const defaultGenerateSku = key === 'generate' && (!sku || typeof sku !== 'object' ||
-      (!sku.unit && !sku.billing_unit && !sku.metric));
-    if ((!/(?:second|\/sec\b|per[_ -]?sec)/.test(unit) && !defaultGenerateSku) || !Number.isFinite(rate) || rate <= 0) return [];
-    if (resolution && /\b(480p|720p|1080p|4k)\b/.test(labels) && !labels.includes(String(resolution).toLowerCase())) return [];
-    if (/(?:with|including)[_-]?audio/.test(labels) && !generateAudio) return [];
-    if (/(?:without|no)[_-]?audio/.test(labels) && generateAudio) return [];
-    if (/(?:with|including)[_-]?video[_ -]?input/.test(labels) && !hasVideoInput) return [];
-    if (/(?:without|no)[_-]?video[_ -]?input/.test(labels) && hasVideoInput) return [];
-    if (typeof sku?.with_audio === 'boolean' && sku.with_audio !== generateAudio) return [];
-    if (typeof sku?.with_video_input === 'boolean' && sku.with_video_input !== hasVideoInput) return [];
-    return [{ rate, labels }];
-  });
-}
 function asJsonOrText(text) {
   try { return JSON.parse(text); } catch { return text.slice(0, 500); }
 }
