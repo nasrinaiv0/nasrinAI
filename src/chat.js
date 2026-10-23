@@ -400,6 +400,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     const minTokens = blocks && !voice && FILE_WORDS.test(typed) ? FILE_TOKENS : 0;
     // Smart routing decides the level, and with it how much history and reply length.
     const plan = smart ? policy.plan({ tier: choice.tier, message: typed, history: fullHistory, attachments: files }) : null;
+    activePlan = plan;
     const history = fitHistory(fullHistory, plan ? plan.historyChars : config.ai.historyChars);
     // A comparison request (or Regenerate on one): the reply leads with a table.
     const lastAsk = typed || String([...history].reverse().find((m) => m.role === 'user')?.content || '');
@@ -636,6 +637,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
       let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + imagePrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      activeReq = req;
+      activeStartedAt = started;
       let usedTools = false;
       const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
       const prChips = new Map();   // one per pull request
@@ -757,8 +760,10 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             results.push({ role: 'tool', toolCallId: c.id, content });
           }
           req = { ...req, attachments: [], messages: [...req.messages, { role: 'assistant', content: run.result.text || '', toolCalls: calls }, ...results] };
+          activeReq = req;
           if (round === MAX_TOOL_ROUNDS) req = { ...req, tools: undefined };
           started = now();
+          activeStartedAt = started;
           const runOpts = {
             onFailure,
             caller,
