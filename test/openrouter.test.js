@@ -11,6 +11,27 @@ const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion
 });
 
 
+test('live routing discovery filters OpenRouter models by text, vision, and tool capabilities', async () => {
+  const catalog = [
+    { ...model('provider/text-only'), supported_parameters: ['max_tokens'] },
+    { ...model('provider/vision-text'), architecture: { output_modalities: ['text'], input_modalities: ['text', 'image'] }, supported_parameters: ['tools'] },
+    { ...model('provider/image-output', 'image'), supported_parameters: ['tools'] },
+    { ...model('provider/tool-text'), supported_parameters: ['tools'] }
+  ];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', client });
+  assert.deepEqual(await provider.listModelsForTask({ task: 'chat' }), [
+    'provider/text-only', 'provider/vision-text', 'provider/tool-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'vision', attachments: [{ kind: 'image' }] }), [
+    'provider/vision-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'chat', requiresTools: true }), [
+    'provider/vision-text', 'provider/tool-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'decisions' }), []);
+});
+
 test('vision route converts validated image attachments into OpenAI-compatible multimodal content', async () => {
   let captured;
   const client = createOpenRouterClient({
@@ -300,4 +321,21 @@ test('OpenRouter TTS pins the request to the configured Google AI Studio provide
   assert.equal(requestSeen.url.endsWith('/audio/speech'), true);
   assert.equal(requestSeen.body.model, 'google/gemini-3.8-flash-lite-tts');
   assert.deepEqual(requestSeen.body.provider, { order: ['Google AI Studio'], only: ['Google AI Studio'], allow_fallbacks: false });
+});
+
+test('task catalog discovery includes specialized models without leaking them into chat fallbacks', async () => {
+  const imageModels = [{ id: 'provider/image-gen', supported_parameters: { aspect_ratio: { values: ['1:1'] } } }];
+  const videoModels = [{ id: 'provider/video-gen', supported_durations: [4], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'] }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url) => {
+    const href = String(url);
+    if (href.endsWith('/images/models')) return response({ data: imageModels });
+    if (href.endsWith('/videos/models')) return response({ data: videoModels });
+    return response({ data: [model('provider/chat'), model('provider/embedding', 'embeddings')] });
+  } });
+  assert.deepEqual(await client.listCapabilityModels({ task: 'image' }), ['provider/image-gen']);
+  assert.deepEqual(await client.listCapabilityModels({ task: 'video' }), ['provider/video-gen']);
+  assert.deepEqual(await client.listCapabilityModels({ task: 'embeddings' }), ['provider/embedding']);
+  assert.deepEqual(await client.listModelsForTask({ task: 'image' }), []);
+  assert.deepEqual(await client.listModelsForTask({ task: 'video' }), []);
+  assert.deepEqual(await client.listModelsForTask({ task: 'chat' }), ['provider/chat']);
 });

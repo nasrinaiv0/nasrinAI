@@ -19,7 +19,7 @@ const ENV = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30)
 const PLATFORM = '00000000-0000-0000-0000-000000000001';
 
 // A router over pretend providers: gemini (free tier, trains on data) and openai.
-function setup({ env = {}, openaiFail = null, geminiFail = null, reply } = {}) {
+function setup({ env = {}, openaiFail = null, geminiFail = null, reply, liveOpenRouterModels = [] } = {}) {
   const config = loadConfig({ ...ENV, ...env });
   const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: geminiFail, reply });
   gemini.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: false, trainsOnData: true });
@@ -42,6 +42,7 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, reply } = {}) {
     'qwen/qwen3.8-27b',
     'inclusionai/ling-3.1-flash'
   ], reply });
+  openrouter.listModelsForTask = async () => liveOpenRouterModels;
   const router = createRouter({ providers: { gemini, openai, openrouter }, config, logger: quiet });
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
@@ -102,6 +103,22 @@ test('requested OpenRouter chat models are wired into paid-tier routes', () => {
   const requested = ['deepseek/deepseek-v4.1-flash','deepseek/deepseek-v4.1-flash-1017','deepseek/deepseek-v4-flash-0731','deepseek/deepseek-v4-flash-vision-exp','z-ai/glm-5.3-flash','xiaomi/mimo-v2.6-flash','xiaomi/mimo-v2.6-pro','openai/gpt-6-luna','openai/gpt-6-luna-pro','anthropic/claude-haiku-5.5','qwen/qwen3.8-flash','qwen/qwen3.8-27b','inclusionai/ling-3.1-flash'];
   for (const model of requested) assert.ok(paid.some((candidate) => candidate.provider === 'openrouter' && candidate.model === model), model + ' must be active in paid routes');
   assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model.startsWith('nvidia/nemotron-')));
+});
+
+test('paid routing discovers newly listed OpenRouter models as bounded fallback candidates', async () => {
+  const dynamicModel = 'provider/newly-listed-text-model';
+  const a = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_2: 'openrouter:provider/configured-model'
+    },
+    liveOpenRouterModels: [dynamicModel],
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  const plan = a.policy.plan({ tier: 'pro', message: 'Write a JavaScript function to sort a list of names' });
+  assert.equal(plan.level, 2);
+  await assert.rejects(a.policy.run(plan, req('Write a JavaScript function to sort a list of names')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(a.openrouter.calls.some((call) => call.model === dynamicModel), 'tries live-discovered model after configured candidate fails');
 });
 
 test('Quick and guest prefer Nemotron but retain an OpenRouter-only emergency fallback', async () => {

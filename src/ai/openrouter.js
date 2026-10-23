@@ -88,6 +88,41 @@ export function createOpenRouterClient({
     return modelCache.data;
   }
 
+  // Return the live catalog for the requested capability. This is discovery only;
+  // callers must still use the task-specific request method and handle provider errors.
+  async function listCapabilityModels({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
+    const output = TASK_OUTPUT[task];
+    if (!output) return [];
+    let models;
+    if (task === 'image' || task === 'video') {
+      const result = await request(task === 'image' ? '/images/models' : '/videos/models', { method: 'GET' });
+      if (!Array.isArray(result.data)) throw new ProviderError('unavailable', 'OpenRouter specialized model catalog response is invalid');
+      models = result.data;
+    } else {
+      models = await listModels();
+    }
+    models = models.filter((item) => typeof item.id === 'string');
+    if (task === 'image') models = models.filter((item) => !item.architecture || item.architecture.output_modalities?.includes('image') || item.supported_parameters);
+    else if (task === 'video') { /* dedicated video catalog is already task-scoped */ }
+    else if (task === 'decisions') return [];
+    else models = models.filter((item) => item.architecture?.output_modalities?.includes(output));
+    const input = TASK_INPUT[task];
+    if (input) models = models.filter((item) => item.architecture?.input_modalities?.includes(input));
+    if (requiresTools) models = models.filter((item) => Array.isArray(item.supported_parameters) && item.supported_parameters.includes('tools'));
+    if (Array.isArray(attachments) && attachments.some((item) => item?.kind === 'pdf')) return [];
+    if (Array.isArray(attachments) && attachments.length && !['vision', 'pdf', 'audio_understanding', 'video_understanding'].includes(task)) return [];
+    if (task === 'vision' && attachments.length) models = models.filter((item) => item.architecture?.input_modalities?.includes('image'));
+    return [...new Set(models.map((item) => item.id))];
+  }
+
+  async function listModelsForTask(options = {}) {
+    const task = options.task || 'chat';
+    // The policy router consumes these IDs as text-generation fallbacks. Do not
+    // leak specialized image/video/audio/embedding IDs into that chat lane.
+    if (['image', 'video', 'speech', 'transcription', 'audio', 'embeddings', 'rerank', 'decisions'].includes(task)) return [];
+    return listCapabilityModels(options);
+  }
+
   async function selectModel(task, preferred = [], requirements = {}) {
     const modality = TASK_OUTPUT[task];
     if (!modality) throw new ProviderError('config', 'Unsupported OpenRouter task');
@@ -274,7 +309,7 @@ export function createOpenRouterClient({
     return request('/embeddings', { body: { model: selected.id, input }, signal });
   }
 
-  return Object.freeze({ listModels, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
+  return Object.freeze({ listModels, listModelsForTask, listCapabilityModels, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
 }
 
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;
@@ -342,6 +377,11 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
     async listModels() {
       const models = await openrouter.listModels();
       return [...new Set([...models.filter((m) => m.architecture?.output_modalities?.includes('text')).map((m) => m.id), ...(fallbackProvider ? ['openrouter/free'] : [])])];
+    },
+    // Capability-aware live discovery across OpenRouter's task-specific catalogs.
+    // Discovery is not verification; each route must still make a valid endpoint call.
+    async listModelsForTask({ task = 'chat', requiresTools = false, attachments = [] } = {}) {
+      return openrouter.listModelsForTask({ task, requiresTools, attachments });
     },
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
