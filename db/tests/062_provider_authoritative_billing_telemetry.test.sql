@@ -12,10 +12,11 @@ begin
   if v_definition is null then
     raise exception 'owner_console_usage_summary(timestamptz) is missing';
   end if;
-  if position('provider_reported_cost_usd' in v_definition) = 0
+  if position('cost_source' in v_definition) = 0
+     or position('provider_reported_cost_usd' in v_definition) = 0
      or position('cost_known_rows' in v_definition) = 0
      or position('cost_unknown_rows' in v_definition) = 0 then
-    raise exception 'owner-console usage summary must expose provider cost and known/unknown coverage';
+    raise exception 'owner-console usage summary must expose provenance-filtered provider cost and known/unknown coverage';
   end if;
   if position('estimated_cost_usd' in v_definition) > 0
      or position('coalesce(sum(cost_usd), 0)' in v_definition) > 0 then
