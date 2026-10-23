@@ -322,3 +322,20 @@ test('OpenRouter TTS pins the request to the configured Google AI Studio provide
   assert.equal(requestSeen.body.model, 'google/gemini-3.8-flash-lite-tts');
   assert.deepEqual(requestSeen.body.provider, { order: ['Google AI Studio'], only: ['Google AI Studio'], allow_fallbacks: false });
 });
+
+test('task catalog discovery includes specialized models without leaking them into chat fallbacks', async () => {
+  const imageModels = [{ id: 'provider/image-gen', supported_parameters: { aspect_ratio: { values: ['1:1'] } } }];
+  const videoModels = [{ id: 'provider/video-gen', supported_durations: [4], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'] }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url) => {
+    const href = String(url);
+    if (href.endsWith('/images/models')) return response({ data: imageModels });
+    if (href.endsWith('/videos/models')) return response({ data: videoModels });
+    return response({ data: [model('provider/chat'), model('provider/embedding', 'embeddings')] });
+  } });
+  assert.deepEqual(await client.listCapabilityModels({ task: 'image' }), ['provider/image-gen']);
+  assert.deepEqual(await client.listCapabilityModels({ task: 'video' }), ['provider/video-gen']);
+  assert.deepEqual(await client.listCapabilityModels({ task: 'embeddings' }), ['provider/embedding']);
+  assert.deepEqual(await client.listModelsForTask({ task: 'image' }), []);
+  assert.deepEqual(await client.listModelsForTask({ task: 'video' }), []);
+  assert.deepEqual(await client.listModelsForTask({ task: 'chat' }), ['provider/chat']);
+});
