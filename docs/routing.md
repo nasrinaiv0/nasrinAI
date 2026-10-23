@@ -140,3 +140,18 @@ Provider-side billing dashboards and invoices are authoritative for actual costs
 With `OPENROUTER_API_KEY` configured, the requested DeepSeek V4/V4.1 Flash, GLM 5.3 Flash, MiMo V2.6 Flash/Pro, GPT-6 Luna/Luna Pro, Claude Haiku 5.5, Qwen3.8 Flash/27B, and Ling 3.1 Flash models are active default candidates for paid tiers. Task-aware ordering and existing capability, privacy, tier, and quota checks still apply. Provider-reported usage and billing remain authoritative.
 
 Quick/guest remains Nemotron-first and is limited to those Nemotron models plus `openai/gpt-6-luna` as an emergency OpenRouter fallback. It cannot fall through to Luna Pro, MiMo Pro, or other paid-tier candidates, including with a `ROUTE_LEVEL_n` override. Catalog presence is not proof of account-level availability; authenticated live smoke tests are required before each endpoint can be called verified.
+
+
+## Live OpenRouter model discovery
+
+When OpenRouter is configured, paid-tier routing supplements the maintained shortlist
+with models discovered from OpenRouter's live `/models?output_modalities=all`
+catalog. Discovery is capability-filtered: general routes require text output,
+vision requests require image input, tool-using requests require advertised tool
+support, and specialized Decisions, image, video, audio, embedding, reranking, and
+PDF tasks are not treated as ordinary chat routes. Quick/guest remain on the
+explicit Nemotron-first and emergency allowlist.
+
+Live discovery means a model is eligible to be attempted; it does **not** mark the
+model as live-tested or guarantee account access, provider uptime, or quota. Catalog
+failures do not interrupt configured static routes.
