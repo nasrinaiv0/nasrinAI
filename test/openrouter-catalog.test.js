@@ -4,7 +4,8 @@ import { OPENROUTER_SKILL_CATALOG, prioritizeOpenRouterCandidates } from '../src
 
 test('catalog separates operator-verified provider identity from NasrinAI integration readiness', () => {
   assert.equal(OPENROUTER_SKILL_CATALOG.length, 17);
-  assert.ok(OPENROUTER_SKILL_CATALOG.every((m) => m.id && m.status === 'verified'));
+  assert.ok(OPENROUTER_SKILL_CATALOG.filter((m) => m.integrationStatus !== 'provider-alias-not-chat-model').every((m) => m.id && m.status === 'verified'));
+  assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'google-vertex/global' && m.status === 'provider-alias'));
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'qwen/qwen3.8-27b' && m.integrationStatus === 'chat-route'));
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'openai/gpt-6-luna-decisions' && m.integrationStatus === 'decisions-api-required'));
   assert.ok(OPENROUTER_SKILL_CATALOG.some((m) => m.id === 'deepseek/deepseek-v4-flash-vision-exp' && m.integrationStatus === 'vision-payload-required'));
