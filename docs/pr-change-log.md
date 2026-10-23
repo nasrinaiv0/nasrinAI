@@ -2006,5 +2006,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Wire the requested DeepSeek, GLM, MiMo, GPT-6 Luna, Claude Haiku, Qwen, and Ling chat models into default paid-tier candidate pools.
 - Keep Quick/guest Nemotron-first and restrict emergency fallback to OpenRouter GPT-6 Luna only.
-- Add regression coverage for requested IDs in paid-tier routes and Quick exclusion of paid-only models.
+- Add regression coverage for requested IDs in paid-tier routes and Quick exclusion of paid-only models, including custom `ROUTE_LEVEL_1` overrides.
+- Bound Quick/guest retry attempts to the configured OpenRouter candidates so the emergency model can actually be reached after Nemotron failures; other tiers keep their normal retry cap.
 - Provider-reported billing remains authoritative. Full CI and authenticated live model smoke tests are required before merge/release.
