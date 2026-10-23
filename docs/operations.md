@@ -85,7 +85,7 @@ order by kind, status;
 | What you see | What to do |
 | --- | --- |
 | Chat says it cannot answer | Logs: `model call failed`. Key or quota: fix in OpenAI. Quick switches: `ROUTING=fixed`, `TOOLS_ENABLED=false`, then Redeploy. |
-| "Spending limit" messages | Expected when budgets are reached. Raise `DAILY_BUDGET_USD` / `WEEKLY_BUDGET_USD` (chat) or `IMAGE_*_BUDGET_USD` (pictures) if intended. |
+| Provider billing / spend alerts | Review provider dashboards and account-level caps. NasrinAI does not enforce estimated USD budgets. |
 | Pictures fail | Logs: `image failed` (has the provider's reason). Off switch: remove `GEMINI_API_KEY`. |
 | A bad release | Vercel → Deployments → the previous good one → ⋯ → Promote to Production. |
 | Abuse from one business | `update public.tenants set status = 'suspended' where id = '<id>';` (all its keys stop at once). |
