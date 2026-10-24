@@ -150,6 +150,41 @@ test('Guest and Quick use explicitly free OpenRouter models first and never fall
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
+test('paid tiers prefer explicitly free OpenRouter models for simple intent, while retaining paid fallback', async () => {
+  for (const tier of ['pro', 'max', 'ultra']) {
+    const a = setup({
+      env: {
+        OPENROUTER_API_KEY: 'or-test-key',
+        ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
+        ROUTE_LEVEL_2: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
+        ROUTE_LEVEL_3: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
+        ROUTE_LEVEL_4: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
+        ROUTE_LEVEL_5: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free'
+      }
+    });
+    const plan = a.policy.plan({ tier, message: 'Hello!' });
+    assert.equal(plan.wanted, 1, 'test input should be classified as simple intent');
+    const run = await a.policy.run(plan, req('Hello!'));
+    assert.equal(run.spec.provider, 'openrouter');
+    assert.match(run.spec.model, /:free$/i, tier + ' should try a free model first for simple intent');
+  }
+
+  const fallback = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
+    },
+    reply: async (spec) => {
+      if (spec?.model?.endsWith(':free')) throw new ProviderError('unavailable', 'free model unavailable');
+      throw new Error('unexpected');
+    }
+  });
+  const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
+  await assert.rejects(fallback.policy.run(fallbackPlan, req('Hello!')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(fallback.openrouter.calls.some((call) => /:free$/i.test(call.model)), 'free candidate is attempted first');
+  assert.ok(fallback.openrouter.calls.some((call) => !/:free$/i.test(call.model)), 'paid plans may fall back to an eligible paid model');
+});
+
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
   const limited = setup({ env: { GEMINI_API_KEY: '', MAX_REQUEST_COST_ULTRA_USD: '0.05' } });
   const plan = limited.policy.plan({ tier: 'ultra', message: 'Plan an end-to-end architecture redesign of the entire codebase' });
