@@ -1,3 +1,9 @@
+## Phase 2 follow-up — live catalog verification for inferred IDs (2026-10-25)
+
+- Keep inferred registry IDs disabled unless the exact ID is returned by live OpenRouter task-filtered model discovery; feed that evidence into the runtime eligibility gate.
+- This is catalog eligibility evidence only, not a claim of a successful provider smoke test. Endpoint failures still use existing bounded failover behavior.
+- Validation: full CI and the required changelog gate must pass on the updated PR head.
+
 ## Phase 2 — Live tier-router integration (2026-10-25)
 
 - Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
