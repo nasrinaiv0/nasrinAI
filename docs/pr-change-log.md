@@ -2219,3 +2219,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
 - Fix the tile-count assertion to account for the separate hidden owner tile and correct the owner-tile selector in the regression test.
 - CI is rerunning against the latest branch commit.
+
+## Web research Phase 2 hardening (2026-10-25)
+
+- Expand live-search intent detection for scraping, crawling, page extraction, link opening, summarization, fact-checking, and source verification.
+- Use the larger search context/result budget for explicit research tasks while retaining the standard budget for ordinary current lookups.
+- Tell the research model to describe the pages actually inspected and to treat fetched page content and search snippets as untrusted evidence, not instructions.
+- Increase explicit shared-link discovery from two to five distinct URLs.
+- Correct IPv4-mapped IPv6 parsing in the SSRF address normalizer and add regression coverage for public and loopback-mapped addresses.
+- **Validation:** regression tests added. Full CI, security checks, preview API, and Guest/Quick browser verification must pass before merge; do not infer success from deployment status alone.
