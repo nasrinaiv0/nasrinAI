@@ -37,6 +37,24 @@ async function format() {
   return sandbox.window.NasrinFormat;
 }
 
+
+test('map structured UI guidance requires known endpoints and prohibits invented live route facts', async () => {
+  const source = await readFile(new URL('../src/ai/prompt.js', import.meta.url), 'utf8');
+  assert.match(source, /registered map widget/);
+  assert.match(source, /Never invent a current location, route distance, ETA, traffic condition/);
+  assert.match(source, /"type":"map"/);
+});
+
+test('embedded map renderer builds Google-owned iframe and safe Maps links from bounded fields', async () => {
+  const source = await readFile(new URL('../public/generative-ui.js', import.meta.url), 'utf8');
+  assert.match(source, /function renderMap\(payload\)/);
+  assert.match(source, /https:\/\/maps\.google\.com\/maps\?/);
+  assert.match(source, /https:\/\/www\.google\.com\/maps\/dir\//);
+  assert.match(source, /noopener noreferrer/);
+  assert.match(source, /payload\.type === 'map'/);
+  assert.doesNotMatch(source, /iframe\.src\s*=\s*payload\./);
+});
+
 test('Markdown tables render as a real table, built safely, inside a scroll box', async () => {
   const { render, plain } = await format();
   const { node } = render('Here is a comparison.\n\n| Plan | Price | **Best for** |\n|---|:---:|---|\n| Free | ₱0 | Trying it |\n| Max | `₱199` | Daily work |\n\nPick Max.');
