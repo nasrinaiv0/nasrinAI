@@ -398,6 +398,14 @@ test('OpenRouter video adapter validates capabilities and pins model and duratio
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
+  const nestedStatusProvider = createOpenRouterVideoProvider({ client: { ...client, videoStatus: async () => ({ data: { status: 'completed' } }) }, model: 'provider/video', tier: 'max', maxSeconds: 8 });
+  const nestedStatus = await nestedStatusProvider.status('job_nested');
+  assert.equal(nestedStatus.id, 'job_nested', 'status preserves requested ID when nested payload omits it');
+  assert.equal(nestedStatusProvider.extract(nestedStatus).done, true);
+  assert.equal(nestedStatusProvider.extract(nestedStatus).uri, 'job_nested');
+  const nestedVideoProvider = createOpenRouterVideoProvider({ client: { ...client, videoStatus: async () => ({ video: { status: 'completed' } }) }, model: 'provider/video', tier: 'max', maxSeconds: 8 });
+  const nestedVideoStatus = await nestedVideoProvider.status('job_video');
+  assert.equal(nestedVideoProvider.extract(nestedVideoStatus).uri, 'job_video');
   assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 0.037 } }).actualCostUsd, 0.037);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 'unknown' } }).actualCostUsd, null);
   assert.equal((await provider.download('job_123')).toString(), 'video');
