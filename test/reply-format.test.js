@@ -228,3 +228,20 @@ test('malformed structured UI payloads never leak protocol markers to the base r
   assert.match(visible, /interactive response could not be displayed/i);
   assert.doesNotMatch(visible, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]/);
 });
+
+
+test('rich inline links remain clickable and safe; untrusted HTML is rendered as text', async () => {
+  const { render } = await format();
+  const rendered = render('Read [the official guide](https://example.com/docs).').node;
+  const links = rendered.all('A');
+  assert.equal(links.length, 1);
+  assert.equal(links[0].href, 'https://example.com/docs');
+  assert.equal(links[0].rel, 'noopener noreferrer nofollow');
+  assert.equal(links[0].target, '_blank');
+
+  const unsafe = render('<img src=x onerror=alert(1)> [bad](javascript:alert(1))').node;
+  assert.equal(unsafe.all('IMG').length, 0);
+  assert.equal(unsafe.all('A').length, 0);
+  assert.match(unsafe.textContent, /<img src=x onerror=alert\(1\)>/);
+  assert.match(unsafe.textContent, /javascript:alert\(1\)/);
+});
