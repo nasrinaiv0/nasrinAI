@@ -484,7 +484,7 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
       const route = await client.getVideoRoute({ model: resolvedModel || model, tier, resolution: requestedResolution, fps, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = route.model;
-      const result = await client.createVideo({ model: route.model, tier, prompt, duration: route.duration, aspect_ratio: route.aspectRatio, resolution: route.resolution, fps: route.fps, generate_audio: route.generateAudio });
+      const result = await client.createVideo({ model: route.model, tier, prompt, duration: route.duration ?? Math.floor(seconds), aspect_ratio: route.aspectRatio || aspectRatio, resolution: route.resolution || requestedResolution, fps: route.fps ?? fps, generate_audio: route.generateAudio ?? generateAudio });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
       return id;
