@@ -139,7 +139,7 @@ export function htmlToText(html) {
     return bare ? decode(bare[1].endsWith('/') ? bare[1].slice(0, -1) : bare[1]).trim() : '';
   };
   const meta = (key) => {
-    for (const match of html.matchAll(/<meta\\b[^>]*>/gi)) {
+    for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
       const tag = match[0];
       const label = (attrs(tag, 'name') || attrs(tag, 'property') || attrs(tag, 'itemprop')).toLowerCase();
       if (label === key.toLowerCase()) return attrs(tag, 'content').slice(0, 500);
