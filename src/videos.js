@@ -326,6 +326,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       progress: v.status === 'completed' ? 100 : Math.min(99, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100)),
       produced_seconds: v.producedSeconds, target_seconds: v.targetSeconds,
       error: v.status === 'failed' ? { code: v.errorCode, message: v.errorMessage } : null,
+      provider_poll_warning: v.poll_warning === true,
       download: v.status === 'completed' ? '/v1/videos/' + v.id + '/content' : null
     };
   }
