@@ -14,6 +14,7 @@ import net from 'node:net';
 // Returns readable text, never the raw HTML.
 
 const MAX_BYTES = 1_500_000;
+const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 8000;
 const TYPES = /^(text\/html|text\/plain|application\/xhtml\+xml|application\/json|text\/markdown)/i;
 
@@ -134,7 +135,7 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
   let u = checkUrl(raw);
   if (!u) return { url: raw, error: 'not a public web address' };
   try {
-    for (let hop = 0; hop <= 3; hop++) {
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       const res = await getImpl(u);
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
