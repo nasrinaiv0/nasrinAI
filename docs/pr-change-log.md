@@ -1,3 +1,11 @@
+## PR #581 — Free-first model routing and privacy disclosures (2026-10-24)
+
+- Guest and Quick routes accept only explicitly free OpenRouter model IDs ending in `:free`; no paid fallback is allowed for these tiers.
+- For simple intent on Pro, Max, and Ultra, prioritize explicitly free OpenRouter candidates before otherwise eligible tier-authorized models. Paid fallback remains available only within the user's tier and existing capability/privacy policy.
+- Add regression tests for free-first paid-tier selection and fallback behavior.
+- Update the Privacy Notice and Terms of Service to explain that inputs are not sent to third-party providers for the purpose of training their general models, while filtered/minimized guest-conversation content may be used to improve NasrinAI. Automated filtering is not guaranteed to catch every sensitive detail.
+- **Validation:** CI must pass on the final PR head before merge. Production routing, provider behavior, and deployment have not been independently verified by this change.
+
 ## security/undici-audit — undici advisory (2026-10-24)
 
 - Lockfile-only update of `undici` (via `@vercel/sandbox`) from 7.30.0 to 7.30.1; `npm audit --audit-level=high` reports 0 vulnerabilities. No package.json change.
