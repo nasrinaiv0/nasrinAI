@@ -2249,3 +2249,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The `/healthz` and `/v1/status` smoke requests return HTTP 503 `not_configured`, naming missing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `GUEST_SESSION_SECRET` in the Preview runtime.
 - Do not copy production database/service-role secrets into Preview to bypass this gate. Configure a dedicated isolated Supabase test runtime and branch-scoped secrets, then rerun API and Guest/Quick browser smoke tests.
 - **Validation:** static deployment availability verified; authenticated/API behavior remains blocked pending isolated Preview configuration.
+
+## Article-first extraction and bounded source metadata (2026-10-25)
+
+- Prefer the first article/main content block when available, strip page chrome and non-content elements, and decode bounded HTML entities safely.
+- Extract bounded Open Graph/title, description, site name, author, publication date, and canonical URL metadata; canonical metadata is not substituted for the actual fetched URL used for citations.
+- Add source metadata to the chat context as explicitly labeled untrusted data, without storing fetched page text in conversation history.
+- Add regressions for article-first extraction, metadata parsing, context labeling, and non-persistence.
+- **Validation:** fresh full CI and security gates required after these changes; Preview API smoke tests remain blocked until an isolated Supabase test runtime is configured.
