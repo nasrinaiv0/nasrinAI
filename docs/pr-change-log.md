@@ -2228,3 +2228,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Increase explicit shared-link discovery from two to five distinct URLs.
 - Correct IPv4-mapped IPv6 parsing in the SSRF address normalizer and add regression coverage for public and loopback-mapped addresses.
 - **Validation:** regression tests added. Full CI, security checks, preview API, and Guest/Quick browser verification must pass before merge; do not infer success from deployment status alone.
+
+## Google fallback source sanitation and attribution (2026-10-25)
+
+- Revalidate fallback result URLs at the web-search boundary, reject unsafe schemes and credential-bearing URLs, deduplicate results, and bound title/snippet text.
+- Label Google Custom Search results as discovery snippets rather than independently verified page content.
+- Return explicit provider/model attribution and fallback telemetry so usage logs can distinguish Google fallback from OpenRouter web search.
+- Add regression coverage for duplicate/unsafe results and fallback attribution.
+- **Validation:** fresh full CI and security gates required; no merge until all checks pass.
