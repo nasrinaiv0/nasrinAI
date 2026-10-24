@@ -1,3 +1,11 @@
+## feat/chat-embedded-maps-rich-cards (2026-10-24)
+
+- Add a registered `map` Generative UI widget that embeds Google Maps directly in the chat for a known place or route.
+- Build iframe and external navigation URLs only from bounded plain-text origin/destination/query fields; never accept a model-supplied iframe URL. Add accessible titles, lazy loading, responsive mobile styles, and an explicit Open in Google Maps action.
+- Extend the system prompt with map-widget selection rules and prohibit inventing current location, route distance, ETA, traffic, ratings, or opening hours. A map embed is not presented as proof that live route details were verified.
+- Add regression checks for map-widget guidance, registered rendering, fixed Google hostnames, and refusal to load arbitrary iframe URLs.
+- **Validation:** pending CI on the pull request. Google Maps embed behavior, CSP compatibility, iPhone Safari interaction, and real route display must be smoke-tested in the deployed preview before merge. This phase does not add Routes API-backed ETAs or traffic data.
+
 ## Owner session bootstrap diagnostics (2026-10-24)
 
 - Add privacy-safe server-side rejection reason logs for the Owner Command Center bootstrap so production failures can be distinguished (origin/host, allowlist/IP, rate limit, token verification, email allowlist, or audit write).
