@@ -100,13 +100,19 @@ function configuredAllowlist(config) {
   return { ...source, ips };
 }
 
-function allowedRequest(req, config, clientIp) {
+function inspectAllowedRequest(req, config, clientIp) {
   const allowlist = configuredAllowlist(config);
-  if (!allowlist) return null;
+  if (!allowlist) return { allowlist: null, reason: 'owner_configuration_invalid', clientIpValid: false, allowlistedIpCount: 0 };
   let ip = '';
-  try { ip = normalizeIp(clientIp(req)); } catch { return null; }
-  if (!ip || !allowlist.ips.includes(ip)) return null;
-  return allowlist;
+  try { ip = normalizeIp(clientIp(req)); } catch { /* treat invalid resolver output as a failed IP check */ }
+  if (!ip || !allowlist.ips.includes(ip)) {
+    return { allowlist: null, reason: 'client_ip_not_allowlisted', clientIpValid: Boolean(ip), allowlistedIpCount: allowlist.ips.length };
+  }
+  return { allowlist, reason: '', clientIpValid: true, allowlistedIpCount: allowlist.ips.length };
+}
+
+function allowedRequest(req, config, clientIp) {
+  return inspectAllowedRequest(req, config, clientIp).allowlist;
 }
 
 function sign(payload, secret) {
@@ -404,9 +410,12 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
 
     if (bootstrapPath) {
       const trustedOrigin = trustedBootstrapOrigin(req, res, config);
-      const bootstrapReject = (reason) => {
+      const bootstrapReject = (reason, diagnostics = {}) => {
         // Never log access tokens, email addresses, cookies, or raw client IPs.
-        logger?.warn?.('owner session bootstrap rejected', { reason, method: req.method, host: String(req.headers.host || '').split(',')[0].trim().toLowerCase() });
+        logger?.warn?.('owner session bootstrap rejected', {
+          reason, ...diagnostics, method: req.method,
+          host: String(req.headers.host || '').split(',')[0].trim().toLowerCase()
+        });
         jsonError(res, req.method === 'HEAD');
       };
       if (req.method === 'OPTIONS') {
@@ -419,8 +428,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         return true;
       }
       if (req.method !== 'POST' || !trustedOrigin) { bootstrapReject('origin_or_method'); return true; }
-      const allowlist = allowedRequest(req, config, clientIp);
-      if (!allowlist) { bootstrapReject('allowlist_or_client_ip'); return true; }
+      const accessCheck = inspectAllowedRequest(req, config, clientIp);
+      const allowlist = accessCheck.allowlist;
+      if (!allowlist) {
+        bootstrapReject(accessCheck.reason, {
+          clientIpValid: accessCheck.clientIpValid,
+          allowlistedIpCount: accessCheck.allowlistedIpCount
+        });
+        return true;
+      }
       if (!(await rateAllowed(req))) { bootstrapReject('rate_limit'); return true; }
       const token = bearer(req);
       if (!token || typeof verifyUser !== 'function') { bootstrapReject('missing_token_or_verifier'); return true; }
