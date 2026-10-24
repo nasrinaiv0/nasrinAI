@@ -1,6 +1,6 @@
-## Unreleased
+- Add the clean-tier OpenRouter model routing registry with explicit Guest/free Quick, paid Quick, Pro, Max, and Ultra eligibility; preserve inferred model IDs as disabled until verified; define capability-specific endpoint metadata and safe fallback checks. Provider billing remains OpenRouter-owned; tier entitlements, capability compatibility, privacy, and output validation remain enforced.
 
-- Add groundwork for secure user-owned integrations with server-only encrypted credential storage, ownership-scoped read APIs, RLS-protected tables, and regression tests. Provider-specific OAuth adapters remain unimplemented.
+## Unreleased
 
 - Fix finished chat videos never appearing: saved jobs are now polled and downloaded through the matching provider adapter (the database stores no tier), and the video content route supports byte ranges so iPhone Safari can play the preview.
 
@@ -69,3 +69,5 @@
 - Documented the requested OpenRouter video model allowlist with verified IDs `heygen/heygen-video-1` and `alibaba/wan-3.0`, current model-specific duration constraints, and safe modality-preserving failover policy for image, video, voice, and coding.
 
 - Add a manual GitHub Actions workflow to verify live OpenRouter text-model availability and upload a JSON report. Runs only on explicit dispatch with cost confirmation; uses `OPENROUTER_API_KEY`.
+
+- Add groundwork for secure user-owned integrations with server-only encrypted credential storage, ownership-scoped read APIs, RLS-protected tables, and regression tests. Provider-specific OAuth adapters remain unimplemented.
