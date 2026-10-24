@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Fix finished chat videos never appearing: saved jobs are now polled and downloaded through the matching provider adapter (the database stores no tier), and the video content route supports byte ranges so iPhone Safari can play the preview.
+
 - Enforce tier-aware OpenRouter routing: guest/free Quick exhaust explicitly free models before GPT-6 Luna fallback, while paid tiers exclude `:free` model IDs; add routing regression tests.
 
 - Trigger the owner-session verification when a signed-in session is established, fixing the hidden Owner Command Center tile's visibility deadlock while preserving email/IP authorization.

@@ -2226,6 +2226,19 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The corrected UI marker regex is already present on `main`; this synchronized follow-up preserves that implementation and adds focused test coverage without reverting unrelated main-branch changes.
 - **Validation:** rerun CI and the required documentation gate on the synchronized PR head.
 
+## fix/video-completed-not-rendering — finished videos never reached the chat (2026-10-25)
+
+- **Root cause (reproduced, not read from production logs):** chat video jobs are polled through `providerForVideo()`, which needs the job's stored tier to pick the adapter. In production the providers are a per-tier map, but the Supabase `generated_videos` table has no tier column, so every saved job came back without one. The lookup returned nothing and `GET /v1/videos/:id` answered `503 videos_unavailable` on every poll. OpenRouter finished the job (and billed it); NasrinAI never fetched it, so the chat showed "Creating your video" and then "having trouble checking this video's status" until the job timed out. The default memory store keeps the tier, which is why earlier tests passed.
+- **Fix:** when the exact tier is unknown, use an adapter whose provider id matches the job's, preferring the caller's plan tier. This is only for checking status and fetching the file; creating a video is unchanged and never falls back. A job from a provider that is no longer configured stays unavailable. Applies to the status poll and the content download.
+- **Playback on iPhone/Safari:** the content route sent the whole file as a plain 200. Safari will not play a `<video>` from a server that ignores Range requests, so the inline preview would likely have failed even after the first fix. `/v1/videos/:id/content` now sends `Accept-Ranges: bytes` and answers single byte-range requests with 206 (and 416 for an out-of-range request). Multiple or malformed ranges are ignored (full 200). New helper `src/http/range.js`.
+- **Validation:** `test/videos-persisted-jobs.test.js` uses a store shaped like Supabase and the real per-tier provider map (failed with `videos_unavailable` before the fix); `test/video-content-range.test.js` tests the parser and the real route handler (route tests fail against the old route). Results of `npm test` and `npm run check:secrets` are in the PR. **No real video was generated and production logs could not be read** (the Vercel connection returned 403); the cause was found by reproduction.
+- **Not fixed / owner notes:** (1) Jobs already past the 10-minute limit (`VIDEO_JOB_TIMEOUT_MS`) are stopped by the timeout before any status check, so videos already paid for at OpenRouter cannot be recovered through the app; use the OpenRouter activity page. (2) The table still does not store tier, model, resolution or fps (needs a migration; not needed for this fix). (3) A finished video over 8 MB is not cached in the database and is re-fetched from OpenRouter on each playback request.
+
+## PR #603 preview build enforcement (2026-10-25)
+
+- The Vercel status check can be green even when the deployment is `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
+- **Validation:** rerun CI and verify the Vercel deployment reaches `READY` before API or iPhone Safari smoke tests. No production deployment or credentials were changed.
+
 ## Tier-aware OpenRouter routing (2026-10-25)
 
 - Guest and free Quick can try eligible explicitly free OpenRouter models; GPT-6 Luna is the only paid-model fallback and is attempted after the free pool.
