@@ -2277,9 +2277,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 ## Web research implementation validation snapshot (2026-10-25)
 
-- **CI run 6637:** test, database, and dependency-audit jobs passed on commit `4204260161802047359ad43388952e2db07954f1`, covering bounded crawling, source metadata, Google fallback sanitation, and rich-link safety tests.
-- **Documentation Gate run 1245:** passed on the same commit.
-- **Vercel Preview:** deployment `dpl_AA8ZYQXfKLz4QPziYtCR8ysLid7G` reached `READY`; the chat HTML/static formatter returned HTTP 200.
+- **CI run 6645:** test, database, and dependency-audit jobs passed on commit `5024a1d062e9c298e8c0acee11d211a689d74a04`, including bounded same-origin crawling and off-origin redirect rejection, source metadata/citation integrity, Google fallback sanitation, and rich-link safety tests.
+- **Documentation Gate run 1251:** passed on the same commit. Earlier CI run 6637 also passed before the crawl redirect-origin follow-up.
+- **Vercel Preview:** deployment `dpl_1YiiRNoeYk9wJxkCxmiu3uRM8cbh` reached `READY`; the chat HTML/static formatter returned HTTP 200.
 - **Remaining release blocker:** Preview `/healthz` and `/v1/status` return HTTP 503 `not_configured` because the isolated Preview runtime lacks the four required Supabase/session settings. Production `/healthz` returned HTTP 200. Do not use production service-role credentials to bypass Preview isolation.
 - **Next verification:** fresh CI and Documentation Gate after this log update, then configure an isolated Preview Supabase runtime and run API plus Guest/Quick browser smoke tests. PR remains unmerged.
 
