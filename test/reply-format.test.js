@@ -178,3 +178,20 @@ test('unsafe source URLs are not treated as trusted citations', async () => {
   assert.equal(result.links.length, 0);
   assert.match(result.text, /javascript:alert/);
 });
+
+test('raw structured search payloads degrade to readable text when the UI enhancer is unavailable', async () => {
+  const F = await format();
+  const reply = '[[ui]] {"type":"search","query":"latest news Philippines","recency_days":1} [[/ui]]';
+  const rendered = F.render(reply).node;
+  const visible = rendered.textContent || '';
+  assert.match(visible, /Web search requested: latest news Philippines/);
+  assert.doesNotMatch(visible, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]|"type"\\s*:\\s*"search"/);
+});
+
+test('malformed structured UI payloads never leak protocol markers to the base renderer', async () => {
+  const F = await format();
+  const rendered = F.render('[[ui]] {not valid json} [[/ui]]').node;
+  const visible = rendered.textContent || '';
+  assert.match(visible, /interactive response could not be displayed/i);
+  assert.doesNotMatch(visible, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]/);
+});
