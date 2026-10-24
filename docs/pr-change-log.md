@@ -1,3 +1,7 @@
+## security/undici-audit — undici advisory (2026-10-24)
+
+- Lockfile-only update of `undici` (via `@vercel/sandbox`) from 7.30.0 to 7.30.1; `npm audit --audit-level=high` reports 0 vulnerabilities. No package.json change.
+
 ## fix/openrouter-routing — OpenRouter data policy and failover (2026-10-24)
 
 - Add `OPENROUTER_DATA_COLLECTION` (default `allow`; `deny` supported). Private requests (contact details, attachments) always send `deny`, and a configured `deny` is never loosened by a caller. Privacy notice updated and `LEGAL_PRIVACY_VERSION` bumped to `2026-10-24`.
