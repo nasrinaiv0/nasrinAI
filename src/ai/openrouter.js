@@ -362,9 +362,54 @@ export function createOpenRouterClient({
   }
 
   async function getVideoRoute({ model, tier = 'max', resolution, fps, duration, aspectRatio, generateAudio = true, hasVideoInput = false } = {}) {
-    const requirements = { tier, resolution, fps, duration, aspectRatio, generateAudio, hasVideoInput };
-    const selected = await selectModel('video', model ? [cleanModelId(model)] : [], requirements);
-    return Object.freeze({ model: selected.id, resolution: resolution || null, fps: fps ?? null, source: 'openrouter-live-capability-catalog' });
+    // Resolve unsupported quality/FPS/aspect/audio requests to values actually
+    // advertised by the provider catalog. Duration remains strict: never claim
+    // a clip duration the selected model cannot generate.
+    const result = await request('/videos/models', { method: 'GET' });
+    if (!Array.isArray(result.data)) throw new ProviderError('unavailable', 'OpenRouter video model catalog response is invalid');
+    const allowedByTier = tier === 'pro'
+      ? ['480p', '360p']
+      : ['4k', '1080p', '720p', '480p', '360p'];
+    const preferredId = typeof model === 'string' && MODEL_ID.test(model) ? model : null;
+    const candidates = result.data.filter((item) => typeof item.id === 'string' && item.id.length <= 180);
+    const ordered = preferredId
+      ? [...candidates.filter((item) => item.id === preferredId), ...candidates.filter((item) => item.id !== preferredId)]
+      : candidates;
+    const values = (item, keys) => {
+      for (const key of keys) if (Array.isArray(item[key]) && item[key].length) return item[key];
+      return [];
+    };
+    const supportsDuration = (item) => {
+      const durations = values(item, ['supported_durations', 'supportedDurations']).map(Number);
+      return Number.isFinite(Number(duration)) && durations.includes(Number(duration));
+    };
+    for (const item of ordered) {
+      if (!supportsDuration(item)) continue;
+      const resolutions = values(item, ['supported_resolutions', 'supportedResolutions'])
+        .filter((value) => allowedByTier.includes(String(value)));
+      const frameRates = values(item, ['supported_frame_rates', 'supported_fps', 'supportedFrameRates'])
+        .map(Number).filter((value) => [30, 60].includes(value));
+      const ratios = values(item, ['supported_aspect_ratios', 'supportedAspectRatios']).map(String);
+      if (!resolutions.length || !frameRates.length || !ratios.length) continue;
+      const selectedResolution = resolutions.includes(resolution) ? resolution : resolutions[0];
+      const selectedFps = frameRates.includes(Number(fps)) ? Number(fps) : (frameRates.includes(30) ? 30 : frameRates[0]);
+      const selectedAspectRatio = ratios.includes(aspectRatio) ? aspectRatio : ratios[0];
+      const audioSupported = item.generate_audio === true || item.supports_audio_generation === true;
+      if (generateAudio === true && !audioSupported) {
+        // Audio is optional; choose the model's supported silent-video mode.
+      }
+      return Object.freeze({
+        model: item.id,
+        resolution: selectedResolution,
+        fps: selectedFps,
+        duration: Number(duration),
+        aspectRatio: selectedAspectRatio,
+        generateAudio: generateAudio === true && audioSupported,
+        hasVideoInput: hasVideoInput === true,
+        source: 'openrouter-live-capability-catalog'
+      });
+    }
+    throw new ProviderError('unavailable', 'No OpenRouter video model advertises the requested duration and a quality compatible with this plan');
   }
 
   async function createVideo({ model, preferred = [], tier = 'max', prompt, signal, ...options }) {
@@ -433,13 +478,13 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
     async validateOptions({ generateAudio = true, hasVideoInput = false, duration = safeMax, aspectRatio = '16:9', requestedResolution = resolution, fps } = {}) {
       const route = await client.getVideoRoute({ model: resolvedModel || model, tier, resolution: requestedResolution, fps, duration, aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = route.model;
-      return true;
+      return route;
     },
     async create({ prompt, aspectRatio, seconds = safeMax, generateAudio = true, hasVideoInput = false, requestedResolution = resolution, fps = 30 }) {
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
       const route = await client.getVideoRoute({ model: resolvedModel || model, tier, resolution: requestedResolution, fps, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput });
       resolvedModel = route.model;
-      const result = await client.createVideo({ model: route.model, tier, prompt, duration: Math.floor(seconds), aspect_ratio: aspectRatio, resolution: requestedResolution, fps, generate_audio: generateAudio });
+      const result = await client.createVideo({ model: route.model, tier, prompt, duration: route.duration, aspect_ratio: route.aspectRatio, resolution: route.resolution, fps: route.fps, generate_audio: route.generateAudio });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
       return id;
