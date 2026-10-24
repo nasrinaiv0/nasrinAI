@@ -2267,3 +2267,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Add a DOM-renderer regression proving valid external Markdown links remain clickable with safe `rel` attributes, while raw HTML and JavaScript URLs remain inert text.
 - **Validation:** fresh CI required for the renderer test.
+
+## Bounded same-origin site crawling (2026-10-25)
+
+- Implement a capped crawler for explicit scrape/crawl requests with one supplied root URL; it reads at most five pages, follows only same-origin HTTP(S) links, skips common static assets, and passes every target through the existing public-address/redirect-safe reader.
+- Keep raw HTML internal to link discovery; only bounded extracted text and labeled metadata enter the chat context. Cross-origin links are not crawled automatically.
+- Add regression coverage for page caps, same-origin-only traversal, asset/script link rejection, and unsafe root URLs.
+- **Validation:** full CI, security checks, and preview/API verification required before merge.
