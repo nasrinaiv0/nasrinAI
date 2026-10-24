@@ -1,3 +1,10 @@
+## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
+
+- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
+- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
+- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
+- **Validation:** CI run 6482 passed. Documentation Gate run 1172 failed because this required changelog was not updated in the PR; this entry fixes that omission. Re-run the Documentation Gate before merge. Authenticated live model probes remain outstanding.
+
 ## Owner session bootstrap diagnostics (2026-10-24)
 
 - Add privacy-safe server-side rejection reason logs for the Owner Command Center bootstrap so production failures can be distinguished (origin/host, allowlist/IP, rate limit, token verification, email allowlist, or audit write).
