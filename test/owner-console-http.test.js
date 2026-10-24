@@ -121,7 +121,9 @@ test('owner bootstrap rejection logs a safe reason without exposing credentials 
   assert.equal(response.status, 404);
   const warning = app.warnings.find((entry) => entry.message === 'owner session bootstrap rejected');
   assert.ok(warning);
-  assert.equal(warning.details.reason, 'allowlist_or_client_ip');
+  assert.equal(warning.details.reason, 'client_ip_not_allowlisted');
+  assert.equal(warning.details.clientIpValid, true);
+  assert.equal(warning.details.allowlistedIpCount, 1);
   assert.equal(JSON.stringify(warning).includes(TOKEN), false);
   assert.equal(JSON.stringify(warning).includes('192.0.2.77'), false);
   assert.equal(JSON.stringify(warning).includes('owner@example.com'), false);
