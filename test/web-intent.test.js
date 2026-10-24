@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { needsWeb } from '../src/web/search.js';
+import { linksIn } from '../src/web/read-link.js';
 
 test('web intent detection routes scraping and page extraction through live research', () => {
   for (const prompt of [
@@ -24,4 +25,23 @@ test('web intent detection keeps ordinary timeless explanations local', () => {
   ]) {
     assert.equal(needsWeb(prompt), false, prompt);
   }
+});
+
+test('shared-link research reads up to five distinct source URLs by default', () => {
+  const input = [
+    'https://example.com/one',
+    'https://example.com/two',
+    'https://example.com/three',
+    'https://example.com/four',
+    'https://example.com/five',
+    'https://example.com/six',
+    'https://example.com/one'
+  ].join(' ');
+  assert.deepEqual(linksIn(input), [
+    'https://example.com/one',
+    'https://example.com/two',
+    'https://example.com/three',
+    'https://example.com/four',
+    'https://example.com/five'
+  ]);
 });
