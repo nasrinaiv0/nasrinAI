@@ -192,6 +192,8 @@ export function createOpenRouterClient({
     });
     else if (task === 'video') { /* dedicated video catalog is already task-scoped */ }
     else if (task === 'decisions') return [];
+    else if (task === 'transcription') models = models.filter((item) =>
+      ['text', 'transcription', 'audio'].some((modality) => item.architecture?.output_modalities?.includes(modality)));
     else models = models.filter((item) => item.architecture?.output_modalities?.includes(output));
     const input = TASK_INPUT[task];
     if (input) models = models.filter((item) => item.architecture?.input_modalities?.includes(input));
