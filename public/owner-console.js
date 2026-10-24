@@ -4,6 +4,7 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
+    logs: ['AI Provider Logs', 'Request-level OpenRouter telemetry, status, tokens, cost, latency, and provider response metadata.', '≋'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
@@ -222,6 +223,114 @@
       loadButton.addEventListener('click', loadBilling);
       windowSelect.addEventListener('change', loadBilling);
       loadBilling();
+    }
+
+    if (key === 'logs') {
+      const panel = el('section', 'panel');
+      panel.classList.add('module-extra', 'provider-logs-panel');
+      panel.append(el('h3', '', 'OpenRouter request history'));
+      panel.append(el('p', 'panel-copy', 'Sanitized server-side request logs. Raw prompts, completions, uploaded files, and credentials are not shown. Provider activity totals are separate from per-request rows.'));
+      const controls = el('div', 'provider-log-filters');
+      const windowLabel = el('label', 'provider-log-field');
+      windowLabel.append(el('span', '', 'Time range'));
+      const windowSelect = el('select', 'provider-log-control');
+      [['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => { const option = el('option','',label); option.value=value; windowSelect.append(option); });
+      windowLabel.append(windowSelect);
+      const statusLabel = el('label', 'provider-log-field');
+      statusLabel.append(el('span', '', 'Status'));
+      const statusSelect = el('select', 'provider-log-control');
+      [['','All statuses'],['success','Success'],['error','Failed']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; statusSelect.append(option); });
+      statusLabel.append(statusSelect);
+      const modelLabel = el('label', 'provider-log-field');
+      modelLabel.append(el('span', '', 'Model contains'));
+      const modelInput = el('input', 'provider-log-control');
+      modelInput.type='search'; modelInput.maxLength=120; modelInput.placeholder='Search model name';
+      modelLabel.append(modelInput);
+      const endpointLabel = el('label', 'provider-log-field');
+      endpointLabel.append(el('span', '', 'Endpoint'));
+      const endpointSelect = el('select', 'provider-log-control');
+      [['','All endpoints'],['/chat/completions','Chat / multimodal'],['/audio/speech','Speech'],['/audio/transcriptions','Transcription'],['/responses','Responses / web search'],['/embeddings','Embeddings'],['/rerank','Reranking']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; endpointSelect.append(option); });
+      endpointLabel.append(endpointSelect);
+      const refresh = el('button', 'quiet-button', 'Refresh logs');
+      refresh.type='button';
+      controls.append(windowLabel,statusLabel,modelLabel,endpointLabel,refresh);
+      panel.append(controls);
+      const statusLine = el('p', 'panel-copy provider-log-status', 'Loading request history…');
+      panel.append(statusLine);
+      const tableWrap = el('div', 'provider-log-table-wrap');
+      const table = el('table', 'provider-log-table');
+      const thead = el('thead'), headerRow = el('tr');
+      ['Date','Model','Upstream provider','Endpoint','Status','Tokens (in / out)','Latency','Generation time','Cost (USD)','Finish reason','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
+      thead.append(headerRow);
+      const tbody = el('tbody');
+      table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
+      const pager = el('div','provider-log-pager');
+      const previous = el('button','quiet-button','Previous'); previous.type='button';
+      const next = el('button','quiet-button','Next'); next.type='button';
+      const pageLabel = el('span','panel-copy','Page 1');
+      pager.append(previous,pageLabel,next); panel.append(pager);
+      c.append(panel);
+      let offset = 0, hasMore = false, loading = false;
+      const cell = (row, value, cls) => { const td=el('td',cls || '', value === null || value === undefined || value === '' ? '—' : String(value)); row.append(td); };
+      const fmt = (value) => { if (!value) return '—'; const date=new Date(value); return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString(); };
+      const num = (value) => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? '—' : numberText(value);
+      const load = async (reset) => {
+        if (loading) return;
+        if (reset) offset=0;
+        loading=true; refresh.disabled=true; previous.disabled=offset===0; next.disabled=true;
+        statusLine.textContent='Loading request history…';
+        try {
+          const params=new URLSearchParams({window:windowSelect.value,limit:'50',offset:String(offset)});
+          if (statusSelect.value) params.set('status',statusSelect.value);
+          if (modelInput.value.trim()) params.set('model',modelInput.value.trim());
+          if (endpointSelect.value) params.set('endpoint',endpointSelect.value);
+          const response=await fetch('/owner/api/openrouter-logs?'+params.toString(),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+          const payload=await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Request logs unavailable');
+          const rows=Array.isArray(payload.rows)?payload.rows:[];
+          tbody.replaceChildren();
+          rows.forEach((item) => {
+            const tr=el('tr');
+            const model= item.model || item.requested_model || 'Unknown model';
+            const statusText=String(item.status || 'unknown').toUpperCase() + (item.http_status ? ' · HTTP '+item.http_status : '');
+            const resp=item.response_summary && typeof item.response_summary==='object' ? item.response_summary : {};
+            const finish=resp.finish_reason || resp.finishReason || resp.native_finish_reason || '—';
+            const tokens=[num(item.prompt_tokens),num(item.completion_tokens)].join(' / ');
+            const cost=item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
+            cell(tr,fmt(item.created_at));
+            cell(tr,model,'provider-log-model');
+            cell(tr,item.upstream_provider || 'Not reconciled');
+            cell(tr,(item.http_method || 'POST')+' '+(item.endpoint || '—'));
+            const statusCell=el('td'); statusCell.append(state(statusText,item.status==='success'?'available':'unavailable')); tr.append(statusCell);
+            cell(tr,tokens);
+            cell(tr,item.latency_ms===null || item.latency_ms===undefined ? '—' : num(item.latency_ms)+' ms');
+            cell(tr,item.generation_time_seconds===null || item.generation_time_seconds===undefined ? '—' : Number(item.generation_time_seconds).toFixed(2)+' s');
+            cell(tr,cost);
+            cell(tr,item.finish_reason || finish);
+            const requestId=String(item.provider_request_id || item.openrouter_generation_id || item.request_id || item.id || '—');
+            const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
+            tbody.append(tr);
+          });
+          hasMore=Boolean(payload.has_more);
+          previous.disabled=offset===0; next.disabled=!hasMore;
+          pageLabel.textContent='Page '+(Math.floor(offset/50)+1);
+          statusLine.textContent=rows.length ? 'Showing '+numberText(offset+1)+'–'+numberText(offset+rows.length)+' · '+payload.window+' · updated '+fmt(payload.generated_at) : 'No request logs found for these filters.';
+          if (!rows.length && offset>0) { offset=Math.max(0,offset-50); previous.disabled=offset===0; }
+        } catch (error) {
+          tbody.replaceChildren();
+          statusLine.textContent=String(error?.message || 'Request logs could not be loaded.');
+        } finally {
+          loading=false; refresh.disabled=false; previous.disabled=offset===0; next.disabled=!hasMore;
+        }
+      };
+      refresh.addEventListener('click',()=>load(true));
+      windowSelect.addEventListener('change',()=>load(true));
+      statusSelect.addEventListener('change',()=>load(true));
+      endpointSelect.addEventListener('change',()=>load(true));
+      modelInput.addEventListener('keydown',(event)=>{if(event.key==='Enter')load(true);});
+      previous.addEventListener('click',()=>{if(offset>=50){offset-=50;load(false);}});
+      next.addEventListener('click',()=>{if(hasMore){offset+=50;load(false);}});
+      load(true);
     }
 
     if (key === 'ai') {

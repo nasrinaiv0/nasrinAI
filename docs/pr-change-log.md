@@ -2168,3 +2168,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Treat unsupported FPS preferences as a fallback opportunity instead of returning a validation error.
 - Add regression coverage for provider-default settings and invalid FPS fallback.
 - **Validation:** CI required on the PR head; live OpenRouter generation must be verified before deployment.
+
+
+## PR #594 — Owner OpenRouter request logs
+- Add a read-only owner-authenticated API at `/owner/api/openrouter-logs` with validated time-window, status, model, endpoint, and pagination filters. Response projection deliberately excludes request summaries and all prompt/completion content.
+- Add the AI Provider Logs console panel and responsive request table with request time, model, endpoint, outcome, tokens, latency, cost, request identifiers, and upstream provider/generation timing after reconciliation.
+- Add migration `065_openrouter_provider_performance.sql`; apply migrations 063, 064, and 065 in order.
+- Add owner-console tests for sanitized log output, invalid filters, and IP allowlist enforcement. Update `docs/openrouter-telemetry.md` and `CHANGELOG.md`.
+- Implementation commits: `f3b33079b017e307d8b72df0c45dcaf38c25b42f`, `6a6d5434da8a3064d87a3961f7e14090c3820823`, `d770a3ecb841dc43a8d49958d8bedcf535195dd2`, `6f7300ccc2f30a1eeb479df8b53eb9fd68ad26d5`, `e3570e540bcdc57b8deab849c2fe765c3e037ea5`, `326260b4fcfa10fa2dc48495f2d679090b1bfdfc`, `5cf44f2b8f0baaf3d66d1f776957c9643e332750`, `34468eb38adfa00aef33c1ab1fa822ddc7c5422e`, `2918ec69a540844e7cc970aafda984dd9b3a9209`.
+- Validation: CI and database checks are running; do not merge until all required checks pass and Preview behavior is verified.

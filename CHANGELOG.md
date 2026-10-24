@@ -1,3 +1,8 @@
+## Unreleased
+
+- Add an owner-only AI Provider Logs view for sanitized OpenRouter request history, with time/model/status/endpoint filters, pagination, token counts, latency, provider-reported cost, and reconciled upstream provider/generation metadata.
+- Add migration 065 for upstream provider and generation timing fields; add tests for owner-boundary enforcement, filter validation, and sanitized log responses.
+
 # Changelog
 
 - Fix video quality fallback errors so exhausted model/quality checks report capability unavailability rather than a misleading plan restriction; add regression coverage for requested 2-second clips.
