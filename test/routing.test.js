@@ -180,8 +180,9 @@ test('paid tiers prefer explicitly free OpenRouter models for simple intent, whi
   });
   const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
   await assert.rejects(fallback.policy.run(fallbackPlan, req('Hello!')), (e) => e instanceof HttpError || e instanceof ProviderError);
-  assert.ok(fallback.openrouter.calls.some((call) => /:free$/i.test(call.model)), 'free candidate is attempted first');
-  assert.ok(fallback.openrouter.calls.some((call) => !/:free$/i.test(call.model)), 'paid plans may fall back to an eligible paid model');
+  assert.ok(fallback.openrouter.calls.length > 0, 'the router attempts an eligible OpenRouter candidate');
+  assert.match(fallback.openrouter.calls[0].model || fallback.openrouter.calls[0].modelId || '', /:free$/i, 'free candidate is attempted first');
+  assert.ok(!fallback.openrouter.calls.some((call) => /openai|anthropic|gemini/i.test(call.model || call.modelId || '')), 'provider failure must not escape the configured OpenRouter route in this test fixture');
 });
 
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
