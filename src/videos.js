@@ -50,7 +50,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (!plans) throw unavailable();
     const account = await plans.current(caller);
     if (account.open || !['pro', 'max', 'ultra'].includes(account.plan)) throw new HttpError(403, 'video_plan_required', 'Video creation requires Pro, Max or Ultra. Upgrade your plan to create videos.');
-    const selected = resolveRequestTier(requestedTier, account.plan, { open: Boolean(account.open) });
+    const requested = resolveRequestTier(requestedTier, account.plan, { open: Boolean(account.open) });
+    // "Automatic" (the default NasrinAI selection, or no choice at all) means
+    // "use my plan's video tier". It never goes above the plan: explicit
+    // choices below keep their entitlement checks unchanged.
+    const selected = requested === 'nasrinai' ? account.plan : requested;
     if (!['pro', 'max', 'ultra'].includes(selected)) throw new HttpError(403, 'video_tier_required', 'Video generation requires selecting Pro, Max or Ultra.');
     if (account.plan === 'pro' && selected !== 'pro') throw new HttpError(403, 'video_tier_required', 'Pro video generation is limited to 480p. Upgrade to Max or Ultra for 1080p.');
     if (account.plan === 'max' && selected === 'ultra') throw new HttpError(403, 'video_tier_required', 'Max cannot use Ultra video add-ons.');
@@ -75,7 +79,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       if (!owns(caller, conversation)) throw notFound();
     }
     const prompt = safePrompt(b.prompt);
-    const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
+    let targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
     let aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
     // Default to 720p/30 FPS. Honor a user-selected value only when the
     // plan permits it; if the model cannot provide it, fall back to the
@@ -118,6 +122,10 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
             });
             requestedResolution = resolved?.resolution || resolution;
             requestedFps = resolved?.fps ?? fps;
+            // The model may only offer certain clip lengths (a 2-second ask can
+            // resolve to its 5-second clip). Record and create the real length.
+            const resolvedSeconds = Number(resolved?.duration);
+            if (Number.isFinite(resolvedSeconds) && resolvedSeconds >= 1 && resolvedSeconds <= (routeProvider.maxSeconds || MAX_SECONDS)) targetSeconds = Math.floor(resolvedSeconds);
             aspectRatio = resolved?.aspectRatio || aspectRatio;
             generateAudio = resolved?.generateAudio ?? true;
             break;

@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+- Fix chat video creation: Automatic uses the plan's video tier; requested clip lengths resolve to a length the model advertises; native resolution/FPS dialogs removed; "edit/turn photos into a video" requests route to video and offer Video Studio when photos are attached.
+
 - Fix the base reply renderer's structured UI delimiter regex so valid search requests degrade to readable text and malformed UI payloads show a safe fallback when the optional enhancer is unavailable.
 
 - Clarify the Help improve NasrinAI description: Guest and Quick access cannot manage the preference; eligible examples may be considered under screening safeguards, and the copy avoids implying every chat is collected or models are trained automatically.

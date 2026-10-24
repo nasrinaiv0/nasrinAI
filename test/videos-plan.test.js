@@ -285,3 +285,47 @@ test('4K add-on is capability-gated rather than price-gated', async () => {
   assert.equal(called, true);
   assert.equal(created[0].addonCostUsd, null);
 });
+
+
+test('Automatic (the default NasrinAI selection) uses the video tier of the account plan', async () => {
+  for (const plan of ['pro', 'max', 'ultra']) {
+    const used = [];
+    const makeProvider = (tier) => ({
+      id: tier + '-video-provider', model: tier + '-video-model', maxSeconds: 8,
+      async create() { used.push(tier); return tier + '-operation'; }
+    });
+    const providers = { pro: makeProvider('pro'), max: makeProvider('max'), ultra: makeProvider('ultra') };
+    for (const tier of ['nasrinai', 'quick', '', undefined]) {
+      used.length = 0;
+      const { videos, created } = service(plan, false, null, providers);
+      const result = await videos.create(caller, { ...body, tier });
+      assert.equal(result.status, 'in_progress', plan + '/' + String(tier));
+      assert.deepEqual(used, [plan], 'Automatic must not cross into another plan tier');
+      assert.equal(created[0].requestTier, plan);
+    }
+  }
+});
+
+test('explicit tier choices keep their entitlement checks', async () => {
+  const providers = { pro: { id: 'p', create: async () => 'op' }, max: { id: 'm', create: async () => 'op' }, ultra: { id: 'u', create: async () => 'op' } };
+  const maxPlan = service('max', false, null, providers);
+  await assert.rejects(() => maxPlan.videos.create(caller, { ...body, tier: 'ultra' }), (err) => err.status === 403);
+  const ultraPlan = service('ultra', false, null, providers);
+  await assert.rejects(() => ultraPlan.videos.create(caller, { ...body, tier: 'pro' }), (err) => err.status === 403 && err.code === 'video_tier_required');
+  assert.equal(maxPlan.created.length + ultraPlan.created.length, 0);
+});
+
+test('a provider-resolved clip length is what gets created and stored', async () => {
+  const calls = [];
+  const provider = {
+    id: 'openrouter', model: 'configured/video', maxSeconds: 8,
+    allowedResolutions: ['720p'], allowedFrameRates: [30],
+    async validateOptions(options) { calls.push(['validate', options.duration]); return { resolution: '720p', fps: 30, aspectRatio: '16:9', generateAudio: false, duration: 5 }; },
+    async create(options) { calls.push(['create', options.seconds]); return 'five-second-job'; }
+  };
+  const { videos, created } = service('max', false, null, provider);
+  const result = await videos.create(caller, { prompt: 'A kid laughing', seconds: 2 });
+  assert.equal(result.target_seconds, 5, 'the real clip length is reported, not the unsupported request');
+  assert.equal(created[0].targetSeconds, 5);
+  assert.deepEqual(calls.at(-1), ['create', 5]);
+});

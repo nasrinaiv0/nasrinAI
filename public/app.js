@@ -3006,42 +3006,48 @@
   }
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
+  // Photos can't be fed to video generation (it starts from a description), so
+  // point to Video Studio, which builds a video from photos on a timeline.
+  function offerStudioForPhotos(text) {
+    pending = [];
+    renderTray();
+    show('user', text);
+    input.value = '';
+    autosize();
+    const card = document.createElement('div');
+    card.className = 'msg assistant';
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.textContent = 'Video generation starts from a description, so it can’t use your photos as frames. Video Studio can put your photos on a timeline, trim them, add titles and audio, and export an MP4. Or describe the video you want and I’ll generate it.';
+    const link = document.createElement('a');
+    link.className = 'btn small';
+    link.href = '/video-studio.html';
+    link.textContent = 'Open Video Studio';
+    card.append(body, link);
+    log.appendChild(card);
+    scrollToEnd(card);
+  }
+
   async function sendVideo(text) {
-    const videoTier = String(currentModel || 'nasrinai').trim().toLowerCase();
-    const defaultResolution = videoTier === 'pro' ? '480p' : '720p';
-    // Keep the client choices aligned with server-enforced base entitlements.
-    // 4K remains hidden until a verified account-level add-on entitlement exists.
-    const resolutionChoices = videoTier === 'pro' ? '360p or 480p' : '360p, 480p, 720p, 1080p, or 4k';
-    const resolutionInput = window.prompt('Video resolution (default ' + defaultResolution + '). Available base options: ' + resolutionChoices + '.', defaultResolution);
-    if (resolutionInput === null) return;
-    const resolution = String(resolutionInput || defaultResolution).trim().toLowerCase();
-    const allowedChoices = videoTier === 'pro' ? ['360p', '480p'] : ['360p', '480p', '720p', '1080p', '4k'];
-    if (!allowedChoices.includes(resolution)) {
-      show('problem', 'Choose a resolution available on your selected plan: ' + resolutionChoices + '.');
-      return;
-    }
-    const fpsInput = window.prompt('Video frame rate (default 30 FPS). Enter 30 or 60.', '30');
-    if (fpsInput === null) return;
-    const fps = Number(fpsInput || 30);
-    if (![30, 60].includes(fps)) {
-      show('problem', 'Choose 30 or 60 FPS.');
-      return;
-    }
-    if (!window.confirm('Create this video at ' + resolution + ' / ' + fps + ' FPS? NasrinAI will use your weekly video-seconds allowance. Your plan and the provider determine the final available quality.')) return;
+    // No native browser dialogs here: they are blocked or unreadable in many
+    // mobile browsers. Quality and frame rate are chosen by the server
+    // from the plan and the model's advertised options; the clip length comes
+    // from the message ("2 sec video of ...") and defaults to 8 seconds.
+    const seconds = window.NasrinCreativeIntent.parseVideoSeconds(text) || 8;
     noticesOnSend();
     show('user', text);
     input.value = '';
     autosize();
     setImageMode(false);
     try {
-      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 8, tier: currentModel || 'nasrinai', resolution, fps, conversation_id: conversationId || undefined }) });
+      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) });
       const id = data.video_id;
       if (!id) throw new Error('The video job could not be started.');
       const card = document.createElement('div');
       card.className = 'msg assistant';
       const body = document.createElement('div');
       body.className = 'msg-body';
-      body.textContent = 'I’m creating your video. You can keep using NasrinAI while it renders.';
+      body.textContent = 'I’m creating your ' + seconds + '-second video. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.';
       const loader = genLoader('Creating your video');
       card.append(body, loader.el);
       log.appendChild(card);
@@ -3051,14 +3057,14 @@
           const state = await api('/v1/videos/' + encodeURIComponent(id));
           if (state.status === 'completed') {
             loader.remove();
-            body.textContent = 'Your video is ready.';
+            body.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
             const a = document.createElement('a');
             a.className = 'btn small';
             a.href = state.download;
             a.download = '';
             a.textContent = 'Download MP4';
             card.appendChild(a);
-            deviceNotify('NasrinAI video ready', 'Your Ultra video has finished rendering.', 'nasrinai-video-' + id);
+            deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
             return;
           }
           if (state.status === 'failed') { loader.remove(); body.textContent = state.error?.message || 'The video could not be completed.'; return; }
@@ -3214,6 +3220,7 @@
       return;
     }
     if (!imageMode && intent === 'video') {
+      if (pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) return offerStudioForPhotos(text);
       const prompt = shortcut ? shortcutImagePrompt(shortcut) : text;
       return sendVideo(prompt);
     }
