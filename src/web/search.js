@@ -45,16 +45,38 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         if (!googleSearch?.available || !queryText.trim()) return null;
         let items = [];
         try { items = await googleSearch.search(queryText); } catch { items = []; }
+        const unique = [];
+        const seen = new Set();
+        for (const item of Array.isArray(items) ? items : []) {
+          let url;
+          try { url = new URL(String(item?.url || '')); } catch { continue; }
+          if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) continue;
+          const normalized = url.href;
+          if (seen.has(normalized)) continue;
+          seen.add(normalized);
+          unique.push({
+            url: normalized,
+            title: String(item?.title || item?.displayLink || 'Search result').replace(/[\\r\\n\\t]/g, ' ').slice(0, 240),
+            snippet: String(item?.snippet || '').replace(/[\\r\\n\\t]/g, ' ').slice(0, 600)
+          });
+          if (unique.length >= 5) break;
+        }
+        items = unique;
         if (!items.length) return null;
-        items = items.slice(0, 5);
         const text = [
-          'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
-          ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
-            (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
-        ].join('\n\n');
+          'The primary live-search service is temporarily unavailable. These are real results returned by Google Custom Search. Search snippets are discovery hints, not independently verified article content:',
+          ...items.map((item, index) => (index + 1) + '. ' + item.title +
+            (item.snippet ? '\\n' + item.snippet : '') + '\\n' + item.url)
+        ].join('\\n\\n');
+        emitTelemetry({
+          status: 'fallback', fallbackProvider: 'google-custom-search', latencyMs: now() - telemetryStartedAt,
+          responseSummary: { citations_count: items.length, search_calls: 1, results_are_snippets: true }
+        });
         return {
           text,
-          citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
+          citations: items.map((item) => ({ url: item.url, title: item.title })),
+          provider: 'google-custom-search',
+          model: 'google-custom-search-json',
           searches: 1, inputTokens: 0, cachedTokens: 0, outputTokens: Math.ceil(text.length / 4)
         };
       };
