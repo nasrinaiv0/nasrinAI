@@ -1,3 +1,8 @@
+## PR #581 — Routing regression test correction (2026-10-24)
+
+- Correct the free-first paid-tier routing test to assert the configured OpenRouter candidate behavior without assuming a paid fallback that the fixture does not establish.
+- **Validation:** Re-run CI on the updated PR head; this commit does not itself establish that the full test suite passes.
+
 ## PR #581 — Free-first model routing and privacy disclosures (2026-10-24)
 
 - Guest and Quick routes accept only explicitly free OpenRouter model IDs ending in `:free`; no paid fallback is allowed for these tiers.
