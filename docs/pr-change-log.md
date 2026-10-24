@@ -2335,3 +2335,29 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fail closed when a specialized model lacks a verified adapter, preventing image/video/audio/embedding/reranking/decision models from being treated as ordinary chat-completion models.
 - Add registry integrity, tier eligibility, category-separation, and fail-closed regression tests. This is routing metadata and safety groundwork; it does not claim provider-specific adapters or live smoke tests are complete.
 - **Validation:** CI passed on the initial PR head. The Documentation Gate failed because this PR lacked a changelog entry; this entry addresses that gate, and checks must be rerun on the new head before the PR is considered green.
+
+## Phase 2 regression fix — tier-correct paid model fixtures (2026-10-25)
+
+- Update the paid Quick regression to use an inferred paid-Quick registry model only when its exact ID is present in the live catalog results.
+- Update Pro, Max, and Ultra regressions to use models assigned to each tier and verify catalog evidence for inferred IDs.
+- Keep assertions that paid plans never attempt `:free` IDs; do not weaken runtime tier enforcement to accommodate legacy fixtures.
+- Validation: await the complete CI suite on the resulting PR head before considering merge.
+
+## Phase 2 test follow-up — inferred-ID evidence gate (2026-10-25)
+
+- Add a positive regression test for an inferred registry model that becomes eligible only after its exact ID is supplied by live task-filtered catalog discovery, alongside the existing negative case.
+- Validation: the final PR head must pass CI and the changelog gate; this test validates catalog eligibility, not a live generation smoke test.
+
+## Phase 2 follow-up — live catalog verification for inferred IDs (2026-10-25)
+
+- Keep inferred registry IDs disabled unless the exact ID is returned by live OpenRouter task-filtered model discovery; feed that evidence into the runtime eligibility gate.
+- This is catalog eligibility evidence only, not a claim of a successful provider smoke test. Endpoint failures still use existing bounded failover behavior.
+- Validation: full CI and the required changelog gate must pass on the updated PR head.
+
+## Phase 2 — Live tier-router integration (2026-10-25)
+
+- Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
+- Registry-known candidates are checked against the effective tier (including paid Quick), endpoint family, task capability, and inferred-ID verification status; decision, image, video, speech, embedding, and reranking models cannot accidentally enter generic chat completions.
+- Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
+- Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
+- **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.

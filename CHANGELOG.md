@@ -1,3 +1,11 @@
+- Correct routing regressions to use models explicitly eligible for the requested paid tier; paid Quick now verifies a catalog-confirmed paid-Quick model, and Pro/Max/Ultra tests each use their assigned paid model. This preserves strict tier entitlements instead of relaxing registry enforcement to make legacy tests pass.
+
+- Add regression coverage proving inferred registry models remain blocked without live catalog evidence and become eligible only when the exact ID is discovered for a supported chat task.
+
+- Allow registry entries marked inferred only when their exact model ID is present in the live OpenRouter task-filtered catalog result; static guesses remain excluded. Pass the catalog evidence into the runtime gate rather than treating inferred IDs as permanently disabled.
+
+- Integrate the approved OpenRouter tier registry into runtime chat candidate selection: registry-known models must match tier, chat endpoint, capability/task, and verification status; inferred IDs and specialized endpoint models are excluded from generic chat. Preserve dynamic catalog fallback for eligible paid chat models and free-only Quick behavior.
+
 - Add the clean-tier OpenRouter model routing registry with explicit Guest/free Quick, paid Quick, Pro, Max, and Ultra eligibility; preserve inferred model IDs as disabled until verified; define capability-specific endpoint metadata and safe fallback checks. Provider billing remains OpenRouter-owned; tier entitlements, capability compatibility, privacy, and output validation remain enforced.
 
 ## Unreleased
