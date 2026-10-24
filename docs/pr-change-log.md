@@ -1,3 +1,10 @@
+## Owner Command Center tile visibility bootstrap (2026-10-24)
+
+- Trigger the owner-session bootstrap immediately after a signed-in session is established so the hidden-by-default Owner Command Center tile can become visible after server verification.
+- Keep the tile hidden unless `owner.nasrinai.com/v1/owner/session` returns HTTP 204; the server remains responsible for verifying both the allowlisted email and client IP. Sign-out continues to hide the tile, and clicking it still triggers fresh verification before navigation.
+- Add a regression test covering the sign-in lifecycle bootstrap trigger.
+- **Validation:** CI passed on the initial code commit (run 6475). The Documentation Gate failed because this required file was not updated in the PR; this entry corrects that omission. Re-run CI and the documentation gate on the updated PR head before merge. Live production verification remains required.
+
 ## OpenRouter completed video status recovery (2026-10-24)
 
 - Normalize nested OpenRouter video status responses and preserve the original provider operation ID when the completed response omits its own identifier.

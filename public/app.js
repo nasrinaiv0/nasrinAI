@@ -6060,6 +6060,9 @@
     account = { email, token: data.access_token, until: Date.now() + (Number(data.expires_in) || 3600) * 1000 };
     saved.set(KEYS.account, { email });
     renderAccount();
+    // Bootstrap owner visibility as soon as a signed-in session is established.
+    // The tile is hidden by default, so waiting for its click would deadlock visibility.
+    void syncOwnerConsoleEntry(account.token);
     return account;
   }
 
