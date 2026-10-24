@@ -1,3 +1,8 @@
+## Phase 2 test follow-up — inferred-ID evidence gate (2026-10-25)
+
+- Add a positive regression test for an inferred registry model that becomes eligible only after its exact ID is supplied by live task-filtered catalog discovery, alongside the existing negative case.
+- Validation: the final PR head must pass CI and the changelog gate; this test validates catalog eligibility, not a live generation smoke test.
+
 ## Phase 2 follow-up — live catalog verification for inferred IDs (2026-10-25)
 
 - Keep inferred registry IDs disabled unless the exact ID is returned by live OpenRouter task-filtered model discovery; feed that evidence into the runtime eligibility gate.
