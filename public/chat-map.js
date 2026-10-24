@@ -97,7 +97,8 @@
           const position = { lat: Number(place.location.lat), lng: Number(place.location.lng) };
           bounds.extend(position);
           const marker = new maps.Marker({ map, position, title: clean(place.name || 'Place', 120), label: places.length <= 9 ? String(index + 1) : undefined });
-          const rating = place.rating !== null && place.rating !== undefined && Number.isFinite(Number(place.rating)) ? '★ ' + Number(place.rating).toFixed(1) : '';\n          const details = [clean(place.name, 120), clean(place.address, 220), rating].filter(Boolean).join('\n');
+          const rating = place.rating !== null && place.rating !== undefined && Number.isFinite(Number(place.rating)) ? '★ ' + Number(place.rating).toFixed(1) : '';
+          const details = [clean(place.name, 120), clean(place.address, 220), rating].filter(Boolean).join('\n');
           if (details) {
             const info = new maps.InfoWindow({ content: document.createTextNode(details) });
             marker.addListener('click', () => info.open({ map, anchor: marker }));
