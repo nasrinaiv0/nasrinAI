@@ -194,7 +194,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '' }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -625,6 +625,162 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         incidents_24h: incidents24h,
         panels
       });
+      return true;
+    }
+    if (pathname === '/owner/api/openrouter-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (!openrouterManagementKey || typeof fetchImpl !== 'function') {
+        sendJson(res, 503, { error: { code: 'openrouter_billing_not_configured', message: 'OpenRouter billing analytics is not configured on the server.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '30d';
+      if (!['7d', '30d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d or 30d.' } });
+        return true;
+      }
+      const at = now();
+      const headers = { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' };
+      try {
+        const [activityResponse, creditsResponse] = await Promise.all([
+          fetchImpl('https://openrouter.ai/api/v1/activity', { method: 'GET', headers, signal: AbortSignal.timeout(8000) }),
+          fetchImpl('https://openrouter.ai/api/v1/credits', { method: 'GET', headers, signal: AbortSignal.timeout(8000) })
+        ]);
+        if (!activityResponse?.ok || !creditsResponse?.ok) throw new Error('provider response not ok');
+        const [activityPayload, creditsPayload] = await Promise.all([activityResponse.json(), creditsResponse.json()]);
+        const activity = Array.isArray(activityPayload?.data) ? activityPayload.data : Array.isArray(activityPayload?.data?.data) ? activityPayload.data.data : null;
+        if (!activity) throw new Error('invalid activity payload');
+        const days = windowName === '7d' ? 7 : 30;
+        const cutoff = at - days * 24 * 60 * 60 * 1000;
+        const filtered = activity.filter((item) => {
+          const stamp = item?.date || item?.created_at || item?.timestamp;
+          const parsed = typeof stamp === 'number' ? (stamp < 1e12 ? stamp * 1000 : stamp) : Date.parse(stamp || '');
+          return !Number.isFinite(parsed) || parsed >= cutoff;
+        });
+        const sum = (key) => filtered.reduce((total, item) => {
+          const value = Number(item?.[key]);
+          return total + (Number.isFinite(value) && value >= 0 ? value : 0);
+        }, 0);
+        const byModel = new Map();
+        for (const item of filtered) {
+          const model = String(item?.model || item?.model_id || 'unknown').slice(0, 160);
+          const current = byModel.get(model) || { model, requests: 0, prompt_tokens: 0, completion_tokens: 0, total_cost_usd: 0, cost_rows: 0 };
+          const requests = Number(item?.requests ?? item?.request_count);
+          const prompt = Number(item?.prompt_tokens ?? item?.input_tokens);
+          const completion = Number(item?.completion_tokens ?? item?.output_tokens);
+          const cost = Number(item?.usage ?? item?.total_cost ?? item?.cost);
+          if (Number.isFinite(requests) && requests >= 0) current.requests += requests;
+          if (Number.isFinite(prompt) && prompt >= 0) current.prompt_tokens += prompt;
+          if (Number.isFinite(completion) && completion >= 0) current.completion_tokens += completion;
+          if (Number.isFinite(cost) && cost >= 0) { current.total_cost_usd += cost; current.cost_rows += 1; }
+          byModel.set(model, current);
+        }
+        const credits = creditsPayload?.data || creditsPayload;
+        const totalCredits = Number(credits?.total_credits);
+        const totalUsage = Number(credits?.total_usage);
+        sendJson(res, 200, {
+          source: 'openrouter_management_api',
+          generated_at: new Date(at).toISOString(),
+          window: windowName,
+          window_days: days,
+          activity_rows: filtered.length,
+          totals: {
+            requests: sum('requests') || sum('request_count'),
+            prompt_tokens: sum('prompt_tokens') || sum('input_tokens'),
+            completion_tokens: sum('completion_tokens') || sum('output_tokens'),
+            provider_reported_cost_usd: filtered.some((item) => Number.isFinite(Number(item?.usage ?? item?.total_cost ?? item?.cost)) && Number(item?.usage ?? item?.total_cost ?? item?.cost) >= 0)
+              ? filtered.reduce((total, item) => { const value = Number(item?.usage ?? item?.total_cost ?? item?.cost); return total + (Number.isFinite(value) && value >= 0 ? value : 0); }, 0) : null,
+            cost_source: 'OpenRouter activity API; totals are provider-reported, not estimated'
+          },
+          credits: {
+            total_credits: Number.isFinite(totalCredits) ? totalCredits : null,
+            total_usage: Number.isFinite(totalUsage) ? totalUsage : null,
+            remaining_credits: Number.isFinite(totalCredits) && Number.isFinite(totalUsage) ? totalCredits - totalUsage : null
+          },
+          by_model: [...byModel.values()].sort((a, b) => b.total_cost_usd - a.total_cost_usd).slice(0, 100),
+          reconciliation: {
+            status: 'not_reconciled',
+            note: 'OpenRouter account activity is shown independently. Do not add it to Supabase request costs; reconcile by request ID before calculating combined spend.'
+          }
+        });
+      } catch {
+        logger?.warn?.('OpenRouter billing analytics unavailable', { source: 'openrouter_management_api' });
+        sendJson(res, 503, { error: { code: 'openrouter_billing_unavailable', message: 'OpenRouter billing data could not be retrieved. Check the management key and provider availability.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
+      if (!openrouterManagementKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
+        return true;
+      }
+      try {
+        const body = await readOwnerJson(req, 2048);
+        if (body.confirm !== 'RECONCILE') {
+          sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Explicit reconciliation confirmation is required.' } });
+          return true;
+        }
+        const windowName = body.window === '7d' ? '7d' : '30d';
+        const days = windowName === '7d' ? 7 : 30;
+        const cutoff = new Date(now() - days * 86400000).toISOString();
+        const rows = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,created_at,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd&provider_request_id=not.is.null&total_cost_usd=is.null&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=100');
+        if (!Array.isArray(rows)) throw new Error('invalid telemetry rows');
+        let matched = 0, updated = 0, unavailable = 0, failed = 0;
+        for (const row of rows) {
+          const generationId = typeof row.provider_request_id === 'string' ? row.provider_request_id.trim() : '';
+          if (!generationId || generationId.length > 200) { unavailable++; continue; }
+          try {
+            const response = await fetchImpl('https://openrouter.ai/api/v1/generation?id=' + encodeURIComponent(generationId), {
+              method: 'GET',
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
+              signal: AbortSignal.timeout(8000),
+              redirect: 'error'
+            });
+            if (!response.ok) { unavailable++; continue; }
+            const payload = await response.json();
+            const generation = payload?.data;
+            const costValue = generation?.total_cost ?? generation?.usage;
+            const cost = costValue === null || costValue === undefined || costValue === '' ? NaN : Number(costValue);
+            if (!generation || !Number.isFinite(cost) || cost < 0) { unavailable++; continue; }
+            const providerModel = typeof generation.model === 'string' ? generation.model.slice(0, 180) : row.model;
+            const promptTokens = Number(generation.tokens_prompt ?? generation.prompt_tokens);
+            const completionTokens = Number(generation.tokens_completion ?? generation.completion_tokens);
+            const totalTokens = Number(generation.tokens ?? generation.total_tokens);
+            const patch = {
+              total_cost_usd: cost,
+              model: providerModel || null,
+              openrouter_generation_id: generationId,
+              provider_cost_source: 'openrouter_generation_api',
+              provider_cost_reconciled_at: new Date(now()).toISOString()
+            };
+            if (Number.isSafeInteger(promptTokens) && promptTokens >= 0) patch.prompt_tokens = promptTokens;
+            if (Number.isSafeInteger(completionTokens) && completionTokens >= 0) patch.completion_tokens = completionTokens;
+            if (Number.isSafeInteger(totalTokens) && totalTokens >= 0) patch.total_tokens = totalTokens;
+            const result = await store.request('PATCH', 'openrouter_logs?id=eq.' + encodeURIComponent(row.id) + '&total_cost_usd=is.null', { body: patch, headers: { Prefer: 'return=representation' } });
+            if (Array.isArray(result) && result.length) updated++;
+            else unavailable++;
+            matched++;
+          } catch {
+            failed++;
+          }
+        }
+        const summary = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,total_cost_usd,created_at&created_at=gte.' + encodeURIComponent(cutoff) + '&limit=1000');
+        const all = Array.isArray(summary) ? summary : [];
+        const reconciled = all.filter((row) => row.provider_request_id && row.total_cost_usd !== null && row.total_cost_usd !== undefined).length;
+        sendJson(res, 200, {
+          source: 'openrouter_generation_api',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          attempted: rows.length,
+          matched,
+          updated,
+          unavailable,
+          failed,
+          reconciliation: { status: failed || unavailable ? 'partial' : 'complete_for_attempted_rows', rows_with_provider_ids_and_costs: reconciled, note: 'Only request rows with provider generation IDs are eligible. Provider totals are not added to other usage tables.' }
+        });
+      } catch {
+        logger?.warn?.('OpenRouter billing reconciliation failed', { source: 'openrouter_generation_api' });
+        sendJson(res, 503, { error: { code: 'reconciliation_failed', message: 'Reconciliation could not complete. Check database access and provider availability.' } });
+      }
       return true;
     }
     if (pathname === '/owner/api/export' && req.method === 'GET') {

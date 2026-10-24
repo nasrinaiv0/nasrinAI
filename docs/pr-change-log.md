@@ -2063,3 +2063,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Add a manually triggered GitHub Actions workflow to probe live OpenRouter text models with the configured `OPENROUTER_API_KEY`, produce a job summary, and upload a JSON report. The workflow requires explicit cost confirmation because it sends real provider requests.
 - The workflow has not been run as part of this change; live model availability remains unverified until the owner dispatches it.
+
+## PR #579 — OpenRouter usage, billing, and generation reconciliation (2026-10-24)
+
+- Add an owner-only Finance panel that fetches OpenRouter activity and credit metadata through a server-side Management API key. Provider totals remain separate from Supabase telemetry to prevent double-counting.
+- Add an explicit owner-triggered reconciliation endpoint that looks up stored OpenRouter generation IDs and persists provider-reported cost/token metadata and reconciliation provenance on eligible telemetry rows. Unmatched rows remain unreconciled.
+- Add migration `064_openrouter_generation_reconciliation.sql` for generation IDs, cost source, and reconciliation timestamps.
+- **Validation:** Initial CI for the billing panel passed unit tests, JavaScript syntax, secret scanning, dependency audit, and database tests. Reconciliation changes are awaiting the latest CI run and live OpenRouter/Supabase verification; do not merge until those checks pass.

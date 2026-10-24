@@ -150,6 +150,80 @@
     });
     c.append(cards);
 
+    if (key === 'finance') {
+      const billing = el('section', 'panel');
+      billing.classList.add('module-extra');
+      billing.append(el('h3', '', 'Live OpenRouter account billing'), el('p', 'panel-copy', 'Fetched directly from OpenRouter using a server-only management key. These provider totals are displayed separately from Supabase usage events to prevent double-counting.'));
+      const controls = el('div', 'toolbar');
+      const windowSelect = el('select', 'input');
+      windowSelect.setAttribute('aria-label', 'OpenRouter activity window');
+      [['30d','Last 30 days'],['7d','Last 7 days']].forEach(([value,label]) => {
+        const option = el('option','',label); option.value = value; windowSelect.append(option);
+      });
+      const loadButton = el('button', 'quiet-button', 'Refresh OpenRouter data'); loadButton.type = 'button';
+      const reconcileButton = el('button', 'quiet-button', 'Reconcile request costs'); reconcileButton.type = 'button';
+      reconcileButton.title = 'Fetch authoritative cost and token metadata for logged OpenRouter generation IDs.';
+      controls.append(windowSelect, loadButton, reconcileButton); billing.append(controls);
+      const result = el('div');
+      result.append(notice('Loading provider data', 'Requesting current account analytics from OpenRouter.'));
+      billing.append(result); c.append(billing);
+      const loadBilling = async () => {
+        loadButton.disabled = true; result.replaceChildren(notice('Loading provider data', 'Requesting current account analytics from OpenRouter.'));
+        try {
+          const response = await fetch('/owner/api/openrouter-billing?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Provider data unavailable');
+          result.replaceChildren();
+          result.append(el('p','panel-copy','Source: OpenRouter Management API · fetched ' + new Date(payload.generated_at).toLocaleString() + ' · window ' + payload.window));
+          const totals = payload.totals || {}, credits = payload.credits || {}, grid = el('div','grid');
+          grid.append(
+            metric('OpenRouter requests','✳',totals.requests == null ? 'Unavailable' : numberText(totals.requests),'Provider activity rows may aggregate requests'),
+            metric('Prompt tokens','↗',totals.prompt_tokens == null ? 'Unavailable' : numberText(totals.prompt_tokens),'Provider-reported'),
+            metric('Completion tokens','↗',totals.completion_tokens == null ? 'Unavailable' : numberText(totals.completion_tokens),'Provider-reported'),
+            metric('Reported activity spend','USD',moneyText(totals.provider_reported_cost_usd),'Not combined with Supabase cost totals'),
+            metric('Total credits','USD',moneyText(credits.total_credits),'OpenRouter account balance metadata'),
+            metric('Total usage','USD',moneyText(credits.total_usage),'OpenRouter account usage metadata'),
+            metric('Remaining credits','USD',moneyText(credits.remaining_credits),'Credits minus reported usage')
+          );
+          result.append(grid);
+          const list = el('div','source-list');
+          (Array.isArray(payload.by_model) ? payload.by_model : []).forEach((item) => {
+            const row = el('div','source-row'), left = el('div');
+            left.append(el('div','source-name',String(item.model || 'unknown model')),el('div','source-detail',numberText(item.requests)+' requests · '+numberText(Number(item.prompt_tokens)+Number(item.completion_tokens))+' tokens'));
+            row.append(left,el('div','source-name',moneyText(item.cost_rows ? item.total_cost_usd : null))); list.append(row);
+          });
+          if (!payload.by_model?.length) list.append(el('p','panel-copy','No model activity rows were returned for this window.'));
+          result.append(list);
+          result.append(notice('Reconciliation is separate',payload.reconciliation?.note || 'Provider totals have not been reconciled against individual request IDs.'));
+        } catch (error) {
+          result.replaceChildren(notice('OpenRouter billing unavailable',String(error?.message || 'The provider did not return billing data. Check the server-side management key and try again.')));
+        } finally { loadButton.disabled = false; }
+      };
+      reconcileButton.addEventListener('click', async () => {
+        const accepted = window.confirm('Reconcile provider-reported costs for logged OpenRouter requests in this window? This updates matching telemetry rows only and does not combine provider totals with other cost totals.');
+        if (!accepted) return;
+        reconcileButton.disabled = true;
+        try {
+          const response = await fetch('/owner/api/openrouter-billing/reconcile', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm: 'RECONCILE', window: windowSelect.value })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Reconciliation unavailable');
+          result.prepend(notice('Reconciliation finished', 'Attempted ' + numberText(payload.attempted) + ' rows · updated ' + numberText(payload.updated) + ' · unavailable ' + numberText(payload.unavailable) + ' · failed ' + numberText(payload.failed) + '. Only rows with provider generation IDs can be reconciled.'));
+          await loadBilling();
+        } catch (error) {
+          result.prepend(notice('Reconciliation unavailable', String(error?.message || 'Try again after checking server configuration.')));
+        } finally {
+          reconcileButton.disabled = false;
+        }
+      });
+      loadButton.addEventListener('click', loadBilling);
+      windowSelect.addEventListener('change', loadBilling);
+      loadBilling();
+    }
+
     if (key === 'ai') {
       const usage = data && data.usage_24h;
       const providers = data && data.usage_7d && Array.isArray(data.usage_7d.providers) ? data.usage_7d.providers : [];
