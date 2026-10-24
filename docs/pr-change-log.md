@@ -1,3 +1,8 @@
+## Research intent word-boundary fix (2026-10-24)
+
+- Correct the previous follow-up's over-escaped regular-expression boundaries, which caused three web-intent tests to fail; retain the broader verb-form matching and source/timeless intent behavior.
+- **Validation:** CI run 6519 exposed the regression (1,034 passed, 3 failed, 1 skipped). The corrected pattern requires a fresh test, syntax, security, dependency, database, and Documentation Gate run before merge.
+
 ## Research intent matching regression fix (2026-10-24)
 
 - Broaden verb-form patterns for scrape, crawl, extract, and summarize requests so natural phrasing is recognized without requiring overly specific words immediately after the verb.
