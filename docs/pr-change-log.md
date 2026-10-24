@@ -2225,3 +2225,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for the base formatter's valid search fallback and malformed structured UI payload handling when the optional Generative UI enhancer is unavailable.
 - The corrected UI marker regex is already present on `main`; this synchronized follow-up preserves that implementation and adds focused test coverage without reverting unrelated main-branch changes.
 - **Validation:** rerun CI and the required documentation gate on the synchronized PR head.
+
+## Tier-aware OpenRouter routing (2026-10-25)
+
+- Guest and free Quick can try eligible explicitly free OpenRouter models; GPT-6 Luna is the only paid-model fallback and is attempted after the free pool.
+- Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
+- Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
+- **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.
