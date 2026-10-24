@@ -211,7 +211,7 @@
           });
           const payload = await response.json();
           if (!response.ok) throw new Error(payload?.error?.message || 'Reconciliation unavailable');
-          notice('Reconciliation finished', 'Attempted ' + numberText(payload.attempted) + ' rows · updated ' + numberText(payload.updated) + ' · unavailable ' + numberText(payload.unavailable) + ' · failed ' + numberText(payload.failed) + '. Only rows with provider generation IDs can be reconciled.');
+          result.prepend(notice('Reconciliation finished', 'Attempted ' + numberText(payload.attempted) + ' rows · updated ' + numberText(payload.updated) + ' · unavailable ' + numberText(payload.unavailable) + ' · failed ' + numberText(payload.failed) + '. Only rows with provider generation IDs can be reconciled.'));
           await loadBilling();
         } catch (error) {
           result.prepend(notice('Reconciliation unavailable', String(error?.message || 'Try again after checking server configuration.')));
