@@ -2287,3 +2287,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
 - Fix the tile-count assertion to account for the separate hidden owner tile and correct the owner-tile selector in the regression test.
 - CI is rerunning against the latest branch commit.
+
+## Deep research context and untrusted-source handling (2026-10-25)
+
+- Allocate the larger search context/result budget to explicit scraping, crawling, extraction, summarization, and fact-checking requests instead of only conventional research wording.
+- Instruct the research model to state the actual pages inspected and never imply a complete crawl when only a bounded subset was accessible.
+- Explicitly label fetched page text, snippets, metadata, and search results as untrusted evidence, not instructions.
+- Added regressions for high-budget research requests and preserved the standard budget for ordinary current lookups.
+- **Validation:** fresh full CI and browser/Guest/Quick verification required; current Vercel check is pending.
