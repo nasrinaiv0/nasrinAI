@@ -27,7 +27,7 @@ async function start(t, { requestIp = '127.0.0.1' } = {}) {
       if (path === 'rpc/owner_console_incident_update') return { id: options.body.p_incident_id, status: options.body.p_action === 'resolve' ? 'resolved' : 'acknowledged' };
       return [];
     } },
-    clientIp: () => requestIp
+    clientIp: () => requestIp, logger
   });
   const app = createApp({
     config, logger, gateway: { resolve: async () => { throw new Error('owner request reached gateway'); } },
