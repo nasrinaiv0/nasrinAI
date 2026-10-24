@@ -108,7 +108,7 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
   assert.match(html, /id="spaceCoding">\s*<span class="space-app-icon" aria-hidden="true"><span class="space-app-logo code-logo"/);
   // Every app sits on the same tile (owner, 2026-10-13): light grey, lifted grey in dark mode.
-  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 8, 'Video Studio adds one Space tile');
+  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length - (html.includes('id="spaceOwnerConsole"') ? 1 : 0), 8, 'Video Studio adds one regular Space tile; owner tile is separate and hidden by default');
   assert.match(css, /#pageSpace \.space-app-icon \{[^}]*background: #ECEBE7;/);
   assert.match(css, /:root\[data-theme="dark"\] #pageSpace \.space-app-icon \{ background: #3A3A3C; \}/);
   // The robot has no tile of its own; while busy it breaks into pixels and comes back.
@@ -605,8 +605,9 @@ test('owner entry bootstraps on the dedicated host and expired sessions return t
 test('Owner Command Center appears as a hidden tile in NasrinAI Space and requires owner-session verification', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  const tile = html.slice(html.indexOf('id="spaceOwnerConsole"'), html.indexOf('</button>', html.indexOf('id="spaceOwnerConsole"')));
-  assert.match(tile, /class="space-app-tile"[^>]*hidden/);
+  const tileStart = html.lastIndexOf('<button', html.indexOf('id="spaceOwnerConsole"'));
+  const tile = html.slice(tileStart, html.indexOf('</button>', tileStart));
+  assert.match(tile, /class="space-app-tile"[^>]*id="spaceOwnerConsole"[^>]*hidden/);
   assert.match(tile, /<span class="space-app-name">Owner Console<\/span>/);
   assert.match(js, /fetch\('https:\/\/owner\.nasrinai\.com\/v1\/owner\/session'/);
   assert.match(js, /if \(response\.status !== 204\)/);
