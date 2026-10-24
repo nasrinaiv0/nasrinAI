@@ -56,8 +56,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           seen.add(normalized);
           unique.push({
             url: normalized,
-            title: String(item?.title || item?.displayLink || 'Search result').replace(/[\\r\\n\\t]/g, ' ').slice(0, 240),
-            snippet: String(item?.snippet || '').replace(/[\\r\\n\\t]/g, ' ').slice(0, 600)
+            title: String(item?.title || item?.displayLink || 'Search result').replace(/[\r\n\t]/g, ' ').slice(0, 240),
+            snippet: String(item?.snippet || '').replace(/[\r\n\t]/g, ' ').slice(0, 600)
           });
           if (unique.length >= 5) break;
         }
@@ -66,8 +66,8 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         const text = [
           'The primary live-search service is temporarily unavailable. These are real results returned by Google Custom Search. Search snippets are discovery hints, not independently verified article content:',
           ...items.map((item, index) => (index + 1) + '. ' + item.title +
-            (item.snippet ? '\\n' + item.snippet : '') + '\\n' + item.url)
-        ].join('\\n\\n');
+            (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
+        ].join('\n\n');
         emitTelemetry({
           status: 'fallback', fallbackProvider: 'google-custom-search', latencyMs: now() - telemetryStartedAt,
           responseSummary: { citations_count: items.length, search_calls: 1, results_are_snippets: true }
