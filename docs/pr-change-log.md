@@ -1,3 +1,9 @@
+## Research intent matching regression fix (2026-10-24)
+
+- Broaden verb-form patterns for scrape, crawl, extract, and summarize requests so natural phrasing is recognized without requiring overly specific words immediately after the verb.
+- Keep tests asserting timeless questions remain local and capability questions do not trigger live web search.
+- **Validation:** fixes a failing intent test observed on CI run 6519; fresh CI and Documentation Gate must pass on the new commit. Preview/browser validation remains blocked by the project's Ignored Build Step.
+
 ## Link-reader redirect safety regression (2026-10-24)
 
 - Make the maximum redirect count an explicit constant and add a regression test ensuring the reader makes no more than the initial request plus three redirect requests.
