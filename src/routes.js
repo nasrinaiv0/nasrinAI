@@ -65,7 +65,7 @@ function cleanVideoStudioDocument(raw) {
   return document;
 }
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, videoStudioRenderWorker = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, integrations = null, transcription = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, videoStudioRenderWorker = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -172,6 +172,28 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
     if (creating && !('trimEndSeconds' in out)) out.trimEndSeconds = null;
     return out;
   }
+
+  const integrationRoutes = integrations ? [
+    {
+      method: 'GET',
+      path: '/v1/integrations',
+      scope: 'chat',
+      handler: async ({ caller, req }) => {
+        const provider = new URL(req.url, 'http://local').searchParams.get('provider') || undefined;
+        return { body: { integrations: await integrations.list(caller, provider) } };
+      }
+    },
+    {
+      method: 'GET',
+      path: '/v1/integrations/:id',
+      scope: 'chat',
+      handler: async ({ caller, params }) => {
+        const integration = await integrations.get(caller, params.id);
+        if (!integration) throw new HttpError(404, 'integration_not_found', 'Connected account not found.');
+        return { body: { integration } };
+      }
+    }
+  ] : [];
 
   const connectRoutes = connect ? [
     {
@@ -2584,5 +2606,5 @@ return { body: { sites: await connect.list(caller) } }; }
         body: { actor_type: caller.actor.type, tenant_id: caller.tenantId, scopes: caller.scopes }
       })
     }
-  ].concat(authRoutes({ config, auth, limiter, logger }), paymentRoutes({ config, payments, plans, store, limiter, legal, logger }), facebook ? facebook.routes : [], hooks, linkedin.routes);
+  ].concat(integrationRoutes, authRoutes({ config, auth, limiter, logger }), paymentRoutes({ config, payments, plans, store, limiter, legal, logger }), facebook ? facebook.routes : [], hooks, linkedin.routes);
 }

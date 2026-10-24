@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Add groundwork for secure user-owned integrations with server-only encrypted credential storage, ownership-scoped read APIs, RLS-protected tables, and regression tests. Provider-specific OAuth adapters remain unimplemented.
+
 - Trigger the owner-session verification when a signed-in session is established, fixing the hidden Owner Command Center tile's visibility deadlock while preserving email/IP authorization.
 
 - Use separate owner-supplied NasrinAI logo variants in the Space Connect tile, adapting to explicit light/dark themes and system preference without color inversion.

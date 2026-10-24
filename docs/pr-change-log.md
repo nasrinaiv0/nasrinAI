@@ -2225,3 +2225,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for the base formatter's valid search fallback and malformed structured UI payload handling when the optional Generative UI enhancer is unavailable.
 - The corrected UI marker regex is already present on `main`; this synchronized follow-up preserves that implementation and adds focused test coverage without reverting unrelated main-branch changes.
 - **Validation:** rerun CI and the required documentation gate on the synchronized PR head.
+
+## PR #409 — Universal user-owned integration security groundwork (2026-10-25)
+
+- Add server-side tenant/user ownership checks, an AES-256-GCM credential envelope with authenticated context, a server-only integration store, and read-only list/detail routes.
+- Add migration 066 for encrypted integration connections and expiring OAuth-state records, with browser-role access revoked and RLS denial policies.
+- Add regression coverage for user isolation, encrypted secret round-trips, tampering, and integration-store behavior. The existing Developer Tools UI on current main is preserved.
+- Provider-specific OAuth adapters, OAuth callbacks, provider writes, and production migration execution are not included in this phase.
+- **Validation:** rerun CI and the documentation gate on the synchronized PR head. Do not apply migration 066 to production until separately approved and reviewed; the encryption key is server-only.
