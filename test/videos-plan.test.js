@@ -372,3 +372,19 @@ test('a video refused by the hourly limit never reaches the provider', async () 
   assert.equal(created, 0);
   assert.equal(rows.length, 0);
 });
+
+
+test('a provider that advertises no frame rate leaves fps unset instead of forcing one', async () => {
+  const calls = [];
+  const provider = {
+    id: 'openrouter', model: 'configured/video', maxSeconds: 8,
+    allowedResolutions: ['720p'], allowedFrameRates: [60, 30],
+    async validateOptions() { return { resolution: '720p', fps: null, aspectRatio: '16:9', generateAudio: false, duration: 2 }; },
+    async create(options) { calls.push(options.fps); return 'job-no-fps'; }
+  };
+  const { videos, created } = service('max', false, null, provider);
+  const result = await videos.create(caller, { prompt: 'Palawan', seconds: 2 });
+  assert.equal(result.status, 'in_progress');
+  assert.deepEqual(calls, [null], 'the default 60 FPS candidate must not leak into the request');
+  assert.equal(created[0].fps, null);
+});

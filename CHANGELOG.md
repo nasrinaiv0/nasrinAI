@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+- Fix video creation failing for every model: a catalog with no frame-rate list is now treated as provider default instead of unsupported.
+
 - Fix the hourly video limit: it has its own message instead of the sign-in one, and only counts videos that actually start.
 
 - Fix chat video creation: Automatic uses the plan's video tier; requested clip lengths resolve to a length the model advertises; native resolution/FPS dialogs removed; "edit/turn photos into a video" requests route to video and offer Video Studio when photos are attached.
