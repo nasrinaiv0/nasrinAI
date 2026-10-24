@@ -2112,3 +2112,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Report exhausted video quality/model capability checks with a capability-specific 503 error instead of a misleading plan error.
 - Add regression coverage for two-second video requests and unsupported quality combinations.
 - **Validation:** CI identified a test-fixture logger missing the `warn` method and the required PR changelog file was not updated; both are corrected in this follow-up. Re-run CI before merge.
+
+
+## PR — Provider-default video settings fallback (2026-10-24)
+
+- Resolve video resolution, frame rate, aspect ratio, and optional audio from OpenRouter's live video-model capability catalog when the requested settings are unsupported.
+- Keep requested duration strict and select only models advertising that duration; retain per-plan resolution ceilings and paid-plan authorization.
+- Treat unsupported FPS preferences as a fallback opportunity instead of returning a validation error.
+- Add regression coverage for provider-default settings and invalid FPS fallback.
+- **Validation:** CI required on the PR head; live OpenRouter generation must be verified before deployment.
