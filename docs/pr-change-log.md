@@ -2233,3 +2233,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for user isolation, encrypted secret round-trips, tampering, and integration-store behavior. The existing Developer Tools UI on current main is preserved.
 - Provider-specific OAuth adapters, OAuth callbacks, provider writes, and production migration execution are not included in this phase.
 - **Validation:** rerun CI and the documentation gate on the synchronized PR head. Do not apply migration 066 to production until separately approved and reviewed; the encryption key is server-only.
+
+## PR #409 preview build enforcement (2026-10-25)
+
+- Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
+- **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.
