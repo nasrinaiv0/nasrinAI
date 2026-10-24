@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Fix finished chat videos never appearing: saved jobs are now polled and downloaded through the matching provider adapter (the database stores no tier), and the video content route supports byte ranges so iPhone Safari can play the preview.
+
 - Trigger the owner-session verification when a signed-in session is established, fixing the hidden Owner Command Center tile's visibility deadlock while preserving email/IP authorization.
 
 - Use separate owner-supplied NasrinAI logo variants in the Space Connect tile, adapting to explicit light/dark themes and system preference without color inversion.
