@@ -30,6 +30,15 @@ export function createApp({ config, logger, gateway, routes = [], serveStatic = 
 
       if (ownerConsole && await ownerConsole.handle(req, res, pathname)) return;
 
+      // Only the browser-restricted Maps JavaScript key may be exposed here.
+      if (pathname === '/public-config/maps' && (req.method === 'GET' || req.method === 'HEAD')) {
+        const payload = JSON.stringify({ googleMapsBrowserApiKey: String(config.maps?.browserApiKey || '') });
+        res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Length', Buffer.byteLength(payload));
+        res.end(req.method === 'HEAD' ? undefined : payload);
+        return;
+      }
       if (pathname === '/healthz') {
         if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method_not_allowed', 'Method not allowed.');
         res.setHeader('Cache-Control', 'no-store');
