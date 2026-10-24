@@ -2245,3 +2245,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
 - Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
 - **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.
+
+## PR #606 — Clean-tier OpenRouter routing documentation-gate fix (2026-10-25)
+
+- Add the missing changelog entry for the source-aligned tier-routing registry, explicit free/paid Quick separation, same-capability fallback restrictions, and tier-routing regression tests.
+- This documentation-only follow-up fixes the Documentation Gate failure on the PR head; the implementation and tests are unchanged by this commit.
+- **Validation:** CI passed on the preceding implementation head; Documentation Gate failed because this file was absent from the PR diff. Both checks must be re-run on the updated head. No live provider probes or production configuration changes were made.
