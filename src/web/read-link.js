@@ -203,9 +203,18 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
       }
       if (tooLarge) return { url: raw, error: 'the page is too large' };
       const body = Buffer.concat(chunks).toString('utf8');
-      const { title, text } = /html/i.test(type) ? htmlToText(body) : { title: '', text: body };
+      const extracted = /html/i.test(type) ? htmlToText(body) : { title: '', text: body };
+      const { title, text } = extracted;
       if (!text.trim()) return { url: raw, error: 'the page has no readable text' };
-      return { url: u.href, title, text: text.length > maxChars ? text.slice(0, maxChars) + '\n[… the page continues]' : text, ...(withHtml && /html/i.test(type) ? { html: body } : {}) };
+      const boundedText = text.length > maxChars ? text.slice(0, maxChars) + '\n[… the page continues]' : text;
+      const metadata = /html/i.test(type) ? {
+        description: String(extracted.description || '').slice(0, 500),
+        siteName: String(extracted.siteName || '').slice(0, 120),
+        author: String(extracted.author || '').slice(0, 160),
+        publishedAt: String(extracted.publishedAt || '').slice(0, 80),
+        canonical: String(extracted.canonical || '').slice(0, 1000)
+      } : {};
+      return { url: u.href, title, text: boundedText, ...metadata, ...(withHtml && /html/i.test(type) ? { html: body } : {}) };
     }
     return { url: raw, error: 'too many redirects' };
   } catch (err) {
