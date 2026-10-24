@@ -138,5 +138,6 @@
         }
       ]
     }
-  ]
+  ],
+  "ignoreCommand": "exit 1"
 }
