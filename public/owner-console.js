@@ -161,7 +161,9 @@
         const option = el('option','',label); option.value = value; windowSelect.append(option);
       });
       const loadButton = el('button', 'quiet-button', 'Refresh OpenRouter data'); loadButton.type = 'button';
-      controls.append(windowSelect, loadButton); billing.append(controls);
+      const reconcileButton = el('button', 'quiet-button', 'Reconcile request costs'); reconcileButton.type = 'button';
+      reconcileButton.title = 'Fetch authoritative cost and token metadata for logged OpenRouter generation IDs.';
+      controls.append(windowSelect, loadButton, reconcileButton); billing.append(controls);
       const result = el('div');
       result.append(notice('Loading provider data', 'Requesting current account analytics from OpenRouter.'));
       billing.append(result); c.append(billing);
@@ -197,6 +199,26 @@
           result.replaceChildren(notice('OpenRouter billing unavailable',String(error?.message || 'The provider did not return billing data. Check the server-side management key and try again.')));
         } finally { loadButton.disabled = false; }
       };
+      reconcileButton.addEventListener('click', async () => {
+        const accepted = window.confirm('Reconcile provider-reported costs for logged OpenRouter requests in this window? This updates matching telemetry rows only and does not combine provider totals with other cost totals.');
+        if (!accepted) return;
+        reconcileButton.disabled = true;
+        try {
+          const response = await fetch('/owner/api/openrouter-billing/reconcile', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm: 'RECONCILE', window: windowSelect.value })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Reconciliation unavailable');
+          notice('Reconciliation finished', 'Attempted ' + numberText(payload.attempted) + ' rows · updated ' + numberText(payload.updated) + ' · unavailable ' + numberText(payload.unavailable) + ' · failed ' + numberText(payload.failed) + '. Only rows with provider generation IDs can be reconciled.');
+          await loadBilling();
+        } catch (error) {
+          result.prepend(notice('Reconciliation unavailable', String(error?.message || 'Try again after checking server configuration.')));
+        } finally {
+          reconcileButton.disabled = false;
+        }
+      });
       loadButton.addEventListener('click', loadBilling);
       windowSelect.addEventListener('change', loadBilling);
       loadBilling();
