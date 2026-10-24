@@ -2225,3 +2225,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for the base formatter's valid search fallback and malformed structured UI payload handling when the optional Generative UI enhancer is unavailable.
 - The corrected UI marker regex is already present on `main`; this synchronized follow-up preserves that implementation and adds focused test coverage without reverting unrelated main-branch changes.
 - **Validation:** rerun CI and the required documentation gate on the synchronized PR head.
+
+## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
+
+- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
+- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
+- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
+- **Validation:** CI and the documentation gate must pass on the latest synchronized head. Authenticated live model probes remain outstanding; no production routing or account settings were changed.
