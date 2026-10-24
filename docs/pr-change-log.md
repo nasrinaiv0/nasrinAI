@@ -2191,3 +2191,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a hidden-by-default `Owner Console` app tile to the NasrinAI Space grid.
 - Reveal it only when `POST https://owner.nasrinai.com/v1/owner/session` returns 204 after server-side email + IP allowlist checks; hide it on sign-out and verification failure.
 - The tile re-verifies a fresh token before navigating to the owner console. Add a page test for placement and the verification gate.
+
+
+## PR #595 follow-up — Adaptive owner-supplied logos and regression tests
+- Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
+- Fix the tile-count assertion to account for the separate hidden owner tile and correct the owner-tile selector in the regression test.
+- CI is rerunning against the latest branch commit.
