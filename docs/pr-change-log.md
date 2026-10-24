@@ -1,3 +1,9 @@
+## Owner allowlist rejection diagnosis (2026-10-24)
+
+- Split the previously combined owner bootstrap rejection into `owner_configuration_invalid` and `client_ip_not_allowlisted` so production diagnosis identifies the failing gate.
+- Record only whether the client IP parsed successfully and the count of configured allowlisted IPs. Never log the raw IP, email, cookies, or access token; keep the public response as a generic 404.
+- Update the HTTP regression test to assert the exact safe IP-mismatch reason and diagnostic fields.
+
 ## Owner session bootstrap diagnostics (2026-10-24)
 
 - Add privacy-safe server-side rejection reason logs for the Owner Command Center bootstrap so production failures can be distinguished (origin/host, allowlist/IP, rate limit, token verification, email allowlist, or audit write).
