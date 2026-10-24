@@ -1,3 +1,9 @@
+## Multi-source web research and safe link discovery (2026-10-24)
+
+- Route explicit scrape, crawl, page extraction, link-opening, fact-checking, and source-verification prompts through live web research; read up to five distinct user-shared URLs per turn while preserving public-address, redirect, content-type, size, and timeout protections.
+- Add regression tests for new research intents, timeless prompts remaining local, and deduplicated five-URL extraction.
+- **Validation:** CI passed on the initial implementation commit; the Documentation Gate failed because this required changelog file was not updated. Re-run the documentation gate and the complete CI suite after this entry is committed. Preview and Guest/Quick end-to-end smoke tests remain required before merge.
+
 ## Owner session bootstrap diagnostics (2026-10-24)
 
 - Add privacy-safe server-side rejection reason logs for the Owner Command Center bootstrap so production failures can be distinguished (origin/host, allowlist/IP, rate limit, token verification, email allowlist, or audit write).
