@@ -1,3 +1,9 @@
+## Web research intent coverage hardening (2026-10-24)
+
+- Expand research-intent routing for gerund phrasing (scraping, crawling, extracting, summarizing) and explicit claim-accuracy checks; add regression cases for those variants.
+- Keep ordinary knowledge requests on the local/non-web path and preserve the free-only Guest/Quick model routing policy.
+- **Validation:** Full CI, database tests, syntax checks, secrets scan, dependency audit and Documentation Gate passed on commit `66f6d58`. The new intent-variant follow-up requires its own CI run; Preview/browser validation remains blocked by Vercel's Ignored Build Step.
+
 ## Multi-source web research and safe link discovery (2026-10-24)
 
 - Route explicit scrape, crawl, page extraction, link-opening, fact-checking, and source-verification prompts through live web research; read up to five distinct user-shared URLs per turn while preserving public-address, redirect, content-type, size, and timeout protections.
