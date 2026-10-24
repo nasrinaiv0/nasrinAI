@@ -404,8 +404,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
 
     if (bootstrapPath) {
       const trustedOrigin = trustedBootstrapOrigin(req, res, config);
+      const bootstrapReject = (reason) => {
+        // Never log access tokens, email addresses, cookies, or raw client IPs.
+        logger?.warn?.('owner session bootstrap rejected', { reason, method: req.method, host: String(req.headers.host || '').split(',')[0].trim().toLowerCase() });
+        jsonError(res, req.method === 'HEAD');
+      };
       if (req.method === 'OPTIONS') {
-        if (!trustedOrigin) { jsonError(res); return true; }
+        if (!trustedOrigin) { bootstrapReject('origin_or_host'); return true; }
         res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
         res.setHeader('Access-Control-Max-Age', '600');
@@ -413,15 +418,16 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         res.end();
         return true;
       }
-      if (req.method !== 'POST' || !trustedOrigin) { jsonError(res, req.method === 'HEAD'); return true; }
+      if (req.method !== 'POST' || !trustedOrigin) { bootstrapReject('origin_or_method'); return true; }
       const allowlist = allowedRequest(req, config, clientIp);
-      if (!allowlist || !(await rateAllowed(req))) { jsonError(res); return true; }
+      if (!allowlist) { bootstrapReject('allowlist_or_client_ip'); return true; }
+      if (!(await rateAllowed(req))) { bootstrapReject('rate_limit'); return true; }
       const token = bearer(req);
-      if (!token || typeof verifyUser !== 'function') { jsonError(res); return true; }
+      if (!token || typeof verifyUser !== 'function') { bootstrapReject('missing_token_or_verifier'); return true; }
       let user;
-      try { user = await verifyUser(token); } catch { jsonError(res); return true; }
-      if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { jsonError(res); return true; }
-      if (!(await recordAudit('session_issued', user.id, req))) { jsonError(res); return true; }
+      try { user = await verifyUser(token); } catch { bootstrapReject('token_verification'); return true; }
+      if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { bootstrapReject('email_allowlist'); return true; }
+      if (!(await recordAudit('session_issued', user.id, req))) { bootstrapReject('audit_write'); return true; }
       const issued = Math.floor(now() / 1000);
       const value = sign({ sub: user.id, email: String(user.email).trim().toLowerCase(), iat: issued, exp: issued + SESSION_SECONDS, jti: randomUUID() }, allowlist.sessionSecret);
       const secure = config?.isProduction === true || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
