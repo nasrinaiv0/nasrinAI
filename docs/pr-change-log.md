@@ -2379,6 +2379,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This is catalog eligibility evidence only, not a claim of a successful provider smoke test. Endpoint failures still use existing bounded failover behavior.
 - Validation: full CI and the required changelog gate must pass on the updated PR head.
 
+## Phase 2 — Live tier-router integration (2026-10-25)
+
+- Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
+- Registry-known candidates are checked against the effective tier (including paid Quick), endpoint family, task capability, and inferred-ID verification status; decision, image, video, speech, embedding, and reranking models cannot accidentally enter generic chat completions.
+- Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
+- Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
+- **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.
 
 ## PR #409 — Universal user-owned integration security groundwork (2026-10-25)
 
@@ -2398,10 +2405,3 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The synchronized branch's CI exposed a flaky forged-state assertion: changing the final two base64url characters can rarely leave the decoded HMAC unchanged.
 - Mutate the first significant MAC character instead, guaranteeing a different signature while preserving the callback's rejection expectation.
 - **Validation:** rerun CI and the documentation gate on this branch commit. No production credentials, migration, or deployment was used.
-## Phase 2 — Live tier-router integration (2026-10-25)
-
-- Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
-- Registry-known candidates are checked against the effective tier (including paid Quick), endpoint family, task capability, and inferred-ID verification status; decision, image, video, speech, embedding, and reranking models cannot accidentally enter generic chat completions.
-- Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
-- Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
-- **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.
