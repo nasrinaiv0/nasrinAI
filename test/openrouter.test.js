@@ -328,7 +328,10 @@ test('video job IDs are encoded and bounded', async () => {
 test('speech and transcription use dedicated endpoints and bounded input', async () => {
   const seen = [];
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
-    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/speech', 'speech'), model('provider/stt', 'transcription')] });
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [
+      { ...model('provider/speech', 'speech'), architecture: { output_modalities: ['audio'], input_modalities: ['text'] } },
+      { ...model('provider/stt', 'transcription'), architecture: { output_modalities: ['text'], input_modalities: ['audio'] } }
+    ] });
     seen.push({ url: String(url), body: init.body });
     return String(url).endsWith('/audio/speech') ? response('mp3', 200, 'audio/mpeg') : response({ text: 'hello' });
   } });
