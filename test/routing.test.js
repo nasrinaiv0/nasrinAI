@@ -138,7 +138,7 @@ test('Quick and guest prefer Nemotron, then use cheap eligible OpenRouter models
   const overridden = setup({
     env: {
       OPENROUTER_API_KEY: 'or-test-key',
-      ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
+      ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna,openrouter:deepseek/deepseek-v4.1-flash'
     },
     reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
   });
