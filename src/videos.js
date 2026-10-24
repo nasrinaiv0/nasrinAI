@@ -230,7 +230,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       });
       await store.updateVideo(v.id, {
         status: 'failed', errorCode: 'video_job_timeout',
-        errorMessage: 'Video generation took too long and was stopped. Please try again; you will not be charged for a video that was not completed.'
+        errorMessage: 'Video generation took too long and was stopped. Check your video usage before retrying to avoid duplicate requests.'
       });
       return await store.getVideo({ tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId, id: v.id });
     }
