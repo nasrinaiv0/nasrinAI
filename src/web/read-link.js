@@ -224,6 +224,42 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
   }
 }
 
+// Bounded same-origin crawl for explicit scrape/crawl requests. Every candidate
+// still passes checkUrl and readLink's connect-time DNS/redirect protections.
+export async function crawlSite(raw, { maxPages = 5, maxCharsPerPage = 6_000, getImpl = get } = {}) {
+  const limit = Math.max(1, Math.min(5, Number.isFinite(maxPages) ? Math.floor(maxPages) : 5));
+  const rootResult = await readLink(raw, { maxChars: maxCharsPerPage, getImpl, withHtml: true });
+  if (rootResult.error) return [rootResult];
+  const html = String(rootResult.html || '');
+  const root = new URL(rootResult.url);
+  const rootPage = { ...rootResult };
+  delete rootPage.html;
+  if (!html || limit === 1) return [rootPage];
+
+  const candidates = [];
+  const seen = new Set([root.href]);
+  const skipAsset = /\.(?:avif|bmp|css|csv|docx?|gif|ico|jpe?g|js|jsonl?|mp[34]|pdf|png|pptx?|svg|webp|xlsx?|zip)(?:$|[?#])/i;
+  for (const match of html.matchAll(/<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    const href = String(match[1] ?? match[2] ?? match[3] ?? '')
+      .replace(/&amp;/gi, '&').replace(/&#38;/gi, '&').trim();
+    if (!href || href.startsWith('#')) continue;
+    let candidate;
+    try {
+      candidate = new URL(href, root.href);
+      candidate.hash = '';
+    } catch { continue; }
+    if (!['http:', 'https:'].includes(candidate.protocol) || candidate.origin !== root.origin) continue;
+    if (skipAsset.test(candidate.pathname)) continue;
+    const safe = checkUrl(candidate.href);
+    if (!safe || safe.origin !== root.origin || seen.has(safe.href)) continue;
+    seen.add(safe.href);
+    candidates.push(safe.href);
+    if (candidates.length >= limit - 1) break;
+  }
+  const additional = await Promise.all(candidates.map((url) => readLink(url, { maxChars: maxCharsPerPage, getImpl })));
+  return [rootPage, ...additional];
+}
+
 // A small binary file (a site's icon) with the same safety rules as pages:
 // public addresses only, checked on every redirect (at most 3), a time and
 // size limit. Resolves { url, type, bytes } or { url, error }.
