@@ -1,3 +1,9 @@
+## OpenRouter completed video status recovery (2026-10-24)
+
+- Normalize OpenRouter video status responses with nested `data`/`video` envelopes and preserve the requested operation ID when a completed status payload omits its own identifier.
+- Recognize nested state fields and identifiers during completion extraction; add regression coverage for a completed status response without a top-level ID.
+- **Validation:** CI must pass on the latest commit; production Vercel logs and a fresh OpenRouter generation are still required to confirm the live failure is resolved.
+
 ## fix/video-inline-chat-preview — show completed OpenRouter videos in chat (2026-10-24)
 
 - Render a native inline MP4 player in the assistant message when the video job reaches `completed`, while retaining a Download MP4 link.
