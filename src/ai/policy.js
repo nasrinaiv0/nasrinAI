@@ -151,7 +151,18 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             ? expandedTierCandidates.filter((candidate) => candidate.provider === 'openrouter'
               && /:free$/i.test(candidate.model))
             : expandedTierCandidates;
-          const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
+          const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
+          // For paid plans, common/simple requests (classifier level 1) should
+          // try explicitly free OpenRouter models before consuming paid-tier capacity.
+          // Keep the remaining eligible candidates as fallbacks, subject to normal
+          // tier, capability, privacy, and retry checks. Guest/Quick remain free-only.
+          const freeFirst = plan.level <= 1 && plan.tier !== 'nasrinai'
+            ? [
+                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
+                ...prioritized.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
+              ]
+            : prioritized;
+          const ordered = freeFirst;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
