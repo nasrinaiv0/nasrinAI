@@ -1,3 +1,28 @@
+## Phase 3 transcription discovery CI fix (2026-10-25)
+
+- Fix task-filtered model discovery: transcription returns text, so catalog discovery accepts text-output models while requiring explicit audio input.
+- Keep modality checks strict and cover audio-input/text-output eligibility in regression tests.
+- **Validation:** rerun CI and Documentation Gate; do not merge unless required checks pass.
+
+## Phase 3 modality fixture correction (2026-10-25)
+
+- Update the transcription adapter fixture to model audio input and text output accurately; preserve strict runtime modality validation instead of relaxing capability gates to satisfy an outdated fixture.
+- **Validation:** CI and Documentation Gate must pass on the latest PR head.
+
+## Phase 3 adapter CI follow-up (2026-10-25)
+
+- Preserve supported OpenRouter catalog modality aliases for speech and transcription while keeping them on their dedicated endpoints.
+- Correct the rerank adapter regression fixture to assert the requested `topN` bound.
+- **Validation:** rerun CI and Documentation Gate on the updated PR head; no merge until both pass.
+
+## feat/phase-3-openrouter-capability-adapters (2026-10-25)
+
+- Add validated provider adapters for OpenRouter image generation, TTS, transcription, embeddings, structured decisions, and reranking; keep specialized capabilities out of generic chat routes.
+- Validate model IDs, audio and image payload bounds, embedding vector shape, transcription output, reranking indices/scores, and provider errors. Image responses must contain supported base64 data; adapter deliberately does not fetch arbitrary provider-returned URLs.
+- Correct catalog output/input modality matching for speech, transcription, and embeddings. Add bounded embedding validation and a dedicated `/rerank` request/response path.
+- Add regression tests for adapter normalization, invalid payloads, malformed responses, required client methods, and SSRF-safe image handling.
+- **Validation:** CI must pass on the final PR head. These are adapter implementations and mocked contract tests; live credentials, model-specific endpoint support, cost settlement, and deployed end-to-end provider smoke tests remain release gates. Unsupported or unverified routes must stay disabled.
+
 ## feat/openrouter-clean-tier-routing-v2 (2026-10-25)
 
 - Add a normalized OpenRouter model registry from the owner-provided model inventory, including capability, input/output modality, endpoint family, and explicit tier assignments.
@@ -2335,6 +2360,32 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fail closed when a specialized model lacks a verified adapter, preventing image/video/audio/embedding/reranking/decision models from being treated as ordinary chat-completion models.
 - Add registry integrity, tier eligibility, category-separation, and fail-closed regression tests. This is routing metadata and safety groundwork; it does not claim provider-specific adapters or live smoke tests are complete.
 - **Validation:** CI passed on the initial PR head. The Documentation Gate failed because this PR lacked a changelog entry; this entry addresses that gate, and checks must be rerun on the new head before the PR is considered green.
+
+## Phase 2 regression fix — tier-correct paid model fixtures (2026-10-25)
+
+- Update the paid Quick regression to use an inferred paid-Quick registry model only when its exact ID is present in the live catalog results.
+- Update Pro, Max, and Ultra regressions to use models assigned to each tier and verify catalog evidence for inferred IDs.
+- Keep assertions that paid plans never attempt `:free` IDs; do not weaken runtime tier enforcement to accommodate legacy fixtures.
+- Validation: await the complete CI suite on the resulting PR head before considering merge.
+
+## Phase 2 test follow-up — inferred-ID evidence gate (2026-10-25)
+
+- Add a positive regression test for an inferred registry model that becomes eligible only after its exact ID is supplied by live task-filtered catalog discovery, alongside the existing negative case.
+- Validation: the final PR head must pass CI and the changelog gate; this test validates catalog eligibility, not a live generation smoke test.
+
+## Phase 2 follow-up — live catalog verification for inferred IDs (2026-10-25)
+
+- Keep inferred registry IDs disabled unless the exact ID is returned by live OpenRouter task-filtered model discovery; feed that evidence into the runtime eligibility gate.
+- This is catalog eligibility evidence only, not a claim of a successful provider smoke test. Endpoint failures still use existing bounded failover behavior.
+- Validation: full CI and the required changelog gate must pass on the updated PR head.
+
+## Phase 2 — Live tier-router integration (2026-10-25)
+
+- Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
+- Registry-known candidates are checked against the effective tier (including paid Quick), endpoint family, task capability, and inferred-ID verification status; decision, image, video, speech, embedding, and reranking models cannot accidentally enter generic chat completions.
+- Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
+- Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
+- **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.
 
 ## feat/google-weather-chat — Google Weather API in Chat (2026-10-24)
 
