@@ -2258,4 +2258,4 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Add the missing changelog entry for the source-aligned tier-routing registry, explicit free/paid Quick separation, same-capability fallback restrictions, and tier-routing regression tests.
 - This documentation-only follow-up fixes the Documentation Gate failure on the PR head; the implementation and tests are unchanged by this commit.
-- **Validation:** CI passed on the preceding implementation head; Documentation Gate failed because this file was absent from the PR diff. Both checks must be re-run on the updated head. No live provider probes or production configuration changes were made.
+- **Validation:** the missing-entry failure was confirmed in Documentation Gate run #1288. CI run #6714 (tests, database, dependency audit and secret scan), Documentation Gate run #1291, and the Vercel status all passed on head `6dbddbc9747835aeff2c2f6364ee93a270f5af9e`. This wording-only correction triggers a fresh CI/Gate run on the new head. Authenticated live provider probes were not run; no production configuration changed.
