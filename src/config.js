@@ -314,9 +314,9 @@ export function loadConfig(env = process.env) {
   // configuration cannot turn Guest/Quick into a paid route.
   const configuredOpenRouterFreeModels = has('openrouter')
     ? String(env.OPENROUTER_FREE_MODELS || '')
-      .split(/[;,\\n]/)
+      .split(/[;,\n]/)
       .map((value) => value.trim())
-      .filter((value) => /^[a-z0-9._-]+\\/[a-z0-9._-]+:free$/i.test(value))
+      .filter((value) => /^[a-z0-9._-]+\/[a-z0-9._-]+:free$/i.test(value))
       .map((model) => 'openrouter:' + model)
     : [];
   const quickFreeDefaults = [...new Set([...nemotronDefaults, ...configuredOpenRouterFreeModels])];
