@@ -610,6 +610,7 @@ test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint elig
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'nasrinai' }), false);
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'max' }), true);
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra' }), false, 'inferred ID stays disabled until catalog verification');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra', verifiedIds: ['anthropic/claude-opus-5.5'] }), true, 'live catalog verification unlocks an otherwise eligible inferred chat model');
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'typesafe/jev-1.13', tier: 'pro', task: 'analysis' }), false, 'decision endpoint must not be called as chat');
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'google/gemini-nano-banana-2.1', tier: 'ultra', task: 'chat' }), false, 'image endpoint must not be called as chat');
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'chat' }), false, 'coding-only model must not be used for general chat');
