@@ -5,6 +5,7 @@
 ## Unreleased
 
 - Suppress raw structured UI protocol JSON when a widget cannot be rendered; normalize whitespace around UI delimiters.
+- Add a base formatter fallback for Quick-tier render paths where the optional Generative UI enhancer does not initialize.
 
 - Improve Guest/Quick structured search rendering so raw UI payload JSON is not shown as ordinary chat text.
 - Discover live OpenRouter text-capable models for Guest/Quick and filter them to explicitly free IDs, rather than limiting fallback discovery to the static Nemotron list.
