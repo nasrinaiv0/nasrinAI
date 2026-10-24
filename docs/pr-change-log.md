@@ -1,3 +1,8 @@
+## Metadata parser syntax correction (2026-10-24)
+
+- Replaced an over-escaped trailing-slash regex in bare HTML attribute parsing with an explicit string check. This fixes the module-load syntax error found in CI while retaining the same bounded metadata behavior.
+- **Validation:** a full CI run on the corrected commit is required before further changes.
+
 ## Article extraction and source metadata (2026-10-24)
 
 - Prefer the page's first article/main content block for extraction when present; avoid navigation and page chrome while retaining the existing bounded text fallback.
