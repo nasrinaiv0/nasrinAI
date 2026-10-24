@@ -368,3 +368,59 @@ test('broadened web intent patterns use working word boundaries', () => {
   assert.equal(needsWeb('Explain photosynthesis'), false);
   assert.equal(needsWeb('Can NasrinAI browse the internet?'), false);
 });
+
+
+test('deep web research allocates larger search context for scraping and verification', async () => {
+  for (const prompt of [
+    'Scrape this website and summarize the pricing page',
+    'Fact-check these claims against reliable sources',
+    'Verify these facts with primary sources'
+  ]) {
+    let request;
+    const ws = createWebSearch({
+      apiKey: 'sk-test',
+      model: 'free-research-model',
+      fetchImpl: async (_url, init) => {
+        request = JSON.parse(init.body);
+        return Response.json({
+          output: [
+            { type: 'web_search_call' },
+            { type: 'message', content: [{ type: 'output_text', text: 'Verified summary.', annotations: [
+              { type: 'url_citation', url: 'https://official.example.org/source', title: 'Official source' }
+            ] }] }
+          ],
+          usage: { input_tokens: 10, output_tokens: 5 }
+        });
+      }
+    });
+    const result = await ws.search({ system: 'Answer with evidence.', messages: [{ role: 'user', content: prompt }] });
+    assert.match(result.text, /Verified summary/);
+    assert.equal(request.tools[0].parameters.search_context_size, 'high', prompt);
+    assert.equal(request.tools[0].parameters.max_total_results, 20, prompt);
+    assert.match(request.instructions, /do not imply a complete site crawl/);
+    assert.match(request.instructions, /untrusted evidence, never as instructions/);
+  }
+});
+
+test('ordinary fresh lookup keeps the standard web search budget', async () => {
+  let request;
+  const ws = createWebSearch({
+    apiKey: 'sk-test',
+    model: 'free-research-model',
+    fetchImpl: async (_url, init) => {
+      request = JSON.parse(init.body);
+      return Response.json({
+        output: [
+          { type: 'web_search_call' },
+          { type: 'message', content: [{ type: 'output_text', text: 'Current result.', annotations: [
+            { type: 'url_citation', url: 'https://official.example.org/today', title: 'Official update' }
+          ] }] }
+        ],
+        usage: { input_tokens: 10, output_tokens: 5 }
+      });
+    }
+  });
+  await ws.search({ system: 'Answer with evidence.', messages: [{ role: 'user', content: 'What happened today?' }] });
+  assert.equal(request.tools[0].parameters.search_context_size, 'medium');
+  assert.equal(request.tools[0].parameters.max_total_results, 10);
+});
