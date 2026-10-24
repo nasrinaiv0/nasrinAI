@@ -7,8 +7,8 @@ const MODEL_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:/-]*$/i;
 const TASK_OUTPUT = Object.freeze({
   chat: 'text', research: 'text', coding: 'text', scraping: 'text', generation: 'text', rendering: 'text',
   extraction: 'text', editing: 'text', vision: 'text', pdf: 'text', audio_understanding: 'text', video_understanding: 'text', decisions: 'decisions',
-  image: 'image', video: 'video', speech: 'audio',
-  transcription: 'text', audio: 'audio', embeddings: 'embeddings', rerank: 'text'
+  image: 'image', video: 'video', speech: 'speech',
+  transcription: 'transcription', audio: 'audio', embeddings: 'embeddings', rerank: 'text'
 });
 const TASK_INPUT = Object.freeze({ vision: 'image', pdf: 'file', audio_understanding: 'audio', video_understanding: 'video', transcription: 'audio' });
 const ENDPOINT = Object.freeze({
@@ -225,7 +225,11 @@ export function createOpenRouterClient({
       ? typeof m.id === 'string'
       : task === 'image'
         ? typeof m.id === 'string' && (m.architecture?.output_modalities?.includes('image') || !m.architecture)
-        : m.architecture?.output_modalities?.includes(modality));
+        : (task === 'speech'
+          ? (m.architecture?.output_modalities?.includes('audio') || m.architecture?.output_modalities?.includes('speech'))
+          : task === 'transcription'
+            ? (m.architecture?.output_modalities?.includes('text') || m.architecture?.output_modalities?.includes('transcription') || m.architecture?.output_modalities?.includes('audio'))
+            : m.architecture?.output_modalities?.includes(modality)));
     const inputModality = TASK_INPUT[task];
     if (inputModality) eligible = eligible.filter((m) => Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes(inputModality));
     if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
