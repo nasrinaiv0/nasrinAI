@@ -329,8 +329,8 @@ export function loadConfig(env = process.env) {
     ...openRouterProCandidates
   ] : [];
   const defaultsByLevel = {
-    // Quick/guest stays Nemotron-first with GPT-6 Luna as the only emergency route.
-    1: nemotronDefaults.length ? [...nemotronDefaults, 'openrouter:openai/gpt-6-luna'] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    // Quick/guest stays Nemotron-first, then uses eligible lower-cost chat candidates; never route to GPT-6 Luna.
+    1: nemotronDefaults.length ? [...nemotronDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna'))] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
     2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', ...openRouterProCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
     3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
     4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],

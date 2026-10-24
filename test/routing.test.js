@@ -121,37 +121,35 @@ test('paid routing discovers newly listed OpenRouter models as bounded fallback 
   assert.ok(a.openrouter.calls.some((call) => call.model === dynamicModel), 'tries live-discovered model after configured candidate fails');
 });
 
-test('Quick and guest prefer Nemotron but retain an OpenRouter-only emergency fallback', async () => {
+test('Quick and guest prefer Nemotron, then use cheap eligible OpenRouter models without Luna', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
   const run = await a.policy.run(plan, req('hello'));
   assert.equal(run.spec.provider, 'openrouter');
   assert.ok(run.spec.model.startsWith('nvidia/nemotron-'));
-  assert.ok(a.config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna'));
   assert.equal(a.openai.calls.length, 0);
   assert.equal(a.gemini.calls.length, 0);
 
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
-  assert.ok(down.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna'), 'tries the OpenRouter emergency model after Nemotron failures');
-  assert.ok(!down.openrouter.calls.some((call) => call.model === 'xiaomi/mimo-v2.6-pro' || call.model === 'openai/gpt-6-luna-pro'), 'Quick cannot reach paid-only models');
+  assert.ok(down.openrouter.calls.some((call) => call.model === 'deepseek/deepseek-v4.1-flash' || call.model === 'z-ai/glm-5.3-flash' || call.model === 'xiaomi/mimo-v2.6-flash'), 'tries lower-cost chat candidates after Nemotron failures');
+  assert.ok(!down.openrouter.calls.some((call) => /gpt-6-luna|mimo-v2.6-pro/i.test(call.model)), 'Quick cannot reach Luna or paid-only Pro models');
 
   const overridden = setup({
     env: {
       OPENROUTER_API_KEY: 'or-test-key',
-      ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
+      ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna,openrouter:deepseek/deepseek-v4.1-flash'
     },
     reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
   });
   await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(overridden.openrouter.calls.some((call) => call.model === 'nvidia/nemotron-3.5-lightning:free'));
-  assert.ok(overridden.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna'));
-  assert.ok(!overridden.openrouter.calls.some((call) => call.model === 'openai/gpt-6-luna-pro' || call.model === 'xiaomi/mimo-v2.6-pro'));
+  assert.ok(overridden.openrouter.calls.some((call) => call.model === 'deepseek/deepseek-v4.1-flash' || call.model === 'z-ai/glm-5.3-flash' || call.model === 'xiaomi/mimo-v2.6-flash'), 'custom routes still fall through to cheap allowlisted models');
+  assert.ok(!overridden.openrouter.calls.some((call) => /gpt-6-luna|mimo-v2.6-pro/i.test(call.model)), 'custom route overrides cannot bypass the Quick allowlist');
 
   assert.equal(down.openai.calls.length, 0, 'no cross-provider fallback for Quick');
   assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Quick');
 });
-
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
   const limited = setup({ env: { GEMINI_API_KEY: '', MAX_REQUEST_COST_ULTRA_USD: '0.05' } });
   const plan = limited.policy.plan({ tier: 'ultra', message: 'Plan an end-to-end architecture redesign of the entire codebase' });
