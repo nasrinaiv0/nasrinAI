@@ -1,3 +1,8 @@
+## Phase 3 modality fixture correction (2026-10-25)
+
+- Update the transcription adapter fixture to model audio input and text output accurately; preserve strict runtime modality validation instead of relaxing capability gates to satisfy an outdated fixture.
+- **Validation:** CI and Documentation Gate must pass on the latest PR head.
+
 ## Phase 3 adapter CI follow-up (2026-10-25)
 
 - Preserve supported OpenRouter catalog modality aliases for speech and transcription while keeping them on their dedicated endpoints.
