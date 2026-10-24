@@ -302,7 +302,7 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
-  // Quick/guest use the explicit Nemotron family whenever OpenRouter is configured.
+  // Guest/free Quick use explicitly free OpenRouter models first, then GPT-6 Luna as the sole paid fallback.
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
     'openrouter:nvidia/nemotron-3.5-lightning:free',
@@ -340,8 +340,8 @@ export function loadConfig(env = process.env) {
     ...openRouterProCandidates
   ] : [];
   const defaultsByLevel = {
-    // Quick/guest stays Nemotron-first, then uses eligible lower-cost chat candidates; never route to GPT-6 Luna.
-    1: quickFreeDefaults.length ? [...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna'))] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    // Guest/free Quick tries every eligible free model before GPT-6 Luna. Policy filters this pool by plan.
+    1: quickFreeDefaults.length ? [...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), ...(has('openrouter') ? ['openrouter:openai/gpt-6-luna'] : [])] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
     2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', ...openRouterProCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
     3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
     4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
