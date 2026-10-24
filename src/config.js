@@ -806,7 +806,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-19a').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-24').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -856,6 +856,11 @@ export function loadConfig(env = process.env) {
       provider: aiProvider,
       openaiApiKey: String(env.OPENAI_API_KEY || ''),
       openrouterApiKey: String(env.OPENROUTER_API_KEY || ''),
+      // OpenRouter data policy for chat: allow (default) or deny. Private requests always use deny.
+      openrouterDataCollection: (() => {
+        const v = String(env.OPENROUTER_DATA_COLLECTION ?? '').trim().toLowerCase();
+        return v === '' || v === 'allow' ? 'allow' : 'deny';
+      })(),
       // The OpenAI provider's default model (usage records, health check).
       openaiModel: tiers.nasrinai.provider === 'openai' ? tiers.nasrinai.model : (fallback ? fallback.model : 'gpt-4o-mini'),
       // NasrinAI's own model server (AI_PROVIDER=local or auto), or null.

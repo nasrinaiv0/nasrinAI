@@ -54,7 +54,7 @@ test('vision route converts validated image attachments into OpenAI-compatible m
   assert.equal(result.text, 'A screenshot of a dashboard.');
   assert.equal(captured.messages[1].content[0].text, 'Describe this screenshot.');
   assert.deepEqual(captured.messages[1].content[1], { type: 'image_url', image_url: { url: 'https://example.com/screenshot.png' } });
-  assert.equal(captured.provider.data_collection, 'deny');
+  assert.equal(captured.provider.data_collection, 'allow');
 });
 
 test('vision route rejects unsupported attachment URLs and non-vision attachment use', async () => {
@@ -162,8 +162,62 @@ test('chat requests enforce bounded token limits and privacy provider policy', a
   await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }], maxTokens: 999999, provider: { data_collection: 'allow' } });
   assert.match(sent.url, /chat\/completions$/);
   assert.equal(sent.body.max_tokens, 32768);
-  assert.equal(sent.body.provider.data_collection, 'deny');
+  assert.equal(sent.body.provider.data_collection, 'allow');
   assert.equal(sent.headers.Authorization, 'Bearer secret');
+});
+
+test('a request can tighten the data policy to deny, and a configured deny cannot be loosened', async () => {
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
+    seen.push(JSON.parse(init.body).provider.data_collection);
+    return response({ choices: [{ message: { content: 'ok' } }] });
+  };
+  const open = createOpenRouterClient({ apiKey: 'k', fetchImpl });
+  await open.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }], provider: { data_collection: 'deny' } });
+  const strict = createOpenRouterClient({ apiKey: 'k', fetchImpl, dataCollection: 'deny' });
+  await strict.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }], provider: { data_collection: 'allow' } });
+  await strict.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }] });
+  assert.deepEqual(seen, ['deny', 'deny', 'deny']);
+});
+
+test('private requests use deny through the text provider, ordinary ones use the default', async () => {
+  const seen = [];
+  const client = createOpenRouterClient({ apiKey: 'k', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
+    seen.push(JSON.parse(init.body).provider.data_collection);
+    return response({ choices: [{ message: { content: 'ok' } }] });
+  } });
+  const provider = createOpenRouterProvider({ apiKey: 'k', model: 'provider/model', client });
+  await provider.generate({ messages: [{ role: 'user', content: 'hi' }], model: 'provider/model' });
+  await provider.generate({ messages: [{ role: 'user', content: 'hi' }], model: 'provider/model', sensitive: true });
+  assert.deepEqual(seen, ['allow', 'deny']);
+});
+
+test('a named model missing from the live catalog is unavailable, not replaced by another model', async () => {
+  let chatCalls = 0;
+  const client = createOpenRouterClient({ apiKey: 'k', fetchImpl: async (url) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/other')] });
+    chatCalls++;
+    return response({ choices: [{ message: { content: 'ok' } }] });
+  } });
+  await assert.rejects(client.chat({ model: 'provider/retired', messages: [{ role: 'user', content: 'hi' }] }), (err) => err.kind === 'unavailable');
+  assert.equal(chatCalls, 0);
+  // With no named model, the first compatible catalog model is still used.
+  assert.equal((await client.selectModel('chat')).id, 'provider/other');
+});
+
+test('a model that rejects the request with 400 or 422 fails over; a bad key does not', async () => {
+  const statusClient = (status) => createOpenRouterClient({ apiKey: 'k', fetchImpl: async (url) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
+    return response({ error: { message: 'rejected' } }, status);
+  } });
+  for (const status of [400, 422]) {
+    await assert.rejects(statusClient(status).chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }] }), (err) => err.kind === 'unavailable' && err.status === status);
+  }
+  for (const status of [401, 403]) {
+    await assert.rejects(statusClient(status).chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }] }), (err) => err.kind === 'config' && err.status === status);
+  }
 });
 
 test('video job IDs are encoded and bounded', async () => {
@@ -293,6 +347,8 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   assert.equal(seen.includeUsage, true);
   assert.equal(seen.task, 'coding');
   assert.equal(seen.model, 'vendor/model');
+  assert.equal(seen.provider.data_collection, undefined, 'ordinary requests follow the client default');
+  await provider.generate({ system: 'S', messages: [{ role: 'user', content: 'call me on 0917' }], model: 'vendor/model', task: 'coding', maxTokens: 32, sensitive: true });
   assert.equal(seen.provider.data_collection, 'deny');
   await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments|dedicated OpenRouter vision task/);
   await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'decide' }], model: 'vendor/model', task: 'decisions' }), /dedicated decide/);
@@ -301,7 +357,7 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   const freeProvider = createOpenRouterProvider({ apiKey: 'test-key', model: 'openrouter/free', fallbackProvider: { generate: async () => { throw new Error('legacy adapter must not be called'); } }, client: { listModels: async () => [], chat: async (args) => { freeCall = args; return { choices: [{ message: { content: 'basic fallback' }, finish_reason: 'stop' }], usage: {} }; } } });
   const freeResult = await freeProvider.generate({ system: 'S', messages: [{ role: 'user', content: 'hello' }], model: 'openrouter/free', task: 'chat' });
   assert.equal(freeResult.text, 'basic fallback');
-  assert.equal(freeCall.provider.data_collection, 'deny');
+  assert.equal(freeCall.provider.data_collection, undefined);
   await assert.rejects(freeProvider.generate({ system: 'S', messages: [{ role: 'user', content: 'write code' }], model: 'openrouter/free', task: 'coding' }), /cannot guarantee task-specific capabilities/);
 });
 
