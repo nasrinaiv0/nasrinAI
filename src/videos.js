@@ -103,6 +103,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const fpsCandidates = [...new Set([...(preferredFps == null ? [] : [preferredFps]), ...allowedFrameRates])];
     let requestedResolution = null;
     let requestedFps = null;
+    let generateAudio = true;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.validateOptions === 'function') {
       let lastValidationError = null;
       for (const resolution of resolutionCandidates) {
@@ -118,6 +119,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
             requestedResolution = resolved?.resolution || resolution;
             requestedFps = resolved?.fps ?? fps;
             aspectRatio = resolved?.aspectRatio || aspectRatio;
+            generateAudio = resolved?.generateAudio ?? true;
             break;
           } catch (err) {
             lastValidationError = err;
@@ -165,7 +167,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const started = now();
     let operation;
     try {
-      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution, fps: requestedFps, generateAudio: true });
+      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution, fps: requestedFps, generateAudio });
     } catch (err) {
       await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'provider_error',
         task: 'video', latencyMs: now() - started, costUsd: null });
