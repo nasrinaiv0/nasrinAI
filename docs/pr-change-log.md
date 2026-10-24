@@ -2232,3 +2232,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
 - This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
 - **Validation:** CI and the documentation gate must pass on the latest synchronized head. Authenticated live model probes remain outstanding; no production routing or account settings were changed.
+
+## Tier-aware OpenRouter routing (2026-10-25)
+
+- Guest and free Quick can try eligible explicitly free OpenRouter models; GPT-6 Luna is the only paid-model fallback and is attempted after the free pool.
+- Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
+- Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
+- **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.

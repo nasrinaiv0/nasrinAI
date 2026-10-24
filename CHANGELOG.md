@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Enforce tier-aware OpenRouter routing: guest/free Quick exhaust explicitly free models before GPT-6 Luna fallback, while paid tiers exclude `:free` model IDs; add routing regression tests.
+
 - Trigger the owner-session verification when a signed-in session is established, fixing the hidden Owner Command Center tile's visibility deadlock while preserving email/IP authorization.
 
 - Use separate owner-supplied NasrinAI logo variants in the Space Connect tile, adapting to explicit light/dark themes and system preference without color inversion.
