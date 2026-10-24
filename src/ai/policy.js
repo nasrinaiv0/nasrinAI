@@ -156,7 +156,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // try explicitly free OpenRouter models before consuming paid-tier capacity.
           // Keep the remaining eligible candidates as fallbacks, subject to normal
           // tier, capability, privacy, and retry checks. Guest/Quick remain free-only.
-          const freeFirst = plan.level <= 1 && plan.tier !== 'nasrinai'
+          const freeFirst = plan.wanted <= 1 && plan.tier !== 'nasrinai'
             ? [
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
                 ...prioritized.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
