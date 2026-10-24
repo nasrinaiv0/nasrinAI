@@ -20,7 +20,7 @@ const TYPES = /^(text\/html|text\/plain|application\/xhtml\+xml|application\/jso
 // Parse all valid IPv6 spellings into eight groups, including embedded IPv4.
 function parseIPv6(ip) {
   let value = String(ip).toLowerCase().split('%')[0];
-  const tail = value.match(/^(.*:)(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);
+  const tail = value.match(/^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (tail) {
     const octets = tail.slice(2).map(Number);
     if (octets.some((n) => n > 255)) return null;
@@ -116,21 +116,72 @@ function get(u, accept = 'text/html,text/plain;q=0.9,*/*;q=0.1') {
 
 // HTML to readable text: drops scripts, styles, navigation chrome and tags.
 export function htmlToText(html) {
-  const title = (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || '';
-  const body = html
-    .replace(/<(script|style|noscript|svg|nav|footer|header|form|iframe)[\s\S]*?<\/\1>/gi, ' ')
+  const decode = (value) => String(value || '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => {
+      const code = parseInt(n, 16);
+      return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    })
+    .replace(/&#(\d{1,7});/g, (_, n) => {
+      const code = Number(n);
+      return Number.isSafeInteger(code) && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    });
+  const attrs = (tag, name) => {
+    const quoted = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(["\\x27])([^"\\x27]*)\\1', 'i').exec(tag);
+    if (quoted) return decode(quoted[2]).trim();
+    const bare = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*([^\\s>]+)', 'i').exec(tag);
+    return bare ? decode(bare[1].endsWith('/') ? bare[1].slice(0, -1) : bare[1]).trim() : '';
+  };
+  const meta = (key) => {
+    for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+      const tag = match[0];
+      const label = (attrs(tag, 'name') || attrs(tag, 'property') || attrs(tag, 'itemprop')).toLowerCase();
+      if (label === key.toLowerCase()) return attrs(tag, 'content').slice(0, 500);
+    }
+    return '';
+  };
+  const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  const pick = (...values) => values.map((v) => String(v || '').trim()).find(Boolean) || '';
+  const title = decode(pick(meta('og:title'), meta('twitter:title'), titleTag?.[1])).replace(/\s+/g, ' ').trim().slice(0, 200);
+  const metadata = {
+    description: pick(meta('description'), meta('og:description'), meta('twitter:description')).replace(/\s+/g, ' ').slice(0, 500),
+    siteName: pick(meta('og:site_name'), meta('application-name')).replace(/\s+/g, ' ').slice(0, 120),
+    author: pick(meta('author'), meta('article:author'), meta('parsely-author')).replace(/\s+/g, ' ').slice(0, 160),
+    publishedAt: pick(meta('article:published_time'), meta('datePublished'), meta('date'), meta('pubdate')).replace(/\s+/g, ' ').slice(0, 80),
+    canonical: (() => {
+      for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+        if (/rel\s*=\s*["'][^"']*\bcanonical\b[^"']*["']/i.test(match[0])) {
+          const href = attrs(match[0], 'href');
+          try {
+            const u = new URL(href);
+            if (['http:', 'https:'].includes(u.protocol) && u.hostname && !u.username && !u.password) return u.href;
+          } catch {}
+        }
+      }
+      return '';
+    })()
+  };
+  const article = /<article\b[^>]*>[\s\S]*?<\/article>/i.exec(html);
+  const main = /<main\b[^>]*>[\s\S]*?<\/main>/i.exec(html);
+  const sourceHtml = article?.[0] || main?.[0] || html;
+  const body = sourceHtml
+    .replace(/<(script|style|noscript|svg|nav|footer|header|form|iframe|template)[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr|\/section|\/article)\s*\/?>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '\n- ')
+    .replace(/<(aside|dialog|menu)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr|\/section|\/article|\/main|\/blockquote)\s*\/?>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '\n- ')
     .replace(/<[^>]+>/g, ' ');
-  const decode = (s) => s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n) % 0x110000));
   const text = decode(body).replace(/[ \t\r\f\v]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-  return { title: decode(title).replace(/\s+/g, ' ').trim().slice(0, 200), text };
+  return { title, text, ...metadata };
 }
 
 // Resolves { url, title, text } (plus the page's `html` with withHtml) or { url, error }.
-export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml = false } = {}) {
+export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml = false, allowedOrigin = null } = {}) {
   let u = checkUrl(raw);
   if (!u) return { url: raw, error: 'not a public web address' };
   try {
@@ -140,6 +191,7 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
         res.resume();
         const next = checkUrl(new URL(res.headers.location, u).href);
         if (!next) return { url: raw, error: 'redirects to a blocked address' };
+        if (allowedOrigin && next.origin !== allowedOrigin) return { url: raw, error: 'redirects outside the allowed origin' };
         u = next;
         continue;
       }
@@ -154,14 +206,59 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
       }
       if (tooLarge) return { url: raw, error: 'the page is too large' };
       const body = Buffer.concat(chunks).toString('utf8');
-      const { title, text } = /html/i.test(type) ? htmlToText(body) : { title: '', text: body };
+      const extracted = /html/i.test(type) ? htmlToText(body) : { title: '', text: body };
+      const { title, text } = extracted;
       if (!text.trim()) return { url: raw, error: 'the page has no readable text' };
-      return { url: u.href, title, text: text.length > maxChars ? text.slice(0, maxChars) + '\n[… the page continues]' : text, ...(withHtml && /html/i.test(type) ? { html: body } : {}) };
+      const boundedText = text.length > maxChars ? text.slice(0, maxChars) + '\n[… the page continues]' : text;
+      const metadata = /html/i.test(type) ? {
+        description: String(extracted.description || '').slice(0, 500),
+        siteName: String(extracted.siteName || '').slice(0, 120),
+        author: String(extracted.author || '').slice(0, 160),
+        publishedAt: String(extracted.publishedAt || '').slice(0, 80),
+        canonical: String(extracted.canonical || '').slice(0, 1000)
+      } : {};
+      return { url: u.href, title, text: boundedText, ...metadata, ...(withHtml && /html/i.test(type) ? { html: body } : {}) };
     }
     return { url: raw, error: 'too many redirects' };
   } catch (err) {
     return { url: raw, error: err?.code === 'EBLOCKED' ? 'not a public web address' : err?.code === 'ETIMEDOUT' ? 'the site did not answer in time' : 'the page could not be opened' };
   }
+}
+
+// Bounded same-origin crawl for explicit scrape/crawl requests. Every candidate
+// still passes checkUrl and readLink's connect-time DNS/redirect protections.
+export async function crawlSite(raw, { maxPages = 5, maxCharsPerPage = 6_000, getImpl = get } = {}) {
+  const limit = Math.max(1, Math.min(5, Number.isFinite(maxPages) ? Math.floor(maxPages) : 5));
+  const rootResult = await readLink(raw, { maxChars: maxCharsPerPage, getImpl, withHtml: true });
+  if (rootResult.error) return [rootResult];
+  const html = String(rootResult.html || '');
+  const root = new URL(rootResult.url);
+  const rootPage = { ...rootResult };
+  delete rootPage.html;
+  if (!html || limit === 1) return [rootPage];
+
+  const candidates = [];
+  const seen = new Set([root.href]);
+  const skipAsset = /\.(?:avif|bmp|css|csv|docx?|gif|ico|jpe?g|js|jsonl?|mp[34]|pdf|png|pptx?|svg|webp|xlsx?|zip)(?:$|[?#])/i;
+  for (const match of html.matchAll(/<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    const href = String(match[1] ?? match[2] ?? match[3] ?? '')
+      .replace(/&amp;/gi, '&').replace(/&#38;/gi, '&').trim();
+    if (!href || href.startsWith('#')) continue;
+    let candidate;
+    try {
+      candidate = new URL(href, root.href);
+      candidate.hash = '';
+    } catch { continue; }
+    if (!['http:', 'https:'].includes(candidate.protocol) || candidate.origin !== root.origin) continue;
+    if (skipAsset.test(candidate.pathname)) continue;
+    const safe = checkUrl(candidate.href);
+    if (!safe || safe.origin !== root.origin || seen.has(safe.href)) continue;
+    seen.add(safe.href);
+    candidates.push(safe.href);
+    if (candidates.length >= limit - 1) break;
+  }
+  const additional = await Promise.all(candidates.map((url) => readLink(url, { maxChars: maxCharsPerPage, getImpl, allowedOrigin: root.origin })));
+  return [rootPage, ...additional];
 }
 
 // A small binary file (a site's icon) with the same safety rules as pages:
@@ -196,7 +293,7 @@ export async function readBytes(raw, { maxBytes = 100_000, accept = 'image/*', g
 }
 
 // The links in a message (at most `max`).
-export function linksIn(text, max = 2) {
+export function linksIn(text, max = 5) {
   const found = String(text || '').match(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g) || [];
   return [...new Set(found)].slice(0, max);
 }

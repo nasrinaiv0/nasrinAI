@@ -633,3 +633,9 @@ test('Owner Command Center bootstrap is triggered after sign-in so hidden tile c
   assert.match(js, /if \(entry\) entry\.hidden = false/);
   assert.match(js, /if \(entry\) entry\.hidden = true/);
 });
+
+
+test('Vercel preview builds are not silently skipped by the project ignored-build setting', async () => {
+  const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.equal(config.ignoreCommand, 'exit 1', 'a nonzero ignored-build command explicitly allows the preview build to continue');
+});
