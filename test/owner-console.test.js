@@ -339,3 +339,91 @@ test('cross-origin owner bootstrap rejects unapproved origins and host combinati
     assert.equal(out.res.headers['set-cookie'], undefined);
   }
 });
+
+
+test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {
+  let queriedPath = '';
+  const store = {
+    kind: 'supabase',
+    request: async (method, path) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      assert.equal(method, 'GET');
+      queriedPath = path;
+      return [{
+        id: 'row-1',
+        request_id: 'request-1',
+        created_at: '2026-10-24T10:00:00.000Z',
+        provider: 'openrouter',
+        upstream_provider: 'Example Provider',
+        endpoint: '/chat/completions',
+        http_method: 'POST',
+        requested_model: 'example/model',
+        model: 'example/model',
+        prompt_tokens: 12,
+        completion_tokens: 34,
+        total_tokens: 46,
+        total_cost_usd: 0.001,
+        request_summary: { raw_prompt: 'must not be returned' },
+        response_summary: { finish_reason: 'stop' },
+        status: 'success',
+        http_status: 200,
+        error_code: null,
+        latency_ms: 120,
+        provider_request_id: 'gen-1',
+        openrouter_generation_id: 'gen-1',
+        provider_cost_source: 'openrouter_generation_api',
+        provider_cost_reconciled_at: '2026-10-24T10:01:00.000Z',
+        finish_reason: 'stop',
+        generation_time_seconds: 0.5,
+        upstream_inference_time_seconds: 0.4
+      }];
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-logs?window=7d&status=success&model=example%2Fmodel&endpoint=%2Fchat%2Fcompletions&limit=50&offset=0', {
+    headers: { cookie }, testIp: IP
+  });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-logs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.source, 'supabase.openrouter_logs');
+  assert.equal(payload.rows.length, 1);
+  assert.equal(payload.rows[0].upstream_provider, 'Example Provider');
+  assert.equal(payload.rows[0].generation_time_seconds, 0.5);
+  assert.equal(payload.rows[0].total_tokens, 46);
+  assert.equal(Object.hasOwn(payload.rows[0], 'request_summary'), false);
+  assert.equal(out.res.body.includes('must not be returned'), false);
+  assert.match(queriedPath, /created_at=gte\./);
+  assert.match(queriedPath, /status=eq.success/);
+  assert.match(queriedPath, /endpoint=eq.%2Fchat%2Fcompletions/);
+});
+
+test('OpenRouter request log filters reject invalid windows and model syntax', async () => {
+  let queries = 0;
+  const store = { kind: 'supabase', request: async (_method, path) => {
+    if (path === 'rpc/owner_console_record_audit') return null;
+    queries++;
+    return [];
+  }};
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  for (const query of ['window=all', 'model=%3Cscript%3E']) {
+    const out = request('GET', '/owner/api/openrouter-logs?' + query, { headers: { cookie }, testIp: IP });
+    await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-logs');
+    assert.equal(out.res.statusCode, 400);
+  }
+  assert.equal(queries, 0);
+});
+
+test('OpenRouter request logs remain hidden from non-allowlisted IP addresses', async () => {
+  const { consoleHandler } = setup();
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-logs', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-logs');
+  assert.equal(out.res.statusCode, 404);
+  assert.equal(out.res.body, 'Page not found.');
+});
