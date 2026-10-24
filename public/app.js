@@ -3062,13 +3062,42 @@
           if (state.status === 'completed') {
             loader.remove();
             body.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
-            const a = document.createElement('a');
-            a.className = 'btn small';
-            a.href = state.download;
-            a.download = '';
-            a.textContent = 'Download MP4';
-            card.appendChild(a);
+            // Show the completed artifact directly in the conversation, not just
+            // a download link. Same-origin content endpoint enforces job ownership.
+            if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
+              const preview = document.createElement('video');
+              preview.className = 'generated-video-preview';
+              preview.controls = true;
+              preview.playsInline = true;
+              preview.preload = 'metadata';
+              preview.setAttribute('aria-label', 'Generated video preview');
+              preview.style.display = 'block';
+              preview.style.width = '100%';
+              preview.style.maxWidth = '640px';
+              preview.style.maxHeight = '70vh';
+              preview.style.marginTop = '12px';
+              preview.style.borderRadius = '14px';
+              preview.style.background = '#000';
+              preview.src = state.download;
+              preview.addEventListener('error', () => {
+                const warning = document.createElement('p');
+                warning.className = 'msg-meta';
+                warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
+                if (!warning.dataset.shown) {
+                  warning.dataset.shown = 'true';
+                  card.insertBefore(warning, downloadLink);
+                }
+              }, { once: true });
+              card.appendChild(preview);
+            }
+            const downloadLink = document.createElement('a');
+            downloadLink.className = 'btn small';
+            downloadLink.href = state.download;
+            downloadLink.download = '';
+            downloadLink.textContent = 'Download MP4';
+            card.appendChild(downloadLink);
             deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
+            scrollToEnd(card);
             return;
           }
           if (state.status === 'failed') { loader.remove(); body.textContent = state.error?.message || 'The video could not be completed.'; return; }
