@@ -1,3 +1,9 @@
+## Phase 3 adapter CI follow-up (2026-10-25)
+
+- Preserve supported OpenRouter catalog modality aliases for speech and transcription while keeping them on their dedicated endpoints.
+- Correct the rerank adapter regression fixture to assert the requested `topN` bound.
+- **Validation:** rerun CI and Documentation Gate on the updated PR head; no merge until both pass.
+
 ## feat/phase-3-openrouter-capability-adapters (2026-10-25)
 
 - Add validated provider adapters for OpenRouter image generation, TTS, transcription, embeddings, structured decisions, and reranking; keep specialized capabilities out of generic chat routes.
