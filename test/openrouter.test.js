@@ -7,7 +7,7 @@ function response(body, status = 200, type = 'application/json') {
 }
 const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion: '0.000002' }) => ({
   id, name: id, architecture: { output_modalities: [modality], input_modalities: ['text'] }, pricing,
-  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
+  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_frame_rates: [30, 60], supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
 });
 
 
@@ -109,6 +109,41 @@ test('video auto-routing selects compatible models regardless of published price
   assert.equal(max.model, 'provider/cheap-video');
   assert.equal(ultra.model, 'provider/cheap-video');
   assert.equal('costPerSecondUsd' in max, false);
+});
+
+test('video route falls back to advertised quality, FPS, aspect ratio and silent mode', async () => {
+  const catalog = [
+    {
+      id: 'provider/video-defaults',
+      supported_durations: [2, 4, 8],
+      supported_resolutions: ['480p'],
+      supported_frame_rates: [30],
+      supported_aspect_ratios: ['9:16'],
+      generate_audio: false
+    }
+  ];
+  const client = createOpenRouterClient({
+    apiKey: 'test-key',
+    fetchImpl: async (url, init) => {
+      if (String(url).endsWith('/videos/models')) return response({ data: catalog });
+      if (String(url).endsWith('/videos')) return response({ id: 'job-defaults', status: 'pending' }, 202);
+      return response({ data: [] });
+    }
+  });
+  const route = await client.getVideoRoute({
+    tier: 'pro', resolution: '720p', fps: 60, duration: 2,
+    aspectRatio: '16:9', generateAudio: true
+  });
+  assert.deepEqual(
+    { resolution: route.resolution, fps: route.fps, aspectRatio: route.aspectRatio, generateAudio: route.generateAudio, duration: route.duration },
+    { resolution: '480p', fps: 30, aspectRatio: '9:16', generateAudio: false, duration: 2 }
+  );
+  const created = await client.createVideo({
+    model: route.model, prompt: 'A kid laughing', duration: route.duration,
+    resolution: route.resolution, fps: route.fps, aspect_ratio: route.aspectRatio,
+    generate_audio: route.generateAudio
+  });
+  assert.equal(created.id, 'job-defaults');
 });
 
 test('OpenRouter default video route works without a local or catalog price gate', async () => {
@@ -293,7 +328,8 @@ test('OpenRouter video adapter validates capabilities and pins model and duratio
     videoContent: async (id) => Buffer.from('video'),
   };
   const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', tier: 'max', maxSeconds: 8, resolution: '720p' });
-  assert.equal(await provider.validateOptions(), true);
+  const validated = await provider.validateOptions();
+  assert.equal(validated.model, 'provider/video');
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
   assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true });
