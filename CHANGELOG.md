@@ -1,3 +1,4 @@
+- Preserve compatibility with OpenRouter catalogs that label speech outputs as either `audio` or `speech`, and transcription outputs as `text` or `transcription`; enforce rerank `topN` response bounds in regression coverage.
 - Add dedicated OpenRouter capability adapters for image generation, speech synthesis, transcription, embeddings, structured decisions, and reranking. Validate provider-qualified model IDs, bounded inputs, image/audio/vector payloads, response shapes, and avoid fetching model-supplied image URLs to prevent SSRF.
 - Harden OpenRouter endpoint selection for speech and transcription modality metadata, validate embedding vectors and batch sizes, and add the dedicated rerank request/response path. Specialized capabilities remain separate from generic chat routing.
 
