@@ -2257,3 +2257,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add source metadata to the chat context as explicitly labeled untrusted data, without storing fetched page text in conversation history.
 - Add regressions for article-first extraction, metadata parsing, context labeling, and non-persistence.
 - **Validation:** fresh full CI and security gates required after these changes; Preview API smoke tests remain blocked until an isolated Supabase test runtime is configured.
+
+## Citation URL integrity regression (2026-10-25)
+
+- Add a regression asserting page-supplied canonical metadata never replaces the actual URL fetched and used for citations.
+- **Validation:** fresh CI required for this test-only change.
