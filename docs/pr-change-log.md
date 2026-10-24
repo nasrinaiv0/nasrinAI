@@ -2040,3 +2040,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reject image-catalog entries whose advertised output modalities explicitly exclude images, even when they contain generic supported-parameter metadata.
 - Preserve entries from the dedicated image catalog when architecture metadata is absent.
 - Added a regression case for a text-only model incorrectly advertised in the image catalog.
+
+## Quick/guest routing cost guard (2026-10-24)
+
+- Keep Quick/guest Nemotron-first, then fall back only to explicitly allowlisted lower-cost OpenRouter chat models when those endpoints fail.
+- Remove GPT-6 Luna and paid-only Pro models from guest/free candidate eligibility, including when `ROUTE_LEVEL_1` is overridden.
+- Keep Quick/guest fallback within OpenRouter; do not cross-provider fallback into paid-provider routes.
+- Add regression coverage for provider outages and custom route overrides.
