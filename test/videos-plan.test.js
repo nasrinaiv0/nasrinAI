@@ -29,7 +29,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null,
     usageLog: usageLogOverride,
     budget,
     config,
-    logger: { info() {} }
+    logger: { info() {}, warn() {}, error() {} }
   });
   return { videos, created, store, budget };
 }
