@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Use separate owner-supplied NasrinAI logo variants in the Space Connect tile, adapting to explicit light/dark themes and system preference without color inversion.
+
+- Place the Owner Command Center entry inside NasrinAI Space as a hidden-by-default app tile, revealed only after server verification of the signed-in email and client IP.
+
+- Restore the Owner Command Center entry in Settings for sessions verified by both the owner email and IP allowlists; remove it when verification fails or the user signs out.
+
 - Add an owner-only AI Provider Logs view for sanitized OpenRouter request history, with time/model/status/endpoint filters, pagination, token counts, latency, provider-reported cost, and reconciled upstream provider/generation metadata.
 - Add migration 065 for upstream provider and generation timing fields; add tests for owner-boundary enforcement, filter validation, and sanitized log responses.
 

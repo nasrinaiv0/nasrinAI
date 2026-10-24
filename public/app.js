@@ -776,48 +776,58 @@
   let ownerBootstrapAt = 0;
 
   async function syncOwnerConsoleEntry(token) {
-    if (!token) return;
+    const entry = $('spaceOwnerConsole');
+    if (!token) {
+      if (entry) entry.hidden = true;
+      ownerBootstrapToken = '';
+      return;
+    }
     const now = Date.now();
-    // Cache successful bootstraps only. A failed request must not suppress
-    // retries for eight minutes; this is especially important on first sign-in
-    // when the owner subdomain or its allowlist may still be warming up.
-    if (ownerBootstrapToken === token && now - ownerBootstrapAt < 8 * 60 * 1000) return;
+    if (ownerBootstrapToken === token && now - ownerBootstrapAt < 8 * 60 * 1000) {
+      if (entry) entry.hidden = false;
+      return;
+    }
     if (now - ownerBootstrapAt < 10 * 1000) return;
     ownerBootstrapAt = now;
-    $('ownerConsoleEntry')?.remove();
+    if (entry) entry.hidden = true;
     try {
       const response = await fetch('https://owner.nasrinai.com/v1/owner/session', {
         method: 'POST', credentials: 'include', mode: 'cors', cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
+      // Server-side verification requires both the signed-in email and client IP
+      // to match the owner allowlists. The client only displays the entry on 204.
       if (response.status !== 204) {
         ownerBootstrapToken = '';
-        $('ownerConsoleEntry')?.remove();
+        if (entry) entry.hidden = true;
         return;
       }
       ownerBootstrapToken = token;
       ownerBootstrapAt = Date.now();
-      if (!document.getElementById('ownerConsoleEntry')) {
-        const button = document.createElement('button');
-        button.type = 'button'; button.id = 'ownerConsoleEntry'; button.className = 'menu-row';
-        button.textContent = 'Owner Command Center';
-        button.addEventListener('click', async () => {
-          const freshToken = await credential(true).catch(() => null);
-          if (!freshToken) { ownerBootstrapToken = ''; ownerBootstrapAt = 0; return; }
-          ownerBootstrapToken = '';
-          ownerBootstrapAt = 0;
-          await syncOwnerConsoleEntry(freshToken);
-          if (ownerBootstrapToken === freshToken) window.location.href = 'https://owner.nasrinai.com/owner';
-        });
-        $('pageMain')?.appendChild(button);
-      }
+      if (entry) entry.hidden = false;
     } catch {
       ownerBootstrapToken = '';
-      // Keep a short retry cooldown to avoid hammering the cross-origin endpoint.
       ownerBootstrapAt = Date.now();
-      $('ownerConsoleEntry')?.remove();
+      if (entry) entry.hidden = true;
     }
   }
+
+  const ownerConsoleTile = $('spaceOwnerConsole');
+  if (ownerConsoleTile) ownerConsoleTile.addEventListener('click', async () => {
+    const freshToken = await credential(true).catch(() => null);
+    if (!freshToken) {
+      ownerBootstrapToken = '';
+      ownerBootstrapAt = 0;
+      ownerConsoleTile.hidden = true;
+      return;
+    }
+    ownerBootstrapToken = '';
+    ownerBootstrapAt = 0;
+    await syncOwnerConsoleEntry(freshToken);
+    if (ownerBootstrapToken === freshToken && !ownerConsoleTile.hidden) {
+      window.location.href = 'https://owner.nasrinai.com/owner';
+    }
+  });
 
   async function credential(fresh) {
     if (account) {
@@ -6059,7 +6069,7 @@
     ownerBootstrapToken = '';
     ownerBootstrapAt = 0;
     saved.del(KEYS.account);
-    $('ownerConsoleEntry')?.remove();
+    if ($('spaceOwnerConsole')) $('spaceOwnerConsole').hidden = true;
     void fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }).catch(() => {});
     renderAccount();
     renderImageHint();
