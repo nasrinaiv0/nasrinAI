@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createGoogleMapsTools } from '../src/maps/google-maps.js';
 
 const json = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
-test('Google Maps tool is unavailable without a server key', () => {
+test('Google Maps tool is unavailable without a server key', async () => {
   const maps = createGoogleMapsTools({ apiKey: '' });
   assert.equal(maps.available, false);
   assert.equal(maps.tool.name, 'google_maps_explore');
