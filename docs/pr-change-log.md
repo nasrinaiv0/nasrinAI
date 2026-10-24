@@ -1,3 +1,11 @@
+## Phase 2 — Live tier-router integration (2026-10-25)
+
+- Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
+- Registry-known candidates are checked against the effective tier (including paid Quick), endpoint family, task capability, and inferred-ID verification status; decision, image, video, speech, embedding, and reranking models cannot accidentally enter generic chat completions.
+- Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
+- Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
+- **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.
+
 ## feat/openrouter-clean-tier-routing-v2 (2026-10-25)
 
 - Add a normalized OpenRouter model registry from the owner-provided model inventory, including capability, input/output modality, endpoint family, and explicit tier assignments.
