@@ -1,3 +1,7 @@
+## security/undici-audit — undici advisory (2026-10-24)
+
+- Lockfile-only update of `undici` (via `@vercel/sandbox`) from 7.30.0 to 7.30.1; `npm audit --audit-level=high` reports 0 vulnerabilities. No package.json change.
+
 ## PR #564 — Live OpenRouter model pricing lookup (2026-10-24)
 
 - Add a server-side helper for OpenRouter's `GET /api/v1/model/{author}/{slug}` endpoint, with strict slug validation, bounded request timeout, five-minute cache, and safe handling of missing/invalid pricing.
