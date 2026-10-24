@@ -328,7 +328,8 @@ test('OpenRouter video adapter validates capabilities and pins model and duratio
     videoContent: async (id) => Buffer.from('video'),
   };
   const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', tier: 'max', maxSeconds: 8, resolution: '720p' });
-  assert.equal(await provider.validateOptions(), true);
+  const validated = await provider.validateOptions();
+  assert.equal(validated.model, 'provider/video');
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
   assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true });
