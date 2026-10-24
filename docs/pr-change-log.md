@@ -2272,3 +2272,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
 - **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.
+
+## PR #409 CI follow-up — deterministic OAuth state regression (2026-10-25)
+
+- The synchronized branch's CI exposed a flaky forged-state assertion: changing the final two base64url characters can rarely leave the decoded HMAC unchanged.
+- Mutate the first significant MAC character instead, guaranteeing a different signature while preserving the callback's rejection expectation.
+- **Validation:** rerun CI and the documentation gate on this branch commit. No production credentials, migration, or deployment was used.
