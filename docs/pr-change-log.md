@@ -2227,3 +2227,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
 - Fix the tile-count assertion to account for the separate hidden owner tile and correct the owner-tile selector in the regression test.
 - CI is rerunning against the latest branch commit.
+
+## PR #603 preview build enforcement (2026-10-25)
+
+- The Vercel status check can be green even when the deployment is `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
+- **Validation:** rerun CI and verify the Vercel deployment reaches `READY` before API or iPhone Safari smoke tests. No production deployment or credentials were changed.
