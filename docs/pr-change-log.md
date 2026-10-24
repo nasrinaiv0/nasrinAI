@@ -1,3 +1,9 @@
+## PR #586 — Fix structured UI fallback tests (2026-10-24)
+
+- Correct the base renderer's structured UI envelope regex so it matches literal `[[ui]]` and `[[/ui]]` delimiters instead of escaped-backslash patterns.
+- This restores the readable search-request fallback and safe generic fallback for malformed payloads when the optional UI enhancer is unavailable.
+- **Validation:** The latest CI run showed 2 failures in `test/reply-format.test.js` (tests 688 and 689). Re-run the test suite and Documentation Gate after this fix; results are not yet verified.
+
 ## Raw structured UI payload rendering fix (2026-10-24)
 
 - Make the Generative UI marker parser tolerant of whitespace around `[[ui]]` and `[[/ui]]` delimiters.
