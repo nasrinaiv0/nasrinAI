@@ -197,29 +197,39 @@ test('Guest/Quick accept operator-configured OpenRouter :free models and reject 
 });
 
 test('paid tiers never use free OpenRouter models, even for simple intent', async () => {
+  const paidModels = {
+    pro: 'anthropic/claude-sonnet-5.5',
+    max: 'openai/gpt-6-luna-pro',
+    ultra: 'openai/gpt-6.1-sol-pro'
+  };
   for (const tier of ['pro', 'max', 'ultra']) {
+    const paidModel = paidModels[tier];
     const a = setup({
       env: {
         OPENROUTER_API_KEY: 'or-test-key',
-        ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_2: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_3: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_4: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_5: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free'
-      }
+        ROUTE_LEVEL_1: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_2: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_3: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_4: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_5: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`
+      },
+      liveOpenRouterModels: [paidModel]
     });
     const plan = a.policy.plan({ tier, message: 'Hello!' });
     assert.equal(plan.wanted, 1, 'test input should be classified as simple intent');
     const run = await a.policy.run(plan, req('Hello!'));
     assert.equal(run.spec.provider, 'openrouter');
+    assert.equal(run.spec.model, paidModel);
     assert.doesNotMatch(run.spec.model, /:free$/i, tier + ' must use a paid model even for simple intent');
+    assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)), 'paid subscriptions must never try free model IDs');
   }
 
   const fallback = setup({
     env: {
       OPENROUTER_API_KEY: 'or-test-key',
-      ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
+      ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:deepseek/deepseek-v4.1-flash'
     },
+    liveOpenRouterModels: ['deepseek/deepseek-v4.1-flash'],
     reply: async (spec) => {
       throw new ProviderError('unavailable', spec?.model?.endsWith(':free') ? 'free model unavailable' : 'paid fallback unavailable');
     }
@@ -227,7 +237,6 @@ test('paid tiers never use free OpenRouter models, even for simple intent', asyn
   const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
   await assert.rejects(fallback.policy.run(fallbackPlan, req('Hello!')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(fallback.openrouter.calls.length > 0, 'the router attempts an eligible OpenRouter candidate');
-  assert.doesNotMatch(fallback.openrouter.calls[0].model || fallback.openrouter.calls[0].modelId || '', /:free$/i, 'paid subscriptions must skip the free candidate');
   assert.ok(fallback.openrouter.calls.every((call) => !/:free$/i.test(call.model || call.modelId || '')), 'paid subscriptions must never try free model IDs');
 });
 
