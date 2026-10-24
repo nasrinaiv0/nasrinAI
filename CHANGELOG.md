@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Clarify the Help improve NasrinAI description: Guest and Quick access cannot manage the preference; eligible examples may be considered under screening safeguards, and the copy avoids implying every chat is collected or models are trained automatically.
+
 - Suppress raw structured UI protocol JSON when a widget cannot be rendered; normalize whitespace around UI delimiters.
 - Add a base formatter fallback for Quick-tier render paths where the optional Generative UI enhancer does not initialize.
 
