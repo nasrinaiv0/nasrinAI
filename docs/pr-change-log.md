@@ -2058,3 +2058,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Remove GPT-6 Luna and paid-only Pro models from guest/free candidate eligibility, including when `ROUTE_LEVEL_1` is overridden.
 - Keep Quick/guest fallback within OpenRouter; do not cross-provider fallback into paid-provider routes.
 - Add regression coverage for provider outages and custom route overrides.
+
+## PR #578 — Manual OpenRouter model verification workflow (2026-10-24)
+
+- Add a manually triggered GitHub Actions workflow to probe live OpenRouter text models with the configured `OPENROUTER_API_KEY`, produce a job summary, and upload a JSON report. The workflow requires explicit cost confirmation because it sends real provider requests.
+- The workflow has not been run as part of this change; live model availability remains unverified until the owner dispatches it.
