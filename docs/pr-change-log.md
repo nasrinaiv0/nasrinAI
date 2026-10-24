@@ -2105,3 +2105,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add an explicit owner-triggered reconciliation endpoint that looks up stored OpenRouter generation IDs and persists provider-reported cost/token metadata and reconciliation provenance on eligible telemetry rows. Unmatched rows remain unreconciled.
 - Add migration `064_openrouter_generation_reconciliation.sql` for generation IDs, cost source, and reconciliation timestamps.
 - **Validation:** Initial CI for the billing panel passed unit tests, JavaScript syntax, secret scanning, dependency audit, and database tests. Reconciliation changes are awaiting the latest CI run and live OpenRouter/Supabase verification; do not merge until those checks pass.
+
+
+## PR #587 — Video capability fallback (2026-10-24)
+
+- Report exhausted video quality/model capability checks with a capability-specific 503 error instead of a misleading plan error.
+- Add regression coverage for two-second video requests and unsupported quality combinations.
+- **Validation:** CI identified a test-fixture logger missing the `warn` method and the required PR changelog file was not updated; both are corrected in this follow-up. Re-run CI before merge.

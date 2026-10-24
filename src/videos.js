@@ -104,23 +104,43 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     let requestedResolution = null;
     let requestedFps = null;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.validateOptions === 'function') {
+      let lastValidationError = null;
       for (const resolution of resolutionCandidates) {
         if (!allowedResolutions.includes(resolution)) continue;
         for (const fps of fpsCandidates) {
           if (!allowedFrameRates.includes(fps)) continue;
           try {
+            // validateOptions performs live capability lookup and may resolve a
+            // different model from the OpenRouter video catalog. Re-run it for
+            // each permitted quality pair so model selection can fall back
+            // without crossing the caller's authorized tier.
             await routeProvider.validateOptions({
               generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
             });
             requestedResolution = resolution;
             requestedFps = fps;
             break;
-          } catch { /* try the next eligible quality combination */ }
+          } catch (err) {
+            lastValidationError = err;
+          }
         }
         if (requestedResolution) break;
       }
       if (!requestedResolution) {
-        throw new HttpError(503, 'video_quality_unavailable', 'This model has no supported video quality for your plan.');
+        logger.warn('no compatible video model quality found for requested settings', {
+          provider: routeProvider.id,
+          tier: selected,
+          duration: targetSeconds,
+          aspectRatio,
+          attemptedResolutions: resolutionCandidates.filter((x) => allowedResolutions.includes(x)),
+          attemptedFrameRates: fpsCandidates.filter((x) => allowedFrameRates.includes(x)),
+          reason: lastValidationError?.code || lastValidationError?.kind || 'capability_mismatch'
+        });
+        throw new HttpError(
+          503,
+          'video_capability_unavailable',
+          'No available video model supports this duration and quality on your selected plan. Try another duration or quality, or try again later.'
+        );
       }
     } else {
       requestedResolution = allowedResolutions.includes(preferredResolution) ? preferredResolution : (allowedResolutions[0] || config.video.resolution);
