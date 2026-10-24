@@ -229,7 +229,7 @@ export function buildApp({ config, logger }) {
   if (google.available) logger.info('Google Gmail/Calendar integration ready');
   const weatherTool = createGoogleWeatherTool({ apiKey: config.weather.googleApiKey, usageLog, logger });
   if (weatherTool.available) logger.info('Google Weather tool ready');
-  const mapsTool = createGoogleMapsTools({ apiKey: config.maps.serverApiKey, logger });
+  const mapsTool = createGoogleMapsTools({ apiKey: config.maps.serverApiKey || config.weather.googleApiKey, logger });
   if (mapsTool.available) logger.info('Google Maps tools ready');
   const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools, ...(weatherTool.available ? [weatherTool.tool] : []), ...(mapsTool.available ? [mapsTool.tool] : [])], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
