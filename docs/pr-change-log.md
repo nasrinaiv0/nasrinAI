@@ -1,3 +1,9 @@
+## Preview-build gate and Google fallback hardening (2026-10-24)
+
+- Override the project-level ignored-build setting from `vercel.json` so builds continue for preview and release verification; add a regression test to prevent the skip policy from silently disabling preview QA again.
+- Google fallback results are revalidated at the search boundary, normalized/deduplicated, bounded, and labeled as discovery snippets rather than independently verified page content. Usage attribution now identifies the Google Custom Search provider/model and emits fallback telemetry.
+- **Validation:** The previous commit passed `npm test`, syntax checks, secret scan, dependency audit, database tests, and Documentation Gate. The new Google-fallback and Vercel-preview-gate changes require a fresh complete CI run and an observed Vercel Preview deployment before this release gate is closed.
+
 ## Google fallback attribution and result sanitation (2026-10-24)
 
 - Validate Google fallback URLs again at the web-search boundary, remove credentials/unsafe schemes, deduplicate results, and bound title/snippet fields before rendering.
