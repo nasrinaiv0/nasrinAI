@@ -1,3 +1,9 @@
+## Correct attachment and linked-page context boundaries (2026-10-24)
+
+- Restore the existing code-file and text-file context path without changing its behavior.
+- Keep source metadata enrichment isolated to the user's explicit shared-link reader section.
+- **Validation:** full CI rerun required; previous failed test run exposed the edit-boundary mistake before release.
+
 ## Linked-page metadata context syntax fix (2026-10-24)
 
 - Refactor page context assembly into a small helper to avoid mismatched parentheses while keeping metadata labeled as untrusted page data.
