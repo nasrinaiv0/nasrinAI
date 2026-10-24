@@ -217,6 +217,51 @@ test('OpenRouter quality exhaustion returns a capability error, not a misleading
   assert.equal(created.length, 0);
 });
 
+test('video job times out with a durable failure instead of polling forever', async () => {
+  const calls = [];
+  const provider = {
+    id: 'openrouter', model: 'provider/video', maxSeconds: 8,
+    async create() { return 'stalled-provider-job'; },
+    async status() { calls.push('status'); return { id: 'stalled-provider-job', status: 'processing' }; },
+    extract(result) { return { done: false, failed: false, uri: null, status: result.status }; },
+    async download() { throw new Error('must not download while processing'); }
+  };
+  const { videos, created, store } = service('max', false, null, provider);
+  const result = await videos.create(caller, { prompt: 'Palawan', seconds: 2 });
+  await store.updateVideo(result.video_id, { createdAt: new Date(Date.now() - 11 * 60_000).toISOString() });
+  const status = await videos.status(caller, result.video_id);
+  assert.equal(status.status, 'failed');
+  assert.equal(status.error.code, 'video_job_timeout');
+  assert.match(status.error.message, /took too long/i);
+  assert.deepEqual(calls, [], 'expired jobs should not continue polling the provider');
+  assert.equal(created.length, 1, 'timeout must not create a duplicate provider job');
+});
+
+test('provider status polling errors are logged with stage and job age', async () => {
+  const warnings = [];
+  const provider = {
+    id: 'openrouter', model: 'provider/video', maxSeconds: 8,
+    async create() { return 'poll-error-job'; },
+    async status() { throw new Error('temporary upstream timeout'); },
+    extract() { throw new Error('must not extract failed poll'); }
+  };
+  const config = testConfig({ DAILY_BUDGET_USD: '40', WEEKLY_BUDGET_USD: '100', MONTHLY_BUDGET_USD: '300', VIDEO_PER_HOUR: '10', VIDEO_MAX_COST_USD: '100000' });
+  const store = createMemoryStore();
+  const videos = createVideos({
+    store, plans: { async current() { return { plan: 'max', open: false }; } },
+    provider, limiter: { async video() {} }, config,
+    logger: { info() {}, error() {}, warn(message, meta) { warnings.push({ message, meta }); } }
+  });
+  const result = await videos.create(caller, { prompt: 'Palawan', seconds: 2 });
+  const status = await videos.status(caller, result.video_id);
+  assert.equal(status.status, 'in_progress', 'transient polling errors do not trigger duplicate generation');
+  assert.equal(status.error, null);
+  assert.ok(warnings.some((entry) => entry.message === 'video provider poll failed'
+    && entry.meta.stage === 'status_poll'
+    && entry.meta.provider === 'openrouter'
+    && Number.isFinite(entry.meta.ageMs)));
+});
+
 test('completed OpenRouter video records provider-reported usage cost without a local estimate', async () => {
   const provider = {
     id: 'openrouter', model: 'provider/video', resolution: '720p', maxSeconds: 8,
