@@ -662,7 +662,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       const requestedOffset = Number(url.searchParams.get('offset') || 0);
       const offset = Number.isSafeInteger(requestedOffset) ? Math.max(0, Math.min(requestedOffset, 10000)) : 0;
       const filters = [
-        'select=id,request_id,created_at,provider,endpoint,http_method,requested_model,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
+        'select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
         'created_at=gte.' + encodeURIComponent(cutoff)
       ];
       if (status) filters.push('status=eq.' + encodeURIComponent(status));
@@ -685,6 +685,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             request_id: row.request_id,
             created_at: row.created_at,
             provider: row.provider || 'openrouter',
+            upstream_provider: row.upstream_provider,
+            finish_reason: row.finish_reason,
+            generation_time_seconds: row.generation_time_seconds,
+            upstream_inference_time_seconds: row.upstream_inference_time_seconds,
             endpoint: row.endpoint,
             http_method: row.http_method,
             requested_model: row.requested_model,
@@ -831,6 +835,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             const patch = {
               total_cost_usd: cost,
               model: providerModel || null,
+              upstream_provider: typeof generation.provider_name === 'string' ? generation.provider_name.slice(0, 160) : null,
+              finish_reason: typeof generation.finish_reason === 'string' ? generation.finish_reason.slice(0, 120) : null,
+              generation_time_seconds: Number.isFinite(Number(generation.generation_time)) && Number(generation.generation_time) >= 0 ? Number(generation.generation_time) : null,
+              upstream_inference_time_seconds: Number.isFinite(Number(generation.upstream_inference_time)) && Number(generation.upstream_inference_time) >= 0 ? Number(generation.upstream_inference_time) : null,
               openrouter_generation_id: generationId,
               provider_cost_source: 'openrouter_generation_api',
               provider_cost_reconciled_at: new Date(now()).toISOString()
