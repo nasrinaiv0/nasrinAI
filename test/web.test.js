@@ -486,3 +486,22 @@ test('bounded site crawl fails closed for unsafe root URLs', async () => {
   assert.equal(results.length, 1);
   assert.equal(results[0].error, 'not a public web address');
 });
+
+
+test('bounded crawl rejects same-origin links that redirect off-origin', async () => {
+  const requested = [];
+  const results = await crawlSite('https://example.com/', {
+    maxPages: 2,
+    getImpl: async (u) => {
+      requested.push(u.href);
+      if (u.pathname === '/') {
+        return page(200, { 'content-type': 'text/html; charset=utf-8' },
+          '<html><body><article><p>Root page.</p></article><a href="/docs">Docs</a></body></html>');
+      }
+      return page(302, { location: 'https://other.example/redirected' });
+    }
+  });
+  assert.equal(results.length, 2);
+  assert.equal(results[1].error, 'redirects outside the allowed origin');
+  assert.deepEqual(requested, ['https://example.com/', 'https://example.com/docs'], 'off-origin redirect target is never requested');
+});
