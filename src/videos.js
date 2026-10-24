@@ -8,6 +8,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 export function createVideos({ store, plans, provider, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
   const unavailable = () => new HttpError(503, 'videos_unavailable', 'Video creation is not available right now.');
+  // A provider job may legitimately take several minutes, but it must not
+  // remain "in progress" forever when the provider stops responding.
+  const configuredJobTimeout = Number(config.video?.jobTimeoutMs ?? process.env.VIDEO_JOB_TIMEOUT_MS);
+  const jobTimeoutMs = Number.isFinite(configuredJobTimeout) && configuredJobTimeout >= 60_000
+    ? Math.min(configuredJobTimeout, 60 * 60_000)
+    : 10 * 60_000;
+  const jobAgeMs = (video) => {
+    const createdAt = Date.parse(video?.createdAt || '');
+    return Number.isFinite(createdAt) ? Math.max(0, now() - createdAt) : 0;
+  };
 
   async function reconcileActualVideoCost(video, actualCostUsd, caller = null) {
     if (!video?.id || video.costReconciledAt ||
@@ -193,7 +203,10 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       provider: routeProvider.id, providerModel: routeProvider.model || null, providerOperation: operation, cacheKey, resolution: requestedResolution, fps: requestedFps,
       spendReservationId: null, estimatedCostUsd: null, addonTokens: 0, addonCostUsd: null, actualCostUsd: null, costReconciledAt: null
     });
-    logger.info('video job created', { id, targetSeconds, provider: routeProvider.id });
+    logger.info('video job created', {
+      id, targetSeconds, provider: routeProvider.id, model: routeProvider.model || null,
+      tier: selected, providerCreateLatencyMs: Math.max(0, now() - started)
+    });
     return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
   }
 
@@ -209,13 +222,37 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       return v;
     }
 
+    const ageMs = jobAgeMs(v);
+    if (ageMs >= jobTimeoutMs) {
+      logger.error('video job exceeded maximum processing time', {
+        id, provider: v.provider, model: v.providerModel || null, tier: v.requestTier,
+        ageMs, timeoutMs: jobTimeoutMs, stage: 'provider_processing_or_polling'
+      });
+      await store.updateVideo(v.id, {
+        status: 'failed', errorCode: 'video_job_timeout',
+        errorMessage: 'Video generation took too long and was stopped. Please try again; you will not be charged for a video that was not completed.'
+      });
+      return await store.getVideo({ tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId, id: v.id });
+    }
     const jobProvider = providerForVideo(v);
     if (!jobProvider) throw unavailable();
     let state;
-    try { state = jobProvider.extract(await jobProvider.status(v.providerOperation)); }
-    catch (err) {
-      logger.warn('video provider poll failed', { id, error: err.message });
-      return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
+    const pollStarted = now();
+    try {
+      state = jobProvider.extract(await jobProvider.status(v.providerOperation));
+      logger.info('video provider status checked', {
+        id, provider: v.provider, model: v.providerModel || jobProvider.model || null,
+        ageMs, pollLatencyMs: Math.max(0, now() - pollStarted),
+        providerStatus: state.failed ? 'failed' : state.done ? 'completed' : 'processing',
+        stage: state.done ? 'download_pending' : state.failed ? 'provider_failed' : 'provider_processing'
+      });
+    } catch (err) {
+      logger.warn('video provider poll failed', {
+        id, provider: v.provider, model: v.providerModel || jobProvider.model || null,
+        ageMs, pollLatencyMs: Math.max(0, now() - pollStarted),
+        stage: 'status_poll', error: String(err?.message || err).slice(0, 240)
+      });
+      return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))), poll_warning: true };
     }
     if (!state.done && !state.failed) return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
     if (state.actualCostUsd !== null && state.actualCostUsd !== undefined) {
@@ -228,7 +265,27 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       return await store.getVideo({ tenantId:v.tenantId, ownerType:v.ownerType, ownerId:v.ownerId, id:v.id });
     }
 
-    const bytes = await jobProvider.download(state.uri);
+    const downloadStarted = now();
+    let bytes;
+    try {
+      bytes = await jobProvider.download(state.uri);
+      logger.info('video provider content downloaded', {
+        id, provider: v.provider, model: v.providerModel || jobProvider.model || null,
+        ageMs: jobAgeMs(v), downloadLatencyMs: Math.max(0, now() - downloadStarted),
+        bytes: bytes?.length || 0, stage: 'download_complete'
+      });
+    } catch (err) {
+      logger.error('video provider content download failed', {
+        id, provider: v.provider, model: v.providerModel || jobProvider.model || null,
+        ageMs: jobAgeMs(v), downloadLatencyMs: Math.max(0, now() - downloadStarted),
+        stage: 'download', error: String(err?.message || err).slice(0, 240)
+      });
+      await store.updateVideo(v.id, {
+        status: 'failed', errorCode: 'video_download_failed',
+        errorMessage: 'The video finished generating, but NasrinAI could not retrieve it. Please try again later.'
+      });
+      return await store.getVideo({ tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId, id: v.id });
+    }
     const produced = jobProvider.maxSeconds ? Math.min(v.targetSeconds, jobProvider.maxSeconds) : v.producedSeconds ? v.producedSeconds + EXTEND_SECONDS : STEP_SECONDS;
     const reached = produced >= Math.min(v.targetSeconds, MAX_SECONDS);
     if (reached) {
