@@ -10,10 +10,10 @@ Raw prompts, completions, uploaded files, authorization headers, API keys, and r
 
 ## Setup
 
-1. Apply `db/migrations/063_openrouter_logs.sql` through the existing database migration process.
+1. Apply `db/migrations/063_openrouter_logs.sql`, `064_openrouter_generation_reconciliation.sql`, and `065_openrouter_provider_performance.sql` in order through the existing database migration process.
 2. Confirm the existing Vercel server-only environment variables are configured: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `OPENROUTER_API_KEY`.
 3. Deploy a Preview and make a normal text request plus one enabled modality request.
-4. Verify rows using the SQL below, then confirm RLS denies reads/writes for `anon` and `authenticated`.
+4. Open the Owner Command Center and select **AI Provider Logs**. The page reads a bounded, date-filtered set of sanitized request rows from the owner-only API. Apply the existing OpenRouter billing reconciliation to populate upstream provider, finish reason, and generation timing when OpenRouter returns those fields. 5. Verify rows using the SQL below, then confirm RLS denies reads/writes for `anon` and `authenticated`.
 
 ```sql
 select created_at, request_id, endpoint, http_method, requested_model, model,
@@ -29,3 +29,10 @@ limit 100;
 Telemetry is best-effort and intentionally does not block the primary AI response. A Supabase outage or insert failure is reported to server logs and must not change the response returned to the user. Because this is best-effort logging, it is not a durable audit queue: requests may be missing if the serverless invocation is terminated before the background insert finishes. If guaranteed delivery is required, add a durable queue or outbox with retries and idempotency.
 
 Only trusted server code uses `SUPABASE_SECRET_KEY`, which bypasses RLS. Do not expose it to browser bundles or create public table policies. Keep access to telemetry behind the existing owner-only authorization boundary. Apply an explicit retention policy based on operational and privacy requirements.
+
+
+## Owner Console request log view
+
+The owner-only `/owner/api/openrouter-logs` endpoint supports `24h`, `7d`, `30d`, and `90d` windows, bounded pagination (up to 100 rows per request), and validated status/model/endpoint filters. The response intentionally omits `request_summary` and any prompt/completion content. The console table shows request time, requested/returned model, upstream provider when reconciled, endpoint, HTTP/status outcome, input/output tokens, recorded latency, generation time when available, provider-reported cost, finish reason, and provider/request identifiers.
+
+Upstream provider and generation timing fields are only filled by reconciliation against the OpenRouter generation endpoint. Missing values mean unavailable or not yet reconciled; they must not be interpreted as zero or free usage. This view is owner-only and read-only. It does not expose browser access to the underlying telemetry table.
