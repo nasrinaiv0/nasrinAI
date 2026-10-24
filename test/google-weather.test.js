@@ -13,7 +13,7 @@ test('Google Weather tool is not registered without a server key', () => {
   const weather = createGoogleWeatherTool({ apiKey: '' });
   assert.equal(weather.available, false);
   assert.equal(weather.tool.name, 'google_weather_forecast');
-  assert.rejects(weather.tool.run({ location: 'Davao City', forecast_type: 'current' }, { tenantId: 't', actor: { type: 'user', id: 'u' } }), /not configured/);
+  await assert.rejects(weather.tool.run({ location: 'Davao City', forecast_type: 'current' }, { tenantId: 't', actor: { type: 'user', id: 'u' } }), /not configured/);
 });
 
 test('fetches real current weather, normalizes output, and keeps the API key out of results', async () => {
