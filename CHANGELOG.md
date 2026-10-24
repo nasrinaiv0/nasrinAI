@@ -1,3 +1,6 @@
+- Add dedicated OpenRouter capability adapters for image generation, speech synthesis, transcription, embeddings, structured decisions, and reranking. Validate provider-qualified model IDs, bounded inputs, image/audio/vector payloads, response shapes, and avoid fetching model-supplied image URLs to prevent SSRF.
+- Harden OpenRouter endpoint selection for speech and transcription modality metadata, validate embedding vectors and batch sizes, and add the dedicated rerank request/response path. Specialized capabilities remain separate from generic chat routing.
+
 - Correct routing regressions to use models explicitly eligible for the requested paid tier; paid Quick now verifies a catalog-confirmed paid-Quick model, and Pro/Max/Ultra tests each use their assigned paid model. This preserves strict tier entitlements instead of relaxing registry enforcement to make legacy tests pass.
 
 - Add regression coverage proving inferred registry models remain blocked without live catalog evidence and become eligible only when the exact ID is discovered for a supported chat task.
