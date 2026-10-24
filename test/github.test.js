@@ -174,7 +174,9 @@ test('github: connecting needs sign-in, a signed state and this browser\'s one-t
     const cb = (qs, c) => fetch(t.url + '/v1/github/callback?' + qs, { redirect: 'manual', headers: c ? { cookie: c } : {} });
     assert.equal((await cb(`code=good&state=${state}`)).headers.get('location'), '/?github=failed', 'no cookie');
     assert.equal((await cb(`code=good&state=${state}`, 'nasrin_gh=other')).headers.get('location'), '/?github=failed', 'wrong cookie');
-    assert.equal((await cb(`code=good&state=${state.slice(0, -2)}xx`, cookie)).headers.get('location'), '/?github=failed', 'forged state');
+    const [stateBody, stateMac] = state.split('.');
+    const forgedState = `${stateBody}.${stateMac[0] === 'A' ? 'B' : 'A'}${stateMac.slice(1)}`;
+    assert.equal((await cb(`code=good&state=${forgedState}`, cookie)).headers.get('location'), '/?github=failed', 'forged state');
     assert.equal((await cb('setup_action=install&installation_id=1')).headers.get('location'), '/?github=installed');
     assert.equal((await cb(`code=good&state=${state}`, cookie)).headers.get('location'), '/?github=connected');
 
