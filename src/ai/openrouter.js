@@ -193,7 +193,7 @@ export function createOpenRouterClient({
     else if (task === 'video') { /* dedicated video catalog is already task-scoped */ }
     else if (task === 'decisions') return [];
     else if (task === 'transcription') models = models.filter((item) =>
-      ['text', 'transcription', 'audio'].some((modality) => item.architecture?.output_modalities?.includes(modality)));
+      ['text', 'transcription'].some((modality) => item.architecture?.output_modalities?.includes(modality)));
     else models = models.filter((item) => item.architecture?.output_modalities?.includes(output));
     const input = TASK_INPUT[task];
     if (input) models = models.filter((item) => item.architecture?.input_modalities?.includes(input));
@@ -230,7 +230,7 @@ export function createOpenRouterClient({
         : (task === 'speech'
           ? (m.architecture?.output_modalities?.includes('audio') || m.architecture?.output_modalities?.includes('speech'))
           : task === 'transcription'
-            ? (m.architecture?.output_modalities?.includes('text') || m.architecture?.output_modalities?.includes('transcription') || m.architecture?.output_modalities?.includes('audio'))
+            ? (m.architecture?.output_modalities?.includes('text') || m.architecture?.output_modalities?.includes('transcription'))
             : m.architecture?.output_modalities?.includes(modality)));
     const inputModality = TASK_INPUT[task];
     if (inputModality) eligible = eligible.filter((m) => Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes(inputModality));
