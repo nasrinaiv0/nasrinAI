@@ -17,6 +17,7 @@ test('the chat page loads its script and styles as files that the strict CSP all
     assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /connect-src[^;]*https:\/\/owner\.nasrinai\.com/, 'signed-in owners can bootstrap the separate owner subdomain');
     assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/maps\.google\.com/);
     assert.match(page.headers.get('content-security-policy'), /youtube-nocookie\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.tiktok\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.facebook\.com/);
