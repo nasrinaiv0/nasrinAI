@@ -2242,3 +2242,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The Vercel deployment associated with the prior check was marked CANCELED because the project's ignored-build-step configuration skipped the preview build; a green status alone was not sufficient evidence of a deployed preview.
 - Set the repository-level `ignoreCommand` to `exit 1` so the ignored-build command does not suppress the build, and added a regression test for the configuration.
 - **Validation:** a new preview deployment and full CI run are required after this change. Verify the deployment state is READY (not CANCELED) before browser smoke tests or release approval.
+
+## Preview API smoke-test finding (2026-10-25)
+
+- The current Vercel Preview deployment is READY and the chat HTML/static formatter return HTTP 200.
+- The `/healthz` and `/v1/status` smoke requests return HTTP 503 `not_configured`, naming missing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `GUEST_SESSION_SECRET` in the Preview runtime.
+- Do not copy production database/service-role secrets into Preview to bypass this gate. Configure a dedicated isolated Supabase test runtime and branch-scoped secrets, then rerun API and Guest/Quick browser smoke tests.
+- **Validation:** static deployment availability verified; authenticated/API behavior remains blocked pending isolated Preview configuration.
