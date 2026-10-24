@@ -1,3 +1,10 @@
+## fix/video-inline-chat-preview — show completed OpenRouter videos in chat (2026-10-24)
+
+- Render a native inline MP4 player in the assistant message when the video job reaches `completed`, while retaining a Download MP4 link.
+- Serve the authenticated, owner-checked video content endpoint with `Content-Disposition: inline` so browsers can play it in the chat instead of forcing a download.
+- Validate the download URL shape before assigning it to the player; show a fallback message if preview loading fails.
+- **Validation:** CI required; verify a fresh OpenRouter video end-to-end after deployment. Existing historical jobs may need a status poll to finalize and expose their content URL.
+
 ## fix/video-job-stall-diagnostics — stalled video jobs and stage telemetry (2026-10-24)
 
 - Add structured timing logs for provider job creation, status polling, job age, and MP4 download, including provider/model/tier and a stage label without logging prompts or credentials.
