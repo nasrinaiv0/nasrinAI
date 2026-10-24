@@ -121,7 +121,7 @@ test('paid routing discovers newly listed OpenRouter models as bounded fallback 
   assert.ok(a.openrouter.calls.some((call) => call.model === dynamicModel), 'tries live-discovered model after configured candidate fails');
 });
 
-test('Guest and Quick use explicitly free OpenRouter models first and never fall back to paid providers', async () => {
+test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, without cross-provider fallback', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
   const run = await a.policy.run(plan, req('hello'));
@@ -133,7 +133,8 @@ test('Guest and Quick use explicitly free OpenRouter models first and never fall
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
-  assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model)), 'every Guest/Quick attempt must be explicitly free');
+  assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'only free models and the authorized Luna fallback are eligible');
+  assert.equal(down.openrouter.calls.at(-1).model, 'openai/gpt-6-luna', 'Luna is attempted only after free models fail');
   assert.equal(down.openai.calls.length, 0, 'no paid OpenAI fallback for Guest/Quick');
   assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Guest/Quick');
 
@@ -146,10 +147,19 @@ test('Guest and Quick use explicitly free OpenRouter models first and never fall
   });
   await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(overridden.openrouter.calls.length > 0);
-  assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model)), 'custom route overrides cannot bypass the free-only policy');
+  assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'custom routes cannot bypass free-first/Luna-only eligibility');
+  assert.equal(overridden.openrouter.calls.at(-1).model, 'openai/gpt-6-luna');
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
+test('paid Quick skips free OpenRouter models', async () => {
+  const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key', ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna' } });
+  const plan = a.policy.plan({ tier: 'nasrinai', paidQuick: true, message: 'Hello!' });
+  const run = await a.policy.run(plan, req('Hello!'));
+  assert.equal(run.spec.model, 'openai/gpt-6-luna');
+  assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)));
+});
+
 test('Guest/Quick discover live OpenRouter free chat models beyond the static Nemotron list', async () => {
   const liveFreeModel = 'deepseek/deepseek-v4.1-flash:free';
   const a = setup({
@@ -160,7 +170,8 @@ test('Guest/Quick discover live OpenRouter free chat models beyond the static Ne
   await assert.rejects(a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   const attempted = a.openrouter.calls.map((call) => call.model);
   assert.ok(attempted.includes(liveFreeModel), 'live-discovered free model should be eligible after the preferred free routes');
-  assert.ok(attempted.every((model) => /:free$/i.test(model)), 'live paid models must be filtered out for Guest/Quick');
+  assert.ok(attempted.every((model) => /:free$/i.test(model) || model === 'openai/gpt-6-luna'), 'live paid models must be filtered except authorized Luna');
+  assert.equal(attempted.at(-1), 'openai/gpt-6-luna', 'Luna stays behind the free pool');
   assert.equal(a.openai.calls.length, 0);
   assert.equal(a.gemini.calls.length, 0);
 });
@@ -177,10 +188,11 @@ test('Guest/Quick accept operator-configured OpenRouter :free models and reject 
   const attempted = a.openrouter.calls.map((call) => call.model);
   assert.ok(attempted.includes('deepseek/deepseek-v4.1-flash:free'), 'configured free models are eligible for Guest/Quick');
   assert.ok(attempted.includes('xiaomi/mimo-v2.6-flash:free'), 'additional configured free models are eligible');
-  assert.ok(attempted.every((model) => /:free$/i.test(model)), 'paid IDs are ignored and no paid fallback is attempted');
+  assert.ok(attempted.every((model) => /:free$/i.test(model) || model === 'openai/gpt-6-luna'), 'paid IDs are ignored except authorized Luna');
+  assert.equal(attempted.at(-1), 'openai/gpt-6-luna');
 });
 
-test('paid tiers prefer explicitly free OpenRouter models for simple intent, while retaining paid fallback', async () => {
+test('paid tiers never use free OpenRouter models, even for simple intent', async () => {
   for (const tier of ['pro', 'max', 'ultra']) {
     const a = setup({
       env: {
@@ -196,7 +208,7 @@ test('paid tiers prefer explicitly free OpenRouter models for simple intent, whi
     assert.equal(plan.wanted, 1, 'test input should be classified as simple intent');
     const run = await a.policy.run(plan, req('Hello!'));
     assert.equal(run.spec.provider, 'openrouter');
-    assert.match(run.spec.model, /:free$/i, tier + ' should try a free model first for simple intent');
+    assert.doesNotMatch(run.spec.model, /:free$/i, tier + ' must use a paid model even for simple intent');
   }
 
   const fallback = setup({
@@ -211,8 +223,8 @@ test('paid tiers prefer explicitly free OpenRouter models for simple intent, whi
   const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
   await assert.rejects(fallback.policy.run(fallbackPlan, req('Hello!')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(fallback.openrouter.calls.length > 0, 'the router attempts an eligible OpenRouter candidate');
-  assert.match(fallback.openrouter.calls[0].model || fallback.openrouter.calls[0].modelId || '', /:free$/i, 'free candidate is attempted first');
-  assert.ok(!fallback.openrouter.calls.some((call) => /openai|anthropic|gemini/i.test(call.model || call.modelId || '')), 'provider failure must not escape the configured OpenRouter route in this test fixture');
+  assert.doesNotMatch(fallback.openrouter.calls[0].model || fallback.openrouter.calls[0].modelId || '', /:free$/i, 'paid subscriptions must skip the free candidate');
+  assert.ok(fallback.openrouter.calls.every((call) => !/:free$/i.test(call.model || call.modelId || '')), 'paid subscriptions must never try free model IDs');
 });
 
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
