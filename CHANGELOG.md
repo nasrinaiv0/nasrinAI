@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- Improve Guest/Quick structured search rendering so raw UI payload JSON is not shown as ordinary chat text.
+- Allow operators to add explicitly free OpenRouter model IDs through `OPENROUTER_FREE_MODELS`; paid IDs are ignored and Guest/Quick remain free-only.
+
+
 - Clarify third-party AI-provider training restrictions and filtered guest-conversation use for improving NasrinAI.
 - Prefer explicitly free OpenRouter models for simple requests on Pro, Max, and Ultra while preserving tier-eligible paid fallback; keep Guest and Quick free-only.
 
