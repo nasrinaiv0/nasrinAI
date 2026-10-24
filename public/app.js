@@ -784,38 +784,50 @@
     if (ownerBootstrapToken === token && now - ownerBootstrapAt < 8 * 60 * 1000) return;
     if (now - ownerBootstrapAt < 10 * 1000) return;
     ownerBootstrapAt = now;
-    $('ownerConsoleEntry')?.remove();
+    $('ownerConsoleEntryWrap')?.remove();
     try {
       const response = await fetch('https://owner.nasrinai.com/v1/owner/session', {
         method: 'POST', credentials: 'include', mode: 'cors', cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
+      // The server returns 204 only when both the verified account email and
+      // the request's actual client IP match the owner allowlists.
       if (response.status !== 204) {
         ownerBootstrapToken = '';
-        $('ownerConsoleEntry')?.remove();
+        $('ownerConsoleEntryWrap')?.remove();
         return;
       }
       ownerBootstrapToken = token;
       ownerBootstrapAt = Date.now();
       if (!document.getElementById('ownerConsoleEntry')) {
+        const wrap = document.createElement('div');
+        wrap.id = 'ownerConsoleEntryWrap';
+        wrap.className = 'menu';
         const button = document.createElement('button');
-        button.type = 'button'; button.id = 'ownerConsoleEntry'; button.className = 'menu-row';
-        button.textContent = 'Owner Command Center';
+        button.type = 'button';
+        button.id = 'ownerConsoleEntry';
+        button.className = 'menu-row';
+        button.setAttribute('aria-label', 'Open Owner Command Center');
+        button.innerHTML = '<span>Owner Command Center</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
         button.addEventListener('click', async () => {
           const freshToken = await credential(true).catch(() => null);
-          if (!freshToken) { ownerBootstrapToken = ''; ownerBootstrapAt = 0; return; }
+          if (!freshToken) { ownerBootstrapToken = ''; ownerBootstrapAt = 0; wrap.remove(); return; }
           ownerBootstrapToken = '';
           ownerBootstrapAt = 0;
           await syncOwnerConsoleEntry(freshToken);
           if (ownerBootstrapToken === freshToken) window.location.href = 'https://owner.nasrinai.com/owner';
         });
-        $('pageMain')?.appendChild(button);
+        wrap.appendChild(button);
+        const accountCard = $('account');
+        const pageMain = $('pageMain');
+        if (accountCard?.parentNode === pageMain) pageMain.insertBefore(wrap, accountCard.nextSibling);
+        else pageMain?.prepend(wrap);
       }
     } catch {
       ownerBootstrapToken = '';
       // Keep a short retry cooldown to avoid hammering the cross-origin endpoint.
       ownerBootstrapAt = Date.now();
-      $('ownerConsoleEntry')?.remove();
+      $('ownerConsoleEntryWrap')?.remove();
     }
   }
 
@@ -6059,7 +6071,7 @@
     ownerBootstrapToken = '';
     ownerBootstrapAt = 0;
     saved.del(KEYS.account);
-    $('ownerConsoleEntry')?.remove();
+    $('ownerConsoleEntryWrap')?.remove();
     void fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }).catch(() => {});
     renderAccount();
     renderImageHint();
