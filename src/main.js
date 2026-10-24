@@ -265,7 +265,7 @@ export function buildApp({ config, logger }) {
     config: effective,
     logger,
     gateway,
-    ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger }),
+    ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger, openrouterManagementKey: process.env.OPENROUTER_MANAGEMENT_API_KEY || '' }),
     routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
