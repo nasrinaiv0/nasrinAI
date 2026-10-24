@@ -108,7 +108,9 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       // Quick/guest allowlist. Failure to read the catalog must not block static
       // configured routes.
       let liveOpenRouterModels = [];
-      if (plan.tier !== 'nasrinai' && typeof provider.listModelsForTask === 'function') {
+      // Discover live OpenRouter text-capable models for every tier. Guest/Quick
+      // are filtered to :free IDs below, while paid tiers may use the broader list.
+      if (typeof provider.listModelsForTask === 'function') {
         try {
           liveOpenRouterModels = await provider.listModelsForTask('openrouter', {
             task: plan.task,
@@ -139,9 +141,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Try live-discovered candidates before the static shortlist so
           // bounded retries do not starve newly listed models behind stale IDs.
           // Task prioritization still orders the full eligible candidate set.
-          const expandedTierCandidates = plan.tier === 'nasrinai'
-            ? tierCandidates
-            : [...dynamicOpenRouterCandidates, ...tierCandidates];
+          const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates];
           // Quick/guest prefer free Nemotron models, then try lower-cost OpenRouter
           // chat candidates if those endpoints are unavailable. Never use GPT-6 Luna
           // (or paid-only Pro models) as a guest/free fallback, and never cross providers.

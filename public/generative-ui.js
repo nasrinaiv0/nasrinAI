@@ -125,10 +125,33 @@
     typeSelect.addEventListener('change',()=>{type=typeSelect.value;draw();});presSelect.addEventListener('change',()=>{presentation=presSelect.value;draw();});draw();return card;
   }
 
+  function renderSearch(payload) {
+    const query = text(payload.query, 240);
+    if (!query) return null;
+    const card = el('section', 'genui-card genui-search-card');
+    card.setAttribute('aria-label', 'Web search request');
+    card.classList.add('genui-enter');
+    const header = el('header', 'genui-header');
+    header.append(el('span', 'genui-search-icon', '⌕'));
+    header.append(el('h3', 'genui-title', 'Web search'));
+    card.append(header);
+    card.append(el('p', 'genui-search-query', query));
+    const days = Number(payload.recency_days);
+    if (Number.isFinite(days) && days >= 0) {
+      const label = days <= 1 ? 'Past 24 hours' : days <= 7 ? 'Past 7 days' : 'Recent results';
+      card.append(el('p', 'genui-subtitle', label));
+    }
+    // This widget presents a safe, readable representation of a search request.
+    // Search execution and source citations remain the responsibility of the
+    // server's web-search tool; this card never fabricates results or links.
+    return card;
+  }
+
   function render(payload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
     if (payload.type === 'mermaid') return renderMermaid(payload);
     if (payload.type === 'chart') return renderChart(payload);
+    if (payload.type === 'search') return renderSearch(payload);
     if (payload.type !== 'architecture' && payload.type !== 'metrics') return null;
     const card = el('section', 'genui-card');
     card.setAttribute('aria-label', text(payload.title, 100) || 'Interactive visualization');
