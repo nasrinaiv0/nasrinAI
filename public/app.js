@@ -1389,6 +1389,10 @@
       body.className = 'msg-body rich';
       const { node, blocks } = window.NasrinFormat.render(text);
       body.appendChild(node);
+      // Live Google Maps tool results arrive as bounded response metadata, so the map is rendered here in-chat without requiring a Maps-page redirect.
+      if (Array.isArray(responseMetadata?.maps) && window.NasrinChatMaps?.render) {
+        for (const mapResult of responseMetadata.maps.slice(0, 4)) window.NasrinChatMaps.render(body, mapResult);
+      }
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);

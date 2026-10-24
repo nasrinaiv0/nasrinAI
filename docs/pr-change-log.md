@@ -2225,3 +2225,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for the base formatter's valid search fallback and malformed structured UI payload handling when the optional Generative UI enhancer is unavailable.
 - The corrected UI marker regex is already present on `main`; this synchronized follow-up preserves that implementation and adds focused test coverage without reverting unrelated main-branch changes.
 - **Validation:** rerun CI and the required documentation gate on the synchronized PR head.
+
+## feat/google-weather-chat — Google Weather API in Chat (2026-10-24)
+
+- Add a server-only Google Weather tool for contextual weather questions in NasrinAI Chat, using Google Geocoding plus current, hourly, and daily Weather API endpoints.
+- Keep the key in Vercel environment variables; support `GOOGLE_WEATHER_API_KEY` and `GOOGLE_MAPS_PLATFORM_API_KEY`. No browser exposure.
+- Bounded process-memory cache only (current/hourly: 1 hour; daily: 24 hours). No raw provider responses, locations, coordinates, or forecast values in usage telemetry. Cost remains unknown/null until reconciled against Google Cloud billing.
+- Important restriction: Google Weather API must not be used to recreate a standalone weather product. This integration is intended only for contextual answers inside the general-purpose assistant.
+- Tests added with mocked responses; live API credentials and Google Cloud billing are not testable in CI.

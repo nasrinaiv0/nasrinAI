@@ -69,6 +69,8 @@ import { createImageSearch } from './web/image-search.js';
 import { createPagePreviews } from './web/page-preview.js';
 import { createWebCrawler } from './web/crawler.js';
 import { createYouTubeSearch } from './web/youtube.js';
+import { createGoogleWeatherTool } from './weather/google-weather.js';
+import { createGoogleMapsTools } from './maps/google-maps.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -225,7 +227,11 @@ export function buildApp({ config, logger }) {
   const google = createGoogleIntegration({ config: effective, logger });
   const googleReadWrite = createGoogleReadWriteTools({ google, config: effective, logger });
   if (google.available) logger.info('Google Gmail/Calendar integration ready');
-  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools], usageLog, config: effective, logger });
+  const weatherTool = createGoogleWeatherTool({ apiKey: config.weather.googleApiKey, usageLog, logger });
+  if (weatherTool.available) logger.info('Google Weather tool ready');
+  const mapsTool = createGoogleMapsTools({ apiKey: config.maps.serverApiKey || config.weather.googleApiKey, logger });
+  if (mapsTool.available) logger.info('Google Maps tools ready');
+  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools, ...(weatherTool.available ? [weatherTool.tool] : []), ...(mapsTool.available ? [mapsTool.tool] : [])], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
