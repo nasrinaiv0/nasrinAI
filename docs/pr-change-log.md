@@ -1,3 +1,10 @@
+## Phase 2 regression fix — tier-correct paid model fixtures (2026-10-25)
+
+- Update the paid Quick regression to use an inferred paid-Quick registry model only when its exact ID is present in the live catalog results.
+- Update Pro, Max, and Ultra regressions to use models assigned to each tier and verify catalog evidence for inferred IDs.
+- Keep assertions that paid plans never attempt `:free` IDs; do not weaken runtime tier enforcement to accommodate legacy fixtures.
+- Validation: await the complete CI suite on the resulting PR head before considering merge.
+
 ## Phase 2 test follow-up — inferred-ID evidence gate (2026-10-25)
 
 - Add a positive regression test for an inferred registry model that becomes eligible only after its exact ID is supplied by live task-filtered catalog discovery, alongside the existing negative case.
