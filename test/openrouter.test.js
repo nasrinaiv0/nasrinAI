@@ -398,6 +398,11 @@ test('OpenRouter video adapter validates capabilities and pins model and duratio
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
+  assert.equal(provider.extract({ status: 'completed' }).uri, undefined, 'extract alone cannot infer an omitted ID');
+  assert.equal((await provider.status('job_123')).id, 'job_123');
+  const nestedProvider = createOpenRouterVideoProvider({ client: { ...client, videoStatus: async () => ({ data: { status: 'completed' } }) }, model: 'provider/video', tier: 'max', maxSeconds: 8 });
+  assert.equal((await nestedProvider.status('job_456')).id, 'job_456');
+  assert.equal(nestedProvider.extract(await nestedProvider.status('job_456')).uri, 'job_456');
   assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 0.037 } }).actualCostUsd, 0.037);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 'unknown' } }).actualCostUsd, null);
   assert.equal((await provider.download('job_123')).toString(), 'video');
