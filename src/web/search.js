@@ -45,16 +45,37 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
         if (!googleSearch?.available || !queryText.trim()) return null;
         let items = [];
         try { items = await googleSearch.search(queryText); } catch { items = []; }
-        if (!items.length) return null;
-        items = items.slice(0, 5);
+        const unique = [];
+        const seen = new Set();
+        for (const item of Array.isArray(items) ? items : []) {
+          let parsed;
+          try { parsed = new URL(String(item?.url || '')); } catch { continue; }
+          if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password) continue;
+          const url = parsed.href;
+          if (seen.has(url)) continue;
+          seen.add(url);
+          unique.push({
+            url,
+            title: String(item?.title || item?.displayLink || 'Search result').replace(/[\r\n\t]/g, ' ').slice(0, 240),
+            snippet: String(item?.snippet || '').replace(/[\r\n\t]/g, ' ').slice(0, 600)
+          });
+          if (unique.length >= 5) break;
+        }
+        if (!unique.length) return null;
         const text = [
-          'The primary live-search service is temporarily unavailable. These are real results returned by the configured fallback search provider:',
-          ...items.map((item, index) => (index + 1) + '. ' + (item.title || item.displayLink || 'Search result') +
+          'The primary live-search service is temporarily unavailable. These are real results returned by Google Custom Search. Search snippets are discovery hints, not independently verified article content:',
+          ...unique.map((item, index) => (index + 1) + '. ' + item.title +
             (item.snippet ? '\n' + item.snippet : '') + '\n' + item.url)
         ].join('\n\n');
+        emitTelemetry({
+          status: 'fallback', fallbackProvider: 'google-custom-search', latencyMs: now() - telemetryStartedAt,
+          responseSummary: { citations_count: unique.length, search_calls: 1, results_are_snippets: true }
+        });
         return {
           text,
-          citations: items.map((item) => ({ url: item.url, title: item.title || item.displayLink || 'Search result' })),
+          citations: unique.map((item) => ({ url: item.url, title: item.title })),
+          provider: 'google-custom-search',
+          model: 'google-custom-search-json',
           searches: 1, inputTokens: 0, cachedTokens: 0, outputTokens: Math.ceil(text.length / 4)
         };
       };
