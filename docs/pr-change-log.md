@@ -1,3 +1,10 @@
+## Google fallback attribution and result sanitation (2026-10-24)
+
+- Validate Google fallback URLs again at the web-search boundary, remove credentials/unsafe schemes, deduplicate results, and bound title/snippet fields before rendering.
+- Label Google results as discovery snippets (not independently verified article content), return provider/model metadata for accurate usage logs, and emit fallback telemetry.
+- Add regression coverage for fallback attribution, unsafe URL filtering, and duplicate results.
+- **Validation:** the previous web intent fix passed `npm test`, syntax, secret scan, dependency audit, database tests and Documentation Gate. This follow-up requires a new full CI run.
+
 ## Research intent word-boundary fix (2026-10-24)
 
 - Correct the previous follow-up's over-escaped regular-expression boundaries, which caused three web-intent tests to fail; retain the broader verb-form matching and source/timeless intent behavior.
