@@ -1,3 +1,11 @@
+## feat/phase-3-openrouter-capability-adapters (2026-10-25)
+
+- Add validated provider adapters for OpenRouter image generation, TTS, transcription, embeddings, structured decisions, and reranking; keep specialized capabilities out of generic chat routes.
+- Validate model IDs, audio and image payload bounds, embedding vector shape, transcription output, reranking indices/scores, and provider errors. Image responses must contain supported base64 data; adapter deliberately does not fetch arbitrary provider-returned URLs.
+- Correct catalog output/input modality matching for speech, transcription, and embeddings. Add bounded embedding validation and a dedicated `/rerank` request/response path.
+- Add regression tests for adapter normalization, invalid payloads, malformed responses, required client methods, and SSRF-safe image handling.
+- **Validation:** CI must pass on the final PR head. These are adapter implementations and mocked contract tests; live credentials, model-specific endpoint support, cost settlement, and deployed end-to-end provider smoke tests remain release gates. Unsupported or unverified routes must stay disabled.
+
 ## feat/openrouter-clean-tier-routing-v2 (2026-10-25)
 
 - Add a normalized OpenRouter model registry from the owner-provided model inventory, including capability, input/output modality, endpoint family, and explicit tier assignments.
