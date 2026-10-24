@@ -1,3 +1,11 @@
+## fix/video-missing-frame-rates — video models rejected for missing frame-rate list (2026-10-24)
+
+- **Root cause of "No available video model supports this duration and quality…" (owner screenshot 7:47 PM):** the live OpenRouter `/videos/models` catalog (checked 2026-10-24, 30 models) lists no `supported_frame_rates` for any model, and the route code skipped every model without one. So every request failed regardless of length or quality.
+- A missing frame-rate list now means "provider default": the route returns `fps: null`, nothing is stored or forced, and `fps` is not sent to the provider. When a model does advertise frame rates, behavior is unchanged (requested rate, else 30, else the first).
+- Unset (null/undefined) parameters are no longer sent in the OpenRouter video request body.
+- **Validation:** new tests built from the live catalog shape in `test/openrouter.test.js` (route, and a mocked end-to-end create that asserts no `fps` is posted) and `test/videos-plan.test.js` (written first, failing before the change). `npm test` and `npm run check:secrets` results are in the PR. **No real video was generated**; the live create call, credits and output are still unverified.
+- Not changed: the route picks the first catalog model that fits, so the model (and its price) is whichever OpenRouter lists first. Owner: set `OPENROUTER_VIDEO_PRO_MODEL`, `OPENROUTER_VIDEO_MAX_MODEL` and `OPENROUTER_VIDEO_ULTRA_MODEL` in Vercel to choose models and cost.
+
 ## fix/video-rate-limit — hourly video limit message and counting (2026-10-24)
 
 - Chat video creation reused the sign-in rate limiter, so hitting the hourly video limit showed "Too many sign-in attempts. Please wait a while and try again." It now uses a dedicated `video` limiter with its own bucket and the message "You have reached the hourly video limit. Please try again later."

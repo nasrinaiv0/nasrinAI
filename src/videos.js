@@ -120,7 +120,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
               generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
             });
             requestedResolution = resolved?.resolution || resolution;
-            requestedFps = resolved?.fps ?? fps;
+            // A route with no advertised frame rate returns fps: null; keep it unset.
+            requestedFps = resolved && typeof resolved === 'object' && 'fps' in resolved ? resolved.fps : fps;
             // The model may only offer certain clip lengths (a 2-second ask can
             // resolve to its 5-second clip). Record and create the real length.
             const resolvedSeconds = Number(resolved?.duration);

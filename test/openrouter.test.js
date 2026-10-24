@@ -171,6 +171,43 @@ test('video route never picks a clip longer than the provider maximum', async ()
   await assert.rejects(client.getVideoRoute({ model: 'provider/long-only', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 }), /advertises the requested duration/);
 });
 
+// The live OpenRouter /videos/models catalog (checked 2026-10-24) lists no
+// supported_frame_rates for any model. A missing list must mean "provider
+// default", never "unsupported".
+const catalogWithoutFrameRates = [
+  { id: 'x-ai/grok-imagine-video-1.5-lite', supported_durations: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], supported_resolutions: ['480p', '720p', '1080p'],
+    supported_aspect_ratios: ['16:9', '9:16', '1:1'], generate_audio: null },
+  { id: 'google/veo-3.1-fast', supported_durations: [4, 6, 8], supported_resolutions: ['720p', '1080p', '4K'],
+    supported_aspect_ratios: ['16:9', '9:16'], generate_audio: true }
+];
+
+test('video route works when the catalog advertises no frame rates', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalogWithoutFrameRates }) });
+  const route = await client.getVideoRoute({ tier: 'ultra', resolution: '720p', fps: 30, duration: 2, aspectRatio: '16:9', generateAudio: true, maxDuration: 8 });
+  assert.equal(route.model, 'x-ai/grok-imagine-video-1.5-lite');
+  assert.equal(route.duration, 2);
+  assert.equal(route.resolution, '720p');
+  assert.equal(route.fps, null, 'no frame rate is chosen when none is advertised');
+});
+
+test('a video job is created without an fps field when frame rates are not advertised', async () => {
+  let posted = null;
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/videos/models')) return response({ data: catalogWithoutFrameRates });
+    if (String(url).endsWith('/videos') && init?.method === 'POST') { posted = JSON.parse(init.body); return response({ id: 'job-1', status: 'pending' }, 202); }
+    return response({ data: [] });
+  } });
+  const provider = createOpenRouterVideoProvider({ client, tier: 'ultra', maxSeconds: 8 });
+  const resolved = await provider.validateOptions({ duration: 2, aspectRatio: '16:9', requestedResolution: '720p', fps: 30, generateAudio: true });
+  assert.equal(resolved.fps, null);
+  const id = await provider.create({ prompt: 'Palawan', aspectRatio: '16:9', seconds: 2, requestedResolution: '720p', fps: resolved.fps, generateAudio: true });
+  assert.equal(id, 'job-1');
+  assert.equal(posted.model, 'x-ai/grok-imagine-video-1.5-lite');
+  assert.equal(posted.duration, 2);
+  assert.equal('fps' in posted, false, 'an unadvertised parameter must not be sent');
+  assert.equal(posted.resolution, '720p');
+});
+
 test('OpenRouter default video route works without a local or catalog price gate', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/default-video', 'video'),

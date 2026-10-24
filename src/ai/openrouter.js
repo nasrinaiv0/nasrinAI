@@ -404,9 +404,11 @@ export function createOpenRouterClient({
       const frameRates = values(item, ['supported_frame_rates', 'supported_fps', 'supportedFrameRates'])
         .map(Number).filter((value) => Number.isFinite(value) && value > 0 && value <= 120);
       const ratios = values(item, ['supported_aspect_ratios', 'supportedAspectRatios']).map(String);
-      if (!resolutions.length || !frameRates.length || !ratios.length) continue;
+      // Frame rates are optional: the live catalog lists none for any model, so a
+      // missing list means the provider default, not "unsupported".
+      if (!resolutions.length || !ratios.length) continue;
       const selectedResolution = resolutions.includes(resolution) ? resolution : resolutions[0];
-      const selectedFps = frameRates.includes(Number(fps)) ? Number(fps) : (frameRates.includes(30) ? 30 : frameRates[0]);
+      const selectedFps = frameRates.length === 0 ? null : (frameRates.includes(Number(fps)) ? Number(fps) : (frameRates.includes(30) ? 30 : frameRates[0]));
       const selectedAspectRatio = ratios.includes(aspectRatio) ? aspectRatio : ratios[0];
       const audioSupported = item.generate_audio === true || item.supports_audio_generation === true;
       if (generateAudio === true && !audioSupported) {
@@ -432,7 +434,9 @@ export function createOpenRouterClient({
       generateAudio: options.generate_audio === true, 
     });
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 8000) throw new ProviderError('config', 'Video prompt must be 1–8000 characters');
-    const body = { ...options, model: selected.id, prompt: prompt.trim() };
+    // Never send a parameter that is unset (for example fps when the model lists none).
+    const supplied = Object.fromEntries(Object.entries(options).filter(([, value]) => value !== null && value !== undefined));
+    const body = { ...supplied, model: selected.id, prompt: prompt.trim() };
     return request('/videos', { body, signal });
   }
   async function videoStatus(id, signal) {
@@ -498,7 +502,7 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
       if (!Number.isFinite(seconds) || seconds < 1 || seconds > safeMax) throw new ProviderError('config', 'Requested duration exceeds the verified OpenRouter video model limit');
       const route = await client.getVideoRoute({ model: resolvedModel || model, tier, resolution: requestedResolution, fps, duration: Math.floor(seconds), aspectRatio, generateAudio, hasVideoInput, maxDuration: safeMax });
       resolvedModel = route.model;
-      const result = await client.createVideo({ model: route.model, tier, prompt, duration: route.duration ?? Math.floor(seconds), aspect_ratio: route.aspectRatio || aspectRatio, resolution: route.resolution || requestedResolution, fps: route.fps ?? fps, generate_audio: route.generateAudio ?? generateAudio });
+      const result = await client.createVideo({ model: route.model, tier, prompt, duration: route.duration ?? Math.floor(seconds), aspect_ratio: route.aspectRatio || aspectRatio, resolution: route.resolution || requestedResolution, fps: route.fps !== undefined ? route.fps : fps, generate_audio: route.generateAudio ?? generateAudio });
       const id = result?.id || result?.job_id || result?.data?.id;
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
       return id;
