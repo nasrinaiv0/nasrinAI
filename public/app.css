@@ -4617,3 +4617,15 @@ body[data-theme="dark"] .reply-details-panel,
     --reply-detail-muted: #c1c3ca;
   }
 }
+
+/* Owner-supplied NasrinAI mark: switch assets with the explicit theme and system preference. */
+#pageSpace .space-connect-logo--light,
+#pageSpace .space-connect-logo--dark { filter: none !important; }
+#pageSpace .space-connect-logo--light { display: block; }
+#pageSpace .space-connect-logo--dark { display: none; }
+html[data-theme="dark"] #pageSpace .space-connect-logo--light { display: none; }
+html[data-theme="dark"] #pageSpace .space-connect-logo--dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) #pageSpace .space-connect-logo--light { display: none; }
+  html:not([data-theme="light"]) #pageSpace .space-connect-logo--dark { display: block; }
+}
