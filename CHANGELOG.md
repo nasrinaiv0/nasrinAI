@@ -85,5 +85,4 @@
 - Add a manual GitHub Actions workflow to verify live OpenRouter text-model availability and upload a JSON report. Runs only on explicit dispatch with cost confirmation; uses `OPENROUTER_API_KEY`.
 
 - Add groundwork for secure user-owned integrations with server-only encrypted credential storage, ownership-scoped read APIs, RLS-protected tables, and regression tests. Provider-specific OAuth adapters remain unimplemented.
-
 - Make the GitHub OAuth forged-state regression deterministic by changing a significant HMAC character rather than the final base64url characters, which could rarely leave the decoded signature unchanged.
