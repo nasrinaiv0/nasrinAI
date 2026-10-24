@@ -1,3 +1,9 @@
+## Phase 3 transcription discovery CI fix (2026-10-25)
+
+- Fix task-filtered model discovery: transcription returns text, so catalog discovery accepts text-output models while requiring explicit audio input.
+- Keep modality checks strict and cover audio-input/text-output eligibility in regression tests.
+- **Validation:** rerun CI and Documentation Gate; do not merge unless required checks pass.
+
 ## Phase 3 modality fixture correction (2026-10-25)
 
 - Update the transcription adapter fixture to model audio input and text output accurately; preserve strict runtime modality validation instead of relaxing capability gates to satisfy an outdated fixture.
