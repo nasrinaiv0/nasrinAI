@@ -9,7 +9,7 @@ const caller = { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } };
 const geocode = { status: 'OK', results: [{ formatted_address: 'Davao City, Philippines', geometry: { location: { lat: 7.07, lng: 125.6 } } }] };
 const current = { currentTime: '2026-10-24T02:00:00Z', weatherCondition: { description: { text: 'Partly cloudy' } }, temperature: { degrees: 31.2, unit: 'CELSIUS' }, feelsLikeTemperature: { degrees: 35, unit: 'CELSIUS' }, relativeHumidity: 72, uvIndex: 8 };
 
-test('Google Weather tool is not registered without a server key', () => {
+test('Google Weather tool is not registered without a server key', async () => {
   const weather = createGoogleWeatherTool({ apiKey: '' });
   assert.equal(weather.available, false);
   assert.equal(weather.tool.name, 'google_weather_forecast');
