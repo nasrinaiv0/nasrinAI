@@ -2282,3 +2282,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Vercel Preview:** deployment `dpl_AA8ZYQXfKLz4QPziYtCR8ysLid7G` reached `READY`; the chat HTML/static formatter returned HTTP 200.
 - **Remaining release blocker:** Preview `/healthz` and `/v1/status` return HTTP 503 `not_configured` because the isolated Preview runtime lacks the four required Supabase/session settings. Production `/healthz` returned HTTP 200. Do not use production service-role credentials to bypass Preview isolation.
 - **Next verification:** fresh CI and Documentation Gate after this log update, then configure an isolated Preview Supabase runtime and run API plus Guest/Quick browser smoke tests. PR remains unmerged.
+
+## Crawl redirect origin enforcement (2026-10-25)
+
+- Restrict crawled child pages to the root page's origin even across HTTP redirects, preventing a same-origin link from silently redirecting the crawler to another site.
+- Add a regression asserting the off-origin redirect target is not fetched.
+- **Validation:** fresh CI required for this security follow-up.
