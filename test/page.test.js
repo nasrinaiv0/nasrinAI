@@ -97,10 +97,13 @@ test('app.js never dereferences a page element that index.html does not have', a
 test('NasrinAI Space uses the requested Connect mark and adapts every app icon background', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
-  const connectMark = await readFile(new URL('../public/space-logos/nasrinai-connect-mark.svg', import.meta.url), 'utf8');
-  assert.match(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-mark\.svg/);
-  assert.doesNotMatch(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-dark\.svg/);
-  assert.match(connectMark, /fill-rule="evenodd"/);
+  const connectLight = await readFile(new URL('../public/space-logos/nasrinai-connect-light.svg', import.meta.url), 'utf8');
+  const connectDark = await readFile(new URL('../public/space-logos/nasrinai-connect-dark.svg', import.meta.url), 'utf8');
+  assert.match(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-light\.svg[\s\S]*?nasrinai-connect-dark\.svg/);
+  assert.match(connectLight, /aria-label="NasrinAI logo"/);
+  assert.match(connectDark, /aria-label="NasrinAI logo"/);
+  assert.match(css, /space-connect-logo--light/);
+  assert.match(css, /space-connect-logo--dark/);
   // Library uses the one theme-adaptive glyph (owner request 2026-10-12), not a badge image.
   assert.match(html, /id="spaceLibrary"[\s\S]*?class="space-app-logo space-app-glyph lib-glyph"/);
   assert.match(html, /id="drawerLibrary"><svg class="lib-glyph"/);
