@@ -2379,13 +2379,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This is catalog eligibility evidence only, not a claim of a successful provider smoke test. Endpoint failures still use existing bounded failover behavior.
 - Validation: full CI and the required changelog gate must pass on the updated PR head.
 
-
-## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
-
-- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
-- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
-- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
-- **Validation:** CI and the documentation gate passed on the previous head; rerun both after this changelog reconciliation. Authenticated live model probes remain outstanding; no production routing or account settings were changed.
 ## Phase 2 — Live tier-router integration (2026-10-25)
 
 - Connect the clean-tier model registry to the runtime OpenRouter chat candidate filter before ranking and provider invocation.
@@ -2393,3 +2386,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
 - Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
 - **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.
+
+## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
+
+- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
+- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
+- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
+- **Validation:** CI and the documentation gate passed on the previous head; rerun both after this changelog reconciliation. Authenticated live model probes remain outstanding; no production routing or account settings were changed.
