@@ -1,3 +1,11 @@
+## Guest/Quick free-model capability and structured rendering (2026-10-24)
+
+- Add `OPENROUTER_FREE_MODELS` so operators can configure additional OpenRouter model IDs that are explicitly marked `:free` without a code deployment; non-free IDs are ignored for this list.
+- Keep Guest/Quick strictly on OpenRouter candidates ending in `:free`, with no paid or cross-provider fallback.
+- Render structured `search` UI payloads as a safe, readable search card instead of exposing raw `[[ui]]` JSON in chat. The card represents the request only; it does not fabricate search results or citations.
+- Add regression coverage for configured free-model eligibility and rejection of paid IDs.
+- **Validation:** CI and live provider/UI smoke tests must pass before merge/deployment.
+
 ## PR #581 — Routing regression test correction (2026-10-24)
 
 - Correct the free-first paid-tier routing test to assert the configured OpenRouter candidate behavior without assuming a paid fallback that the fixture does not establish.
