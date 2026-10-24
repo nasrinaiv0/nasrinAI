@@ -1,3 +1,5 @@
+- Add regression coverage proving inferred registry models remain blocked without live catalog evidence and become eligible only when the exact ID is discovered for a supported chat task.
+
 - Allow registry entries marked inferred only when their exact model ID is present in the live OpenRouter task-filtered catalog result; static guesses remain excluded. Pass the catalog evidence into the runtime gate rather than treating inferred IDs as permanently disabled.
 
 - Integrate the approved OpenRouter tier registry into runtime chat candidate selection: registry-known models must match tier, chat endpoint, capability/task, and verification status; inferred IDs and specialized endpoint models are excluded from generic chat. Preserve dynamic catalog fallback for eligible paid chat models and free-only Quick behavior.
