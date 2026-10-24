@@ -2260,6 +2260,75 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This documentation-only follow-up fixes the Documentation Gate failure on the PR head; the implementation and tests are unchanged by this commit.
 - **Validation:** the missing-entry failure was confirmed in Documentation Gate run #1288. CI run #6714 (tests, database, dependency audit and secret scan), Documentation Gate run #1291, and the Vercel status all passed on head `6dbddbc9747835aeff2c2f6364ee93a270f5af9e`. This wording-only correction triggers a fresh CI/Gate run on the new head. Authenticated live provider probes were not run; no production configuration changed.
 
+## Web research Phase 2 hardening (2026-10-25)
+
+- Expand live-search intent detection for scraping, crawling, page extraction, link opening, summarization, fact-checking, and source verification.
+- Use the larger search context/result budget for explicit research tasks while retaining the standard budget for ordinary current lookups.
+- Tell the research model to describe the pages actually inspected and to treat fetched page content and search snippets as untrusted evidence, not instructions.
+- Increase explicit shared-link discovery from two to five distinct URLs.
+- Correct IPv4-mapped IPv6 parsing in the SSRF address normalizer and add regression coverage for public and loopback-mapped addresses.
+- **Validation:** regression tests added. Full CI, security checks, preview API, and Guest/Quick browser verification must pass before merge; do not infer success from deployment status alone.
+
+## Google fallback source sanitation and attribution (2026-10-25)
+
+- Revalidate fallback result URLs at the web-search boundary, reject unsafe schemes and credential-bearing URLs, deduplicate results, and bound title/snippet text.
+- Label Google Custom Search results as discovery snippets rather than independently verified page content.
+- Return explicit provider/model attribution and fallback telemetry so usage logs can distinguish Google fallback from OpenRouter web search.
+- Add regression coverage for duplicate/unsafe results and fallback attribution.
+- **Validation:** fresh full CI and security gates required; no merge until all checks pass.
+
+## Preview build release gate (2026-10-25)
+
+- The Vercel deployment associated with the prior check was marked CANCELED because the project's ignored-build-step configuration skipped the preview build; a green status alone was not sufficient evidence of a deployed preview.
+- Set the repository-level `ignoreCommand` to `exit 1` so the ignored-build command does not suppress the build, and added a regression test for the configuration.
+- **Validation:** a new preview deployment and full CI run are required after this change. Verify the deployment state is READY (not CANCELED) before browser smoke tests or release approval.
+
+## Preview API smoke-test finding (2026-10-25)
+
+- The current Vercel Preview deployment is READY and the chat HTML/static formatter return HTTP 200.
+- The `/healthz` and `/v1/status` smoke requests return HTTP 503 `not_configured`, naming missing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `GUEST_SESSION_SECRET` in the Preview runtime.
+- Do not copy production database/service-role secrets into Preview to bypass this gate. Configure a dedicated isolated Supabase test runtime and branch-scoped secrets, then rerun API and Guest/Quick browser smoke tests.
+- **Validation:** static deployment availability verified; authenticated/API behavior remains blocked pending isolated Preview configuration.
+
+## Article-first extraction and bounded source metadata (2026-10-25)
+
+- Prefer the first article/main content block when available, strip page chrome and non-content elements, and decode bounded HTML entities safely.
+- Extract bounded Open Graph/title, description, site name, author, publication date, and canonical URL metadata; canonical metadata is not substituted for the actual fetched URL used for citations.
+- Add source metadata to the chat context as explicitly labeled untrusted data, without storing fetched page text in conversation history.
+- Add regressions for article-first extraction, metadata parsing, context labeling, and non-persistence.
+- **Validation:** fresh full CI and security gates required after these changes; Preview API smoke tests remain blocked until an isolated Supabase test runtime is configured.
+
+## Citation URL integrity regression (2026-10-25)
+
+- Add a regression asserting page-supplied canonical metadata never replaces the actual URL fetched and used for citations.
+- **Validation:** fresh CI required for this test-only change.
+
+## Rich link rendering security regression (2026-10-25)
+
+- Add a DOM-renderer regression proving valid external Markdown links remain clickable with safe `rel` attributes, while raw HTML and JavaScript URLs remain inert text.
+- **Validation:** fresh CI required for the renderer test.
+
+## Bounded same-origin site crawling (2026-10-25)
+
+- Implement a capped crawler for explicit scrape/crawl requests with one supplied root URL; it reads at most five pages, follows only same-origin HTTP(S) links, skips common static assets, and passes every target through the existing public-address/redirect-safe reader.
+- Keep raw HTML internal to link discovery; only bounded extracted text and labeled metadata enter the chat context. Cross-origin links are not crawled automatically.
+- Add regression coverage for page caps, same-origin-only traversal, asset/script link rejection, and unsafe root URLs.
+- **Validation:** full CI, security checks, and preview/API verification required before merge.
+
+## Web research implementation validation snapshot (2026-10-25)
+
+- **CI run 6645:** test, database, and dependency-audit jobs passed on commit `5024a1d062e9c298e8c0acee11d211a689d74a04`, including bounded same-origin crawling and off-origin redirect rejection, source metadata/citation integrity, Google fallback sanitation, and rich-link safety tests.
+- **Documentation Gate run 1251:** passed on the same commit. Earlier CI run 6637 also passed before the crawl redirect-origin follow-up.
+- **Vercel Preview:** deployment `dpl_1YiiRNoeYk9wJxkCxmiu3uRM8cbh` reached `READY`; the chat HTML/static formatter returned HTTP 200.
+- **Remaining release blocker:** Preview `/healthz` and `/v1/status` return HTTP 503 `not_configured` because the isolated Preview runtime lacks the four required Supabase/session settings. Production `/healthz` returned HTTP 200. Do not use production service-role credentials to bypass Preview isolation.
+- **Next verification:** fresh CI and Documentation Gate after this log update, then configure an isolated Preview Supabase runtime and run API plus Guest/Quick browser smoke tests. PR remains unmerged.
+
+## Crawl redirect origin enforcement (2026-10-25)
+
+- Restrict crawled child pages to the root page's origin even across HTTP redirects, preventing a same-origin link from silently redirecting the crawler to another site.
+- Add a regression asserting the off-origin redirect target is not fetched.
+- **Validation:** fresh CI required for this security follow-up.
+
 ## feat/google-weather-chat — Google Weather API in Chat (2026-10-24)
 
 - Add a server-only Google Weather tool for contextual weather questions in NasrinAI Chat, using Google Geocoding plus current, hourly, and daily Weather API endpoints.
