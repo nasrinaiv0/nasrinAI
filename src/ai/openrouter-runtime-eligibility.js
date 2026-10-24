@@ -18,7 +18,8 @@ export function isOpenRouterChatCandidateEligible({ modelId, tier, paidQuick = f
     return !/:free$/i.test(modelId);
   }
 
-  const verified = verifiedIds instanceof Set ? verifiedIds : new Set(verifiedIds || []);\n  if (model.inferred && !verified.has(modelId)) return false;
+  const verified = verifiedIds instanceof Set ? verifiedIds : new Set(verifiedIds || []);
+  if (model.inferred && !verified.has(modelId)) return false;
   if (model.endpoint !== 'chat') return false;
   if (!['text', 'coding'].includes(model.category)) return false;
   if (model.category === 'coding' && !['coding', 'debugging'].includes(task)) return false;
