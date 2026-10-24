@@ -150,6 +150,21 @@ test('Guest and Quick use explicitly free OpenRouter models first and never fall
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
+test('Guest/Quick accept operator-configured OpenRouter :free models and reject paid IDs', async () => {
+  const a = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      OPENROUTER_FREE_MODELS: 'deepseek/deepseek-v4.1-flash:free;openai/gpt-6-luna;xiaomi/mimo-v2.6-flash:free'
+    },
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  await assert.rejects(a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  const attempted = a.openrouter.calls.map((call) => call.model);
+  assert.ok(attempted.includes('deepseek/deepseek-v4.1-flash:free'), 'configured free models are eligible for Guest/Quick');
+  assert.ok(attempted.includes('xiaomi/mimo-v2.6-flash:free'), 'additional configured free models are eligible');
+  assert.ok(attempted.every((model) => /:free$/i.test(model)), 'paid IDs are ignored and no paid fallback is attempted');
+});
+
 test('paid tiers prefer explicitly free OpenRouter models for simple intent, while retaining paid fallback', async () => {
   for (const tier of ['pro', 'max', 'ultra']) {
     const a = setup({
