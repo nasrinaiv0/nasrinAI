@@ -14,7 +14,7 @@ create index if not exists openrouter_logs_unreconciled_idx
   on public.openrouter_logs (created_at desc)
   where provider_request_id is not null and total_cost_usd is null;
 
-do $
+do $$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -25,6 +25,6 @@ begin
       add constraint openrouter_logs_provider_cost_source_check
       check (provider_cost_source is null or provider_cost_source in ('openrouter_generation_api'));
   end if;
-end $;
+end $$;
 
 commit;
