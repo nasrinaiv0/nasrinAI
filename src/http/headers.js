@@ -3,11 +3,11 @@
 
 export const PAGE_CSP = [
   "default-src 'self'",
-  "script-src 'self' https://challenges.cloudflare.com",
+  "script-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://challenges.cloudflare.com",
   "style-src 'self'",
-  "img-src 'self' data: blob: https://i.ytimg.com https://upload.wikimedia.org",
+  "img-src 'self' data: blob: https://maps.gstatic.com https://*.googleapis.com https://i.ytimg.com https://upload.wikimedia.org",
   // *.supabase.co: direct uploads to the project's private bucket (docs/uploads.md).
-  "connect-src 'self' https://owner.nasrinai.com https://challenges.cloudflare.com https://*.supabase.co",
+  "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://owner.nasrinai.com https://challenges.cloudflare.com https://*.supabase.co",
   "frame-src https://maps.google.com https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://www.tiktok.com https://www.facebook.com https://www.instagram.com https://player.vimeo.com https://www.dailymotion.com",
   "media-src 'self' blob:",
   "object-src 'none'",
