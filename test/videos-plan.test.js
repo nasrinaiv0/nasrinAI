@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createVideos } from '../src/videos.js';
 import { createBudget } from '../src/ai/budget.js';
+import { createLimiter } from '../src/limits.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { testConfig } from './helpers.js';
 
@@ -25,7 +26,7 @@ function service(plan, open = false, maxSeconds = null, providerOverride = null,
     store,
     plans: { async current() { return { plan, open }; } },
     provider: providerOverride || { id: 'fake-video', model: 'veo-3.1-generate-preview', resolution: '1080p', costPerSecondUsd: 0.05, ...(maxSeconds ? { maxSeconds } : {}), async create() { return { operation: 'fake-op' }; } },
-    limiter: limiterOverride || { async signIn() {} },
+    limiter: limiterOverride || { async video() {} },
     usageLog: usageLogOverride,
     budget,
     config,
@@ -258,7 +259,7 @@ test('Ultra 4K add-on uses plan capability without local cost deltas or token su
     async create({ requestedResolution }) { assert.equal(requestedResolution, '4k'); return { operation: '4k-op' }; }
   };
   const limiter = {
-    async signIn() {},
+    async video() {},
     async reserveTokens(caller, tokens) { tokenCalls.push(['reserve', tokens]); return { id: 'token-reservation', reservedTokens: tokens }; },
     async settleTokens(reservation, tokens) { tokenCalls.push(['settle', tokens]); },
     async releaseTokens(reservation) { tokenCalls.push(['release']); }
@@ -279,7 +280,7 @@ test('4K add-on is capability-gated rather than price-gated', async () => {
     allow4kAddon: true, maxSeconds: 8,
     async create({ requestedResolution }) { called = true; assert.equal(requestedResolution, '4k'); return 'job-4k'; }
   };
-  const { videos, created } = service('ultra', false, null, provider, { async signIn() {} });
+  const { videos, created } = service('ultra', false, null, provider, { async video() {} });
   const result = await videos.create(caller, { prompt: 'Provider billed 4K', resolution: '4k' });
   assert.equal(result.status, 'in_progress');
   assert.equal(called, true);
@@ -328,4 +329,46 @@ test('a provider-resolved clip length is what gets created and stored', async ()
   assert.equal(result.target_seconds, 5, 'the real clip length is reported, not the unsupported request');
   assert.equal(created[0].targetSeconds, 5);
   assert.deepEqual(calls.at(-1), ['create', 5]);
+});
+
+
+test('the hourly video limit has its own message, not the sign-in one', async () => {
+  const store = createMemoryStore();
+  const limiter = createLimiter({ store, limits: {} });
+  await limiter.video(caller, 1);
+  await assert.rejects(() => limiter.video(caller, 1), (err) => {
+    assert.equal(err.status, 429);
+    assert.match(err.message, /video/i);
+    assert.doesNotMatch(err.message, /sign-in/i);
+    return true;
+  });
+  await limiter.video({ ...caller, actor: { type: 'user', id: 'someone-else' } }, 1);
+});
+
+test('requests that fail capability checks do not use up the hourly video limit', async () => {
+  let used = 0;
+  const limiter = { async video() { used += 1; } };
+  const failing = {
+    id: 'openrouter', model: 'configured/video', maxSeconds: 8, allowedResolutions: ['480p'], allowedFrameRates: [30],
+    async validateOptions() { throw Object.assign(new Error('no model'), { code: 'capability_mismatch' }); },
+    async create() { throw new Error('must not create'); }
+  };
+  const a = service('pro', false, null, failing, limiter);
+  await assert.rejects(() => a.videos.create(caller, { prompt: 'Palawan', seconds: 2 }), (err) => err.code === 'video_capability_unavailable');
+  assert.equal(used, 0, 'a failed capability check must not consume a slot');
+
+  const ok = { id: 'fake-video', model: 'm', maxSeconds: 8, async create() { return 'op'; } };
+  const b = service('pro', false, null, ok, limiter);
+  await b.videos.create(caller, { prompt: 'Palawan', seconds: 2 });
+  assert.equal(used, 1, 'a started video uses exactly one slot');
+});
+
+test('a video refused by the hourly limit never reaches the provider', async () => {
+  let created = 0;
+  const limiter = { async video() { throw Object.assign(new Error('You have reached the hourly video limit.'), { status: 429, code: 'rate_limited' }); } };
+  const provider = { id: 'fake-video', model: 'm', maxSeconds: 8, async create() { created += 1; return 'op'; } };
+  const { videos, created: rows } = service('max', false, null, provider, limiter);
+  await assert.rejects(() => videos.create(caller, body), (err) => err.status === 429);
+  assert.equal(created, 0);
+  assert.equal(rows.length, 0);
 });

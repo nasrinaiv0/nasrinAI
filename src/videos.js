@@ -72,7 +72,6 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       ? requestedSeconds
       : (routeProvider.maxSeconds || MAX_SECONDS);
     if (routeProvider.maxSeconds && effectiveRequestedSeconds > routeProvider.maxSeconds) throw new HttpError(422, 'video_duration_unsupported', `This provider supports clips up to ${routeProvider.maxSeconds} seconds. Choose a shorter duration or use the default video provider.`);
-    await limiter.signIn('video:' + caller.actor.id, config.video.perHour);
     if (b.conversation_id != null) {
       if (!UUID.test(String(b.conversation_id))) throw notFound();
       const conversation = await store.getConversation(b.conversation_id);
@@ -172,6 +171,9 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
       }
     }
+    // Count the hourly limit only now: requests refused for plan, length or
+    // model-capability reasons (and cache hits) never start a video.
+    await limiter.video(caller, config.video.perHour);
     const started = now();
     let operation;
     try {

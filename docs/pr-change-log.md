@@ -1,3 +1,11 @@
+## fix/video-rate-limit — hourly video limit message and counting (2026-10-24)
+
+- Chat video creation reused the sign-in rate limiter, so hitting the hourly video limit showed "Too many sign-in attempts. Please wait a while and try again." It now uses a dedicated `video` limiter with its own bucket and the message "You have reached the hourly video limit. Please try again later."
+- The limit is now counted only when a video is actually started (after plan, length and model-capability checks, and not on cache hits). Before, every request that passed the plan check used a slot, so failed attempts could use up the whole hour.
+- `VIDEO_PER_HOUR` is unchanged (default 1, allowed 1–10). **Owner:** set `VIDEO_PER_HOUR` in Vercel if one video per hour is too low.
+- Not changed (same wrong sign-in message, different endpoints): the Video Studio render/export and ElevenLabs audio limits in `src/routes.js`. Left for a separate change.
+- **Validation:** new tests in `test/videos-plan.test.js` (written first and failing before the change); `npm test` 1023 pass, 0 fail, 1 skipped; `npm run check:secrets` clean. No real video was generated.
+
 ## fix/video-generation-flow — chat video creation and "photos into video" (2026-10-24)
 
 - **Automatic tier:** the default "Automatic" selection (and no selection) now uses the video tier of the account's plan instead of failing with "Video generation requires selecting Pro, Max or Ultra" / "Select Ultra for Ultra video options". It never goes above the plan; explicit tier choices keep their entitlement checks.
