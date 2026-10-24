@@ -50,6 +50,31 @@ test('link reader: readable text, redirects checked, errors explained', async ()
   assert.equal(htmlToText('<li>one</li><li>two</li>').text, '- one\n- two');
 });
 
+test('link reader extracts safe article metadata and prioritizes article content', async () => {
+  const html = '<html><head>' +
+    '<title>Publisher section</title>' +
+    '<meta property="og:title" content="Deep Dive &amp; Analysis">' +
+    '<meta name="description" content="A careful summary of the article.">' +
+    '<meta property="og:site_name" content="Example News">' +
+    '<meta name="author" content="Research Desk">' +
+    '<meta property="article:published_time" content="2026-10-24T08:00:00Z">' +
+    '<link rel="canonical" href="https://publisher.example/articles/deep-dive">' +
+    '</head><body><nav>Navigation noise</nav><aside>Sidebar noise</aside>' +
+    '<article><h1>Primary finding</h1><p>The article body contains the main fact.</p><script>bad()</script></article>' +
+    '<footer>Footer noise</footer></body></html>';
+  const result = await readLink('https://publisher.example/articles/deep-dive?ref=chat', {
+    getImpl: async () => page(200, { 'content-type': 'text/html; charset=utf-8' }, html)
+  });
+  assert.equal(result.title, 'Deep Dive & Analysis');
+  assert.equal(result.description, 'A careful summary of the article.');
+  assert.equal(result.siteName, 'Example News');
+  assert.equal(result.author, 'Research Desk');
+  assert.equal(result.publishedAt, '2026-10-24T08:00:00Z');
+  assert.equal(result.canonical, 'https://publisher.example/articles/deep-dive');
+  assert.match(result.text, /Primary finding[\\s\\S]*main fact/);
+  assert.doesNotMatch(result.text, /Navigation noise|Sidebar noise|Footer noise|bad\\(\\)/);
+});
+
 test('chat: a shared link is read and given to the model as data', async () => {
   const provider = createFakeProvider({ reply: () => 'Adobo is listed on the menu.' });
   const built = buildTestApp({ provider, readLinkImpl: async (u) => ({ url: u, title: 'Menu', text: 'Adobo 150 pesos' }) });
