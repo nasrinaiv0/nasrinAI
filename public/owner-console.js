@@ -249,7 +249,7 @@
       const endpointLabel = el('label', 'provider-log-field');
       endpointLabel.append(el('span', '', 'Endpoint'));
       const endpointSelect = el('select', 'provider-log-control');
-      [['','All endpoints'],['/api/chat','Chat'],['/api/images','Images'],['/api/video','Video'],['/api/speech','Speech'],['/api/transcription','Transcription'],['/v1/responses','Responses / web search']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; endpointSelect.append(option); });
+      [['','All endpoints'],['/chat/completions','Chat / multimodal'],['/audio/speech','Speech'],['/audio/transcriptions','Transcription'],['/responses','Responses / web search'],['/embeddings','Embeddings'],['/rerank','Reranking']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; endpointSelect.append(option); });
       endpointLabel.append(endpointSelect);
       const refresh = el('button', 'quiet-button', 'Refresh logs');
       refresh.type='button';
@@ -260,7 +260,7 @@
       const tableWrap = el('div', 'provider-log-table-wrap');
       const table = el('table', 'provider-log-table');
       const thead = el('thead'), headerRow = el('tr');
-      ['Date','Model','Endpoint','Status','Tokens (in / out)','Latency','Cost (USD)','Finish reason','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
+      ['Date','Model','Upstream provider','Endpoint','Status','Tokens (in / out)','Latency','Generation time','Cost (USD)','Finish reason','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
       thead.append(headerRow);
       const tbody = el('tbody');
       table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
@@ -299,12 +299,14 @@
             const cost=item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
             cell(tr,fmt(item.created_at));
             cell(tr,model,'provider-log-model');
+            cell(tr,item.upstream_provider || 'Not reconciled');
             cell(tr,(item.http_method || 'POST')+' '+(item.endpoint || '—'));
             const statusCell=el('td'); statusCell.append(state(statusText,item.status==='success'?'available':'unavailable')); tr.append(statusCell);
             cell(tr,tokens);
             cell(tr,item.latency_ms===null || item.latency_ms===undefined ? '—' : num(item.latency_ms)+' ms');
+            cell(tr,item.generation_time_seconds===null || item.generation_time_seconds===undefined ? '—' : Number(item.generation_time_seconds).toFixed(2)+' s');
             cell(tr,cost);
-            cell(tr,finish);
+            cell(tr,item.finish_reason || finish);
             const requestId=String(item.provider_request_id || item.openrouter_generation_id || item.request_id || item.id || '—');
             const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
             tbody.append(tr);
