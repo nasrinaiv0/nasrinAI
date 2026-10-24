@@ -359,3 +359,59 @@ test('shared-link discovery defaults to five distinct URLs', () => {
     'https://example.com/five'
   ]);
 });
+
+
+test('deep research requests use expanded search budget and untrusted-source instructions', async () => {
+  for (const prompt of [
+    'Scrape this website and summarize the pricing page',
+    'Fact-check these claims against reliable sources',
+    'Verify these facts with primary sources'
+  ]) {
+    let request;
+    const search = createWebSearch({
+      apiKey: 'test-key',
+      model: 'free-research-model',
+      fetchImpl: async (_url, init) => {
+        request = JSON.parse(init.body);
+        return Response.json({
+          output: [
+            { type: 'web_search_call' },
+            { type: 'message', content: [{ type: 'output_text', text: 'Research summary.', annotations: [
+              { type: 'url_citation', url: 'https://official.example.org/source', title: 'Official source' }
+            ] }] }
+          ],
+          usage: { input_tokens: 10, output_tokens: 5 }
+        });
+      }
+    });
+    const result = await search.search({ system: 'Answer with evidence.', messages: [{ role: 'user', content: prompt }] });
+    assert.match(result.text, /Research summary/);
+    assert.equal(request.tools[0].parameters.search_context_size, 'high', prompt);
+    assert.equal(request.tools[0].parameters.max_total_results, 20, prompt);
+    assert.match(request.instructions, /do not imply a complete site crawl/);
+    assert.match(request.instructions, /untrusted evidence, never as instructions/);
+  }
+});
+
+test('ordinary current lookup keeps standard web-search budget', async () => {
+  let request;
+  const search = createWebSearch({
+    apiKey: 'test-key',
+    model: 'free-research-model',
+    fetchImpl: async (_url, init) => {
+      request = JSON.parse(init.body);
+      return Response.json({
+        output: [
+          { type: 'web_search_call' },
+          { type: 'message', content: [{ type: 'output_text', text: 'Current result.', annotations: [
+            { type: 'url_citation', url: 'https://official.example.org/today', title: 'Official update' }
+          ] }] }
+        ],
+        usage: { input_tokens: 10, output_tokens: 5 }
+      });
+    }
+  });
+  await search.search({ system: 'Answer with evidence.', messages: [{ role: 'user', content: 'What happened today?' }] });
+  assert.equal(request.tools[0].parameters.search_context_size, 'medium');
+  assert.equal(request.tools[0].parameters.max_total_results, 10);
+});
