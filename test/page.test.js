@@ -600,3 +600,17 @@ test('owner entry bootstraps on the dedicated host and expired sessions return t
   assert.doesNotMatch(consoleJs, /window\.location\.href = '\/'/);
   assert.match(consoleJs, /window\.location\.href = 'https:\/\/www\.nasrinai\.com\/'/);
 });
+
+
+test('Owner Command Center appears as a hidden tile in NasrinAI Space and requires owner-session verification', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const tile = html.slice(html.indexOf('id="spaceOwnerConsole"'), html.indexOf('</button>', html.indexOf('id="spaceOwnerConsole"')));
+  assert.match(tile, /class="space-app-tile"[^>]*hidden/);
+  assert.match(tile, /<span class="space-app-name">Owner Console<\/span>/);
+  assert.match(js, /fetch\('https:\/\/owner\.nasrinai\.com\/v1\/owner\/session'/);
+  assert.match(js, /if \(response\.status !== 204\)/);
+  assert.match(js, /if \(entry\) entry\.hidden = false/);
+  assert.match(js, /window\.location\.href = 'https:\/\/owner\.nasrinai\.com\/owner'/);
+  assert.match(js, /if \(\$\('spaceOwnerConsole'\)\) \$\('spaceOwnerConsole'\)\.hidden = true/);
+});
