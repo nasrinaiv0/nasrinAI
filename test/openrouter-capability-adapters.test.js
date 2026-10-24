@@ -60,7 +60,7 @@ test('decision adapter requires an explicitly configured model and never falls b
 
 test('rerank adapter validates bounds and rejects invalid result indices or scores', async () => {
   const provider = createOpenRouterRerankProvider({ client: { rerank: async ({ documents }) => ({
-    results: documents.map((_, index) => ({ index, relevance_score: 1 - index / 10 }))
+    results: documents.map((_, index) => ({ index, relevance_score: 1 - index / 10 })).slice(0, 1)
   }) }, model: 'provider/rerank' });
   assert.deepEqual(await provider.rerank({ query: 'q', documents: ['a', 'b'], topN: 1 }), [
     { index: 0, relevance_score: 1 }, { index: 1, relevance_score: 0.9 }
