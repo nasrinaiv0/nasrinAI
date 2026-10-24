@@ -1,3 +1,9 @@
+## OpenRouter completed video status recovery (2026-10-24)
+
+- Normalize nested OpenRouter video status responses and preserve the original provider operation ID when the completed response omits its own identifier.
+- Recognize nested `video` status envelopes and add regression tests for completed jobs whose status payload has no top-level ID.
+- **Validation:** CI must pass on this follow-up PR; a fresh production OpenRouter video generation is still required to verify MP4 retrieval and inline playback end to end.
+
 ## fix/video-inline-chat-preview — show completed OpenRouter videos in chat (2026-10-24)
 
 - Render a native inline MP4 player in the assistant message when the video job reaches `completed`, while retaining a Download MP4 link.
