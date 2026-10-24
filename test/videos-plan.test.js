@@ -151,6 +151,49 @@ test('video creation defaults to the configured provider clip limit when duratio
 });
 
 
+
+test('two-second video requests preserve the requested duration through validation and creation', async () => {
+  const calls = [];
+  const provider = {
+    id: 'openrouter', model: 'configured/video', maxSeconds: 8,
+    allowedResolutions: ['480p', '360p'], allowedFrameRates: [30],
+    async validateOptions(options) {
+      calls.push(['validate', options.duration, options.requestedResolution, options.fps]);
+      assert.equal(options.duration, 2);
+      assert.equal(options.aspectRatio, '16:9');
+      return true;
+    },
+    async create(options) {
+      calls.push(['create', options.seconds, options.requestedResolution, options.fps]);
+      return 'two-second-job';
+    }
+  };
+  const { videos, created } = service('pro', false, null, provider);
+  const result = await videos.create(caller, { prompt: 'A kid laughing', seconds: 2 });
+  assert.equal(result.status, 'in_progress');
+  assert.equal(result.target_seconds, 2);
+  assert.equal(created[0].targetSeconds, 2);
+  assert.deepEqual(calls.at(-1), ['create', 2, '480p', 30]);
+  assert.ok(calls.some((call) => call[0] === 'validate' && call[1] === 2));
+});
+
+test('OpenRouter quality exhaustion returns a capability error, not a misleading plan error', async () => {
+  const provider = {
+    id: 'openrouter', model: 'configured/video', maxSeconds: 8,
+    allowedResolutions: ['480p', '360p'], allowedFrameRates: [30],
+    async validateOptions() { throw Object.assign(new Error('unsupported combination'), { code: 'capability_mismatch' }); },
+    async create() { throw new Error('must not create unsupported jobs'); }
+  };
+  const { videos, created } = service('pro', false, null, provider);
+  await assert.rejects(() => videos.create(caller, { prompt: 'A kid laughing', seconds: 2 }), (err) => {
+    assert.equal(err.status, 503);
+    assert.equal(err.code, 'video_capability_unavailable');
+    assert.match(err.message, /No available video model supports this duration and quality/);
+    return true;
+  });
+  assert.equal(created.length, 0);
+});
+
 test('completed OpenRouter video records provider-reported usage cost without a local estimate', async () => {
   const provider = {
     id: 'openrouter', model: 'provider/video', resolution: '720p', maxSeconds: 8,
