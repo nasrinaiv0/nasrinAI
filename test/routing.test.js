@@ -152,11 +152,15 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
-test('paid Quick skips free OpenRouter models', async () => {
-  const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key', ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna' } });
+test('paid Quick skips free OpenRouter models and uses a verified paid-Quick model', async () => {
+  const paidQuickModel = 'google/gemini-2.5-flash-lite';
+  const a = setup({
+    env: { OPENROUTER_API_KEY: 'or-test-key', ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:google/gemini-2.5-flash-lite' },
+    liveOpenRouterModels: [paidQuickModel]
+  });
   const plan = a.policy.plan({ tier: 'nasrinai', paidQuick: true, message: 'Hello!' });
   const run = await a.policy.run(plan, req('Hello!'));
-  assert.equal(run.spec.model, 'openai/gpt-6-luna');
+  assert.equal(run.spec.model, paidQuickModel);
   assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)));
 });
 
