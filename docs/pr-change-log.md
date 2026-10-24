@@ -2219,3 +2219,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
 - Fix the tile-count assertion to account for the separate hidden owner tile and correct the owner-tile selector in the regression test.
 - CI is rerunning against the latest branch commit.
+
+## PR #585 follow-up — structured UI fallback regression coverage (2026-10-25)
+
+- Add regression tests for the base formatter's valid search fallback and malformed structured UI payload handling when the optional Generative UI enhancer is unavailable.
+- The corrected UI marker regex is already present on `main`; this synchronized follow-up preserves that implementation and adds focused test coverage without reverting unrelated main-branch changes.
+- **Validation:** rerun CI and the required documentation gate on the synchronized PR head.
