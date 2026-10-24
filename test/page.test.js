@@ -100,8 +100,10 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   const connectLight = await readFile(new URL('../public/space-logos/nasrinai-connect-light.svg', import.meta.url), 'utf8');
   const connectDark = await readFile(new URL('../public/space-logos/nasrinai-connect-dark.svg', import.meta.url), 'utf8');
   assert.match(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-light\.svg[\s\S]*?nasrinai-connect-dark\.svg/);
-  assert.match(connectLight, /aria-label="NasrinAI logo"/);
-  assert.match(connectDark, /aria-label="NasrinAI logo"/);
+  assert.match(connectLight, /linearGradient/);
+  assert.match(connectLight, /fill="#171717"/);
+  assert.match(connectDark, /linearGradient/);
+  assert.match(connectDark, /fill="#f5f5f5"/);
   assert.match(css, /space-connect-logo--light/);
   assert.match(css, /space-connect-logo--dark/);
   // Library uses the one theme-adaptive glyph (owner request 2026-10-12), not a badge image.
