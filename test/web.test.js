@@ -18,6 +18,8 @@ test('link reader refuses internal addresses (SSRF)', () => {
   assert.ok(checkUrl('https://example.com/a?b=1'));
   for (const ip of ['192.168.1.1', '172.20.0.1', '100.64.0.1', '0.0.0.0', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '64:ff9b::a00:1', '64:ff9b:1::1', '192.88.99.1', '192.31.196.1', '192.52.193.1', '192.175.48.1', '198.18.0.1', '198.19.255.254', '2001::1', '2001:20::1', '2002:7f00:1::', '2001:db8::1']) assert.equal(isPublicAddress(ip), false, ip);
   assert.equal(isPublicAddress('93.184.216.34'), true);
+  assert.equal(isPublicAddress('::ffff:93.184.216.34'), true, 'public IPv4-mapped IPv6 is normalized correctly');
+  assert.equal(isPublicAddress('::ffff:127.0.0.1'), false, 'loopback IPv4-mapped IPv6 remains blocked');
   assert.equal(isPublicAddress('2606:2800:220:1:248:1893:25c8:1946'), true);
 });
 
@@ -326,4 +328,34 @@ test('broadened web intent patterns use working word boundaries', () => {
   assert.equal(needsWeb('Find peer-reviewed papers on ocean warming'), true);
   assert.equal(needsWeb('Explain photosynthesis'), false);
   assert.equal(needsWeb('Can NasrinAI browse the internet?'), false);
+});
+
+test('scraping, crawling, extraction, summarization, and fact-checking trigger web research', () => {
+  for (const prompt of [
+    'Scrape this website and summarize the pricing page',
+    'Scraping the vendor site should find its public documentation',
+    'Extract the key facts from this article',
+    'Open this link and tell me what it says',
+    'Crawl this site for its documentation',
+    'Summarize these pages and compare the sources',
+    'Fact-check these claims against reliable sources',
+    'Verify these facts with primary sources'
+  ]) assert.equal(needsWeb(prompt), true, prompt);
+  for (const prompt of ['Explain photosynthesis', 'Write a birthday message', 'What is a binary search tree?']) {
+    assert.equal(needsWeb(prompt), false, prompt);
+  }
+});
+
+test('shared-link discovery defaults to five distinct URLs', () => {
+  const input = [
+    'https://example.com/one', 'https://example.com/two',
+    'https://example.com/three', 'https://example.com/four',
+    'https://example.com/five', 'https://example.com/six',
+    'https://example.com/one'
+  ].join(' ');
+  assert.deepEqual(linksIn(input), [
+    'https://example.com/one', 'https://example.com/two',
+    'https://example.com/three', 'https://example.com/four',
+    'https://example.com/five'
+  ]);
 });
