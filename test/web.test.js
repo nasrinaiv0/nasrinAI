@@ -23,6 +23,16 @@ test('link reader refuses internal addresses (SSRF)', () => {
   assert.equal(isPublicAddress('2606:2800:220:1:248:1893:25c8:1946'), true);
 });
 
+test('link reader follows only the configured maximum number of redirects', async () => {
+  let count = 0;
+  const result = await readLink('https://a.example.com/start', { getImpl: async () => {
+    count += 1;
+    return page(302, { location: '/next-' + count });
+  } });
+  assert.equal(count, 4, 'initial request plus at most three redirects');
+  assert.equal(result.error, 'too many redirects');
+});
+
 test('link reader: readable text, redirects checked, errors explained', async () => {
   const html = '<html><head><title>Shop &amp; Co</title><style>x{}</style></head><body><nav>menu</nav><h1>Hours</h1><p>Open 9&nbsp;am.</p><script>evil()</script></body></html>';
   const ok = await readLink('https://shop.example.com/', { getImpl: async () => page(200, { 'content-type': 'text/html; charset=utf-8' }, html) });
