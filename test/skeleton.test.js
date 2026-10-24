@@ -78,7 +78,7 @@ test('the page is served with a strict CSP and no inline script allowed', async 
   assert.match(r.headers.get('content-type'), /text\/html/);
   const csp = r.headers.get('content-security-policy');
   assert.match(csp, /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
-  assert.match(csp, /frame-src https:\/\/challenges\.cloudflare\.com/);
+  assert.match(csp, /frame-src https:\/\/challenges\.cloudflare\.com/);\n  assert.match(csp, /frame-src[^;]*https:\/\/maps\.google\.com/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
 });
 
