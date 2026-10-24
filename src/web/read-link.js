@@ -196,7 +196,7 @@ export async function readBytes(raw, { maxBytes = 100_000, accept = 'image/*', g
 }
 
 // The links in a message (at most `max`).
-export function linksIn(text, max = 2) {
+export function linksIn(text, max = 5) {
   const found = String(text || '').match(/https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g) || [];
   return [...new Set(found)].slice(0, max);
 }
