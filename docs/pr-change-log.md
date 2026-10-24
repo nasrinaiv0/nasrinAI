@@ -2185,3 +2185,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Preserve existing server-side authorization and owner-subdomain protections. Button text is created with `textContent`.
 - Implementation commits: `22e5b8a3ad039e14b5d8a856d4812d3c81be7daf`, `9ac0c59f4faa5d40890bab0ada4841df2cb41f7d`.
 - Validation: CI queued; browser verification requires a deployed allowlisted session plus wrong-email and wrong-IP negative checks.
+
+
+## PR #595 follow-up — Owner Command Center inside NasrinAI Space
+- Add a hidden-by-default `Owner Console` app tile to the NasrinAI Space grid.
+- Reveal it only when `POST https://owner.nasrinai.com/v1/owner/session` returns 204 after server-side email + IP allowlist checks; hide it on sign-out and verification failure.
+- The tile re-verifies a fresh token before navigating to the owner console. Add a page test for placement and the verification gate.
