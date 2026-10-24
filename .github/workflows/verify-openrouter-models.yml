@@ -1,0 +1,73 @@
+name: Verify OpenRouter models
+
+# Manual only. Sends one tiny real request to every live-catalog text model,
+# so it uses OpenRouter credits. Needs the repository secret OPENROUTER_API_KEY.
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Optional single model ID to test (leave empty to test all)
+        type: string
+        required: false
+        default: ''
+      confirm_provider_costs:
+        description: I understand this sends real requests to OpenRouter and may incur provider costs
+        type: boolean
+        required: true
+        default: false
+
+concurrency:
+  group: verify-openrouter-models
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify OpenRouter models
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require explicit cost confirmation
+        if: ${{ !inputs.confirm_provider_costs }}
+        run: |
+          echo "::error::Not run. Re-run and enable the cost confirmation checkbox."
+          exit 1
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Probe models
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MODEL_INPUT: ${{ inputs.model }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::error::Add the repository secret OPENROUTER_API_KEY (Settings > Secrets and variables > Actions)."
+            exit 2
+          fi
+          args=(--json)
+          if [ -n "$MODEL_INPUT" ]; then args+=(--model "$MODEL_INPUT"); fi
+          set +e
+          node scripts/verify-openrouter-models.js "${args[@]}" > openrouter-verification.json
+          code=$?
+          set -e
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("openrouter-verification.json", "utf8"));
+            const lines = ["## OpenRouter model verification", "", "Catalog: " + r.catalogCount + " models, tested: " + r.selectedCount, "", "Summary: `" + JSON.stringify(r.counts) + "`", "", "| Status | Model | Detail |", "|---|---|---|"];
+            for (const m of r.results) lines.push("| " + m.status + " | `" + m.id + "` | " + (m.error ? String(m.error.message).replace(/\|/g, "/") : "") + " |");
+            require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          '
+          exit 0
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: openrouter-verification
+          path: openrouter-verification.json
+          if-no-files-found: error
