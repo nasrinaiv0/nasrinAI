@@ -1,3 +1,16 @@
+## Article extraction and source metadata (2026-10-24)
+
+- Prefer the page's first article/main content block for extraction when present; avoid navigation and page chrome while retaining the existing bounded text fallback.
+- Extract bounded Open Graph/title, description, site name, author, publication date, and a validated canonical URL from HTML. Text remains non-executable and the canonical URL is metadata only; citations continue to use the actually fetched source URL.
+- Provide site/description/author/date to the model as labeled source data (never instructions). Preserve SSRF address/redirect checks, the 8-second timeout, 1.5 MB body limit, and five-link cap.
+- Added regressions for article-first extraction, metadata parsing, content cleanup, and metadata injection into chat context.
+- **Validation:** requires fresh full CI and Preview/browser verification on the new commit. Vercel preview UI smoke checks passed for desktop/mobile layout, Settings dialog, formatter link safety, and inert HTML; preview API still returns 503 until an isolated Supabase runtime is configured.
+
+## Server-only provider telemetry access (2026-10-24)
+
+- Confirmed by migration 063_openrouter_logs.sql that public.openrouter_logs is explicitly service-role-only: RLS is enabled, access to public/anon/authenticated is revoked, and the telemetry writer/owner console use server credentials. The Supabase advisor's no-policy notice is expected for this table and should not be fixed by granting client access.
+- **Validation:** read-only inspection only; no database schema/policy change made.
+
 ## Preview-build gate and Google fallback hardening (2026-10-24)
 
 - Override the project-level ignored-build setting from `vercel.json` so builds continue for preview and release verification; add a regression test to prevent the skip policy from silently disabling preview QA again.
