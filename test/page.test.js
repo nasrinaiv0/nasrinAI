@@ -620,3 +620,15 @@ test('Owner Command Center appears as a hidden tile in NasrinAI Space and requir
   assert.match(js, /window\.location\.href = 'https:\/\/owner\.nasrinai\.com\/owner'/);
   assert.match(js, /if \(\$\('spaceOwnerConsole'\)\) \$\('spaceOwnerConsole'\)\.hidden = true/);
 });
+
+
+test('Owner Command Center bootstrap is triggered after sign-in so hidden tile can become visible', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const signedInStart = js.indexOf('function signedIn(data)');
+  const signedOutStart = js.indexOf('function signedOut()', signedInStart);
+  assert.ok(signedInStart >= 0 && signedOutStart > signedInStart, 'signed-in lifecycle handlers exist');
+  const signedIn = js.slice(signedInStart, signedOutStart);
+  assert.match(signedIn, /void syncOwnerConsoleEntry\(account\.token\)/);
+  assert.match(js, /if \(entry\) entry\.hidden = false/);
+  assert.match(js, /if \(entry\) entry\.hidden = true/);
+});
