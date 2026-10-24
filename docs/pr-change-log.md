@@ -1,3 +1,8 @@
+## Open Graph metadata matching correction (2026-10-24)
+
+- Fix an over-escaped word boundary in the HTML meta-tag scan so Open Graph title/description and author/date tags are actually found.
+- **Validation:** new full CI run required after the metadata extraction test found that the HTML title fallback was being used instead of the Open Graph title.
+
 ## Correct attachment and linked-page context boundaries (2026-10-24)
 
 - Restore the existing code-file and text-file context path without changing its behavior.
