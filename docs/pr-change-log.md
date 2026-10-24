@@ -2245,3 +2245,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
 - Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
 - **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.
+
+## PR #605 — tier-aware model capability registry (2026-10-25)
+
+- Add a normalized registry separating model capability, tier eligibility, provider request family, and verification state across chat and specialized media/audio/data routes.
+- Fail closed when a specialized model lacks a verified adapter, preventing image/video/audio/embedding/reranking/decision models from being treated as ordinary chat-completion models.
+- Add registry integrity, tier eligibility, category-separation, and fail-closed regression tests. This is routing metadata and safety groundwork; it does not claim provider-specific adapters or live smoke tests are complete.
+- **Validation:** CI passed on the initial PR head. The Documentation Gate failed because this PR lacked a changelog entry; this entry addresses that gate, and checks must be rerun on the new head before the PR is considered green.
