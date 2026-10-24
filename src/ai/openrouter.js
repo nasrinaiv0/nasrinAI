@@ -44,9 +44,14 @@ function responseError(status, detail) {
 export function createOpenRouterClient({
   apiKey, fetchImpl = fetch, baseUrl = BASE_URL, timeoutMs = 60_000,
   maxResponseBytes = 25 * 1024 * 1024, now = () => Date.now(), cacheMs = 5 * 60_000,
-  onTelemetry = null
+  onTelemetry = null, dataCollection = 'allow'
 }) {
   if (!apiKey) throw new ProviderError('config', 'OpenRouter API key is not configured');
+  // Default provider data policy for chat requests. 'allow' lets OpenRouter use
+  // any provider, including free ones that log prompts; 'deny' keeps only
+  // providers that do not store or train on prompts. A single request may
+  // tighten this to 'deny' (private data) but can never loosen a 'deny' default.
+  const defaultDataCollection = dataCollection === 'deny' ? 'deny' : 'allow';
   const root = new URL(baseUrl);
   if (root.protocol !== 'https:' || root.hostname !== 'openrouter.ai' || root.pathname !== '/api/v1') {
     throw new ProviderError('config', 'OpenRouter base URL must be the official HTTPS API endpoint');
@@ -263,6 +268,13 @@ export function createOpenRouterClient({
       const match = eligible.find((m) => m.id === safeId);
       if (match) return validateRequirements(match);
     }
+    // A named model that is retired, misspelled or lacks a required capability
+    // must fail as "unavailable" so the router moves to the next configured
+    // candidate. Never substitute an arbitrary catalog model for a named one.
+    // Image and video keep their capability-based discovery below.
+    if (preferred.length && task !== 'image' && task !== 'video') {
+      throw new ProviderError('unavailable', `Requested OpenRouter model is not available for task: ${task}`);
+    }
     // A configured model can be retired, inaccessible, or absent from the live
     // catalog. Continue to compatible candidates instead of aborting the request.
     // Discover video models by advertised capabilities only. Provider accounts
@@ -301,11 +313,21 @@ export function createOpenRouterClient({
       ? { id: 'openrouter/free' }
       : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens });
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
-      provider: { ...provider, data_collection: 'deny', allow_fallbacks: provider.allow_fallbacks !== false } };
+      provider: { ...provider, data_collection: provider.data_collection === 'deny' ? 'deny' : defaultDataCollection, allow_fallbacks: provider.allow_fallbacks !== false } };
     if (includeUsage) payload.usage = { include: true };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
     if (Number.isFinite(temperature)) payload.temperature = Math.max(0, Math.min(2, temperature));
-    return request(ENDPOINT[task] || ENDPOINT.chat, { body: payload, signal });
+    try {
+      return await request(ENDPOINT[task] || ENDPOINT.chat, { body: payload, signal });
+    } catch (err) {
+      // A 400/422 from one model (unsupported parameter, tool schema, context
+      // length) says nothing about the others: let the router try the next one.
+      // 401/403 stay "config" because a bad key fails every model.
+      if (err instanceof ProviderError && err.kind === 'config' && (err.status === 400 || err.status === 422)) {
+        throw new ProviderError('unavailable', err.message, err.status);
+      }
+      throw err;
+    }
   }
 
   async function decide({ model, preferred = [], state, questions, signal }) {
@@ -446,8 +468,8 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
 // are capability-checked against OpenRouter's live catalog; the free pseudo
 // model is delegated to the existing OpenAI-compatible adapter and is kept
 // emergency-only by config.js.
-export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fallbackProvider = null, client = null }) {
-  const openrouter = client || createOpenRouterClient({ apiKey });
+export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fallbackProvider = null, client = null, dataCollection = 'allow' }) {
+  const openrouter = client || createOpenRouterClient({ apiKey, dataCollection });
   const supportedTasks = new Set(['chat', 'research', 'coding', 'debugging', 'scraping', 'generation', 'rendering', 'extraction', 'editing', 'analysis', 'vision']);
   const normalizeTask = (task) => task === 'debugging' ? 'coding' : supportedTasks.has(task) ? task : 'chat';
   return {
@@ -468,7 +490,7 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
     },
-    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [] }) {
+    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [], sensitive = false }) {
       const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
       if (hasAttachments && task !== 'vision') throw new ProviderError('config', 'Attachments require the dedicated OpenRouter vision task');
       if (hasAttachments && attachments.length > 8) throw new ProviderError('config', 'At most 8 image attachments are supported per vision request');
@@ -502,7 +524,9 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
         task: normalizeTask(task), model: requestedModel,
         messages: [{ role: 'system', content: system }, ...normalizedMessages],
         tools, maxTokens, signal, includeUsage: true,
-        provider: { data_collection: 'deny', allow_fallbacks: true }
+        // Private requests (contact details, attachments) stay on providers that
+        // do not store or train on prompts; everything else follows the default.
+        provider: { ...(sensitive === true ? { data_collection: 'deny' } : {}), allow_fallbacks: true }
       });
       const choice = result.choices?.[0];
       const message = choice?.message;

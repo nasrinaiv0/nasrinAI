@@ -124,7 +124,7 @@ export function buildApp({ config, logger }) {
 
   const effective = { ...config, guestSecret };
   const openRouterTelemetry = createOpenRouterTelemetry({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, logger });
-  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry }) : null;
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry, dataCollection: config.ai.openrouterDataCollection }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });

@@ -1,3 +1,14 @@
+## security/undici-audit — undici advisory (2026-10-24)
+
+- Lockfile-only update of `undici` (via `@vercel/sandbox`) from 7.30.0 to 7.30.1; `npm audit --audit-level=high` reports 0 vulnerabilities. No package.json change.
+
+## fix/openrouter-routing — OpenRouter data policy and failover (2026-10-24)
+
+- Add `OPENROUTER_DATA_COLLECTION` (default `allow`; `deny` supported). Private requests (contact details, attachments) always send `deny`, and a configured `deny` is never loosened by a caller. Privacy notice updated and `LEGAL_PRIVACY_VERSION` bumped to `2026-10-24`.
+- A named model missing from the live catalog now fails as `unavailable` and the router tries the next candidate, instead of silently calling the first catalog model. Image and video keep capability-based discovery.
+- A 400/422 reply from one chat model now fails over; 401/403 still fail fast.
+- **Validation:** `npm test` passed locally (998 pass, 0 fail, 1 skipped). Not tested against live OpenRouter; run `npm run verify:openrouter` with the production key and remove model IDs that are not `verified`.
+
 ## PR #564 — Live OpenRouter model pricing lookup (2026-10-24)
 
 - Add a server-side helper for OpenRouter's `GET /api/v1/model/{author}/{slug}` endpoint, with strict slug validation, bounded request timeout, five-minute cache, and safe handling of missing/invalid pricing.
