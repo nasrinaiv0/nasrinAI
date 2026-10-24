@@ -77,13 +77,17 @@ test('link reader extracts safe article metadata and prioritizes article content
 
 test('chat: a shared link is read and given to the model as data', async () => {
   const provider = createFakeProvider({ reply: () => 'Adobo is listed on the menu.' });
-  const built = buildTestApp({ provider, readLinkImpl: async (u) => ({ url: u, title: 'Menu', text: 'Adobo 150 pesos' }) });
+  const built = buildTestApp({ provider, readLinkImpl: async (u) => ({ url: u, title: 'Menu', text: 'Adobo 150 pesos', siteName: 'Example Restaurant', description: 'Dinner menu with current prices.', author: 'Menu team', publishedAt: '2026-10-24' }) });
   const srv = await serve(built.app);
   try {
     const r = await postJson(srv.url + '/v1/chat', { message: 'How much is adobo here? https://resto.example.com/menu' }, bearer(USER_TOKEN));
     assert.equal(r.status, 200);
     const sent = provider.calls.at(-1).messages.at(-1).content;
     assert.match(sent, /Text of the web page https:\/\/resto\.example\.com\/menu \("Menu"\)[\s\S]*Adobo 150 pesos/);
+    assert.match(sent, /Site name: Example Restaurant/);
+    assert.match(sent, /Description: Dinner menu with current prices\./);
+    assert.match(sent, /Author: Menu team/);
+    assert.match(sent, /Published: 2026-10-24/);
     const answer = await r.clone().json();
     assert.match(answer.message.content, /Adobo is listed on the menu\.[\s\S]*\*\*Sources\*\*[\s\S]*\[Menu\]\(<https:\/\/resto\.example\.com\/menu>\)/, 'the answer retains the page that informed it');
     const saved = built.store;
