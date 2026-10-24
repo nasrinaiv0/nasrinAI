@@ -121,31 +121,21 @@ test('paid routing discovers newly listed OpenRouter models as bounded fallback 
   assert.ok(a.openrouter.calls.some((call) => call.model === dynamicModel), 'tries live-discovered model after configured candidate fails');
 });
 
-test('Quick and guest use explicitly free OpenRouter models only, including custom-route failover', async () => {
+test('Guest and Quick use explicitly free OpenRouter models first and never fall back to paid providers', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
   const run = await a.policy.run(plan, req('hello'));
   assert.equal(run.spec.provider, 'openrouter');
-  assert.ok(run.spec.model.startsWith('nvidia/nemotron-'));
-  assert.ok(run.spec.model.endsWith(':free'));
+  assert.match(run.spec.model, /:free$/i, 'Guest/Quick must start with an explicitly free model');
   assert.equal(a.openai.calls.length, 0);
   assert.equal(a.gemini.calls.length, 0);
 
-  const down = setup({
-    env: { OPENROUTER_API_KEY: 'or-test-key' },
-    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
-  });
-  await assert.rejects(
-    down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')),
-    (e) => e instanceof HttpError || e instanceof ProviderError
-  );
-  assert.ok(down.openrouter.calls.length > 0, 'tries configured free routes');
-  assert.ok(down.openrouter.calls.every((call) => call.model.endsWith(':free')),
-    'every guest/Quick attempt must use an explicitly free model');
-  assert.ok(!down.openrouter.calls.some((call) => /deepseek|gpt-6-luna|mimo-v2.6-pro|claude|qwen|glm/i.test(call.model)),
-    'paid or unverified-price models are never fallback candidates');
-  assert.equal(down.openai.calls.length, 0, 'no cross-provider fallback for Quick');
-  assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Quick');
+  const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
+  await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
+  assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model)), 'every Guest/Quick attempt must be explicitly free');
+  assert.equal(down.openai.calls.length, 0, 'no paid OpenAI fallback for Guest/Quick');
+  assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Guest/Quick');
 
   const overridden = setup({
     env: {
@@ -154,16 +144,12 @@ test('Quick and guest use explicitly free OpenRouter models only, including cust
     },
     reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
   });
-  await assert.rejects(
-    overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')),
-    (e) => e instanceof HttpError || e instanceof ProviderError
-  );
+  await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(overridden.openrouter.calls.length > 0);
-  assert.ok(overridden.openrouter.calls.every((call) => call.model.endsWith(':free')),
-    'custom route overrides cannot bypass the free-only rule');
-  assert.ok(!overridden.openrouter.calls.some((call) => /gpt-6-luna|mimo-v2.6-pro|deepseek/i.test(call.model)));
+  assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model)), 'custom route overrides cannot bypass the free-only policy');
+  assert.equal(overridden.openai.calls.length, 0);
+  assert.equal(overridden.gemini.calls.length, 0);
 });
-
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
   const limited = setup({ env: { GEMINI_API_KEY: '', MAX_REQUEST_COST_ULTRA_USD: '0.05' } });
   const plan = limited.policy.plan({ tier: 'ultra', message: 'Plan an end-to-end architecture redesign of the entire codebase' });
@@ -512,6 +498,8 @@ test('provider billing records authoritative costs without local reservations', 
 test('classifier does not mistake a greeting prefix for the whole request', () => {
   const plan = classify({ message: 'Hi, fix the CI failure and investigate the broken build.' });
   assert.equal(plan.task, 'debugging');
+  assert.ok(plan.level >= 3);
+});
 
 test('classifier routes generic troubleshooting without code keywords', () => {
   for (const message of ['Fix this bug', 'The deployment failed', 'This is not working', 'CI failed']) {
