@@ -6,6 +6,9 @@ import { linksIn } from '../src/web/read-link.js';
 test('web intent detection routes scraping and page extraction through live research', () => {
   for (const prompt of [
     'Scrape this website and summarize the pricing page',
+    'Scraping the vendor site should find its public documentation',
+    'Extracting content from this article should cite the publisher',
+    'Check the accuracy of these claims against reliable facts',
     'Extract the key facts from this article',
     'Open this link and tell me what it says',
     'Crawl this site for its documentation',
