@@ -2236,3 +2236,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Return explicit provider/model attribution and fallback telemetry so usage logs can distinguish Google fallback from OpenRouter web search.
 - Add regression coverage for duplicate/unsafe results and fallback attribution.
 - **Validation:** fresh full CI and security gates required; no merge until all checks pass.
+
+## Preview build release gate (2026-10-25)
+
+- The Vercel deployment associated with the prior check was marked CANCELED because the project's ignored-build-step configuration skipped the preview build; a green status alone was not sufficient evidence of a deployed preview.
+- Set the repository-level `ignoreCommand` to `exit 1` so the ignored-build command does not suppress the build, and added a regression test for the configuration.
+- **Validation:** a new preview deployment and full CI run are required after this change. Verify the deployment state is READY (not CANCELED) before browser smoke tests or release approval.
