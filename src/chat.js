@@ -323,6 +323,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // What the person asked in this chat decides whether an .html file stays one.
     let askedText = typed;
     const ownChips = new Set();   // pull request chip lines the server made from GitHub's answers
+    let mapResults = []; // Structured Maps data for this response; never persisted into conversation text.
     const finish = async (reply, responseUsage = null) => {
       live?.flush();
       // Any other line shaped like a chip (written by the model) is dropped.
@@ -642,7 +643,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       activeStartedAt = started;
       let usedTools = false;
       const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
-      const mapResults = [];   // structured Google Maps results rendered directly inside the chat
+      mapResults = [];   // structured Google Maps results rendered directly inside the chat
       const prChips = new Map();   // one per pull request
       // The planning council is strictly opt-in and runs only for eligible,
       // non-sensitive Max/Ultra requests without attachments, tools, or live facts.
