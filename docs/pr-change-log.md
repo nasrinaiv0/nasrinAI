@@ -1,3 +1,9 @@
+## Link-reader redirect safety regression (2026-10-24)
+
+- Make the maximum redirect count an explicit constant and add a regression test ensuring the reader makes no more than the initial request plus three redirect requests.
+- Continue to validate every redirect target using the existing public-address and protocol/port checks.
+- **Validation:** the previous intent-coverage commit is under CI; this redirect regression requires a fresh full CI run. Vercel preview/browser validation remains blocked by the Ignored Build Step configuration.
+
 ## Web research intent coverage hardening (2026-10-24)
 
 - Expand research-intent routing for gerund phrasing (scraping, crawling, extracting, summarizing) and explicit claim-accuracy checks; add regression cases for those variants.
