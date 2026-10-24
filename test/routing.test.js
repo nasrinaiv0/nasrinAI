@@ -601,3 +601,19 @@ test('classifier keeps a standalone greeting simple', () => {
   assert.equal(classify({ message: 'Hi!' }).level, 1);
   assert.equal(classify({ message: 'Hello.' }).level, 1);
 });
+
+
+test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint eligibility', async () => {
+  const { isOpenRouterChatCandidateEligible } = await import('../src/ai/openrouter-runtime-eligibility.js');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'nvidia/nemotron-3.5-lightning:free', tier: 'nasrinai' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna', tier: 'nasrinai' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'nasrinai' }), false);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'max' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra' }), false, 'inferred ID stays disabled until catalog verification');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'typesafe/jev-1.13', tier: 'pro', task: 'analysis' }), false, 'decision endpoint must not be called as chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'google/gemini-nano-banana-2.1', tier: 'ultra', task: 'chat' }), false, 'image endpoint must not be called as chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'chat' }), false, 'coding-only model must not be used for general chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'coding' }), false, 'inferred coding ID stays disabled until verified');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'pro' }), true, 'legacy dynamic chat discovery remains supported for paid tiers');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'nasrinai' }), false, 'free Quick cannot use unmarked paid IDs');
+});
