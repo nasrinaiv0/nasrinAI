@@ -1,4 +1,5 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { parseByteRange } from './http/range.js';
 import { REALTIME_VOICES_LIST } from './realtime.js';
 import { buildProfessionalSearch, buildProfessionalResearchInput, presentProfessionalSearch } from './professional-intelligence.js';
 import { createLinkedInIntegration } from './linkedin/index.js';
@@ -2029,10 +2030,24 @@ return { body: { sites: await connect.list(caller) } }; }
       method: 'GET',
       path: '/v1/videos/:id/content',
       scope: 'chat',
-      handler: async ({ caller, params, res }) => {
+      handler: async ({ caller, params, req, res }) => {
         if (!videos) throw new HttpError(503, 'videos_unavailable', 'Video creation is not available yet.');
         const v = await videos.read(caller, params.id);
-        res.writeHead(200, { 'Content-Type': v.mime || 'video/mp4', 'Content-Length': v.bytes.length, 'Cache-Control': 'private, max-age=86400', 'Content-Disposition': `inline; filename="nasrin-video-${v.id.slice(0, 8)}.mp4"` });
+        const size = v.bytes.length;
+        const headers = { 'Content-Type': v.mime || 'video/mp4', 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, max-age=86400', 'Content-Disposition': `inline; filename="nasrin-video-${v.id.slice(0, 8)}.mp4"` };
+        // Safari only plays a <video> from a server that answers Range requests.
+        const range = parseByteRange(req?.headers?.range, size);
+        if (range.type === 'unsatisfiable') {
+          res.writeHead(416, { ...headers, 'Content-Range': `bytes */${size}` });
+          res.end();
+          return;
+        }
+        if (range.type === 'range') {
+          res.writeHead(206, { ...headers, 'Content-Range': `bytes ${range.start}-${range.end}/${size}`, 'Content-Length': range.end - range.start + 1 });
+          res.end(v.bytes.subarray(range.start, range.end + 1));
+          return;
+        }
+        res.writeHead(200, { ...headers, 'Content-Length': size });
         res.end(v.bytes);
       }
     },
