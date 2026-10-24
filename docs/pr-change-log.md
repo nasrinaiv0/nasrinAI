@@ -1,3 +1,10 @@
+## Owner session bootstrap diagnostics (2026-10-24)
+
+- Add privacy-safe server-side rejection reason logs for the Owner Command Center bootstrap so production failures can be distinguished (origin/host, allowlist/IP, rate limit, token verification, email allowlist, or audit write).
+- Do not log access tokens, cookies, raw client IP addresses, or email addresses. Preserve the generic 404 response and strict email + IP checks.
+- Add an HTTP regression test verifying an IP-allowlist rejection is logged with a safe reason and without sensitive values.
+- **Validation:** CI must pass on this PR head before merge. After deployment, inspect the production runtime logs for `owner session bootstrap rejected` and use the reason field to correct the configuration or request path.
+
 ## Owner Command Center tile visibility bootstrap (2026-10-24)
 
 - Trigger the owner-session bootstrap immediately after a signed-in session is established so the hidden-by-default Owner Command Center tile can become visible after server verification.
