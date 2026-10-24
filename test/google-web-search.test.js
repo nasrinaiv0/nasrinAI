@@ -113,20 +113,30 @@ test('Google fallback returns real search results when OpenRouter web search fai
   assert.deepEqual(result.citations.map((source) => source.url), ['https://example.com/real-result']);
 });
 
-test('Google fallback works without an OpenRouter key and does not call OpenRouter', async () => {
+test('Google fallback works without an OpenRouter key and attributes search results correctly', async () => {
   let called = false;
   const search = createWebSearch({
     apiKey: '',
     model: 'openrouter/auto',
     googleSearch: {
       available: true,
-      async search() { return [{ url: 'https://example.org/result', title: 'Fallback result', snippet: 'Verified search provider result' }]; }
+      async search() {
+        return [
+          { url: 'https://example.org/result', title: 'Fallback result', snippet: 'Provider-returned snippet' },
+          { url: 'javascript:alert(1)', title: 'Unsafe URL' },
+          { url: 'https://example.org/result', title: 'Duplicate URL' },
+          { url: 'https://user:secret@example.com/', title: 'Credential URL' }
+        ];
+      }
     },
     fetchImpl: async () => { called = true; throw new Error('must not call OpenRouter'); }
   });
   const result = await search.search({ messages: [{ role: 'user', content: 'latest update' }] });
   assert.equal(called, false);
   assert.deepEqual(result.citations.map((source) => source.url), ['https://example.org/result']);
+  assert.equal(result.provider, 'google-custom-search');
+  assert.equal(result.model, 'google-custom-search-json');
+  assert.match(result.text, /Search snippets are discovery hints, not independently verified article content/);
 });
 
 test('model-authored URLs are stripped unless cited by search or supplied by the user', async () => {
