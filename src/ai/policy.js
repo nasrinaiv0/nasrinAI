@@ -145,24 +145,24 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Quick/guest prefer free Nemotron models, then try lower-cost OpenRouter
           // chat candidates if those endpoints are unavailable. Never use GPT-6 Luna
           // (or paid-only Pro models) as a guest/free fallback, and never cross providers.
-          const quickAllowedModels = new Set([
-            'deepseek/deepseek-v4.1-flash',
-            'deepseek/deepseek-v4.1-flash-1017',
-            'deepseek/deepseek-v4-flash-0731',
-            'deepseek/deepseek-v4-flash-vision-exp',
-            'z-ai/glm-5.3-flash',
-            'xiaomi/mimo-v2.6-flash',
-            'anthropic/claude-haiku-5.5',
-            'qwen/qwen3.8-flash',
-            'qwen/qwen3.8-27b',
-            'inclusionai/ling-3.1-flash'
-          ]);
+          // Guest/Quick are strictly zero-cost routes. Cheap or allowlisted
+          // does not mean free; require OpenRouter's explicit :free suffix.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
             ? expandedTierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && (/^nvidia\/nemotron-[a-z0-9.-]+(?::free)?$/i.test(candidate.model)
-                || quickAllowedModels.has(candidate.model)))
+              && /:free$/i.test(candidate.model))
             : expandedTierCandidates;
-          const ordered = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
+          const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
+          // For paid plans, common/simple requests (classifier level 1) should
+          // try explicitly free OpenRouter models before consuming paid-tier capacity.
+          // Keep the remaining eligible candidates as fallbacks, subject to normal
+          // tier, capability, privacy, and retry checks. Guest/Quick remain free-only.
+          const freeFirst = plan.wanted <= 1 && plan.tier !== 'nasrinai'
+            ? [
+                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
+                ...prioritized.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
+              ]
+            : prioritized;
+          const ordered = freeFirst;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 

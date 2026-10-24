@@ -9,7 +9,7 @@ These terms are an agreement between you and **NasrinAI**, 142 Pag-asa Village, 
 
 - Nasrin is an AI. Its answers can be wrong. Check anything important.
 - Use it lawfully and don't try to break or abuse it.
-- What you write stays yours. You are responsible for how you use the answers.
+- What you write stays yours. We process inputs to answer your request, not to train third-party providers' general models. Filtered and minimized guest conversation content may be used to improve NasrinAI; see the Privacy Notice.
 - Answers Nasrin builds from the internet are kept by NasrinAI permanently, without who asked, and may be used to answer others.
 - Nasrin never changes anything for you (orders, payments, notes) unless you tap **Confirm**.
 - Where available, you can choose how long eligible stored content is retained, such as 30 days, 1 year, a custom period, or until you delete it.
@@ -69,7 +69,9 @@ We may refuse requests that break these rules and may limit, suspend or terminat
 - When a retention period expires, NasrinAI will delete eligible content from its active systems subject to technical deletion time, backups, legal obligations, security records, dispute preservation, and other limited retention described in the Privacy Notice.
 
 
-- **Your content** (messages, files, links, your Library and your projects) stays yours. You give us permission to process it only as needed to run NasrinAI as described in the Privacy Notice.
+- **Your content** (messages, files, links, your Library and your projects) stays yours. You give us permission to process it as needed to provide, protect, and improve NasrinAI as described in the Privacy Notice, including using filtered and minimized guest-conversation content to improve NasrinAI's own systems.
+- **Third-party AI providers:** NasrinAI sends inputs to AI providers to process requests and generate responses, not for the purpose of training or improving those providers' general models. Provider processing, technical logs, and retention are subject to the applicable provider terms and the disclosures in the Privacy Notice; we do not promise that every provider has zero retention.
+- **Guest conversation improvement:** Guest conversations may be used to improve NasrinAI after automated filtering intended to remove or redact personal, identifying, credential-like, and other sensitive information. Filtering may not catch every sensitive detail. Do not submit passwords, authentication codes, API keys, or other secrets. Guest chat retention remains as described in the Privacy Notice.
 - Only share content you have the right to share.
 - **Pictures** you make are deleted after 30 days.
 - **Videos** you create are available as MP4 downloads while the associated provider asset remains available; video generation is available only on Max and Ultra plans and may use a third-party video provider.
