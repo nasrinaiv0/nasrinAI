@@ -133,15 +133,18 @@ export function htmlToText(html) {
       return Number.isSafeInteger(code) && code <= 0x10ffff ? String.fromCodePoint(code) : '';
     });
   const attrs = (tag, name) => {
-    const quoted = new RegExp('(?:^|\\\\s)' + name + '\\\\s*=\\\\s*["\\\\']([^"\\\\']*)["\\\\']', 'i').exec(tag);
-    if (quoted) return decode(quoted[1]).trim();
-    const bare = new RegExp('(?:^|\\\\s)' + name + '\\\\s*=\\\\s*([^\\\\s>]+)', 'i').exec(tag);
+    const quoted = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(["\\x27])([^"\\x27]*)\\1', 'i').exec(tag);
+    if (quoted) return decode(quoted[2]).trim();
+    const bare = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*([^\\s>]+)', 'i').exec(tag);
     return bare ? decode(bare[1].replace(/\\/$/, '')).trim() : '';
   };
-  const meta = (key, value) => {
-    const pattern = new RegExp('<meta\\\\b(?=[^>]*(?:name|property|itemprop)\\\\s*=\\\\s*["\\\\']' + key + '["\\\\'])([^>]*)>', 'i');
-    const tag = pattern.exec(html)?.[0];
-    return tag ? attrs(tag, 'content').slice(0, 500) : '';
+  const meta = (key) => {
+    for (const match of html.matchAll(/<meta\\b[^>]*>/gi)) {
+      const tag = match[0];
+      const label = (attrs(tag, 'name') || attrs(tag, 'property') || attrs(tag, 'itemprop')).toLowerCase();
+      if (label === key.toLowerCase()) return attrs(tag, 'content').slice(0, 500);
+    }
+    return '';
   };
   const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
   const pick = (...values) => values.map((v) => String(v || '').trim()).find(Boolean) || '';
