@@ -2219,3 +2219,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
 - Fix the tile-count assertion to account for the separate hidden owner tile and correct the owner-tile selector in the regression test.
 - CI is rerunning against the latest branch commit.
+
+## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
+
+- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
+- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
+- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
+- **Validation:** the branch is being synchronized with current `main`; rerun the current CI and documentation gates on the resulting head. Authenticated live model probes remain outstanding. No production routing or account settings were changed.
