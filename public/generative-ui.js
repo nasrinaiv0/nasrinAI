@@ -296,7 +296,7 @@
     const original = window.NasrinFormat.render;
     window.NasrinFormat.render = function (source) {
       const raw = String(source ?? '').replace(/\\n[ \\t]*\\n/g, '\n\n');
-      const pattern = /\[\[ui\]\]([\s\S]{1,12000}?)\[\[\/ui\]\]/gi;
+      const pattern = /\[\[\s*ui\s*\]\]\s*([\s\S]{1,12000}?)\s*\[\[\s*\/ui\s*\]\]/gi;
       const matches = [...raw.matchAll(pattern)].slice(0, 3);
       if (!matches.length) return original(raw);
       const fragment = document.createDocumentFragment();
@@ -316,7 +316,13 @@
           fragment.appendChild(widget);
           blocks.push(widget);
         } else {
-          addText(match[0]);
+          // Never leak a failed/unsupported structured payload as raw protocol
+          // text into the conversation. Show a small safe fallback instead.
+          const fallback = el('section', 'genui-card genui-unavailable');
+          fallback.setAttribute('role', 'status');
+          fallback.append(el('p', 'genui-search-query', 'This interactive response could not be displayed. Please try again.'));
+          fragment.appendChild(fallback);
+          blocks.push(fallback);
         }
         cursor = match.index + match[0].length;
       }

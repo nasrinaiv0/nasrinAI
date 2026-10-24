@@ -137,6 +137,17 @@
   // Returns { node, blocks } where blocks are the top-level elements (for the
   // reveal animation) and steps are numbered items people can tick off.
   function render(text) {
+    // Fail safely if the optional Generative UI enhancer did not initialize
+    // (for example, a stale mobile asset or a tier-specific render path).
+    // Never expose internal [[ui]] protocol envelopes as ordinary assistant text.
+    text = String(text ?? '').replace(/\\[\\[\\s*ui\\s*\\]\\]\\s*([\\s\\S]{1,12000}?)\\s*\\[\\[\\s*\\/ui\\s*\\]\\]/gi, (whole, rawPayload) => {
+      let payload = null;
+      try { payload = JSON.parse(String(rawPayload).trim()); } catch { /* safe generic fallback below */ }
+      if (payload && typeof payload === 'object' && !Array.isArray(payload) && payload.type === 'search' && typeof payload.query === 'string' && payload.query.trim()) {
+        return 'Web search requested: ' + payload.query.trim().slice(0, 240) + '.';
+      }
+      return 'An interactive response could not be displayed. Please try again.';
+    });
     // Normalize provider-escaped line breaks, even when JSON/provider layers double-escape them.
     // This runs at the final UI rendering boundary, before paragraph/list parsing.
     const normalized = String(text ?? '')
