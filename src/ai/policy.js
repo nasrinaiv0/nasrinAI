@@ -142,27 +142,24 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // bounded retries do not starve newly listed models behind stale IDs.
           // Task prioritization still orders the full eligible candidate set.
           const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates];
-          // Quick/guest prefer free Nemotron models, then try lower-cost OpenRouter
-          // chat candidates if those endpoints are unavailable. Never use GPT-6 Luna
-          // (or paid-only Pro models) as a guest/free fallback, and never cross providers.
-          // Guest/Quick are strictly zero-cost routes. Cheap or allowlisted
-          // does not mean free; require OpenRouter's explicit :free suffix.
+          // Enforce plan eligibility before ranking or trying any candidate.
+          // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
+          // Luna is the sole paid-model escape hatch and is ordered after every
+          // free candidate. Paid subscriptions (including separately paid Quick)
+          // must never consume OpenRouter's free endpoints, even for simple chat.
           const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
             ? expandedTierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && /:free$/i.test(candidate.model))
-            : expandedTierCandidates;
+              && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+            : plan.tier !== 'nasrinai'
+              ? expandedTierCandidates.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
+              : expandedTierCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
-          // For paid plans, common/simple requests (classifier level 1) should
-          // try explicitly free OpenRouter models before consuming paid-tier capacity.
-          // Keep the remaining eligible candidates as fallbacks, subject to normal
-          // tier, capability, privacy, and retry checks. Guest/Quick remain free-only.
-          const freeFirst = plan.wanted <= 1 && plan.tier !== 'nasrinai'
+          const ordered = r.quickNemotronOnly && plan.tier === 'nasrinai'
             ? [
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
-                ...prioritized.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
+                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
               ]
             : prioritized;
-          const ordered = freeFirst;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
