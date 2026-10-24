@@ -1,3 +1,11 @@
+## fix/video-job-stall-diagnostics — stalled video jobs and stage telemetry (2026-10-24)
+
+- Add structured timing logs for provider job creation, status polling, job age, and MP4 download, including provider/model/tier and a stage label without logging prompts or credentials.
+- Add a configurable maximum processing age (VIDEO_JOB_TIMEOUT_MS, default 10 minutes; accepted range 60 seconds to 1 hour) so jobs do not remain in progress forever.
+- Persist a safe failure when the provider result cannot be downloaded; expose transient provider polling warnings to chat and back off repeated status requests.
+- Avoid automatically creating a second provider job when a status check fails.
+- **Validation:** GitHub CI test suite passed on the PR head; documentation gate initially failed because this entry was missing and is now being added. Live OpenRouter generation and production Vercel logs remain unverified.
+
 ## fix/video-missing-frame-rates — video models rejected for missing frame-rate list (2026-10-24)
 
 - **Root cause of "No available video model supports this duration and quality…" (owner screenshot 7:47 PM):** the live OpenRouter `/videos/models` catalog (checked 2026-10-24, 30 models) lists no `supported_frame_rates` for any model, and the route code skipped every model without one. So every request failed regardless of length or quality.
