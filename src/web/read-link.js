@@ -117,17 +117,62 @@ function get(u, accept = 'text/html,text/plain;q=0.9,*/*;q=0.1') {
 
 // HTML to readable text: drops scripts, styles, navigation chrome and tags.
 export function htmlToText(html) {
-  const title = (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || '';
+  const decode = (value) => String(value || '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => {
+      const code = parseInt(n, 16);
+      return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    })
+    .replace(/&#(\d{1,7});/g, (_, n) => {
+      const code = Number(n);
+      return Number.isSafeInteger(code) && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+    });
+  const attrs = (tag, name) => {
+    const quoted = new RegExp('(?:^|\\\\s)' + name + '\\\\s*=\\\\s*["\\\\']([^"\\\\']*)["\\\\']', 'i').exec(tag);
+    if (quoted) return decode(quoted[1]).trim();
+    const bare = new RegExp('(?:^|\\\\s)' + name + '\\\\s*=\\\\s*([^\\\\s>]+)', 'i').exec(tag);
+    return bare ? decode(bare[1].replace(/\\/$/, '')).trim() : '';
+  };
+  const meta = (key, value) => {
+    const pattern = new RegExp('<meta\\\\b(?=[^>]*(?:name|property|itemprop)\\\\s*=\\\\s*["\\\\']' + key + '["\\\\'])([^>]*)>', 'i');
+    const tag = pattern.exec(html)?.[0];
+    return tag ? attrs(tag, 'content').slice(0, 500) : '';
+  };
+  const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  const pick = (...values) => values.map((v) => String(v || '').trim()).find(Boolean) || '';
+  const title = decode(pick(meta('og:title'), meta('twitter:title'), titleTag?.[1])).replace(/\s+/g, ' ').trim().slice(0, 200);
+  const metadata = {
+    description: pick(meta('description'), meta('og:description'), meta('twitter:description')).replace(/\s+/g, ' ').slice(0, 500),
+    siteName: pick(meta('og:site_name'), meta('application-name')).replace(/\s+/g, ' ').slice(0, 120),
+    author: pick(meta('author'), meta('article:author'), meta('parsely-author')).replace(/\s+/g, ' ').slice(0, 160),
+    publishedAt: pick(meta('article:published_time'), meta('datePublished'), meta('date'), meta('pubdate')).replace(/\s+/g, ' ').slice(0, 80),
+    canonical: (() => {
+      for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+        if (/rel\s*=\s*["'][^"']*\bcanonical\b[^"']*["']/i.test(match[0])) {
+          const href = attrs(match[0], 'href');
+          try {
+            const u = new URL(href);
+            if (['http:', 'https:'].includes(u.protocol) && u.hostname && !u.username && !u.password) return u.href;
+          } catch {}
+        }
+      }
+      return '';
+    })()
+  };
   const body = html
-    .replace(/<(script|style|noscript|svg|nav|footer|header|form|iframe)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<(script|style|noscript|svg|nav|footer|header|form|iframe|template)[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr|\/section|\/article)\s*\/?>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '\n- ')
+    .replace(/<(aside|dialog|menu)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr|\/section|\/article|\/main|\/blockquote)\s*\/?>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '\n- ')
     .replace(/<[^>]+>/g, ' ');
-  const decode = (s) => s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n) % 0x110000));
   const text = decode(body).replace(/[ \t\r\f\v]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-  return { title: decode(title).replace(/\s+/g, ' ').trim().slice(0, 200), text };
+  return { title, text, ...metadata };
 }
 
 // Resolves { url, title, text } (plus the page's `html` with withHtml) or { url, error }.
