@@ -507,18 +507,25 @@ export function createOpenRouterVideoProvider({ client, model = null, tier = 'ma
       if (typeof id !== 'string' || !/^[-a-zA-Z0-9_]{1,160}$/.test(id)) throw new ProviderError('unavailable', 'OpenRouter returned an invalid video job ID');
       return id;
     },
-    async status(id) { return client.videoStatus(id); },
+    async status(id) {
+      const result = await client.videoStatus(id);
+      // Normalize common response envelopes; keep the original operation ID if omitted.
+      const payload = result?.data && typeof result.data === 'object' ? { ...result.data, ...result } : result;
+      const nested = payload?.video && typeof payload.video === 'object' ? { ...payload.video, ...payload } : payload;
+      return { ...nested, id: nested?.id || nested?.job_id || id, job_id: nested?.job_id || id };
+    },
     extract(result) {
-      const state = String(result?.status || result?.data?.status || '').toLowerCase();
+      const payload = result?.video && typeof result.video === 'object' ? { ...result.video, ...result } : result;
+      const state = String(payload?.status || payload?.state || payload?.data?.status || '').toLowerCase();
       const failed = ['failed', 'error', 'cancelled', 'canceled', 'expired'].includes(state);
       const done = ['completed', 'complete', 'succeeded', 'success', 'ready'].includes(state);
-      const rawCost = result?.usage?.cost ?? result?.data?.usage?.cost;
+      const rawCost = payload?.usage?.cost ?? payload?.data?.usage?.cost;
       const actualCostUsd = rawCost !== undefined && rawCost !== null && Number.isFinite(Number(rawCost)) && Number(rawCost) >= 0 && Number(rawCost) <= 100000
         ? Number(rawCost) : null;
       return {
-        done, failed, uri: done ? (result?.id || result?.job_id || result?.data?.id) : null,
+        done, failed, uri: done ? (payload?.id || payload?.job_id || payload?.data?.id || payload?.video_id) : null,
         actualCostUsd,
-        error: failed ? String(result?.error?.message || result?.message || 'Video generation failed').slice(0, 240) : null
+        error: failed ? String(payload?.error?.message || payload?.message || 'Video generation failed').slice(0, 240) : null
       };
     },
     async download(id) { return client.videoContent(id); },
