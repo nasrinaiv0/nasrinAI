@@ -388,7 +388,7 @@ export function createOpenRouterClient({
       const resolutions = values(item, ['supported_resolutions', 'supportedResolutions'])
         .filter((value) => allowedByTier.includes(String(value)));
       const frameRates = values(item, ['supported_frame_rates', 'supported_fps', 'supportedFrameRates'])
-        .map(Number).filter((value) => [30, 60].includes(value));
+        .map(Number).filter((value) => Number.isFinite(value) && value > 0 && value <= 120);
       const ratios = values(item, ['supported_aspect_ratios', 'supportedAspectRatios']).map(String);
       if (!resolutions.length || !frameRates.length || !ratios.length) continue;
       const selectedResolution = resolutions.includes(resolution) ? resolution : resolutions[0];
