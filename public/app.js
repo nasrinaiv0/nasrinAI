@@ -808,7 +808,9 @@
         button.id = 'ownerConsoleEntry';
         button.className = 'menu-row';
         button.setAttribute('aria-label', 'Open Owner Command Center');
-        button.innerHTML = '<span>Owner Command Center</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+        const label = document.createElement('span');
+        label.textContent = 'Owner Command Center';
+        button.appendChild(label);
         button.addEventListener('click', async () => {
           const freshToken = await credential(true).catch(() => null);
           if (!freshToken) { ownerBootstrapToken = ''; ownerBootstrapAt = 0; wrap.remove(); return; }
