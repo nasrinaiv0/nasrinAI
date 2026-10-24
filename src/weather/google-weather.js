@@ -140,7 +140,7 @@ export function createGoogleWeatherTool({ apiKey = '', fetchImpl = fetch, usageL
     who: ['guest', 'user', 'service'],
     parameters: {
       properties: {
-        location: { type: 'string', minLength: 2, maxLength: MAX_LOCATION, description: 'City or location, preferably including country.' },
+        location: { type: 'string', maxLength: MAX_LOCATION, description: 'City or location, preferably including country.' },
         forecast_type: { type: 'string', enum: ['current', 'hourly', 'daily'], description: 'current for now, hourly for next 24 hours, daily for next 1-10 days.' },
         days: { type: 'integer', minimum: 1, maximum: 10, description: 'Number of days for a daily forecast, up to 10.' }
       },
