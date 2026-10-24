@@ -146,7 +146,7 @@ export function createGoogleWeatherTool({ apiKey = '', fetchImpl = fetch, usageL
       },
       required: ['location', 'forecast_type']
     },
-    async run(args, ctx) { return run({ ...args, __caller: ctx?.caller || null }); }
+    async run(args, ctx) { return run({ ...args, __caller: ctx ? { tenantId: ctx.tenantId, actor: ctx.actor } : null }); }
   };
   // Tool registry context does not expose the full caller to tool code. Attach a safe
   // telemetry adapter externally rather than inventing an actor identity.
