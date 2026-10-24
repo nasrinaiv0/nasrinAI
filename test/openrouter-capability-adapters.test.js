@@ -63,7 +63,7 @@ test('rerank adapter validates bounds and rejects invalid result indices or scor
     results: documents.map((_, index) => ({ index, relevance_score: 1 - index / 10 })).slice(0, 1)
   }) }, model: 'provider/rerank' });
   assert.deepEqual(await provider.rerank({ query: 'q', documents: ['a', 'b'], topN: 1 }), [
-    { index: 0, relevance_score: 1 }, { index: 1, relevance_score: 0.9 }
+    { index: 0, relevance_score: 1 }
   ]);
   await assert.rejects(provider.rerank({ query: 'q', documents: [] }), /1–128 text items/);
   const broken = createOpenRouterRerankProvider({ client: { rerank: async () => ({ results: [{ index: 8, relevance_score: NaN }] }) }, model: 'provider/rerank' });
