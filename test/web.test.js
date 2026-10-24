@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
-import { readLink, checkUrl, isPublicAddress, htmlToText, linksIn } from '../src/web/read-link.js';
+import { readLink, checkUrl, isPublicAddress, htmlToText, linksIn, crawlSite } from '../src/web/read-link.js';
 import { createWebSearch, needsWeb } from '../src/web/search.js';
 import { createPagePreviews } from '../src/web/page-preview.js';
 import { createYouTubeSearch } from '../src/web/youtube.js';
@@ -444,4 +444,45 @@ test('ordinary current lookup keeps standard web-search budget', async () => {
   await search.search({ system: 'Answer with evidence.', messages: [{ role: 'user', content: 'What happened today?' }] });
   assert.equal(request.tools[0].parameters.search_context_size, 'medium');
   assert.equal(request.tools[0].parameters.max_total_results, 10);
+});
+
+
+test('bounded site crawl reads same-origin pages only and rejects unsafe or asset links', async () => {
+  const requested = [];
+  const pages = {
+    '/': '<html><body><article><h1>Home page</h1><p>Root facts.</p></article>' +
+      '<a href="/docs">Docs</a><a href="/faq?lang=en">FAQ</a>' +
+      '<a href="https://attacker.example/steal">External</a>' +
+      '<a href="javascript:alert(1)">Script</a><a href="/logo.png">Logo</a>' +
+      '<a href="/private">Private</a></body></html>',
+    '/docs': '<html><body><article><h1>Docs</h1><p>Documentation facts.</p></article></body></html>',
+    '/faq?lang=en': '<html><body><article><h1>FAQ</h1><p>Frequently asked questions.</p></article></body></html>',
+    '/private': '<html><body><article><p>Should not be fetched when the cap is reached.</p></article></body></html>'
+  };
+  const results = await crawlSite('https://example.com/', {
+    maxPages: 3,
+    getImpl: async (u) => {
+      requested.push(u.href);
+      const body = pages[u.pathname + u.search] || '<html><body><article><p>Page content.</p></article></body></html>';
+      return page(200, { 'content-type': 'text/html; charset=utf-8' }, body);
+    }
+  });
+  assert.equal(results.length, 3);
+  assert.deepEqual(requested, [
+    'https://example.com/',
+    'https://example.com/docs',
+    'https://example.com/faq?lang=en'
+  ]);
+  assert.match(results[0].text, /Root facts/);
+  assert.match(results[1].text, /Documentation facts/);
+  assert.match(results[2].text, /Frequently asked questions/);
+  assert.ok(results.every((result) => !('html' in result)), 'raw HTML is never returned by the crawler');
+});
+
+test('bounded site crawl fails closed for unsafe root URLs', async () => {
+  let called = false;
+  const results = await crawlSite('http://127.0.0.1/', { getImpl: async () => { called = true; throw new Error('must not fetch'); } });
+  assert.equal(called, false);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].error, 'not a public web address');
 });
