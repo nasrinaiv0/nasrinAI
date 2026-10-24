@@ -41,14 +41,14 @@ test('base formatter renders a readable search fallback when the UI enhancer is 
   const { render } = await format();
   const { node } = render('[[ui]]{"type":"search","query":"weather in Davao"}[[/ui]]');
   assert.equal(node.textContent, 'Web search requested: weather in Davao.');
-  assert.doesNotMatch(node.textContent, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]|"type"\\s*:/);
+  assert.doesNotMatch(node.textContent, /\[\[ui\]\]|\[\[\/ui\]\]|"type"\s*:/);
 });
 
 test('base formatter hides malformed structured UI payloads instead of exposing protocol JSON', async () => {
   const { render } = await format();
   const { node } = render('[[ui]]{"type":"search","query": [[/ui]]');
   assert.equal(node.textContent, 'An interactive response could not be displayed. Please try again.');
-  assert.doesNotMatch(node.textContent, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]|"type"\\s*:/);
+  assert.doesNotMatch(node.textContent, /\[\[ui\]\]|\[\[\/ui\]\]|"type"\s*:/);
 });
 
 
