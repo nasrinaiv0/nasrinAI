@@ -136,7 +136,7 @@ export function htmlToText(html) {
     const quoted = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(["\\x27])([^"\\x27]*)\\1', 'i').exec(tag);
     if (quoted) return decode(quoted[2]).trim();
     const bare = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*([^\\s>]+)', 'i').exec(tag);
-    return bare ? decode(bare[1].replace(/\\/$/, '')).trim() : '';
+    return bare ? decode(bare[1].endsWith('/') ? bare[1].slice(0, -1) : bare[1]).trim() : '';
   };
   const meta = (key) => {
     for (const match of html.matchAll(/<meta\\b[^>]*>/gi)) {
