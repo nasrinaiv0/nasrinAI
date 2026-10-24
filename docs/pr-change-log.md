@@ -1,3 +1,8 @@
+## Linked-page metadata context syntax fix (2026-10-24)
+
+- Refactor page context assembly into a small helper to avoid mismatched parentheses while keeping metadata labeled as untrusted page data.
+- **Validation:** fresh CI is required; the previous run failed with a syntax error in the context assembly and the metadata attribute parser issue has been corrected.
+
 ## Metadata parser syntax correction (2026-10-24)
 
 - Replaced an over-escaped trailing-slash regex in bare HTML attribute parsing with an explicit string check. This fixes the module-load syntax error found in CI while retaining the same bounded metadata behavior.
