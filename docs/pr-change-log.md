@@ -2,6 +2,7 @@
 
 - Make the Generative UI marker parser tolerant of whitespace around `[[ui]]` and `[[/ui]]` delimiters.
 - If a structured UI block is malformed or unsupported, show a safe readable fallback instead of exposing raw protocol JSON in the chat transcript.
+- Add a second safety net in the base formatter so raw UI payloads are never shown even if the optional Generative UI enhancer fails to initialize; valid search payloads become a readable search-request fallback.
 - **Validation:** CI and browser smoke tests are required before merge/deployment; verify search requests render as cards on mobile and no `[[ui]]` payload is visible.
 
 ## Guest/Quick free-model capability and structured rendering (2026-10-24)
