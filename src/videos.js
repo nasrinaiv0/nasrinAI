@@ -76,7 +76,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     const prompt = safePrompt(b.prompt);
     const targetSeconds = Math.max(1, Math.min(MAX_SECONDS, effectiveRequestedSeconds));
-    const aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
+    let aspectRatio = b.aspect_ratio === '9:16' ? '9:16' : '16:9';
     // Default to 720p/30 FPS. Honor a user-selected value only when the
     // plan permits it; if the model cannot provide it, fall back to the
     // highest available quality within that plan, preferring 60 FPS.
@@ -94,13 +94,13 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (requestedByUserResolution && !tierResolutions.includes(requestedByUserResolution)) {
       throw new HttpError(403, 'video_resolution_not_in_plan', 'That resolution is not available on your current video plan.');
     }
-    if (requestedByUserFps != null && ![30, 60].includes(requestedByUserFps)) {
-      throw new HttpError(400, 'invalid_video_fps', 'Choose 30 or 60 FPS.');
-    }
+    // Unsupported user FPS is a preference mismatch, not a bad request.
+    // Ignore it and let the provider catalog choose a supported default.
+    const validRequestedFps = [30, 60].includes(requestedByUserFps) ? requestedByUserFps : null;
     const preferredResolution = requestedByUserResolution || (tierResolutions.includes('720p') ? '720p' : '480p');
-    const preferredFps = requestedByUserFps || 30;
+    const preferredFps = validRequestedFps;
     const resolutionCandidates = [preferredResolution, ...allowedResolutions.filter((x) => x !== preferredResolution)];
-    const fpsCandidates = [preferredFps, ...allowedFrameRates.filter((x) => x !== preferredFps)];
+    const fpsCandidates = [...new Set([...(preferredFps == null ? [] : [preferredFps]), ...allowedFrameRates])];
     let requestedResolution = null;
     let requestedFps = null;
     if (routeProvider.id === 'openrouter' && typeof routeProvider.validateOptions === 'function') {
@@ -110,15 +110,14 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         for (const fps of fpsCandidates) {
           if (!allowedFrameRates.includes(fps)) continue;
           try {
-            // validateOptions performs live capability lookup and may resolve a
-            // different model from the OpenRouter video catalog. Re-run it for
-            // each permitted quality pair so model selection can fall back
-            // without crossing the caller's authorized tier.
-            await routeProvider.validateOptions({
+            // The provider returns its actual supported defaults when the
+            // requested quality/FPS/aspect ratio is unavailable.
+            const resolved = await routeProvider.validateOptions({
               generateAudio: true, duration: targetSeconds, aspectRatio, requestedResolution: resolution, fps
             });
-            requestedResolution = resolution;
-            requestedFps = fps;
+            requestedResolution = resolved?.resolution || resolution;
+            requestedFps = resolved?.fps ?? fps;
+            aspectRatio = resolved?.aspectRatio || aspectRatio;
             break;
           } catch (err) {
             lastValidationError = err;
@@ -166,7 +165,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const started = now();
     let operation;
     try {
-      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution, fps: requestedFps });
+      operation = await routeProvider.create({ prompt, aspectRatio, seconds: targetSeconds, requestedResolution, fps: requestedFps, generateAudio: true });
     } catch (err) {
       await usageLog?.record?.(caller, { provider: routeProvider.id, model: routeProvider.model, outcome: 'provider_error',
         task: 'video', latencyMs: now() - started, costUsd: null });
