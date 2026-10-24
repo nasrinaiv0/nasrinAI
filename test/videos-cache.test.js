@@ -23,7 +23,7 @@ test('completed marketing video is reused only for the same owner and exact gene
     store,
     plans: { async current() { return { plan: 'max', open: false }; } },
     provider,
-    limiter: { async signIn() {} },
+    limiter: { async video() {} },
     budget,
     config,
     logger: { info() {}, warn() {} }
