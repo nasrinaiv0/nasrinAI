@@ -50,13 +50,13 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
     maxRequestUsd: null,
 
     // What the message needs and where it may go. tier: nasrinai | pro | max | ultra.
-    plan({ tier, message, history = [], attachments = [] }) {
+    plan({ tier, paidQuick = false, message, history = [], attachments = [] }) {
       const c = classify({ message, history, attachments });
       const [lo, hi] = r.tierRange[tier] || r.tierRange.nasrinai;
       const level = Math.min(hi, Math.max(lo, c.level));
       const text = [message, ...history.slice(-6).map((m) => m.content)].join('\n');
       const sensitive = attachments.length > 0 || redactForProvider(text) !== text;
-      return { tier, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
+      return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
         historyChars: r.historyChars[level], maxTokens: r.maxTokens[level] };
     },
 
@@ -147,14 +147,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Luna is the sole paid-model escape hatch and is ordered after every
           // free candidate. Paid subscriptions (including separately paid Quick)
           // must never consume OpenRouter's free endpoints, even for simple chat.
-          const eligibleCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai'
+          const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
+          const eligibleCandidates = r.quickNemotronOnly && freeQuick
             ? expandedTierCandidates.filter((candidate) => candidate.provider === 'openrouter'
               && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
-            : plan.tier !== 'nasrinai'
+            : !freeQuick
               ? expandedTierCandidates.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
               : expandedTierCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
-          const ordered = r.quickNemotronOnly && plan.tier === 'nasrinai'
+          const ordered = r.quickNemotronOnly && freeQuick
             ? [
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
@@ -225,7 +226,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
           result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, sensitive: plan.sensitive === true,
-            disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' });
+            disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' && plan.paidQuick !== true });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
             const actual = hasUsage && result.fallback !== true
@@ -285,7 +286,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // candidate list (Nemotron first, then the emergency model). Keep this
           // bounded to the candidates configured at the active level; other tiers
           // retain the normal retry cap.
-          const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai'
+          const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai' && plan.paidQuick !== true
             ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter').length)
             : r.maxRetries;
           if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
