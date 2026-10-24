@@ -181,7 +181,7 @@ export function htmlToText(html) {
 }
 
 // Resolves { url, title, text } (plus the page's `html` with withHtml) or { url, error }.
-export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml = false } = {}) {
+export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml = false, allowedOrigin = null } = {}) {
   let u = checkUrl(raw);
   if (!u) return { url: raw, error: 'not a public web address' };
   try {
@@ -191,6 +191,7 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
         res.resume();
         const next = checkUrl(new URL(res.headers.location, u).href);
         if (!next) return { url: raw, error: 'redirects to a blocked address' };
+        if (allowedOrigin && next.origin !== allowedOrigin) return { url: raw, error: 'redirects outside the allowed origin' };
         u = next;
         continue;
       }
@@ -256,7 +257,7 @@ export async function crawlSite(raw, { maxPages = 5, maxCharsPerPage = 6_000, ge
     candidates.push(safe.href);
     if (candidates.length >= limit - 1) break;
   }
-  const additional = await Promise.all(candidates.map((url) => readLink(url, { maxChars: maxCharsPerPage, getImpl })));
+  const additional = await Promise.all(candidates.map((url) => readLink(url, { maxChars: maxCharsPerPage, getImpl, allowedOrigin: root.origin })));
   return [rootPage, ...additional];
 }
 
