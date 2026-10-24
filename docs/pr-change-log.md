@@ -2262,3 +2262,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Add a regression asserting page-supplied canonical metadata never replaces the actual URL fetched and used for citations.
 - **Validation:** fresh CI required for this test-only change.
+
+## Rich link rendering security regression (2026-10-25)
+
+- Add a DOM-renderer regression proving valid external Markdown links remain clickable with safe `rel` attributes, while raw HTML and JavaScript URLs remain inert text.
+- **Validation:** fresh CI required for the renderer test.
