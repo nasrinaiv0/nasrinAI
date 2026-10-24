@@ -20,7 +20,7 @@ const TYPES = /^(text\/html|text\/plain|application\/xhtml\+xml|application\/jso
 // Parse all valid IPv6 spellings into eight groups, including embedded IPv4.
 function parseIPv6(ip) {
   let value = String(ip).toLowerCase().split('%')[0];
-  const tail = value.match(/^(.*:)(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);
+  const tail = value.match(/^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (tail) {
     const octets = tail.slice(2).map(Number);
     if (octets.some((n) => n > 255)) return null;
