@@ -2329,6 +2329,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a regression asserting the off-origin redirect target is not fetched.
 - **Validation:** fresh CI required for this security follow-up.
 
+## PR #605 — tier-aware model capability registry (2026-10-25)
+
+- Add a normalized registry separating model capability, tier eligibility, provider request family, and verification state across chat and specialized media/audio/data routes.
+- Fail closed when a specialized model lacks a verified adapter, preventing image/video/audio/embedding/reranking/decision models from being treated as ordinary chat-completion models.
+- Add registry integrity, tier eligibility, category-separation, and fail-closed regression tests. This is routing metadata and safety groundwork; it does not claim provider-specific adapters or live smoke tests are complete.
+- **Validation:** CI passed on the initial PR head. The Documentation Gate failed because this PR lacked a changelog entry; this entry addresses that gate, and checks must be rerun on the new head before the PR is considered green.
+
 ## Phase 2 regression fix — tier-correct paid model fixtures (2026-10-25)
 
 - Update the paid Quick regression to use an inferred paid-Quick registry model only when its exact ID is present in the live catalog results.
