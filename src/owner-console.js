@@ -748,14 +748,9 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             const patch = {
               total_cost_usd: cost,
               model: providerModel || null,
-              response_summary: {
-                reconciliation: {
-                  source: 'openrouter_generation_api',
-                  generation_id: generationId,
-                  reconciled_at: new Date(now()).toISOString(),
-                  provider_reported_cost_usd: cost
-                }
-              }
+              openrouter_generation_id: generationId,
+              provider_cost_source: 'openrouter_generation_api',
+              provider_cost_reconciled_at: new Date(now()).toISOString()
             };
             if (Number.isSafeInteger(promptTokens) && promptTokens >= 0) patch.prompt_tokens = promptTokens;
             if (Number.isSafeInteger(completionTokens) && completionTokens >= 0) patch.completion_tokens = completionTokens;
