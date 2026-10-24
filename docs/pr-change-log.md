@@ -1,5 +1,6 @@
 ## Guest/Quick free-model capability and structured rendering (2026-10-24)
 
+- Discover live OpenRouter text-capable models for Guest/Quick as well as paid tiers, then filter Guest/Quick candidates to IDs explicitly marked `:free`; this avoids limiting discovery to the static Nemotron shortlist.
 - Add `OPENROUTER_FREE_MODELS` so operators can configure additional OpenRouter model IDs that are explicitly marked `:free` without a code deployment; non-free IDs are ignored for this list.
 - Keep Guest/Quick strictly on OpenRouter candidates ending in `:free`, with no paid or cross-provider fallback.
 - Render structured `search` UI payloads as a safe, readable search card instead of exposing raw `[[ui]]` JSON in chat. The card represents the request only; it does not fabricate search results or citations.
