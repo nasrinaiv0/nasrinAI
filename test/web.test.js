@@ -61,6 +61,7 @@ test('link reader extracts safe article metadata and prioritizes article content
   assert.equal(result.author, 'Research Desk');
   assert.equal(result.publishedAt, '2026-10-24T08:00:00Z');
   assert.equal(result.canonical, 'https://publisher.example/articles/deep-dive');
+  assert.equal(result.url, 'https://publisher.example/articles/deep-dive?ref=chat', 'citation URL stays the URL actually fetched, not the page-supplied canonical metadata');
   assert.match(result.text, /Primary finding[\s\S]*main fact/);
   assert.doesNotMatch(result.text, /Navigation noise|Sidebar noise|Footer noise|bad\(\)/);
 });
