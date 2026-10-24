@@ -71,8 +71,8 @@ test('link reader extracts safe article metadata and prioritizes article content
   assert.equal(result.author, 'Research Desk');
   assert.equal(result.publishedAt, '2026-10-24T08:00:00Z');
   assert.equal(result.canonical, 'https://publisher.example/articles/deep-dive');
-  assert.match(result.text, /Primary finding[\\s\\S]*main fact/);
-  assert.doesNotMatch(result.text, /Navigation noise|Sidebar noise|Footer noise|bad\\(\\)/);
+  assert.match(result.text, /Primary finding[\s\S]*main fact/);
+  assert.doesNotMatch(result.text, /Navigation noise|Sidebar noise|Footer noise|bad\(\)/);
 });
 
 test('chat: a shared link is read and given to the model as data', async () => {
