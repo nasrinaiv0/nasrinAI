@@ -2294,3 +2294,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Restrict crawled child pages to the root page's origin even across HTTP redirects, preventing a same-origin link from silently redirecting the crawler to another site.
 - Add a regression asserting the off-origin redirect target is not fetched.
 - **Validation:** fresh CI required for this security follow-up.
+
+## Tier-aware OpenRouter routing (2026-10-25)
+
+- Guest and free Quick can try eligible explicitly free OpenRouter models; GPT-6 Luna is the only paid-model fallback and is attempted after the free pool.
+- Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
+- Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
+- **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.
