@@ -156,6 +156,7 @@ const dashboardHtml = `<!doctype html>
     <nav id="navigation">
       <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
       <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
+      <button class="nav-item" data-panel="logs"><span>≋</span>AI Provider Logs</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
@@ -181,6 +182,7 @@ const dashboardHtml = `<!doctype html>
 const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
+  logs: { title: 'AI Provider Logs', description: 'Request-level OpenRouter telemetry, status, tokens, cost, latency, and provider response metadata.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
@@ -625,6 +627,87 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         incidents_24h: incidents24h,
         panels
       });
+      return true;
+    }
+    if (pathname === '/owner/api/openrouter-logs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs are not connected to the owner data store.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '24h';
+      const windows = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 };
+      if (!Object.hasOwn(windows, windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 24h, 7d, 30d, or 90d.' } });
+        return true;
+      }
+      const cutoff = new Date(now() - windows[windowName] * 86400000).toISOString();
+      const status = url.searchParams.get('status') || '';
+      if (status && !['success', 'error'].includes(status)) {
+        sendJson(res, 400, { error: { code: 'invalid_status', message: 'Choose success or error.' } });
+        return true;
+      }
+      const model = String(url.searchParams.get('model') || '').trim().slice(0, 120);
+      if (model && !/^[a-zA-Z0-9:._/@ -]+$/.test(model)) {
+        sendJson(res, 400, { error: { code: 'invalid_model_filter', message: 'The model filter contains unsupported characters.' } });
+        return true;
+      }
+      const endpoint = String(url.searchParams.get('endpoint') || '').trim().slice(0, 120);
+      if (endpoint && !/^\/[a-zA-Z0-9/_-]+$/.test(endpoint)) {
+        sendJson(res, 400, { error: { code: 'invalid_endpoint_filter', message: 'The endpoint filter is invalid.' } });
+        return true;
+      }
+      const requestedLimit = Number(url.searchParams.get('limit') || 100);
+      const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 100;
+      const requestedOffset = Number(url.searchParams.get('offset') || 0);
+      const offset = Number.isSafeInteger(requestedOffset) ? Math.max(0, Math.min(requestedOffset, 10000)) : 0;
+      const filters = [
+        'select=id,request_id,created_at,provider,endpoint,http_method,requested_model,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
+        'created_at=gte.' + encodeURIComponent(cutoff)
+      ];
+      if (status) filters.push('status=eq.' + encodeURIComponent(status));
+      if (model) filters.push('or=(' + ['model','requested_model'].map((field) => field + '.ilike.*' + encodeURIComponent(model) + '*').join(',') + ')');
+      if (endpoint) filters.push('endpoint=eq.' + encodeURIComponent(endpoint));
+      filters.push('order=created_at.desc', 'limit=' + limit, 'offset=' + offset);
+      try {
+        const rows = await store.request('GET', 'openrouter_logs?' + filters.join('&'));
+        if (!Array.isArray(rows)) throw new Error('invalid log rows');
+        sendJson(res, 200, {
+          source: 'supabase.openrouter_logs',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          limit,
+          offset,
+          count: rows.length,
+          has_more: rows.length === limit,
+          rows: rows.map((row) => ({
+            id: row.id,
+            request_id: row.request_id,
+            created_at: row.created_at,
+            provider: row.provider || 'openrouter',
+            endpoint: row.endpoint,
+            http_method: row.http_method,
+            requested_model: row.requested_model,
+            model: row.model,
+            prompt_tokens: row.prompt_tokens,
+            completion_tokens: row.completion_tokens,
+            total_tokens: row.total_tokens,
+            total_cost_usd: row.total_cost_usd,
+            response_summary: row.response_summary && typeof row.response_summary === 'object' ? row.response_summary : {},
+            status: row.status,
+            http_status: row.http_status,
+            error_code: row.error_code,
+            latency_ms: row.latency_ms,
+            provider_request_id: row.provider_request_id,
+            openrouter_generation_id: row.openrouter_generation_id,
+            provider_cost_source: row.provider_cost_source,
+            provider_cost_reconciled_at: row.provider_cost_reconciled_at
+          }))
+        });
+      } catch {
+        logger?.warn?.('OpenRouter request logs unavailable', { source: 'openrouter_logs' });
+        sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs could not be loaded. Confirm migrations 063 and 064 are applied and server-side database access is configured.' } });
+      }
       return true;
     }
     if (pathname === '/owner/api/openrouter-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
