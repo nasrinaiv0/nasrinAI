@@ -1,3 +1,9 @@
+## Raw structured UI payload rendering fix (2026-10-24)
+
+- Make the Generative UI marker parser tolerant of whitespace around `[[ui]]` and `[[/ui]]` delimiters.
+- If a structured UI block is malformed or unsupported, show a safe readable fallback instead of exposing raw protocol JSON in the chat transcript.
+- **Validation:** CI and browser smoke tests are required before merge/deployment; verify search requests render as cards on mobile and no `[[ui]]` payload is visible.
+
 ## Guest/Quick free-model capability and structured rendering (2026-10-24)
 
 - Discover live OpenRouter text-capable models for Guest/Quick as well as paid tiers, then filter Guest/Quick candidates to IDs explicitly marked `:free`; this avoids limiting discovery to the static Nemotron shortlist.
