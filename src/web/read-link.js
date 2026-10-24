@@ -164,7 +164,10 @@ export function htmlToText(html) {
       return '';
     })()
   };
-  const body = html
+  const article = /<article\b[^>]*>[\s\S]*?<\/article>/i.exec(html);
+  const main = /<main\b[^>]*>[\s\S]*?<\/main>/i.exec(html);
+  const sourceHtml = article?.[0] || main?.[0] || html;
+  const body = sourceHtml
     .replace(/<(script|style|noscript|svg|nav|footer|header|form|iframe|template)[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<(aside|dialog|menu)[\s\S]*?<\/\1>/gi, ' ')
