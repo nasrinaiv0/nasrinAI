@@ -177,6 +177,28 @@ test('two-second video requests preserve the requested duration through validati
   assert.ok(calls.some((call) => call[0] === 'validate' && call[1] === 2));
 });
 
+test('unsupported requested FPS falls back to the provider-supported frame rate', async () => {
+  const calls = [];
+  const provider = {
+    id: 'openrouter', model: 'configured/video', maxSeconds: 8,
+    allowedResolutions: ['480p', '360p'], allowedFrameRates: [30],
+    async validateOptions(options) {
+      calls.push(['validate', options.fps]);
+      return { resolution: '360p', fps: 30, aspectRatio: '16:9', generateAudio: false };
+    },
+    async create(options) {
+      calls.push(['create', options.fps, options.requestedResolution, options.generateAudio]);
+      return 'fallback-job';
+    }
+  };
+  const { videos, created } = service('pro', false, null, provider);
+  const result = await videos.create(caller, { prompt: 'A kid laughing', seconds: 2, fps: 24, resolution: '480p' });
+  assert.equal(result.status, 'in_progress');
+  assert.deepEqual(calls.at(-1), ['create', 30, '360p', true]);
+  assert.equal(created[0].fps, 30);
+  assert.equal(created[0].resolution, '360p');
+});
+
 test('OpenRouter quality exhaustion returns a capability error, not a misleading plan error', async () => {
   const provider = {
     id: 'openrouter', model: 'configured/video', maxSeconds: 8,
