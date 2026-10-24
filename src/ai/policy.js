@@ -158,7 +158,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               modelId: candidate.model,
               tier: plan.tier,
               paidQuick: plan.paidQuick,
-              task: plan.task
+              task: plan.task,
+              verifiedIds: liveOpenRouterModels
             }) && (!(r.quickNemotronOnly && freeQuick)
               || /:free$/i.test(candidate.model)
               || candidate.model === 'openai/gpt-6-luna');
