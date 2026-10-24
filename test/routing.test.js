@@ -180,7 +180,7 @@ test('Guest/Quick accept operator-configured OpenRouter :free models and reject 
   assert.ok(attempted.every((model) => /:free$/i.test(model)), 'paid IDs are ignored and no paid fallback is attempted');
 });
 
-test('paid tiers prefer explicitly free OpenRouter models for simple intent, while retaining paid fallback', async () => {
+test('paid tiers never use free OpenRouter models, even for simple intent', async () => {
   for (const tier of ['pro', 'max', 'ultra']) {
     const a = setup({
       env: {
@@ -196,7 +196,7 @@ test('paid tiers prefer explicitly free OpenRouter models for simple intent, whi
     assert.equal(plan.wanted, 1, 'test input should be classified as simple intent');
     const run = await a.policy.run(plan, req('Hello!'));
     assert.equal(run.spec.provider, 'openrouter');
-    assert.match(run.spec.model, /:free$/i, tier + ' should try a free model first for simple intent');
+    assert.doesNotMatch(run.spec.model, /:free$/i, tier + ' must use a paid model even for simple intent');
   }
 
   const fallback = setup({
