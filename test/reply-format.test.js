@@ -38,11 +38,11 @@ async function format() {
 }
 
 
-test('map structured UI guidance requires known endpoints and prohibits invented live route facts', () => {
-  const p = buildSystemPrompt({});
-  assert.match(p, /registered map widget/);
-  assert.match(p, /Never invent a current location, route distance, ETA, traffic condition/);
-  assert.match(p, /"type":"map"/);
+test('map structured UI guidance requires known endpoints and prohibits invented live route facts', async () => {
+  const source = await readFile(new URL('../src/ai/prompt.js', import.meta.url), 'utf8');
+  assert.match(source, /registered map widget/);
+  assert.match(source, /Never invent a current location, route distance, ETA, traffic condition/);
+  assert.match(source, /"type":"map"/);
 });
 
 test('embedded map renderer builds Google-owned iframe and safe Maps links from bounded fields', async () => {
