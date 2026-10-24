@@ -98,7 +98,12 @@ test('Google fallback returns real search results when OpenRouter web search fai
   const googleSearch = {
     available: true,
     async search() {
-      return [{ url: 'https://example.com/real-result', title: 'Real result', snippet: 'Provider-returned snippet', displayLink: 'example.com' }];
+      return [
+        { url: 'https://example.com/real-result', title: 'Real result', snippet: 'Provider-returned snippet', displayLink: 'example.com' },
+        { url: 'https://example.com/real-result', title: 'Duplicate result', snippet: 'Duplicate' },
+        { url: 'javascript:alert(1)', title: 'Unsafe result', snippet: 'Unsafe' },
+        { url: 'https://user:pass@example.net/private', title: 'Credential URL', snippet: 'Unsafe' }
+      ];
     }
   };
   const search = createWebSearch({
@@ -111,6 +116,10 @@ test('Google fallback returns real search results when OpenRouter web search fai
   assert.match(result.text, /Real result/);
   assert.match(result.text, /Provider-returned snippet/);
   assert.deepEqual(result.citations.map((source) => source.url), ['https://example.com/real-result']);
+  assert.equal(result.provider, 'google-custom-search');
+  assert.equal(result.model, 'google-custom-search-json');
+  assert.match(result.text, /discovery hints, not independently verified article content/);
+  assert.doesNotMatch(result.text, /javascript:|user:pass|Duplicate result/);
 });
 
 test('Google fallback works without an OpenRouter key and does not call OpenRouter', async () => {
