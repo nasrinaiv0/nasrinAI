@@ -1,3 +1,13 @@
+## fix/video-generation-flow — chat video creation and "photos into video" (2026-10-24)
+
+- **Automatic tier:** the default "Automatic" selection (and no selection) now uses the video tier of the account's plan instead of failing with "Video generation requires selecting Pro, Max or Ultra" / "Select Ultra for Ultra video options". It never goes above the plan; explicit tier choices keep their entitlement checks.
+- **Clip length:** the OpenRouter video route now resolves a requested length to one the model actually advertises (an exact match on any model wins; otherwise the nearest, longer before shorter, never above the provider maximum). The resolved length is what is created and stored, and the chat shows it. Previously any length not listed exactly (for example 2 seconds) failed with "No available video model supports this duration and quality".
+- **Chat flow:** removed the native resolution and FPS dialogs ("Choose 30 or 60 FPS") that blocked mobile browsers; the browser no longer forces quality or FPS (the server chooses from the plan and the model's advertised options). The clip length is read from the message ("2 sec video of…"), default 8 seconds. The "ready" notification no longer says every video is Ultra.
+- **Intent:** "edit this into video", "make a video from these photos", "put these images into a reel" and "make a slideshow from these pictures" now route to video instead of ordinary chat (which answered that it cannot create video). Image deliverables (thumbnail, logo, poster…) still route to image creation.
+- **Photos:** video generation starts from a description and has no image-input path, so a video request with photos attached now offers Video Studio (photo timeline, trim, titles, audio, MP4 export) instead of silently ignoring the photos.
+- **Removed:** the pre-send "weekly video-seconds allowance" confirm dialog; the allowance notice is now shown in the "I'm creating your video" message. Owner: tell me if you want an in-page Confirm step back.
+- **Validation:** new regression tests in `test/openrouter.test.js`, `test/videos-plan.test.js`, `test/creative-intent.test.js` and `test/app-video-send.test.js` (written first and failing before the change). Real video generation against the live OpenRouter catalog and credits has **not** been run from this change; the audit's live video smoke test is still open (`docs/audit/NASRINAI_AUDIT_STATUS_2026-10-24.md`).
+
 ## PR #586 — Fix structured UI fallback tests (2026-10-24)
 
 - Correct the base renderer's structured UI envelope regex so it matches literal `[[ui]]` and `[[/ui]]` delimiters instead of escaped-backslash patterns.

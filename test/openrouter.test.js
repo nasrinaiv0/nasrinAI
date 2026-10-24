@@ -146,6 +146,31 @@ test('video route falls back to advertised quality, FPS, aspect ratio and silent
   assert.equal(created.id, 'job-defaults');
 });
 
+test('video route rounds an unsupported duration up to the nearest advertised length', async () => {
+  const catalog = [{ id: 'provider/five-ten', supported_durations: [5, 10], supported_resolutions: ['720p'],
+    supported_frame_rates: [30], supported_aspect_ratios: ['16:9'], generate_audio: false }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const route = await client.getVideoRoute({ model: 'provider/five-ten', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 });
+  assert.equal(route.model, 'provider/five-ten');
+  assert.equal(route.duration, 5, 'a 2-second request must resolve to the model shortest clip, not fail');
+});
+
+test('video route prefers a model with the exact duration over rounding on another model', async () => {
+  const base = { supported_resolutions: ['720p'], supported_frame_rates: [30], supported_aspect_ratios: ['16:9'], generate_audio: false };
+  const catalog = [{ id: 'provider/five-ten', supported_durations: [5, 10], ...base }, { id: 'provider/two-four-eight', supported_durations: [2, 4, 8], ...base }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const route = await client.getVideoRoute({ model: 'provider/five-ten', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 });
+  assert.equal(route.model, 'provider/two-four-eight');
+  assert.equal(route.duration, 2);
+});
+
+test('video route never picks a clip longer than the provider maximum', async () => {
+  const catalog = [{ id: 'provider/long-only', supported_durations: [10, 12], supported_resolutions: ['720p'],
+    supported_frame_rates: [30], supported_aspect_ratios: ['16:9'], generate_audio: false }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  await assert.rejects(client.getVideoRoute({ model: 'provider/long-only', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 }), /advertises the requested duration/);
+});
+
 test('OpenRouter default video route works without a local or catalog price gate', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/default-video', 'video'),
