@@ -3052,9 +3052,13 @@
       card.append(body, loader.el);
       log.appendChild(card);
       scrollToEnd(card);
+      let pollFailures = 0;
+      let pollDelayMs = 10000;
       const poll = async () => {
         try {
           const state = await api('/v1/videos/' + encodeURIComponent(id));
+          pollFailures = 0;
+          pollDelayMs = 10000;
           if (state.status === 'completed') {
             loader.remove();
             body.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
@@ -3068,11 +3072,20 @@
             return;
           }
           if (state.status === 'failed') { loader.remove(); body.textContent = state.error?.message || 'The video could not be completed.'; return; }
-          loader.set('Creating your video · ' + Math.max(1, Number(state.progress) || 1) + '%');
-          setTimeout(poll, 10000);
+          if (state.provider_poll_warning) {
+            body.textContent = 'The video provider is taking longer to respond. NasrinAI is checking the existing job; it will not submit a duplicate generation request.';
+            pollDelayMs = 20000;
+          } else {
+            body.textContent = 'I’m creating your ' + seconds + '-second video. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.';
+          }
+          loader.set((state.provider_poll_warning ? 'Checking video status' : 'Creating your video') + ' · ' + Math.max(1, Number(state.progress) || 1) + '%');
+          setTimeout(poll, pollDelayMs);
         } catch (err) {
           if (err.code === 'video_plan_required' || err.status === 403) { loader.remove(); body.textContent = err.message || 'Video creation is available on Ultra.'; return; }
-          setTimeout(poll, 15000);
+          pollFailures += 1;
+          pollDelayMs = Math.min(30000, 10000 * (2 ** Math.min(2, pollFailures - 1)));
+          if (pollFailures >= 3) body.textContent = 'NasrinAI is having trouble checking this video’s status. It will keep checking the same job and will not submit another generation request.';
+          setTimeout(poll, pollDelayMs);
         }
       };
       poll();
