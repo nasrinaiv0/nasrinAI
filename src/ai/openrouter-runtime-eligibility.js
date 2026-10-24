@@ -7,7 +7,7 @@ import { getOpenRouterModel } from './openrouter-tier-routing.js';
  * match the assigned tier, be catalog-verified when inferred, and be usable
  * through the chat-completion adapter before they can enter chat routing.
  */
-export function isOpenRouterChatCandidateEligible({ modelId, tier, paidQuick = false, task = 'chat' }) {
+export function isOpenRouterChatCandidateEligible({ modelId, tier, paidQuick = false, task = 'chat', verifiedIds = [] }) {
   if (typeof modelId !== 'string' || !modelId.trim()) return false;
   const model = getOpenRouterModel(modelId);
   const isFreeQuick = tier === 'nasrinai' && paidQuick !== true;
@@ -18,7 +18,7 @@ export function isOpenRouterChatCandidateEligible({ modelId, tier, paidQuick = f
     return !/:free$/i.test(modelId);
   }
 
-  if (model.inferred) return false;
+  const verified = verifiedIds instanceof Set ? verifiedIds : new Set(verifiedIds || []);\n  if (model.inferred && !verified.has(modelId)) return false;
   if (model.endpoint !== 'chat') return false;
   if (!['text', 'coding'].includes(model.category)) return false;
   if (model.category === 'coding' && !['coding', 'debugging'].includes(task)) return false;
