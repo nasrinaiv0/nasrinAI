@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Trigger the owner-session verification when a signed-in session is established, fixing the hidden Owner Command Center tile's visibility deadlock while preserving email/IP authorization.
+
 - Use separate owner-supplied NasrinAI logo variants in the Space Connect tile, adapting to explicit light/dark themes and system preference without color inversion.
 
 - Place the Owner Command Center entry inside NasrinAI Space as a hidden-by-default app tile, revealed only after server verification of the signed-in email and client IP.
