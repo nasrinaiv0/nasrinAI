@@ -48,11 +48,22 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
 
   const routeProviderOrJobIsOpenRouter = (jobProvider) => jobProvider?.id === 'openrouter';
 
-  function providerForVideo(video) {
+  function providerForVideo(video, planTier = null) {
     if (provider && typeof provider.create === 'function') return provider;
+    if (!provider) return null;
     // A job must always poll/download/extend through the exact tier adapter
     // that created it. Never silently cross-fallback into another paid tier.
-    return provider?.[video?.requestTier] || provider?.[video?.providerTier] || null;
+    const exact = provider[video?.requestTier] || provider[video?.providerTier];
+    if (exact) return exact;
+    // Saved jobs do not record their tier (the generated_videos table has no
+    // tier column), so after a reload the exact adapter is unknown. Checking a
+    // job's status and fetching its file only needs the same provider account
+    // that created it, never a new paid request, so use an adapter whose
+    // provider id matches the job's, preferring the caller's plan tier. A job
+    // from a provider that is no longer configured stays unavailable.
+    const sameProvider = Object.entries(provider).filter(([, adapter]) => adapter && adapter.id === video?.provider);
+    if (!sameProvider.length) return null;
+    return (sameProvider.find(([tier]) => tier === planTier) || sameProvider[0])[1];
   }
 
   async function requireVideoPlan(caller, requestedTier) {
@@ -211,7 +222,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
   }
 
   async function advance(caller, id) {
-    await requireVideoPlan(caller);
+    const { account } = await requireVideoPlan(caller);
     if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'Video not found.');
     const v = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id });
     if (!v) throw new HttpError(404, 'not_found', 'Video not found.');
@@ -234,7 +245,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       });
       return await store.getVideo({ tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId, id: v.id });
     }
-    const jobProvider = providerForVideo(v);
+    const jobProvider = providerForVideo(v, account.plan);
     if (!jobProvider) throw unavailable();
     let state;
     const pollStarted = now();
@@ -332,11 +343,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
   }
 
   async function read(caller, id) {
-    await requireVideoPlan(caller);
+    const { account } = await requireVideoPlan(caller);
     if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'Video not found.');
     const v = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id });
     if (!v || v.status !== 'completed' || (!v.bytes && !v.providerVideoUri)) throw new HttpError(404, 'not_found', 'Video is not ready.');
-    const jobProvider = providerForVideo(v);
+    const jobProvider = providerForVideo(v, account.plan);
     if (!v.bytes && (!jobProvider || typeof jobProvider.download !== 'function')) throw unavailable();
     const bytes = v.bytes ? Buffer.from(v.bytes) : await jobProvider.download(v.providerVideoUri);
     return { ...v, bytes };
