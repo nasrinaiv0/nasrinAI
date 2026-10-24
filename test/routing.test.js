@@ -175,8 +175,7 @@ test('paid tiers prefer explicitly free OpenRouter models for simple intent, whi
       ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
     },
     reply: async (spec) => {
-      if (spec?.model?.endsWith(':free')) throw new ProviderError('unavailable', 'free model unavailable');
-      throw new Error('unexpected');
+      throw new ProviderError('unavailable', spec?.model?.endsWith(':free') ? 'free model unavailable' : 'paid fallback unavailable');
     }
   });
   const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
