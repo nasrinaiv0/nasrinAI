@@ -42,7 +42,7 @@ test('map structured UI guidance requires known endpoints and prohibits invented
   const p = buildSystemPrompt({});
   assert.match(p, /registered map widget/);
   assert.match(p, /Never invent a current location, route distance, ETA, traffic condition/);
-  assert.match(p, /\\"type\\":\\"map\\"/);
+  assert.match(p, /"type":"map"/);
 });
 
 test('embedded map renderer builds Google-owned iframe and safe Maps links from bounded fields', async () => {
