@@ -2233,3 +2233,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Bounded process-memory cache only (current/hourly: 1 hour; daily: 24 hours). No raw provider responses, locations, coordinates, or forecast values in usage telemetry. Cost remains unknown/null until reconciled against Google Cloud billing.
 - Important restriction: Google Weather API must not be used to recreate a standalone weather product. This integration is intended only for contextual answers inside the general-purpose assistant.
 - Tests added with mocked responses; live API credentials and Google Cloud billing are not testable in CI.
+
+## PR #583 preview build enforcement (2026-10-25)
+
+- Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
+- **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.
