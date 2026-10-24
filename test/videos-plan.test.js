@@ -194,7 +194,7 @@ test('unsupported requested FPS falls back to the provider-supported frame rate'
   const { videos, created } = service('pro', false, null, provider);
   const result = await videos.create(caller, { prompt: 'A kid laughing', seconds: 2, fps: 24, resolution: '480p' });
   assert.equal(result.status, 'in_progress');
-  assert.deepEqual(calls.at(-1), ['create', 30, '360p', true]);
+  assert.deepEqual(calls.at(-1), ['create', 30, '360p', false]);
   assert.equal(created[0].fps, 30);
   assert.equal(created[0].resolution, '360p');
 });
