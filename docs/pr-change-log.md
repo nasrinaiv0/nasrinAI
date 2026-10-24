@@ -2177,3 +2177,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add owner-console tests for sanitized log output, invalid filters, and IP allowlist enforcement. Update `docs/openrouter-telemetry.md` and `CHANGELOG.md`.
 - Implementation commits: `f3b33079b017e307d8b72df0c45dcaf38c25b42f`, `6a6d5434da8a3064d87a3961f7e14090c3820823`, `d770a3ecb841dc43a8d49958d8bedcf535195dd2`, `6f7300ccc2f30a1eeb479df8b53eb9fd68ad26d5`, `e3570e540bcdc57b8deab849c2fe765c3e037ea5`, `326260b4fcfa10fa2dc48495f2d679090b1bfdfc`, `5cf44f2b8f0baaf3d66d1f776957c9643e332750`, `34468eb38adfa00aef33c1ab1fa822ddc7c5422e`, `2918ec69a540844e7cc970aafda984dd9b3a9209`.
 - Validation: CI and database checks are running; do not merge until all required checks pass and Preview behavior is verified.
+
+
+## PR #595 — Restore verified Owner Command Center entry
+- Fix the settings entry placement by rendering it in a dedicated menu row immediately after Account.
+- Display the entry only after `/v1/owner/session` returns HTTP 204, proving both signed-in email and client IP pass the server-side allowlists; remove it on failure and sign-out.
+- Preserve existing server-side authorization and owner-subdomain protections. Button text is created with `textContent`.
+- Implementation commits: `22e5b8a3ad039e14b5d8a856d4812d3c81be7daf`, `9ac0c59f4faa5d40890bab0ada4841df2cb41f7d`.
+- Validation: CI queued; browser verification requires a deployed allowlisted session plus wrong-email and wrong-IP negative checks.
