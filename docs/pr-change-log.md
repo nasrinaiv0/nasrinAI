@@ -1,3 +1,11 @@
+## feat/openrouter-clean-tier-routing-v2 (2026-10-25)
+
+- Add a normalized OpenRouter model registry from the owner-provided model inventory, including capability, input/output modality, endpoint family, and explicit tier assignments.
+- Keep source-inferred model IDs ineligible until the live OpenRouter catalog verifies them; do not route image/video/audio/transcription/embedding/reranking/decision tasks through chat completions by assumption.
+- Add tests for model ID uniqueness, tier eligibility, inferred-ID gating, and same-capability fallback requirements.
+- Document OpenRouter as the provider billing source of truth while retaining server-side tier entitlement, privacy, capability, and output validation.
+- **Validation:** automated tests and documentation gate must pass on the final PR head. The registry is not proof that each provider-specific adapter is integrated; unsupported specialized routes must remain disabled until request/response schemas and provider smoke tests are verified.
+
 ## feat/chat-embedded-maps-rich-cards (2026-10-24)
 
 - Add a registered `map` Generative UI widget that embeds Google Maps directly in the chat for a known place or route.
@@ -2245,6 +2253,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
 - Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
 - **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.
+
+## PR #606 — Clean-tier OpenRouter routing documentation-gate fix (2026-10-25)
+
+- Add the missing changelog entry for the source-aligned tier-routing registry, explicit free/paid Quick separation, same-capability fallback restrictions, and tier-routing regression tests.
+- This documentation-only follow-up fixes the Documentation Gate failure on the PR head; the implementation and tests are unchanged by this commit.
+- **Validation:** the missing-entry failure was confirmed in Documentation Gate run #1288. CI run #6714 (tests, database, dependency audit and secret scan), Documentation Gate run #1291, and the Vercel status all passed on head `6dbddbc9747835aeff2c2f6364ee93a270f5af9e`. This wording-only correction triggers a fresh CI/Gate run on the new head. Authenticated live provider probes were not run; no production configuration changed.
 
 ## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
 
