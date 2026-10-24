@@ -88,7 +88,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const allowedResolutions = (routeProvider.allowedResolutions || tierResolutions)
       .filter((resolution) => tierResolutions.includes(resolution));
     const allowedFrameRates = (routeProvider.allowedFrameRates || [60, 30])
-      .filter((fps) => [60, 30].includes(Number(fps))).map(Number);
+      .map(Number).filter((fps) => Number.isFinite(fps) && fps > 0 && fps <= 120);
     const requestedByUserResolution = String(b.resolution || '').trim().toLowerCase();
     const requestedByUserFps = b.fps == null || b.fps === '' ? null : Number(b.fps);
     if (requestedByUserResolution && !tierResolutions.includes(requestedByUserResolution)) {
@@ -96,7 +96,7 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
     // Unsupported user FPS is a preference mismatch, not a bad request.
     // Ignore it and let the provider catalog choose a supported default.
-    const validRequestedFps = [30, 60].includes(requestedByUserFps) ? requestedByUserFps : null;
+    const validRequestedFps = Number.isFinite(requestedByUserFps) && requestedByUserFps > 0 && requestedByUserFps <= 120 ? requestedByUserFps : null;
     const preferredResolution = requestedByUserResolution || (tierResolutions.includes('720p') ? '720p' : '480p');
     const preferredFps = validRequestedFps;
     const resolutionCandidates = [preferredResolution, ...allowedResolutions.filter((x) => x !== preferredResolution)];
