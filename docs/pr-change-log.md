@@ -1,3 +1,11 @@
+## feat/google-weather-chat — Google Weather API in Chat (2026-10-24)
+
+- Add a server-only Google Weather tool for contextual weather questions in NasrinAI Chat, using Google Geocoding plus current, hourly, and daily Weather API endpoints.
+- Keep the key in Vercel environment variables; support `GOOGLE_WEATHER_API_KEY` and `GOOGLE_MAPS_PLATFORM_API_KEY`. No browser exposure.
+- Bounded process-memory cache only (current/hourly: 1 hour; daily: 24 hours). No raw provider responses, locations, coordinates, or forecast values in usage telemetry. Cost remains unknown/null until reconciled against Google Cloud billing.
+- Important restriction: Google Weather API must not be used to recreate a standalone weather product. This integration is intended only for contextual answers inside the general-purpose assistant.
+- Tests added with mocked responses; live API credentials and Google Cloud billing are not testable in CI.
+
 ## security/undici-audit — undici advisory (2026-10-24)
 
 - Lockfile-only update of `undici` (via `@vercel/sandbox`) from 7.30.0 to 7.30.1; `npm audit --audit-level=high` reports 0 vulnerabilities. No package.json change.
