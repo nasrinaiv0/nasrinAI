@@ -2010,7 +2010,7 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ caller, params, res }) => {
         if (!videos) throw new HttpError(503, 'videos_unavailable', 'Video creation is not available yet.');
         const v = await videos.read(caller, params.id);
-        res.writeHead(200, { 'Content-Type': v.mime || 'video/mp4', 'Content-Length': v.bytes.length, 'Cache-Control': 'private, max-age=86400', 'Content-Disposition': `attachment; filename="nasrin-video-${v.id.slice(0, 8)}.mp4"` });
+        res.writeHead(200, { 'Content-Type': v.mime || 'video/mp4', 'Content-Length': v.bytes.length, 'Cache-Control': 'private, max-age=86400', 'Content-Disposition': `inline; filename="nasrin-video-${v.id.slice(0, 8)}.mp4"` });
         res.end(v.bytes);
       }
     },
