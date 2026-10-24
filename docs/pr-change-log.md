@@ -2238,3 +2238,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - The Vercel status check can be green even when the deployment is `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
 - **Validation:** rerun CI and verify the Vercel deployment reaches `READY` before API or iPhone Safari smoke tests. No production deployment or credentials were changed.
+
+## Tier-aware OpenRouter routing (2026-10-25)
+
+- Guest and free Quick can try eligible explicitly free OpenRouter models; GPT-6 Luna is the only paid-model fallback and is attempted after the free pool.
+- Paid subscription users selecting Quick, Pro, Max, or Ultra skip all OpenRouter model IDs ending in `:free`; paid Quick entitlement is propagated separately from the selected Quick tier.
+- Add routing regression coverage for free-first fallback, paid-tier exclusion, and paid Quick model eligibility.
+- **Validation:** pending CI on this pull request. Do not merge until the test, database, dependency-audit, and documentation checks pass.
