@@ -1221,6 +1221,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
     if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+        sendNotFound(res);
+        return true;
+      }
       if (!openrouterApiKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
         return true;
