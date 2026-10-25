@@ -2613,3 +2613,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
 - Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
 - Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.
+
+## OpenRouter model shortlist documentation — 2026-10-26
+
+- Preserve the capability-based OpenRouter model shortlist as operator guidance, not a production allowlist; authenticated live endpoint checks remain required before route changes.
+- No provider settings, runtime routing, credentials, production configuration, or model enablement were changed.
