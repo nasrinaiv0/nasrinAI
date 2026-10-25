@@ -229,7 +229,7 @@ export function loadConfig(env = process.env) {
   } : aiProvider === 'auto' ? {
     // Auto prefers configured direct providers; OpenRouter is a gateway/fallback,
     // not the default route simply because its key is present.
-    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (env.OPENAI_API_KEY ? 'openai:gpt-4o-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-4o-mini')),
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (local ? 'local:' + local.model : env.OPENAI_API_KEY ? 'openai:gpt-4o-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-4o-mini')),
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (env.OPENAI_API_KEY ? 'openai:gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-5-mini')),
     max: tierSpec('TIER_MAX', env.TIER_MAX ?? (env.OPENAI_API_KEY ? 'openai:gpt-5' : geminiKey ? 'gemini:gemini-3.1-pro' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6-sol' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5')),
     ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (env.OPENAI_API_KEY ? 'openai:gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-pro' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6.1-sol' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5:high'))
@@ -280,7 +280,7 @@ export function loadConfig(env = process.env) {
     ...eligibleFreeProviderIds.filter((id) => !freeFallbackPriority.includes(id))
   ];
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['openai', 'gemini', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter'),
+    ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter'),
       ...(providerKeys.includes('openrouter') && providerKeys.some((p) => ['openai', 'gemini'].includes(p)) ? ['openrouter'] : [])]
       .filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
     : fallbackMode === 'free'
@@ -350,7 +350,7 @@ export function loadConfig(env = process.env) {
     // Auto prefers direct providers on normal routes. Quick/free eligibility is
     // enforced by policy; direct free allowlists precede OpenRouter free models.
     1: aiProvider === 'auto'
-      ? [has('openai') ? 'openai:gpt-5.4-nano' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('local') && local ? 'local:' + local.model : '', ...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '']
+      ? [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-nano' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', ...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '']
       : quickFreeDefaults.length ? [...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), ...(has('openrouter') ? ['openrouter:openai/gpt-6-luna'] : [])] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
     2: aiProvider === 'auto'
       ? [has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('local') && local ? 'local:' + local.model : '', ...openRouterProCandidates]
