@@ -1,3 +1,10 @@
+## Owner Command Center model inventory refresh — 2026-10-26
+
+- Replace inferred model membership with explicit OpenRouter and direct OpenAI, Google, and Anthropic inventories supplied for the Owner Command Center.
+- Preserve exact IDs, including the 51 supplied OpenRouter entries (49 unique IDs because two entries were repeated) and 14 direct-provider entries.
+- Classify recorded telemetry against the appropriate provider inventory only; unknown providers/aliases remain unknown. Catalog membership does not imply model readiness or fabricate activity/costs.
+- Add regression coverage for inventory counts and direct-provider AI Logs classification.
+
 ## Rich reply rendering polish — 2026-10-26
 
 - Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
