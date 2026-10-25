@@ -593,7 +593,7 @@ test('regional analytics API is owner-session protected, bounded, and aggregate-
 });
 
 
-test('cross-provider AI logs apply short time windows, provider filters, live catalog membership, and provider-cost labeling', async () => {
+test('cross-provider AI logs apply short time windows, provider filters, configured catalog membership, and provider-cost labeling', async () => {
   const timestamp = new Date(1_800_000_000_000).toISOString();
   const store = {
     kind: 'supabase',
@@ -602,7 +602,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
       if (path.startsWith('usage_events?')) return [];
       if (path.startsWith('openrouter_logs?')) return [{
         id: 'log-1', request_id: 'req-1', created_at: timestamp, provider: 'openrouter',
-        requested_model: 'openrouter/auto', model: 'openai/gpt-4o-mini', upstream_provider: 'OpenAI',
+        requested_model: 'openrouter/auto', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', upstream_provider: 'OpenAI',
         endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
         prompt_tokens: 12, cached_tokens: 2, completion_tokens: 8, total_tokens: 20,
         total_cost_usd: 0.0012, provider_cost_source: 'openrouter_generation_api',
@@ -620,10 +620,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   };
   const { consoleHandler } = setup({
     store,
-    fetchImpl: async (url) => {
-      assert.equal(url, 'https://openrouter.ai/api/v1/models');
-      return { ok: true, json: async () => ({ data: [{ id: 'openai/gpt-4o-mini' }] }) };
-    }
+    fetchImpl: async () => { throw new Error('catalog membership must use NasrinAI configured catalogs'); }
   });
   const opened = await bootstrap(consoleHandler);
   const cookie = opened.res.headers['set-cookie'].split(';')[0];
@@ -635,7 +632,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   assert.equal(payload.provider, 'openrouter');
   assert.equal(payload.rows.length, 1);
   assert.equal(payload.rows[0].catalog_status, 'listed');
-  assert.equal(payload.rows[0].model, 'openai/gpt-4o-mini');
+  assert.equal(payload.rows[0].model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
   assert.equal(payload.rows[0].cost_kind, 'provider_reported');
   assert.equal(payload.rows[0].total_cost_usd, 0.0012);
   assert.equal(payload.rows[0].model_status, 'observed');
@@ -648,7 +645,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   const inferred = allStatesPayload.rows.find((row) => row.id === 'log-inferred');
   assert.equal(inferred.status, 'running');
   assert.equal(inferred.model_status, 'inferred');
-  assert.equal(inferred.catalog_status, 'not_listed');
+  assert.equal(inferred.catalog_status, 'unknown');
 
   const invalid = request('GET', '/owner/api/ai-logs?window=2m&provider=openrouter', { headers: { cookie }, testIp: IP });
   await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/ai-logs');
