@@ -2430,3 +2430,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
 - **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.
+
+## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
+
+- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
+- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
+- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
+- **Validation:** CI and the documentation gate passed on the previous head; rerun both after this changelog reconciliation. Authenticated live model probes remain outstanding; no production routing or account settings were changed.
