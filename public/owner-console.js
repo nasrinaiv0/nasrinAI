@@ -124,10 +124,69 @@
     c.append(lower);
     if (hasUsage && u.last_event_at) $('freshness').textContent = 'Last usage event ' + new Date(u.last_event_at).toLocaleString() + ' · estimates may be partial';
   }
+  function renderOpenRouterVerifier(container) {
+    const panel = el('section', 'panel module-extra');
+    const copy = el('p', 'panel-copy', 'Run the GitHub Actions verifier against the live OpenRouter catalog. This sends real provider requests and may incur costs.');
+    const form = el('div', 'incident-form');
+    const modelLabel = el('label', '', 'Optional model ID (leave blank to test all eligible text models)');
+    const modelInput = el('input', 'provider-log-control');
+    modelInput.type = 'text';
+    modelInput.maxLength = 200;
+    modelInput.autocomplete = 'off';
+    modelInput.placeholder = 'e.g. openai/gpt-6-sol';
+    modelLabel.append(modelInput);
+    const confirmLabel = el('label', '', 'I understand real provider requests may incur costs');
+    const confirmInput = el('input');
+    confirmInput.type = 'checkbox';
+    confirmLabel.append(confirmInput);
+    const runButton = el('button', 'quiet-button', 'Run model verification');
+    runButton.type = 'button';
+    const status = el('p', 'panel-copy provider-verification-status', 'Results appear in GitHub Actions after the workflow starts.');
+    const link = el('a', 'quiet-button', 'View workflow runs');
+    link.href = 'https://github.com/primusco20/nasrinAI/actions/workflows/verify-openrouter-models.yml';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    runButton.addEventListener('click', async () => {
+      if (!confirmInput.checked) {
+        status.textContent = 'Please confirm that real provider requests may incur costs.';
+        confirmInput.focus();
+        return;
+      }
+      const model = modelInput.value.trim();
+      if (model && !/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model)) {
+        status.textContent = 'Enter a valid model ID using letters, numbers, dots, underscores, colons, slashes, or hyphens.';
+        modelInput.focus();
+        return;
+      }
+      runButton.disabled = true;
+      status.textContent = 'Starting GitHub Actions workflow…';
+      try {
+        const response = await fetch('/owner/api/verify-openrouter-models', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ model, confirm_provider_costs: true })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Could not start the workflow.');
+        status.textContent = 'Workflow queued' + (payload.model ? ' for ' + payload.model : ' for all eligible text models') + '. Open GitHub Actions to monitor the run and review per-model results.';
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : 'Could not start the workflow.';
+      } finally {
+        runButton.disabled = false;
+      }
+    });
+    form.append(modelLabel, confirmLabel, runButton, link, status);
+    panel.append(el('h3', '', 'OpenRouter model verification'), copy, form);
+    container.append(panel);
+  }
+
   function renderModule(key) {
     const c = $('content'), meta = names[key];
     c.replaceChildren();
     c.append(head(meta[0], meta[1], 'Read-only'), notice('No unverified data is shown', 'This module remains read-only. Data without a verified source is marked Unavailable rather than represented by fabricated counts or stale values.'));
+    if (key === 'ai') renderOpenRouterVerifier(c);
     const sourceKeys = key === 'ai' ? ['ai_usage', 'infrastructure'] :
       key === 'users' ? ['users', 'retention'] :
       key === 'infra' ? ['database', 'infrastructure'] :
