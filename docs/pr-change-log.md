@@ -1,3 +1,9 @@
+## OpenRouter session ID validation fix — 2026-10-25
+
+- Fixed the regression test failure by rejecting ASCII control characters (including newline and DEL) in caller-supplied OpenRouter session IDs, in addition to empty and over-limit values.
+- Kept optional session IDs omitted when no conversation ID is supplied; the change does not alter conversation history or provider routing policy.
+- **Validation:** CI rerun required after this fix; no passing test result is claimed until the new branch checks complete.
+
 ## OpenRouter conversation session routing — 2026-10-25
 
 - Pass the owner-checked NasrinAI conversation ID through the chat provider contract and derive a stable SHA-256 opaque session key for OpenRouter chat-completion requests.

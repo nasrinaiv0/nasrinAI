@@ -328,8 +328,13 @@ export function createOpenRouterClient({
       ? { id: 'openrouter/free' }
       : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens });
     const normalizedSessionId = sessionId == null ? null : (typeof sessionId === 'string' ? sessionId.trim() : '');
-    if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256)) {
-      throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 characters');
+    const hasUnsafeSessionIdCharacters = typeof normalizedSessionId === 'string'
+      && [...normalizedSessionId].some((character) => {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127;
+      });
+    if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256 || hasUnsafeSessionIdCharacters)) {
+      throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 safe characters');
     }
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: provider.data_collection === 'deny' ? 'deny' : defaultDataCollection, allow_fallbacks: provider.allow_fallbacks !== false } };
