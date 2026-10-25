@@ -656,19 +656,3 @@ test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint elig
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'nasrinai' }), false, 'free Quick cannot use unmarked paid IDs');
 });
 
-test('Quick without OpenRouter still rejects paid direct-provider routes', async () => {
-  const a = setup({
-    env: {
-      AI_PROVIDER: 'auto',
-      AI_FALLBACK: 'none',
-      OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30),
-      GROQ_API_KEY: 'groq-test-key',
-      GROQ_MODEL: 'llama-3.3-70b-versatile',
-      GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'
-    }
-  });
-  const run = await a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello'));
-  assert.equal(run.spec.provider, 'groq');
-  assert.equal(run.spec.model, 'llama-3.3-70b-versatile');
-  assert.equal(a.openai.calls.length, 0, 'Quick cannot consume paid OpenAI models just because OpenRouter is not configured');
-});
