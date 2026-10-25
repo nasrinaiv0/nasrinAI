@@ -18,3 +18,13 @@
 .provider-log-pager{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:14px}
 @media(max-width:850px){.provider-log-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.provider-log-filters>button{width:100%}}
 @media(max-width:480px){.provider-log-filters{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Cross-provider model inventory tables */
+.table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;border:1px solid var(--border,#303747);border-radius:12px;-webkit-overflow-scrolling:touch}
+.data-table{width:100%;min-width:980px;border-collapse:collapse;font-size:12px}
+.data-table th,.data-table td{padding:11px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border,#303747);white-space:nowrap}
+.data-table th{position:sticky;top:0;background:var(--surface,#111723);color:var(--muted,#a5adbf);font-weight:600;z-index:1}
+.data-table tbody tr:hover{background:var(--surface-hover,rgba(128,140,165,.06))}
+.data-table .model-id-cell{min-width:180px;max-width:280px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+@media(max-width:640px){.data-table{min-width:900px}.table-wrap{margin-inline:0}}

@@ -799,33 +799,68 @@
         });
         if (!response.ok) throw new Error('Model inventory is unavailable. Check the server deployment and telemetry sources.');
         const payload = await response.json();
-        const summary = el('div', 'module-grid');
-        const scopedRows = payload.rows.filter((row) => isOpenRouter ? row.sources.includes('openrouter_logs') : row.sources.includes('usage_events') && !row.sources.includes('openrouter_logs'));
+        if (!payload || !Array.isArray(payload.rows)) {
+          throw new Error('The model inventory response was incomplete. Refresh the page or check the telemetry API.');
+        }
+        const catalogCoverage = payload.catalog_coverage && typeof payload.catalog_coverage === 'object'
+          ? payload.catalog_coverage : {};
+        const rows = payload.rows.filter((row) => row && typeof row === 'object' && typeof row.model === 'string' && row.model.trim());
+        const sourcesFor = (row) => Array.isArray(row.sources) ? row.sources : [];
+        const scopedRows = rows.filter((row) => isOpenRouter
+          ? sourcesFor(row).includes('openrouter_logs')
+          : sourcesFor(row).includes('usage_events') && !sourcesFor(row).includes('openrouter_logs'));
         const unlisted = scopedRows.filter((row) => row.catalog_status === 'not_listed');
-        const unknown = scopedRows.filter((row) => row.catalog_status === 'unknown');
+        const unknown = scopedRows.filter((row) => row.catalog_status === 'unknown' || !row.catalog_status);
         const listed = scopedRows.filter((row) => row.catalog_status === 'listed');
+        const summary = el('div', 'module-grid');
         [[unlisted.length,'Confirmed not in OpenRouter catalog','unavailable'],
          [unknown.length,'Catalog status unknown','stale'],
          [listed.length,'Listed in OpenRouter catalog','available']].forEach(([value,label,kind]) => {
-          const card = el('article','module-card'); card.append(el('h3','',String(value)),el('p','',label)); card.append(state(kind === 'available' ? 'Verified' : kind === 'stale' ? 'Needs catalog adapter' : 'Review',kind)); summary.append(card);
+          const card = el('article','module-card');
+          card.append(el('h3','',String(value)),el('p','',label));
+          card.append(state(kind === 'available' ? 'Verified' : kind === 'stale' ? 'Needs catalog adapter' : 'Review',kind));
+          summary.append(card);
         });
         result.replaceChildren(summary);
         result.append(notice('Coverage and interpretation',
-          'OpenRouter catalog: ' + payload.catalog_coverage.openrouter + '. Other providers: ' + payload.catalog_coverage.other_providers + '. Models from other providers are included, but are not falsely labeled unlisted until their own catalog/guardrail registry can be verified.'));
+          'OpenRouter catalog: ' + String(catalogCoverage.openrouter || 'unknown') + '. Other providers: ' + String(catalogCoverage.other_providers || 'unknown') + '. Models from other providers are included, but are not labeled unlisted until their own catalog/guardrail registry can be verified.'));
         const table = el('div','table-wrap');
         const t = el('table','data-table');
         const thead = el('thead'), hr = el('tr');
         ['Provider','Observed model ID','Catalog status','Requests','Success / failure','Input / output tokens','Cost (USD)','First seen','Last seen','Source'].forEach(label => hr.append(el('th','',label)));
         thead.append(hr); t.append(thead);
         const tbody = el('tbody');
-        scopedRows.filter(row => !isOpenRouter || row.catalog_status === 'not_listed').forEach(row => {
+        const safeCount = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
+        const safeDate = (value) => {
+          if (!value) return '—';
+          const parsed = new Date(value);
+          return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString();
+        };
+        const visibleRows = scopedRows
+          .filter((row) => !isOpenRouter || row.catalog_status === 'not_listed')
+          .sort((a, b) => safeCount(b.request_count) - safeCount(a.request_count) || String(a.model).localeCompare(String(b.model)));
+        visibleRows.forEach((row) => {
           const tr = el('tr');
-          [row.provider,row.model,row.catalog_status.replaceAll('_',' '),String(row.request_count),row.successes+' / '+row.failures,
-           Number(row.input_tokens).toLocaleString()+' / '+Number(row.output_tokens).toLocaleString(),
-           row.cost_usd === null ? 'Unknown' : '$' + Number(row.cost_usd).toFixed(6),
-           row.first_seen ? new Date(row.first_seen).toLocaleString() : '—',
-           row.last_seen ? new Date(row.last_seen).toLocaleString() : '—',
-           row.sources.join(', ')].forEach((value, index) => tr.append(el('td', index === 2 ? 'status-text' : '', String(value))));
+          const status = String(row.catalog_status || 'unknown').replaceAll('_',' ');
+          const cost = row.cost_usd === null || row.cost_usd === undefined || !Number.isFinite(Number(row.cost_usd))
+            ? 'Unknown' : String.fromCharCode(36) + Number(row.cost_usd).toFixed(6);
+          const cells = [
+            row.provider || 'Unknown',
+            row.model || 'Unknown',
+            status,
+            safeCount(row.request_count).toLocaleString(),
+            safeCount(row.successes).toLocaleString() + ' / ' + safeCount(row.failures).toLocaleString(),
+            safeCount(row.input_tokens).toLocaleString() + ' / ' + safeCount(row.output_tokens).toLocaleString(),
+            cost,
+            safeDate(row.first_seen),
+            safeDate(row.last_seen),
+            sourcesFor(row).join(', ') || 'Unknown'
+          ];
+          cells.forEach((value, index) => {
+            const td = el('td', index === 2 ? 'status-text' : '', String(value));
+            if (index === 1) td.classList.add('model-id-cell');
+            tr.append(td);
+          });
           tbody.append(tr);
         });
         if (!scopedRows.length || (isOpenRouter && !scopedRows.some((row) => row.catalog_status === 'not_listed'))) {
