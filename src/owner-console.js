@@ -913,7 +913,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       };
       try {
         const [usageRows, routerRows] = await Promise.all([
-          store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
+          store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
           store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
         ]);
         if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
@@ -960,12 +960,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
             status, http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
-            total_cost_usd: null, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
+            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? Number(row.cost_usd) : null,
+            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null, provider_request_id: null, openrouter_generation_id: null,
             finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
             catalog_status: nasrinCatalogStatus(model),
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
-            telemetry_source: 'usage_events', cost_kind: 'unknown'
+            telemetry_source: 'usage_events', cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? 'provider_reported' : 'unknown'
           });
         }
         const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
@@ -1038,7 +1039,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           item.output_tokens += Math.max(0, Number(row.output_tokens ?? row.completion_tokens) || 0);
           // Only generation-reconciled OpenRouter cost is verified provider spend.
           // usage_events.cost_usd is an application-side estimate without provenance.
-          const cost = source === 'openrouter_logs' && row.provider_cost_source === 'openrouter_generation_api' ? row.total_cost_usd : null;
+          const cost = source === 'usage_events' && row.cost_source === 'provider_reported' ? row.cost_usd : source === 'openrouter_logs' && row.provider_cost_source === 'openrouter_generation_api' ? row.total_cost_usd : null;
           if (cost !== null && cost !== undefined && Number.isFinite(Number(cost)) && Number(cost) >= 0) {
             item.cost_usd += Number(cost); item.cost_known = true;
           }
