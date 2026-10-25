@@ -1,3 +1,9 @@
+## Direct-provider cost provenance correction — 2026-10-26
+
+- Read the existing `usage_events.cost_source` column introduced by migration 062. Direct-provider `cost_usd` is considered provider-reported only when `cost_source = provider_reported` and the amount is finite and non-negative.
+- Preserve unknown status for legacy/unmarked cost values; use the same provenance gate for AI Logs and model-level inventory aggregation.
+- Add regression coverage for both unverified legacy costs and explicitly provenance-marked provider costs. No new migration is required because migration 062 already defines this field and its constraints.
+
 ## Provider cost verification follow-up — 2026-10-26
 
 - Require `provider_cost_source = openrouter_generation_api` plus a finite, non-negative `total_cost_usd` before classifying an OpenRouter request cost as provider-reported.
