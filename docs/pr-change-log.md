@@ -1,3 +1,10 @@
+## Owner Command Center table settings — 2026-10-25
+
+- Add table-specific column visibility, drag-and-drop ordering, pinned-column selection, Compact/Regular/Expanded density, and Reset controls to AI Logs and AI Models Activities.
+- Persist display preferences in browser local storage under separate keys per table. Hidden columns remain in the underlying data and do not change filtering or request calculations.
+- Add regression checks for the table settings controls and document the change in CHANGELOG.md.
+- Validation: CI is required; no merge or production deployment is claimed by this change.
+
 ## Owner Command Center OpenRouter verification button — 2026-10-25
 
 - Add an owner-only Run model verification control in AI Operations, wired to the existing `.github/workflows/verify-openrouter-models.yml` workflow.
