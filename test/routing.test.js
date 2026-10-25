@@ -19,7 +19,7 @@ const ENV = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30)
 const PLATFORM = '00000000-0000-0000-0000-000000000001';
 
 // A router over pretend providers: gemini (free tier, trains on data) and openai.
-function setup({ env = {}, openaiFail = null, geminiFail = null, reply, liveOpenRouterModels = [] } = {}) {
+function setup({ env = {}, openaiFail = null, geminiFail = null, openrouterFail = null, groqFail = null, reply, liveOpenRouterModels = [] } = {}) {
   const config = loadConfig({ ...ENV, ...env });
   const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: geminiFail, reply });
   gemini.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: false, trainsOnData: true });
@@ -43,7 +43,11 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, reply, liveOpen
     'inclusionai/ling-3.1-flash'
   ], reply });
   openrouter.listModelsForTask = async () => liveOpenRouterModels;
-  const router = createRouter({ providers: { gemini, openai, openrouter }, config, logger: quiet });
+  const groq = createFakeProvider({ models: ['llama-3.3-70b-versatile'], dataLeavesServer: true, failWith: groqFail });
+  groq.capabilities = () => ({ local: false, dataLeavesServer: true, vision: false, pdf: false, tools: false, trainsOnData: true });
+  // Keep provider-specific failures independently controllable for failover tests.
+  if (openrouterFail) openrouter.failWith = openrouterFail;
+  const router = createRouter({ providers: { gemini, openai, openrouter, groq }, config, logger: quiet });
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
@@ -152,6 +156,26 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
+test('Quick falls back to an explicitly allowlisted free provider when OpenRouter free models are unavailable', async () => {
+  const a = setup({
+    env: {
+      AI_PROVIDER: 'openrouter',
+      OPENROUTER_API_KEY: 'or-test-key',
+      GROQ_API_KEY: 'groq-test-key',
+      GROQ_MODEL: 'llama-3.3-70b-versatile',
+      GROQ_FREE_MODELS: 'llama-3.3-70b-versatile'
+    },
+    openrouterFail: () => new ProviderError('unavailable', 'OpenRouter model unavailable')
+  });
+  const run = await a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello'));
+  assert.equal(run.spec.provider, 'groq');
+  assert.equal(run.spec.model, 'llama-3.3-70b-versatile');
+  assert.ok(a.openrouter.calls.length > 0, 'OpenRouter free routes are tried first');
+  assert.equal(a.groq.calls.length, 1, 'the configured free provider is used as fallback');
+  assert.equal(a.openai.calls.length, 0, 'Quick never falls back to a paid OpenAI route');
+  assert.equal(a.gemini.calls.length, 0, 'Quick never falls back to an unapproved provider route');
+});
+
 test('paid Quick skips free OpenRouter models and uses a verified paid-Quick model', async () => {
   const paidQuickModel = 'google/gemini-2.5-flash-lite';
   const a = setup({
