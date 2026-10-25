@@ -24,7 +24,7 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, openrouterFail 
   const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: geminiFail, reply });
   gemini.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: false, trainsOnData: true });
   const openai = createFakeProvider({ models: ['gpt-5.4-nano'], dataLeavesServer: true, failWith: openaiFail, reply });
-  const openrouter = createFakeProvider({ models: [
+  const openrouter = createFakeProvider({ failWith: openrouterFail, models: [
     'nvidia/nemotron-3.5-lightning:free',
     'nvidia/nemotron-3-super-120b-a12b:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
@@ -43,10 +43,9 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, openrouterFail 
     'inclusionai/ling-3.1-flash'
   ], reply });
   openrouter.listModelsForTask = async () => liveOpenRouterModels;
-  const groq = createFakeProvider({ models: ['llama-3.3-70b-versatile'], dataLeavesServer: true, failWith: groqFail });
+  const groq = createFakeProvider({ models: ['llama-3.3-70b-versatile'], dataLeavesServer: true, failWith: groqFail, reply });
   groq.capabilities = () => ({ local: false, dataLeavesServer: true, vision: false, pdf: false, tools: false, trainsOnData: true });
   // Keep provider-specific failures independently controllable for failover tests.
-  if (openrouterFail) openrouter.failWith = openrouterFail;
   const router = createRouter({ providers: { gemini, openai, openrouter, groq }, config, logger: quiet });
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
