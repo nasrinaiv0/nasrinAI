@@ -157,6 +157,7 @@ const dashboardHtml = `<!doctype html>
       <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
       <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
       <button class="nav-item" data-panel="logs"><span>≋</span>AI Provider Logs</button>
+      <button class="nav-item" data-panel="unlisted"><span>⌕</span>Unlisted / Guardrail Models</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
@@ -182,7 +183,8 @@ const dashboardHtml = `<!doctype html>
 const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
-  logs: { title: 'AI Provider Logs', description: 'Request-level OpenRouter telemetry, status, tokens, cost, latency, and provider response metadata.' },
+  logs: { title: 'AI Provider Logs', description: 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.' },
+  unlisted: { title: 'Unlisted / Guardrail Models', description: 'Models observed across providers, checked against verified catalogs where supported, and flagged when guardrail eligibility cannot be confirmed.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
@@ -718,6 +720,100 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       } catch {
         logger?.warn?.('OpenRouter request logs unavailable', { source: 'openrouter_logs' });
         sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs could not be loaded. Confirm migrations 063 and 064 are applied and server-side database access is configured.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/unlisted-models' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'model_telemetry_unavailable', message: 'Cross-provider model telemetry is not connected.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      const daysByWindow = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 };
+      if (!Object.hasOwn(daysByWindow, windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 24h, 7d, 30d, or 90d.' } });
+        return true;
+      }
+      const cutoff = new Date(now() - daysByWindow[windowName] * 86400000).toISOString();
+      try {
+        // Only collect model/provider metadata. Never return prompt, completion, or raw summaries.
+        const usageRows = await store.request('GET',
+          'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd&created_at=gte.' +
+          encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000');
+        const routerRows = await store.request('GET',
+          'openrouter_logs?select=provider,requested_model,model,upstream_provider,endpoint,status,created_at,prompt_tokens,completion_tokens,total_cost_usd&created_at=gte.' +
+          encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000');
+        if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry');
+        const grouped = new Map();
+        const add = (provider, model, row, source, actual) => {
+          const p = String(provider || 'unknown').trim().toLowerCase().slice(0, 60);
+          const m = String(model || '').trim().slice(0, 200);
+          if (!m || /^(openrouter\/(auto|free)|auto)$/i.test(m)) return;
+          const key = p + '\u0000' + m;
+          let item = grouped.get(key);
+          if (!item) {
+            item = { provider: p, model: m, first_seen: row.created_at || null, last_seen: row.created_at || null,
+              request_count: 0, successes: 0, failures: 0, input_tokens: 0, output_tokens: 0,
+              cost_usd: 0, cost_known: false, sources: new Set(), actual_model_confirmed: false };
+            grouped.set(key, item);
+          }
+          item.request_count++;
+          if (row.created_at && (!item.first_seen || row.created_at < item.first_seen)) item.first_seen = row.created_at;
+          if (row.created_at && (!item.last_seen || row.created_at > item.last_seen)) item.last_seen = row.created_at;
+          const status = row.outcome || row.status;
+          if (status === 'ok' || status === 'success') item.successes++;
+          else if (status) item.failures++;
+          item.input_tokens += Math.max(0, Number(row.input_tokens ?? row.prompt_tokens) || 0);
+          item.output_tokens += Math.max(0, Number(row.output_tokens ?? row.completion_tokens) || 0);
+          const cost = row.cost_usd ?? row.total_cost_usd;
+          if (cost !== null && cost !== undefined && Number.isFinite(Number(cost)) && Number(cost) >= 0) {
+            item.cost_usd += Number(cost); item.cost_known = true;
+          }
+          item.sources.add(source);
+          item.actual_model_confirmed ||= actual === true;
+        };
+        for (const row of usageRows) add(row.provider, row.model, row, 'usage_events', true);
+        for (const row of routerRows) {
+          // For auto-routing, requested_model is not the actual model. Only count returned model.
+          if (row.model) add(row.upstream_provider || row.provider, row.model, row, 'openrouter_logs', true);
+        }
+        let openRouterCatalog = null;
+        try {
+          if (typeof fetchImpl === 'function') {
+            const response = await fetchImpl('https://openrouter.ai/api/v1/models', {
+              method: 'GET', headers: { Accept: 'application/json' },
+              signal: AbortSignal.timeout(5000), redirect: 'error'
+            });
+            if (response.ok) {
+              const payload = await response.json();
+              if (Array.isArray(payload?.data)) openRouterCatalog = new Set(payload.data.map((entry) => String(entry?.id || '')).filter(Boolean));
+            }
+          }
+        } catch { /* Catalog state remains unknown; never infer unlisted from a failed fetch. */ }
+        const rows = [...grouped.values()].map((item) => {
+          const normalizedProvider = item.provider.replace(/\s+/g, '');
+          const catalogStatus = normalizedProvider === 'openrouter'
+            ? (openRouterCatalog ? (openRouterCatalog.has(item.model) ? 'listed' : 'not_listed') : 'unknown')
+            : 'unknown';
+          const result = {
+            provider: item.provider, model: item.model, first_seen: item.first_seen, last_seen: item.last_seen,
+            request_count: item.request_count, successes: item.successes, failures: item.failures,
+            input_tokens: item.input_tokens, output_tokens: item.output_tokens,
+            cost_usd: item.cost_known ? Number(item.cost_usd.toFixed(8)) : null,
+            catalog_status: catalogStatus, sources: [...item.sources].sort()
+          };
+          return result;
+        }).sort((a, b) => {
+          const priority = (x) => x.catalog_status === 'not_listed' ? 0 : x.catalog_status === 'unknown' ? 1 : 2;
+          return priority(a) - priority(b) || b.request_count - a.request_count;
+        });
+        sendJson(res, 200, { source: 'supabase.usage_events+openrouter_logs', window: windowName,
+          generated_at: new Date(now()).toISOString(), catalog_coverage: { openrouter: openRouterCatalog ? 'available' : 'unavailable', other_providers: 'unknown_without_verified_catalog_adapter' },
+          count: rows.length, rows });
+      } catch {
+        logger?.warn?.('Cross-provider model telemetry unavailable', { source: 'model_telemetry' });
+        sendJson(res, 503, { error: { code: 'model_telemetry_unavailable', message: 'Model telemetry could not be loaded. Verify owner database access and provider usage logging.' } });
       }
       return true;
     }
