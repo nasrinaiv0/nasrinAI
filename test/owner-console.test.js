@@ -386,6 +386,21 @@ test('OpenRouter billing uses Analytics API and keeps optional credits failures 
   assert.equal(calls.some((call) => call.url.endsWith('/activity')), false);
 });
 
+test('OpenRouter Analytics 403 is reported safely as a Management API permission error', async () => {
+  const secretSentinel = 'never-echo-management-secret';
+  const fetchImpl = async () => ({ ok: false, status: 403, json: async () => ({ message: secretSentinel }) });
+  const { consoleHandler } = setup({ fetchImpl, openrouterManagementKey: secretSentinel });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-billing?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-billing');
+  assert.equal(out.res.statusCode, 403);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.error.code, 'openrouter_management_forbidden');
+  assert.match(payload.error.message, /authorized Management API key/);
+  assert.equal(out.res.body.includes(secretSentinel), false);
+});
+
 test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {
   let queriedPath = '';
   const store = {
