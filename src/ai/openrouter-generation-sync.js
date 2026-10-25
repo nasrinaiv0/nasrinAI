@@ -22,15 +22,64 @@ async function readJson(response, label) {
   try { return await response.json(); } catch { throw new Error(label + '_invalid_json'); }
 }
 
-function analyticsGenerationIds(payload) {
+function analyticsRows(payload) {
   const rows = payload?.data?.data ?? payload?.data?.rows ?? payload?.rows ?? [];
   if (!Array.isArray(rows)) throw new Error('analytics_invalid_shape');
+  return rows;
+}
+
+function analyticsGenerationIds(payload) {
   const ids = new Set();
-  for (const row of rows) {
+  for (const row of analyticsRows(payload)) {
     const id = row?.generation_id ?? row?.dimensions?.generation_id ?? row?.group?.generation_id;
     if (validGenerationId(id)) ids.add(id);
   }
   return [...ids];
+}
+
+/**
+ * OpenRouter analytics can return at most 1,000 rows per query. Treat that as
+ * a per-request page size, not a total sync limit: recursively split saturated
+ * time windows and deduplicate IDs across the resulting intervals.
+ */
+async function discoverGenerationIds({ start, end, managementKey, fetchImpl, timeoutMs }) {
+  const queryWindow = async (windowStart, windowEnd) => {
+    const response = await fetchImpl(OPENROUTER_BASE + '/analytics/query', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + managementKey, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        metrics: ['total_usage'],
+        dimensions: ['generation_id'],
+        time_range: { start: windowStart, end: windowEnd },
+        limit: 1000
+      }),
+      redirect: 'error',
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    return readJson(response, 'analytics');
+  };
+
+  const collect = async (windowStart, windowEnd, depth = 0) => {
+    if (depth > 32) throw new Error('analytics_window_split_limit');
+    const payload = await queryWindow(windowStart, windowEnd);
+    const rows = analyticsRows(payload);
+    if (rows.length < 1000) return analyticsGenerationIds(payload);
+
+    const from = Date.parse(windowStart);
+    const to = Date.parse(windowEnd);
+    const midpoint = Math.floor((from + to) / 2);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || midpoint <= from || midpoint >= to) {
+      throw new Error('analytics_window_overflow');
+    }
+    const mid = new Date(midpoint).toISOString();
+    const [left, right] = await Promise.all([
+      collect(windowStart, mid, depth + 1),
+      collect(mid, windowEnd, depth + 1)
+    ]);
+    return [...new Set([...left, ...right])];
+  };
+
+  return collect(start, end);
 }
 
 async function fetchGeneration(id, inferenceKey, fetchImpl, timeoutMs = 8000) {
@@ -148,15 +197,7 @@ export async function runOpenRouterGenerationSync({
 
   const end = new Date(now()).toISOString();
   const start = new Date(now() - Math.min(Math.max(Number(lookbackHours) || 48, 1), 168) * 3600000).toISOString();
-  const analyticsResponse = await fetchImpl(OPENROUTER_BASE + '/analytics/query', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + managementKey, Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ metrics: ['total_usage'], dimensions: ['generation_id'], time_range: { start, end }, limit: 1000 }),
-    redirect: 'error',
-    signal: AbortSignal.timeout(timeoutMs)
-  });
-  const analytics = await readJson(analyticsResponse, 'analytics');
-  const ids = analyticsGenerationIds(analytics);
+  const ids = await discoverGenerationIds({ start, end, managementKey, fetchImpl, timeoutMs });
   let fetched = 0, unavailable = 0, failed = 0;
   const rows = [];
   for (let i = 0; i < ids.length; i += 5) {
@@ -182,7 +223,6 @@ export async function runOpenRouterGenerationSync({
     fetched,
     saved,
     unavailable,
-    failed,
-    truncated_possible: ids.length >= 1000
+    failed
   };
 }
