@@ -1,3 +1,10 @@
+## Dedicated OpenRouter and other-provider unlisted model tabs — 2026-10-25
+
+- Split the cross-provider model inventory into two distinct navigation categories: **OpenRouter Unlisted Models** and **Other Provider Unlisted Models**.
+- The OpenRouter tab includes only actual returned model IDs sourced from OpenRouter telemetry that are confirmed absent from the live catalog. It excludes requested aliases and excludes unknown catalog states from the confirmed-unlisted table.
+- The other-provider tab shows recorded non-OpenRouter usage separately and preserves unknown catalog status until provider-specific verified catalog adapters exist.
+- CI is required before merge; the prior test job failed and must be diagnosed and fixed before completion.
+
 ## Cross-provider model catalog and guardrail visibility — 2026-10-25
 
 - Added a separate Owner Command Center navigation category, **Unlisted / Guardrail Models**, spanning model usage observed across provider telemetry rather than OpenRouter alone.
