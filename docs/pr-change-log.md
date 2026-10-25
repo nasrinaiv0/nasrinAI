@@ -1,3 +1,10 @@
+## Owner Command Center provider-specific model inventory — 2026-10-26
+
+- Replace model-membership inference with explicit inventories for the 51 supplied OpenRouter entries (49 unique IDs; two IDs were repeated in the source list) and the 14 direct-provider models across OpenAI, Google, and Anthropic.
+- Classify OpenRouter request logs against the OpenRouter inventory and direct-provider usage events against the corresponding provider inventory. Unknown provider aliases remain unknown.
+- Keep catalog membership separate from runtime readiness; do not synthesize activity records or estimate provider costs.
+- Add regression tests for the inventory counts and direct-provider AI Logs classification. Validation remains pending until CI completes.
+
 ## Rich reply rendering polish — 2026-10-26
 
 - Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
