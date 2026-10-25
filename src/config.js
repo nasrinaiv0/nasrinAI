@@ -178,7 +178,7 @@ export function loadConfig(env = process.env) {
     const configuredFreeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
     const freeModels = configuredFreeModels.length ? configuredFreeModels : [...(p.freeModels || [])];
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, models: p.models || null, trainsOnData: true, vision: false, tools: false };
-  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && aiProvider !== 'openrouter' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
+  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', openrouter: 'openrouter', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : openrouterApiKey ? 'openrouter' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
@@ -319,7 +319,8 @@ export function loadConfig(env = process.env) {
       .filter((value) => /^[a-z0-9._-]+\/[a-z0-9._-]+:free$/i.test(value))
       .map((model) => 'openrouter:' + model)
     : [];
-  const quickFreeDefaults = [...new Set([...nemotronDefaults, ...configuredOpenRouterFreeModels])];
+  const quickFreeProviderDefaults = freeProviderSettings.flatMap((p) => p.freeModels.map((model) => `${p.id}:${model}`));
+  const quickFreeDefaults = [...new Set([...nemotronDefaults, ...configuredOpenRouterFreeModels, ...quickFreeProviderDefaults])];
   // OpenRouter chat candidates are real routing candidates, not catalog-only metadata.
   const openRouterProCandidates = has('openrouter') ? [
     'openrouter:deepseek/deepseek-v4.1-flash',
@@ -352,7 +353,7 @@ export function loadConfig(env = process.env) {
     const raw = env['ROUTE_LEVEL_' + n];
     const list = raw !== undefined && String(raw).trim() !== '' ? String(raw).split(',') : defaultsByLevel[n];
     const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
-    const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
+    const normalCandidates = parsed.filter((spec) => n === 1 || !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     // In auto mode, intent classification always checks OpenRouter's
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
     // In auto mode, put the configured OpenRouter tier model first for intent
