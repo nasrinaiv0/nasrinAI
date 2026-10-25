@@ -996,7 +996,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
         const page = filtered.slice(offset, offset + limit);
         sendJson(res, 200, {
-          source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs',
+          source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs+supabase.openrouter_generations',
           generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
           limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
           coverage_limited: usageRows.length === 1000 || routerRows.length === 1000 || generationRows.length === 1000,
