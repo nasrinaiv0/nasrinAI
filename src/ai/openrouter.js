@@ -145,13 +145,15 @@ export function createOpenRouterClient({
     const numeric = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
     emitTelemetry({
       ...baseEvent, status: 'success', httpStatus, latencyMs: now() - startedAt,
-      // OpenRouter's generation ID is commonly in the JSON body when an intermediary omits x-request-id.
-      providerRequestId: providerRequestId || (
-        !/\/(?:models|images\/models|videos\/models)$/.test(baseEvent.endpoint) &&
-        typeof parsed.id === 'string' && parsed.id.length <= 200
-          ? parsed.id
-          : null
-      ),
+      // Keep the HTTP request ID separate from OpenRouter's generation ID.
+      // A present x-request-id header must never hide parsed.id (gen-...), because
+      // reconciliation uses the generation ID with GET /generation?id=....
+      providerRequestId: providerRequestId || null,
+      openrouterGenerationId: (
+        !/\\/(?:models|images\\/models|videos\\/models)$/.test(baseEvent.endpoint) &&
+        typeof parsed.id === 'string' &&
+        /^gen-[0-9A-Za-z-]{1,120}$/.test(parsed.id)
+      ) ? parsed.id : null,
       // Store only the model actually returned by OpenRouter, never the requested alias.
       model: typeof parsed.model === 'string' && parsed.model.length <= 200 ? parsed.model : null,
       promptTokens: numeric(usage.prompt_tokens ?? usage.input_tokens),
