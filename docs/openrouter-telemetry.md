@@ -10,7 +10,7 @@ Raw prompts, completions, uploaded files, authorization headers, API keys, and r
 
 ## Setup
 
-1. Apply `db/migrations/063_openrouter_logs.sql`, `064_openrouter_generation_reconciliation.sql`, `065_openrouter_provider_performance.sql`, and `066_openrouter_cached_tokens.sql` in order through the existing database migration process.
+1. Apply `db/migrations/063_openrouter_logs.sql`, `064_openrouter_generation_reconciliation.sql`, `065_openrouter_provider_performance.sql`, and the existing `066_openrouter_logs_explicit_deny_policy.sql` through the repository migration process. The cached-token schema change is `069_openrouter_cached_tokens.sql` because migration number 066 is already assigned; coordinate 069 with the pending 067–068 release sequence and do not apply migrations out of order.
 2. Confirm the existing Vercel server-only environment variables are configured: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `OPENROUTER_API_KEY`.
 3. Deploy a Preview and make a normal text request plus one enabled modality request.
 4. Open the Owner Command Center and select **AI Provider Logs**. The page reads a bounded, date-filtered set of sanitized request rows from the owner-only API. Apply the existing OpenRouter billing reconciliation to populate upstream provider, finish reason, and generation timing when OpenRouter returns those fields. 5. Verify rows using the SQL below, then confirm RLS denies reads/writes for `anon` and `authenticated`.
