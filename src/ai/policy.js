@@ -133,7 +133,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         let spec = null; let at = level; const why = [];
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
-          const tierCandidates = r.levels[l];
+          // A malformed or empty per-level route must not silently produce an empty
+          // candidate set. Fall back to the configured tier model at the first
+          // attempted level; it still passes the same eligibility and blocker checks.
+          const tierCandidates = Array.isArray(r.levels?.[l]) && r.levels[l].length
+            ? r.levels[l]
+            : (l === level && config.ai.tiers?.[plan.tier] ? [config.ai.tiers[plan.tier]] : []);
           // New live-listed text models become eligible fallbacks at the selected
           // level. They remain subject to tier ceiling, privacy, and retry limits.
           const configuredOpenRouterIds = new Set((tierCandidates || [])
