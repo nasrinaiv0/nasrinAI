@@ -410,10 +410,9 @@ test('coding chat page: PR description from the reply, many-file card, automatic
   assert.match(js, /if \(fresh && codingProject && github\.autoPr\)/);
   assert.match(js, /show\('assistant', data\.message\.content, \{ id: data\.message\.id, animate: !live\.text\(\), fresh: true, responseMetadata: data\.response_metadata \|\| null \}\)/);
   assert.match(js, /data\.messages\.forEach\(\(m, i\) => show\([^)]*\{ animate: false, id: m\.id/, 'history replies are not fresh');
-  assert.match(js, /const estimateHistoricalTokens = \(value\) => Math\.max\(1, Math\.ceil\(String\(value \|\| ''\)\.length \/ 4\)\)/, 'historical replies get a token estimate when provider usage is missing');
-  assert.match(js, /input_tokens: estimateHistoricalTokens\(precedingUser\),\s*output_tokens: estimateHistoricalTokens\(message\.content\),\s*estimated: true/s, 'historical token estimates are marked as estimates');
-  assert.match(js, /const elapsedMs = Number\.isFinite\(assistantCreatedAt\) && Number\.isFinite\(userCreatedAt\) && assistantCreatedAt >= userCreatedAt\s*\? assistantCreatedAt - userCreatedAt : null/, 'historical replies estimate elapsed time from saved message timestamps');
-  assert.match(js, /duration_estimated: elapsedMs !== null/, 'historical elapsed time is explicitly marked estimated');
+  assert.match(js, /const historicalResponseMetadata = \(message\) => \{\s*const supplied = message\.response_metadata \|\| message\.responseMetadata;\s*return supplied && typeof supplied === 'object' \? supplied : null;/, 'history uses persisted response metadata only');
+  assert.doesNotMatch(js, /estimateHistoricalTokens/, 'historical token counts are not guessed from message text');
+  assert.match(js, /message\.response_metadata \|\| message\.responseMetadata/, 'saved Supabase usage metadata is preferred for history');
   assert.match(js, /Approximate elapsed time between the saved user message and assistant reply; exact generation latency was not persisted\./, 'duration estimate tooltip explains its limits');
   assert.match(js, /Text-length estimate; original provider token usage was not saved for this historical reply\./, 'estimate tooltip explains missing historical provider usage');
 });
