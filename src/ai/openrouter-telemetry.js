@@ -44,6 +44,7 @@ export function createOpenRouterTelemetry({ url, secretKey, fetchImpl = fetch, l
       requested_model: safeModel(event.requestedModel),
       model: safeModel(event.model),
       prompt_tokens: safeCount(event.promptTokens),
+      cached_tokens: safeCount(event.cachedTokens),
       completion_tokens: safeCount(event.completionTokens),
       total_tokens: safeCount(event.totalTokens),
       total_cost_usd: safeCost(event.totalCostUsd),
