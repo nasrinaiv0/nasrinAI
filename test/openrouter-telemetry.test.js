@@ -24,11 +24,11 @@ test('OpenRouter client emits sanitized success telemetry without prompt or comp
       }
       assert.equal(init.method, 'POST');
       return jsonResponse({
-        id: 'provider-request-1',
+        id: 'gen-actual-123',
         model: 'provider/model',
         choices: [{ message: { content: 'PRIVATE_COMPLETION_SENTINEL' }, finish_reason: 'stop' }],
         usage: { prompt_tokens: 12, prompt_tokens_details: { cached_tokens: 4 }, completion_tokens: 8, total_tokens: 20, cost: 0.0004 }
-      });
+      }, 200, { 'x-request-id': 'http-request-1' });
     }
   });
 
@@ -48,7 +48,8 @@ test('OpenRouter client emits sanitized success telemetry without prompt or comp
   assert.equal(inference.completionTokens, 8);
   assert.equal(inference.totalTokens, 20);
   assert.equal(inference.totalCostUsd, 0.0004);
-  assert.equal(inference.providerRequestId, 'provider-request-1');
+  assert.equal(inference.providerRequestId, 'http-request-1');
+  assert.equal(inference.openrouterGenerationId, 'gen-actual-123');
   const serialized = JSON.stringify(inference);
   assert.equal(serialized.includes('PRIVATE_PROMPT_SENTINEL'), false);
   assert.equal(serialized.includes('PRIVATE_COMPLETION_SENTINEL'), false);
@@ -106,6 +107,8 @@ test('Supabase telemetry writer stores only summaries and never disrupts callers
     latencyMs: 31,
     totalCostUsd: null,
     cachedTokens: 4,
+    providerRequestId: 'http-request-2',
+    openrouterGenerationId: 'gen-persist-456',
     requestSummary: { message_count: 1 },
     responseSummary: { choices_count: 1 }
   });
@@ -113,6 +116,8 @@ test('Supabase telemetry writer stores only summaries and never disrupts callers
   assert.match(captured.url, /\/rest\/v1\/openrouter_logs$/);
   assert.equal(captured.payload.total_cost_usd, null);
   assert.equal(captured.payload.cached_tokens, 4);
+  assert.equal(captured.payload.provider_request_id, 'http-request-2');
+  assert.equal(captured.payload.openrouter_generation_id, 'gen-persist-456');
   assert.equal(captured.payload.status, 'success');
   assert.equal(captured.payload.request_summary.message_count, 1);
   assert.equal(captured.init.headers.Authorization, 'Bearer server-secret');
