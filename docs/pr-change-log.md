@@ -2613,3 +2613,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
 - Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
 - Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.
+
+## PR #543 scope review — 2026-10-26
+
+- Re-synchronized this draft with the current `main` tree while retaining the audit trail for the superseded Owner Command Center implementation.
+- The current PR has no substantive feature diff against `main`; keep it draft and do not merge it as a feature PR. Close or re-scope it if new implementation work is intended.
+- No production changes or merge performed.
