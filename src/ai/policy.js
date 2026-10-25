@@ -231,6 +231,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             }
           }
           candidates.push(...otherCandidates);
+          // In non-OpenRouter test/local configurations, preserve a usable
+          // tier-model fallback if all configured level candidates were filtered
+          // out. Do not use this escape hatch for free Quick with OpenRouter,
+          // where the free-model allowlist must remain authoritative.
+          if (!candidates.length && !r.quickNemotronOnly) {
+            const fallbackTier = config.ai.tiers?.[plan.tier] || config.ai.tiers?.nasrinai;
+            if (fallbackTier) candidates.push(fallbackTier);
+          }
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
