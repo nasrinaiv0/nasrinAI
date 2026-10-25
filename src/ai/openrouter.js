@@ -147,7 +147,7 @@ export function createOpenRouterClient({
       ...baseEvent, status: 'success', httpStatus, latencyMs: now() - startedAt,
       // OpenRouter's generation ID is commonly in the JSON body when an intermediary omits x-request-id.
       providerRequestId: providerRequestId || (
-        !/\/(?:models|images\/models|videos\/models)$/.test(path) &&
+        !/\/(?:models|images\/models|videos\/models)$/.test(baseEvent.endpoint) &&
         typeof parsed.id === 'string' && parsed.id.length <= 200
           ? parsed.id
           : null
