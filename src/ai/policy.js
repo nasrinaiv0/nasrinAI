@@ -142,7 +142,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Try live-discovered candidates before the static shortlist so
           // bounded retries do not starve newly listed models behind stale IDs.
           // Task prioritization still orders the full eligible candidate set.
-          const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates];
+          const configuredFreeProviderCandidates = freeQuick
+            ? (config.ai.freeProviders || [])
+              .filter((p) => p.id !== 'openrouter' && Array.isArray(p.freeModels) && p.freeModels.includes(p.model))
+              .flatMap((p) => (r.freeModels?.[p.id] || []).map((model) => ({ provider: p.id, model, effort: null })))
+            : [];
+          const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates, ...configuredFreeProviderCandidates];
           // Enforce plan eligibility before ranking or trying any candidate.
           // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
           // Luna is the sole paid-model escape hatch and is ordered after every
