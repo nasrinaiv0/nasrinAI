@@ -386,6 +386,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const communityCollectionPath = pathname === '/owner/api/community-learning';
     const communityAction = /^\/owner\/api\/community-learning\/([0-9a-f-]{36})\/(approve|reject)$/.exec(pathname);
     const communityWrite = req.method === 'POST' && Boolean(communityAction);
+    const workflowDispatchPath = pathname === '/owner/api/verify-openrouter-models';
+    const workflowWrite = req.method === 'POST' && workflowDispatchPath;
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
@@ -441,7 +443,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -578,6 +580,44 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Content-Length', Buffer.byteLength(dashboardHtml));
       res.end(req.method === 'HEAD' ? undefined : dashboardHtml);
+      return true;
+    }
+    if (workflowDispatchPath) {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+        sendNotFound(res); return true;
+      }
+      const integration = config?.ownerConsole?.githubActions;
+      if (!integration?.enabled || typeof integration.token !== 'string' || integration.token.length < 20 || typeof fetchImpl !== 'function') {
+        sendJson(res, 503, { error: { code: 'workflow_dispatch_unavailable', message: 'GitHub Actions integration is not configured.' } });
+        return true;
+      }
+      let body;
+      try { body = await readOwnerJson(req, 2048); } catch {
+        sendJson(res, 400, { error: { code: 'invalid_request', message: 'A valid JSON request is required.' } }); return true;
+      }
+      const model = typeof body.model === 'string' ? body.model.trim() : '';
+      if (body.confirm_provider_costs !== true || model.length > 200 || (model && !/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model))) {
+        sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Confirm provider costs and provide a valid optional model ID.' } });
+        return true;
+      }
+      try {
+        const response = await fetchImpl('https://api.github.com/repos/primusco20/nasrinAI/actions/workflows/verify-openrouter-models.yml/dispatches', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + integration.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ref: 'main', inputs: { model, confirm_provider_costs: 'true' } }),
+          signal: AbortSignal.timeout(8000)
+        });
+        if (!response?.ok) {
+          logger?.warn?.('owner OpenRouter verification dispatch failed', { http_status: Number(response?.status) || 0 });
+          sendJson(res, 503, { error: { code: 'workflow_dispatch_failed', message: 'GitHub could not start the verification workflow. Check the integration token and repository Actions permissions.' } });
+          return true;
+        }
+        if (!(await recordAudit('openrouter_model_verification_dispatched', session.sub, req))) logger?.warn?.('owner verification dispatch audit unavailable', { source: 'owner_audit_events' });
+        sendJson(res, 202, { status: 'queued', workflow: 'verify-openrouter-models.yml', model: model || null });
+      } catch {
+        logger?.warn?.('owner OpenRouter verification dispatch unavailable', { source: 'github_actions' });
+        sendJson(res, 503, { error: { code: 'workflow_dispatch_unavailable', message: 'GitHub Actions could not be reached. Check workflow runs before retrying.' } });
+      }
       return true;
     }
     if (pathname === '/owner/api/overview') {
