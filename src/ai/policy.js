@@ -299,10 +299,10 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             }
           }
           calls += attempts.length;
-          // Quick/guest must be able to walk its configured OpenRouter-only
-          // candidate list (Nemotron first, then the emergency model). Keep this
-          // bounded to the candidates configured at the active level; other tiers
-          // retain the normal retry cap.
+          // Quick/guest may walk the explicitly free candidate pool (OpenRouter first,
+          // then allowlisted free providers, then the approved emergency model).
+          // Keep this bounded to candidates configured at the active level; other
+          // tiers retain the normal retry cap.
           const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai' && plan.paidQuick !== true
             ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter' || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)).length)
             : r.maxRetries;
