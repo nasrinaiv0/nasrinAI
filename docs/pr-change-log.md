@@ -2579,3 +2579,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
 - Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
 - Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.
+
+## PR #409 — Universal user-owned integration security — 2026-10-26
+
+- Add server-side user ownership checks, AES-256-GCM encrypted credential storage with authenticated context, read-only integration list/detail routes, migration 068, and SQL/Node regression tests.
+- Keep integration credential keys server-only; browser access to integration tables remains denied. Provider-specific OAuth adapters and provider write operations remain out of scope.
+- Migration 068 has not been applied to production. Verify migration ordering and history in an approved non-production environment before requesting separate production approval.
+- Preserve the latest main changes in routing, Owner Console telemetry, regional analytics, and related tests. No production migration, deployment, or merge performed.

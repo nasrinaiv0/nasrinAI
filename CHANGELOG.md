@@ -1,3 +1,6 @@
+- Add universal user-owned integration groundwork: server-side ownership checks, AES-256-GCM encrypted credential storage, read-only list/detail routes, migration 068, and regression tests. Provider-specific OAuth adapters/write operations remain out of scope; migration 068 is not approved for production application.
+- Make the GitHub OAuth forged-state regression deterministic by changing a significant HMAC character rather than the final base64url characters, which could rarely leave the decoded signature unchanged.
+
 - Add a private Owner Command Center **Regional Analytics** panel with 24-hour/7/30/90-day filters, country/region/city aggregates, separate registered-user and guest counts, and clear data freshness/precision guidance. The owner API uses a service-role-only aggregate RPC and never returns actor hashes, emails, or raw IPs; migration 071 and owner-console regression coverage included.
 - Add privacy-minimizing regional analytics for NasrinAI platform users and guests: capture trusted Vercel country/region/city metadata, HMAC pseudonymous actor IDs, deduplicate session events for 30 minutes, restrict writes to a server-only Supabase RPC, and expire records after 90 days. Includes regression tests; production activation requires the migration and deployment.
 

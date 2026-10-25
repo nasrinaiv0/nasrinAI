@@ -48,3 +48,7 @@ NasrinAI should use the workspace map and event timeline as retrieval context fo
 ## Current status
 
 The initial UI slice adds a dropdown for Settings and Connect / Disconnect. GitHub delegates to its existing connection controls. Other providers intentionally show a not-configured state until their server-side adapters and secure credential storage are implemented. This is a safe scaffold, not a claim that all five provider APIs are already connected.
+
+## Universal integration security contract
+
+The server-side ownership, encrypted credential storage, RLS, and rollout requirements are documented in [Universal user-owned integration security](universal-integration-security.md) and [Universal integrations rollout](universal-integrations-rollout.md). Treat these as acceptance criteria; the UI scaffold does not imply that provider OAuth or provider write operations are enabled.
