@@ -953,8 +953,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const successOutcomes = ['ok', 'success', 'succeeded', 'complete', 'completed'];
           const failureOutcomes = ['error', 'failed', 'failure', 'timeout', 'timed_out', 'cancelled', 'canceled'];
           const status = successOutcomes.includes(outcome) ? 'success' : failureOutcomes.includes(outcome) ? 'error' : outcome;
-          // usage_events.cost_usd has no provider provenance field. Do not present an
-          // application-side estimate as provider-reported spend; leave cost unavailable.
+          // Legacy usage_events.cost_usd values may be estimates. Trust only the
+          // explicit cost_source marker enforced by migration 062.
           rows.push({
             id: null, request_id: null, created_at: row.created_at, provider: catalogProvider,
             upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
