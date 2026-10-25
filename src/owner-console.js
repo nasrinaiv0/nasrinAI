@@ -161,6 +161,7 @@ const dashboardHtml = `<!doctype html>
       <button class="nav-item" data-panel="other-unlisted"><span>◇</span>Other Provider Unlisted Models</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
+      <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
       <button class="nav-item" data-panel="security"><span>◇</span>Security &amp; Audit</button>
       <button class="nav-item" data-panel="automation"><span>↗</span>Automation &amp; Jobs</button>
@@ -189,6 +190,7 @@ const panels = {
   'other-unlisted': { title: 'Other Provider Unlisted Models', description: 'Models used by other providers, compared with provider-specific catalogs when a verified adapter is available.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
+  regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
   security: { title: 'Security & Audit', description: 'Authorization health, security events, and a traceable record of owner actions.' },
   automation: { title: 'Automation & Jobs', description: 'Workflow health, queue state, retries, and execution outcomes.' },
@@ -637,6 +639,52 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         incidents_24h: incidents24h,
         panels
       });
+      return true;
+    }
+    if (pathname === '/owner/api/regional-analytics' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'regional_analytics_unavailable', message: 'Regional analytics storage is not connected.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      const daysByWindow = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 };
+      if (!Object.hasOwn(daysByWindow, windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 24h, 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const value = await store.request('POST', 'rpc/owner_console_regional_summary', {
+          body: { p_since: new Date(now() - daysByWindow[windowName] * 86400000).toISOString() }
+        });
+        const summary = Array.isArray(value) ? value[0] : value;
+        if (!summary || typeof summary !== 'object' || !Array.isArray(summary.rows)) throw new Error('invalid regional summary');
+        sendJson(res, 200, {
+          source: 'private.regional_analytics_events',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          summary: {
+            event_count: Number(summary.event_count) || 0,
+            unique_actors: Number(summary.unique_actors) || 0,
+            countries_seen: Number(summary.countries_seen) || 0,
+            user_events: Number(summary.user_events) || 0,
+            guest_events: Number(summary.guest_events) || 0,
+            latest_event_at: summary.latest_event_at || null
+          },
+          rows: summary.rows.filter((row) => row && typeof row === 'object').slice(0, 500).map((row) => ({
+            country_code: typeof row.country_code === 'string' ? row.country_code.slice(0, 2) : null,
+            region: typeof row.region === 'string' ? row.region.slice(0, 100) : null,
+            city: typeof row.city === 'string' ? row.city.slice(0, 100) : null,
+            actor_type: ['user', 'guest'].includes(row.actor_type) ? row.actor_type : 'unknown',
+            events: Math.max(0, Number(row.events) || 0),
+            unique_actors: Math.max(0, Number(row.unique_actors) || 0),
+            latest_activity: row.latest_activity || null
+          }))
+        });
+      } catch {
+        logger?.warn?.('owner regional analytics unavailable', { source: 'regional_analytics_events' });
+        sendJson(res, 503, { error: { code: 'regional_analytics_unavailable', message: 'Regional analytics could not be loaded. Confirm migration 071 is applied and regional events are being recorded.' } });
+      }
       return true;
     }
     if (pathname === '/owner/api/openrouter-logs' && (req.method === 'GET' || req.method === 'HEAD')) {

@@ -9,6 +9,7 @@
     'other-unlisted': ['Other Provider Unlisted Models', 'Models used by other providers, with catalog status verified only where supported.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
+    regional: ['Regional Analytics', 'Approximate location trends for registered users and guests, derived from trusted edge metadata.', '◎'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
     automation: ['Automation & Jobs', 'Workflow health, queue state, retries, and execution outcomes.', '↗'],
@@ -20,6 +21,7 @@
   const sources = {
     ai_usage: ['AI usage & tokens', 'Request-level usage events and provider-reported cost coverage'],
     users: ['Users & growth', 'Auth record counts and activity signals'],
+    regional: ['Regional analytics', 'Coarse country, region, and city aggregates; no raw IP addresses or email addresses'],
     retention: ['Usage retention cohorts', 'First-observed signed-in model-call cohorts; not signup cohorts'],
     infrastructure: ['Infrastructure & releases', 'Vercel and dependency health integrations'],
     database: ['Database connection', 'Server-side Supabase reachability check'],
@@ -882,6 +884,86 @@
     await load();
   }
 
+  async function renderRegional() {
+    const c = $('content');
+    c.replaceChildren();
+    c.append(head('Regional user analytics', 'Approximate location from trusted Vercel edge headers. No GPS, raw IP addresses, emails, or individual user identities are displayed.', 'Read-only'));
+    c.append(notice('Privacy & interpretation', 'Location can be imprecise or unavailable, especially for VPNs and mobile networks. Counts represent recorded session-start events and pseudonymous actors within the selected window—not exact people physically present. Events expire after 90 days.'));
+    const controls = el('div', 'toolbar');
+    const windowSelect = el('select', 'input');
+    windowSelect.setAttribute('aria-label', 'Regional analytics time window');
+    [['24h','Last 24 hours'],['7d','Last 7 days'],['30d','Last 30 days'],['90d','Last 90 days']].forEach(([value,label]) => {
+      const option = el('option', '', label); option.value = value; windowSelect.append(option);
+    });
+    windowSelect.value = '7d';
+    const refreshButton = el('button', 'quiet-button', 'Refresh regional data');
+    refreshButton.type = 'button';
+    controls.append(windowSelect, refreshButton);
+    c.append(controls);
+    const result = el('div');
+    result.append(notice('Loading regional data', 'Loading aggregate region counts from the protected owner API.'));
+    c.append(result);
+    async function load() {
+      refreshButton.disabled = true;
+      windowSelect.disabled = true;
+      result.replaceChildren(notice('Loading regional data', 'Fetching aggregate counts from the server.'));
+      try {
+        const response = await fetch('/owner/api/regional-analytics?window=' + encodeURIComponent(windowSelect.value), {
+          credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error?.message || 'Regional analytics is unavailable.');
+        const summary = payload.summary && typeof payload.summary === 'object' ? payload.summary : {};
+        const rows = Array.isArray(payload.rows) ? payload.rows.filter(row => row && typeof row === 'object') : [];
+        result.replaceChildren();
+        result.append(el('p', 'panel-copy', 'Source: private regional analytics events · window ' + String(payload.window || windowSelect.value) + ' · refreshed ' + (payload.generated_at ? new Date(payload.generated_at).toLocaleString() : 'unknown')));
+        const grid = el('div', 'grid');
+        grid.append(
+          metric('Session events', '◎', numberText(summary.event_count), 'Deduplicated session starts'),
+          metric('Pseudonymous actors', '♙', numberText(summary.unique_actors), 'Hashed user/guest identifiers; no IDs exposed'),
+          metric('Countries observed', '⌖', numberText(summary.countries_seen), 'Country code available from edge metadata'),
+          metric('Registered-user events', '♧', numberText(summary.user_events), 'Session events for signed-in users'),
+          metric('Guest events', '◇', numberText(summary.guest_events), 'Session events for guest sessions')
+        );
+        result.append(grid);
+        const panel = el('section', 'panel');
+        panel.classList.add('module-extra');
+        panel.append(el('h3', '', 'Observed regions'), el('p', 'panel-copy', 'Grouped by approximate country, region, city, and actor type. Unknown location fields remain blank instead of being inferred.'));
+        const wrap = el('div', 'table-wrap'), table = el('table', 'data-table');
+        const thead = el('thead'), header = el('tr');
+        ['Country','Region / state','City','Actor type','Events','Unique actors','Latest activity'].forEach(label => header.append(el('th', '', label)));
+        thead.append(header); table.append(thead);
+        const tbody = el('tbody');
+        const safeDate = value => {
+          if (!value) return '—';
+          const parsed = new Date(value);
+          return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString();
+        };
+        rows.sort((a,b) => (Number(b.events)||0) - (Number(a.events)||0) || String(a.country_code||'').localeCompare(String(b.country_code||'')));
+        rows.forEach(row => {
+          const tr = el('tr');
+          [row.country_code || 'Unknown', row.region || '—', row.city || '—', row.actor_type || 'unknown',
+            numberText(row.events), numberText(row.unique_actors), safeDate(row.latest_activity)]
+            .forEach(value => tr.append(el('td', '', String(value))));
+          tbody.append(tr);
+        });
+        if (!rows.length) {
+          const tr = el('tr'), td = el('td', '', 'No regional events recorded for this period. Once the feature is deployed and sessions arrive with trusted edge location headers, aggregate results will appear here.');
+          td.colSpan = 7; tr.append(td); tbody.append(tr);
+        }
+        table.append(tbody); wrap.append(table); panel.append(wrap); result.append(panel);
+      } catch (error) {
+        result.replaceChildren(notice('Regional analytics unavailable', String(error?.message || 'Could not load regional analytics. Verify migration 071 and production deployment.')));
+      } finally {
+        refreshButton.disabled = false;
+        windowSelect.disabled = false;
+      }
+    }
+    refreshButton.addEventListener('click', load);
+    windowSelect.addEventListener('change', load);
+    await load();
+  }
+
   function show(key) {
     active = names[key] ? key : 'overview';
     const meta = names[active];
@@ -897,6 +979,7 @@
     else if (active === 'learning') renderLearning();
     else if (active === 'openrouter-unlisted') renderUnlistedModels('openrouter');
     else if (active === 'other-unlisted') renderUnlistedModels('other');
+    else if (active === 'regional') renderRegional();
     else renderModule(active);
   }
   async function refresh() {
