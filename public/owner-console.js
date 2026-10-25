@@ -921,6 +921,14 @@
         const response=await fetch('/owner/api/ai-logs?'+params.toString(),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
         const payload=await response.json();if(!response.ok)throw new Error(payload?.error?.message||'AI activity unavailable.');
         const rows=Array.isArray(payload.rows)?payload.rows:[];
+        // Keep the common providers visible, and add any provider surfaced by actual telemetry.
+        const knownProviders=new Set(Array.from(providerSelect.options).map(option=>option.value));
+        [...new Set(rows.map(row=>String(row.provider||'unknown').trim().toLowerCase()).filter(Boolean))].sort().forEach(provider=>{
+          if(!knownProviders.has(provider)){
+            const option=el('option','',provider.split(/[-_. ]+/).map(part=>part?part[0].toUpperCase()+part.slice(1):'').join(' '));
+            option.value=provider;providerSelect.append(option);knownProviders.add(provider);
+          }
+        });
         const groups=new Map();
         rows.forEach(row=>{
           const key=String(row.provider||'unknown')+'\u0000'+String(row.model||'unknown');
