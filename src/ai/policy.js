@@ -190,7 +190,13 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // this point. Within that permitted level, configured OpenRouter models
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
-          candidates.push(...openRouterCandidates);
+          if (r.quickNemotronOnly && freeQuick) {
+            candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
+            if (!(r.quickNemotronOnly && freeQuick)) candidates.push(...otherCandidates);
+            candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
+          } else {
+            candidates.push(...openRouterCandidates);
+          }
           if ((plan.task === 'coding' || plan.task === 'debugging') && l === level) {
             const codingSpec = plan.tier === 'ultra' && l >= 4
               ? (r.coding?.ultraDeep || r.coding?.ultra)
