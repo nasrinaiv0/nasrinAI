@@ -1,32 +1,11 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
-import { MODEL_CAPABILITIES } from './ai/model-capabilities.js';
-import { OPENROUTER_MODEL_ROUTING } from './ai/openrouter-tier-routing.js';
-import { OPENROUTER_SKILL_CATALOG } from './ai/openrouter-catalog.js';
+import { ownerCatalogStatus } from './ai/owner-model-catalog.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
 const NOT_FOUND = 'Page not found.';
-
-// Membership is defined by NasrinAI's configured source catalogs, never by a
-// provider's live catalog. This is inventory membership only, not runtime readiness.
-const NASRINAI_CATALOG_IDS = new Set([
-  ...MODEL_CAPABILITIES.map((entry) => entry?.id),
-  ...OPENROUTER_MODEL_ROUTING.map((entry) => entry?.id),
-  ...OPENROUTER_SKILL_CATALOG.map((entry) => entry?.id)
-].filter((id) => typeof id === 'string' && id.trim()).flatMap((id) => {
-  const value = id.trim().toLowerCase();
-  const slash = value.indexOf('/');
-  return slash > 0 ? [value, value.slice(slash + 1)] : [value];
-}));
-function nasrinCatalogStatus(model) {
-  const value = String(model || '').trim().toLowerCase();
-  if (!value || /^(?:actual model not reported|openrouter\/(?:auto|free)|auto)$/i.test(value)) return 'unknown';
-  const slash = value.indexOf('/');
-  const listed = NASRINAI_CATALOG_IDS.has(value) || (slash > 0 && NASRINAI_CATALOG_IDS.has(value.slice(slash + 1)));
-  return listed ? 'listed' : 'not_listed';
-}
 
 function sendNotFound(res, head = false) {
   res.statusCode = 404;
@@ -926,7 +905,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // Such rows are inferred request targets, not proof that the alias itself executed.
           const model = normalizeModel(actual || row.requested_model || 'Actual model not reported', 'openrouter');
           const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
-          const catalogStatus = nasrinCatalogStatus(model);
+          const catalogStatus = ownerCatalogStatus(model, 'openrouter');
           const modelStatus = actual ? 'observed' : row.requested_model ? 'inferred' : 'unavailable';
           rows.push({
             id: row.id, request_id: row.request_id, created_at: row.created_at, provider: 'openrouter',
@@ -964,7 +943,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? Number(row.cost_usd) : null,
             provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null, provider_request_id: null, openrouter_generation_id: null,
             finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
-            catalog_status: nasrinCatalogStatus(model),
+            catalog_status: ownerCatalogStatus(model, 'openrouter'),
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
             telemetry_source: 'usage_events', cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? 'provider_reported' : 'unknown'
@@ -1025,7 +1004,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const key = p + '\u0000' + m;
           let item = grouped.get(key);
           if (!item) {
-            item = { provider: p, model: m, first_seen: row.created_at || null, last_seen: row.created_at || null,
+            item = { provider: p, catalog_provider: source === 'openrouter_logs' ? 'openrouter' : p, model: m, first_seen: row.created_at || null, last_seen: row.created_at || null,
               request_count: 0, successes: 0, failures: 0, input_tokens: 0, output_tokens: 0,
               cost_usd: 0, cost_known: false, cost_sources: new Set(), sources: new Set(), actual_model_confirmed: false };
             grouped.set(key, item);
@@ -1053,7 +1032,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           if (row.model) add(row.upstream_provider || row.provider, row.model, row, 'openrouter_logs', true);
         }
         const rows = [...grouped.values()].map((item) => {
-          const catalogStatus = nasrinCatalogStatus(item.model);
+          const catalogStatus = ownerCatalogStatus(item.model, item.catalog_provider);
           const result = {
             provider: item.provider, model: item.model, first_seen: item.first_seen, last_seen: item.last_seen,
             request_count: item.request_count, successes: item.successes, failures: item.failures,
