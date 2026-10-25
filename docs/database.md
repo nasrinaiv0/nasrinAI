@@ -54,15 +54,38 @@ default grants, runs every migration twice, and checks the access rules. CI runs
 it on every push.
 
 
+## Migration filenames versus Supabase history labels
+
+Files under `db/migrations/` use repository sequence names (for example,
+`070_regional_user_analytics.sql`). Supabase's remote migration history stores
+a separately supplied migration label and timestamp; those labels do not have
+to equal the repository filename. Do not rename or replay historical SQL merely
+to make labels look alike: first map each remote record to the exact SQL that
+was applied and verify the live schema.
+
+Regional analytics mapping verified against production on 2026-10-25:
+
+| Repository SQL file | Supabase history label | Status |
+| --- | --- | --- |
+| `070_regional_user_analytics.sql` | `regional_user_analytics_070` | Applied |
+| `071_owner_console_regional_analytics.sql` | `071_owner_console_regional_analytics` | Applied |
+
+The earlier `add_private_regional_analytics`,
+`add_private_user_region_events`, and
+`use_existing_private_regional_analytics_events` records are historical
+labels, not additional repository filenames to create or replay. Migration 071
+was verified to create the aggregate-only owner summary RPC and supporting
+index; execution is restricted to `service_role`.
+
 ## Owner Console telemetry (migration 057)
 
 Migration [`057_owner_console_metrics.sql`](../db/migrations/057_owner_console_metrics.sql) adds server-role-only aggregate RPCs for usage events, automation run states, derived failure/stale-job signals, active user/guest counts and a usage-based 7-day return rate, Auth account-record signals, and Pro/Max/Ultra paid plan entitlements, plus a minimized owner-action audit table and RPC. Usage summaries do not read prompts or message bodies; automation summaries do not return workflow definitions or step payloads. Audit records store session/export event types, actor IDs, and a one-way IP hash rather than the raw address. The audit table has RLS enabled and an explicit deny policy for browser roles; only `service_role` can execute the RPCs.
 
-The migration is part of the repository but has **not** been applied to production. Do not configure production owner access until the migration is applied through the approved process and its schema/permissions are verified. The console reports telemetry as unavailable until the corresponding RPC is reachable.
+The migration is recorded as applied in the production Supabase migration history. Keep this status synchronized with the live database after any deployment or rollback.
 
 ## Owner Console platform Auth audit (migration 058)
 
-Migration [`058_owner_console_auth_audit.sql`](../db/migrations/058_owner_console_auth_audit.sql) adds a server-role-only aggregate summary of Supabase Auth audit-log categories. It returns only event totals and coarse categories for sign-in, account recovery, password changes, and sign-out; it never returns raw payloads, email addresses, IP addresses, or actor identifiers. If the compatible Auth audit table or expected columns are unavailable, the RPC reports an explicit unavailable state rather than exposing partial records. The migration has not been applied to production; verify its grants and source availability through the approved migration process before relying on these signals.
+Migration [`058_owner_console_auth_audit.sql`](../db/migrations/058_owner_console_auth_audit.sql) adds a server-role-only aggregate summary of Supabase Auth audit-log categories. It returns only event totals and coarse categories for sign-in, account recovery, password changes, and sign-out; it never returns raw payloads, email addresses, IP addresses, or actor identifiers. If the compatible Auth audit table or expected columns are unavailable, the RPC reports an explicit unavailable state rather than exposing partial records. The migration is recorded as applied in the production Supabase migration history; verify its grants and source availability before relying on these signals.
 
 
 ## Owner Console operational alerts (migration 059)
