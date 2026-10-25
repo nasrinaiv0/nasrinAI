@@ -1,3 +1,12 @@
+## Follow-up verification — 2026-10-25 (live production)
+
+- Production Supabase reports RLS enabled on all 58 public tables. Browser roles have no table-level SELECT privileges on the checked billing/telemetry tables; service-role-only billing RPC grants were verified.
+- Applied migration `066_openrouter_logs_explicit_deny_policy` to the connected production project. Re-read the migration registry and confirmed the new label, restrictive `USING (false)` / `WITH CHECK (false)` policy for `anon` and `authenticated`, and no remaining security-advisor finding for `openrouter_logs`.
+- Supabase Auth leaked-password protection remains disabled; the connected tool exposes no Auth configuration mutation, so this remains an owner action in Supabase Dashboard.
+- PR #612 analytics parser was corrected to accept the documented `data.data` envelope; regression fixture now uses the flat-row shape and `request_count`. CI and Documentation Gate passed on the reviewed PR head at the time of this check. Production is still running `fcccfe8b31a673eef5ba7cbe68b7ffc1a326fce6`; PR #612 is not deployed.
+- Production Vercel error scan (last 24h) found one historical Connect `redirect_not_allowed` event from 2026-10-24 14:43 UTC; no production error-level logs were returned for the latest 6-hour window.
+- **Still open:** migration-history/schema reconciliation (including historical 026/029 and missing 057–059 labels), owner email/IP authorization review, live search and billing smoke tests after deployment, image/video/audio generation and fallback checks, and the full reliability/security release matrix. No phase is marked complete without its required evidence.
+
 ## Priority follow-up — 2026-10-25
 
 - PR #610 is merged as `fcccfe8b31a673eef5ba7cbe68b7ffc1a326fce6`; production deployment `dpl_J7iqpSB1AaGjjVfVHk8FJXP4ek2L` is `READY` and serves that commit.
