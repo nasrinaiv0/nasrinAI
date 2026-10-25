@@ -892,12 +892,22 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         } catch { /* Catalog status remains unknown on provider/API failure. */ }
       };
       try {
-        const [usageRows, routerRows, generationRows] = await Promise.all([
+        const [usageRows, routerRows] = await Promise.all([
           store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
-          store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
-          store.request('GET', 'openrouter_generations?select=generation_id,created_at,model,provider_name,cost_total,tokens_prompt,tokens_completion,tokens_reasoning,tokens_cached,finish_reason,finish_reason_norm,latency_ms,generation_time_ms,request_id&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
+          store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
         ]);
-        if (!Array.isArray(usageRows) || !Array.isArray(routerRows) || !Array.isArray(generationRows)) throw new Error('invalid telemetry rows');
+        if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
+        let generationRows = [];
+        let generationSourceAvailable = true;
+        try {
+          const imported = await store.request('GET', 'openrouter_generations?select=generation_id,created_at,model,provider_name,cost_total,tokens_prompt,tokens_completion,tokens_reasoning,tokens_cached,finish_reason,finish_reason_norm,latency_ms,generation_time_ms,request_id&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000');
+          if (Array.isArray(imported)) generationRows = imported;
+          else generationSourceAvailable = false;
+        } catch {
+          // Keep existing request logs available until migration 072 is applied or if the sync table is temporarily unavailable.
+          generationSourceAvailable = false;
+          logger?.warn?.('OpenRouter generation records unavailable', { source: 'openrouter_generations' });
+        }
         // Deliberately do not use provider live catalogs to classify NasrinAI inventory membership.
         const rows = [];
         for (const row of routerRows) {
@@ -997,6 +1007,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const page = filtered.slice(offset, offset + limit);
         sendJson(res, 200, {
           source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs+supabase.openrouter_generations',
+          generation_source_available: generationSourceAvailable,
           generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
           limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
           coverage_limited: usageRows.length === 1000 || routerRows.length === 1000 || generationRows.length === 1000,
