@@ -2564,3 +2564,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Source limitation:** this endpoint reports telemetry recorded by NasrinAI/OpenRouter. It does not discover calls made independently in provider accounts unless those calls are imported into a connected activity source. Provider catalog membership alone is not evidence that a model was called.
 - Add a consolidated unlisted-model view and provider/model activity summaries with request outcome counts, latest status, and provider-reported cost coverage.
 - **Validation:** automated CI and preview UI checks are required before merge. No production deployment or live provider-data completeness claim is made by this change.
+
+
+## AI Models Activities — retain all observed model states — 2026-10-25
+
+- Preserve all raw request statuses in AI Models Activities, including nonterminal or nonstandard values such as running, inferred, available, unavailable, and unknown; success/failure counters classify known outcomes without rewriting other states as errors.
+- Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
+- Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
+- Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.
