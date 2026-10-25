@@ -514,3 +514,44 @@ test('cross-provider model inventory is owner-authenticated, sanitized, and does
   assert.equal(payload.catalog_coverage.openrouter, 'unavailable');
   assert.equal(out.res.body.includes('prompt_tokens'), false);
 });
+
+
+test('regional analytics API is owner-session protected, bounded, and aggregate-only', async () => {
+  let called = false;
+  const store = {
+    kind: 'supabase',
+    request: async (method, path, options) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      assert.equal(method, 'POST');
+      assert.equal(path, 'rpc/owner_console_regional_summary');
+      assert.ok(options.body.p_since);
+      called = true;
+      return {
+        event_count: 3, unique_actors: 2, countries_seen: 1, user_events: 2, guest_events: 1,
+        latest_event_at: '2026-10-25T10:00:00.000Z',
+        rows: [{ country_code: 'PH', region: 'Davao del Sur', city: 'Davao City', actor_type: 'user', events: 2, unique_actors: 1, latest_activity: '2026-10-25T10:00:00.000Z' }]
+      };
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/regional-analytics?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/regional-analytics');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.summary.event_count, 3);
+  assert.equal(payload.rows[0].country_code, 'PH');
+  assert.equal(payload.rows[0].actor_type, 'user');
+  assert.equal(Object.hasOwn(payload.rows[0], 'actor_key_hash'), false);
+  assert.equal(Object.hasOwn(payload.rows[0], 'email'), false);
+  assert.equal(called, true);
+
+  const invalid = request('GET', '/owner/api/regional-analytics?window=all', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/regional-analytics');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/regional-analytics?window=7d', { headers: { cookie }, testIp: '198.51.100.9' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/regional-analytics');
+  assert.equal(denied.res.statusCode, 404);
+});
