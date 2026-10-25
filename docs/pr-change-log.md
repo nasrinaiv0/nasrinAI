@@ -1,3 +1,9 @@
+## Rich reply rendering polish — 2026-10-26
+
+- Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
+- Render Markdown task lists as accessible, non-interactive completion indicators.
+- Refine long-answer paragraph rhythm and mobile table/code-block spacing while preserving safe DOM-only rendering.
+
 ## OpenRouter generation-log reconciliation correction — 2026-10-26
 
 - Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; require same-origin JSON requests and retain the owner session, email/IP allowlist, rate-limit and explicit confirmation controls.
