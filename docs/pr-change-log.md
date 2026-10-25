@@ -1,3 +1,11 @@
+## Auto provider default and OpenRouter fallback — 2026-10-26
+
+- Restore the agreed routing contract: Auto is the default whenever provider credentials are configured; an environment with no provider credentials remains safely disabled.
+- In Auto mode, prefer configured direct providers instead of injecting OpenRouter ahead of every route. Keep OpenRouter available as an additional fallback when independent direct providers are configured.
+- Fix Quick fallback ordering so explicitly allowlisted direct free-provider candidates are actually appended and tried before OpenRouter free models; retain the approved Luna emergency route and all tier/privacy/capability restrictions.
+- Add regression coverage and update routing/deployment documentation. No production environment variables, merge, or deployment are changed by this PR.
+- Validation: CI must pass before merge; production guest and signed-in Quick smoke tests remain required after deployment.
+
 ## Quick free-provider fallback — 2026-10-26
 
 - Production logs show repeated OpenRouter provider-unavailable failures on `POST /v1/chat`. The current Quick policy blocks every non-OpenRouter provider whenever OpenRouter is configured, even when a separately configured free provider (such as the existing Groq allowlist) is available.
