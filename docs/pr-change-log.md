@@ -1,3 +1,9 @@
+## Phase 3 — explicit OpenRouter telemetry access boundary (2026-10-25)
+
+- Add migration `066_openrouter_logs_explicit_deny_policy.sql` with an explicit restrictive `USING (false)` / `WITH CHECK (false)` policy for `anon` and `authenticated` on `public.openrouter_logs`; revoke browser/public privileges and preserve server-side `service_role` select/insert.
+- Add `db/tests/066_openrouter_logs_explicit_deny_policy.test.sql` to verify RLS, deny-policy shape, browser-role privileges, and service-role access.
+- **Validation:** migration and SQL regression test added to the feature branch. They have not been run against CI or production, and the migration has not been applied to production. Do not merge/apply until database tests and Documentation Gate pass. This defense-in-depth change does not reconcile historical migration drift.
+
 ## Phase 3 transcription discovery CI fix (2026-10-25)
 
 - Fix task-filtered model discovery: transcription returns text, so catalog discovery accepts text-output models while requiring explicit audio input.
