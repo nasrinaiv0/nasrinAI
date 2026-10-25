@@ -200,7 +200,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '' }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '', openrouterApiKey = '' }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -910,11 +910,11 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const credits = { total_credits: null, total_usage: null, remaining_credits: null };
         // Credits are a separate API and use an inference key, not the
         // management key. Failure here must not hide valid Analytics results.
-        if (openrouterManagementKey) {
+        if (openrouterApiKey) {
           try {
             const creditsResponse = await fetchImpl('https://openrouter.ai/api/v1/credits', {
               method: 'GET',
-              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
+              headers: { Authorization: 'Bearer ' + openrouterApiKey, Accept: 'application/json' },
               signal: AbortSignal.timeout(8000), redirect: 'error'
             });
             if (creditsResponse.ok) {
@@ -958,7 +958,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
     if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
-      if (!openrouterManagementKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
+      if (!openrouterApiKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
         return true;
       }
@@ -980,7 +980,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           try {
             const response = await fetchImpl('https://openrouter.ai/api/v1/generation?id=' + encodeURIComponent(generationId), {
               method: 'GET',
-              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
+              headers: { Authorization: 'Bearer ' + openrouterApiKey, Accept: 'application/json' },
               signal: AbortSignal.timeout(8000),
               redirect: 'error'
             });
