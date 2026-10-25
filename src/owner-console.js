@@ -951,9 +951,14 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             note: 'OpenRouter account analytics is shown independently. Do not add it to Supabase request costs; reconcile by generation ID before calculating combined spend.'
           }
         });
-      } catch {
-        logger?.warn?.('OpenRouter billing analytics unavailable', { source: 'openrouter_analytics_api' });
-        sendJson(res, 503, { error: { code: 'openrouter_billing_unavailable', message: 'OpenRouter analytics could not be retrieved. Check the management key, analytics access, and provider availability.' } });
+      } catch (error) {
+        const permissionDenied = error?.message === 'management_forbidden';
+        const unauthenticated = error?.message === 'management_unauthorized';
+        logger?.warn?.('OpenRouter billing analytics unavailable', { source: 'openrouter_analytics_api', reason: permissionDenied ? 'forbidden' : unauthenticated ? 'unauthorized' : 'upstream_unavailable' });
+        sendJson(res, permissionDenied ? 403 : unauthenticated ? 401 : 503, { error: {
+          code: permissionDenied ? 'openrouter_management_forbidden' : unauthenticated ? 'openrouter_management_unauthorized' : 'openrouter_billing_unavailable',
+          message: permissionDenied ? 'OpenRouter rejected this request. Configure an authorized Management API key.' : unauthenticated ? 'OpenRouter rejected the configured Management API key. Verify it is valid.' : 'OpenRouter analytics could not be retrieved. Check management-key access and provider availability.'
+        } });
       }
       return true;
     }
