@@ -71,6 +71,8 @@ import { createWebCrawler } from './web/crawler.js';
 import { createYouTubeSearch } from './web/youtube.js';
 import { createGoogleWeatherTool } from './weather/google-weather.js';
 import { createGoogleMapsTools } from './maps/google-maps.js';
+import { createRegionalAnalytics } from './regional-analytics.js';
+import { PLATFORM_TENANT_ID } from './tenants.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -126,6 +128,7 @@ export function buildApp({ config, logger }) {
 
   const effective = { ...config, guestSecret };
   const openRouterTelemetry = createOpenRouterTelemetry({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, logger });
+  const regionalAnalytics = createRegionalAnalytics({ url: config.supabaseUrl, serviceKey: config.supabaseSecretKey, hashSecret: process.env.REGIONAL_ANALYTICS_HASH_SECRET || config.supabaseSecretKey, logger, platformTenantId: PLATFORM_TENANT_ID });
   const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry, dataCollection: config.ai.openrouterDataCollection }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
@@ -274,6 +277,7 @@ export function buildApp({ config, logger }) {
     ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger, openrouterManagementKey: process.env.OPENROUTER_MANAGEMENT_KEY || process.env.OPENROUTER_MANAGEMENT_API_KEY || '', openrouterApiKey: config.ai.openrouterApiKey || process.env.OPENROUTER_API_KEY || '' }),
     routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
-    clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
+    clientIp: (req) => clientIpFrom(req, config.trustProxyHops),
+    regionalAnalytics
   });
 }
