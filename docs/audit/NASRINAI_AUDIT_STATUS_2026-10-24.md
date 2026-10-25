@@ -1,3 +1,8 @@
+## Deferred security item — leaked-password protection
+
+- **Status: intentionally deferred by project owner (2026-10-25).** Do not block the current release solely on Supabase Auth leaked-password protection.
+- The Supabase security advisor currently reports this control as disabled. Keep it documented as known residual risk for a future security-hardening pass; revisit and enable only when the owner schedules that work. This deferral is not evidence that the control is enabled or that the finding is resolved.
+
 ## Follow-up verification — 2026-10-25 (live production)
 
 - Production Supabase reports RLS enabled on all 58 public tables. Browser roles have no table-level SELECT privileges on the checked billing/telemetry tables; service-role-only billing RPC grants were verified.
