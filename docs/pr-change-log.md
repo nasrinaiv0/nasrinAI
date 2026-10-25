@@ -1,3 +1,9 @@
+## Owner model inventory table rendering — 2026-10-25
+
+- Harden `public/owner-console.js` model inventory rendering against incomplete/malformed telemetry payloads and missing optional values.
+- Add safe number/date formatting, deterministic request-volume sorting, and a dedicated model-ID cell class for responsive display. Keep OpenRouter-only confirmed-unlisted filtering separate from cross-provider unknown catalog states.
+- Validate with the JavaScript syntax check, full existing test suite, and Documentation Gate before merge.
+
 ## Local OpenRouter activity CSV sync utility — 2026-10-25
 
 - Add `scripts/openrouter_activity_sync.py` for operator-run daily CSV snapshots without introducing a Python runtime into the Node/Vercel production server. The script uses Supabase `openrouter_logs` to discover generation IDs, calls the Management-key `/activity` endpoint for aggregate analytics only, reconciles generation metadata with the inference key, and checks actual model IDs against the public catalog.
