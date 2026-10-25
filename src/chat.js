@@ -324,6 +324,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // What the person asked in this chat decides whether an .html file stays one.
     let askedText = typed;
     const ownChips = new Set();   // pull request chip lines the server made from GitHub's answers
+    let mapResults = []; // Structured Maps data for this response; never persisted into conversation text.
     const finish = async (reply, responseUsage = null) => {
       live?.flush();
       // Any other line shaped like a chip (written by the model) is dropped.
@@ -380,7 +381,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             output_tokens: estimateTextTokenCount(reply),
             estimated: true
           };
-      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, duration_ms: Math.max(0, now() - requestStartedAt), usage: usageMetadata }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
+      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, duration_ms: Math.max(0, now() - requestStartedAt), usage: usageMetadata, ...(mapResults.length ? { maps: mapResults } : {}) }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
     // Requests for private system details are refused in code, before any model call.
@@ -656,6 +657,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       activeStartedAt = started;
       let usedTools = false;
       const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
+      mapResults = [];   // structured Google Maps results rendered directly inside the chat
       const prChips = new Map();   // one per pull request
       // The planning council is strictly opt-in and runs only for eligible,
       // non-sensitive Max/Ultra requests without attachments, tools, or live facts.
@@ -761,6 +763,19 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
             try {
               const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id });
               if (reg.mediaOf) toolMedia.push(...reg.mediaOf(c.name, out));
+              if (c.name === 'google_maps_explore' && out && ['map', 'places', 'directions'].includes(out.type) && mapResults.length < 4) {
+                // Keep only bounded, display-safe fields. Provider keys and raw responses never enter metadata.
+                mapResults.push({
+                  type: out.type, title: String(out.title || 'Google Maps').slice(0, 180),
+                  mapUrl: typeof out.mapUrl === 'string' ? out.mapUrl : null,
+                  center: out.center && Number.isFinite(out.center.lat) && Number.isFinite(out.center.lng) ? { lat: out.center.lat, lng: out.center.lng } : null,
+                  query: typeof out.query === 'string' ? out.query.slice(0, 180) : null,
+                  origin: typeof out.origin === 'string' ? out.origin.slice(0, 180) : null,
+                  destination: typeof out.destination === 'string' ? out.destination.slice(0, 180) : null,
+                  travelMode: out.travelMode,
+                  places: Array.isArray(out.places) ? out.places.slice(0, 8).map(p => ({ name: String(p.name || 'Place').slice(0, 120), address: String(p.address || '').slice(0, 220), location: p.location && Number.isFinite(p.location.lat) && Number.isFinite(p.location.lng) ? { lat: p.location.lat, lng: p.location.lng } : null, rating: Number.isFinite(p.rating) ? p.rating : null })) : []
+                });
+              }
               const chip = prChipOf(c.name, out);
               if (chip) { prChips.set(chip.key, chip.line); ownChips.add(chip.line); }
               content = JSON.stringify(out);

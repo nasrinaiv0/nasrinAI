@@ -2386,3 +2386,16 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep free Quick restricted to explicit `:free` IDs and its documented GPT-6 Luna fallback. Keep paid tiers from selecting `:free` IDs. Preserve existing live-discovered paid chat candidates not enumerated in the new registry, subject to the current catalog, privacy, and retry checks.
 - Add regression tests for tier boundaries, inferred IDs, specialized endpoint exclusion, coding-task constraints, and legacy dynamic catalog behavior.
 - **Validation:** CI must pass on the final PR head. Provider smoke tests and specialized API adapter completion are separate later-phase requirements; this PR does not claim those adapters are implemented.
+
+## feat/google-weather-chat — Google Weather API in Chat (2026-10-24)
+
+- Add a server-only Google Weather tool for contextual weather questions in NasrinAI Chat, using Google Geocoding plus current, hourly, and daily Weather API endpoints.
+- Keep the key in Vercel environment variables; support `GOOGLE_WEATHER_API_KEY` and `GOOGLE_MAPS_PLATFORM_API_KEY`. No browser exposure.
+- Bounded process-memory cache only (current/hourly: 1 hour; daily: 24 hours). No raw provider responses, locations, coordinates, or forecast values in usage telemetry. Cost remains unknown/null until reconciled against Google Cloud billing.
+- Important restriction: Google Weather API must not be used to recreate a standalone weather product. This integration is intended only for contextual answers inside the general-purpose assistant.
+- Tests added with mocked responses; live API credentials and Google Cloud billing are not testable in CI.
+
+## PR #583 preview build enforcement (2026-10-25)
+
+- Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
+- **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.

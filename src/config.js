@@ -848,6 +848,8 @@ export function loadConfig(env = process.env) {
       googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),
       googleEngineId: String(env.WEB_GOOGLE_CX || '').trim()
     }),
+    weather: Object.freeze({ googleApiKey: String(env.GOOGLE_WEATHER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim() }),
+    maps: Object.freeze({ serverApiKey: String(env.GOOGLE_MAPS_SERVER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim(), browserApiKey: String(env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim() }),
     tools: Object.freeze({ enabled: toolsEnabled }),
     professional: Object.freeze({ enabled: professionalEnabled }),
     library,
