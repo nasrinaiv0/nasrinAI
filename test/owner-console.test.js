@@ -402,6 +402,7 @@ test('OpenRouter request logs are available only inside the authenticated owner 
         requested_model: 'example/model',
         model: 'example/model',
         prompt_tokens: 12,
+        cached_tokens: 5,
         completion_tokens: 34,
         total_tokens: 46,
         total_cost_usd: 0.001,
@@ -435,6 +436,7 @@ test('OpenRouter request logs are available only inside the authenticated owner 
   assert.equal(payload.rows[0].upstream_provider, 'Example Provider');
   assert.equal(payload.rows[0].generation_time_seconds, 0.5);
   assert.equal(payload.rows[0].total_tokens, 46);
+  assert.equal(payload.rows[0].cached_tokens, 5);
   assert.equal(Object.hasOwn(payload.rows[0], 'request_summary'), false);
   assert.equal(out.res.body.includes('must not be returned'), false);
   assert.match(queriedPath, /created_at=gte\./);

@@ -27,7 +27,7 @@ test('OpenRouter client emits sanitized success telemetry without prompt or comp
         id: 'provider-request-1',
         model: 'provider/model',
         choices: [{ message: { content: 'PRIVATE_COMPLETION_SENTINEL' }, finish_reason: 'stop' }],
-        usage: { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20, cost: 0.0004 }
+        usage: { prompt_tokens: 12, prompt_tokens_details: { cached_tokens: 4 }, completion_tokens: 8, total_tokens: 20, cost: 0.0004 }
       }, 200, { 'x-request-id': 'provider-request-1' });
     }
   });
@@ -44,6 +44,7 @@ test('OpenRouter client emits sanitized success telemetry without prompt or comp
   assert.equal(inference.status, 'success');
   assert.equal(inference.model, 'provider/model');
   assert.equal(inference.promptTokens, 12);
+  assert.equal(inference.cachedTokens, 4);
   assert.equal(inference.completionTokens, 8);
   assert.equal(inference.totalTokens, 20);
   assert.equal(inference.totalCostUsd, 0.0004);
@@ -104,12 +105,14 @@ test('Supabase telemetry writer stores only summaries and never disrupts callers
     httpStatus: 200,
     latencyMs: 31,
     totalCostUsd: null,
+    cachedTokens: 4,
     requestSummary: { message_count: 1 },
     responseSummary: { choices_count: 1 }
   });
 
   assert.match(captured.url, /\/rest\/v1\/openrouter_logs$/);
   assert.equal(captured.payload.total_cost_usd, null);
+  assert.equal(captured.payload.cached_tokens, 4);
   assert.equal(captured.payload.status, 'success');
   assert.equal(captured.payload.request_summary.message_count, 1);
   assert.equal(captured.init.headers.Authorization, 'Bearer server-secret');
