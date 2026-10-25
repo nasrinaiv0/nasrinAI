@@ -892,7 +892,7 @@
           [item.provider,item.model,'not listed',numberText(item.requests),numberText(item.successes)+' / '+numberText(item.failures),numberText(item.input)+' / '+numberText(item.output),item.costKnown?moneyText(item.cost):'Unknown',safeDate(item.first)+' / '+safeDate(item.last),[...item.sources].join(', ')].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});
           tbody.append(tr);
         });
-        if(!groups.size){const tr=el('tr'),td=el('td','','No confirmed unlisted models were observed in this time range. Unknown catalog states are shown in the summary and are not classified as unlisted.');td.colSpan=9;tr.append(td);tbody.append(tr);}
+        if(!groups.size){const tr=el('tr'),td=el('td','','No confirmed unlisted models were observed in this time range. Unknown catalog states are shown in the summary and are not classified as unlisted.');td.colSpan=10;tr.append(td);tbody.append(tr);}
         table.append(tbody);wrap.append(table);result.append(wrap);
         if(payload.coverage_limited)result.append(notice('Telemetry coverage is limited','At least one source returned 1,000 rows; extend server-side pagination before treating these counts as exhaustive.'));
       } catch(error) {
@@ -924,10 +924,10 @@
         const groups=new Map();
         rows.forEach(row=>{
           const key=String(row.provider||'unknown')+'\u0000'+String(row.model||'unknown');
-          const item=groups.get(key)||{provider:row.provider||'unknown',model:row.model||'unknown',requests:0,successes:0,failures:0,unknown:0,cost:0,costKnown:0,last:null};
+          const item=groups.get(key)||{provider:row.provider||'unknown',model:row.model||'unknown',requests:0,successes:0,failures:0,unknown:0,cost:0,costKnown:0,last:null,latestStatus:'unknown'};
           item.requests++;if(row.status==='success')item.successes++;else if(row.status==='error')item.failures++;else item.unknown++;
           if(row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd))){item.cost+=Number(row.total_cost_usd);item.costKnown++;}
-          if(row.created_at&&(!item.last||row.created_at>item.last))item.last=row.created_at;groups.set(key,item);
+          if(row.created_at&&(!item.last||row.created_at>item.last)){item.last=row.created_at;item.latestStatus=row.status||'unknown';}groups.set(key,item);
         });
         result.replaceChildren();
         const summary=el('div','grid');
@@ -937,9 +937,9 @@
         result.append(summary);
         result.append(el('p','panel-copy','Source: '+String(payload.source||'provider telemetry')+' · refreshed '+(payload.generated_at?new Date(payload.generated_at).toLocaleString():'unknown')+' · window '+String(payload.window||windowSelect.value)+(payload.coverage_limited?' · telemetry cap reached':'')+'. Requests made outside NasrinAI are included only when a connected provider activity source records them.'));
         const wrap=el('div','table-wrap'),table=el('table','data-table'),thead=el('thead'),hr=el('tr');
-        ['Provider','Model ID','Requests','Success','Failed','Outcome unknown','Provider-reported cost (USD)','Requests with cost','Latest activity'].forEach(label=>hr.append(el('th','',label)));thead.append(hr);table.append(thead);const tbody=el('tbody');
+        ['Provider','Model ID','Requests','Success','Failed','Outcome unknown','Latest status','Provider-reported cost (USD)','Requests with cost','Latest activity'].forEach(label=>hr.append(el('th','',label)));thead.append(hr);table.append(thead);const tbody=el('tbody');
         [...groups.values()].sort((a,b)=>b.requests-a.requests||String(a.model).localeCompare(String(b.model))).forEach(item=>{
-          const tr=el('tr');[item.provider,item.model,numberText(item.requests),numberText(item.successes),numberText(item.failures),numberText(item.unknown),item.costKnown?moneyText(item.cost):'Unavailable',numberText(item.costKnown),item.last?new Date(item.last).toLocaleString():'—'].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});tbody.append(tr);
+          const tr=el('tr');[item.provider,item.model,numberText(item.requests),numberText(item.successes),numberText(item.failures),numberText(item.unknown),item.latestStatus,item.costKnown?moneyText(item.cost):'Unavailable',numberText(item.costKnown),item.last?new Date(item.last).toLocaleString():'—'].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});tbody.append(tr);
         });
         if(!groups.size){const tr=el('tr'),td=el('td','','No model activity found for the selected provider and time range.');td.colSpan=9;tr.append(td);tbody.append(tr);}
         table.append(tbody);wrap.append(table);result.append(wrap);
