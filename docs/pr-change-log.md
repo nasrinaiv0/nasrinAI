@@ -2642,3 +2642,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
 - Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
 - Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.
+
+
+## Merged PR reliability audit #1–#630 — 2026-10-26
+
+- Added `docs/audits/merged-pr-reliability-audit-1-630-2026-10-26.md` to document the audit scope, baseline, preliminary historical failures, follow-up PRs, acceptance criteria, and required verification workflow.
+- Initial investigation targets include session validation (#620/#622), structured UI rendering (#584/#585), image routing (#559/#560), OpenRouter discovery (#570), Owner Console review queue (#563), Video Studio (#468), chat sources (#379), site-wide interactions (#375), and recent provider/telemetry changes (#627/#629/#630).
+- This is a preliminary audit record, not a claim that all PRs #1–#630 have been reviewed or that listed functionality has been verified. Each target must be checked against current main; corrective changes require regression tests and focused PRs.
