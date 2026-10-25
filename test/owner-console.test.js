@@ -703,3 +703,55 @@ test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases
   assert.equal(all.rows.length, 3);
   assert.equal(all.rows.find(row => row.id === 'alias').catalog_status, 'unknown');
 });
+
+test('OpenRouter generation reconciliation uses generation IDs and backfills unverified costs', async () => {
+  const calls = [];
+  const rows = [
+    { id: 'row-1', provider_request_id: 'req-not-a-generation', openrouter_generation_id: 'gen-valid-1', total_cost_usd: 0.02, provider_cost_source: null, model: 'openai/gpt-4o' },
+    { id: 'row-2', provider_request_id: 'gen-valid-2', openrouter_generation_id: null, total_cost_usd: null, provider_cost_source: null, model: 'openai/gpt-4o' },
+    { id: 'row-3', provider_request_id: 'req-not-a-generation', openrouter_generation_id: null, total_cost_usd: null, provider_cost_source: null, model: 'openai/gpt-4o' },
+    { id: 'row-4', provider_request_id: 'gen-verified', openrouter_generation_id: 'gen-verified', total_cost_usd: 0.01, provider_cost_source: 'openrouter_generation_api', model: 'openai/gpt-4o' }
+  ];
+  const store = { request: async (method, path, options = {}) => {
+    if (method === 'GET' && path.startsWith('openrouter_logs?select=id,provider_request_id,openrouter_generation_id')) return rows;
+    if (method === 'PATCH' && path.startsWith('openrouter_logs?id=eq.')) {
+      calls.push({ method, path, patch: options.body });
+      return [{ id: path.includes('row-1') ? 'row-1' : 'row-2' }];
+    }
+    if (method === 'GET' && path.startsWith('openrouter_logs?select=id,provider_request_id,openrouter_generation_id,total_cost_usd,provider_cost_source,created_at')) {
+      return rows.map((row) => ({ ...row, provider_cost_source: row.provider_cost_source }));
+    }
+    if (path === 'rpc/owner_console_record_audit') return null;
+    throw new Error('unexpected store request');
+  }};
+  const { consoleHandler } = setup({
+    store,
+    openrouterApiKey: 'openrouter-inference-key-123456789',
+    fetchImpl: async (url, options) => {
+      const id = new URL(url).searchParams.get('id');
+      calls.push({ url, options });
+      return { ok: true, status: 200, json: async () => ({ data: {
+        id, total_cost: id === 'gen-valid-1' ? 0.03 : 0,
+        tokens_prompt: 10, tokens_completion: 4, tokens: 14,
+        generation_time: 1200, upstream_inference_time: 900,
+        model: 'openai/gpt-4o', provider_name: 'Test Provider', native_finish_reason: 'stop'
+      } }) };
+    }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('POST', '/owner/api/openrouter-billing/reconcile', {
+    headers: { ...sameOrigin, cookie, 'content-type': 'application/json' }, testIp: IP
+  });
+  out.req[Symbol.asyncIterator] = async function* () { yield Buffer.from(JSON.stringify({ confirm: 'RECONCILE', window: '7d' })); };
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-billing/reconcile');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.attempted, 2);
+  assert.equal(payload.updated, 2);
+  const generationCalls = calls.filter((call) => call.url);
+  assert.deepEqual(generationCalls.map((call) => new URL(call.url).searchParams.get('id')), ['gen-valid-1', 'gen-valid-2']);
+  assert.ok(calls.some((call) => call.patch?.total_cost_usd === 0.03 && call.patch?.provider_cost_source === 'openrouter_generation_api'));
+  assert.ok(calls.some((call) => call.patch?.total_cost_usd === 0 && call.patch?.generation_time_seconds === 1.2));
+  assert.ok(generationCalls.every((call) => call.options.headers.Authorization === 'Bearer openrouter-inference-key-123456789'));
+});
