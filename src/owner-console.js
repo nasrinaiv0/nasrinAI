@@ -727,6 +727,92 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       }
       return true;
     }
+    if (pathname === '/owner/api/openrouter-logs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs are not connected to the owner data store.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '24h';
+      const windows = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 };
+      if (!Object.hasOwn(windows, windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 24h, 7d, 30d, or 90d.' } });
+        return true;
+      }
+      const cutoff = new Date(now() - windows[windowName] * 86400000).toISOString();
+      const status = url.searchParams.get('status') || '';
+      if (status && !['success', 'error'].includes(status)) {
+        sendJson(res, 400, { error: { code: 'invalid_status', message: 'Choose success or error.' } });
+        return true;
+      }
+      const model = String(url.searchParams.get('model') || '').trim().slice(0, 120);
+      if (model && !/^[a-zA-Z0-9:._/@ -]+$/.test(model)) {
+        sendJson(res, 400, { error: { code: 'invalid_model_filter', message: 'The model filter contains unsupported characters.' } });
+        return true;
+      }
+      const endpoint = String(url.searchParams.get('endpoint') || '').trim().slice(0, 120);
+      if (endpoint && !/^\/[a-zA-Z0-9/_-]+$/.test(endpoint)) {
+        sendJson(res, 400, { error: { code: 'invalid_endpoint_filter', message: 'The endpoint filter is invalid.' } });
+        return true;
+      }
+      const requestedLimit = Number(url.searchParams.get('limit') || 100);
+      const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 100;
+      const requestedOffset = Number(url.searchParams.get('offset') || 0);
+      const offset = Number.isSafeInteger(requestedOffset) ? Math.max(0, Math.min(requestedOffset, 10000)) : 0;
+      const filters = [
+        'select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
+        'created_at=gte.' + encodeURIComponent(cutoff)
+      ];
+      if (status) filters.push('status=eq.' + encodeURIComponent(status));
+      if (model) filters.push('or=(' + ['model','requested_model'].map((field) => field + '.ilike.*' + encodeURIComponent(model) + '*').join(',') + ')');
+      if (endpoint) filters.push('endpoint=eq.' + encodeURIComponent(endpoint));
+      filters.push('order=created_at.desc', 'limit=' + limit, 'offset=' + offset);
+      try {
+        const rows = await store.request('GET', 'openrouter_logs?' + filters.join('&'));
+        if (!Array.isArray(rows)) throw new Error('invalid log rows');
+        sendJson(res, 200, {
+          source: 'supabase.openrouter_logs',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          limit,
+          offset,
+          count: rows.length,
+          has_more: rows.length === limit,
+          rows: rows.map((row) => ({
+            id: row.id,
+            request_id: row.request_id,
+            created_at: row.created_at,
+            provider: row.provider || 'openrouter',
+            upstream_provider: row.upstream_provider,
+            finish_reason: row.finish_reason,
+            generation_time_seconds: row.generation_time_seconds,
+            upstream_inference_time_seconds: row.upstream_inference_time_seconds,
+            endpoint: row.endpoint,
+            http_method: row.http_method,
+            requested_model: row.requested_model,
+            model: row.model,
+            prompt_tokens: row.prompt_tokens,
+            cached_tokens: row.cached_tokens,
+            completion_tokens: row.completion_tokens,
+            total_tokens: row.total_tokens,
+            total_cost_usd: row.total_cost_usd,
+            response_summary: row.response_summary && typeof row.response_summary === 'object' ? row.response_summary : {},
+            status: row.status,
+            http_status: row.http_status,
+            error_code: row.error_code,
+            latency_ms: row.latency_ms,
+            provider_request_id: row.provider_request_id,
+            openrouter_generation_id: row.openrouter_generation_id,
+            provider_cost_source: row.provider_cost_source,
+            provider_cost_reconciled_at: row.provider_cost_reconciled_at
+          }))
+        });
+      } catch {
+        logger?.warn?.('OpenRouter request logs unavailable', { source: 'openrouter_logs' });
+        sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs could not be loaded. Confirm migrations 063 and 064 are applied and server-side database access is configured.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner/api/ai-logs' && (req.method === 'GET' || req.method === 'HEAD')) {
       if (typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'ai_logs_unavailable', message: 'AI request telemetry is not connected to the owner data store.' } });
@@ -858,7 +944,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
           limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
           coverage_limited: usageRows.length === 1000 || routerRows.length === 1000,
-          catalog_coverage: Object.fromEntries(['openrouter', 'openai', 'anthropic', 'google'].map((provider) => [provider, catalogs[provider] ? 'available' : 'unavailable']),
+          catalog_coverage: Object.fromEntries(['openrouter', 'openai', 'anthropic', 'google'].map((provider) => [provider, catalogs[provider] ? 'available' : 'unavailable'])),
           rows: page
         });
       } catch {
