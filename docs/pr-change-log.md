@@ -1,3 +1,11 @@
+## OpenRouter generation discovery sync — 2026-10-26
+
+- Port the supplied sync template into a protected 15-minute Vercel cron: Management API analytics discovers generation IDs; the separate inference key retrieves per-generation details; Supabase upserts records idempotently by generation ID.
+- Persist selected provider-reported fields in a dedicated RLS-protected `openrouter_generations` table, not synthetic request rows. Do not store raw provider payloads, prompts, completions, or uploaded content.
+- Include discovered generation records in Owner AI Logs only when no corresponding local OpenRouter request row is present, with explicit telemetry-source labeling and provider-reported cost provenance.
+- Add regression tests for key separation, generation-ID deduplication, private metadata persistence, and Owner AI Logs inclusion.
+- **Validation:** CI is required; migration 072 must be applied and server-only Vercel secrets verified before live data can be confirmed.
+
 ## Owner Command Center provider-specific model inventory — 2026-10-26
 
 - Replace model-membership inference with explicit inventories for the 51 supplied OpenRouter entries (49 unique IDs; two IDs were repeated in the source list) and the 14 direct-provider models across OpenAI, Google, and Anthropic.
