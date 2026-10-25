@@ -1,3 +1,7 @@
+## Catalog scope regression correction — 2026-10-26
+
+- Correct the legacy AI Logs regression fixture that expected live OpenRouter catalog membership. It now uses a NasrinAI-configured model, verifies no live catalog call is needed, and expects unresolved aliases to remain `unknown`.
+
 ## Configured-catalog UI wording — 2026-10-26
 
 - Update AI Logs empty-state/status copy so it accurately describes configured NasrinAI catalog membership rather than claiming a live provider catalog was checked.
