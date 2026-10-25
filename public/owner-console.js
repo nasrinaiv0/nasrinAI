@@ -136,7 +136,7 @@
     modelInput.placeholder = 'e.g. openai/gpt-6-sol';
     modelLabel.append(modelInput);
     const confirmLabel = el('label', '', 'I understand real provider requests may incur costs');
-    const confirmInput = el('input');
+    const confirmInput = el('input', 'provider-cost-confirmation');
     confirmInput.type = 'checkbox';
     confirmLabel.append(confirmInput);
     const runButton = el('button', 'quiet-button', 'Run model verification');
