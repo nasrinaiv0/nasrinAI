@@ -448,12 +448,17 @@ export function loadConfig(env = process.env) {
 
   // OpenRouter web search uses the server-side OpenRouter key and provider billing.
   // It is independent of the selected chat provider and does not require Google credentials.
-  const WEB_SEARCH_DEFAULT = 'openrouter/auto';
+  // The Responses API server-side web-search tool requires a model with tool support.
+  // OpenRouter's Auto router can return HTTP 400 for this tool path; use a verified
+  // free model that advertises Responses API + tool support rather than silently
+  // routing guest/Quick research through an arbitrary paid model.
+  const WEB_SEARCH_DEFAULT = 'nvidia/nemotron-3-super-120b-a12b:free';
   function webSearchModel() {
     const set = String(env.OPENROUTER_WEB_SEARCH_MODEL ?? '').trim();
     if (env.OPENROUTER_WEB_SEARCH_MODEL !== undefined && !set) return '';
     if (!openrouterApiKey || aiProvider === 'fake' || aiProvider === 'none') return '';
-    return set || WEB_SEARCH_DEFAULT;
+    if (!set || set === 'openrouter/auto') return WEB_SEARCH_DEFAULT;
+    return set;
   }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.

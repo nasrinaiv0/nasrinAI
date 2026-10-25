@@ -1,3 +1,22 @@
+## Owner-directed deferral — 2026-10-25
+
+- Supabase Auth leaked-password protection is intentionally skipped for now per owner direction. Retain as a documented future security-hardening task; do not describe it as enabled or resolved. This item alone should not block the current release.
+
+## Production verification follow-up — 2026-10-25
+
+- Applied migration `066_openrouter_logs_explicit_deny_policy` to the connected production Supabase project and verified its migration-registry entry, restrictive browser-role deny policy, and removal of the `openrouter_logs` no-policy security advisory.
+- **Still open:** Auth leaked-password protection, migration-history/schema reconciliation, post-deployment OpenRouter search/billing smoke tests, media generation/fallbacks, and final reliability/security release gates. Do not mark phases complete until the evidence exists.
+
+- **Follow-up correctness fix (2026-10-25):** accept OpenRouter Analytics API's documented `data.data` rows envelope and test the documented flat-row shape (`request_count`, `total_usage`, token metrics). The earlier fixture used a noncanonical shape and failed to catch this parsing bug; live account verification remains pending.
+
+## Phase 3–5 priority follow-up — OpenRouter search and billing (2026-10-25)
+
+- Production logs showed repeated HTTP 400 failures for the Responses API web-search request configured with `openrouter/auto`. Route the default and that specific Auto setting to `nvidia/nemotron-3-super-120b-a12b:free`, which OpenRouter currently documents as supporting the Responses API and tool calling. Explicit non-Auto model overrides remain supported.
+- Replace the Owner Command Center's legacy `/api/v1/activity` request with the documented OpenRouter Analytics API. Discover supported metric identifiers, use bounded 7/30-day windows, keep provider-reported spend separate from Supabase cost records, and treat credits metadata as optional.
+- Add regression tests for search model selection and billing analytics response shape, auth header, date bounds, and credits-endpoint failure isolation.
+- **Security/cost:** no provider secrets or prompt/completion content are added to logs. The search model is free-tier; the web-search tool/engine may still have separate provider charges, so this does not guarantee zero cost for browsing itself.
+- **Validation:** CI and Documentation Gate pass on the final revision; live production smoke tests remain required before calling the provider workflows verified.
+
 ## Phase 3–5 audit snapshot (2026-10-25)
 
 - Record read-only production evidence for the active Vercel commit, Supabase migration-label drift, OpenRouter telemetry grants/RLS, the Auth leaked-password-protection warning, and a historical Connect redirect rejection.

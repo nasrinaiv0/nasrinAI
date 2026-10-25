@@ -726,78 +726,128 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         return true;
       }
       const url = new URL(req.url, 'http://local');
-      const windowName = url.searchParams.get('window') || '30d';
+      const windowName = url.searchParams.get('window') || '7d';
       if (!['7d', '30d'].includes(windowName)) {
         sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d or 30d.' } });
         return true;
       }
       const at = now();
-      const headers = { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' };
+      const days = windowName === '7d' ? 7 : 30;
+      const timeRange = {
+        start: new Date(at - days * 24 * 60 * 60 * 1000).toISOString(),
+        end: new Date(at).toISOString()
+      };
+      const headers = { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json', 'Content-Type': 'application/json' };
       try {
-        const [activityResponse, creditsResponse] = await Promise.all([
-          fetchImpl('https://openrouter.ai/api/v1/activity', { method: 'GET', headers, signal: AbortSignal.timeout(8000) }),
-          fetchImpl('https://openrouter.ai/api/v1/credits', { method: 'GET', headers, signal: AbortSignal.timeout(8000) })
-        ]);
-        if (!activityResponse?.ok || !creditsResponse?.ok) throw new Error('provider response not ok');
-        const [activityPayload, creditsPayload] = await Promise.all([activityResponse.json(), creditsResponse.json()]);
-        const activity = Array.isArray(activityPayload?.data) ? activityPayload.data : Array.isArray(activityPayload?.data?.data) ? activityPayload.data.data : null;
-        if (!activity) throw new Error('invalid activity payload');
-        const days = windowName === '7d' ? 7 : 30;
-        const cutoff = at - days * 24 * 60 * 60 * 1000;
-        const filtered = activity.filter((item) => {
-          const stamp = item?.date || item?.created_at || item?.timestamp;
-          const parsed = typeof stamp === 'number' ? (stamp < 1e12 ? stamp * 1000 : stamp) : Date.parse(stamp || '');
-          return !Number.isFinite(parsed) || parsed >= cutoff;
+        // The legacy /activity endpoint is no longer the reliable source for
+        // current analytics. Discover metric identifiers first, then issue a
+        // bounded query against OpenRouter's supported Analytics API.
+        let availableMetrics = [];
+        try {
+          const metaResponse = await fetchImpl('https://openrouter.ai/api/v1/analytics/meta', {
+            method: 'GET', headers, signal: AbortSignal.timeout(8000), redirect: 'error'
+          });
+          if (metaResponse.ok) {
+            const meta = await metaResponse.json();
+            const metrics = meta?.data?.metrics ?? meta?.metrics ?? meta?.data;
+            if (Array.isArray(metrics)) availableMetrics = metrics.map((item) => typeof item === 'string' ? item : item?.name ?? item?.id).filter((item) => typeof item === 'string');
+            else if (metrics && typeof metrics === 'object') availableMetrics = Object.keys(metrics);
+          }
+        } catch { /* The documented baseline metrics below remain usable. */ }
+        const metricCandidates = [
+          ['total_usage', ['total_usage', 'usage', 'spend']],
+          ['requests', ['requests', 'request_count', 'requests_count']],
+          ['tokens_prompt', ['tokens_prompt', 'prompt_tokens']],
+          ['tokens_completion', ['tokens_completion', 'completion_tokens']],
+          ['tokens_total', ['tokens_total', 'total_tokens']]
+        ];
+        const metrics = availableMetrics.length
+          ? metricCandidates.map(([, aliases]) => aliases.find((name) => availableMetrics.includes(name))).filter(Boolean)
+          : ['total_usage', 'tokens_total'];
+        if (!metrics.includes('total_usage')) throw new Error('analytics schema does not expose total_usage');
+        const analyticsResponse = await fetchImpl('https://openrouter.ai/api/v1/analytics/query', {
+          method: 'POST', headers, signal: AbortSignal.timeout(10000), redirect: 'error',
+          body: JSON.stringify({ metrics, dimensions: ['model'], granularity: 'day', time_range: timeRange, limit: 100 })
         });
-        const sum = (key) => filtered.reduce((total, item) => {
-          const value = Number(item?.[key]);
-          return total + (Number.isFinite(value) && value >= 0 ? value : 0);
-        }, 0);
+        if (!analyticsResponse.ok) throw new Error('analytics query failed');
+        const analyticsPayload = await analyticsResponse.json();
+        const rawRows = analyticsPayload?.data?.data ?? analyticsPayload?.data?.rows ?? analyticsPayload?.rows ?? analyticsPayload?.data;
+        if (!Array.isArray(rawRows)) throw new Error('invalid analytics payload');
+        const readMetric = (row, aliases) => {
+          const bag = row?.metrics ?? row?.values ?? row;
+          for (const name of aliases) {
+            const value = bag?.[name] ?? row?.[name];
+            if (value !== null && value !== undefined && value !== '') {
+              const number = Number(value);
+              if (Number.isFinite(number) && number >= 0) return number;
+            }
+          }
+          return null;
+        };
         const byModel = new Map();
-        for (const item of filtered) {
-          const model = String(item?.model || item?.model_id || 'unknown').slice(0, 160);
-          const current = byModel.get(model) || { model, requests: 0, prompt_tokens: 0, completion_tokens: 0, total_cost_usd: 0, cost_rows: 0 };
-          const requests = Number(item?.requests ?? item?.request_count);
-          const prompt = Number(item?.prompt_tokens ?? item?.input_tokens);
-          const completion = Number(item?.completion_tokens ?? item?.output_tokens);
-          const cost = Number(item?.usage ?? item?.total_cost ?? item?.cost);
-          if (Number.isFinite(requests) && requests >= 0) current.requests += requests;
-          if (Number.isFinite(prompt) && prompt >= 0) current.prompt_tokens += prompt;
-          if (Number.isFinite(completion) && completion >= 0) current.completion_tokens += completion;
-          if (Number.isFinite(cost) && cost >= 0) { current.total_cost_usd += cost; current.cost_rows += 1; }
+        for (const row of rawRows) {
+          const dimensions = row?.dimensions ?? row?.group ?? row;
+          const model = String(dimensions?.model ?? row?.model ?? 'unknown').slice(0, 160);
+          const current = byModel.get(model) || { model, requests: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, total_cost_usd: 0, cost_rows: 0 };
+          const cost = readMetric(row, ['total_usage', 'usage', 'spend']);
+          const requests = readMetric(row, ['requests', 'request_count', 'requests_count']);
+          const prompt = readMetric(row, ['tokens_prompt', 'prompt_tokens']);
+          const completion = readMetric(row, ['tokens_completion', 'completion_tokens']);
+          const total = readMetric(row, ['tokens_total', 'total_tokens']);
+          if (requests !== null) current.requests += requests;
+          if (prompt !== null) current.prompt_tokens += prompt;
+          if (completion !== null) current.completion_tokens += completion;
+          if (total !== null) current.total_tokens += total;
+          if (cost !== null) { current.total_cost_usd += cost; current.cost_rows += 1; }
           byModel.set(model, current);
         }
-        const credits = creditsPayload?.data || creditsPayload;
-        const totalCredits = Number(credits?.total_credits);
-        const totalUsage = Number(credits?.total_usage);
+        const credits = { total_credits: null, total_usage: null, remaining_credits: null };
+        // Credits are a separate API and use an inference key, not the
+        // management key. Failure here must not hide valid Analytics results.
+        if (openrouterManagementKey) {
+          try {
+            const creditsResponse = await fetchImpl('https://openrouter.ai/api/v1/credits', {
+              method: 'GET',
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
+              signal: AbortSignal.timeout(8000), redirect: 'error'
+            });
+            if (creditsResponse.ok) {
+              const payload = await creditsResponse.json();
+              const value = payload?.data ?? payload;
+              const totalCredits = Number(value?.total_credits);
+              const totalUsage = Number(value?.total_usage);
+              credits.total_credits = Number.isFinite(totalCredits) ? totalCredits : null;
+              credits.total_usage = Number.isFinite(totalUsage) ? totalUsage : null;
+              credits.remaining_credits = Number.isFinite(totalCredits) && Number.isFinite(totalUsage) ? totalCredits - totalUsage : null;
+            }
+          } catch { /* Balance metadata is optional; analytics remains authoritative for reported spend. */ }
+        }
+        const rows = [...byModel.values()].sort((a, b) => b.total_cost_usd - a.total_cost_usd).slice(0, 100);
+        const totalOf = (key) => rows.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
         sendJson(res, 200, {
-          source: 'openrouter_management_api',
+          source: 'openrouter_analytics_api',
           generated_at: new Date(at).toISOString(),
           window: windowName,
           window_days: days,
-          activity_rows: filtered.length,
+          activity_rows: rawRows.length,
           totals: {
-            requests: sum('requests') || sum('request_count'),
-            prompt_tokens: sum('prompt_tokens') || sum('input_tokens'),
-            completion_tokens: sum('completion_tokens') || sum('output_tokens'),
-            provider_reported_cost_usd: filtered.some((item) => Number.isFinite(Number(item?.usage ?? item?.total_cost ?? item?.cost)) && Number(item?.usage ?? item?.total_cost ?? item?.cost) >= 0)
-              ? filtered.reduce((total, item) => { const value = Number(item?.usage ?? item?.total_cost ?? item?.cost); return total + (Number.isFinite(value) && value >= 0 ? value : 0); }, 0) : null,
-            cost_source: 'OpenRouter activity API; totals are provider-reported, not estimated'
+            requests: metrics.some((name) => ['requests','request_count','requests_count'].includes(name)) ? totalOf('requests') : null,
+            prompt_tokens: metrics.some((name) => ['tokens_prompt','prompt_tokens'].includes(name)) ? totalOf('prompt_tokens') : null,
+            completion_tokens: metrics.some((name) => ['tokens_completion','completion_tokens'].includes(name)) ? totalOf('completion_tokens') : null,
+            total_tokens: metrics.some((name) => ['tokens_total','total_tokens'].includes(name)) ? totalOf('total_tokens') : null,
+            provider_reported_cost_usd: rows.some((row) => row.cost_rows > 0) ? totalOf('total_cost_usd') : null,
+            cost_source: 'OpenRouter Analytics API; totals are provider-reported, not estimated'
           },
-          credits: {
-            total_credits: Number.isFinite(totalCredits) ? totalCredits : null,
-            total_usage: Number.isFinite(totalUsage) ? totalUsage : null,
-            remaining_credits: Number.isFinite(totalCredits) && Number.isFinite(totalUsage) ? totalCredits - totalUsage : null
-          },
-          by_model: [...byModel.values()].sort((a, b) => b.total_cost_usd - a.total_cost_usd).slice(0, 100),
+          credits,
+          by_model: rows,
           reconciliation: {
             status: 'not_reconciled',
-            note: 'OpenRouter account activity is shown independently. Do not add it to Supabase request costs; reconcile by request ID before calculating combined spend.'
+            note: 'OpenRouter account analytics is shown independently. Do not add it to Supabase request costs; reconcile by generation ID before calculating combined spend.'
           }
         });
       } catch {
-        logger?.warn?.('OpenRouter billing analytics unavailable', { source: 'openrouter_management_api' });
-        sendJson(res, 503, { error: { code: 'openrouter_billing_unavailable', message: 'OpenRouter billing data could not be retrieved. Check the management key and provider availability.' } });
+        logger?.warn?.('OpenRouter billing analytics unavailable', { source: 'openrouter_analytics_api' });
+        sendJson(res, 503, { error: { code: 'openrouter_billing_unavailable', message: 'OpenRouter analytics could not be retrieved. Check the management key, analytics access, and provider availability.' } });
       }
       return true;
     }
