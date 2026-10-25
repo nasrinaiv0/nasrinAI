@@ -302,7 +302,8 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
-  // Guest/free Quick use explicitly free OpenRouter models first, then GPT-6 Luna as the sole paid fallback.
+  // Guest/free Quick prefers explicitly free OpenRouter models, then separately configured
+  // free-provider allowlists, and keeps GPT-6 Luna as the final emergency fallback.
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
     'openrouter:nvidia/nemotron-3.5-lightning:free',
