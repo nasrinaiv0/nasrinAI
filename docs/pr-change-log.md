@@ -1,3 +1,37 @@
+## Catalog scope regression correction — 2026-10-26
+
+- Correct the legacy AI Logs regression fixture that expected live OpenRouter catalog membership. It now uses a NasrinAI-configured model, verifies no live catalog call is needed, and expects unresolved aliases to remain `unknown`.
+
+## Configured-catalog UI wording — 2026-10-26
+
+- Update AI Logs empty-state/status copy so it accurately describes configured NasrinAI catalog membership rather than claiming a live provider catalog was checked.
+
+## Direct-provider cost provenance correction — 2026-10-26
+
+- Read the existing `usage_events.cost_source` column introduced by migration 062. Direct-provider `cost_usd` is considered provider-reported only when `cost_source = provider_reported` and the amount is finite and non-negative.
+- Preserve unknown status for legacy/unmarked cost values; use the same provenance gate for AI Logs and model-level inventory aggregation.
+- Add regression coverage for both unverified legacy costs and explicitly provenance-marked provider costs. No new migration is required because migration 062 already defines this field and its constraints.
+
+## Provider cost verification follow-up — 2026-10-26
+
+- Require `provider_cost_source = openrouter_generation_api` plus a finite, non-negative `total_cost_usd` before classifying an OpenRouter request cost as provider-reported.
+- Do not aggregate `usage_events.cost_usd` into provider spend. Direct-provider cost remains unavailable until provider-reported cost and provenance are persisted.
+- Model inventory cost summaries use the same provenance gate as request logs. UI provenance cells show `Unavailable` for unverified cost values.
+- Update the cross-provider inventory regression test to assert configured-catalog classification and unknown cost behavior rather than live-catalog coverage.
+
+## Provider cost provenance — 2026-10-26
+
+- `openrouter_logs.total_cost_usd` remains the provider/gateway-reported cost source for OpenRouter calls.
+- `usage_events.cost_usd` is not displayed as provider spend because that table does not carry verified provider-cost provenance. Direct-provider cost displays as unavailable until provider-reported cost and source metadata are recorded.
+- Do not substitute model-card pricing estimates for actual spend. Keep unknown costs explicitly unknown rather than inventing totals.
+
+## Owner Command Center catalog scopes — 2026-10-26
+
+- AI Logs includes only model IDs in NasrinAI's configured catalog; it does not use OpenRouter's live catalog to define listed status.
+- Unlisted Models shows logged model IDs absent from NasrinAI's configured catalog.
+- AI Models Activities retains all observed model activity, listed and unlisted. Use concise panel descriptions to avoid crowded headings and table columns.
+- Keep provider telemetry sanitized and owner-session protected; catalog membership is inventory classification, not proof of provider availability or execution readiness.
+
 ## Owner Command Center table settings — 2026-10-25
 
 - Add table-specific column visibility, drag-and-drop ordering, pinned-column selection, Compact/Regular/Expanded density, and Reset controls to AI Logs and AI Models Activities.

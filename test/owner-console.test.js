@@ -523,7 +523,8 @@ test('cross-provider model inventory is owner-authenticated, sanitized, and does
   const store = { kind: 'supabase', request: async (_method, path) => {
     if (path === 'rpc/owner_console_record_audit') return null;
     if (path.startsWith('usage_events?')) return [
-      { provider: 'anthropic', model: 'claude-sonnet-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:00:00.000Z', input_tokens: 10, output_tokens: 20, latency_ms: 50, cost_usd: 0.01 }
+      { provider: 'anthropic', model: 'claude-sonnet-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:00:00.000Z', input_tokens: 10, output_tokens: 20, latency_ms: 50, cost_usd: 0.01 },
+      { provider: 'anthropic', model: 'claude-verified-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:01:00.000Z', input_tokens: 12, output_tokens: 22, latency_ms: 45, cost_usd: 0.02, cost_source: 'provider_reported' }
     ];
     if (path.startsWith('openrouter_logs?')) return [
       { provider: 'openrouter', upstream_provider: 'ProviderX', requested_model: 'openrouter/auto', model: null, endpoint: '/chat/completions', status: 'success', created_at: '2026-10-24T11:00:00.000Z', prompt_tokens: 20, completion_tokens: 30, total_cost_usd: null },
@@ -541,7 +542,12 @@ test('cross-provider model inventory is owner-authenticated, sanitized, and does
   assert.ok(payload.rows.some((row) => row.provider === 'anthropic' && row.model === 'claude-sonnet-example'));
   assert.ok(payload.rows.some((row) => row.model === 'providerx/actual-model'));
   assert.equal(payload.rows.some((row) => row.model === 'openrouter/auto'), false);
-  assert.equal(payload.catalog_coverage.openrouter, 'unavailable');
+  assert.equal(payload.rows.find((row) => row.model === 'providerx/actual-model').cost_usd, null);
+  assert.equal(payload.catalog_source, 'nasrinai_configured_catalog');
+  assert.equal(payload.rows.find((row) => row.model === 'claude-sonnet-example').catalog_status, 'not_listed');
+  assert.equal(payload.rows.find((row) => row.model === 'providerx/actual-model').catalog_status, 'not_listed');
+  assert.equal(payload.rows.find((row) => row.model === 'claude-sonnet-example').cost_usd, null);
+  assert.equal(payload.rows.find((row) => row.model === 'claude-verified-example').cost_usd, 0.02);
   assert.equal(out.res.body.includes('prompt_tokens'), false);
 });
 
@@ -587,7 +593,7 @@ test('regional analytics API is owner-session protected, bounded, and aggregate-
 });
 
 
-test('cross-provider AI logs apply short time windows, provider filters, live catalog membership, and provider-cost labeling', async () => {
+test('cross-provider AI logs apply short time windows, provider filters, configured catalog membership, and provider-cost labeling', async () => {
   const timestamp = new Date(1_800_000_000_000).toISOString();
   const store = {
     kind: 'supabase',
@@ -596,7 +602,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
       if (path.startsWith('usage_events?')) return [];
       if (path.startsWith('openrouter_logs?')) return [{
         id: 'log-1', request_id: 'req-1', created_at: timestamp, provider: 'openrouter',
-        requested_model: 'openrouter/auto', model: 'openai/gpt-4o-mini', upstream_provider: 'OpenAI',
+        requested_model: 'openrouter/auto', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', upstream_provider: 'OpenAI',
         endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
         prompt_tokens: 12, cached_tokens: 2, completion_tokens: 8, total_tokens: 20,
         total_cost_usd: 0.0012, provider_cost_source: 'openrouter_generation_api',
@@ -614,10 +620,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   };
   const { consoleHandler } = setup({
     store,
-    fetchImpl: async (url) => {
-      assert.equal(url, 'https://openrouter.ai/api/v1/models');
-      return { ok: true, json: async () => ({ data: [{ id: 'openai/gpt-4o-mini' }] }) };
-    }
+    fetchImpl: async () => { throw new Error('catalog membership must use NasrinAI configured catalogs'); }
   });
   const opened = await bootstrap(consoleHandler);
   const cookie = opened.res.headers['set-cookie'].split(';')[0];
@@ -629,7 +632,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   assert.equal(payload.provider, 'openrouter');
   assert.equal(payload.rows.length, 1);
   assert.equal(payload.rows[0].catalog_status, 'listed');
-  assert.equal(payload.rows[0].model, 'openai/gpt-4o-mini');
+  assert.equal(payload.rows[0].model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
   assert.equal(payload.rows[0].cost_kind, 'provider_reported');
   assert.equal(payload.rows[0].total_cost_usd, 0.0012);
   assert.equal(payload.rows[0].model_status, 'observed');
@@ -642,7 +645,7 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   const inferred = allStatesPayload.rows.find((row) => row.id === 'log-inferred');
   assert.equal(inferred.status, 'running');
   assert.equal(inferred.model_status, 'inferred');
-  assert.equal(inferred.catalog_status, 'not_listed');
+  assert.equal(inferred.catalog_status, 'unknown');
 
   const invalid = request('GET', '/owner/api/ai-logs?window=2m&provider=openrouter', { headers: { cookie }, testIp: IP });
   await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/ai-logs');
@@ -660,4 +663,43 @@ test('owner console table settings support per-table visibility, density, pinnin
   assert.match(script, /settings\.hidden/);
   assert.match(script, /ai-logs/);
   assert.match(script, /ai-model-activities/);
+});
+
+
+test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases out of Unlisted Models', async () => {
+  const timestamp = new Date(1_800_000_000_000).toISOString();
+  const store = {
+    kind: 'supabase',
+    request: async (_method, path) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      if (path.startsWith('usage_events?')) return [];
+      if (path.startsWith('openrouter_logs?')) return [
+        { id: 'listed', created_at: timestamp, provider: 'openrouter', requested_model: 'nvidia/nemotron-3-ultra-550b-a55b:free', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', status: 'success', endpoint: '/chat/completions' },
+        { id: 'unlisted', created_at: timestamp, provider: 'openrouter', requested_model: 'vendor/not-in-nasrin-catalog', model: 'vendor/not-in-nasrin-catalog', status: 'success', endpoint: '/chat/completions' },
+        { id: 'alias', created_at: timestamp, provider: 'openrouter', requested_model: 'openrouter/auto', model: null, status: 'running', endpoint: '/chat/completions' }
+      ];
+      throw new Error('unexpected telemetry query');
+    }
+  };
+  const { consoleHandler } = setup({
+    store,
+    fetchImpl: async () => { throw new Error('catalog classification must not call provider live catalogs'); }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  async function load(scope) {
+    const out = request('GET', '/owner/api/ai-logs?window=24h&provider=all&scope=' + scope + '&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+    await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
+    assert.equal(out.res.statusCode, 200);
+    return JSON.parse(out.res.body);
+  }
+  const listed = await load('listed');
+  assert.deepEqual(listed.rows.map(row => row.id), ['listed']);
+  assert.equal(listed.rows[0].catalog_status, 'listed');
+  const unlisted = await load('unlisted');
+  assert.deepEqual(unlisted.rows.map(row => row.id), ['unlisted']);
+  assert.equal(unlisted.rows[0].catalog_status, 'not_listed');
+  const all = await load('all');
+  assert.equal(all.rows.length, 3);
+  assert.equal(all.rows.find(row => row.id === 'alias').catalog_status, 'unknown');
 });
