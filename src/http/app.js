@@ -13,7 +13,7 @@ import { setBaseHeaders, setApiHeaders, sendJson } from './headers.js';
 // the same rule is in vercel.json for the hosted site.
 const nccHost = (config) => { try { return config.ncc?.url ? new URL(config.ncc.url).host : ''; } catch { return ''; } };
 
-export function createApp({ config, logger, gateway, routes = [], serveStatic = null, clientIp = () => '', ownerConsole = null }) {
+export function createApp({ config, logger, gateway, routes = [], serveStatic = null, clientIp = () => '', ownerConsole = null, regionalAnalytics = null }) {
   const ncc = nccHost(config);
   const pageFor = (req, pathname) => (/^\/chat\/[A-Za-z0-9_-]{22}$/.test(pathname) ? '/chat.html' : pathname);
   const isNccRoot = (req, pathname) => Boolean(ncc) && pathname === '/' && String(req.headers.host || '').toLowerCase() === ncc;
@@ -73,6 +73,9 @@ export function createApp({ config, logger, gateway, routes = [], serveStatic = 
         const { route, params } = match;
         const ip = clientIp(req);
         const caller = route.public ? null : await gateway.resolve(req, { scope: route.scope, ip });
+        // Track one coarse regional session signal per platform user/guest window.
+        // The adapter ignores non-platform tenants and untrusted/missing geo headers.
+        if (caller && regionalAnalytics) await regionalAnalytics.record({ req, caller });
         const body = route.body ? await readJson(req, route.maxBody || config.maxBodyBytes) : undefined;
         const raw = route.raw ? await readRaw(req, route.maxBody || config.maxBodyBytes) : undefined;
         const result = await route.handler({ req, res, params, caller, body, raw, ip, requestId });
