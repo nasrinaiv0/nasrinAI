@@ -1,3 +1,7 @@
+- Route OpenRouter Responses API web search away from `openrouter/auto` to the verified free `nvidia/nemotron-3-super-120b-a12b:free` model, which advertises Responses API and tool support; preserve explicitly configured model IDs other than Auto. This prevents the known production Auto-model HTTP 400 route while keeping Quick/guest search on a free model.
+- Replace Owner Command Center billing's legacy OpenRouter activity call with the documented Analytics API, discover available metrics before querying, bound requests to 7/30 days, and keep provider-reported spend separate from Supabase cost data. Credits metadata remains optional if its endpoint is unavailable.
+- Add regression coverage for free-model search routing and analytics billing response parsing. Production behavior remains subject to post-deployment smoke tests.
+
 - Record the 2026-10-25 production audit snapshot: migration history still needs manual reconciliation, Supabase Auth leaked-password protection remains disabled, and provider end-to-end verification is still open. No production migration or Auth setting was changed.
 
 - Add migration 066 with an explicit restrictive deny policy for browser roles on OpenRouter telemetry; revoke all browser/public table privileges while preserving service-role select/insert. Add SQL regression checks for RLS, policy semantics, and grants. This is a defense-in-depth database change; it does not resolve migration-history drift or prove provider workflows are production-verified.
