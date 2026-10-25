@@ -2,17 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRegionalAnalytics, regionFromTrustedHeaders } from '../src/regional-analytics.js';
 
-test('regionFromTrustedHeaders ignores browser-supplied location without Vercel edge marker', () => {
-  assert.deepEqual(regionFromTrustedHeaders({
-    'x-vercel-ip-country': 'PH',
-    'x-vercel-ip-country-region': 'Davao',
-    'x-vercel-ip-city': 'Davao City'
-  }), { countryCode: null, region: null, city: null });
+test('regionFromTrustedHeaders returns unknown when edge metadata is absent', () => {
+  assert.deepEqual(regionFromTrustedHeaders({}), { countryCode: null, region: null, city: null });
 });
 
-test('regionFromTrustedHeaders normalizes trusted coarse region data', () => {
+test('regionFromTrustedHeaders normalizes coarse Vercel region data', () => {
   assert.deepEqual(regionFromTrustedHeaders({
-    'x-vercel-id': 'sin1::test',
     'x-vercel-ip-country': 'ph',
     'x-vercel-ip-country-region': 'DVO',
     'x-vercel-ip-city': 'Davao City'
@@ -32,7 +27,7 @@ test('regional analytics stores only a pseudonymous actor hash and coarse locati
     }
   });
   const result = await analytics.record({
-    req: { headers: { 'x-vercel-id': 'sin1::test', 'x-vercel-ip-country': 'PH', 'x-vercel-ip-country-region': 'DVO', 'x-vercel-ip-city': 'Davao City' } },
+    req: { headers: { 'x-vercel-ip-country': 'PH', 'x-vercel-ip-country-region': 'DVO', 'x-vercel-ip-city': 'Davao City' } },
     caller: { tenantId: 'platform', actor: { type: 'user', id: 'auth-user-id-secret' } }
   });
   assert.equal(result, true);
@@ -56,7 +51,7 @@ test('regional analytics skips other tenants and missing trusted location', asyn
     fetchImpl: async () => { calls += 1; return { ok: true }; }
   });
   assert.equal(await analytics.record({
-    req: { headers: { 'x-vercel-id': 'sin1::test', 'x-vercel-ip-country': 'PH' } },
+    req: { headers: { 'x-vercel-ip-country': 'PH' } },
     caller: { tenantId: 'customer-tenant', actor: { type: 'user', id: 'u1' } }
   }), false);
   assert.equal(await analytics.record({
