@@ -150,7 +150,7 @@ export function createOpenRouterClient({
       // reconciliation uses the generation ID with GET /generation?id=....
       providerRequestId: providerRequestId || null,
       openrouterGenerationId: (
-        !/\\/(?:models|images\\/models|videos\\/models)$/.test(baseEvent.endpoint) &&
+        !/\/(?:models|images\/models|videos\/models)$/.test(baseEvent.endpoint) &&
         typeof parsed.id === 'string' &&
         /^gen-[0-9A-Za-z-]{1,120}$/.test(parsed.id)
       ) ? parsed.id : null,
