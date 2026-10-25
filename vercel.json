@@ -28,6 +28,9 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 120
+    },
+    "api/internal-openrouter-generation-sync.js": {
+      "maxDuration": 120
     }
   },
   "redirects": [
