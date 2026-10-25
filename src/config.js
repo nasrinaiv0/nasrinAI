@@ -178,7 +178,7 @@ export function loadConfig(env = process.env) {
     const configuredFreeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
     const freeModels = configuredFreeModels.length ? configuredFreeModels : [...(p.freeModels || [])];
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, models: p.models || null, trainsOnData: true, vision: false, tools: false };
-  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && aiProvider !== 'openrouter' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
+  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', openrouter: 'openrouter', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : openrouterApiKey ? 'openrouter' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
@@ -302,7 +302,8 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
-  // Guest/free Quick use explicitly free OpenRouter models first, then GPT-6 Luna as the sole paid fallback.
+  // Guest/free Quick prefers explicitly free OpenRouter models, then separately configured
+  // free-provider allowlists, and keeps GPT-6 Luna as the final emergency fallback.
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
     'openrouter:nvidia/nemotron-3.5-lightning:free',
