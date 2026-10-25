@@ -1,3 +1,11 @@
+## Cross-provider model catalog and guardrail visibility — 2026-10-25
+
+- Added a separate Owner Command Center navigation category, **Unlisted / Guardrail Models**, spanning model usage observed across provider telemetry rather than OpenRouter alone.
+- Aggregates only sanitized provider/model IDs, request counts, outcomes, token totals, known costs, timestamps, and source labels. Never exposes prompt/completion content or raw summaries.
+- Checks OpenRouter models against the current catalog when available; failed catalog fetches remain unknown. Other providers are included but remain `unknown` until provider-specific verified catalog/guardrail adapters exist. This avoids false-positive unlisted-model alerts.
+- Requested aliases such as `openrouter/auto` are never treated as actual model identities; only returned model IDs are shown.
+- Regression coverage added for provider aggregation, alias handling, missing catalog, and telemetry sanitization. CI verification pending.
+
 ## OpenRouter actual-model visibility and catalog guardrails — 2026-10-25
 
 - Provider-log `model` now records only the model identifier returned by OpenRouter; it no longer substitutes the requested alias when upstream response metadata is absent.
