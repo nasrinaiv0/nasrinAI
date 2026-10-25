@@ -1,3 +1,10 @@
+## OpenRouter provider-log telemetry correctness — 2026-10-25
+
+- Fix generation-ID capture: successful inference responses now persist the OpenRouter response-body `id` when request-ID headers are absent, while excluding model-catalog discovery endpoints from that fallback. This allows new eligible requests to be reconciled without trusting user-supplied IDs.
+- Clarify AI Provider Logs: `/models`, `/images/models`, and `/videos/models` are catalog/discovery calls, not inference calls; inference-only token, speed, generation-time, finish-reason, and cost cells now show “N/A · catalog request” for those rows.
+- Keep the owner-only logs API read-only, bounded, and sanitized; no prompts, completions, raw provider error bodies, or credentials are exposed.
+- **Validation:** regression coverage updated to assert response-body ID fallback when headers are absent. CI and deployed live-provider verification are still pending; historical rows without any stored provider/generation ID cannot be retroactively reconciled from this change alone.
+
 ## PR #611 CI follow-up (2026-10-25)
 
 - Fix the post-synchronization regression in `test/videos-persisted-jobs.test.js`: videos larger than the in-memory byte-cache limit are served from the storage adapter when available, so the test now asserts the private `generated-videos` storage metadata and verifies that playback does not download the provider output a second time.

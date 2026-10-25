@@ -28,7 +28,7 @@ test('OpenRouter client emits sanitized success telemetry without prompt or comp
         model: 'provider/model',
         choices: [{ message: { content: 'PRIVATE_COMPLETION_SENTINEL' }, finish_reason: 'stop' }],
         usage: { prompt_tokens: 12, prompt_tokens_details: { cached_tokens: 4 }, completion_tokens: 8, total_tokens: 20, cost: 0.0004 }
-      }, 200, { 'x-request-id': 'provider-request-1' });
+      });
     }
   });
 
