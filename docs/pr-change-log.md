@@ -1,3 +1,11 @@
+## OpenRouter actual-model visibility and catalog guardrails — 2026-10-25
+
+- Provider-log `model` now records only the model identifier returned by OpenRouter; it no longer substitutes the requested alias when upstream response metadata is absent.
+- AI Provider Logs now shows the actual returned model and derives the provider label from its model namespace. Requested aliases such as `openrouter/auto` are shown separately, never presented as the model that actually ran. Missing upstream model metadata is explicitly labeled.
+- Existing OpenRouter model selection requires live catalog/capability eligibility for named models; unavailable or incompatible named models fail closed rather than silently selecting an arbitrary text model. Image/video selection remains constrained by their task-specific catalogs and advertised capabilities.
+- Owner-only telemetry remains metadata-only; no prompt/completion content or credentials are exposed.
+- Validation: regression test added; CI verification pending.
+
 ## OpenRouter provider-log telemetry correctness — 2026-10-25
 
 - Fix generation-ID capture: successful inference responses now persist the OpenRouter response-body `id` when request-ID headers are absent, while excluding model-catalog discovery endpoints from that fallback. This allows new eligible requests to be reconciled without trusting user-supplied IDs.
