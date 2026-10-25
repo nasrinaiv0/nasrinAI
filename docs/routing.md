@@ -1,8 +1,11 @@
 # Smart routing: the cheapest model that can do the job
 
-Each message goes to the **cheapest model that can answer it well**. Strong
-models are used when the message needs them, never just because they exist.
-The user still sees one assistant, Nasrin.
+Each message goes through **NasrinAI Auto** by default: it chooses the cheapest
+eligible model that can answer well, preferring configured direct providers and
+using OpenRouter as an additional gateway/fallback. Strong models are used when
+the task needs them, never just because they exist. Explicit provider modes remain
+available for operators who intentionally want to pin a provider. The user still
+sees one assistant, Nasrin.
 
 ```
 message ─▶ can code answer it? ──yes──▶ answer (no model, no cost)
@@ -33,7 +36,7 @@ message ─▶ can code answer it? ──yes──▶ answer (no model, no cost)
 | 4 | Architecture, security design, big refactors | `gpt-5.4` (high) |
 | 5 | Whole-system redesigns, long-horizon planning | `gpt-5.4` (high) |
 
-**Coding specialist lane:** Claude is not part of the general levels. **Max** uses Claude Sonnet 5.5 for coding/debugging. **Ultra** uses Sonnet 5.5 for levels 2-3 and upgrades to Claude Opus 5.5 only for levels 4-5. If Anthropic is unavailable or fails, routing falls back to the normal same-level provider pool. This is a hard tier/task gate, so `ROUTE_LEVEL_n` overrides cannot expose Claude to Quick/Pro or to non-coding work.
+**Coding specialist lane:** Claude is not part of the general levels. In Auto mode, direct Anthropic is preferred for the specialist lane when configured; otherwise OpenRouter can supply the approved specialist model. **Max** uses Claude Sonnet 5.5 for coding/debugging. **Ultra** uses Sonnet 5.5 for levels 2-3 and upgrades to Claude Opus 5.5 only for levels 4-5. If the specialist route is unavailable, routing falls back to the normal same-level provider pool. This is a hard tier/task gate, so `ROUTE_LEVEL_n` overrides cannot expose Claude to Quick/Pro or to non-coding work.
 
 Model ids were checked against OpenAI's and Google's model pages on
 2026-10-05. `gpt-5` and `gpt-5-mini` are marked deprecated there, so they
@@ -139,7 +142,7 @@ Provider-side billing dashboards and invoices are authoritative for actual costs
 
 With `OPENROUTER_API_KEY` configured, the requested DeepSeek V4/V4.1 Flash, GLM 5.3 Flash, MiMo V2.6 Flash/Pro, GPT-6 Luna/Luna Pro, Claude Haiku 5.5, Qwen3.8 Flash/27B, and Ling 3.1 Flash models are active default candidates for paid tiers. Task-aware ordering and existing capability, privacy, tier, and quota checks still apply. Provider-reported usage and billing remain authoritative.
 
-Quick/guest remains Nemotron-first. If the OpenRouter free pool is unavailable, it may fall back only to a separately configured provider/model explicitly listed in that provider's `*_FREE_MODELS` allowlist. The single `openai/gpt-6-luna` OpenRouter route remains the final emergency fallback; Luna Pro, MiMo Pro, and other paid-tier candidates are never eligible for Quick, including with a `ROUTE_LEVEL_n` override. Catalog presence is not proof of account-level availability; authenticated live smoke tests are required before each endpoint can be called verified.
+Quick/guest prefers a separately configured direct-provider model only when the exact model is explicitly listed in that provider's `*_FREE_MODELS` allowlist. Eligible OpenRouter `:free` models are the next fallback, and the single `openai/gpt-6-luna` OpenRouter route remains the final emergency fallback. Luna Pro, MiMo Pro, and other paid-tier candidates are never eligible for Quick, including with a `ROUTE_LEVEL_n` override. Catalog presence is not proof of account-level availability; authenticated live smoke tests are required before each endpoint can be called verified.
 
 
 ## Live OpenRouter model discovery

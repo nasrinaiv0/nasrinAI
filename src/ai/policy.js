@@ -170,14 +170,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               || candidate.model === 'openai/gpt-6-luna');
           });
           const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
+          const directFreeCandidates = prioritized.filter((candidate) => candidate.provider !== 'openrouter'
+            && (r.freeModels?.[candidate.provider] || []).includes(candidate.model));
+          const openRouterFreeCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model));
           const ordered = r.quickNemotronOnly && freeQuick
             ? [
-                // Prefer OpenRouter's explicitly free endpoints, then the
-                // separately configured free-provider pool, and only then the
-                // single approved paid emergency fallback.
-                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
-                ...prioritized.filter((candidate) => candidate.provider !== 'openrouter'
-                  && (r.freeModels?.[candidate.provider] || []).includes(candidate.model)),
+                // Auto prefers explicitly allowlisted direct free providers. An
+                // explicitly pinned OpenRouter mode retains OpenRouter-first behavior.
+                ...(config.ai.provider === 'auto' ? directFreeCandidates : openRouterFreeCandidates),
+                ...(config.ai.provider === 'auto' ? openRouterFreeCandidates : directFreeCandidates),
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
               ]
             : prioritized;
@@ -191,8 +192,9 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
           if (r.quickNemotronOnly && freeQuick) {
+            if (config.ai.provider === 'auto') candidates.push(...otherCandidates);
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
-            if (!(r.quickNemotronOnly && freeQuick)) candidates.push(...otherCandidates);
+            if (config.ai.provider !== 'auto') candidates.push(...otherCandidates);
             candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
           } else {
             candidates.push(...openRouterCandidates);

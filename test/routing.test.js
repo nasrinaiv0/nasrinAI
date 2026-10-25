@@ -155,10 +155,10 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
-test('Quick falls back to an explicitly allowlisted free provider when OpenRouter free models are unavailable', async () => {
+test('Auto prefers an explicitly allowlisted direct free provider before OpenRouter free models', async () => {
   const a = setup({
     env: {
-      AI_PROVIDER: 'openrouter',
+      AI_PROVIDER: 'auto',
       AI_FALLBACK: 'none',
       OPENROUTER_API_KEY: 'or-test-key',
       GROQ_API_KEY: 'groq-test-key',
@@ -170,8 +170,8 @@ test('Quick falls back to an explicitly allowlisted free provider when OpenRoute
   const run = await a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello'));
   assert.equal(run.spec.provider, 'groq');
   assert.equal(run.spec.model, 'llama-3.3-70b-versatile');
-  assert.ok(a.openrouter.calls.length > 0, 'OpenRouter free routes are tried first');
-  assert.equal(a.groq.calls.length, 1, 'the configured free provider is used as fallback');
+  assert.equal(a.openrouter.calls.length, 0, 'healthy direct free capacity should avoid the OpenRouter fallback');
+  assert.equal(a.groq.calls.length, 1, 'the configured allowlisted direct free provider is preferred');
   assert.equal(a.openai.calls.length, 0, 'Quick never falls back to a paid OpenAI route');
   assert.equal(a.gemini.calls.length, 0, 'Quick never falls back to an unapproved provider route');
 });
@@ -655,3 +655,4 @@ test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint elig
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'pro' }), true, 'legacy dynamic chat discovery remains supported for paid tiers');
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'nasrinai' }), false, 'free Quick cannot use unmarked paid IDs');
 });
+
