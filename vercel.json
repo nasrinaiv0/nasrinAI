@@ -19,6 +19,10 @@
     {
       "path": "/v1/internal/owner-alerts",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/v1/internal/openrouter-generation-sync",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {
@@ -93,6 +97,10 @@
     {
       "source": "/healthz",
       "destination": "/api/index?__path=/healthz"
+    },
+    {
+      "source": "/v1/internal/openrouter-generation-sync",
+      "destination": "/api/internal-openrouter-generation-sync"
     }
   ],
   "headers": [
