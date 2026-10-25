@@ -1,3 +1,10 @@
+## Owner Command Center catalog scopes — 2026-10-26
+
+- AI Logs includes only model IDs in NasrinAI's configured catalog; it does not use OpenRouter's live catalog to define listed status.
+- Unlisted Models shows logged model IDs absent from NasrinAI's configured catalog.
+- AI Models Activities retains all observed model activity, listed and unlisted. Use concise panel descriptions to avoid crowded headings and table columns.
+- Keep provider telemetry sanitized and owner-session protected; catalog membership is inventory classification, not proof of provider availability or execution readiness.
+
 ## Owner Command Center table settings — 2026-10-25
 
 - Add table-specific column visibility, drag-and-drop ordering, pinned-column selection, Compact/Regular/Expanded density, and Reset controls to AI Logs and AI Models Activities.
