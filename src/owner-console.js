@@ -1,10 +1,31 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
+import { MODEL_CAPABILITIES } from './ai/model-capabilities.js';
+import { OPENROUTER_MODEL_ROUTING } from './ai/openrouter-tier-routing.js';
+import { OPENROUTER_SKILL_CATALOG } from './ai/openrouter-catalog.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
 const NOT_FOUND = 'Page not found.';
+
+// Membership is defined by NasrinAI's configured source catalogs, never by a
+// provider's live catalog. This is inventory membership only, not runtime readiness.
+const NASRINAI_CATALOG_IDS = new Set([
+  ...MODEL_CAPABILITIES.map((entry) => entry?.id),
+  ...OPENROUTER_MODEL_ROUTING.map((entry) => entry?.id),
+  ...OPENROUTER_SKILL_CATALOG.map((entry) => entry?.id)
+].filter((id) => typeof id === 'string' && id.trim()).flatMap((id) => {
+  const value = id.trim().toLowerCase();
+  const slash = value.indexOf('/');
+  return slash > 0 ? [value, value.slice(slash + 1)] : [value];
+}));
+function isNasrinCatalogModel(model) {
+  const value = String(model || '').trim().toLowerCase();
+  if (!value || /^(?:actual model not reported|openrouter\/(?:auto|free)|auto)$/i.test(value)) return false;
+  const slash = value.indexOf('/');
+  return NASRINAI_CATALOG_IDS.has(value) || (slash > 0 && NASRINAI_CATALOG_IDS.has(value.slice(slash + 1)));
+}
 
 function sendNotFound(res, head = false) {
   res.statusCode = 404;
@@ -848,7 +869,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         sendJson(res, 400, { error: { code: 'invalid_endpoint_filter', message: 'The endpoint filter is invalid.' } });
         return true;
       }
-      const scope = url.searchParams.get('scope') === 'all' ? 'all' : 'listed';
+      const requestedScope = url.searchParams.get('scope') || 'listed';
+      const scope = ['listed', 'unlisted', 'all'].includes(requestedScope) ? requestedScope : 'listed';
       const requestedLimit = Number(url.searchParams.get('limit') || 50);
       const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 1000)) : 50;
       const requestedOffset = Number(url.searchParams.get('offset') || 0);
@@ -894,7 +916,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
         ]);
         if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
-        await Promise.all(['openrouter', 'openai', 'anthropic', 'google'].map(loadCatalog));
+        // Deliberately do not use provider live catalogs to classify NasrinAI inventory membership.
         const rows = [];
         for (const row of routerRows) {
           const actual = String(row.model || '').trim();
@@ -902,7 +924,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // Such rows are inferred request targets, not proof that the alias itself executed.
           const model = normalizeModel(actual || row.requested_model || 'Actual model not reported', 'openrouter');
           const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
-          const catalogStatus = model && catalogs.openrouter ? (catalogs.openrouter.has(model) ? 'listed' : 'not_listed') : 'unknown';
+          const catalogStatus = isNasrinCatalogModel(model) ? 'listed' : 'not_listed';
           const modelStatus = actual ? 'observed' : row.requested_model ? 'inferred' : 'unavailable';
           rows.push({
             id: row.id, request_id: row.request_id, created_at: row.created_at, provider: 'openrouter',
@@ -936,7 +958,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
             total_cost_usd: estimate, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
             finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
-            catalog_status: model !== 'Actual model not reported' && catalogs[catalogProvider] ? (catalogs[catalogProvider].has(model) ? 'listed' : 'not_listed') : 'unknown',
+            catalog_status: isNasrinCatalogModel(model) ? 'listed' : 'not_listed',
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
             telemetry_source: 'usage_events', cost_kind: estimate == null ? 'unknown' : 'estimated'
@@ -949,15 +971,16 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           if (modelFilter && ![row.model, row.requested_model].some((value) => String(value || '').toLowerCase().includes(modelFilter.toLowerCase()))) return false;
           if (endpointFilter && row.endpoint !== endpointFilter) return false;
           if (scope === 'listed' && row.catalog_status !== 'listed') return false;
+          if (scope === 'unlisted' && row.catalog_status !== 'not_listed') return false;
           return true;
         }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
         const page = filtered.slice(offset, offset + limit);
         sendJson(res, 200, {
-          source: 'provider_catalogs+supabase.usage_events+supabase.openrouter_logs',
+          source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs',
           generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
           limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
           coverage_limited: usageRows.length === 1000 || routerRows.length === 1000,
-          catalog_coverage: Object.fromEntries(['openrouter', 'openai', 'anthropic', 'google'].map((provider) => [provider, catalogs[provider] ? 'available' : 'unavailable'])),
+          catalog_source: 'nasrinai_configured_catalog',
           rows: page
         });
       } catch {
@@ -1021,24 +1044,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // For auto-routing, requested_model is not the actual model. Only count returned model.
           if (row.model) add(row.upstream_provider || row.provider, row.model, row, 'openrouter_logs', true);
         }
-        let openRouterCatalog = null;
-        try {
-          if (typeof fetchImpl === 'function') {
-            const response = await fetchImpl('https://openrouter.ai/api/v1/models', {
-              method: 'GET', headers: { Accept: 'application/json' },
-              signal: AbortSignal.timeout(5000), redirect: 'error'
-            });
-            if (response.ok) {
-              const payload = await response.json();
-              if (Array.isArray(payload?.data)) openRouterCatalog = new Set(payload.data.map((entry) => String(entry?.id || '')).filter(Boolean));
-            }
-          }
-        } catch { /* Catalog state remains unknown; never infer unlisted from a failed fetch. */ }
         const rows = [...grouped.values()].map((item) => {
-          const cameFromOpenRouter = item.sources.has('openrouter_logs') || item.provider.replace(/\s+/g, '') === 'openrouter';
-          const catalogStatus = cameFromOpenRouter
-            ? (openRouterCatalog ? (openRouterCatalog.has(item.model) ? 'listed' : 'not_listed') : 'unknown')
-            : 'unknown';
+          const catalogStatus = isNasrinCatalogModel(item.model) ? 'listed' : 'not_listed';
           const result = {
             provider: item.provider, model: item.model, first_seen: item.first_seen, last_seen: item.last_seen,
             request_count: item.request_count, successes: item.successes, failures: item.failures,
@@ -1052,7 +1059,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           return priority(a) - priority(b) || b.request_count - a.request_count;
         });
         sendJson(res, 200, { source: 'supabase.usage_events+openrouter_logs', window: windowName,
-          generated_at: new Date(now()).toISOString(), catalog_coverage: { openrouter: openRouterCatalog ? 'available' : 'unavailable', other_providers: 'unknown_without_verified_catalog_adapter' },
+          generated_at: new Date(now()).toISOString(), catalog_source: 'nasrinai_configured_catalog',
           count: rows.length, rows });
       } catch {
         logger?.warn?.('Cross-provider model telemetry unavailable', { source: 'model_telemetry' });
