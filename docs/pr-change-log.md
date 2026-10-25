@@ -1,3 +1,9 @@
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
+- Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
 ## OpenRouter generation ID and cost reconciliation fix — 2026-10-26
 
 - Keep OpenRouter's HTTP `x-request-id` separate from the response body's `gen-*` generation ID and persist both to their respective telemetry columns.

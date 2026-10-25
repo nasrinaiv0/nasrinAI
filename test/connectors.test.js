@@ -54,7 +54,7 @@ test('definitions: only https public hosts, declared paths, safe patterns, expli
 async function bizApp({ calls = [], reply, respond } = {}) {
   const provider = createFakeProvider({ models: ['gpt-6-luna'], reply });
   const connectorCall = async (req) => { calls.push(req); return respond ? respond(req) : { status: 200, type: 'application/json', text: '{"status":"shipped","eta":"Oct 8"}' }; };
-  const built = buildTestApp({ provider, connectorCall, env: { ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), CONNECTOR_SECRET_KEY: KEY_HEX } });
+  const built = buildTestApp({ provider, connectorCall, env: { AI_PROVIDER: 'fake', ROUTING: 'smart', ROUTE_LEVEL_1: 'gpt-6-luna', ROUTE_LEVEL_2: 'gpt-6-luna', ROUTE_LEVEL_3: 'gpt-6-luna', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), CONNECTOR_SECRET_KEY: KEY_HEX } });
   built.store.addApiKey({ id: 'ffffffffffff', tenant_id: BIZ_TENANT, kind: 'secret', secret_hash: hashSecret(MGMT_SECRET), scopes: ['chat', 'connectors'] });
   const srv = await serve(built.app);
   const put = (name, body, token = MGMT) => fetch(srv.url + '/v1/connectors/' + name, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...bearer(token) }, body: JSON.stringify(body) });
@@ -92,7 +92,7 @@ test('chat: the business server asks about an order; the declared call is made w
   try {
     await a.put('shop', SHOP);
     const out = await (await postJson(a.url + '/v1/chat', { message: 'Where is order 12345?' }, bearer(MGMT))).json();
-    assert.equal(a.calls.length, 1);
+    assert.equal(a.calls.length, 1, JSON.stringify({ out, logs: a.logger?.lines?.slice(-20) }));
     assert.equal(String(a.calls[0].url), 'https://api.shop.example.com/v1/orders/12345');
     assert.equal(a.calls[0].method, 'GET');
     assert.equal(a.calls[0].headers['X-Api-Key'], 'shop-key-123', 'decrypted only for the call');
