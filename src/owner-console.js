@@ -804,11 +804,11 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const credits = { total_credits: null, total_usage: null, remaining_credits: null };
         // Credits are a separate API and use an inference key, not the
         // management key. Failure here must not hide valid Analytics results.
-        if (openrouterApiKey) {
+        if (openrouterManagementKey) {
           try {
             const creditsResponse = await fetchImpl('https://openrouter.ai/api/v1/credits', {
               method: 'GET',
-              headers: { Authorization: 'Bearer ' + openrouterApiKey, Accept: 'application/json' },
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
               signal: AbortSignal.timeout(8000), redirect: 'error'
             });
             if (creditsResponse.ok) {
