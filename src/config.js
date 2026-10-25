@@ -903,3 +903,79 @@ export function loadConfig(env = process.env) {
       // sessions to another provider if Gemini credentials are unavailable.
       realtime: Object.freeze({
         tokensPerMinute: toInt('REALTIME_TOKEN_RESERVE_PER_MINUTE', env.REALTIME_TOKEN_RESERVE_PER_MINUTE, 10000, 1, 1000000),
+        enabled: String(env.REALTIME_VOICE_ENABLED ?? 'true').toLowerCase() !== 'false'
+          && Boolean(geminiKey),
+        tiers: Object.freeze({
+          nasrinai: Object.freeze({ dailySeconds: 300, provider: 'gemini', model: 'gemini-3.8-live', effort: 'low', maxSeconds: toInt('REALTIME_QUICK_MAX_SECONDS', env.REALTIME_QUICK_MAX_SECONDS, 300, 60, 3600) }),
+          pro: Object.freeze({ dailySeconds: 900, provider: 'gemini', model: 'gemini-3.8-live', effort: 'low', maxSeconds: toInt('REALTIME_PRO_MAX_SECONDS', env.REALTIME_PRO_MAX_SECONDS, 900, 60, 3600) }),
+          max: Object.freeze({ dailySeconds: 1200, provider: 'gemini', model: 'gemini-3.8-live', effort: 'medium', maxSeconds: toInt('REALTIME_MAX_MAX_SECONDS', env.REALTIME_MAX_MAX_SECONDS, 1800, 60, 3600) }),
+          ultra: Object.freeze({ dailySeconds: 1800, provider: 'gemini', model: 'gemini-3.8-live', effort: 'high', maxSeconds: toInt('REALTIME_ULTRA_MAX_SECONDS', env.REALTIME_ULTRA_MAX_SECONDS, 3600, 60, 3600) })
+        })
+      }),
+      // Natural voices. SPEECH_PROVIDER: auto (OpenAI when it is used, else
+      // Gemini when GEMINI_API_KEY is set), openai or gemini.
+      speech: Object.freeze({
+        provider: speechProvider,
+        enabled: speechProvider !== 'none' && String(env.SPEECH_ENABLED ?? 'true').toLowerCase() !== 'false',
+        model: String(env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts').trim(),
+        // The quick voice model used in the hands-free voice conversation
+        // (lower delay, a little less expressive). OPENAI_TTS_FAST_MODEL=off uses the normal one.
+        fastModel: /^(off|none|false)$/i.test(String(env.OPENAI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.OPENAI_TTS_FAST_MODEL || 'tts-1').trim(),
+        // Gemini speech. GEMINI_TTS_FAST_MODEL is optional (empty: same model).
+        openrouterModel: String(env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-lite-tts').trim(),
+        // Pin speech generation to the owner's requested provider. Provider routing is strict (only/no fallback)
+        // in the OpenRouter adapter, so an unavailable provider fails closed rather than silently changing vendors.
+        openrouterProvider: String(env.OPENROUTER_TTS_PROVIDER || 'Google AI Studio').trim(),
+        geminiModel: String(env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts').trim(),
+        geminiFastModel: /^(off|none|false)$/i.test(String(env.GEMINI_TTS_FAST_MODEL || '').trim()) ? '' : String(env.GEMINI_TTS_FAST_MODEL || 'gemini-3.8-flash-lite-tts').trim(),
+        responsive: String(env.SPEECH_RESPONSIVE ?? 'true').toLowerCase() !== 'false',
+        responsiveTimeoutMs: toInt('SPEECH_RESPONSIVE_TIMEOUT_MS', env.SPEECH_RESPONSIVE_TIMEOUT_MS, 3000, 800, 15000),
+        rate: speechRate,
+        maxChars: 4000
+      }),
+      // Files sent with a message: count, total size (decoded) and text length.
+      attachments: Object.freeze({
+        maxCount: attachmentsMaxCount,
+        // In total per message. Files sent inside the request itself stay
+        // within maxInlineBytes; direct uploads may reach the larger limit.
+        maxTotalBytes: (uploadsEnabled ? uploadsMaxMb : attachmentsMaxMb) * 1024 * 1024,
+        maxInlineBytes: attachmentsMaxMb * 1024 * 1024,
+        maxTextChars: 30000
+      }),
+      // Tiers and who may pick them. NasrinAI (the default) is open to everyone.
+      tiers,
+      guestTiers,
+      userTiers
+    }),
+    // Abuse and cost limits. Hourly counts are shared by every server instance.
+    limits: Object.freeze({
+      guestSessionsPerIpHour: toInt('LIMIT_GUEST_SESSIONS_PER_IP_HOUR', env.LIMIT_GUEST_SESSIONS_PER_IP_HOUR, 10, 1, 1000),
+      guestMessagesHour: toInt('LIMIT_GUEST_MESSAGES_HOUR', env.LIMIT_GUEST_MESSAGES_HOUR, 20, 1, 1000),
+      userMessagesHour: toInt('LIMIT_USER_MESSAGES_HOUR', env.LIMIT_USER_MESSAGES_HOUR, 60, 1, 5000),
+      serviceMessagesHour: toInt('LIMIT_SERVICE_MESSAGES_HOUR', env.LIMIT_SERVICE_MESSAGES_HOUR, 600, 1, 100000),
+      ipMessagesHour: toInt('LIMIT_IP_MESSAGES_HOUR', env.LIMIT_IP_MESSAGES_HOUR, 120, 1, 10000),
+      // Weekly paid-plan allowances; 0 means no per-user token ceiling (Quick remains available).
+      userDailyTokens: toInt('USER_DAILY_TOKEN_LIMIT', env.USER_DAILY_TOKEN_LIMIT, 100000, 0, 100000000),
+      proWeeklyTokens: toInt('PRO_WEEKLY_TOKEN_LIMIT', env.PRO_WEEKLY_TOKEN_LIMIT, 1000000, 0, 100000000),
+      maxWeeklyTokens: toInt('MAX_WEEKLY_TOKEN_LIMIT', env.MAX_WEEKLY_TOKEN_LIMIT, 5000000, 0, 100000000),
+      ultraWeeklyTokens: toInt('ULTRA_WEEKLY_TOKEN_LIMIT', env.ULTRA_WEEKLY_TOKEN_LIMIT, 10000000, 0, 100000000),
+      maxDailyTokens: toInt('MAX_DAILY_TOKEN_LIMIT', env.MAX_DAILY_TOKEN_LIMIT, 500000, 0, 100000000),
+      ultraDailyTokens: toInt('ULTRA_DAILY_TOKEN_LIMIT', env.ULTRA_DAILY_TOKEN_LIMIT, 2000000, 0, 100000000),
+      guestSpeechHour: toInt('LIMIT_GUEST_SPEECH_HOUR', env.LIMIT_GUEST_SPEECH_HOUR, 20, 0, 1000),
+      userSpeechHour: toInt('LIMIT_USER_SPEECH_HOUR', env.LIMIT_USER_SPEECH_HOUR, 120, 0, 5000),
+      guestWebHour: toInt('LIMIT_GUEST_WEB_HOUR', env.LIMIT_GUEST_WEB_HOUR, 6, 0, 1000),
+      userWebHour: toInt('LIMIT_USER_WEB_HOUR', env.LIMIT_USER_WEB_HOUR, 40, 0, 5000),
+      // Citation lookups (docs/citations.md): their own hourly allowance, so citing sources never uses up web search.
+      guestCiteHour: toInt('LIMIT_GUEST_CITE_HOUR', env.LIMIT_GUEST_CITE_HOUR, 20, 0, 1000),
+      userCiteHour: toInt('LIMIT_USER_CITE_HOUR', env.LIMIT_USER_CITE_HOUR, 120, 0, 5000),
+      userLibraryHour: toInt('LIMIT_USER_LIBRARY_HOUR', env.LIMIT_USER_LIBRARY_HOUR, 60, 1, 5000),
+      userProjectsHour: toInt('LIMIT_USER_PROJECTS_HOUR', env.LIMIT_USER_PROJECTS_HOUR, 300, 1, 10000),
+      userNccHour: toInt('LIMIT_USER_NCC_HOUR', env.LIMIT_USER_NCC_HOUR, 600, 1, 20000),
+      // Sign-in: codes emailed per IP and per address, code tries per address, refreshes per IP.
+      signInCodesIpHour: toInt('LIMIT_SIGNIN_CODES_IP_HOUR', env.LIMIT_SIGNIN_CODES_IP_HOUR, 10, 1, 1000),
+      signInCodesEmailHour: toInt('LIMIT_SIGNIN_CODES_EMAIL_HOUR', env.LIMIT_SIGNIN_CODES_EMAIL_HOUR, 4, 1, 100),
+      signInTriesHour: toInt('LIMIT_SIGNIN_TRIES_HOUR', env.LIMIT_SIGNIN_TRIES_HOUR, 10, 1, 100),
+      signInRefreshIpHour: toInt('LIMIT_SIGNIN_REFRESH_IP_HOUR', env.LIMIT_SIGNIN_REFRESH_IP_HOUR, 300, 10, 10000)
+    })
+  });
+}
