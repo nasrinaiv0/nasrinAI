@@ -142,7 +142,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Try live-discovered candidates before the static shortlist so
           // bounded retries do not starve newly listed models behind stale IDs.
           // Task prioritization still orders the full eligible candidate set.
-          const configuredFreeProviderCandidates = freeQuick
+          const configuredFreeProviderCandidates = plan.tier === 'nasrinai' && plan.paidQuick !== true
             ? (config.ai.freeProviders || [])
               .filter((p) => p.id !== 'openrouter' && Array.isArray(p.freeModels) && p.freeModels.includes(p.model))
               .flatMap((p) => (r.freeModels?.[p.id] || []).map((model) => ({ provider: p.id, model, effort: null })))
