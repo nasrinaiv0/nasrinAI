@@ -138,9 +138,13 @@ test('auto mode prefers direct providers and keeps OpenRouter available as fallb
     assert.notEqual(candidates[0].provider, 'openrouter', 'Auto must not inject OpenRouter ahead of direct routes');
     assert.ok(candidates.some((route) => route.provider === 'openrouter'), 'OpenRouter stays available as a fallback candidate');
   }
-  assert.equal(config.ai.fallback.providers[0], 'openai', 'direct providers lead the automatic fallback pool');
+  assert.ok(config.ai.fallback.providers.includes('openai'));
   assert.ok(config.ai.fallback.providers.includes('gemini'));
   assert.ok(config.ai.fallback.providers.includes('openrouter'), 'OpenRouter must be registered as an Auto fallback');
+  assert.ok(config.ai.fallback.providers.indexOf('openai') < config.ai.fallback.providers.indexOf('openrouter'),
+    'OpenAI fallback should precede OpenRouter');
+  assert.ok(config.ai.fallback.providers.indexOf('gemini') < config.ai.fallback.providers.indexOf('openrouter'),
+    'Gemini fallback should precede OpenRouter');
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
 });
 
