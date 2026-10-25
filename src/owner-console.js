@@ -156,9 +156,9 @@ const dashboardHtml = `<!doctype html>
     <nav id="navigation">
       <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
       <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
-      <button class="nav-item" data-panel="logs"><span>≋</span>AI Provider Logs</button>
-      <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>OpenRouter Unlisted Models</button>
-      <button class="nav-item" data-panel="other-unlisted"><span>◇</span>Other Provider Unlisted Models</button>
+      <button class="nav-item" data-panel="logs"><span>≋</span>AI Logs</button>
+      <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>Unlisted Models</button>
+      <button class="nav-item" data-panel="other-unlisted"><span>◇</span>AI Models Activities</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
@@ -185,9 +185,9 @@ const dashboardHtml = `<!doctype html>
 const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
-  logs: { title: 'AI Provider Logs', description: 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.' },
-  'openrouter-unlisted': { title: 'OpenRouter Unlisted Models', description: 'Only actual models returned by OpenRouter that are confirmed absent from its current model catalog. Unknown catalog results are excluded from this list.' },
-  'other-unlisted': { title: 'Other Provider Unlisted Models', description: 'Models used by other providers, compared with provider-specific catalogs when a verified adapter is available.' },
+  logs: { title: 'AI Logs', description: 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.' },
+  'openrouter-unlisted': { title: 'Unlisted Models', description: 'Only actual models returned by OpenRouter that are confirmed absent from its current model catalog. Unknown catalog results are excluded from this list.' },
+  'other-unlisted': { title: 'AI Models Activities', description: 'Models used by other providers, compared with provider-specific catalogs when a verified adapter is available.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
@@ -810,6 +810,159 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       } catch {
         logger?.warn?.('OpenRouter request logs unavailable', { source: 'openrouter_logs' });
         sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs could not be loaded. Confirm migrations 063 and 064 are applied and server-side database access is configured.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/ai-logs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'ai_logs_unavailable', message: 'AI request telemetry is not connected to the owner data store.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '24h';
+      const windowsMs = { '15m': 15 * 60e3, '30m': 30 * 60e3, '1h': 60 * 60e3, '5h': 5 * 60 * 60e3, '12h': 12 * 60 * 60e3, '24h': 24 * 60 * 60e3, '7d': 7 * 86400e3, '30d': 30 * 86400e3, '90d': 90 * 86400e3 };
+      if (!Object.hasOwn(windowsMs, windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 15m, 30m, 1h, 5h, 12h, 24h, 7d, 30d, or 90d.' } });
+        return true;
+      }
+      const cutoff = new Date(now() - windowsMs[windowName]).toISOString();
+      const providerFilter = String(url.searchParams.get('provider') || 'all').toLowerCase();
+      // Provider names are normalized and filtered in memory; allow future integrations without
+      // coupling this endpoint to a fixed provider allowlist.
+      if (providerFilter.length > 60 || !/^[a-z0-9 _.-]+$/.test(providerFilter)) {
+        sendJson(res, 400, { error: { code: 'invalid_provider', message: 'Choose a valid provider name or all.' } });
+        return true;
+      }
+      const statusFilter = String(url.searchParams.get('status') || '').toLowerCase();
+      if (statusFilter && !['success', 'error'].includes(statusFilter)) {
+        sendJson(res, 400, { error: { code: 'invalid_status', message: 'Choose success or error.' } });
+        return true;
+      }
+      const modelFilter = String(url.searchParams.get('model') || '').trim().slice(0, 120);
+      if (modelFilter && !/^[a-zA-Z0-9:._/@ -]+$/.test(modelFilter)) {
+        sendJson(res, 400, { error: { code: 'invalid_model_filter', message: 'The model filter contains unsupported characters.' } });
+        return true;
+      }
+      const endpointFilter = String(url.searchParams.get('endpoint') || '').trim().slice(0, 120);
+      if (endpointFilter && !/^\/[a-zA-Z0-9/_-]+$/.test(endpointFilter)) {
+        sendJson(res, 400, { error: { code: 'invalid_endpoint_filter', message: 'The endpoint filter is invalid.' } });
+        return true;
+      }
+      const scope = url.searchParams.get('scope') === 'all' ? 'all' : 'listed';
+      const requestedLimit = Number(url.searchParams.get('limit') || 50);
+      const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 1000)) : 50;
+      const requestedOffset = Number(url.searchParams.get('offset') || 0);
+      const offset = Number.isSafeInteger(requestedOffset) ? Math.max(0, Math.min(requestedOffset, 10000)) : 0;
+      const normalizeProvider = (value) => {
+        const p = String(value || '').trim().toLowerCase();
+        if (['google', 'google ai studio', 'gemini'].includes(p)) return 'google';
+        if (['claude', 'anthropic'].includes(p)) return 'anthropic';
+        if (p.includes('openrouter')) return 'openrouter';
+        if (p.includes('openai')) return 'openai';
+        return p || 'unknown';
+      };
+      const normalizeModel = (value, provider) => {
+        let model = String(value || '').trim();
+        if (provider === 'google') model = model.replace(/^models\//i, '');
+        if (provider !== 'openrouter') model = model.replace(/^(?:openai|google|gemini|anthropic|claude)[/:]/i, '');
+        return model.slice(0, 200);
+      };
+      const catalogs = {};
+      const loadCatalog = async (provider) => {
+        try {
+          if (typeof fetchImpl !== 'function') return;
+          let response;
+          if (provider === 'openrouter') {
+            response = await fetchImpl('https://openrouter.ai/api/v1/models', { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
+          } else if (provider === 'openai' && config?.ai?.openaiApiKey) {
+            response = await fetchImpl('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + config.ai.openaiApiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
+          } else if (provider === 'anthropic' && config?.ai?.anthropicApiKey) {
+            response = await fetchImpl('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': config.ai.anthropicApiKey, 'anthropic-version': '2023-06-01', Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
+          } else if (provider === 'google' && config?.ai?.geminiApiKey) {
+            response = await fetchImpl('https://generativelanguage.googleapis.com/v1beta/models', { headers: { 'x-goog-api-key': config.ai.geminiApiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
+          } else return;
+          if (!response?.ok) return;
+          const payload = await response.json();
+          const entries = provider === 'google' ? payload?.models : payload?.data;
+          if (!Array.isArray(entries)) return;
+          catalogs[provider] = new Set(entries.map((entry) => normalizeModel(provider === 'google' ? entry?.name : entry?.id, provider)).filter(Boolean));
+        } catch { /* Catalog status remains unknown on provider/API failure. */ }
+      };
+      try {
+        const [usageRows, routerRows] = await Promise.all([
+          store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
+          store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
+        ]);
+        if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
+        await Promise.all(['openrouter', 'openai', 'anthropic', 'google'].map(loadCatalog));
+        const rows = [];
+        for (const row of routerRows) {
+          const actual = String(row.model || '').trim();
+          // Keep requested aliases visible when OpenRouter does not report the resolved model.
+          // Such rows are inferred request targets, not proof that the alias itself executed.
+          const model = normalizeModel(actual || row.requested_model || 'Actual model not reported', 'openrouter');
+          const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
+          const catalogStatus = model && catalogs.openrouter ? (catalogs.openrouter.has(model) ? 'listed' : 'not_listed') : 'unknown';
+          const modelStatus = actual ? 'observed' : row.requested_model ? 'inferred' : 'unavailable';
+          rows.push({
+            id: row.id, request_id: row.request_id, created_at: row.created_at, provider: 'openrouter',
+            upstream_provider: row.upstream_provider || null, endpoint: row.endpoint, http_method: row.http_method,
+            requested_model: row.requested_model, model, status, http_status: row.http_status, error_code: row.error_code,
+            prompt_tokens: row.prompt_tokens, cached_tokens: row.cached_tokens, completion_tokens: row.completion_tokens,
+            total_tokens: row.total_tokens, total_cost_usd: row.total_cost_usd, provider_cost_source: row.provider_cost_source,
+            provider_request_id: row.provider_request_id, openrouter_generation_id: row.openrouter_generation_id,
+            finish_reason: row.finish_reason, generation_time_seconds: row.generation_time_seconds,
+            upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms,
+            catalog_status: catalogStatus, model_status: modelStatus,
+            model_status_source: actual ? 'provider_response' : row.requested_model ? 'requested_model_alias' : 'missing_model_metadata',
+            telemetry_source: 'openrouter_logs', cost_kind: row.total_cost_usd == null ? 'unknown' : 'provider_reported'
+          });
+        }
+        for (const row of usageRows) {
+          const provider = normalizeProvider(row.provider);
+          // OpenRouter's detailed request log is authoritative for that route; do not double-count its aggregate usage event.
+          if (provider === 'openrouter') continue;
+          const catalogProvider = provider === 'gemini' ? 'google' : provider;
+          const model = normalizeModel(row.model, catalogProvider) || 'Actual model not reported';
+          const outcome = String(row.outcome || 'unknown').trim().toLowerCase() || 'unknown';
+          const successOutcomes = ['ok', 'success', 'succeeded', 'complete', 'completed'];
+          const failureOutcomes = ['error', 'failed', 'failure', 'timeout', 'timed_out', 'cancelled', 'canceled'];
+          const status = successOutcomes.includes(outcome) ? 'success' : failureOutcomes.includes(outcome) ? 'error' : outcome;
+          const estimate = row.cost_usd == null || row.cost_usd === '' || !Number.isFinite(Number(row.cost_usd)) || Number(row.cost_usd) < 0 ? null : Number(row.cost_usd);
+          rows.push({
+            id: null, request_id: null, created_at: row.created_at, provider: catalogProvider,
+            upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
+            status, http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
+            completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
+            total_cost_usd: estimate, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
+            finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
+            catalog_status: model !== 'Actual model not reported' && catalogs[catalogProvider] ? (catalogs[catalogProvider].has(model) ? 'listed' : 'not_listed') : 'unknown',
+            model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
+            model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
+            telemetry_source: 'usage_events', cost_kind: estimate == null ? 'unknown' : 'estimated'
+          });
+        }
+        const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
+        const filtered = rows.filter((row) => {
+          if (canonicalFilter !== 'all' && row.provider !== canonicalFilter) return false;
+          if (statusFilter && !((statusFilter === 'success' && ['success', 'ok', 'succeeded', 'complete', 'completed'].includes(row.status)) || (statusFilter === 'error' && ['error', 'failed', 'failure', 'timeout', 'timed_out', 'cancelled', 'canceled'].includes(row.status)))) return false;
+          if (modelFilter && ![row.model, row.requested_model].some((value) => String(value || '').toLowerCase().includes(modelFilter.toLowerCase()))) return false;
+          if (endpointFilter && row.endpoint !== endpointFilter) return false;
+          if (scope === 'listed' && row.catalog_status !== 'listed') return false;
+          return true;
+        }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        const page = filtered.slice(offset, offset + limit);
+        sendJson(res, 200, {
+          source: 'provider_catalogs+supabase.usage_events+supabase.openrouter_logs',
+          generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
+          limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
+          coverage_limited: usageRows.length === 1000 || routerRows.length === 1000,
+          catalog_coverage: Object.fromEntries(['openrouter', 'openai', 'anthropic', 'google'].map((provider) => [provider, catalogs[provider] ? 'available' : 'unavailable'])),
+          rows: page
+        });
+      } catch {
+        logger?.warn?.('AI request logs unavailable', { source: 'provider_logs' });
+        sendJson(res, 503, { error: { code: 'ai_logs_unavailable', message: 'AI request logs could not be loaded. Verify provider telemetry, model catalogs, and server-side database access.' } });
       }
       return true;
     }

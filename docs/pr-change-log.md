@@ -1,3 +1,10 @@
+## Owner Command Center table settings — 2026-10-25
+
+- Add table-specific column visibility, drag-and-drop ordering, pinned-column selection, Compact/Regular/Expanded density, and Reset controls to AI Logs and AI Models Activities.
+- Persist display preferences in browser local storage under separate keys per table. Hidden columns remain in the underlying data and do not change filtering or request calculations.
+- Add regression checks for the table settings controls and document the change in CHANGELOG.md.
+- Validation: CI is required; no merge or production deployment is claimed by this change.
+
 ## Owner Command Center OpenRouter verification button — 2026-10-25
 
 - Add an owner-only Run model verification control in AI Operations, wired to the existing `.github/workflows/verify-openrouter-models.yml` workflow.
@@ -2553,3 +2560,22 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The production migration registry now includes these five entries plus OpenRouter migrations 063–065 and 069. This does not resolve every historical migration-label discrepancy: older migration files have overlapping numbers and mixed idempotency, so remaining unrecorded files must be reconciled against live schema and dependencies before they can safely be applied or recorded.
 - **Validation:** migration runner success and registry entries verified. Full application tests and production workflow smoke tests remain separate release gates.
 
+
+
+## Cross-provider AI Logs and model activities — 2026-10-25
+
+- Rename the Owner Command Center tabs to **AI Logs**, **Unlisted Models**, and **AI Models Activities** while preserving the existing AI request-log table columns and existing status/model/endpoint filters.
+- Add provider and time-range filters (15 minutes, 30 minutes, 1 hour, 5 hours, 12 hours, 24 hours, 7 days, 30 days, and 90 days). Keep the existing OpenRouter log endpoint for compatibility.
+- Add an owner-authenticated /owner/api/ai-logs endpoint that combines sanitized usage_events and openrouter_logs, compares observed model IDs against live OpenRouter, OpenAI, Anthropic, and Google/Gemini model catalogs when authorized credentials are configured, and marks catalog status unknown when a provider catalog cannot be verified.
+- Keep raw prompts/completions out of the response. Only display provider-reported costs when an authoritative cost value is present; unknown values are not converted to zero or presented as free usage. Label provider telemetry coverage caps.
+- **Source limitation:** this endpoint reports telemetry recorded by NasrinAI/OpenRouter. It does not discover calls made independently in provider accounts unless those calls are imported into a connected activity source. Provider catalog membership alone is not evidence that a model was called.
+- Add a consolidated unlisted-model view and provider/model activity summaries with request outcome counts, latest status, and provider-reported cost coverage.
+- **Validation:** automated CI and preview UI checks are required before merge. No production deployment or live provider-data completeness claim is made by this change.
+
+
+## AI Models Activities — retain all observed model states — 2026-10-25
+
+- Preserve all raw request statuses in AI Models Activities, including nonterminal or nonstandard values such as running, inferred, available, unavailable, and unknown; success/failure counters classify known outcomes without rewriting other states as errors.
+- Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
+- Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
+- Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.

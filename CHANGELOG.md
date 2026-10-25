@@ -39,6 +39,8 @@
 
 ## Unreleased
 
+- Add per-table Table Settings to Owner Command Center AI Logs and AI Models Activities: toggle columns, reorder by drag-and-drop, choose a pinned column, set Compact/Regular/Expanded density, and reset settings. Preferences are stored locally per table and do not change source data or filters.
+
 - Fix finished chat videos never appearing: saved jobs are now polled and downloaded through the matching provider adapter (the database stores no tier), and the video content route supports byte ranges so iPhone Safari can play the preview.
 
 - Enforce tier-aware OpenRouter routing: guest/free Quick exhaust explicitly free models before GPT-6 Luna fallback, while paid tiers exclude `:free` model IDs; add routing regression tests.
@@ -106,3 +108,5 @@
 - Documented the requested OpenRouter video model allowlist with verified IDs `heygen/heygen-video-1` and `alibaba/wan-3.0`, current model-specific duration constraints, and safe modality-preserving failover policy for image, video, voice, and coding.
 
 - Add a manual GitHub Actions workflow to verify live OpenRouter text-model availability and upload a JSON report. Runs only on explicit dispatch with cost confirmation; uses `OPENROUTER_API_KEY`.
+
+- Improve Owner Command Center AI Models Activities to retain every observed request status rather than collapsing non-success values into errors. Show inferred/unavailable model metadata separately from provider catalog membership, and separate internal usage estimates from provider-reported costs. Add regression coverage for unresolved OpenRouter aliases and nonterminal running status.
