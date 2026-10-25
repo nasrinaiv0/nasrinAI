@@ -4,6 +4,13 @@
 - Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
 - Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
 
+## OpenRouter generation ID and cost reconciliation fix — 2026-10-26
+
+- Capture the `gen-*` generation ID from OpenRouter response JSON independently of the HTTP request ID, and persist it to `openrouter_logs.openrouter_generation_id`.
+- Discover sync candidates from paginated Supabase request logs, including valid legacy `gen-*` IDs, instead of depending on Analytics generation-ID discovery.
+- Fetch authoritative per-generation cost, token counts, finish reason, latency, and generation time with the NasrinAI inference key; upsert only selected metadata and never store prompts or completions.
+- Add regression tests covering request-ID separation, log persistence, log-based discovery, provider metric mapping, and authorization errors.
+
 ## OpenRouter generation discovery sync — 2026-10-26
 
 - Add a protected Vercel cron that discovers generation IDs via OpenRouter Analytics using the Management key, fetches generation metadata with the separate inference key, and idempotently upserts selected fields into private Supabase storage.
