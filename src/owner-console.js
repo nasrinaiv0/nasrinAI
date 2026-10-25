@@ -156,9 +156,9 @@ const dashboardHtml = `<!doctype html>
     <nav id="navigation">
       <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
       <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
-      <button class="nav-item" data-panel="logs"><span>≋</span>AI Provider Logs</button>
-      <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>OpenRouter Unlisted Models</button>
-      <button class="nav-item" data-panel="other-unlisted"><span>◇</span>Other Provider Unlisted Models</button>
+      <button class="nav-item" data-panel="logs"><span>≋</span>AI Logs</button>
+      <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>Unlisted Models</button>
+      <button class="nav-item" data-panel="other-unlisted"><span>◇</span>AI Models Activities</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
@@ -185,9 +185,9 @@ const dashboardHtml = `<!doctype html>
 const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
-  logs: { title: 'AI Provider Logs', description: 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.' },
-  'openrouter-unlisted': { title: 'OpenRouter Unlisted Models', description: 'Only actual models returned by OpenRouter that are confirmed absent from its current model catalog. Unknown catalog results are excluded from this list.' },
-  'other-unlisted': { title: 'Other Provider Unlisted Models', description: 'Models used by other providers, compared with provider-specific catalogs when a verified adapter is available.' },
+  logs: { title: 'AI Logs', description: 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.' },
+  'openrouter-unlisted': { title: 'Unlisted Models', description: 'Only actual models returned by OpenRouter that are confirmed absent from its current model catalog. Unknown catalog results are excluded from this list.' },
+  'other-unlisted': { title: 'AI Models Activities', description: 'Models used by other providers, compared with provider-specific catalogs when a verified adapter is available.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
