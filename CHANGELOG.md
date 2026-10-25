@@ -39,6 +39,8 @@
 
 ## Unreleased
 
+- Add per-table Table Settings to Owner Command Center AI Logs and AI Models Activities: toggle columns, reorder by drag-and-drop, choose a pinned column, set Compact/Regular/Expanded density, and reset settings. Preferences are stored locally per table and do not change source data or filters.
+
 - Fix finished chat videos never appearing: saved jobs are now polled and downloaded through the matching provider adapter (the database stores no tier), and the video content route supports byte ranges so iPhone Safari can play the preview.
 
 - Enforce tier-aware OpenRouter routing: guest/free Quick exhaust explicitly free models before GPT-6 Luna fallback, while paid tiers exclude `:free` model IDs; add routing regression tests.
