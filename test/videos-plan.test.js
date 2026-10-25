@@ -137,10 +137,15 @@ test('Pro video jobs poll and download through the Pro adapter without crossing 
   assert.ok(calls.includes('pro:download:pro-uri'));
   assert.equal(calls.some((call) => call.startsWith('max:') || call.startsWith('ultra:')), false);
 
-  await store.updateVideo(created.video_id, { bytes: null });
+  const stored = await store.getVideo({ tenantId: 'tenant-1', ownerType: 'user', ownerId: 'user-1', id: created.video_id });
+  assert.equal(stored.storageBucket, 'generated-videos');
+  assert.ok(stored.storagePath, 'completed video is saved to durable storage');
+  assert.equal(stored.storageBytes, Buffer.byteLength('pro-mp4'));
+
+  await store.updateVideo(created.video_id, { bytes: null, providerVideoUri: null });
   const content = await videos.read(caller, created.video_id);
-  assert.equal(content.bytes.toString(), 'pro-mp4');
-  assert.ok(calls.includes('pro:download:pro-uri'));
+  assert.equal(content.bytes.toString(), 'pro-mp4', 'playback reads the stored object after provider URI and DB bytes are unavailable');
+  assert.equal(calls.filter((call) => call.startsWith('pro:download:')).length, 1, 'reopening the video does not depend on the provider download URL');
 });
 
 test('video creation defaults to the configured provider clip limit when duration is omitted', async () => {
@@ -233,7 +238,7 @@ test('video job times out with a durable failure instead of polling forever', as
   assert.equal(status.status, 'failed');
   assert.equal(status.error.code, 'video_job_timeout');
   assert.match(status.error.message, /took too long/i);
-  assert.deepEqual(calls, [], 'expired jobs should not continue polling the provider');
+  assert.deepEqual(calls, ['status'], 'an expired job gets one last provider check, never repeated polling');
   assert.equal(created.length, 1, 'timeout must not create a duplicate provider job');
 });
 

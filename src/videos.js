@@ -6,7 +6,7 @@ import { resolveRequestTier } from './ai/request-tier.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function createVideos({ store, plans, provider, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
+export function createVideos({ store, plans, provider, conversations = null, limiter, usageLog = null, budget = null, config, logger, now = () => Date.now() }) {
   const unavailable = () => new HttpError(503, 'videos_unavailable', 'Video creation is not available right now.');
   // A provider job may legitimately take several minutes, but it must not
   // remain "in progress" forever when the provider stops responding.
@@ -81,6 +81,33 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     if (account.plan === 'max' && selected === 'ultra') throw new HttpError(403, 'video_tier_required', 'Max cannot use Ultra video add-ons.');
     if (account.plan === 'ultra' && selected !== 'ultra') throw new HttpError(403, 'video_tier_required', 'Select Ultra for Ultra video options.');
     return { account, selected };
+  }
+
+  // The chat keeps the request and a [genvideo:<id>] marker, so the video is
+  // still there (playing, or still being made) after a refresh. The browser
+  // turns the marker back into the player. Saving is best effort: the video is
+  // already paid for, so a database hiccup here must never fail it.
+  async function remember(caller, { videoId, conversationId, prompt, seconds, cached = false }) {
+    if (!conversations) return conversationId || null;
+    try {
+      let conv;
+      if (conversationId) conv = await conversations.get(caller, conversationId);
+      else conv = await conversations.create(caller);
+      await conversations.add(conv, 'user', 'Create a video: ' + prompt);
+      await conversations.add(conv, 'assistant', '[genvideo:' + videoId + ']\n' + (cached
+        ? 'Here is your ' + seconds + '-second video.'
+        : 'I’m creating your ' + seconds + '-second video.'));
+      if (!conversationId) {
+        await store.updateVideo(videoId, { conversationId: conv.id });
+        if (typeof conversations.setTitle === 'function') {
+          await conversations.setTitle(conv, String(prompt).slice(0, 60)).catch(() => {});
+        }
+      }
+      return conv.id;
+    } catch (err) {
+      logger.warn('video chat messages could not be saved', { id: videoId, error: String(err?.message || err).slice(0, 240) });
+      return conversationId || null;
+    }
   }
 
   async function create(caller, body) {
@@ -190,7 +217,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       });
       if (existing && existing.status === 'completed' && (existing.bytes || existing.providerVideoUri)) {
         logger.info('marketing video cache hit', { id: existing.id, targetSeconds, provider: routeProvider.id });
-        return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true };
+        const chatId = await remember(caller, { videoId: existing.id, conversationId: b.conversation_id || null, prompt, seconds: existing.targetSeconds, cached: true });
+        return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true, ...(chatId ? { conversation_id: chatId } : {}) };
       }
     }
     // Count the hourly limit only now: requests refused for plan, length or
@@ -218,7 +246,8 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
       id, targetSeconds, provider: routeProvider.id, model: routeProvider.model || null,
       tier: selected, providerCreateLatencyMs: Math.max(0, now() - started)
     });
-    return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds };
+    const chatId = await remember(caller, { videoId: id, conversationId: b.conversation_id || null, prompt, seconds: targetSeconds });
+    return { video_id: id, status: 'in_progress', progress: 0, target_seconds: targetSeconds, ...(chatId ? { conversation_id: chatId } : {}) };
   }
 
   async function advance(caller, id) {
@@ -234,7 +263,11 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     }
 
     const ageMs = jobAgeMs(v);
-    if (ageMs >= jobTimeoutMs) {
+    // Past the time limit the job gets one last look at the provider: a video
+    // that finished while nobody was watching (page closed, phone asleep) is
+    // delivered, and only a job that is still not finished is stopped.
+    const expired = ageMs >= jobTimeoutMs;
+    const timeOut = async () => {
       logger.error('video job exceeded maximum processing time', {
         id, provider: v.provider, model: v.providerModel || null, tier: v.requestTier,
         ageMs, timeoutMs: jobTimeoutMs, stage: 'provider_processing_or_polling'
@@ -244,9 +277,12 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         errorMessage: 'Video generation took too long and was stopped. Check your video usage before retrying to avoid duplicate requests.'
       });
       return await store.getVideo({ tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId, id: v.id });
-    }
+    };
     const jobProvider = providerForVideo(v, account.plan);
-    if (!jobProvider) throw unavailable();
+    if (!jobProvider) {
+      if (expired) return await timeOut();
+      throw unavailable();
+    }
     let state;
     const pollStarted = now();
     try {
@@ -263,8 +299,10 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
         ageMs, pollLatencyMs: Math.max(0, now() - pollStarted),
         stage: 'status_poll', error: String(err?.message || err).slice(0, 240)
       });
+      if (expired) return await timeOut();
       return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))), poll_warning: true };
     }
+    if (!state.done && !state.failed && expired) return await timeOut();
     if (!state.done && !state.failed) return { ...v, progress: Math.min(95, Math.max(1, Math.floor((v.producedSeconds / Math.max(1, v.targetSeconds)) * 100))) };
     if (state.actualCostUsd !== null && state.actualCostUsd !== undefined) {
       Object.assign(v, await reconcileActualVideoCost(v, Number(state.actualCostUsd), caller));
@@ -300,14 +338,32 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const produced = jobProvider.maxSeconds ? Math.min(v.targetSeconds, jobProvider.maxSeconds) : v.producedSeconds ? v.producedSeconds + EXTEND_SECONDS : STEP_SECONDS;
     const reached = produced >= Math.min(v.targetSeconds, MAX_SECONDS);
     if (reached) {
-      // Avoid oversized JSON/hex writes to PostgREST. Only cache a video when
-      // its bytes fit a conservative durable-storage ceiling; larger videos
-      // keep the existing provider-URI fallback and are not cached.
+      // Persist the provider output to the private Supabase Storage bucket before
+      // marking the job complete. The object path is owner-scoped and the store
+      // verifies the matching database row before upload. Keep a bounded legacy
+      // fallback if Storage is unavailable; never write large video blobs to Postgres.
       const cacheable = bytes.length <= 8 * 1024 * 1024;
+      let durableStored = false;
+      if (bytes.length <= 50 * 1024 * 1024 && typeof store.uploadGeneratedVideo === 'function') {
+        try {
+          durableStored = Boolean(await store.uploadGeneratedVideo({
+            tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId,
+            id: v.id, bytes, mime: 'video/mp4'
+          }));
+          if (durableStored) logger.info('generated video stored durably', {
+            id: v.id, storageBucket: 'generated-videos', bytes: bytes.length, stage: 'storage_upload_complete'
+          });
+        } catch (err) {
+          logger.error('generated video durable storage upload failed', {
+            id: v.id, bytes: bytes.length, stage: 'storage_upload',
+            error: String(err?.message || err).slice(0, 240)
+          });
+        }
+      }
       const completedPatch = { status:'completed', producedSeconds: Math.min(produced, MAX_SECONDS), providerVideoUri: state.uri, mime:'video/mp4' };
-      if (cacheable) completedPatch.bytes = bytes;
+      if (!durableStored && cacheable) completedPatch.bytes = bytes;
       await store.updateVideo(v.id, completedPatch);
-      if (cacheable && v.cacheKey && store.setMarketingCache) {
+      if ((durableStored || cacheable) && v.cacheKey && store.setMarketingCache) {
         await store.setMarketingCache({
           tenantId: v.tenantId, ownerType: v.ownerType, ownerId: v.ownerId,
           kind: 'video', key: v.cacheKey, value: { videoId: v.id }
@@ -346,10 +402,23 @@ export function createVideos({ store, plans, provider, limiter, usageLog = null,
     const { account } = await requireVideoPlan(caller);
     if (!UUID.test(String(id))) throw new HttpError(404, 'not_found', 'Video not found.');
     const v = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id });
-    if (!v || v.status !== 'completed' || (!v.bytes && !v.providerVideoUri)) throw new HttpError(404, 'not_found', 'Video is not ready.');
+    if (!v || v.status !== 'completed' || (!v.bytes && !v.providerVideoUri && !v.storagePath)) throw new HttpError(404, 'not_found', 'Video is not ready.');
+    if (v.storagePath && typeof store.readGeneratedVideo === 'function') {
+      try {
+        const stored = await store.readGeneratedVideo({
+          tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id
+        });
+        if (stored?.bytes) return { ...v, bytes: Buffer.from(stored.bytes) };
+      } catch (err) {
+        logger.warn('stored generated video read failed; trying provider fallback', {
+          id: v.id, error: String(err?.message || err).slice(0, 240)
+        });
+      }
+    }
+    if (v.bytes) return { ...v, bytes: Buffer.from(v.bytes) };
     const jobProvider = providerForVideo(v, account.plan);
-    if (!v.bytes && (!jobProvider || typeof jobProvider.download !== 'function')) throw unavailable();
-    const bytes = v.bytes ? Buffer.from(v.bytes) : await jobProvider.download(v.providerVideoUri);
+    if (!jobProvider || typeof jobProvider.download !== 'function' || !v.providerVideoUri) throw unavailable();
+    const bytes = await jobProvider.download(v.providerVideoUri);
     return { ...v, bytes };
   }
 
