@@ -1,3 +1,9 @@
+## Owner model inventory table rendering — 2026-10-25
+
+- Harden `public/owner-console.js` model inventory rendering against incomplete/malformed telemetry payloads and missing optional values.
+- Add safe number/date formatting, deterministic request-volume sorting, and a dedicated model-ID cell class for responsive display. Keep OpenRouter-only confirmed-unlisted filtering separate from cross-provider unknown catalog states.
+- Validate with the JavaScript syntax check, full existing test suite, and Documentation Gate before merge.
+
 ## OpenRouter management and inference credential separation — 2026-10-25
 
 - Preserve the existing Owner Command Center and Supabase telemetry architecture. Use `OPENROUTER_MANAGEMENT_KEY` (with legacy `OPENROUTER_MANAGEMENT_API_KEY` compatibility) for Analytics API queries; use the inference `OPENROUTER_API_KEY` for generation metadata reconciliation and optional credits requests.
