@@ -914,6 +914,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         }
         for (const row of usageRows) {
           const provider = normalizeProvider(row.provider);
+          // OpenRouter's detailed request log is authoritative for that route; do not double-count its aggregate usage event.
+          if (provider === 'openrouter') continue;
           const catalogProvider = provider === 'gemini' ? 'google' : provider;
           const model = normalizeModel(row.model, catalogProvider);
           const outcome = String(row.outcome || 'unknown').toLowerCase();
