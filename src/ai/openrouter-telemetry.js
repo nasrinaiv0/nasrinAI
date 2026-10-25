@@ -55,7 +55,10 @@ export function createOpenRouterTelemetry({ url, secretKey, fetchImpl = fetch, l
       error_code: typeof event.errorCode === 'string' ? event.errorCode.slice(0, 100) : null,
       latency_ms: Math.max(0, Math.floor(Number(event.latencyMs) || 0)),
       provider_request_id: typeof event.providerRequestId === 'string'
-        ? event.providerRequestId.slice(0, 200) : null
+        ? event.providerRequestId.slice(0, 200) : null,
+      openrouter_generation_id: typeof event.openrouterGenerationId === 'string' &&
+        /^gen-[0-9A-Za-z-]{1,120}$/.test(event.openrouterGenerationId)
+        ? event.openrouterGenerationId : null
     };
 
     try {
