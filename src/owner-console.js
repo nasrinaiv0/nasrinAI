@@ -878,7 +878,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           } else if (provider === 'anthropic' && config?.ai?.anthropicApiKey) {
             response = await fetchImpl('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': config.ai.anthropicApiKey, 'anthropic-version': '2023-06-01', Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
           } else if (provider === 'google' && config?.ai?.geminiApiKey) {
-            response = await fetchImpl('https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(config.ai.geminiApiKey), { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
+            response = await fetchImpl('https://generativelanguage.googleapis.com/v1beta/models', { headers: { 'x-goog-api-key': config.ai.geminiApiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error' });
           } else return;
           if (!response?.ok) return;
           const payload = await response.json();
@@ -920,7 +920,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           rows.push({
             id: null, request_id: null, created_at: row.created_at, provider: catalogProvider,
             upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
-            status: ['ok', 'success', 'succeeded'].includes(outcome) ? 'success' : ['error', 'failed', 'failure'].includes(outcome) ? 'error' : 'unknown',
+            status: ['ok', 'success', 'succeeded'].includes(outcome) ? 'success' : outcome && outcome !== 'unknown' ? 'error' : 'unknown',
             http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
             total_cost_usd: null, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
