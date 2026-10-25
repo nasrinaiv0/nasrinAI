@@ -159,6 +159,7 @@ test('Quick falls back to an explicitly allowlisted free provider when OpenRoute
   const a = setup({
     env: {
       AI_PROVIDER: 'openrouter',
+      AI_FALLBACK: 'none',
       OPENROUTER_API_KEY: 'or-test-key',
       GROQ_API_KEY: 'groq-test-key',
       GROQ_MODEL: 'llama-3.3-70b-versatile',
