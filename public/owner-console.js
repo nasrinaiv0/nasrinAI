@@ -4,7 +4,9 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
-    logs: ['AI Provider Logs', 'Request-level OpenRouter telemetry, status, tokens, cost, latency, and provider response metadata.', '≋'],
+    logs: ['AI Provider Logs', 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.', '≋'],
+    'openrouter-unlisted': ['OpenRouter Unlisted Models', 'Actual models returned by OpenRouter that are confirmed absent from its current catalog.', '⌕'],
+    'other-unlisted': ['Other Provider Unlisted Models', 'Models used by other providers, with catalog status verified only where supported.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
@@ -771,6 +773,80 @@
     statusSelect.addEventListener('change', load);
     await load();
   }
+  async function renderUnlistedModels(scope) {
+    const c = $('content');
+    c.replaceChildren();
+    const isOpenRouter = scope === 'openrouter';
+    c.append(head(isOpenRouter ? 'OpenRouter Unlisted Models' : 'Other Provider Unlisted Models',
+      isOpenRouter ? 'Confirmed actual OpenRouter models absent from the current OpenRouter catalog. Unknown catalog results are not counted as unlisted.' : 'Models recorded for non-OpenRouter providers. Catalog status remains unknown until a verified provider-specific catalog is available.', 'Read-only'));
+    const controls = el('div', 'toolbar');
+    const windowSelect = el('select', 'input');
+    windowSelect.setAttribute('aria-label', 'Model telemetry time window');
+    [['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => {
+      const option = el('option', '', label); option.value = value; if (value === '7d') option.selected = true; windowSelect.append(option);
+    });
+    const refresh = el('button', 'quiet-button', 'Refresh model inventory'); refresh.type = 'button';
+    controls.append(windowSelect, refresh);
+    const result = el('div');
+    result.append(notice('Loading model inventory', 'Reading sanitized model usage from all available provider telemetry.'));
+    c.append(controls, result);
+    async function load() {
+      refresh.disabled = true;
+      result.replaceChildren(notice('Loading model inventory', 'Checking provider usage and current catalog availability.'));
+      try {
+        const response = await fetch('/owner/api/unlisted-models?window=' + encodeURIComponent(windowSelect.value), {
+          credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) throw new Error('Model inventory is unavailable. Check the server deployment and telemetry sources.');
+        const payload = await response.json();
+        const summary = el('div', 'module-grid');
+        const scopedRows = payload.rows.filter((row) => isOpenRouter ? row.sources.includes('openrouter_logs') : row.sources.includes('usage_events') && !row.sources.includes('openrouter_logs'));
+        const unlisted = scopedRows.filter((row) => row.catalog_status === 'not_listed');
+        const unknown = scopedRows.filter((row) => row.catalog_status === 'unknown');
+        const listed = scopedRows.filter((row) => row.catalog_status === 'listed');
+        [[unlisted.length,'Confirmed not in OpenRouter catalog','unavailable'],
+         [unknown.length,'Catalog status unknown','stale'],
+         [listed.length,'Listed in OpenRouter catalog','available']].forEach(([value,label,kind]) => {
+          const card = el('article','module-card'); card.append(el('h3','',String(value)),el('p','',label)); card.append(state(kind === 'available' ? 'Verified' : kind === 'stale' ? 'Needs catalog adapter' : 'Review',kind)); summary.append(card);
+        });
+        result.replaceChildren(summary);
+        result.append(notice('Coverage and interpretation',
+          'OpenRouter catalog: ' + payload.catalog_coverage.openrouter + '. Other providers: ' + payload.catalog_coverage.other_providers + '. Models from other providers are included, but are not falsely labeled unlisted until their own catalog/guardrail registry can be verified.'));
+        const table = el('div','table-wrap');
+        const t = el('table','data-table');
+        const thead = el('thead'), hr = el('tr');
+        ['Provider','Observed model ID','Catalog status','Requests','Success / failure','Input / output tokens','Cost (USD)','First seen','Last seen','Source'].forEach(label => hr.append(el('th','',label)));
+        thead.append(hr); t.append(thead);
+        const tbody = el('tbody');
+        scopedRows.filter(row => !isOpenRouter || row.catalog_status === 'not_listed').forEach(row => {
+          const tr = el('tr');
+          [row.provider,row.model,row.catalog_status.replaceAll('_',' '),String(row.request_count),row.successes+' / '+row.failures,
+           Number(row.input_tokens).toLocaleString()+' / '+Number(row.output_tokens).toLocaleString(),
+           row.cost_usd === null ? 'Unknown' : '$' + Number(row.cost_usd).toFixed(6),
+           row.first_seen ? new Date(row.first_seen).toLocaleString() : '—',
+           row.last_seen ? new Date(row.last_seen).toLocaleString() : '—',
+           row.sources.join(', ')].forEach((value, index) => tr.append(el('td', index === 2 ? 'status-text' : '', String(value))));
+          tbody.append(tr);
+        });
+        if (!scopedRows.length || (isOpenRouter && !scopedRows.some((row) => row.catalog_status === 'not_listed'))) {
+          const emptyRow = el('tr');
+          const emptyCell = el('td', '', isOpenRouter ? 'No confirmed unlisted OpenRouter models found for this period.' : 'No other-provider model usage records found for this period.');
+          emptyCell.colSpan = 10;
+          emptyRow.append(emptyCell);
+          tbody.append(emptyRow);
+        }
+        t.append(tbody); table.append(t); result.append(table);
+      } catch (error) {
+        result.replaceChildren(notice('Model inventory unavailable', error.message || 'No data was changed.'));
+      } finally {
+        refresh.disabled = false;
+      }
+    }
+    refresh.addEventListener('click', load);
+    windowSelect.addEventListener('change', load);
+    await load();
+  }
+
   function show(key) {
     active = names[key] ? key : 'overview';
     const meta = names[active];
@@ -784,6 +860,8 @@
     });
     if (active === 'overview') renderOverview();
     else if (active === 'learning') renderLearning();
+    else if (active === 'openrouter-unlisted') renderUnlistedModels('openrouter');
+    else if (active === 'other-unlisted') renderUnlistedModels('other');
     else renderModule(active);
   }
   async function refresh() {

@@ -1,3 +1,24 @@
+## Fix malformed Owner Command Center script in unlisted-model inventory PR — 2026-10-25
+
+- Removed duplicated trailing fragments accidentally appended after the `public/owner-console.js` IIFE, which caused the browser-script syntax test to fail with `Unexpected token ']'`.
+- Kept the complete first script body, including both dedicated OpenRouter and other-provider navigation categories.
+- CI revalidation pending after this commit; no production deployment or credentials used.
+
+## Dedicated OpenRouter and other-provider unlisted model tabs — 2026-10-25
+
+- Split the cross-provider model inventory into two distinct navigation categories: **OpenRouter Unlisted Models** and **Other Provider Unlisted Models**.
+- The OpenRouter tab includes only actual returned model IDs sourced from OpenRouter telemetry that are confirmed absent from the live catalog. It excludes requested aliases and excludes unknown catalog states from the confirmed-unlisted table.
+- The other-provider tab shows recorded non-OpenRouter usage separately and preserves unknown catalog status until provider-specific verified catalog adapters exist.
+- CI is required before merge; the prior test job failed and must be diagnosed and fixed before completion.
+
+## Cross-provider model catalog and guardrail visibility — 2026-10-25
+
+- Added a separate Owner Command Center navigation category, **Unlisted / Guardrail Models**, spanning model usage observed across provider telemetry rather than OpenRouter alone.
+- Aggregates only sanitized provider/model IDs, request counts, outcomes, token totals, known costs, timestamps, and source labels. Never exposes prompt/completion content or raw summaries.
+- Checks OpenRouter models against the current catalog when available; failed catalog fetches remain unknown. Other providers are included but remain `unknown` until provider-specific verified catalog/guardrail adapters exist. This avoids false-positive unlisted-model alerts.
+- Requested aliases such as `openrouter/auto` are never treated as actual model identities; only returned model IDs are shown.
+- Regression coverage added for provider aggregation, alias handling, missing catalog, and telemetry sanitization. CI verification pending.
+
 ## OpenRouter actual-model visibility and catalog guardrails — 2026-10-25
 
 - Provider-log `model` now records only the model identifier returned by OpenRouter; it no longer substitutes the requested alias when upstream response metadata is absent.

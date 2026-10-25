@@ -471,3 +471,28 @@ test('OpenRouter request logs remain hidden from non-allowlisted IP addresses', 
   assert.equal(out.res.statusCode, 404);
   assert.equal(out.res.body, 'Page not found.');
 });
+test('cross-provider model inventory is owner-authenticated, sanitized, and does not mislabel auto aliases', async () => {
+  const store = { kind: 'supabase', request: async (_method, path) => {
+    if (path === 'rpc/owner_console_record_audit') return null;
+    if (path.startsWith('usage_events?')) return [
+      { provider: 'anthropic', model: 'claude-sonnet-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:00:00.000Z', input_tokens: 10, output_tokens: 20, latency_ms: 50, cost_usd: 0.01 }
+    ];
+    if (path.startsWith('openrouter_logs?')) return [
+      { provider: 'openrouter', upstream_provider: 'ProviderX', requested_model: 'openrouter/auto', model: null, endpoint: '/chat/completions', status: 'success', created_at: '2026-10-24T11:00:00.000Z', prompt_tokens: 20, completion_tokens: 30, total_cost_usd: null },
+      { provider: 'openrouter', upstream_provider: 'ProviderX', requested_model: 'openrouter/auto', model: 'providerx/actual-model', endpoint: '/chat/completions', status: 'success', created_at: '2026-10-24T11:01:00.000Z', prompt_tokens: 20, completion_tokens: 30, total_cost_usd: null }
+    ];
+    throw new Error('unexpected query');
+  }};
+  const { consoleHandler } = setup({ store, fetchImpl: async () => { throw new Error('catalog unavailable'); } });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/unlisted-models?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/unlisted-models');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.ok(payload.rows.some((row) => row.provider === 'anthropic' && row.model === 'claude-sonnet-example'));
+  assert.ok(payload.rows.some((row) => row.model === 'providerx/actual-model'));
+  assert.equal(payload.rows.some((row) => row.model === 'openrouter/auto'), false);
+  assert.equal(payload.catalog_coverage.openrouter, 'unavailable');
+  assert.equal(out.res.body.includes('prompt_tokens'), false);
+});
