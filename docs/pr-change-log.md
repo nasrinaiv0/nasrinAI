@@ -2462,4 +2462,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Migration 069 is not applied to production; coordinate it with the pending 067–068 release sequence and use the approved migration process.
 
 
+## Production migration reconciliation — OpenRouter telemetry (2026-10-25)
+
+- Applied and recorded migrations `063_openrouter_logs`, `064_openrouter_generation_reconciliation`, `065_openrouter_provider_performance`, and `069_openrouter_cached_tokens` to the connected production Supabase project.
+- Post-apply verification confirmed the `openrouter_logs_cached_tokens_nonnegative` check constraint exists; migration registry now includes all four entries. Existing telemetry table and provider-reconciliation columns were preserved by the migrations' idempotent DDL.
+- This closes the prior changelog note that migration 069 was pending. Historical migration-history/schema reconciliation remains open for other unrecorded migrations; do not infer they are unapplied solely from absent registry entries.
+- **Validation:** Supabase migration application returned success for all four migrations and the cached-token constraint was verified in production. This is database schema verification, not a full application/provider end-to-end test.
 
