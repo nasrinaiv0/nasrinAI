@@ -1,3 +1,8 @@
+## Production verification follow-up — 2026-10-25
+
+- Applied migration `066_openrouter_logs_explicit_deny_policy` to the connected production Supabase project and verified its migration-registry entry, restrictive browser-role deny policy, and removal of the `openrouter_logs` no-policy security advisory.
+- **Still open:** Auth leaked-password protection, migration-history/schema reconciliation, post-deployment OpenRouter search/billing smoke tests, media generation/fallbacks, and final reliability/security release gates. Do not mark phases complete until the evidence exists.
+
 - **Follow-up correctness fix (2026-10-25):** accept OpenRouter Analytics API's documented `data.data` rows envelope and test the documented flat-row shape (`request_count`, `total_usage`, token metrics). The earlier fixture used a noncanonical shape and failed to catch this parsing bug; live account verification remains pending.
 
 ## Phase 3–5 priority follow-up — OpenRouter search and billing (2026-10-25)
