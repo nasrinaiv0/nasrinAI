@@ -951,18 +951,19 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const successOutcomes = ['ok', 'success', 'succeeded', 'complete', 'completed'];
           const failureOutcomes = ['error', 'failed', 'failure', 'timeout', 'timed_out', 'cancelled', 'canceled'];
           const status = successOutcomes.includes(outcome) ? 'success' : failureOutcomes.includes(outcome) ? 'error' : outcome;
-          const estimate = row.cost_usd == null || row.cost_usd === '' || !Number.isFinite(Number(row.cost_usd)) || Number(row.cost_usd) < 0 ? null : Number(row.cost_usd);
+          // usage_events.cost_usd has no provider provenance field. Do not present an
+          // application-side estimate as provider-reported spend; leave cost unavailable.
           rows.push({
             id: null, request_id: null, created_at: row.created_at, provider: catalogProvider,
             upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
             status, http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
-            total_cost_usd: estimate, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
+            total_cost_usd: null, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
             finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
             catalog_status: nasrinCatalogStatus(model),
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
-            telemetry_source: 'usage_events', cost_kind: estimate == null ? 'unknown' : 'estimated'
+            telemetry_source: 'usage_events', cost_kind: 'unknown'
           });
         }
         const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
