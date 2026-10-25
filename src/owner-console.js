@@ -863,7 +863,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       const normalizeModel = (value, provider) => {
         let model = String(value || '').trim();
         if (provider === 'google') model = model.replace(/^models\//i, '');
-        if (provider !== 'openrouter') model = model.replace(/^(?:openai|google|gemini|anthropic|claude):/i, '');
+        if (provider !== 'openrouter') model = model.replace(/^(?:openai|google|gemini|anthropic|claude)[/:]/i, '');
         return model.slice(0, 200);
       };
       const catalogs = {};
