@@ -1,3 +1,10 @@
+## Quick free-provider fallback — 2026-10-26
+
+- Production logs show repeated OpenRouter provider-unavailable failures on `POST /v1/chat`. The current Quick policy blocks every non-OpenRouter provider whenever OpenRouter is configured, even when a separately configured free provider (such as the existing Groq allowlist) is available.
+- Keep OpenRouter `:free` routes first, then permit only provider/model pairs exactly present in the server-side `*_FREE_MODELS` allowlist. The configured Luna fallback remains last. Paid models and non-allowlisted provider models remain blocked for Quick/guests.
+- Enable the configured free-provider pool in OpenRouter mode, include only explicitly allowlisted models in Quick's level-1 route, and add regression coverage. No migration or production secret change is required.
+- **Validation:** CI and a live production guest/signed-in chat smoke test are required before declaring restored.
+
 ## Guest-session Supabase secret-key compatibility — 2026-10-26
 
 - Fix the shared Supabase store to send modern `sb_secret_` API keys through the `apikey` header without misusing them as JWT Bearer credentials. Legacy `service_role` JWT compatibility is preserved.
