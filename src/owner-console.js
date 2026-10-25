@@ -908,6 +908,14 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           generationSourceAvailable = false;
           logger?.warn?.('OpenRouter generation records unavailable', { source: 'openrouter_generations' });
         }
+        // Join authoritative generation metadata to local request logs by the
+        // provider generation ID. Local logs often arrive before cost reconciliation;
+        // without this join the dashboard would hide costs already saved by the sync job.
+        const generationById = new Map();
+        for (const generationRow of generationRows) {
+          const generationId = String(generationRow?.generation_id || '').trim();
+          if (/^gen-[0-9A-Za-z-]{1,120}$/.test(generationId)) generationById.set(generationId, generationRow);
+        }
         // Deliberately do not use provider live catalogs to classify NasrinAI inventory membership.
         const rows = [];
         for (const row of routerRows) {
@@ -918,20 +926,38 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
           const catalogStatus = ownerCatalogStatus(model, 'openrouter');
           const modelStatus = actual ? 'observed' : row.requested_model ? 'inferred' : 'unavailable';
+          const generationId = [row.openrouter_generation_id, row.provider_request_id]
+            .find((value) => typeof value === 'string' && /^gen-[0-9A-Za-z-]{1,120}$/.test(value.trim()))?.trim() || '';
+          const generation = generationId ? generationById.get(generationId) : null;
+          const generationCostValue = generation?.cost_total;
+          const generationCost = generationCostValue === null || generationCostValue === undefined || generationCostValue === ''
+            ? null : Number(generationCostValue);
+          const hasGenerationCost = generationCost !== null && Number.isFinite(generationCost) && generationCost >= 0;
+          const hasVerifiedLogCost = row.provider_cost_source === 'openrouter_generation_api' &&
+            row.total_cost_usd !== null && row.total_cost_usd !== undefined && row.total_cost_usd !== '' &&
+            Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0;
+          const providerCost = hasGenerationCost ? generationCost : hasVerifiedLogCost ? Number(row.total_cost_usd) : null;
+          const providerCostSource = providerCost !== null ? 'openrouter_generation_api' : null;
+          const generationMs = generation?.generation_time_ms === null || generation?.generation_time_ms === undefined
+            ? null : Number(generation.generation_time_ms);
           rows.push({
             id: row.id, request_id: row.request_id, created_at: row.created_at, provider: 'openrouter',
             upstream_provider: row.upstream_provider || null, endpoint: row.endpoint, http_method: row.http_method,
             requested_model: row.requested_model, model, status, http_status: row.http_status, error_code: row.error_code,
-            prompt_tokens: row.prompt_tokens, cached_tokens: row.cached_tokens, completion_tokens: row.completion_tokens,
-            total_tokens: row.total_tokens,
-            total_cost_usd: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? Number(row.total_cost_usd) : null,
-            provider_cost_source: row.provider_cost_source === 'openrouter_generation_api' ? row.provider_cost_source : null,
+            prompt_tokens: row.prompt_tokens ?? generation?.tokens_prompt ?? null,
+            cached_tokens: row.cached_tokens ?? generation?.tokens_cached ?? null,
+            completion_tokens: row.completion_tokens ?? generation?.tokens_completion ?? null,
+            total_tokens: row.total_tokens ?? (generation?.tokens_prompt != null && generation?.tokens_completion != null
+              ? Number(generation.tokens_prompt) + Number(generation.tokens_completion) : null),
+            total_cost_usd: providerCost,
+            provider_cost_source: providerCostSource,
             provider_request_id: row.provider_request_id, openrouter_generation_id: row.openrouter_generation_id,
-            finish_reason: row.finish_reason, generation_time_seconds: row.generation_time_seconds,
-            upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms,
+            finish_reason: row.finish_reason || generation?.finish_reason || generation?.finish_reason_norm || null,
+            generation_time_seconds: row.generation_time_seconds ?? (Number.isFinite(generationMs) && generationMs >= 0 ? generationMs / 1000 : null),
+            upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms ?? generation?.latency_ms ?? null,
             catalog_status: catalogStatus, model_status: modelStatus,
             model_status_source: actual ? 'provider_response' : row.requested_model ? 'requested_model_alias' : 'missing_model_metadata',
-            telemetry_source: 'openrouter_logs', cost_kind: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? 'provider_reported' : 'unknown'
+            telemetry_source: 'openrouter_logs', cost_kind: providerCost !== null ? 'provider_reported' : 'unknown'
           });
         }
         // Include provider-discovered generations even when NasrinAI's best-effort
