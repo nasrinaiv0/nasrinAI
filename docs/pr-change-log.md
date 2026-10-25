@@ -1,3 +1,9 @@
+## PR #543 conflict resolution (2026-10-25)
+
+- Synchronized `feature/owner-console-v2-current-main` with the latest `main` after inspecting the conflicting Owner Command Center implementation, migration 057/058, route/CSP configuration, tests, and documentation.
+- The current `main` tree already contains the newer Owner Command Center implementation, including stronger request/session checks, the current migration definitions, expanded regression tests, the owner entry in NasrinAI Space, Google Maps CSP allowances, and owner-alert routing. The older branch versions were superseded, so the synchronization preserves the current `main` tree rather than reintroducing outdated implementations.
+- No production migration, production deployment, or PR merge was performed. The PR now has no functional diff against `main`; it should be closed or re-scoped instead of merged as a duplicate. It remains open for owner review.
+
 ## PR #611 CI follow-up (2026-10-25)
 
 - Fix the post-synchronization regression in `test/videos-persisted-jobs.test.js`: videos larger than the in-memory byte-cache limit are served from the storage adapter when available, so the test now asserts the private `generated-videos` storage metadata and verifies that playback does not download the provider output a second time.
