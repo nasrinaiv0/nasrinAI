@@ -1,3 +1,11 @@
+## PR #543 conflict resolution (2026-10-25)
+
+- Synchronized `feature/owner-console-v2-current-main` with the latest `main` after inspecting the conflicting Owner Command Center implementation, migration 057/058, route/CSP configuration, tests, and documentation.
+- The current `main` tree already contains the newer Owner Command Center implementation, including stronger request/session checks, current migration definitions, expanded regression tests, the owner entry in NasrinAI Space, Google Maps CSP allowances, and owner-alert routing. The older branch versions were superseded, so synchronization preserves the current `main` tree rather than reintroducing outdated implementations.
+- No production migration, production deployment, or PR merge was performed. The PR has no functional diff against `main`; it should be closed or re-scoped rather than merged as a duplicate. It remains open for owner review.
+
+- Re-synchronized with current main commit `99f3017dafc6aba9305499cf1708f24aaa3a2802` using a two-parent merge commit. The current main tree is preserved; the PR remains a documentation-only follow-up with no functional feature diff. Fresh CI and Documentation Gate validation are pending.
+
 ## OpenRouter actual-model visibility and catalog guardrails — 2026-10-25
 
 - Provider-log `model` now records only the model identifier returned by OpenRouter; it no longer substitutes the requested alias when upstream response metadata is absent.
