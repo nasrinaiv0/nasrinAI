@@ -892,11 +892,12 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         } catch { /* Catalog status remains unknown on provider/API failure. */ }
       };
       try {
-        const [usageRows, routerRows] = await Promise.all([
+        const [usageRows, routerRows, generationRows] = await Promise.all([
           store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
-          store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
+          store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
+          store.request('GET', 'openrouter_generations?select=generation_id,created_at,model,provider_name,cost_total,tokens_prompt,tokens_completion,tokens_reasoning,tokens_cached,finish_reason,finish_reason_norm,latency_ms,generation_time_ms,request_id&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
         ]);
-        if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
+        if (!Array.isArray(usageRows) || !Array.isArray(routerRows) || !Array.isArray(generationRows)) throw new Error('invalid telemetry rows');
         // Deliberately do not use provider live catalogs to classify NasrinAI inventory membership.
         const rows = [];
         for (const row of routerRows) {
@@ -921,6 +922,40 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             catalog_status: catalogStatus, model_status: modelStatus,
             model_status_source: actual ? 'provider_response' : row.requested_model ? 'requested_model_alias' : 'missing_model_metadata',
             telemetry_source: 'openrouter_logs', cost_kind: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? 'provider_reported' : 'unknown'
+          });
+        }
+        // Include provider-discovered generations even when NasrinAI's best-effort
+        // request logger did not persist a corresponding local request row.
+        // Avoid double-counting generations already represented by local telemetry.
+        const locallyLoggedGenerationIds = new Set(routerRows.flatMap((row) => {
+          const candidates = [row.openrouter_generation_id, row.provider_request_id];
+          return candidates.filter((value) => typeof value === 'string' && /^gen-[0-9A-Za-z-]{1,120}$/.test(value.trim())).map((value) => value.trim());
+        }));
+        for (const row of generationRows) {
+          const generationId = String(row.generation_id || '').trim();
+          if (!/^gen-[0-9A-Za-z-]{1,120}$/.test(generationId) || locallyLoggedGenerationIds.has(generationId)) continue;
+          const model = normalizeModel(row.model || 'Actual model not reported', 'openrouter');
+          const cost = row.cost_total === null || row.cost_total === undefined || row.cost_total === '' ? null : Number(row.cost_total);
+          const validCost = cost !== null && Number.isFinite(cost) && cost >= 0;
+          const generationMs = row.generation_time_ms === null || row.generation_time_ms === undefined ? null : Number(row.generation_time_ms);
+          rows.push({
+            id: null, request_id: row.request_id || null, created_at: row.created_at, provider: 'openrouter',
+            upstream_provider: row.provider_name || null, endpoint: '/generation', http_method: 'GET',
+            requested_model: model, model, status: 'success', http_status: 200, error_code: null,
+            prompt_tokens: row.tokens_prompt, cached_tokens: row.tokens_cached, completion_tokens: row.tokens_completion,
+            total_tokens: Number.isFinite(Number(row.tokens_prompt)) && Number.isFinite(Number(row.tokens_completion))
+              ? Number(row.tokens_prompt) + Number(row.tokens_completion) : null,
+            total_cost_usd: validCost ? cost : null,
+            provider_cost_source: validCost ? 'openrouter_generation_api' : null,
+            provider_request_id: generationId, openrouter_generation_id: generationId,
+            finish_reason: row.finish_reason || row.finish_reason_norm || null,
+            generation_time_seconds: Number.isFinite(generationMs) && generationMs >= 0 ? generationMs / 1000 : null,
+            upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
+            catalog_status: ownerCatalogStatus(model, 'openrouter'),
+            model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
+            model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'openrouter_generation_api',
+            telemetry_source: 'openrouter_generations',
+            cost_kind: validCost ? 'provider_reported' : 'unknown'
           });
         }
         for (const row of usageRows) {
@@ -964,7 +999,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs',
           generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
           limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
-          coverage_limited: usageRows.length === 1000 || routerRows.length === 1000,
+          coverage_limited: usageRows.length === 1000 || routerRows.length === 1000 || generationRows.length === 1000,
           catalog_source: 'nasrinai_configured_catalog',
           rows: page
         });
