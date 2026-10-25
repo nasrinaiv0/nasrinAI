@@ -48,7 +48,10 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
   async function request(method, path, { body, prefer } = {}) {
     const headers = {
       apikey: serviceKey,
-      Authorization: 'Bearer ' + serviceKey,
+      // New Supabase secret keys are opaque API keys, not JWTs. Sending one as
+      // a Bearer token makes PostgREST try to validate it as a JWT (PGRST303).
+      // Legacy service_role JWTs still need the Authorization header.
+      ...(!serviceKey.startsWith('sb_secret_') ? { Authorization: 'Bearer ' + serviceKey } : {}),
       Accept: 'application/json'
     };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -85,7 +88,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         method,
         headers: {
           apikey: serviceKey,
-          Authorization: 'Bearer ' + serviceKey,
+          ...(!serviceKey.startsWith('sb_secret_') ? { Authorization: 'Bearer ' + serviceKey } : {}),
           ...(bytes ? { 'Content-Type': mime, 'x-upsert': String(upsert) } : {}),
           ...(deleting ? { 'Content-Type': 'application/json' } : {})
         },

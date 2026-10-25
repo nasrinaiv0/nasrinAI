@@ -33,6 +33,15 @@ test('store requests use the service key and validated ids only', async () => {
   assert.equal(f.calls.length, 1);
 });
 
+test('new-format Supabase secret keys are sent as apikey only, not as a JWT bearer', async () => {
+  const f = fakeFetch({ body: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Platform', status: 'active' }] });
+  const store = createSupabaseStore({ url: 'https://p.supabase.co', serviceKey: 'sb_secret_test-key', fetchImpl: f });
+
+  await store.getTenant('00000000-0000-0000-0000-000000000001');
+  assert.equal(f.calls[0].headers.apikey, 'sb_secret_test-key');
+  assert.equal(Object.hasOwn(f.calls[0].headers, 'Authorization'), false);
+});
+
 test('database failures become UpstreamError (shown to callers as a 503)', async () => {
   const down = createSupabaseStore({ url: 'https://p.supabase.co', serviceKey: 'svc', fetchImpl: async () => { throw new TypeError('fetch failed'); } });
   await assert.rejects(down.getTenant('00000000-0000-0000-0000-000000000001'), UpstreamError);
