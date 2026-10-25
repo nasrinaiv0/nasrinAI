@@ -777,6 +777,10 @@ export function loadConfig(env = process.env) {
     emails: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerEmails)] : []),
     ips: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerIps)] : []),
     sessionSecret: ownerConsoleEnabled ? ownerSessionSecret : '',
+    githubActions: Object.freeze({
+      enabled: ownerConsoleEnabled && String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim().length >= 20,
+      token: ownerConsoleEnabled ? String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim() : ''
+    }),
     vercel: Object.freeze({
       enabled: ownerVercelEnabled,
       token: ownerVercelEnabled ? ownerVercelToken : '',
