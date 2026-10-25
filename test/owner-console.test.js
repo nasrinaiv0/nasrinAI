@@ -647,3 +647,16 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/ai-logs');
   assert.equal(invalid.res.statusCode, 400);
 });
+
+
+test('owner console table settings support per-table visibility, density, pinning, ordering, and reset', async () => {
+  const script = await readFile(new URL('../public/owner-console.js', import.meta.url), 'utf8');
+  assert.match(script, /function addTableSettings\(panel, table, storageKey\)/);
+  assert.match(script, /nasrinai-owner-table:/);
+  assert.match(script, /table-density-option/);
+  assert.match(script, /table-column-pinned/);
+  assert.match(script, /dragstart/);
+  assert.match(script, /settings\.hidden/);
+  assert.match(script, /ai-logs/);
+  assert.match(script, /ai-model-activities/);
+});
