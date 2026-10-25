@@ -616,6 +616,7 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
         total_cost_usd: null, provider_cost_source: null, provider_request_id: null,
         latency_ms: null, generation_time_seconds: null
       }];
+      if (path.startsWith('openrouter_generations?')) return [];
       throw new Error('unexpected telemetry query');
     }
   };
@@ -679,6 +680,7 @@ test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases
         { id: 'unlisted', created_at: timestamp, provider: 'openrouter', requested_model: 'vendor/not-in-nasrin-catalog', model: 'vendor/not-in-nasrin-catalog', status: 'success', endpoint: '/chat/completions' },
         { id: 'alias', created_at: timestamp, provider: 'openrouter', requested_model: 'openrouter/auto', model: null, status: 'running', endpoint: '/chat/completions' }
       ];
+      if (path.startsWith('openrouter_generations?')) return [];
       throw new Error('unexpected telemetry query');
     }
   };
@@ -703,6 +705,37 @@ test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases
   const all = await load('all');
   assert.equal(all.rows.length, 3);
   assert.equal(all.rows.find(row => row.id === 'alias').catalog_status, 'unknown');
+});
+
+test('AI Logs include OpenRouter generations discovered from account analytics when no local request row exists', async () => {
+  const timestamp = new Date(1_800_000_000_000).toISOString();
+  const store = { kind: 'supabase', request: async (_method, path) => {
+    if (path === 'rpc/owner_console_record_audit') return null;
+    if (path.startsWith('usage_events?')) return [];
+    if (path.startsWith('openrouter_logs?')) return [];
+    if (path.startsWith('openrouter_generations?')) return [{
+      generation_id: 'gen-imported-1', created_at: timestamp, model: 'nvidia/nemotron-3.5-lightning:free',
+      provider_name: 'NVIDIA', cost_total: '0.0002', tokens_prompt: 12, tokens_completion: 7,
+      tokens_reasoning: null, tokens_cached: 2, finish_reason: 'stop', finish_reason_norm: 'stop',
+      latency_ms: 180, generation_time_ms: 90, request_id: 'provider-request-1'
+    }];
+    throw new Error('unexpected telemetry query');
+  }};
+  const { consoleHandler } = setup({ store, fetchImpl: async () => { throw new Error('must not fetch provider catalog for inventory membership'); } });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/ai-logs?window=24h&provider=openrouter&scope=listed&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.rows.length, 1);
+  assert.equal(payload.rows[0].telemetry_source, 'openrouter_generations');
+  assert.equal(payload.rows[0].openrouter_generation_id, 'gen-imported-1');
+  assert.equal(payload.rows[0].endpoint, '/generation');
+  assert.equal(payload.rows[0].total_cost_usd, 0.0002);
+  assert.equal(payload.rows[0].cost_kind, 'provider_reported');
+  assert.equal(payload.rows[0].prompt_tokens, 12);
+  assert.equal(Object.hasOwn(payload.rows[0], 'raw'), false);
 });
 
 test('Owner Command Center model inventory matches the requested OpenRouter and direct-provider catalogs', () => {
@@ -735,7 +768,8 @@ test('direct-provider AI Logs classify models against their provider-specific in
     if (path === 'rpc/owner_console_record_audit') return null;
     if (path.startsWith('usage_events?')) return usageRows;
     if (path.startsWith('openrouter_logs?')) return [];
-    throw new Error('unexpected telemetry query');
+    if (path.startsWith('openrouter_generations?')) return [];
+      throw new Error('unexpected telemetry query');
   }};
   const { consoleHandler } = setup({ store, fetchImpl: async () => { throw new Error('static inventory must not call provider catalogs'); } });
   const opened = await bootstrap(consoleHandler);
