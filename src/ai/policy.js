@@ -155,7 +155,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
-            if (candidate.provider !== 'openrouter') return !freeQuick || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
+            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
@@ -165,7 +165,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               paidQuick: plan.paidQuick,
               task: plan.task,
               verifiedIds: liveOpenRouterModels
-            }) && (!freeQuick
+            }) && (!(r.quickNemotronOnly && freeQuick)
               || /:free$/i.test(candidate.model)
               || candidate.model === 'openai/gpt-6-luna');
           });
