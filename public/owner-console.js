@@ -924,10 +924,16 @@
         const groups=new Map();
         rows.forEach(row=>{
           const key=String(row.provider||'unknown')+'\u0000'+String(row.model||'unknown');
-          const item=groups.get(key)||{provider:row.provider||'unknown',model:row.model||'unknown',requests:0,successes:0,failures:0,unknown:0,cost:0,costKnown:0,last:null,latestStatus:'unknown'};
-          item.requests++;if(row.status==='success')item.successes++;else if(row.status==='error')item.failures++;else item.unknown++;
-          if(row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd))){item.cost+=Number(row.total_cost_usd);item.costKnown++;}
-          if(row.created_at&&(!item.last||row.created_at>item.last)){item.last=row.created_at;item.latestStatus=row.status||'unknown';}groups.set(key,item);
+          const item=groups.get(key)||{provider:row.provider||'unknown',model:row.model||'unknown',requests:0,successes:0,failures:0,unknown:0,cost:0,costKnown:0,estimate:0,estimateKnown:0,last:null,latestStatus:'unknown',latestModelStatus:'unknown',latestCatalogStatus:'unknown',statusCounts:{},sources:new Set()};
+          const rawStatus=String(row.status||'unknown').trim().toLowerCase()||'unknown';
+          const successStatuses=['success','ok','succeeded','complete','completed'];
+          const failureStatuses=['error','failed','failure','timeout','timed_out','cancelled','canceled'];
+          item.requests++;if(successStatuses.includes(rawStatus))item.successes++;else if(failureStatuses.includes(rawStatus))item.failures++;else item.unknown++;
+          item.statusCounts[rawStatus]=(item.statusCounts[rawStatus]||0)+1;
+          if(row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd))&&Number(row.total_cost_usd)>=0){item.cost+=Number(row.total_cost_usd);item.costKnown++;}
+          if(row.cost_kind==='estimated'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd))&&Number(row.total_cost_usd)>=0){item.estimate+=Number(row.total_cost_usd);item.estimateKnown++;}
+          if(row.telemetry_source)item.sources.add(String(row.telemetry_source));
+          if(row.created_at&&(!item.last||row.created_at>item.last)){item.last=row.created_at;item.latestStatus=rawStatus;item.latestModelStatus=String(row.model_status||'observed');item.latestCatalogStatus=String(row.catalog_status||'unknown');}groups.set(key,item);
         });
         result.replaceChildren();
         const summary=el('div','grid');
@@ -935,13 +941,15 @@
         const costs=rows.filter(row=>row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd)));
         summary.append(metric('Requests','✳',numberText(total),'Observed in selected telemetry window'),metric('Successful','✓',numberText(success),'Provider/app outcome recorded as success'),metric('Failed','!',numberText(failed),'Provider/app outcome recorded as error'),metric('Provider-reported cost','USD',costs.length?moneyText(costs.reduce((sum,row)=>sum+Number(row.total_cost_usd),0)):'Unavailable',numberText(costs.length)+' requests with provider cost'));
         result.append(summary);
-        result.append(el('p','panel-copy','Source: '+String(payload.source||'provider telemetry')+' · refreshed '+(payload.generated_at?new Date(payload.generated_at).toLocaleString():'unknown')+' · window '+String(payload.window||windowSelect.value)+(payload.coverage_limited?' · telemetry cap reached':'')+'. Requests made outside NasrinAI are included only when a connected provider activity source records them.'));
+        result.append(el('p','panel-copy','Source: '+String(payload.source||'provider telemetry')+' · refreshed '+(payload.generated_at?new Date(payload.generated_at).toLocaleString():'unknown')+' · window '+String(payload.window||windowSelect.value)+(payload.coverage_limited?' · telemetry cap reached; results may be incomplete':'')+'. Every status returned by recorded telemetry is retained; unknown, inferred, and unavailable states are not filtered out. Catalog status is separate from runtime status. Requests made outside NasrinAI are included only when a connected provider activity source records them.'));
         const wrap=el('div','table-wrap'),table=el('table','data-table'),thead=el('thead'),hr=el('tr');
-        ['Provider','Model ID','Requests','Success','Failed','Outcome unknown','Latest status','Provider-reported cost (USD)','Requests with cost','Latest activity'].forEach(label=>hr.append(el('th','',label)));thead.append(hr);table.append(thead);const tbody=el('tbody');
+        ['Provider','Model ID','Requests','Success','Failed','Other statuses','Latest request status','Model state','Catalog status','Provider-reported cost (USD)','Internal estimate (USD)','Requests with provider cost','Source','Latest activity'].forEach(label=>hr.append(el('th','',label)));thead.append(hr);table.append(thead);const tbody=el('tbody');
         [...groups.values()].sort((a,b)=>b.requests-a.requests||String(a.model).localeCompare(String(b.model))).forEach(item=>{
-          const tr=el('tr');[item.provider,item.model,numberText(item.requests),numberText(item.successes),numberText(item.failures),numberText(item.unknown),item.latestStatus,item.costKnown?moneyText(item.cost):'Unavailable',numberText(item.costKnown),item.last?new Date(item.last).toLocaleString():'—'].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});tbody.append(tr);
+          const statusBreakdown=Object.entries(item.statusCounts).sort((a,b)=>b[1]-a[1]).map(([status,count])=>status+' ('+numberText(count)+')').join(', ');
+          const sourceList=[...item.sources].sort().join(', ')||'unknown';
+          const tr=el('tr');[item.provider,item.model,numberText(item.requests),numberText(item.successes),numberText(item.failures),numberText(item.unknown)+' · '+(statusBreakdown||'unknown'),item.latestStatus,item.latestModelStatus,item.latestCatalogStatus,item.costKnown?moneyText(item.cost):'Unknown',item.estimateKnown?moneyText(item.estimate):'Unknown',numberText(item.costKnown),sourceList,item.last?new Date(item.last).toLocaleString():'—'].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});tbody.append(tr);
         });
-        if(!groups.size){const tr=el('tr'),td=el('td','','No model activity found for the selected provider and time range.');td.colSpan=9;tr.append(td);tbody.append(tr);}
+        if(!groups.size){const tr=el('tr'),td=el('td','','No model activity found for the selected provider and time range.');td.colSpan=14;tr.append(td);tbody.append(tr);}
         table.append(tbody);wrap.append(table);result.append(wrap);
         if(payload.coverage_limited)result.append(notice('Telemetry coverage is limited','At least one source returned 1,000 rows. Counts may be incomplete for this period.'));
       }catch(error){result.replaceChildren(notice('AI Models Activities unavailable',String(error?.message||'Provider activity could not be loaded.')));}
