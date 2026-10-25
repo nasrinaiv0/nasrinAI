@@ -1,3 +1,4 @@
+- Document Supabase Auth leaked-password protection as intentionally deferred per owner direction; retain it as a future security-hardening task and do not mark it enabled/resolved.
 - Apply production migration `066_openrouter_logs_explicit_deny_policy`; verified its registry entry and restrictive deny policy for browser roles. Supabase security advisor no longer reports `openrouter_logs` as RLS-enabled without a policy; leaked-password protection remains disabled.
 - Fix OpenRouter billing analytics parsing to accept the documented `data.data` response envelope; update regression coverage to use the official flat-row response shape and `request_count` metric.
 
