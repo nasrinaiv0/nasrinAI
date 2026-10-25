@@ -4,9 +4,9 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
-    logs: ['AI Logs', 'Catalog-listed model requests observed in provider telemetry, with status, tokens, latency, and verified provider costs.', '≋'],
-    'openrouter-unlisted': ['Unlisted Models', 'Models observed in provider telemetry that are confirmed absent from their provider catalog.', '⌕'],
-    'other-unlisted': ['AI Models Activities', 'Provider and model summaries for observed requests, outcomes, and provider-reported costs.', '◇'],
+    logs: ['AI Logs', 'Listed models in NasrinAI’s configured catalog.', '≋'],
+    'openrouter-unlisted': ['Unlisted Models', 'Logged models missing from NasrinAI’s configured catalog.', '⌕'],
+    'other-unlisted': ['AI Models Activities', 'All logged models: listed and unlisted.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     regional: ['Regional Analytics', 'Approximate location trends for registered users and guests, derived from trusted edge metadata.', '◎'],
@@ -940,7 +940,7 @@
   async function renderUnlistedModels() {
     const c = $('content');
     c.replaceChildren();
-    c.append(head('Unlisted Models', 'Only confirmed catalog mismatches are shown. Models with unavailable catalog checks are not falsely labeled unlisted.', 'Read-only'));
+    c.append(head('Unlisted Models', 'Logged models not listed in NasrinAI’s configured catalog.', 'Read-only'));
     const controls = el('div', 'toolbar');
     const windowSelect = el('select', 'input');
     windowSelect.setAttribute('aria-label', 'Unlisted model time range');
@@ -949,20 +949,20 @@
     const refresh=el('button','quiet-button','Refresh unlisted models'); refresh.type='button';
     controls.append(windowSelect,refresh);
     const result=el('div');
-    result.append(notice('Loading unlisted models','Checking recorded model calls against live provider catalogs.'));
+    result.append(notice('Loading unlisted models','Checking NasrinAI catalog membership.'));
     c.append(controls,result);
     async function load() {
       refresh.disabled=true;
-      result.replaceChildren(notice('Loading unlisted models','Fetching provider telemetry and checking catalog membership.'));
+      result.replaceChildren(notice('Loading unlisted models','Fetching logged models outside the NasrinAI catalog.'));
       try {
-        const response=await fetch('/owner/api/ai-logs?scope=all&window='+encodeURIComponent(windowSelect.value)+'&provider=all&limit=1000&offset=0',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        const response=await fetch('/owner/api/ai-logs?scope=unlisted&window='+encodeURIComponent(windowSelect.value)+'&provider=all&limit=1000&offset=0',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
         const payload=await response.json();
         if(!response.ok) throw new Error(payload?.error?.message || 'Provider model telemetry unavailable.');
         const rows=Array.isArray(payload.rows)?payload.rows:[];
         const unlisted=rows.filter(row=>row && row.model && row.catalog_status==='not_listed');
-        const unknown=rows.filter(row=>row && row.model && row.catalog_status==='unknown');
+        const unknown=[];
         const summary=el('div','module-grid');
-        [[unlisted.length,'Confirmed unlisted models','unavailable'],[unknown.length,'Catalog status unknown','stale']].forEach(([value,label,kind])=>{
+        [[unlisted.length,'Unlisted models','unavailable'],[rows.length,'Logged models','stale']].forEach(([value,label,kind])=>{
           const card=el('article','module-card'); card.append(el('h3','',String(value)),el('p','',label),state(kind==='stale'?'Needs provider catalog access':'Confirmed absent',kind)); summary.append(card);
         });
         result.replaceChildren(summary);
