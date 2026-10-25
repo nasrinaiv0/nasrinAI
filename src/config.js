@@ -320,8 +320,7 @@ export function loadConfig(env = process.env) {
       .filter((value) => /^[a-z0-9._-]+\/[a-z0-9._-]+:free$/i.test(value))
       .map((model) => 'openrouter:' + model)
     : [];
-  const quickFreeProviderDefaults = freeProviderSettings.flatMap((p) => p.freeModels.map((model) => `${p.id}:${model}`));
-  const quickFreeDefaults = [...new Set([...nemotronDefaults, ...configuredOpenRouterFreeModels, ...quickFreeProviderDefaults])];
+  const quickFreeDefaults = [...new Set([...nemotronDefaults, ...configuredOpenRouterFreeModels])];
   // OpenRouter chat candidates are real routing candidates, not catalog-only metadata.
   const openRouterProCandidates = has('openrouter') ? [
     'openrouter:deepseek/deepseek-v4.1-flash',
@@ -354,7 +353,7 @@ export function loadConfig(env = process.env) {
     const raw = env['ROUTE_LEVEL_' + n];
     const list = raw !== undefined && String(raw).trim() !== '' ? String(raw).split(',') : defaultsByLevel[n];
     const parsed = list.map((x) => x.trim()).filter(Boolean).map((x) => tierSpec('ROUTE_LEVEL_' + n, x));
-    const normalCandidates = parsed.filter((spec) => n === 1 || !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
+    const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     // In auto mode, intent classification always checks OpenRouter's
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
     // In auto mode, put the configured OpenRouter tier model first for intent
