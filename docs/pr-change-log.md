@@ -1,3 +1,12 @@
+## PR #409 conflict resolution — universal user-owned integration security (2026-10-25)
+
+- Synchronized the integration branch with the latest `main` while preserving the unique security groundwork: migration 068, the integration ownership/credential-store modules, user-isolation tests, rollout/security docs, and deterministic GitHub OAuth-state regression coverage.
+- Applied only the integration-specific initialization and read-only list/detail routes to the current `src/main.js` and `src/routes.js`; retained the latest main implementation for AI routing, video storage, Owner Console telemetry, CSP, and unrelated platform changes.
+- Added the server-only `NASRINAI_INTEGRATION_ENCRYPTION_KEY` to `.env.example`. Provider-specific OAuth adapters and provider write operations remain out of scope.
+- No production migration, production deployment, secret access, or PR merge was performed. Migration 068 remains unapplied to production pending separate approval and schema-order review.
+
+- Re-synchronized with current main commit `99f3017dafc6aba9305499cf1708f24aaa3a2802` using a two-parent merge commit. All integration-specific files and tests remain preserved; current main changes are retained. Migration 068 remains a release-gated change and has not been applied to production. Fresh CI and Documentation Gate validation are pending.
+
 ## OpenRouter actual-model visibility and catalog guardrails — 2026-10-25
 
 - Provider-log `model` now records only the model identifier returned by OpenRouter; it no longer substitutes the requested alias when upstream response metadata is absent.
