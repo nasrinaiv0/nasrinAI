@@ -1,3 +1,15 @@
+## Priority follow-up — 2026-10-25
+
+- PR #610 is merged as `fcccfe8b31a673eef5ba7cbe68b7ffc1a326fce6`; production deployment `dpl_J7iqpSB1AaGjjVfVHk8FJXP4ek2L` is `READY` and serves that commit.
+- Runtime evidence confirms repeated HTTP 400 responses from the OpenRouter Responses API web-search request when configured with `openrouter/auto`; existing logs did not capture provider error details. A follow-up code change routes that specific configuration to a free model documented as supporting Responses API + tools, with regression tests. It remains unverified until CI and live smoke tests pass.
+- Owner Console billing errors are present for the legacy `/api/v1/activity` request. A follow-up changes the endpoint to OpenRouter's documented Analytics API, discovers available metrics, and bounds query windows. Credits metadata is optional. Analytics access and live account results still need verification.
+- Supabase security advisor continues to report leaked-password protection disabled. This is a project Auth setting and was not changed by the code PR.
+- The historical Connect `redirect_not_allowed` finding is still present in the 24-hour error summary (last event from the previous deployment). Do not weaken SSRF protections; verify if it recurs on the latest deployment before deciding a safe bounded-redirect implementation.
+
+**Release gate:** Phase 3–5 remain open pending the follow-up PR's CI, production smoke tests for search and billing, database migration reconciliation, Auth setting verification, provider generation/output/billing checks, and full regression/security gates.
+
+---
+
 ## Live revalidation snapshot — 2026-10-25
 
 Read-only checks performed against the connected production Supabase project and Vercel deployment:
