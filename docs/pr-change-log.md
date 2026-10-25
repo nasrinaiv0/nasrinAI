@@ -1,3 +1,10 @@
+## Provider cost verification follow-up — 2026-10-26
+
+- Require `provider_cost_source = openrouter_generation_api` plus a finite, non-negative `total_cost_usd` before classifying an OpenRouter request cost as provider-reported.
+- Do not aggregate `usage_events.cost_usd` into provider spend. Direct-provider cost remains unavailable until provider-reported cost and provenance are persisted.
+- Model inventory cost summaries use the same provenance gate as request logs. UI provenance cells show `Unavailable` for unverified cost values.
+- Update the cross-provider inventory regression test to assert configured-catalog classification and unknown cost behavior rather than live-catalog coverage.
+
 ## Provider cost provenance — 2026-10-26
 
 - `openrouter_logs.total_cost_usd` remains the provider/gateway-reported cost source for OpenRouter calls.
