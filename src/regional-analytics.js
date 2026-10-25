@@ -9,10 +9,9 @@ function cleanText(value, max) {
   return text || null;
 }
 
-// Vercel injects these headers at the edge. Do not accept browser-provided
-// query/body location or GPS; without the platform marker, location is unknown.
+// Vercel injects these reserved geolocation headers at the edge. Do not accept
+// browser-provided query/body location or GPS; missing edge metadata stays unknown.
 export function regionFromTrustedHeaders(headers = {}) {
-  if (!headers['x-vercel-id']) return { countryCode: null, region: null, city: null };
   const rawCountry = cleanText(headers['x-vercel-ip-country'], 2)?.toUpperCase() || null;
   return {
     countryCode: rawCountry && COUNTRY.test(rawCountry) ? rawCountry : null,
