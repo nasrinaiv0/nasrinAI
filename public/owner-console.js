@@ -812,6 +812,7 @@
         const unlisted = scopedRows.filter((row) => row.catalog_status === 'not_listed');
         const unknown = scopedRows.filter((row) => row.catalog_status === 'unknown' || !row.catalog_status);
         const listed = scopedRows.filter((row) => row.catalog_status === 'listed');
+        const summary = el('div', 'module-grid');
         [[unlisted.length,'Confirmed not in OpenRouter catalog','unavailable'],
          [unknown.length,'Catalog status unknown','stale'],
          [listed.length,'Listed in OpenRouter catalog','available']].forEach(([value,label,kind]) => {
