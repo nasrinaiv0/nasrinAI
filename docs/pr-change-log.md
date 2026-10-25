@@ -1,3 +1,8 @@
+## PR #599 conflict resolution (2026-10-25)
+
+- Synced `docs/openrouter-model-shortlist-2026-10` with the latest `main` while preserving the PR's unique operator shortlist at `docs/OPENROUTER_MODEL_SHORTLIST_2026-10-24.md`.
+- No runtime routing, model allowlist, environment variable, provider account setting, or production configuration was changed. The shortlist remains advisory and requires authenticated live endpoint verification before any operational model changes.
+
 ## OpenRouter provider-log telemetry correctness — 2026-10-25
 
 - Fix generation-ID capture: successful inference responses now persist the OpenRouter response-body `id` when request-ID headers are absent, while excluding model-catalog discovery endpoints from that fallback. This allows new eligible requests to be reconciled without trusting user-supplied IDs.
