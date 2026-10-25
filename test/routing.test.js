@@ -152,11 +152,15 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
-test('paid Quick skips free OpenRouter models', async () => {
-  const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key', ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna' } });
+test('paid Quick skips free OpenRouter models and uses a verified paid-Quick model', async () => {
+  const paidQuickModel = 'google/gemini-2.5-flash-lite';
+  const a = setup({
+    env: { OPENROUTER_API_KEY: 'or-test-key', ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:google/gemini-2.5-flash-lite' },
+    liveOpenRouterModels: [paidQuickModel]
+  });
   const plan = a.policy.plan({ tier: 'nasrinai', paidQuick: true, message: 'Hello!' });
   const run = await a.policy.run(plan, req('Hello!'));
-  assert.equal(run.spec.model, 'openai/gpt-6-luna');
+  assert.equal(run.spec.model, paidQuickModel);
   assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)));
 });
 
@@ -193,29 +197,39 @@ test('Guest/Quick accept operator-configured OpenRouter :free models and reject 
 });
 
 test('paid tiers never use free OpenRouter models, even for simple intent', async () => {
+  const paidModels = {
+    pro: 'anthropic/claude-sonnet-5.5',
+    max: 'openai/gpt-6-luna-pro',
+    ultra: 'openai/gpt-6.1-sol-pro'
+  };
   for (const tier of ['pro', 'max', 'ultra']) {
+    const paidModel = paidModels[tier];
     const a = setup({
       env: {
         OPENROUTER_API_KEY: 'or-test-key',
-        ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_2: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_3: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_4: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free',
-        ROUTE_LEVEL_5: 'openrouter:openai/gpt-6-luna,openrouter:nvidia/nemotron-3.5-lightning:free'
-      }
+        ROUTE_LEVEL_1: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_2: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_3: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_4: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_5: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`
+      },
+      liveOpenRouterModels: [paidModel]
     });
     const plan = a.policy.plan({ tier, message: 'Hello!' });
     assert.equal(plan.wanted, 1, 'test input should be classified as simple intent');
     const run = await a.policy.run(plan, req('Hello!'));
     assert.equal(run.spec.provider, 'openrouter');
+    assert.equal(run.spec.model, paidModel);
     assert.doesNotMatch(run.spec.model, /:free$/i, tier + ' must use a paid model even for simple intent');
+    assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)), 'paid subscriptions must never try free model IDs');
   }
 
   const fallback = setup({
     env: {
       OPENROUTER_API_KEY: 'or-test-key',
-      ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna'
+      ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:deepseek/deepseek-v4.1-flash'
     },
+    liveOpenRouterModels: ['deepseek/deepseek-v4.1-flash'],
     reply: async (spec) => {
       throw new ProviderError('unavailable', spec?.model?.endsWith(':free') ? 'free model unavailable' : 'paid fallback unavailable');
     }
@@ -223,7 +237,6 @@ test('paid tiers never use free OpenRouter models, even for simple intent', asyn
   const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
   await assert.rejects(fallback.policy.run(fallbackPlan, req('Hello!')), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(fallback.openrouter.calls.length > 0, 'the router attempts an eligible OpenRouter candidate');
-  assert.doesNotMatch(fallback.openrouter.calls[0].model || fallback.openrouter.calls[0].modelId || '', /:free$/i, 'paid subscriptions must skip the free candidate');
   assert.ok(fallback.openrouter.calls.every((call) => !/:free$/i.test(call.model || call.modelId || '')), 'paid subscriptions must never try free model IDs');
 });
 
@@ -600,4 +613,21 @@ test('classifier inherits intent for short continuation follow-ups', () => {
 test('classifier keeps a standalone greeting simple', () => {
   assert.equal(classify({ message: 'Hi!' }).level, 1);
   assert.equal(classify({ message: 'Hello.' }).level, 1);
+});
+
+
+test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint eligibility', async () => {
+  const { isOpenRouterChatCandidateEligible } = await import('../src/ai/openrouter-runtime-eligibility.js');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'nvidia/nemotron-3.5-lightning:free', tier: 'nasrinai' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna', tier: 'nasrinai' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'nasrinai' }), false);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'max' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra' }), false, 'inferred ID stays disabled until catalog verification');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra', verifiedIds: ['anthropic/claude-opus-5.5'] }), true, 'live catalog verification unlocks an otherwise eligible inferred chat model');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'typesafe/jev-1.13', tier: 'pro', task: 'analysis' }), false, 'decision endpoint must not be called as chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'google/gemini-nano-banana-2.1', tier: 'ultra', task: 'chat' }), false, 'image endpoint must not be called as chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'chat' }), false, 'coding-only model must not be used for general chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'coding' }), false, 'inferred coding ID stays disabled until verified');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'pro' }), true, 'legacy dynamic chat discovery remains supported for paid tiers');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'nasrinai' }), false, 'free Quick cannot use unmarked paid IDs');
 });
