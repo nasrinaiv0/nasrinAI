@@ -291,8 +291,12 @@
           tbody.replaceChildren();
           rows.forEach((item) => {
             const tr=el('tr');
-            const model= item.model || item.requested_model || 'Unknown model';
             const endpoint=String(item.endpoint || '');
+            const requestedModel=typeof item.requested_model==='string' ? item.requested_model : '';
+            const actualModel=typeof item.model==='string' && item.model.trim() ? item.model.trim() : '';
+            const autoRoute=/^openrouter\/(?:auto|free)$/i.test(requestedModel);
+            const model=actualModel || (autoRoute ? 'Actual model not reported' : requestedModel || 'Actual model not reported');
+            const providerLabel=actualModel.includes('/') ? actualModel.split('/')[0] : (actualModel ? 'OpenRouter' : 'Not reported');
             const discoveryRequest=/^\/(?:models|images\/models|videos\/models)$/.test(endpoint);
             const notApplicable=discoveryRequest ? 'N/A · catalog request' : '—';
             const statusText=String(item.status || 'unknown').toUpperCase() + (item.http_status ? ' · HTTP '+item.http_status : '');
@@ -304,8 +308,11 @@
             const speed = generationSeconds > 0 && Number.isFinite(outputTokens) ? (outputTokens / generationSeconds).toFixed(2) : '—';
             const routingOverhead = generationSeconds !== null && Number.isFinite(Number(item.latency_ms)) ? Math.max(0, Number(item.latency_ms) - generationSeconds * 1000).toFixed(0) + ' ms (est.)' : '—';
             cell(tr,fmt(item.created_at));
-            cell(tr,model,'provider-log-model');
-            cell(tr,item.provider || 'openrouter');
+            const modelCell=el('td','provider-log-model');
+            modelCell.append(el('div','provider-log-model-name',model));
+            if (requestedModel && requestedModel !== actualModel) modelCell.append(el('div','provider-log-model-requested','Requested: '+requestedModel));
+            tr.append(modelCell);
+            cell(tr,providerLabel);
             cell(tr,discoveryRequest ? 'Not applicable · catalog' : item.upstream_provider || 'Not reconciled');
             cell(tr,(item.http_method || 'POST')+' '+(item.endpoint || '—'));
             const statusCell=el('td'); statusCell.append(state(statusText,item.status==='success'?'available':'unavailable')); tr.append(statusCell);

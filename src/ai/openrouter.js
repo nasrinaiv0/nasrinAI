@@ -152,7 +152,8 @@ export function createOpenRouterClient({
           ? parsed.id
           : null
       ),
-      model: typeof parsed.model === 'string' ? parsed.model : baseEvent.requestedModel,
+      // Store only the model actually returned by OpenRouter, never the requested alias.
+      model: typeof parsed.model === 'string' && parsed.model.length <= 200 ? parsed.model : null,
       promptTokens: numeric(usage.prompt_tokens ?? usage.input_tokens),
       cachedTokens: numeric(usage.prompt_tokens_details?.cached_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cache_read_input_tokens),
       completionTokens: numeric(usage.completion_tokens ?? usage.output_tokens),
