@@ -8,9 +8,9 @@ const TASK_OUTPUT = Object.freeze({
   chat: 'text', research: 'text', coding: 'text', scraping: 'text', generation: 'text', rendering: 'text',
   extraction: 'text', editing: 'text', vision: 'text', pdf: 'text', audio_understanding: 'text', video_understanding: 'text', decisions: 'decisions',
   image: 'image', video: 'video', speech: 'speech',
-  transcription: 'transcription', audio: 'audio', embeddings: 'embeddings', rerank: 'rerank'
+  transcription: 'transcription', audio: 'audio', embeddings: 'embeddings', rerank: 'text'
 });
-const TASK_INPUT = Object.freeze({ vision: 'image', pdf: 'file', audio_understanding: 'audio', video_understanding: 'video' });
+const TASK_INPUT = Object.freeze({ vision: 'image', pdf: 'file', audio_understanding: 'audio', video_understanding: 'video', transcription: 'audio' });
 const ENDPOINT = Object.freeze({
   chat: '/chat/completions', research: '/chat/completions', coding: '/chat/completions', generation: '/chat/completions', rendering: '/chat/completions',
   scraping: '/chat/completions', extraction: '/chat/completions', editing: '/chat/completions', vision: '/chat/completions', pdf: '/chat/completions', audio_understanding: '/chat/completions', video_understanding: '/chat/completions',
@@ -192,6 +192,8 @@ export function createOpenRouterClient({
     });
     else if (task === 'video') { /* dedicated video catalog is already task-scoped */ }
     else if (task === 'decisions') return [];
+    else if (task === 'transcription') models = models.filter((item) =>
+      ['text', 'transcription'].some((modality) => item.architecture?.output_modalities?.includes(modality)));
     else models = models.filter((item) => item.architecture?.output_modalities?.includes(output));
     const input = TASK_INPUT[task];
     if (input) models = models.filter((item) => item.architecture?.input_modalities?.includes(input));
@@ -225,7 +227,11 @@ export function createOpenRouterClient({
       ? typeof m.id === 'string'
       : task === 'image'
         ? typeof m.id === 'string' && (m.architecture?.output_modalities?.includes('image') || !m.architecture)
-        : m.architecture?.output_modalities?.includes(modality));
+        : (task === 'speech'
+          ? (m.architecture?.output_modalities?.includes('audio') || m.architecture?.output_modalities?.includes('speech'))
+          : task === 'transcription'
+            ? (m.architecture?.output_modalities?.includes('text') || m.architecture?.output_modalities?.includes('transcription'))
+            : m.architecture?.output_modalities?.includes(modality)));
     const inputModality = TASK_INPUT[task];
     if (inputModality) eligible = eligible.filter((m) => Array.isArray(m.architecture?.input_modalities) && m.architecture.input_modalities.includes(inputModality));
     if (requirements.minContextTokens) eligible = eligible.filter((m) => Number(m.context_length || 0) >= requirements.minContextTokens);
@@ -473,10 +479,42 @@ export function createOpenRouterClient({
   async function embeddings({ model, preferred = [], input, signal }) {
     const selected = await selectModel('embeddings', model ? [cleanModelId(model)] : preferred);
     if (!(typeof input === 'string' && input.length > 0) && !(Array.isArray(input) && input.length > 0)) throw new ProviderError('config', 'Embedding input is required');
-    return request('/embeddings', { body: { model: selected.id, input }, signal });
+    const inputs = Array.isArray(input) ? input : [input];
+    if (inputs.length > 128 || inputs.some((item) => typeof item !== 'string' || !item.trim() || item.length > 100000)) {
+      throw new ProviderError('config', 'Embedding input must contain 1–128 non-empty text items of at most 100000 characters');
+    }
+    const result = await request('/embeddings', { body: { model: selected.id, input }, signal });
+    if (!Array.isArray(result?.data) || result.data.length !== inputs.length ||
+        result.data.some((item) => !Array.isArray(item?.embedding) || item.embedding.length < 1 || item.embedding.length > 65536 ||
+          item.embedding.some((value) => typeof value !== 'number' || !Number.isFinite(value)))) {
+      throw new ProviderError('unavailable', 'OpenRouter returned an invalid embedding response');
+    }
+    return result;
   }
 
-  return Object.freeze({ listModels, listModelsForTask, listCapabilityModels, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings });
+  async function rerank({ model, preferred = [], query, documents, topN, signal }) {
+    if (typeof query !== 'string' || !query.trim() || query.length > 20000) throw new ProviderError('config', 'Rerank query is required and must be at most 20000 characters');
+    if (!Array.isArray(documents) || documents.length < 1 || documents.length > 128 ||
+        documents.some((document) => typeof document !== 'string' || document.length > 100000)) {
+      throw new ProviderError('config', 'Rerank documents must contain 1–128 text items of at most 100000 characters');
+    }
+    const requested = model ? [cleanModelId(model)] : preferred;
+    if (!Array.isArray(requested) || requested.length === 0) throw new ProviderError('config', 'Reranking requires an explicitly configured model ID');
+    const catalog = await listModels();
+    const selected = requested.map(cleanModelId).map((id) => catalog.find((item) => item.id === id)).find(Boolean);
+    if (!selected) throw new ProviderError('unavailable', 'Configured OpenRouter reranking model is not present in the live catalog');
+    const count = topN == null ? documents.length : Number(topN);
+    if (!Number.isInteger(count) || count < 1 || count > documents.length) throw new ProviderError('config', 'Rerank topN must be between 1 and the number of documents');
+    const result = await request('/rerank', { body: { model: selected.id, query: query.trim(), documents, top_n: count }, signal });
+    if (!Array.isArray(result?.results) || result.results.length > count ||
+        result.results.some((item) => !Number.isInteger(item.index) || item.index < 0 || item.index >= documents.length ||
+          typeof item.relevance_score !== 'number' || !Number.isFinite(item.relevance_score))) {
+      throw new ProviderError('unavailable', 'OpenRouter returned an invalid reranking response');
+    }
+    return result;
+  }
+
+  return Object.freeze({ listModels, listModelsForTask, listCapabilityModels, selectModel, chat, decide, generateImage, createVideo, getVideoRoute, videoStatus, videoContent, speak, transcribe, embeddings, rerank });
 }
 
 export const OPENROUTER_TASK_ENDPOINTS = ENDPOINT;

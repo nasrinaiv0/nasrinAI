@@ -5,6 +5,7 @@ import { estimateTokens } from './token-estimate.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
+import { isOpenRouterChatCandidateEligible } from './openrouter-runtime-eligibility.js';
 
 // The routing policy (Phase 4.1), between chat and the router:
 //
@@ -148,12 +149,21 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // free candidate. Paid subscriptions (including separately paid Quick)
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
-          const eligibleCandidates = r.quickNemotronOnly && freeQuick
-            ? expandedTierCandidates.filter((candidate) => candidate.provider === 'openrouter'
-              && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
-            : !freeQuick
-              ? expandedTierCandidates.filter((candidate) => !(candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)))
-              : expandedTierCandidates;
+          const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
+            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly;
+            // Preserve the existing legacy/dynamic chat route policy, while
+            // enforcing the approved registry for any model ID it recognizes.
+            // Specialized endpoints and inferred IDs never enter chat completion.
+            return isOpenRouterChatCandidateEligible({
+              modelId: candidate.model,
+              tier: plan.tier,
+              paidQuick: plan.paidQuick,
+              task: plan.task,
+              verifiedIds: liveOpenRouterModels
+            }) && (!(r.quickNemotronOnly && freeQuick)
+              || /:free$/i.test(candidate.model)
+              || candidate.model === 'openai/gpt-6-luna');
+          });
           const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const ordered = r.quickNemotronOnly && freeQuick
             ? [
