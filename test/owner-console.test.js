@@ -606,7 +606,7 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
         requested_model: 'openrouter/auto', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', upstream_provider: 'OpenAI',
         endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
         prompt_tokens: 12, cached_tokens: 2, completion_tokens: 8, total_tokens: 20,
-        total_cost_usd: 0.0012, provider_cost_source: 'openrouter_generation_api',
+        total_cost_usd: null, provider_cost_source: null,
         provider_request_id: 'gen-1', latency_ms: 250, generation_time_seconds: 0.1
       }, {
         id: 'log-inferred', request_id: 'req-inferred', created_at: timestamp, provider: 'openrouter',
@@ -616,7 +616,11 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
         total_cost_usd: null, provider_cost_source: null, provider_request_id: null,
         latency_ms: null, generation_time_seconds: null
       }];
-      if (path.startsWith('openrouter_generations?')) return [];
+      if (path.startsWith('openrouter_generations?')) return [{
+        generation_id: 'gen-1', created_at: timestamp, model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+        provider_name: 'OpenAI', cost_total: '0.0045', tokens_prompt: 12, tokens_completion: 8,
+        tokens_cached: 2, finish_reason: 'stop', generation_time_ms: 100
+      }];
       throw new Error('unexpected telemetry query');
     }
   };
@@ -636,7 +640,8 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
   assert.equal(payload.rows[0].catalog_status, 'listed');
   assert.equal(payload.rows[0].model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
   assert.equal(payload.rows[0].cost_kind, 'provider_reported');
-  assert.equal(payload.rows[0].total_cost_usd, 0.0012);
+  assert.equal(payload.rows[0].total_cost_usd, 0.0045);
+  assert.equal(payload.rows[0].provider_cost_source, 'openrouter_generation_api');
   assert.equal(payload.rows[0].model_status, 'observed');
 
   const allStates = request('GET', '/owner/api/ai-logs?window=15m&provider=openrouter&scope=all&limit=50&offset=0', { headers: { cookie }, testIp: IP });
