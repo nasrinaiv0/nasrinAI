@@ -600,6 +600,13 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
         prompt_tokens: 12, cached_tokens: 2, completion_tokens: 8, total_tokens: 20,
         total_cost_usd: 0.0012, provider_cost_source: 'openrouter_generation_api',
         provider_request_id: 'gen-1', latency_ms: 250, generation_time_seconds: 0.1
+      }, {
+        id: 'log-inferred', request_id: 'req-inferred', created_at: timestamp, provider: 'openrouter',
+        requested_model: 'openrouter/auto', model: null, upstream_provider: 'OpenRouter',
+        endpoint: '/chat/completions', http_method: 'POST', status: 'running', http_status: null,
+        prompt_tokens: 3, cached_tokens: null, completion_tokens: null, total_tokens: null,
+        total_cost_usd: null, provider_cost_source: null, provider_request_id: null,
+        latency_ms: null, generation_time_seconds: null
       }];
       throw new Error('unexpected telemetry query');
     }
@@ -624,6 +631,17 @@ test('cross-provider AI logs apply short time windows, provider filters, live ca
   assert.equal(payload.rows[0].model, 'openai/gpt-4o-mini');
   assert.equal(payload.rows[0].cost_kind, 'provider_reported');
   assert.equal(payload.rows[0].total_cost_usd, 0.0012);
+  assert.equal(payload.rows[0].model_status, 'observed');
+
+  const allStates = request('GET', '/owner/api/ai-logs?window=15m&provider=openrouter&scope=all&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(allStates.req, allStates.res, '/owner/api/ai-logs');
+  assert.equal(allStates.res.statusCode, 200);
+  const allStatesPayload = JSON.parse(allStates.res.body);
+  assert.equal(allStatesPayload.rows.length, 2);
+  const inferred = allStatesPayload.rows.find((row) => row.id === 'log-inferred');
+  assert.equal(inferred.status, 'running');
+  assert.equal(inferred.model_status, 'inferred');
+  assert.equal(inferred.catalog_status, 'not_listed');
 
   const invalid = request('GET', '/owner/api/ai-logs?window=2m&provider=openrouter', { headers: { cookie }, testIp: IP });
   await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/ai-logs');
