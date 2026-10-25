@@ -771,7 +771,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         });
         if (!analyticsResponse.ok) throw new Error('analytics query failed');
         const analyticsPayload = await analyticsResponse.json();
-        const rawRows = analyticsPayload?.data?.rows ?? analyticsPayload?.rows ?? analyticsPayload?.data;
+        const rawRows = analyticsPayload?.data?.data ?? analyticsPayload?.data?.rows ?? analyticsPayload?.rows ?? analyticsPayload?.data;
         if (!Array.isArray(rawRows)) throw new Error('invalid analytics payload');
         const readMetric = (row, aliases) => {
           const bag = row?.metrics ?? row?.values ?? row;
