@@ -1,3 +1,7 @@
+## Owner-directed deferral — 2026-10-25
+
+- Supabase Auth leaked-password protection is intentionally skipped for now per owner direction. Retain as a documented future security-hardening task; do not describe it as enabled or resolved. This item alone should not block the current release.
+
 ## Production verification follow-up — 2026-10-25
 
 - Applied migration `066_openrouter_logs_explicit_deny_policy` to the connected production Supabase project and verified its migration-registry entry, restrictive browser-role deny policy, and removal of the `openrouter_logs` no-policy security advisory.
