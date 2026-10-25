@@ -145,8 +145,16 @@ export function createOpenRouterClient({
     const numeric = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
     emitTelemetry({
       ...baseEvent, status: 'success', httpStatus, latencyMs: now() - startedAt,
-      providerRequestId, model: typeof parsed.model === 'string' ? parsed.model : baseEvent.requestedModel,
+      // OpenRouter's generation ID is commonly in the JSON body when an intermediary omits x-request-id.
+      providerRequestId: providerRequestId || (
+        !/\/(?:models|images\/models|videos\/models)$/.test(baseEvent.endpoint) &&
+        typeof parsed.id === 'string' && parsed.id.length <= 200
+          ? parsed.id
+          : null
+      ),
+      model: typeof parsed.model === 'string' ? parsed.model : baseEvent.requestedModel,
       promptTokens: numeric(usage.prompt_tokens ?? usage.input_tokens),
+      cachedTokens: numeric(usage.prompt_tokens_details?.cached_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cache_read_input_tokens),
       completionTokens: numeric(usage.completion_tokens ?? usage.output_tokens),
       totalTokens: numeric(usage.total_tokens),
       totalCostUsd: numeric(usage.cost ?? parsed.cost ?? parsed.usage?.cost_usd),

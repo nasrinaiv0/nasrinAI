@@ -40,3 +40,20 @@ test('photos with a video request go to Video Studio instead of silently ignorin
   assert.match(offer, /href = '\/video-studio\.html'/);
   assert.match(offer, /pending = \[\]/);
 });
+
+test('a video stays in the chat after a refresh: the reply carries a [genvideo:id] marker that history turns back into the player', () => {
+  const send = fnBody('sendVideo', '  function shortcutImagePrompt(');
+  assert.match(send, /conversationId = data\.conversation_id/, 'keeps using the chat the server saved the video into');
+  assert.match(send, /\[genvideo:/, 'live replies go through the same marker path as history');
+  assert.ok(app.includes('genvideo:([0-9a-f-]{36})'), 'history reads the marker');
+  const player = fnBody('videoPlayer', '  async function sendVideo(');
+  assert.match(player, /\/v1\/videos\/' \+ encodeURIComponent\(id\)/, 'checks the same job instead of making a new one');
+  assert.doesNotMatch(player, /method: 'POST'/, 'resuming never submits another paid generation');
+  assert.match(player, /isConnected/, 'stops polling when the chat is left');
+  assert.match(player, /Download MP4/);
+  assert.match(player, /generated-video-preview/);
+});
+
+test('video messages cannot be edited like text messages', () => {
+  assert.ok(app.includes("!/^Create (?:an image|a video): /.test(lastUser.dataset.text || '')"));
+});

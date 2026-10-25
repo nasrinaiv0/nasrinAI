@@ -1371,6 +1371,12 @@
         text = text.replace(/\s*\[image:[0-9a-f-]{36}\]\s*/g, '\n\n').trim();
         if (!text) text = generatedImageIds.length === 1 ? 'Here is your picture.' : 'Here are your pictures.';
       }
+      // A generated video (saved chat marker): the player resumes or plays it,
+      // so it is still there after a refresh.
+      const generatedVideoIds = [...text.matchAll(/\[genvideo:([0-9a-f-]{36})\]/g)].map((m) => m[1]);
+      if (generatedVideoIds.length) {
+        text = text.replace(/\s*\[genvideo:[0-9a-f-]{36}\]\s*/g, '\n\n').trim() || 'Here is your video.';
+      }
       // Screen recordings from render-and-test, right under the screenshot.
       for (let vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text); vid; vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text)) {
         el.appendChild(recordingFigure(vid[1]));
@@ -1396,6 +1402,7 @@
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
+      for (const videoId of generatedVideoIds) el.appendChild(videoPlayer(videoId));
       // Show generated images after the reply text, preserving the natural reading order.
       if (generatedImageIds?.length) {
         if (generatedImageIds.length > 10) {
@@ -2994,7 +3001,7 @@
       }
     }
     const lastUser = msgs.filter((m) => m.classList.contains('user')).at(-1);
-    if (lastUser && lastUser.dataset.id && conversationId && !/^Create an image: /.test(lastUser.dataset.text || '')) {
+    if (lastUser && lastUser.dataset.id && conversationId && !/^Create (?:an image|a video): /.test(lastUser.dataset.text || '')) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'edit-msg';
@@ -3042,6 +3049,88 @@
     scrollToEnd(card);
   }
 
+  // The player for a generated video. It only ever CHECKS the saved job (GET)
+  // and never starts one, so it is safe to build again after a refresh or when
+  // an old chat is opened: a finished video plays, one still rendering keeps
+  // updating, and nothing is paid for twice.
+  function videoPlayer(id) {
+    const box = document.createElement('div');
+    box.className = 'generated-video';
+    const note = document.createElement('p');
+    note.className = 'msg-meta';
+    note.textContent = 'Checking your video…';
+    const loader = genLoader('Creating your video');
+    box.append(note, loader.el);
+    let pollFailures = 0;
+    let pollDelayMs = 3000;
+    const poll = async () => {
+      if (!box.isConnected) return; // the chat was left: stop; opening it again resumes
+      try {
+        const state = await api('/v1/videos/' + encodeURIComponent(id));
+        pollFailures = 0;
+        pollDelayMs = 10000;
+        if (state.status === 'completed') {
+          loader.remove();
+          note.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
+          const downloadLink = document.createElement('a');
+          downloadLink.className = 'btn small';
+          downloadLink.href = state.download;
+          downloadLink.download = '';
+          downloadLink.textContent = 'Download MP4';
+          // Show the video itself in the chat, not just a link. The content
+          // endpoint checks ownership of the job.
+          if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
+            const preview = document.createElement('video');
+            preview.className = 'generated-video-preview';
+            preview.controls = true;
+            preview.playsInline = true;
+            preview.preload = 'metadata';
+            preview.setAttribute('aria-label', 'Generated video preview');
+            preview.style.display = 'block';
+            preview.style.width = '100%';
+            preview.style.maxWidth = '640px';
+            preview.style.maxHeight = '70vh';
+            preview.style.marginTop = '12px';
+            preview.style.borderRadius = '14px';
+            preview.style.background = '#000';
+            preview.src = state.download;
+            preview.addEventListener('error', () => {
+              const warning = document.createElement('p');
+              warning.className = 'msg-meta';
+              warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
+              box.insertBefore(warning, downloadLink);
+            }, { once: true });
+            box.appendChild(preview);
+          }
+          box.appendChild(downloadLink);
+          if (box.dataset.waited) deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
+          scrollToEnd(box);
+          return;
+        }
+        if (state.status === 'failed') { loader.remove(); note.textContent = state.error?.message || 'The video could not be completed.'; return; }
+        box.dataset.waited = 'true';
+        if (state.provider_poll_warning) {
+          note.textContent = 'The video provider is taking longer to respond. NasrinAI is checking the existing job; it will not submit a duplicate generation request.';
+          pollDelayMs = 20000;
+        } else {
+          note.textContent = 'Your video is being created. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.';
+        }
+        loader.set((state.provider_poll_warning ? 'Checking video status' : 'Creating your video') + ' · ' + Math.max(1, Number(state.progress) || 1) + '%');
+        setTimeout(poll, pollDelayMs);
+      } catch (err) {
+        if (err.code === 'video_plan_required' || err.status === 403 || err.status === 404) { loader.remove(); note.textContent = err.status === 404 ? 'This video is no longer available.' : (err.message || 'Video creation is not available on your plan.'); return; }
+        pollFailures += 1;
+        pollDelayMs = Math.min(30000, 10000 * (2 ** Math.min(2, pollFailures - 1)));
+        if (pollFailures >= 3) note.textContent = 'NasrinAI is having trouble checking this video’s status. It will keep checking the same job and will not submit another generation request.';
+        setTimeout(poll, pollDelayMs);
+      }
+    };
+    // Start once the player is in the page, so a chat that is being replaced
+    // never leaves a poller running.
+    setTimeout(poll, 0);
+    return box;
+  }
+
   async function sendVideo(text) {
     // No native browser dialogs here: they are blocked or unreadable in many
     // mobile browsers. Quality and frame rate are chosen by the server
@@ -3054,84 +3143,17 @@
     autosize();
     setImageMode(false);
     try {
-      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) });
+      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) })
       const id = data.video_id;
       if (!id) throw new Error('The video job could not be started.');
-      const card = document.createElement('div');
-      card.className = 'msg assistant';
-      const body = document.createElement('div');
-      body.className = 'msg-body';
-      body.textContent = 'I’m creating your ' + seconds + '-second video. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.';
-      const loader = genLoader('Creating your video');
-      card.append(body, loader.el);
-      log.appendChild(card);
-      scrollToEnd(card);
-      let pollFailures = 0;
-      let pollDelayMs = 10000;
-      const poll = async () => {
-        try {
-          const state = await api('/v1/videos/' + encodeURIComponent(id));
-          pollFailures = 0;
-          pollDelayMs = 10000;
-          if (state.status === 'completed') {
-            loader.remove();
-            body.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
-            // Show the completed artifact directly in the conversation, not just
-            // a download link. Same-origin content endpoint enforces job ownership.
-            if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
-              const preview = document.createElement('video');
-              preview.className = 'generated-video-preview';
-              preview.controls = true;
-              preview.playsInline = true;
-              preview.preload = 'metadata';
-              preview.setAttribute('aria-label', 'Generated video preview');
-              preview.style.display = 'block';
-              preview.style.width = '100%';
-              preview.style.maxWidth = '640px';
-              preview.style.maxHeight = '70vh';
-              preview.style.marginTop = '12px';
-              preview.style.borderRadius = '14px';
-              preview.style.background = '#000';
-              preview.src = state.download;
-              preview.addEventListener('error', () => {
-                const warning = document.createElement('p');
-                warning.className = 'msg-meta';
-                warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
-                if (!warning.dataset.shown) {
-                  warning.dataset.shown = 'true';
-                  card.insertBefore(warning, downloadLink);
-                }
-              }, { once: true });
-              card.appendChild(preview);
-            }
-            const downloadLink = document.createElement('a');
-            downloadLink.className = 'btn small';
-            downloadLink.href = state.download;
-            downloadLink.download = '';
-            downloadLink.textContent = 'Download MP4';
-            card.appendChild(downloadLink);
-            deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
-            scrollToEnd(card);
-            return;
-          }
-          if (state.status === 'failed') { loader.remove(); body.textContent = state.error?.message || 'The video could not be completed.'; return; }
-          if (state.provider_poll_warning) {
-            body.textContent = 'The video provider is taking longer to respond. NasrinAI is checking the existing job; it will not submit a duplicate generation request.';
-            pollDelayMs = 20000;
-          } else {
-            body.textContent = 'I’m creating your ' + seconds + '-second video. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.';
-          }
-          loader.set((state.provider_poll_warning ? 'Checking video status' : 'Creating your video') + ' · ' + Math.max(1, Number(state.progress) || 1) + '%');
-          setTimeout(poll, pollDelayMs);
-        } catch (err) {
-          if (err.code === 'video_plan_required' || err.status === 403) { loader.remove(); body.textContent = err.message || 'Video creation is available on Ultra.'; return; }
-          pollFailures += 1;
-          pollDelayMs = Math.min(30000, 10000 * (2 ** Math.min(2, pollFailures - 1)));
-          if (pollFailures >= 3) body.textContent = 'NasrinAI is having trouble checking this video’s status. It will keep checking the same job and will not submit another generation request.';
-          setTimeout(poll, pollDelayMs);
-        }
-      };
-      poll();
+      // The server saved this request and the video into a chat: keep using it,
+      // so the video is still there after a refresh.
+      if (data.conversation_id) {
+        conversationId = data.conversation_id;
+        saved.set(identityKey(KEYS.conversation), conversationId);
+      }
+      const length = Number(data.target_seconds) || seconds;
+      show('assistant', '[genvideo:' + id + ']\nI’m creating your ' + length + '-second video. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.');
     } catch (err) {
       show('problem', err.message || 'The video could not be started.');
       Nasrin.flash('sad', 2400);
