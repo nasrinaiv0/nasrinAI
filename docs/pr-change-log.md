@@ -2469,3 +2469,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This closes the prior changelog note that migration 069 was pending. Historical migration-history/schema reconciliation remains open for other unrecorded migrations; do not infer they are unapplied solely from absent registry entries.
 - **Validation:** Supabase migration application returned success for all four migrations and the cached-token constraint was verified in production. This is database schema verification, not a full application/provider end-to-end test.
 
+
+## Production migration reconciliation — additional idempotent migrations (2026-10-25)
+
+- Applied and recorded `025_global_spend_reservations`, `053_user_provider_credentials`, `057_owner_console_metrics`, `058_owner_console_auth_audit`, and `059_owner_alert_outbox` to the connected production Supabase project.
+- These migrations returned success through Supabase's migration runner. The existing credential and alert tables were retained; owner-console functions and spend-reservation schema were reasserted using the repository migration definitions.
+- The production migration registry now includes these five entries plus OpenRouter migrations 063–065 and 069. This does not resolve every historical migration-label discrepancy: older migration files have overlapping numbers and mixed idempotency, so remaining unrecorded files must be reconciled against live schema and dependencies before they can safely be applied or recorded.
+- **Validation:** migration runner success and registry entries verified. Full application tests and production workflow smoke tests remain separate release gates.
+
