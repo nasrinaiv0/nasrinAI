@@ -1,3 +1,10 @@
+## Owner Command Center OpenRouter verification button — 2026-10-25
+
+- Add an owner-only Run model verification control in AI Operations, wired to the existing `.github/workflows/verify-openrouter-models.yml` workflow.
+- Dispatch only from the server using the secret `OWNER_GITHUB_ACTIONS_TOKEN`; enforce the existing owner session/IP/email boundary, same-origin JSON, model-ID validation, and mandatory confirmation that real provider calls may incur costs.
+- Provide a link to workflow runs and clear success/failure messaging. A successful dispatch is not proof that every model works; review the workflow summary and JSON artifact.
+- Add regression coverage for cost confirmation, dispatch payload, and token redaction. CI and production configuration/live workflow verification remain pending.
+
 ## OpenRouter session ID validation fix — 2026-10-25
 
 - Fixed the regression test failure by rejecting ASCII control characters (including newline and DEL) in caller-supplied OpenRouter session IDs, in addition to empty and over-limit values.
