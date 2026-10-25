@@ -45,12 +45,11 @@ async function discoverGenerationIdsFromLogs({ start, end, supabaseUrl, serviceK
     const query = new URLSearchParams({
       select: 'openrouter_generation_id,provider_request_id,created_at',
       provider: 'eq.openrouter',
-      created_at: 'gte.' + start,
       order: 'created_at.asc',
       limit: String(pageSize),
       offset: String(offset)
     });
-    query.append('created_at', 'lte.' + end);
+    query.append('and', '(created_at.gte.' + start + ',created_at.lte.' + end + ')');
     const response = await fetchImpl(supabaseUrl + '/rest/v1/openrouter_logs?' + query.toString(), {
       method: 'GET',
       headers: {
