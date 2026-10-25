@@ -347,17 +347,16 @@ test('OpenRouter billing uses Analytics API and keeps optional credits failures 
     calls.push({ url: String(url), options });
     if (String(url).endsWith('/analytics/meta')) return {
       ok: true, json: async () => ({ data: { metrics: [
-        { name: 'total_usage' }, { name: 'requests' }, { name: 'tokens_prompt' },
+        { name: 'total_usage' }, { name: 'request_count' }, { name: 'tokens_prompt' },
         { name: 'tokens_completion' }, { name: 'tokens_total' }
       ] } })
     };
     if (String(url).endsWith('/analytics/query')) return {
-      ok: true, json: async () => ({ data: [
-        { dimensions: { model: 'nvidia/test:free' }, metrics: {
-          total_usage: 0.02, requests: 2, tokens_prompt: 100,
-          tokens_completion: 40, tokens_total: 140
-        } }
-      ] })
+      ok: true, json: async () => ({ data: { data: [
+        { date__day: '2026-10-24T00:00:00.000Z', model: 'nvidia/test:free',
+          total_usage: 0.02, request_count: 2, tokens_prompt: 100,
+          tokens_completion: 40, tokens_total: 140 }
+      ], metadata: { row_count: 1, truncated: false } } })
     };
     if (String(url).endsWith('/credits')) return { ok: false, status: 403, json: async () => ({}) };
     throw new Error('unexpected upstream URL');
