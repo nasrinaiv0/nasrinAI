@@ -523,7 +523,8 @@ test('cross-provider model inventory is owner-authenticated, sanitized, and does
   const store = { kind: 'supabase', request: async (_method, path) => {
     if (path === 'rpc/owner_console_record_audit') return null;
     if (path.startsWith('usage_events?')) return [
-      { provider: 'anthropic', model: 'claude-sonnet-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:00:00.000Z', input_tokens: 10, output_tokens: 20, latency_ms: 50, cost_usd: 0.01 }
+      { provider: 'anthropic', model: 'claude-sonnet-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:00:00.000Z', input_tokens: 10, output_tokens: 20, latency_ms: 50, cost_usd: 0.01 },
+      { provider: 'anthropic', model: 'claude-verified-example', task: 'chat', outcome: 'ok', created_at: '2026-10-24T10:01:00.000Z', input_tokens: 12, output_tokens: 22, latency_ms: 45, cost_usd: 0.02, cost_source: 'provider_reported' }
     ];
     if (path.startsWith('openrouter_logs?')) return [
       { provider: 'openrouter', upstream_provider: 'ProviderX', requested_model: 'openrouter/auto', model: null, endpoint: '/chat/completions', status: 'success', created_at: '2026-10-24T11:00:00.000Z', prompt_tokens: 20, completion_tokens: 30, total_cost_usd: null },
@@ -546,6 +547,7 @@ test('cross-provider model inventory is owner-authenticated, sanitized, and does
   assert.equal(payload.rows.find((row) => row.model === 'claude-sonnet-example').catalog_status, 'not_listed');
   assert.equal(payload.rows.find((row) => row.model === 'providerx/actual-model').catalog_status, 'not_listed');
   assert.equal(payload.rows.find((row) => row.model === 'claude-sonnet-example').cost_usd, null);
+  assert.equal(payload.rows.find((row) => row.model === 'claude-verified-example').cost_usd, 0.02);
   assert.equal(out.res.body.includes('prompt_tokens'), false);
 });
 
