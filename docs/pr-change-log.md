@@ -1,3 +1,8 @@
+## PR #611 CI follow-up (2026-10-25)
+
+- Fix the post-synchronization regression in `test/videos-persisted-jobs.test.js`: videos larger than the in-memory byte-cache limit are served from the storage adapter when available, so the test now asserts the private `generated-videos` storage metadata and verifies that playback does not download the provider output a second time.
+- **Validation:** fresh CI rerun is pending on the updated PR head. No production migration, production credentials, or live provider request was used for this test fix.
+
 ## fix/video-persist-in-chat (2026-10-25)
 
 - Add migration `067_generated_videos_storage.sql` to provision a private Supabase Storage bucket for generated videos and add storage metadata columns to `public.generated_videos`.
