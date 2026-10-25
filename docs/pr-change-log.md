@@ -1,3 +1,17 @@
+## OpenRouter session ID validation fix — 2026-10-25
+
+- Fixed the regression test failure by rejecting ASCII control characters (including newline and DEL) in caller-supplied OpenRouter session IDs, in addition to empty and over-limit values.
+- Kept optional session IDs omitted when no conversation ID is supplied; the change does not alter conversation history or provider routing policy.
+- **Validation:** CI rerun required after this fix; no passing test result is claimed until the new branch checks complete.
+
+## OpenRouter conversation session routing — 2026-10-25
+
+- Pass the owner-checked NasrinAI conversation ID through the chat provider contract and derive a stable SHA-256 opaque session key for OpenRouter chat-completion requests.
+- Include the optional `session_id` only when a valid session key is available; validate the 256-character API limit and reject control characters. Requests without conversation context retain existing behavior.
+- Keep conversation history, authorization, memory, token accounting, and telemetry in NasrinAI; OpenRouter session IDs are for routing/cache continuity, not storage or guaranteed savings.
+- Add regression coverage for optional payload behavior, validation, stable per-conversation mapping, and ensuring the database conversation ID is not sent upstream.
+- **Validation:** pending CI on this branch; no live provider smoke test or production deployment is claimed.
+
 ## Owner model inventory table rendering — 2026-10-25
 
 - Harden `public/owner-console.js` model inventory rendering against incomplete/malformed telemetry payloads and missing optional values.
