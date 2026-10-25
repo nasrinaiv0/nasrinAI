@@ -1131,6 +1131,12 @@ For each balance record:
 - The implementation must keep the same owner-command-center branch/PR for the Owner Command Center work unless the owner explicitly changes that workflow. Update this section, `docs/owner-command-center-audit.md`, and `docs/pr-change-log.md` as each source, implementation phase, and test result changes status.
 
 
+## OpenRouter model verification action
+
+The AI Operations panel includes an owner-only **Run model verification** control for the existing GitHub Actions workflow `.github/workflows/verify-openrouter-models.yml`. It dispatches the workflow on `main`, with an optional model ID and mandatory confirmation that real provider requests may incur costs. The workflow reports per-model outcomes in the GitHub Actions run summary and uploads the JSON artifact. A green workflow job does not mean every model passed; review the per-model statuses.
+
+Configure the server-only Vercel environment variable `OWNER_GITHUB_ACTIONS_TOKEN` with a dedicated fine-grained GitHub token scoped to `primusco20/nasrinAI`, granting **Actions: write** and repository metadata read. Never expose this token to browser code or `NEXT_PUBLIC_*`. The endpoint `POST /owner/api/verify-openrouter-models` enforces the existing owner session, exact IP/email allowlists, same-origin JSON request, validated model ID, and explicit cost confirmation. If the token is absent or invalid, the UI reports the integration as unavailable; it must not imply that a workflow started. Real model requests can incur provider costs.
+
 ## 16. Reports — full-report requirements (documentation only)
 
 ### Purpose and shared behavior
