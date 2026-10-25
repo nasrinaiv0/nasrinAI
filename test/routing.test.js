@@ -50,7 +50,7 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, openrouterFail 
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
-  return { config, gemini, openai, openrouter, policy, store };
+  return { config, gemini, openai, openrouter, groq, policy, store };
 }
 const req = (content) => ({ system: 'S', messages: [{ role: 'user', content }], attachments: [] });
 
