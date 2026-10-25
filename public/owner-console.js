@@ -115,6 +115,7 @@
       const [item] = settings.order.splice(from, 1); settings.order.splice(to, 0, item); save(); renderSettings(); apply();
     };
     function apply() {
+      markColumns();
       const allRows = Array.from(table.querySelectorAll('tr'));
       allRows.forEach(row => {
         const cells = Array.from(row.children);
@@ -426,7 +427,7 @@
       thead.append(headerRow);
       const tbody = el('tbody');
       table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
-      addTableSettings(panel, table, 'ai-logs');
+      const applyLogTableSettings = addTableSettings(panel, table, 'ai-logs');
       const pager = el('div','provider-log-pager');
       const previous = el('button','quiet-button','Previous'); previous.type='button';
       const next = el('button','quiet-button','Next'); next.type='button';
@@ -493,6 +494,7 @@
             const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
             tbody.append(tr);
           });
+          applyLogTableSettings();
           hasMore=Boolean(payload.has_more);
           previous.disabled=offset===0; next.disabled=!hasMore;
           pageLabel.textContent='Page '+(Math.floor(offset/50)+1);
