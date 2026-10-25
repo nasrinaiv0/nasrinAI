@@ -22,7 +22,9 @@
   };
 
   function inline(parent, text) {
-    const re = /(\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*\n]+\*\*|\x60[^\x60\n]+\x60|https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?])/g;
+    // Prefer longer tokens first so strong/emphasis/strike never partially
+    // consume a link or inline-code span. Raw HTML is intentionally not parsed.
+    const re = /(\[[^\]\n]+\]\(https?:\/\/[^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_|\x60[^\x60\n]+\x60|https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?])/g;
     let last = 0; let m;
     while ((m = re.exec(text))) {
       if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
@@ -44,7 +46,13 @@
             parent.appendChild(a);
           } else parent.appendChild(document.createTextNode(label));
         }
+      } else if (t.startsWith('***')) {
+        const strong = el('strong');
+        strong.appendChild(el('em', '', t.slice(3, -3)));
+        parent.appendChild(strong);
       } else if (t.startsWith('**')) parent.appendChild(el('strong', '', t.slice(2, -2)));
+      else if (t.startsWith('~~')) parent.appendChild(el('del', '', t.slice(2, -2)));
+      else if (t.startsWith('*') || t.startsWith('_')) parent.appendChild(el('em', '', t.slice(1, -1)));
       else if (t.startsWith('\x60')) parent.appendChild(el('code', '', t.slice(1, -1)));
       else {
         let valid = false;
@@ -205,6 +213,13 @@
         continue;
       }
 
+      // Horizontal rules create breathing room between long answer sections.
+      if (/^(?:-{3,}|_{3,}|\*{3,})$/.test(line)) {
+        flushPara(); endList();
+        add(el('hr', 'answer-divider'));
+        continue;
+      }
+
       // | a | b | table: a header row, a --- separator row, then body rows.
       if (line.includes('|') && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1].trim())) {
         flushPara(); endList();
@@ -262,7 +277,19 @@
       if (m) {
         flushPara();
         if (listKind !== 'ul') { list = add(el('ul')); listKind = 'ul'; }
-        list.appendChild(leadIcon(el('li'), m[1]));
+        const task = /^\[([ xX])\]\s+(.+)$/.exec(m[1]);
+        if (task) {
+          const li = el('li', 'task-item' + (task[1].toLowerCase() === 'x' ? ' is-complete' : ''));
+          const box = el('input', 'task-checkbox');
+          box.type = 'checkbox';
+          box.checked = task[1].toLowerCase() === 'x';
+          box.disabled = true;
+          box.setAttribute('aria-label', (box.checked ? 'Completed: ' : 'Not completed: ') + task[2].slice(0, 100));
+          li.append(box, inline(el('span', 'task-text'), task[2]));
+          list.appendChild(li);
+        } else {
+          list.appendChild(leadIcon(el('li'), m[1]));
+        }
         continue;
       }
 
