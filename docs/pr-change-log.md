@@ -1,3 +1,9 @@
+## PR #543 conflict resolution (2026-10-25)
+
+- Synchronized `feature/owner-console-v2-current-main` with the latest `main` after inspecting the conflicting Owner Command Center implementation, migration 057/058, route/CSP configuration, tests, and documentation.
+- The current `main` tree already contains the newer Owner Command Center implementation, including stronger request/session checks, current migration definitions, expanded regression tests, the owner entry in NasrinAI Space, Google Maps CSP allowances, and owner-alert routing. The older branch versions were superseded, so synchronization preserves the current `main` tree rather than reintroducing outdated implementations.
+- No production migration, production deployment, or PR merge was performed. The PR has no functional diff against `main`; it should be closed or re-scoped rather than merged as a duplicate. It remains open for owner review.
+
 ## OpenRouter provider-log telemetry correctness — 2026-10-25
 
 - Fix generation-ID capture: successful inference responses now persist the OpenRouter response-body `id` when request-ID headers are absent, while excluding model-catalog discovery endpoints from that fallback. This allows new eligible requests to be reconciled without trusting user-supplied IDs.
