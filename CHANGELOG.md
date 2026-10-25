@@ -1,3 +1,5 @@
+- Implement private durable storage for generated chat videos: completed provider output is uploaded to the private Supabase `generated-videos` bucket (up to 50 MiB), storage metadata is saved to `generated_videos`, and authenticated owner-scoped playback prefers stored bytes over provider URLs. Add a memory-store adapter and regression coverage for provider-independent playback; upload failures retain the bounded legacy fallback and are logged.
+
 - Document Supabase Auth leaked-password protection as intentionally deferred per owner direction; retain it as a future security-hardening task and do not mark it enabled/resolved.
 - Apply production migration `066_openrouter_logs_explicit_deny_policy`; verified its registry entry and restrictive deny policy for browser roles. Supabase security advisor no longer reports `openrouter_logs` as RLS-enabled without a policy; leaked-password protection remains disabled.
 - Fix OpenRouter billing analytics parsing to accept the documented `data.data` response envelope; update regression coverage to use the official flat-row response shape and `request_count` metric.

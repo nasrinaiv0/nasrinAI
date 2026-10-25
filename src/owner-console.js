@@ -668,7 +668,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       const requestedOffset = Number(url.searchParams.get('offset') || 0);
       const offset = Number.isSafeInteger(requestedOffset) ? Math.max(0, Math.min(requestedOffset, 10000)) : 0;
       const filters = [
-        'select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
+        'select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
         'created_at=gte.' + encodeURIComponent(cutoff)
       ];
       if (status) filters.push('status=eq.' + encodeURIComponent(status));
@@ -700,6 +700,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             requested_model: row.requested_model,
             model: row.model,
             prompt_tokens: row.prompt_tokens,
+            cached_tokens: row.cached_tokens,
             completion_tokens: row.completion_tokens,
             total_tokens: row.total_tokens,
             total_cost_usd: row.total_cost_usd,

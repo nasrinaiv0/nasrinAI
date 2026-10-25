@@ -244,6 +244,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (lastUser < 0) throw new HttpError(400, 'nothing_to_answer', 'There is no message to answer again.');
       if (editId !== null && recent[lastUser].id !== editId) throw new HttpError(400, 'invalid_message', 'Only your last message can be edited.');
       // Pictures have their own Regenerate (it makes a new picture from the brief).
+      // A video is a paid job: running it again as text chat would be wrong, and
+      // its player is shown from the saved [genvideo:id] marker.
+      if (/^Create a video: /.test(recent[lastUser].content) || recent.slice(lastUser + 1).some((m) => /^\[genvideo:[0-9a-f-]{36}\]/.test(m.content))) {
+        throw new HttpError(400, 'invalid_message', 'Videos cannot be regenerated or edited here. Ask for a new video instead.');
+      }
       if (/^Create an image: /.test(recent[lastUser].content) || recent.slice(lastUser + 1).some((m) => /^\[image:[0-9a-f-]{36}\]\s*\n(Here is your picture|Here are your)/.test(m.content))) {
         throw new HttpError(400, 'invalid_message', 'Use the picture’s own Regenerate button to make it again.');
       }

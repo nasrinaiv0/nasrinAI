@@ -1,3 +1,33 @@
+## OpenRouter provider-log telemetry correctness — 2026-10-25
+
+- Fix generation-ID capture: successful inference responses now persist the OpenRouter response-body `id` when request-ID headers are absent, while excluding model-catalog discovery endpoints from that fallback. This allows new eligible requests to be reconciled without trusting user-supplied IDs.
+- Clarify AI Provider Logs: `/models`, `/images/models`, and `/videos/models` are catalog/discovery calls, not inference calls; inference-only token, speed, generation-time, finish-reason, and cost cells now show “N/A · catalog request” for those rows.
+- Keep the owner-only logs API read-only, bounded, and sanitized; no prompts, completions, raw provider error bodies, or credentials are exposed.
+- **Validation:** regression coverage updated to assert response-body ID fallback when headers are absent. CI and deployed live-provider verification are still pending; historical rows without any stored provider/generation ID cannot be retroactively reconciled from this change alone.
+
+## PR #611 CI follow-up (2026-10-25)
+
+- Fix the post-synchronization regression in `test/videos-persisted-jobs.test.js`: videos larger than the in-memory byte-cache limit are served from the storage adapter when available, so the test now asserts the private `generated-videos` storage metadata and verifies that playback does not download the provider output a second time.
+- **Validation:** fresh CI rerun is pending on the updated PR head. No production migration, production credentials, or live provider request was used for this test fix.
+
+## fix/video-persist-in-chat (2026-10-25)
+
+- Add migration `067_generated_videos_storage.sql` to provision a private Supabase Storage bucket for generated videos and add storage metadata columns to `public.generated_videos`.
+- The bucket is private, limited to 50 MB per object, and accepts supported video MIME types only. Browser roles retain no direct table access; trusted server routes must mediate storage operations.
+- The migration is safe to rerun and skips Storage bucket DDL in plain PostgreSQL CI environments without the Supabase Storage schema.
+- Fix the migration regression test to check `storage.buckets` in nested PL/pgSQL control flow, avoiding a missing-relation parse failure in plain PostgreSQL CI.
+- Implement the server-side storage pipeline: after provider download, upload eligible MP4 output (up to the bucket's 50 MiB limit) to the private `generated-videos` bucket, persist bucket/path/size/upload timestamp, and prefer stored bytes on authenticated owner-checked playback. Storage paths include tenant, owner type, owner id, and video id. Provider URLs and small database-byte fallback remain only for upload failures or objects beyond the bucket limit; failures are logged and must not create a second provider job.
+- Add regression coverage proving completed videos persist to storage and remain readable after clearing the provider URI and database byte fallback.
+- **Validation status:** implementation and tests are committed to this PR branch; CI and production playback must pass before the pipeline is considered fully verified. The production migration has already been applied separately; do not apply it again as part of PR review.
+
+## fix/video-persist-in-chat (2026-10-25)
+
+- Videos now stay in the chat after a refresh: starting a video saves the request and a `[genvideo:<id>]` reply into the chat (same pattern as pictures); opening the chat shows the player again (playing, or still rendering). Saving never fails the paid job.
+- A job that finished at the provider while nobody was watching is delivered instead of being discarded at the 10-minute limit: one last provider check runs first; only still-unfinished jobs time out.
+- Video messages cannot be regenerated or edited as text chat (server guard + no Edit button), so no second paid job can start by accident.
+- Migration 067's private bucket and metadata are now wired to the server-side upload/download pipeline. Videos up to 50 MiB are uploaded after provider download; playback uses the owner-scoped storage object first and retains a bounded legacy fallback if upload fails. Terms/Privacy unchanged.
+- **Known limit:** objects above the 50 MiB bucket limit cannot be durably stored by this pipeline and use the provider URI fallback; production end-to-end playback and CI remain release gates.
+
 ## Owner-directed deferral — 2026-10-25
 
 - Supabase Auth leaked-password protection is intentionally skipped for now per owner direction. Retain as a documented future security-hardening task; do not describe it as enabled or resolved. This item alone should not block the current release.
@@ -2431,9 +2461,26 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
 - **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.
 
-## PR #599 — OpenRouter model shortlist documentation (2026-10-25)
+## Owner Console — expanded AI Provider Logs (2026-10-25)
+- Add cached-token telemetry with migration `069_openrouter_cached_tokens.sql`; migration 066 is already assigned to the explicit OpenRouter deny-policy migration, so no existing migration is duplicated or overwritten.
+- Add a database regression test for the nullable `cached_tokens` bigint and nonnegative constraint. Missing provider fields remain NULL/unknown rather than being shown as zero.
+- Expand the owner-only request table with provider, input/cached/output tokens, output tokens per second, estimated routing overhead, time to finish, total latency, actual provider-reported cost, finish reason, and cost-source attribution.
+- Speed is derived from output tokens and provider generation time. Routing overhead is an estimate, not an authoritative provider metric. No prompts or completions are exposed.
+- Migration 069 is not applied to production; coordinate it with the pending 067–068 release sequence and use the approved migration process.
 
-- Add an operator-facing capability-based OpenRouter shortlist covering chat/coding, Quick/guest free-only eligibility, image, video, speech, transcription, and specialized routes.
-- Mark model candidates KEEP / DISABLE (route only) / VERIFY FIRST, document endpoint-level verification requirements, and explicitly prohibit paid-model fallback for Quick/guest.
-- This is documentation only: no runtime routes, environment variables, account-level model access, or production settings were changed.
-- **Validation:** CI and the documentation gate passed on the previous head; rerun both after this changelog reconciliation. Authenticated live model probes remain outstanding; no production routing or account settings were changed.
+
+## Production migration reconciliation — OpenRouter telemetry (2026-10-25)
+
+- Applied and recorded migrations `063_openrouter_logs`, `064_openrouter_generation_reconciliation`, `065_openrouter_provider_performance`, and `069_openrouter_cached_tokens` to the connected production Supabase project.
+- Post-apply verification confirmed the `openrouter_logs_cached_tokens_nonnegative` check constraint exists; migration registry now includes all four entries. Existing telemetry table and provider-reconciliation columns were preserved by the migrations' idempotent DDL.
+- This closes the prior changelog note that migration 069 was pending. Historical migration-history/schema reconciliation remains open for other unrecorded migrations; do not infer they are unapplied solely from absent registry entries.
+- **Validation:** Supabase migration application returned success for all four migrations and the cached-token constraint was verified in production. This is database schema verification, not a full application/provider end-to-end test.
+
+
+## Production migration reconciliation — additional idempotent migrations (2026-10-25)
+
+- Applied and recorded `025_global_spend_reservations`, `053_user_provider_credentials`, `057_owner_console_metrics`, `058_owner_console_auth_audit`, and `059_owner_alert_outbox` to the connected production Supabase project.
+- These migrations returned success through Supabase's migration runner. The existing credential and alert tables were retained; owner-console functions and spend-reservation schema were reasserted using the repository migration definitions.
+- The production migration registry now includes these five entries plus OpenRouter migrations 063–065 and 069. This does not resolve every historical migration-label discrepancy: older migration files have overlapping numbers and mixed idempotency, so remaining unrecorded files must be reconciled against live schema and dependencies before they can safely be applied or recorded.
+- **Validation:** migration runner success and registry entries verified. Full application tests and production workflow smoke tests remain separate release gates.
+

@@ -50,14 +50,17 @@ test('a saved job without a stored tier still polls and completes', async () => 
   assert.ok(calls.includes('max:download:job-abc'));
 });
 
-test('a finished video too large to cache can still be read back', async () => {
+test('a finished video too large for the in-memory byte cache is durably stored and read back', async () => {
   const big = Buffer.alloc(8 * 1024 * 1024 + 1, 1);
-  const { videos, calls } = setup({ plan: 'ultra', bytes: big });
+  const { videos, calls, store } = setup({ plan: 'ultra', bytes: big });
   const created = await videos.create(caller, { prompt: 'Palawan island', seconds: 2 });
   assert.equal((await videos.status(caller, created.video_id)).status, 'completed');
   const content = await videos.read(caller, created.video_id);
   assert.equal(content.bytes.length, big.length);
-  assert.equal(calls.filter((call) => call === 'ultra:download:job-abc').length, 2, 'once to finish the job, once to serve the file');
+  const saved = await store.getVideo({ tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, id: created.video_id });
+  assert.equal(saved.storageBucket, 'generated-videos');
+  assert.ok(saved.storagePath);
+  assert.equal(calls.filter((call) => call === 'ultra:download:job-abc').length, 1, 'durable storage serves the file without a second provider download');
 });
 
 test('polling never creates another paid job', async () => {
