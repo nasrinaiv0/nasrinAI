@@ -154,8 +154,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             ...(heavyQuickTask ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
           // Enforce plan eligibility before ranking or trying any candidate.
           // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
-          // Luna is the sole paid-model escape hatch and is ordered after every
-          // free candidate. Paid subscriptions (including separately paid Quick)
+          // Luna is the sole paid-model escape hatch and is attempted only after
+          // every eligible free candidate has failed. Paid subscriptions (including separately paid Quick)
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
           const paidQuick = plan.tier === 'nasrinai' && plan.paidQuick === true;
