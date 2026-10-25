@@ -4,9 +4,9 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
-    logs: ['AI Provider Logs', 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.', '≋'],
-    'openrouter-unlisted': ['OpenRouter Unlisted Models', 'Actual models returned by OpenRouter that are confirmed absent from its current catalog.', '⌕'],
-    'other-unlisted': ['Other Provider Unlisted Models', 'Models used by other providers, with catalog status verified only where supported.', '◇'],
+    logs: ['AI Logs', 'Catalog-listed model requests observed in provider telemetry, with status, tokens, latency, and verified provider costs.', '≋'],
+    'openrouter-unlisted': ['Unlisted Models', 'Models observed in provider telemetry that are confirmed absent from their provider catalog.', '⌕'],
+    'other-unlisted': ['AI Models Activities', 'Provider and model summaries for observed requests, outcomes, and provider-reported costs.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     regional: ['Regional Analytics', 'Approximate location trends for registered users and guests, derived from trusted edge metadata.', '◎'],
@@ -291,14 +291,19 @@
     if (key === 'logs') {
       const panel = el('section', 'panel');
       panel.classList.add('module-extra', 'provider-logs-panel');
-      panel.append(el('h3', '', 'OpenRouter request history'));
-      panel.append(el('p', 'panel-copy', 'Sanitized server-side request logs. Raw prompts, completions, uploaded files, and credentials are not shown. Actual cost is provider-reported; missing values stay unknown. Speed uses output tokens / provider generation time. Routing overhead is an estimate (total latency minus generation time), not a separate provider measurement. Provider activity totals are separate from per-request rows.'));
+      panel.append(el('h3', '', 'AI request history'));
+      panel.append(el('p', 'panel-copy', 'Sanitized request telemetry observed by NasrinAI and OpenRouter. Raw prompts, completions, uploaded files, and credentials are never shown. Only models confirmed in the current provider catalog appear here; unknown catalog status is not treated as listed. Costs are shown only when provider-reported. Speed is derived from output tokens / provider generation time; routing overhead is explicitly estimated.'));
       const controls = el('div', 'provider-log-filters');
       const windowLabel = el('label', 'provider-log-field');
       windowLabel.append(el('span', '', 'Time range'));
       const windowSelect = el('select', 'provider-log-control');
-      [['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => { const option = el('option','',label); option.value=value; windowSelect.append(option); });
+      [['15m','Past 15 minutes'],['30m','Past 30 minutes'],['1h','Past hour'],['5h','Past 5 hours'],['12h','Past 12 hours'],['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => { const option = el('option','',label); option.value=value; windowSelect.append(option); });
       windowLabel.append(windowSelect);
+      const providerLabel = el('label', 'provider-log-field');
+      providerLabel.append(el('span', '', 'Provider'));
+      const providerSelect = el('select', 'provider-log-control');
+      [['all','All providers'],['openrouter','OpenRouter'],['google','Google'],['openai','OpenAI'],['anthropic','Anthropic']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; providerSelect.append(option); });
+      providerLabel.append(providerSelect);
       const statusLabel = el('label', 'provider-log-field');
       statusLabel.append(el('span', '', 'Status'));
       const statusSelect = el('select', 'provider-log-control');
@@ -316,7 +321,7 @@
       endpointLabel.append(endpointSelect);
       const refresh = el('button', 'quiet-button', 'Refresh logs');
       refresh.type='button';
-      controls.append(windowLabel,statusLabel,modelLabel,endpointLabel,refresh);
+      controls.append(windowLabel,providerLabel,statusLabel,modelLabel,endpointLabel,refresh);
       panel.append(controls);
       const statusLine = el('p', 'panel-copy provider-log-status', 'Loading request history…');
       panel.append(statusLine);
@@ -343,11 +348,11 @@
         loading=true; refresh.disabled=true; previous.disabled=offset===0; next.disabled=true;
         statusLine.textContent='Loading request history…';
         try {
-          const params=new URLSearchParams({window:windowSelect.value,limit:'50',offset:String(offset)});
+          const params=new URLSearchParams({window:windowSelect.value,provider:providerSelect.value,scope:'listed',limit:'50',offset:String(offset)});
           if (statusSelect.value) params.set('status',statusSelect.value);
           if (modelInput.value.trim()) params.set('model',modelInput.value.trim());
           if (endpointSelect.value) params.set('endpoint',endpointSelect.value);
-          const response=await fetch('/owner/api/openrouter-logs?'+params.toString(),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+          const response=await fetch('/owner/api/ai-logs?'+params.toString(),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
           const payload=await response.json();
           if (!response.ok) throw new Error(payload?.error?.message || 'Request logs unavailable');
           const rows=Array.isArray(payload.rows)?payload.rows:[];
@@ -359,13 +364,13 @@
             const actualModel=typeof item.model==='string' && item.model.trim() ? item.model.trim() : '';
             const autoRoute=/^openrouter\/(?:auto|free)$/i.test(requestedModel);
             const model=actualModel || (autoRoute ? 'Actual model not reported' : requestedModel || 'Actual model not reported');
-            const providerLabel=actualModel.includes('/') ? actualModel.split('/')[0] : (actualModel ? 'OpenRouter' : 'Not reported');
+            const providerLabel=String(item.provider || (actualModel.includes('/') ? actualModel.split('/')[0] : 'Not reported'));
             const discoveryRequest=/^\/(?:models|images\/models|videos\/models)$/.test(endpoint);
             const notApplicable=discoveryRequest ? 'N/A · catalog request' : '—';
             const statusText=String(item.status || 'unknown').toUpperCase() + (item.http_status ? ' · HTTP '+item.http_status : '');
             const resp=item.response_summary && typeof item.response_summary==='object' ? item.response_summary : {};
             const finish=resp.finish_reason || resp.finishReason || resp.native_finish_reason || '—';
-            const cost=discoveryRequest ? 'N/A · catalog request' : item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
+            const cost=discoveryRequest ? 'N/A · catalog request' : item.cost_kind !== 'provider_reported' || item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
             const generationSeconds = item.generation_time_seconds===null || item.generation_time_seconds===undefined ? null : Number(item.generation_time_seconds);
             const outputTokens = item.completion_tokens===null || item.completion_tokens===undefined ? null : Number(item.completion_tokens);
             const speed = generationSeconds > 0 && Number.isFinite(outputTokens) ? (outputTokens / generationSeconds).toFixed(2) : '—';
@@ -396,7 +401,7 @@
           hasMore=Boolean(payload.has_more);
           previous.disabled=offset===0; next.disabled=!hasMore;
           pageLabel.textContent='Page '+(Math.floor(offset/50)+1);
-          statusLine.textContent=rows.length ? 'Showing '+numberText(offset+1)+'–'+numberText(offset+rows.length)+' · '+payload.window+' · updated '+fmt(payload.generated_at) : 'No request logs found for these filters.';
+          statusLine.textContent=rows.length ? 'Showing '+numberText(offset+1)+'–'+numberText(offset+rows.length)+' · '+payload.window+' · provider catalog checked · updated '+fmt(payload.generated_at)+(payload.coverage_limited ? ' · telemetry cap reached' : '') : 'No catalog-listed request logs found for these filters. Check provider catalog availability if expected models are missing.';
           if (!rows.length && offset>0) { offset=Math.max(0,offset-50); previous.disabled=offset===0; }
         } catch (error) {
           tbody.replaceChildren();
@@ -407,6 +412,7 @@
       };
       refresh.addEventListener('click',()=>load(true));
       windowSelect.addEventListener('change',()=>load(true));
+      providerSelect.addEventListener('change',()=>load(true));
       statusSelect.addEventListener('change',()=>load(true));
       endpointSelect.addEventListener('change',()=>load(true));
       modelInput.addEventListener('keydown',(event)=>{if(event.key==='Enter')load(true);});
@@ -834,113 +840,114 @@
     statusSelect.addEventListener('change', load);
     await load();
   }
-  async function renderUnlistedModels(scope) {
+  async function renderUnlistedModels() {
     const c = $('content');
     c.replaceChildren();
-    const isOpenRouter = scope === 'openrouter';
-    c.append(head(isOpenRouter ? 'OpenRouter Unlisted Models' : 'Other Provider Unlisted Models',
-      isOpenRouter ? 'Confirmed actual OpenRouter models absent from the current OpenRouter catalog. Unknown catalog results are not counted as unlisted.' : 'Models recorded for non-OpenRouter providers. Catalog status remains unknown until a verified provider-specific catalog is available.', 'Read-only'));
+    c.append(head('Unlisted Models', 'Only confirmed catalog mismatches are shown. Models with unavailable catalog checks are not falsely labeled unlisted.', 'Read-only'));
     const controls = el('div', 'toolbar');
     const windowSelect = el('select', 'input');
-    windowSelect.setAttribute('aria-label', 'Model telemetry time window');
-    [['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => {
-      const option = el('option', '', label); option.value = value; if (value === '7d') option.selected = true; windowSelect.append(option);
-    });
-    const refresh = el('button', 'quiet-button', 'Refresh model inventory'); refresh.type = 'button';
-    controls.append(windowSelect, refresh);
-    const result = el('div');
-    result.append(notice('Loading model inventory', 'Reading sanitized model usage from all available provider telemetry.'));
-    c.append(controls, result);
+    windowSelect.setAttribute('aria-label', 'Unlisted model time range');
+    [['15m','Past 15 minutes'],['30m','Past 30 minutes'],['1h','Past hour'],['5h','Past 5 hours'],['12h','Past 12 hours'],['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; windowSelect.append(option); });
+    windowSelect.value='24h';
+    const refresh=el('button','quiet-button','Refresh unlisted models'); refresh.type='button';
+    controls.append(windowSelect,refresh);
+    const result=el('div');
+    result.append(notice('Loading unlisted models','Checking recorded model calls against live provider catalogs.'));
+    c.append(controls,result);
     async function load() {
-      refresh.disabled = true;
-      result.replaceChildren(notice('Loading model inventory', 'Checking provider usage and current catalog availability.'));
+      refresh.disabled=true;
+      result.replaceChildren(notice('Loading unlisted models','Fetching provider telemetry and checking catalog membership.'));
       try {
-        const response = await fetch('/owner/api/unlisted-models?window=' + encodeURIComponent(windowSelect.value), {
-          credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
-        });
-        if (!response.ok) throw new Error('Model inventory is unavailable. Check the server deployment and telemetry sources.');
-        const payload = await response.json();
-        if (!payload || !Array.isArray(payload.rows)) {
-          throw new Error('The model inventory response was incomplete. Refresh the page or check the telemetry API.');
-        }
-        const catalogCoverage = payload.catalog_coverage && typeof payload.catalog_coverage === 'object'
-          ? payload.catalog_coverage : {};
-        const rows = payload.rows.filter((row) => row && typeof row === 'object' && typeof row.model === 'string' && row.model.trim());
-        const sourcesFor = (row) => Array.isArray(row.sources) ? row.sources : [];
-        const scopedRows = rows.filter((row) => isOpenRouter
-          ? sourcesFor(row).includes('openrouter_logs')
-          : sourcesFor(row).includes('usage_events') && !sourcesFor(row).includes('openrouter_logs'));
-        const unlisted = scopedRows.filter((row) => row.catalog_status === 'not_listed');
-        const unknown = scopedRows.filter((row) => row.catalog_status === 'unknown' || !row.catalog_status);
-        const listed = scopedRows.filter((row) => row.catalog_status === 'listed');
-        const summary = el('div', 'module-grid');
-        [[unlisted.length,'Confirmed not in OpenRouter catalog','unavailable'],
-         [unknown.length,'Catalog status unknown','stale'],
-         [listed.length,'Listed in OpenRouter catalog','available']].forEach(([value,label,kind]) => {
-          const card = el('article','module-card');
-          card.append(el('h3','',String(value)),el('p','',label));
-          card.append(state(kind === 'available' ? 'Verified' : kind === 'stale' ? 'Needs catalog adapter' : 'Review',kind));
-          summary.append(card);
+        const response=await fetch('/owner/api/ai-logs?scope=all&window='+encodeURIComponent(windowSelect.value)+'&provider=all&limit=1000&offset=0',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        const payload=await response.json();
+        if(!response.ok) throw new Error(payload?.error?.message || 'Provider model telemetry unavailable.');
+        const rows=Array.isArray(payload.rows)?payload.rows:[];
+        const unlisted=rows.filter(row=>row && row.model && row.catalog_status==='not_listed');
+        const unknown=rows.filter(row=>row && row.model && row.catalog_status==='unknown');
+        const summary=el('div','module-grid');
+        [[unlisted.length,'Confirmed unlisted models','unavailable'],[unknown.length,'Catalog status unknown','stale']].forEach(([value,label,kind])=>{
+          const card=el('article','module-card'); card.append(el('h3','',String(value)),el('p','',label),state(kind==='stale'?'Needs provider catalog access':'Confirmed absent',kind)); summary.append(card);
         });
         result.replaceChildren(summary);
-        result.append(notice('Coverage and interpretation',
-          'OpenRouter catalog: ' + String(catalogCoverage.openrouter || 'unknown') + '. Other providers: ' + String(catalogCoverage.other_providers || 'unknown') + '. Models from other providers are included, but are not labeled unlisted until their own catalog/guardrail registry can be verified.'));
-        const table = el('div','table-wrap');
-        const t = el('table','data-table');
-        const thead = el('thead'), hr = el('tr');
-        ['Provider','Observed model ID','Catalog status','Requests','Success / failure','Input / output tokens','Cost (USD)','First seen','Last seen','Source'].forEach(label => hr.append(el('th','',label)));
-        thead.append(hr); t.append(thead);
-        const tbody = el('tbody');
-        const safeCount = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
-        const safeDate = (value) => {
-          if (!value) return '—';
-          const parsed = new Date(value);
-          return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString();
-        };
-        const visibleRows = scopedRows
-          .filter((row) => !isOpenRouter || row.catalog_status === 'not_listed')
-          .sort((a, b) => safeCount(b.request_count) - safeCount(a.request_count) || String(a.model).localeCompare(String(b.model)));
-        visibleRows.forEach((row) => {
-          const tr = el('tr');
-          const status = String(row.catalog_status || 'unknown').replaceAll('_',' ');
-          const cost = row.cost_usd === null || row.cost_usd === undefined || !Number.isFinite(Number(row.cost_usd))
-            ? 'Unknown' : String.fromCharCode(36) + Number(row.cost_usd).toFixed(6);
-          const cells = [
-            row.provider || 'Unknown',
-            row.model || 'Unknown',
-            status,
-            safeCount(row.request_count).toLocaleString(),
-            safeCount(row.successes).toLocaleString() + ' / ' + safeCount(row.failures).toLocaleString(),
-            safeCount(row.input_tokens).toLocaleString() + ' / ' + safeCount(row.output_tokens).toLocaleString(),
-            cost,
-            safeDate(row.first_seen),
-            safeDate(row.last_seen),
-            sourcesFor(row).join(', ') || 'Unknown'
-          ];
-          cells.forEach((value, index) => {
-            const td = el('td', index === 2 ? 'status-text' : '', String(value));
-            if (index === 1) td.classList.add('model-id-cell');
-            tr.append(td);
-          });
+        result.append(notice('Provider source and coverage',
+          'Source: recorded NasrinAI/OpenRouter telemetry plus live provider catalogs. Catalog coverage: '+Object.entries(payload.catalog_coverage||{}).map(([p,v])=>p+': '+v).join(' · ')+'. Models not present in the telemetry sources cannot be discovered by this view; catalog failures remain unknown, not unlisted.'));
+        const wrap=el('div','table-wrap'),table=el('table','data-table'),thead=el('thead'),hr=el('tr');
+        ['Provider','Observed model ID','Catalog status','Requests','Success / failure','Input / output tokens','Provider-reported cost (USD)','First / last observed','Telemetry source'].forEach(label=>hr.append(el('th','',label)));
+        thead.append(hr);table.append(thead);const tbody=el('tbody');
+        const groups=new Map();
+        unlisted.forEach(row=>{
+          const key=String(row.provider)+'\u0000'+String(row.model);
+          const item=groups.get(key)||{provider:row.provider,model:row.model,requests:0,successes:0,failures:0,input:0,output:0,cost:0,costKnown:false,first:row.created_at,last:row.created_at,sources:new Set()};
+          item.requests++;
+          if(row.status==='success')item.successes++;else if(row.status==='error')item.failures++;
+          item.input+=Number(row.prompt_tokens)||0;item.output+=Number(row.completion_tokens)||0;
+          if(row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd))){item.cost+=Number(row.total_cost_usd);item.costKnown=true;}
+          if(row.created_at&&(!item.first||row.created_at<item.first))item.first=row.created_at;
+          if(row.created_at&&(!item.last||row.created_at>item.last))item.last=row.created_at;
+          item.sources.add(row.telemetry_source||'unknown');groups.set(key,item);
+        });
+        const safeDate=value=>{const d=value?new Date(value):null;return d&&!Number.isNaN(d.getTime())?d.toLocaleString():'—';};
+        [...groups.values()].sort((a,b)=>b.requests-a.requests||String(a.model).localeCompare(String(b.model))).forEach(item=>{
+          const tr=el('tr');
+          [item.provider,item.model,'not listed',numberText(item.requests),numberText(item.successes)+' / '+numberText(item.failures),numberText(item.input)+' / '+numberText(item.output),item.costKnown?moneyText(item.cost):'Unknown',safeDate(item.first)+' / '+safeDate(item.last),[...item.sources].join(', ')].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});
           tbody.append(tr);
         });
-        if (!scopedRows.length || (isOpenRouter && !scopedRows.some((row) => row.catalog_status === 'not_listed'))) {
-          const emptyRow = el('tr');
-          const emptyCell = el('td', '', isOpenRouter ? 'No confirmed unlisted OpenRouter models found for this period.' : 'No other-provider model usage records found for this period.');
-          emptyCell.colSpan = 10;
-          emptyRow.append(emptyCell);
-          tbody.append(emptyRow);
-        }
-        t.append(tbody); table.append(t); result.append(table);
-      } catch (error) {
-        result.replaceChildren(notice('Model inventory unavailable', error.message || 'No data was changed.'));
-      } finally {
-        refresh.disabled = false;
-      }
+        if(!groups.size){const tr=el('tr'),td=el('td','','No confirmed unlisted models were observed in this time range. Unknown catalog states are shown in the summary and are not classified as unlisted.');td.colSpan=9;tr.append(td);tbody.append(tr);}
+        table.append(tbody);wrap.append(table);result.append(wrap);
+        if(payload.coverage_limited)result.append(notice('Telemetry coverage is limited','At least one source returned 1,000 rows; extend server-side pagination before treating these counts as exhaustive.'));
+      } catch(error) {
+        result.replaceChildren(notice('Unlisted model data unavailable',String(error?.message||'Provider telemetry could not be loaded.')));
+      } finally {refresh.disabled=false;}
     }
-    refresh.addEventListener('click', load);
-    windowSelect.addEventListener('change', load);
-    await load();
+    refresh.addEventListener('click',load);windowSelect.addEventListener('change',load);await load();
+  }
+
+  async function renderActivities() {
+    const c=$('content');c.replaceChildren();
+    c.append(head('AI Models Activities','Provider/model summaries for observed requests. Costs are included only when a provider-reported cost is present; internal estimates are not presented as provider charges.','Read-only'));
+    const controls=el('div','provider-log-filters');
+    const providerLabel=el('label','provider-log-field');providerLabel.append(el('span','','Provider'));
+    const providerSelect=el('select','provider-log-control');
+    [['all','All providers'],['openrouter','OpenRouter'],['google','Google'],['openai','OpenAI'],['anthropic','Anthropic']].forEach(([value,label])=>{const option=el('option','',label);option.value=value;providerSelect.append(option);});providerLabel.append(providerSelect);
+    const windowLabel=el('label','provider-log-field');windowLabel.append(el('span','','Time range'));
+    const windowSelect=el('select','provider-log-control');
+    [['15m','Past 15 minutes'],['30m','Past 30 minutes'],['1h','Past hour'],['5h','Past 5 hours'],['12h','Past 12 hours'],['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label])=>{const option=el('option','',label);option.value=value;windowSelect.append(option);});windowSelect.value='24h';windowLabel.append(windowSelect);
+    const refresh=el('button','quiet-button','Refresh activities');refresh.type='button';controls.append(providerLabel,windowLabel,refresh);c.append(controls);
+    const result=el('div');result.append(notice('Loading AI activity','Aggregating provider/model telemetry for the selected period.'));c.append(result);
+    async function load(){
+      refresh.disabled=true;result.replaceChildren(notice('Loading AI activity','Fetching provider telemetry.'));
+      try{
+        const params=new URLSearchParams({scope:'all',window:windowSelect.value,provider:providerSelect.value,limit:'1000',offset:'0'});
+        const response=await fetch('/owner/api/ai-logs?'+params.toString(),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        const payload=await response.json();if(!response.ok)throw new Error(payload?.error?.message||'AI activity unavailable.');
+        const rows=Array.isArray(payload.rows)?payload.rows:[];
+        const groups=new Map();
+        rows.forEach(row=>{
+          const key=String(row.provider||'unknown')+'\u0000'+String(row.model||'unknown');
+          const item=groups.get(key)||{provider:row.provider||'unknown',model:row.model||'unknown',requests:0,successes:0,failures:0,unknown:0,cost:0,costKnown:0,last:null};
+          item.requests++;if(row.status==='success')item.successes++;else if(row.status==='error')item.failures++;else item.unknown++;
+          if(row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd))){item.cost+=Number(row.total_cost_usd);item.costKnown++;}
+          if(row.created_at&&(!item.last||row.created_at>item.last))item.last=row.created_at;groups.set(key,item);
+        });
+        result.replaceChildren();
+        const summary=el('div','grid');
+        const total=rows.length,success=rows.filter(row=>row.status==='success').length,failed=rows.filter(row=>row.status==='error').length;
+        const costs=rows.filter(row=>row.cost_kind==='provider_reported'&&row.total_cost_usd!=null&&Number.isFinite(Number(row.total_cost_usd)));
+        summary.append(metric('Requests','✳',numberText(total),'Observed in selected telemetry window'),metric('Successful','✓',numberText(success),'Provider/app outcome recorded as success'),metric('Failed','!',numberText(failed),'Provider/app outcome recorded as error'),metric('Provider-reported cost','USD',costs.length?moneyText(costs.reduce((sum,row)=>sum+Number(row.total_cost_usd),0)):'Unavailable',numberText(costs.length)+' requests with provider cost'));
+        result.append(summary);
+        result.append(el('p','panel-copy','Source: '+String(payload.source||'provider telemetry')+' · refreshed '+(payload.generated_at?new Date(payload.generated_at).toLocaleString():'unknown')+' · window '+String(payload.window||windowSelect.value)+(payload.coverage_limited?' · telemetry cap reached':'')+'. Requests made outside NasrinAI are included only when a connected provider activity source records them.'));
+        const wrap=el('div','table-wrap'),table=el('table','data-table'),thead=el('thead'),hr=el('tr');
+        ['Provider','Model ID','Requests','Success','Failed','Outcome unknown','Provider-reported cost (USD)','Requests with cost','Latest activity'].forEach(label=>hr.append(el('th','',label)));thead.append(hr);table.append(thead);const tbody=el('tbody');
+        [...groups.values()].sort((a,b)=>b.requests-a.requests||String(a.model).localeCompare(String(b.model))).forEach(item=>{
+          const tr=el('tr');[item.provider,item.model,numberText(item.requests),numberText(item.successes),numberText(item.failures),numberText(item.unknown),item.costKnown?moneyText(item.cost):'Unavailable',numberText(item.costKnown),item.last?new Date(item.last).toLocaleString():'—'].forEach((value,i)=>{const td=el('td',i===1?'model-id-cell':'',String(value));tr.append(td);});tbody.append(tr);
+        });
+        if(!groups.size){const tr=el('tr'),td=el('td','','No model activity found for the selected provider and time range.');td.colSpan=9;tr.append(td);tbody.append(tr);}
+        table.append(tbody);wrap.append(table);result.append(wrap);
+        if(payload.coverage_limited)result.append(notice('Telemetry coverage is limited','At least one source returned 1,000 rows. Counts may be incomplete for this period.'));
+      }catch(error){result.replaceChildren(notice('AI Models Activities unavailable',String(error?.message||'Provider activity could not be loaded.')));}
+      finally{refresh.disabled=false;}
+    }
+    refresh.addEventListener('click',load);providerSelect.addEventListener('change',load);windowSelect.addEventListener('change',load);await load();
   }
 
   async function renderRegional() {
@@ -1036,8 +1043,8 @@
     });
     if (active === 'overview') renderOverview();
     else if (active === 'learning') renderLearning();
-    else if (active === 'openrouter-unlisted') renderUnlistedModels('openrouter');
-    else if (active === 'other-unlisted') renderUnlistedModels('other');
+    else if (active === 'openrouter-unlisted') renderUnlistedModels();
+    else if (active === 'other-unlisted') renderActivities();
     else if (active === 'regional') renderRegional();
     else renderModule(active);
   }
