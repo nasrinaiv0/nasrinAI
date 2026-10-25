@@ -1,3 +1,9 @@
+## Provider cost provenance — 2026-10-26
+
+- `openrouter_logs.total_cost_usd` remains the provider/gateway-reported cost source for OpenRouter calls.
+- `usage_events.cost_usd` is not displayed as provider spend because that table does not carry verified provider-cost provenance. Direct-provider cost displays as unavailable until provider-reported cost and source metadata are recorded.
+- Do not substitute model-card pricing estimates for actual spend. Keep unknown costs explicitly unknown rather than inventing totals.
+
 ## Owner Command Center catalog scopes — 2026-10-26
 
 - AI Logs includes only model IDs in NasrinAI's configured catalog; it does not use OpenRouter's live catalog to define listed status.
