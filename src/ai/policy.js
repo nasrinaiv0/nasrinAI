@@ -154,8 +154,17 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // free candidate. Paid subscriptions (including separately paid Quick)
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
+          const paidQuick = plan.tier === 'nasrinai' && plan.paidQuick === true;
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
-            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
+            // Free Quick is OpenRouter-free-first. Direct free-provider fallbacks
+            // remain eligible only after OpenRouter free models fail.
+            if (candidate.provider !== 'openrouter') {
+              if (freeQuick) return !r.quickNemotronOnly || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
+              // Paid Quick is intentionally OpenRouter-only: its entitlement buys
+              // access to non-free OpenRouter models, never unrelated provider routes.
+              if (paidQuick) return false;
+              return true;
+            }
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
@@ -166,22 +175,34 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               task: plan.task,
               verifiedIds: liveOpenRouterModels
             }) && (!(r.quickNemotronOnly && freeQuick)
-              || /:free$/i.test(candidate.model)
-              || candidate.model === 'openai/gpt-6-luna');
+              || (freeQuick && /:free$/i.test(candidate.model))
+              || (freeQuick && candidate.model === 'openai/gpt-6-luna')
+              || (paidQuick && !/:free$/i.test(candidate.model));
           });
           const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const directFreeCandidates = prioritized.filter((candidate) => candidate.provider !== 'openrouter'
             && (r.freeModels?.[candidate.provider] || []).includes(candidate.model));
           const openRouterFreeCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model));
+          const heavyQuickTask = plan.wanted >= 3 || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(plan.task);
+          const paidQuickCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter'
+            && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna');
           const ordered = r.quickNemotronOnly && freeQuick
             ? [
-                // Auto prefers explicitly allowlisted direct free providers. An
-                // explicitly pinned OpenRouter mode retains OpenRouter-first behavior.
-                ...(config.ai.provider === 'auto' ? directFreeCandidates : openRouterFreeCandidates),
-                ...(config.ai.provider === 'auto' ? openRouterFreeCandidates : directFreeCandidates),
-                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
+                // Free Quick uses OpenRouter's free catalog as primary, then
+                // explicitly allowlisted direct free providers as failover.
+                ...openRouterFreeCandidates,
+                ...directFreeCandidates,
+                // GPT-6 Luna is reserved for heavy work; it is never a routine
+                // first choice and remains the last resort after free capacity.
+                ...(heavyQuickTask ? prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna') : [])
               ]
-            : prioritized;
+            : paidQuick
+              ? [
+                  // Paid Quick uses only non-free OpenRouter models. The configured
+                  // shortlist is ordered cheapest-first; keep Luna out of this tier.
+                  ...paidQuickCandidates
+                ]
+              : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = r.quickNemotronOnly && freeQuick
             ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
@@ -192,10 +213,13 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
           if (r.quickNemotronOnly && freeQuick) {
-            if (config.ai.provider === 'auto') candidates.push(...otherCandidates);
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
-            if (config.ai.provider !== 'auto') candidates.push(...otherCandidates);
-            candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
+            candidates.push(...otherCandidates);
+            if (plan.wanted >= 3 || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(plan.task)) {
+              candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
+            }
+          } else if (plan.tier === 'nasrinai' && plan.paidQuick === true) {
+            candidates.push(...openRouterCandidates.filter((candidate) => !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna'));
           } else {
             candidates.push(...openRouterCandidates);
           }
