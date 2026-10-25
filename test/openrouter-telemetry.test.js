@@ -127,7 +127,7 @@ test('Supabase telemetry writer stores only summaries and never disrupts callers
 });
 
 
-test('OpenRouter telemetry never labels a requested auto alias as the actual model', async () => {
+test('OpenRouter telemetry never substitutes the requested alias when actual model metadata is absent', async () => {
   const events = [];
   const client = createOpenRouterClient({
     apiKey: 'test-key',
@@ -137,10 +137,10 @@ test('OpenRouter telemetry never labels a requested auto alias as the actual mod
       return jsonResponse({ id: 'gen-123', choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] });
     }
   });
-  await client.chat({ model: 'openrouter/auto', messages: [{ role: 'user', content: 'hello' }] });
+  await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }] });
   await new Promise((resolve) => setImmediate(resolve));
   const inference = events.find((event) => event.endpoint === '/chat/completions');
   assert.ok(inference);
-  assert.equal(inference.requestedModel, 'openrouter/auto');
+  assert.equal(inference.requestedModel, 'provider/model');
   assert.equal(inference.model, null);
 });
