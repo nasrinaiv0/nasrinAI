@@ -26,6 +26,7 @@ test('a guest asks, gets an answer, and the history is kept on the server', asyn
     assert.equal(a1.response_metadata?.usage?.output_tokens > 0, true, 'output tokens are exposed per reply');
     assert.equal(Number.isFinite(a1.response_metadata?.duration_ms), true, 'server measures request duration');
     assert.equal(Number.isFinite(Date.parse(a1.response_metadata?.timestamp)), true, 'reply timestamp is ISO date/time');
+    assert.deepEqual(a1.message.response_metadata, a1.response_metadata, 'reply metadata is persisted with the assistant message');
 
     const r2 = await send(url, token, { message: 'And of France?', conversation_id: a1.conversation_id });
     assert.equal((await r2.json()).conversation_id, a1.conversation_id);
@@ -35,6 +36,7 @@ test('a guest asks, gets an answer, and the history is kept on the server', asyn
 
     const page = await (await fetch(`${url}/v1/conversations/${a1.conversation_id}/messages`, { headers: bearer(token) })).json();
     assert.equal(page.messages.length, 4);
+    assert.deepEqual(page.messages[1].response_metadata, a1.response_metadata, 'history reloads the saved real usage metadata from the store');
     assert.equal(page.conversation.title, 'What is the capital of Japan?');
     assert.equal(store.usage.length, 2);
     assert.ok(store.usage.every((u) => u.outcome === 'ok' && u.inputTokens > 0 && u.provider === 'fake'));
