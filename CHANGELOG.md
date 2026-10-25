@@ -1,3 +1,6 @@
+- Add universal user-owned integration groundwork: server-side ownership checks, AES-256-GCM encrypted credential storage, read-only list/detail routes, migration 068, and regression tests. Provider-specific OAuth adapters/write operations remain out of scope; migration 068 is not approved for production application.
+- Make the GitHub OAuth forged-state regression deterministic by changing a significant HMAC character rather than the final base64url characters, which could rarely leave the decoded signature unchanged.
+
 - Update the AI Logs regression fixture to use a model in NasrinAI's configured catalog; verify live provider catalog calls are not used for inventory classification and unresolved aliases remain `unknown`.
 - Align AI Logs status copy with the configured NasrinAI catalog rather than implying a live provider-catalog check.
 - Respect the migration-062 `usage_events.cost_source` provenance marker: direct-provider usage costs are shown only when explicitly marked `provider_reported` with a valid non-negative amount; legacy/unmarked amounts remain unavailable.
