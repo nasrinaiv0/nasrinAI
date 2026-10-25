@@ -2415,10 +2415,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 ## PR #409 — Universal user-owned integration security groundwork (2026-10-25)
 
 - Add server-side tenant/user ownership checks, an AES-256-GCM credential envelope with authenticated context, a server-only integration store, and read-only list/detail routes.
-- Add migration 067 for encrypted integration connections and expiring OAuth-state records, with browser-role access revoked and RLS denial policies.
+- Add migration 068 for encrypted integration connections and expiring OAuth-state records, with browser-role access revoked and RLS denial policies.
 - Add regression coverage for user isolation, encrypted secret round-trips, tampering, and integration-store behavior. The existing Developer Tools UI on current main is preserved.
 - Provider-specific OAuth adapters, OAuth callbacks, provider writes, and production migration execution are not included in this phase.
-- **Validation:** rerun CI and the documentation gate on the synchronized PR head. Do not apply migration 067 to production until separately approved and reviewed; the encryption key is server-only.
+- **Validation:** rerun CI and the documentation gate on the synchronized PR head. Do not apply migration 068 to production until separately approved and reviewed; the encryption key is server-only.
 
 ## PR #409 preview build enforcement (2026-10-25)
 
