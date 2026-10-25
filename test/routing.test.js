@@ -4,11 +4,13 @@ import { classify } from '../src/ai/classify.js';
 import { answerWithLogic } from '../src/ai/logic.js';
 import { createPolicy } from '../src/ai/policy.js';
 import { createRouter } from '../src/ai/router.js';
-import { createBudget, createProviderSpendHooks } from '../src/ai/budget.js';
+import { createBudget } from '../src/ai/budget.js';
+import { createProviderSpendHooks } from '../src/ai/provider-billing.js';
 import { loadPrices, priceOf, costOf } from '../src/ai/pricing.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { ProviderError } from '../src/ai/provider.js';
+import { HttpError } from '../src/http/errors.js';
 import { loadConfig } from '../src/config.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
@@ -17,16 +19,35 @@ const ENV = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30)
 const PLATFORM = '00000000-0000-0000-0000-000000000001';
 
 // A router over pretend providers: gemini (free tier, trains on data) and openai.
-function setup({ env = {}, openaiFail = null, geminiFail = null, reply } = {}) {
+function setup({ env = {}, openaiFail = null, geminiFail = null, reply, liveOpenRouterModels = [] } = {}) {
   const config = loadConfig({ ...ENV, ...env });
   const gemini = createFakeProvider({ models: ['gemini-3.1-flash-lite'], dataLeavesServer: true, failWith: geminiFail, reply });
   gemini.capabilities = () => ({ local: false, dataLeavesServer: true, vision: true, pdf: false, trainsOnData: true });
   const openai = createFakeProvider({ models: ['gpt-5.4-nano'], dataLeavesServer: true, failWith: openaiFail, reply });
-  const router = createRouter({ providers: { gemini, openai }, config, logger: quiet });
+  const openrouter = createFakeProvider({ models: [
+    'nvidia/nemotron-3.5-lightning:free',
+    'nvidia/nemotron-3-super-120b-a12b:free',
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'deepseek/deepseek-v4.1-flash',
+    'deepseek/deepseek-v4.1-flash-1017',
+    'deepseek/deepseek-v4-flash-0731',
+    'deepseek/deepseek-v4-flash-vision-exp',
+    'z-ai/glm-5.3-flash',
+    'xiaomi/mimo-v2.6-flash',
+    'xiaomi/mimo-v2.6-pro',
+    'openai/gpt-6-luna',
+    'openai/gpt-6-luna-pro',
+    'anthropic/claude-haiku-5.5',
+    'qwen/qwen3.8-flash',
+    'qwen/qwen3.8-27b',
+    'inclusionai/ling-3.1-flash'
+  ], reply });
+  openrouter.listModelsForTask = async () => liveOpenRouterModels;
+  const router = createRouter({ providers: { gemini, openai, openrouter }, config, logger: quiet });
   const store = createMemoryStore();
   const budget = createBudget({ store, config, logger: quiet });
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
-  return { config, gemini, openai, policy, store };
+  return { config, gemini, openai, openrouter, policy, store };
 }
 const req = (content) => ({ system: 'S', messages: [{ role: 'user', content }], attachments: [] });
 
@@ -58,11 +79,11 @@ test('classifier: simple, moderate, complex, extreme', () => {
   assert.equal(classify({ message: 'Plan an end-to-end architecture redesign of the entire codebase' }).level, 5);
 });
 
-test('routing: cheapest capable model; tiers cap the level; private data never goes to a free tier', async () => {
+test('routing: compatible model; tiers cap the level; private data never goes to a free tier', async () => {
   const a = setup();
   const p = a.policy.plan({ tier: 'nasrinai', message: 'hello', history: [] });
   let run = await a.policy.run(p, req('hello'));
-  assert.deepEqual([run.level, run.spec.provider, run.spec.model, run.costUsd], [1, 'gemini', 'gemini-3.1-flash-lite', 0], 'free tier first');
+  assert.deepEqual([run.level, run.spec.provider, run.spec.model, run.costUsd], [1, 'gemini', 'gemini-3.1-flash-lite', null], 'free tier first');
 
   const hard = a.policy.plan({ tier: 'nasrinai', message: 'Design the database schema architecture for a multi-tenant app' });
   assert.equal(hard.wanted, 4);
@@ -74,6 +95,149 @@ test('routing: cheapest capable model; tiers cap the level; private data never g
   run = await a.policy.run(priv, req('email me at [email]'));
   assert.equal(run.spec.provider, 'openai', 'skips the free tier that trains on data');
   assert.equal(a.gemini.calls.length, 1);
+});
+
+test('requested OpenRouter chat models are wired into paid-tier routes', () => {
+  const config = loadConfig({ OPENROUTER_API_KEY: 'or-test-key', AI_PROVIDER: 'auto' });
+  const paid = [2, 3, 4, 5].flatMap((level) => config.ai.routing.levels[level]);
+  const requested = ['deepseek/deepseek-v4.1-flash','deepseek/deepseek-v4.1-flash-1017','deepseek/deepseek-v4-flash-0731','deepseek/deepseek-v4-flash-vision-exp','z-ai/glm-5.3-flash','xiaomi/mimo-v2.6-flash','xiaomi/mimo-v2.6-pro','openai/gpt-6-luna','openai/gpt-6-luna-pro','anthropic/claude-haiku-5.5','qwen/qwen3.8-flash','qwen/qwen3.8-27b','inclusionai/ling-3.1-flash'];
+  for (const model of requested) assert.ok(paid.some((candidate) => candidate.provider === 'openrouter' && candidate.model === model), model + ' must be active in paid routes');
+  assert.ok(config.ai.routing.levels[1].some((candidate) => candidate.provider === 'openrouter' && candidate.model.startsWith('nvidia/nemotron-')));
+});
+
+test('paid routing discovers newly listed OpenRouter models as bounded fallback candidates', async () => {
+  const dynamicModel = 'provider/newly-listed-text-model';
+  const a = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_2: 'openrouter:provider/configured-model'
+    },
+    liveOpenRouterModels: [dynamicModel],
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  const plan = a.policy.plan({ tier: 'pro', message: 'Write a JavaScript function to sort a list of names' });
+  assert.equal(plan.level, 2);
+  await assert.rejects(a.policy.run(plan, req('Write a JavaScript function to sort a list of names')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(a.openrouter.calls.some((call) => call.model === dynamicModel), 'tries live-discovered model after configured candidate fails');
+});
+
+test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, without cross-provider fallback', async () => {
+  const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
+  const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
+  const run = await a.policy.run(plan, req('hello'));
+  assert.equal(run.spec.provider, 'openrouter');
+  assert.match(run.spec.model, /:free$/i, 'Guest/Quick must start with an explicitly free model');
+  assert.equal(a.openai.calls.length, 0);
+  assert.equal(a.gemini.calls.length, 0);
+
+  const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
+  await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
+  assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'only free models and the authorized Luna fallback are eligible');
+  assert.equal(down.openrouter.calls.at(-1).model, 'openai/gpt-6-luna', 'Luna is attempted only after free models fail');
+  assert.equal(down.openai.calls.length, 0, 'no paid OpenAI fallback for Guest/Quick');
+  assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Guest/Quick');
+
+  const overridden = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna,openrouter:deepseek/deepseek-v4.1-flash'
+    },
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(overridden.openrouter.calls.length > 0);
+  assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'custom routes cannot bypass free-first/Luna-only eligibility');
+  assert.equal(overridden.openrouter.calls.at(-1).model, 'openai/gpt-6-luna');
+  assert.equal(overridden.openai.calls.length, 0);
+  assert.equal(overridden.gemini.calls.length, 0);
+});
+test('paid Quick skips free OpenRouter models and uses a verified paid-Quick model', async () => {
+  const paidQuickModel = 'google/gemini-2.5-flash-lite';
+  const a = setup({
+    env: { OPENROUTER_API_KEY: 'or-test-key', ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:google/gemini-2.5-flash-lite' },
+    liveOpenRouterModels: [paidQuickModel]
+  });
+  const plan = a.policy.plan({ tier: 'nasrinai', paidQuick: true, message: 'Hello!' });
+  const run = await a.policy.run(plan, req('Hello!'));
+  assert.equal(run.spec.model, paidQuickModel);
+  assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)));
+});
+
+test('Guest/Quick discover live OpenRouter free chat models beyond the static Nemotron list', async () => {
+  const liveFreeModel = 'deepseek/deepseek-v4.1-flash:free';
+  const a = setup({
+    env: { OPENROUTER_API_KEY: 'or-test-key' },
+    liveOpenRouterModels: [liveFreeModel, 'openai/gpt-6-luna'],
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  await assert.rejects(a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  const attempted = a.openrouter.calls.map((call) => call.model);
+  assert.ok(attempted.includes(liveFreeModel), 'live-discovered free model should be eligible after the preferred free routes');
+  assert.ok(attempted.every((model) => /:free$/i.test(model) || model === 'openai/gpt-6-luna'), 'live paid models must be filtered except authorized Luna');
+  assert.equal(attempted.at(-1), 'openai/gpt-6-luna', 'Luna stays behind the free pool');
+  assert.equal(a.openai.calls.length, 0);
+  assert.equal(a.gemini.calls.length, 0);
+});
+
+test('Guest/Quick accept operator-configured OpenRouter :free models and reject paid IDs', async () => {
+  const a = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      OPENROUTER_FREE_MODELS: 'deepseek/deepseek-v4.1-flash:free;openai/gpt-6-luna;xiaomi/mimo-v2.6-flash:free'
+    },
+    reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
+  });
+  await assert.rejects(a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  const attempted = a.openrouter.calls.map((call) => call.model);
+  assert.ok(attempted.includes('deepseek/deepseek-v4.1-flash:free'), 'configured free models are eligible for Guest/Quick');
+  assert.ok(attempted.includes('xiaomi/mimo-v2.6-flash:free'), 'additional configured free models are eligible');
+  assert.ok(attempted.every((model) => /:free$/i.test(model) || model === 'openai/gpt-6-luna'), 'paid IDs are ignored except authorized Luna');
+  assert.equal(attempted.at(-1), 'openai/gpt-6-luna');
+});
+
+test('paid tiers never use free OpenRouter models, even for simple intent', async () => {
+  const paidModels = {
+    pro: 'anthropic/claude-sonnet-5.5',
+    max: 'openai/gpt-6-luna-pro',
+    ultra: 'openai/gpt-6.1-sol-pro'
+  };
+  for (const tier of ['pro', 'max', 'ultra']) {
+    const paidModel = paidModels[tier];
+    const a = setup({
+      env: {
+        OPENROUTER_API_KEY: 'or-test-key',
+        ROUTE_LEVEL_1: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_2: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_3: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_4: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+        ROUTE_LEVEL_5: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`
+      },
+      liveOpenRouterModels: [paidModel]
+    });
+    const plan = a.policy.plan({ tier, message: 'Hello!' });
+    assert.equal(plan.wanted, 1, 'test input should be classified as simple intent');
+    const run = await a.policy.run(plan, req('Hello!'));
+    assert.equal(run.spec.provider, 'openrouter');
+    assert.equal(run.spec.model, paidModel);
+    assert.doesNotMatch(run.spec.model, /:free$/i, tier + ' must use a paid model even for simple intent');
+    assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model)), 'paid subscriptions must never try free model IDs');
+  }
+
+  const fallback = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_1: 'openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:deepseek/deepseek-v4.1-flash'
+    },
+    liveOpenRouterModels: ['deepseek/deepseek-v4.1-flash'],
+    reply: async (spec) => {
+      throw new ProviderError('unavailable', spec?.model?.endsWith(':free') ? 'free model unavailable' : 'paid fallback unavailable');
+    }
+  });
+  const fallbackPlan = fallback.policy.plan({ tier: 'pro', message: 'Hello!' });
+  await assert.rejects(fallback.policy.run(fallbackPlan, req('Hello!')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  assert.ok(fallback.openrouter.calls.length > 0, 'the router attempts an eligible OpenRouter candidate');
+  assert.ok(fallback.openrouter.calls.every((call) => !/:free$/i.test(call.model || call.modelId || '')), 'paid subscriptions must never try free model IDs');
 });
 
 test('provider-owned billing: local USD limits and spend-read failures do not gate routing', async () => {
@@ -155,7 +319,7 @@ test('end to end: logic answers without a model; smart routing records telemetry
     const e = built.store.usage.at(-1);
     assert.deepEqual([e.model, e.level, e.task, e.outcome], ['gpt-5.4-nano', 1, 'chat', 'ok']);
     assert.equal(provider.calls.at(-1).maxTokens, 700, 'level 1 reply allowance');
-    assert.ok(e.costUsd > 0 && e.costUsd < 0.001);
+    assert.equal(e.costUsd, null, 'provider cost is unknown for this adapter response');
 
     await postJson(srv.url + '/v1/chat', { message: 'Tell me a fun fact about the sea' }, bearer(USER_TOKEN));
     assert.equal(built.store.usage.at(-1).cacheHit, true);
@@ -173,7 +337,7 @@ test('configured route and tier models remain eligible without local price metad
   const run = await a.policy.run(plan, req('Plan a week of meals on a budget'));
   assert.equal(run.spec.provider, 'openai');
   assert.equal(run.spec.model, 'gpt-6-luna', 'the configured tier model is used instead of a local-price-driven fallback');
-  assert.ok(run.costUsd >= 0);
+  assert.equal(run.costUsd, null);
 });
 
 test('a brief outage of the only model: one retry after a short wait, then a clear failure', async () => {
@@ -249,7 +413,7 @@ test('coding falls back to the dedicated tier provider when OpenRouter is unavai
   const policy = createPolicy({ config, provider: router, prices: loadPrices(), budget, logger: quiet, sleep: async () => {} });
   const message = 'Fix this TypeScript bug and explain the regression';
   const run = await policy.run(policy.plan({ tier: 'max', message }), req(message));
-  assert.deepEqual([run.spec.provider, run.spec.model], ['openai', 'gpt-5.4-nano']);
+  assert.deepEqual([run.spec.provider, run.spec.model], ['openai', 'gpt-5.4-mini']);
   assert.ok(openrouter.calls.length >= 1, 'OpenRouter was attempted before fallback');
   assert.equal(openai.calls.length, 1, 'the router uses the configured compatible provider after OpenRouter fails');
   assert.equal(anthropic.calls.length, 0, 'the router fallback avoids an unnecessary second provider switch');
@@ -407,34 +571,63 @@ test('OpenRouter model calls do not depend on local price snapshots', () => {
 });
 
 
-test('OpenRouter spend reservations do not require local model-price entries', async () => {
-  let reserved = null;
-  let settled = null;
-  const budget = {
-    maxRequestUsd: 0.05,
-    async remaining() { return { usd: 0.04, unknown: false, limitedBy: 'daily' }; },
-    async reserveSpend(args) { reserved = args; return { id: 'reservation-1', reservedUsd: args.amountUsd }; },
-    async settleSpend(_reservation, amount) { settled = amount; return amount; },
-    async releaseSpend() {}
-  };
-  const config = {
-    isProduction: true,
-    ai: {
-      maxReplyTokens: 256,
-      routing: { geminiFreeTier: false, budget: { maxRequestUsdByTier: { pro: 0.05 } } }
-    }
-  };
-  const hooks = createProviderSpendHooks({
-    budget, config, prices: {}, tier: 'pro',
-    caller: { tenantId: 'tenant-1', actor: { type: 'user', id: 'user-1' } }
-  });
+test('provider billing records authoritative costs without local reservations', async () => {
+  const config = { isProduction: true };
+  const hooks = createProviderSpendHooks({ config });
   const reservation = await hooks.reserve({
     provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices',
     request: { system: 'You are helpful', messages: [{ role: 'user', content: 'hello' }], maxTokens: 64 }
   });
-  assert.equal(reserved.amountUsd, 0.04);
-  assert.equal(reservation.openRouter, true);
+  assert.deepEqual(reservation, { provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices', providerBilling: true });
   const result = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8, actualCostUsd: 0.0017 });
   assert.equal(result.costUsd, 0.0017);
-  assert.equal(settled, 0.0017);
+  assert.equal(result.spendReservationId, null);
+  const unknown = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8 });
+  assert.equal(unknown.costUsd, null, 'unknown provider cost must not be estimated locally');
+});
+test('classifier does not mistake a greeting prefix for the whole request', () => {
+  const plan = classify({ message: 'Hi, fix the CI failure and investigate the broken build.' });
+  assert.equal(plan.task, 'debugging');
+  assert.ok(plan.level >= 3);
+});
+
+test('classifier routes generic troubleshooting without code keywords', () => {
+  for (const message of ['Fix this bug', 'The deployment failed', 'This is not working', 'CI failed']) {
+    const plan = classify({ message });
+    assert.equal(plan.task, 'debugging', message);
+    assert.ok(plan.level >= 3, message);
+  }
+});
+
+test('classifier inherits intent for short continuation follow-ups', () => {
+  const history = [
+    { role: 'user', content: 'Audit the entire codebase and design a secure multi-tenant architecture.' },
+    { role: 'assistant', content: 'I will break this into phases. Should I continue?' }
+  ];
+  const plan = classify({ message: 'Yes, continue.', history });
+  assert.equal(plan.task, 'design');
+  assert.equal(plan.level, 5);
+  assert.ok(plan.reasons.includes('continuation inherits previous user task'));
+});
+
+test('classifier keeps a standalone greeting simple', () => {
+  assert.equal(classify({ message: 'Hi!' }).level, 1);
+  assert.equal(classify({ message: 'Hello.' }).level, 1);
+});
+
+
+test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint eligibility', async () => {
+  const { isOpenRouterChatCandidateEligible } = await import('../src/ai/openrouter-runtime-eligibility.js');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'nvidia/nemotron-3.5-lightning:free', tier: 'nasrinai' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna', tier: 'nasrinai' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'nasrinai' }), false);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-6-luna-pro', tier: 'max' }), true);
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra' }), false, 'inferred ID stays disabled until catalog verification');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'anthropic/claude-opus-5.5', tier: 'ultra', verifiedIds: ['anthropic/claude-opus-5.5'] }), true, 'live catalog verification unlocks an otherwise eligible inferred chat model');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'typesafe/jev-1.13', tier: 'pro', task: 'analysis' }), false, 'decision endpoint must not be called as chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'google/gemini-nano-banana-2.1', tier: 'ultra', task: 'chat' }), false, 'image endpoint must not be called as chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'chat' }), false, 'coding-only model must not be used for general chat');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'openai/gpt-5.2-codex', tier: 'pro', task: 'coding' }), false, 'inferred coding ID stays disabled until verified');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'pro' }), true, 'legacy dynamic chat discovery remains supported for paid tiers');
+  assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'nasrinai' }), false, 'free Quick cannot use unmarked paid IDs');
 });

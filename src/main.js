@@ -24,14 +24,13 @@ import { createModelCatalog } from './ai/models.js';
 import { createPlans } from './plans.js';
 import { createVideoProvider } from './ai/video.js';
 import { createOpenRouterClient, createOpenRouterVideoProvider } from './ai/openrouter.js';
+import { createOpenRouterTelemetry } from './ai/openrouter-telemetry.js';
 import { createVideos } from './videos.js';
 import { createElevenLabs } from './elevenlabs.js';
 import { createVideoStudioExporter } from './video-studio-export.js';
 import { createVideoStudioRenderWorker } from './video-studio-render-worker.js';
 import { createPayMongo } from './payments/paymongo.js';
 import { createPolicy } from './ai/policy.js';
-import { createBudget } from './ai/budget.js';
-import { loadPrices } from './ai/pricing.js';
 import { createWebSearch } from './web/search.js';
 import { createGoogleWebSearch } from './web/google-search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
@@ -45,7 +44,6 @@ import { createMemory, memoryTools } from './knowledge/memory.js';
 import { createCommunityLearning } from './knowledge/community-learning.js';
 import { createFounderKnowledge } from './knowledge/founder.js';
 import { createProductKnowledge } from './knowledge/product.js';
-import { imagePrice } from './ai/pricing.js';
 import { createOpenAISpeech, createGeminiSpeech, createOpenRouterSpeech, createResponsiveSpeech } from './ai/speech.js';
 import { createVoice } from './voice.js';
 import { createStorage } from './storage.js';
@@ -71,6 +69,8 @@ import { createImageSearch } from './web/image-search.js';
 import { createPagePreviews } from './web/page-preview.js';
 import { createWebCrawler } from './web/crawler.js';
 import { createYouTubeSearch } from './web/youtube.js';
+import { createGoogleWeatherTool } from './weather/google-weather.js';
+import { createGoogleMapsTools } from './maps/google-maps.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -125,7 +125,8 @@ export function buildApp({ config, logger }) {
   }
 
   const effective = { ...config, guestSecret };
-  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey }) : null;
+  const openRouterTelemetry = createOpenRouterTelemetry({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, logger });
+  const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry, dataCollection: config.ai.openrouterDataCollection }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
@@ -134,12 +135,6 @@ export function buildApp({ config, logger }) {
   const videoStudioAssets = config.supabaseUrl && config.supabaseSecretKey ? createVideoStudioAssets({ config: effective, limiter, logger }) : null;
   const usageLog = createUsageLog({ store, logger });
   const conversations = createConversations({ store, config: effective, logger });
-  const prices = loadPrices();
-  // OpenRouter model selection reads the official live catalog in its adapter;
-  // actual billing comes from OpenRouter usage.cost. Do not use local OpenRouter
-  // snapshots or MODEL_PRICES_JSON to gate calls.
-  delete prices.openrouter;
-  const reasoningBudget = createBudget({ store, config: effective, logger });
   // Optional acceleration only: cache errors never make chat unavailable.
   // Embeddings come from OpenAI's API (src/ai/embeddings.js): the earlier
   // on-device model could not load on Vercel, so the cache never filled.
@@ -153,7 +148,7 @@ export function buildApp({ config, logger }) {
         modelName: embedder.modelName
       })
     : null;
-  const provider = providerFromConfig(config, { logger });
+  const provider = providerFromConfig(config, { logger, openRouterClient });
   if (provider) logger.info('AI provider ready', { provider: provider.id, model: provider.model });
   else logger.warn('AI_PROVIDER is none: chat will answer "unavailable"');
   const models = createModelCatalog({ provider, config: effective, logger });
@@ -161,7 +156,7 @@ export function buildApp({ config, logger }) {
   const legal = createLegal({ store, config: effective, logger, deleteAuthUser: admin ? (id) => admin.deleteUser(id) : null });
   const payments = config.paymongo ? createPayMongo(config.paymongo) : null;
   const policy = provider && config.ai.routing.mode === 'smart'
-    ? createPolicy({ config: effective, provider, prices, budget: reasoningBudget, logger })
+    ? createPolicy({ config: effective, provider, logger })
     : null;
   const googleWebSearch = config.web.googleApiKey && config.web.googleEngineId
     ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
@@ -169,32 +164,29 @@ export function buildApp({ config, logger }) {
   if (googleWebSearch?.available) logger.info('Google web search adapter ready');
   const openRouterSearchEnabled = Boolean(config.web.searchModel && config.ai.openrouterApiKey);
   const webSearch = openRouterSearchEnabled || googleWebSearch?.available
-    ? createWebSearch({ apiKey: openRouterSearchEnabled ? config.ai.openrouterApiKey : '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1' })
+    ? createWebSearch({ apiKey: openRouterSearchEnabled ? config.ai.openrouterApiKey : '', model: config.web.searchModel || 'openrouter/auto', googleSearch: googleWebSearch, baseUrl: 'https://openrouter.ai/api/v1', onTelemetry: openRouterTelemetry })
     : null;
   if (webSearch) logger.info('web search ready', { primary: openRouterSearchEnabled ? 'openrouter' : 'google-fallback', fallback: googleWebSearch?.available ? 'google' : 'none' });
-  if (policy) logger.info('smart routing on', { budget: config.ai.routing.budget });
+  if (policy) logger.info('smart routing on; provider billing is authoritative');
   // Picture routes by tier. Everything must fit in the function's 120 s
   // (vercel.json): with a fallback, the primary (with its retries) gets 45 s
   // and the fallback 70 s; alone, the primary gets 105 s.
   const imageRoutes = {};
   for (const [n, t] of Object.entries(config.images.tiers)) {
     const make = (slot, ms) => {
-      const price = slot.price ?? imagePrice(slot.provider, slot.model);
-      if (price === null) { logger.warn('picture route has no price; it is off', { tier: Number(n), provider: slot.provider, model: slot.model }); return null; }
       const p = slot.provider === 'gemini'
         ? createGeminiImage({ apiKey: config.ai.geminiApiKey, model: slot.model, totalMs: ms })
         : slot.provider === 'openrouter'
-          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, price, timeoutMs: ms })
+          ? createOpenRouterImage({ client: openRouterClient, model: slot.model, quality: slot.quality, timeoutMs: ms })
           : createOpenAIImage({ apiKey: config.ai.openaiApiKey, model: slot.model, quality: slot.quality, timeoutMs: ms });
-      return { p, price };
+      return { p };
     };
     const primary = make(t.primary, t.fallback ? 45_000 : 105_000);
     if (!primary) continue;
     imageRoutes[n] = { primary, fallback: t.fallback ? make(t.fallback, 70_000) : null };
     logger.info('picture route ready', { tier: Number(n), primary: t.primary.model, fallback: t.fallback ? t.fallback.model : null });
   }
-  const imageBudget = createBudget({ store, config: effective, logger, kind: 'image' });
-  const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, budget: imageBudget, provider, policy, legal, config: effective, logger });
+  const images = createImages({ store, conversations, limiter, usageLog, routes: imageRoutes, plans, provider, policy, legal, config: effective, logger });
   const videoProviders = effective.video?.enabled
     ? effective.video.provider === 'openrouter'
       ? Object.fromEntries(Object.entries(effective.video.tierRoutes || {}).map(([tier, route]) => [tier, createOpenRouterVideoProvider({
@@ -203,7 +195,7 @@ export function buildApp({ config, logger }) {
         })]))
       : Object.fromEntries(['max', 'ultra'].map((tier) => [tier, createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution })]))
     : null;
-  const videos = createVideos({ store, plans, provider: videoProviders, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const videos = createVideos({ store, conversations, plans, provider: videoProviders, limiter, usageLog, config: effective, logger });
   const elevenlabs = createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY || '' });
   const videoStudioExporter = createVideoStudioExporter();
   const videoStudioRenderWorker = config.supabaseUrl && config.supabaseSecretKey
@@ -235,13 +227,17 @@ export function buildApp({ config, logger }) {
   const google = createGoogleIntegration({ config: effective, logger });
   const googleReadWrite = createGoogleReadWriteTools({ google, config: effective, logger });
   if (google.available) logger.info('Google Gmail/Calendar integration ready');
-  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools], usageLog, config: effective, logger });
+  const weatherTool = createGoogleWeatherTool({ apiKey: config.weather.googleApiKey, usageLog, logger });
+  if (weatherTool.available) logger.info('Google Weather tool ready');
+  const mapsTool = createGoogleMapsTools({ apiKey: config.maps.serverApiKey || config.weather.googleApiKey, logger });
+  if (mapsTool.available) logger.info('Google Maps tools ready');
+  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools, ...(weatherTool.available ? [weatherTool.tool] : []), ...(mapsTool.available ? [mapsTool.tool] : [])], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
   const crawler = config.supabaseUrl ? createWebCrawler({ store, logger }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, prices, budget: reasoningBudget, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
@@ -261,7 +257,7 @@ export function buildApp({ config, logger }) {
       : sp.provider === 'gemini'
         ? geminiSpeech
         : openaiSpeech;
-  const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech, openrouter: openrouterSpeech }, conversations, limiter, usageLog, budget: reasoningBudget, config: effective, logger });
+  const voice = createVoice({ engine, engines: { openai: openaiSpeech, gemini: geminiSpeech, openrouter: openrouterSpeech }, conversations, limiter, usageLog, config: effective, logger });
   const transcription = config.ai.openaiApiKey
     ? createOpenAITranscription({ apiKey: config.ai.openaiApiKey })
     : openRouterClient ? createOpenRouterTranscription({ client: openRouterClient, model: String(process.env.OPENROUTER_STT_MODEL || '').trim() }) : null;
@@ -275,8 +271,8 @@ export function buildApp({ config, logger }) {
     config: effective,
     logger,
     gateway,
-    ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger }),
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, budget: reasoningBudget, logger }),
+    ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger, openrouterManagementKey: process.env.OPENROUTER_MANAGEMENT_API_KEY || '' }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops)
   });

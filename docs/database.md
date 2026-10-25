@@ -63,3 +63,8 @@ The migration is part of the repository but has **not** been applied to producti
 ## Owner Console platform Auth audit (migration 058)
 
 Migration [`058_owner_console_auth_audit.sql`](../db/migrations/058_owner_console_auth_audit.sql) adds a server-role-only aggregate summary of Supabase Auth audit-log categories. It returns only event totals and coarse categories for sign-in, account recovery, password changes, and sign-out; it never returns raw payloads, email addresses, IP addresses, or actor identifiers. If the compatible Auth audit table or expected columns are unavailable, the RPC reports an explicit unavailable state rather than exposing partial records. The migration has not been applied to production; verify its grants and source availability through the approved migration process before relying on these signals.
+
+
+## Owner Console operational alerts (migration 059)
+
+Migration [`059_owner_alert_outbox.sql`](../db/migrations/059_owner_alert_outbox.sql) creates a durable deduplicated alert outbox. Its enqueue, claim, and finish RPCs are executable only by `service_role`; browser roles have no table grants and an explicit deny policy. Alert summaries are short, fixed-category operational descriptions, and the enqueue RPC rejects likely credential/prompt material. Delivery claims use row locks with `SKIP LOCKED`, expiring leases, retry backoff, and an eight-attempt cap. Apply migration 057 and the existing migration 058 first, then 059, and run the database test suite before enabling the scheduled dispatcher.

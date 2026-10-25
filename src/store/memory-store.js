@@ -23,6 +23,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
   const planPeriods = [];
   const images = new Map();
   const videos = new Map();
+  const generatedVideoObjects = new Map(); // private durable-storage stand-in for tests/local development
   const videoStudioAudioAssets = new Map();
   const videoStudioTimelineItems = new Map();
   const marketingCache = new Map();
@@ -385,7 +386,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
           || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= now()) throw new Error('invalid improvement example');
       const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
-      const row = { id: randomUUID(), tenantId, subjectType, subjectId, consentVersion, exampleText, status: 'pending_review', createdAt: iso(), expiresAt };
+      const row = { id: randomUUID(), tenantId, subjectType, subjectId, consentVersion, exampleText, status: 'approved', createdAt: iso(), expiresAt, reviewedAt: iso(), reviewerId: 'automated_safety_screen' };
       improvementExamples.push(row);
       return row.id;
     },
@@ -656,6 +657,27 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       const r = videos.get(id);
       if (!r || r.tenantId !== tenantId || r.ownerType !== ownerType || r.ownerId !== ownerId) return null;
       return { ...r };
+    },
+
+    async uploadGeneratedVideo({ tenantId, ownerType, ownerId, id, bytes, mime = 'video/mp4' }) {
+      const r = videos.get(id);
+      if (!r || r.tenantId !== tenantId || r.ownerType !== ownerType || r.ownerId !== ownerId ||
+          !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 50 * 1024 * 1024 ||
+          !['video/mp4', 'video/webm', 'video/quicktime'].includes(mime)) throw new Error('invalid generated video storage request');
+      const storagePath = tenantId + '/' + ownerType + '/' + ownerId + '/' + id + (mime === 'video/webm' ? '.webm' : mime === 'video/quicktime' ? '.mov' : '.mp4');
+      generatedVideoObjects.set(storagePath, Buffer.from(bytes));
+      Object.assign(r, { storageBucket: 'generated-videos', storagePath, storageBytes: bytes.length,
+        storageUploadedAt: iso(), mime }, { updatedAt: iso() });
+      return { bucket: 'generated-videos', path: storagePath, bytes: bytes.length };
+    },
+
+    async readGeneratedVideo({ tenantId, ownerType, ownerId, id }) {
+      const r = videos.get(id);
+      if (!r || r.tenantId !== tenantId || r.ownerType !== ownerType || r.ownerId !== ownerId ||
+          r.status !== 'completed' || r.storageBucket !== 'generated-videos' || !r.storagePath) return null;
+      const bytes = generatedVideoObjects.get(r.storagePath);
+      if (!bytes || bytes.length !== r.storageBytes) throw new Error('stored generated video failed integrity checks');
+      return { ...r, bytes: Buffer.from(bytes) };
     },
 
     async updateVideo(id, patch) {

@@ -7,14 +7,15 @@ import { createOwnerConsole } from '../src/owner-console.js';
 const SECRET = ['owner-console-http-', 'signing-material-', 'x'.repeat(32)].join('');
 const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 
-async function start(t) {
+async function start(t, { requestIp = '127.0.0.1' } = {}) {
   const config = {
     // This HTTP integration suite runs on a local ephemeral host; production-host policy is covered by unit tests.
     isProduction: false,
     maxBodyBytes: 16384,
     ownerConsole: { enabled: true, emails: ['owner@example.com'], ips: ['127.0.0.1'], sessionSecret: SECRET }
   };
-  const logger = { info() {}, warn() {}, error() {} };
+  const warnings = [];
+  const logger = { info() {}, warn(message, details) { warnings.push({ message, details }); }, error() {} };
   let staticCalls = 0;
   const ownerConsole = createOwnerConsole({
     config,
@@ -26,17 +27,17 @@ async function start(t) {
       if (path === 'rpc/owner_console_incident_update') return { id: options.body.p_incident_id, status: options.body.p_action === 'resolve' ? 'resolved' : 'acknowledged' };
       return [];
     } },
-    clientIp: () => '127.0.0.1'
+    clientIp: () => requestIp, logger
   });
   const app = createApp({
     config, logger, gateway: { resolve: async () => { throw new Error('owner request reached gateway'); } },
-    ownerConsole, clientIp: () => '127.0.0.1',
+    ownerConsole, clientIp: () => requestIp,
     serveStatic: async (_req, _res, pathname) => { staticCalls++; return false; }
   });
   const server = createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise((resolve) => server.close(resolve)));
-  return { url: 'http://127.0.0.1:' + server.address().port, getStaticCalls: () => staticCalls };
+  return { url: 'http://127.0.0.1:' + server.address().port, getStaticCalls: () => staticCalls, warnings };
 }
 
 test('unauthorized owner page is a genuine 404 and never falls through to static serving', async (t) => {
@@ -108,4 +109,20 @@ test('durable incident APIs require an owner session, same-origin confirmation, 
   const resolved = await fetch(app.url + '/owner/api/incidents/' + incident.id + '/resolve', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'RESOLVE', resolution_note: 'Verified and mitigated.' }) });
   assert.equal(resolved.status, 200);
   assert.equal((await resolved.json()).status, 'resolved');
+});
+
+
+test('owner bootstrap rejection logs a safe reason without exposing credentials or IPs', async (t) => {
+  const app = await start(t, { requestIp: '192.0.2.77' });
+  const response = await fetch(app.url + '/v1/owner/session', {
+    method: 'POST',
+    headers: { Origin: app.url, 'Sec-Fetch-Site': 'same-origin', Authorization: 'Bearer ' + TOKEN }
+  });
+  assert.equal(response.status, 404);
+  const warning = app.warnings.find((entry) => entry.message === 'owner session bootstrap rejected');
+  assert.ok(warning);
+  assert.equal(warning.details.reason, 'allowlist_or_client_ip');
+  assert.equal(JSON.stringify(warning).includes(TOKEN), false);
+  assert.equal(JSON.stringify(warning).includes('192.0.2.77'), false);
+  assert.equal(JSON.stringify(warning).includes('owner@example.com'), false);
 });

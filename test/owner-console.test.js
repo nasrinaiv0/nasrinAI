@@ -7,14 +7,14 @@ const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 const EMAIL = 'owner@example.com';
 const IP = '203.0.113.42';
 
-function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null, fetchImpl } = {}) {
+function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null, fetchImpl, openrouterManagementKey = '' } = {}) {
   const config = {
     isProduction: true,
     ownerConsole: ownerConsole || { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET }
   };
   const verifier = verifyUser || (async (token) => token === TOKEN ? { id: 'user-1', email } : null);
   const activeStore = store || { kind: 'supabase', request: async (_method, path) => { if (path === 'rpc/owner_console_record_audit') return null; throw new Error('source unavailable'); } };
-  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now, fetchImpl });
+  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now, fetchImpl, openrouterManagementKey });
   return { config, consoleHandler };
 }
 
@@ -137,7 +137,10 @@ test('tampered and expired owner cookies are denied', async () => {
   const { consoleHandler } = setup({ now: () => current });
   const opened = await bootstrap(consoleHandler);
   const cookie = opened.res.headers['set-cookie'].split(';')[0];
-  const tampered = cookie.replace(/.$/, cookie.endsWith('a') ? 'b' : 'a');
+  const [cookieName, cookieValue] = cookie.split('=');
+  const [payload, signature] = cookieValue.split('.');
+  const changedChar = signature[1] === 'a' ? 'b' : 'a';
+  const tampered = `${cookieName}=${payload}.${signature[0]}${changedChar}${signature.slice(2)}`;
   const bad = request('GET', '/owner', { headers: { cookie: tampered }, testIp: IP });
   await consoleHandler.handle(bad.req, bad.res, '/owner');
   assert.equal(bad.res.statusCode, 404);
@@ -184,8 +187,8 @@ test('usage export is bounded, aggregate-only, and unavailable when its source i
     request_count: 2, success_count: 2, failure_count: 0,
     input_tokens: 100, output_tokens: 40, total_tokens: 140,
     active_user_ids: 1, active_guest_ids: 0, latency_p50_ms: 80, latency_p95_ms: 120,
-    estimated_cost_usd: 0.01, cost_estimate_rows: 2,
-    providers: [{ provider: 'fake-provider', model: 'fake-model', requests: 2, successes: 2, input_tokens: 100, output_tokens: 40, estimated_cost_usd: 0.01 }]
+    provider_reported_cost_usd: 0.01, cost_known_rows: 2, cost_unknown_rows: 0,
+    providers: [{ provider: 'fake-provider', model: 'fake-model', requests: 2, successes: 2, input_tokens: 100, output_tokens: 40, provider_reported_cost_usd: 0.01, cost_known_rows: 2, cost_unknown_rows: 0 }]
   };
   const store = { kind: 'supabase', request: async (method, path, options) => {
     assert.equal(method, 'POST');
@@ -219,7 +222,7 @@ test('overview exposes only aggregate usage and automation data returned by serv
       if (path === 'rpc/owner_console_usage_summary') return {
         request_count: 3, success_count: 2, failure_count: 1, input_tokens: 10, output_tokens: 5,
         total_tokens: 15, active_user_ids: 1, active_guest_ids: 1, latency_p50_ms: 100,
-        latency_p95_ms: 200, estimated_cost_usd: 0.02, cost_estimate_rows: 2,
+        latency_p95_ms: 200, provider_reported_cost_usd: 0.02, cost_known_rows: 2,
         last_event_at: '2026-10-23T00:00:00.000Z', providers: [], features: [{ feature: 'conversation', requests: 3, active_user_ids: 2, active_guest_ids: 1, total_tokens: 45, estimated_cost_usd: 0.02 }]
       };
       if (path === 'rpc/owner_console_automation_summary') return {
@@ -335,4 +338,136 @@ test('cross-origin owner bootstrap rejects unapproved origins and host combinati
     assert.equal(out.res.body, 'Page not found.');
     assert.equal(out.res.headers['set-cookie'], undefined);
   }
+});
+
+
+test('OpenRouter billing uses Analytics API and keeps optional credits failures from hiding spend', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith('/analytics/meta')) return {
+      ok: true, json: async () => ({ data: { metrics: [
+        { name: 'total_usage' }, { name: 'request_count' }, { name: 'tokens_prompt' },
+        { name: 'tokens_completion' }, { name: 'tokens_total' }
+      ] } })
+    };
+    if (String(url).endsWith('/analytics/query')) return {
+      ok: true, json: async () => ({ data: { data: [
+        { date__day: '2026-10-24T00:00:00.000Z', model: 'nvidia/test:free',
+          total_usage: 0.02, request_count: 2, tokens_prompt: 100,
+          tokens_completion: 40, tokens_total: 140 }
+      ], metadata: { row_count: 1, truncated: false } } })
+    };
+    if (String(url).endsWith('/credits')) return { ok: false, status: 403, json: async () => ({}) };
+    throw new Error('unexpected upstream URL');
+  };
+  const { consoleHandler } = setup({ fetchImpl, openrouterManagementKey: 'management-test-key' });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-billing?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-billing');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.source, 'openrouter_analytics_api');
+  assert.equal(payload.totals.provider_reported_cost_usd, 0.02);
+  assert.equal(payload.totals.requests, 2);
+  assert.equal(payload.totals.total_tokens, 140);
+  assert.equal(payload.by_model[0].model, 'nvidia/test:free');
+  assert.equal(payload.credits.total_credits, null);
+  assert.ok(calls.some((call) => call.url.endsWith('/analytics/meta')));
+  const query = calls.find((call) => call.url.endsWith('/analytics/query'));
+  assert.ok(query);
+  assert.equal(query.options.method, 'POST');
+  assert.equal(query.options.headers.Authorization, 'Bearer management-test-key');
+  assert.equal(JSON.parse(query.options.body).time_range.start, new Date(1_800_000_000_000 - 7 * 86400000).toISOString());
+  assert.equal(calls.some((call) => call.url.endsWith('/activity')), false);
+});
+
+test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {
+  let queriedPath = '';
+  const store = {
+    kind: 'supabase',
+    request: async (method, path) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      assert.equal(method, 'GET');
+      queriedPath = path;
+      return [{
+        id: 'row-1',
+        request_id: 'request-1',
+        created_at: '2026-10-24T10:00:00.000Z',
+        provider: 'openrouter',
+        upstream_provider: 'Example Provider',
+        endpoint: '/chat/completions',
+        http_method: 'POST',
+        requested_model: 'example/model',
+        model: 'example/model',
+        prompt_tokens: 12,
+        cached_tokens: 5,
+        completion_tokens: 34,
+        total_tokens: 46,
+        total_cost_usd: 0.001,
+        request_summary: { raw_prompt: 'must not be returned' },
+        response_summary: { finish_reason: 'stop' },
+        status: 'success',
+        http_status: 200,
+        error_code: null,
+        latency_ms: 120,
+        provider_request_id: 'gen-1',
+        openrouter_generation_id: 'gen-1',
+        provider_cost_source: 'openrouter_generation_api',
+        provider_cost_reconciled_at: '2026-10-24T10:01:00.000Z',
+        finish_reason: 'stop',
+        generation_time_seconds: 0.5,
+        upstream_inference_time_seconds: 0.4
+      }];
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-logs?window=7d&status=success&model=example%2Fmodel&endpoint=%2Fchat%2Fcompletions&limit=50&offset=0', {
+    headers: { cookie }, testIp: IP
+  });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-logs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.source, 'supabase.openrouter_logs');
+  assert.equal(payload.rows.length, 1);
+  assert.equal(payload.rows[0].upstream_provider, 'Example Provider');
+  assert.equal(payload.rows[0].generation_time_seconds, 0.5);
+  assert.equal(payload.rows[0].total_tokens, 46);
+  assert.equal(payload.rows[0].cached_tokens, 5);
+  assert.equal(Object.hasOwn(payload.rows[0], 'request_summary'), false);
+  assert.equal(out.res.body.includes('must not be returned'), false);
+  assert.match(queriedPath, /created_at=gte\./);
+  assert.match(queriedPath, /status=eq.success/);
+  assert.match(queriedPath, /endpoint=eq.%2Fchat%2Fcompletions/);
+});
+
+test('OpenRouter request log filters reject invalid windows and model syntax', async () => {
+  let queries = 0;
+  const store = { kind: 'supabase', request: async (_method, path) => {
+    if (path === 'rpc/owner_console_record_audit') return null;
+    queries++;
+    return [];
+  }};
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  for (const query of ['window=all', 'model=%3Cscript%3E']) {
+    const out = request('GET', '/owner/api/openrouter-logs?' + query, { headers: { cookie }, testIp: IP });
+    await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-logs');
+    assert.equal(out.res.statusCode, 400);
+  }
+  assert.equal(queries, 0);
+});
+
+test('OpenRouter request logs remain hidden from non-allowlisted IP addresses', async () => {
+  const { consoleHandler } = setup();
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-logs', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-logs');
+  assert.equal(out.res.statusCode, 404);
+  assert.equal(out.res.body, 'Page not found.');
 });

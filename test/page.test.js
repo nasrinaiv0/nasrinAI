@@ -17,6 +17,7 @@ test('the chat page loads its script and styles as files that the strict CSP all
     assert.match(page.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
     assert.match(page.headers.get('content-security-policy'), /connect-src[^;]*https:\/\/owner\.nasrinai\.com/, 'signed-in owners can bootstrap the separate owner subdomain');
     assert.match(page.headers.get('content-security-policy'), /frame-src https:\/\/challenges\.cloudflare\.com/);
+    assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/maps\.google\.com/);
     assert.match(page.headers.get('content-security-policy'), /youtube-nocookie\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.tiktok\.com/);
     assert.match(page.headers.get('content-security-policy'), /frame-src[^;]*https:\/\/www\.facebook\.com/);
@@ -60,9 +61,9 @@ test('status tells the page whether the AI is on and whether messages leave the 
     statusOff.speech = { ...statusOff.speech, voices: [], default: null };
     statusOn.speech = { ...statusOn.speech, voices: [], default: null };
     assert.deepEqual(statusOff,
-      { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-19a' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
+      { ai_available: false, external_model: null, own_model: null, redacts_contact_details: false, files: { photos: false, pdfs: false }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-24' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
     assert.deepEqual(statusOn,
-      { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-19a' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
+      { ai_available: true, external_model: true, own_model: false, redacts_contact_details: true, files: { photos: true, pdfs: true }, legal: { terms_version: '2026-10-13', privacy_version: '2026-10-24' }, github: { available: false, off: 'not_set' }, plans: true, library: true, projects: true, research: false, uploads: { direct: false }, images: { available: false }, videos: { available: false }, sign_in: { email: false, google: false }, turnstile: { site_key: null }, guest_session_hours: 24, speech: { available: false, voices: [], default: null, rate: 1.15 } });
   } finally { await a.close(); await b.close(); }
 });
 
@@ -97,10 +98,15 @@ test('app.js never dereferences a page element that index.html does not have', a
 test('NasrinAI Space uses the requested Connect mark and adapts every app icon background', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const css = await readFile(new URL('../public/app.css', import.meta.url), 'utf8');
-  const connectMark = await readFile(new URL('../public/space-logos/nasrinai-connect-mark.svg', import.meta.url), 'utf8');
-  assert.match(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-mark\.svg/);
-  assert.doesNotMatch(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-dark\.svg/);
-  assert.match(connectMark, /fill-rule="evenodd"/);
+  const connectLight = await readFile(new URL('../public/space-logos/nasrinai-connect-light.svg', import.meta.url), 'utf8');
+  const connectDark = await readFile(new URL('../public/space-logos/nasrinai-connect-dark.svg', import.meta.url), 'utf8');
+  assert.match(html, /id="spaceConnect"[\s\S]*?nasrinai-connect-light\.svg[\s\S]*?nasrinai-connect-dark\.svg/);
+  assert.match(connectLight, /linearGradient/);
+  assert.match(connectLight, /fill="#171717"/);
+  assert.match(connectDark, /linearGradient/);
+  assert.match(connectDark, /fill="#f5f5f5"/);
+  assert.match(css, /space-connect-logo--light/);
+  assert.match(css, /space-connect-logo--dark/);
   // Library uses the one theme-adaptive glyph (owner request 2026-10-12), not a badge image.
   assert.match(html, /id="spaceLibrary"[\s\S]*?class="space-app-logo space-app-glyph lib-glyph"/);
   assert.match(html, /id="drawerLibrary"><svg class="lib-glyph"/);
@@ -108,7 +114,7 @@ test('NasrinAI Space uses the requested Connect mark and adapts every app icon b
   // Coding uses the pixel-robot Code logo (owner, 2026-10-12), chosen by theme and motion in CSS.
   assert.match(html, /id="spaceCoding">\s*<span class="space-app-icon" aria-hidden="true"><span class="space-app-logo code-logo"/);
   // Every app sits on the same tile (owner, 2026-10-13): light grey, lifted grey in dark mode.
-  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length, 8, 'Video Studio adds one Space tile');
+  assert.equal((html.match(/<span class="space-app-icon"/g) || []).length - (html.includes('id="spaceOwnerConsole"') ? 1 : 0), 8, 'Video Studio adds one regular Space tile; owner tile is separate and hidden by default');
   assert.match(css, /#pageSpace \.space-app-icon \{[^}]*background: #ECEBE7;/);
   assert.match(css, /:root\[data-theme="dark"\] #pageSpace \.space-app-icon \{ background: #3A3A3C; \}/);
   // The robot has no tile of its own; while busy it breaks into pixels and comes back.
@@ -599,4 +605,37 @@ test('owner entry bootstraps on the dedicated host and expired sessions return t
   assert.match(app, /window\.location\.href = 'https:\/\/owner\.nasrinai\.com\/owner'/);
   assert.doesNotMatch(consoleJs, /window\.location\.href = '\/'/);
   assert.match(consoleJs, /window\.location\.href = 'https:\/\/www\.nasrinai\.com\/'/);
+});
+
+
+test('Owner Command Center appears as a hidden tile in NasrinAI Space and requires owner-session verification', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const tileStart = html.lastIndexOf('<button', html.indexOf('id="spaceOwnerConsole"'));
+  const tile = html.slice(tileStart, html.indexOf('</button>', tileStart));
+  assert.match(tile, /class="space-app-tile"[^>]*id="spaceOwnerConsole"[^>]*hidden/);
+  assert.match(tile, /<span class="space-app-name">Owner Console<\/span>/);
+  assert.match(js, /fetch\('https:\/\/owner\.nasrinai\.com\/v1\/owner\/session'/);
+  assert.match(js, /if \(response\.status !== 204\)/);
+  assert.match(js, /if \(entry\) entry\.hidden = false/);
+  assert.match(js, /window\.location\.href = 'https:\/\/owner\.nasrinai\.com\/owner'/);
+  assert.match(js, /if \(\$\('spaceOwnerConsole'\)\) \$\('spaceOwnerConsole'\)\.hidden = true/);
+});
+
+
+test('Owner Command Center bootstrap is triggered after sign-in so hidden tile can become visible', async () => {
+  const js = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const signedInStart = js.indexOf('function signedIn(data)');
+  const signedOutStart = js.indexOf('function signedOut()', signedInStart);
+  assert.ok(signedInStart >= 0 && signedOutStart > signedInStart, 'signed-in lifecycle handlers exist');
+  const signedIn = js.slice(signedInStart, signedOutStart);
+  assert.match(signedIn, /void syncOwnerConsoleEntry\(account\.token\)/);
+  assert.match(js, /if \(entry\) entry\.hidden = false/);
+  assert.match(js, /if \(entry\) entry\.hidden = true/);
+});
+
+
+test('Vercel preview builds are not silently skipped by the project ignored-build setting', async () => {
+  const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.equal(config.ignoreCommand, 'exit 1', 'a nonzero ignored-build command explicitly allows the preview build to continue');
 });

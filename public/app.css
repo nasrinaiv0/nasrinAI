@@ -4617,3 +4617,24 @@ body[data-theme="dark"] .reply-details-panel,
     --reply-detail-muted: #c1c3ca;
   }
 }
+
+
+/* Native, touch-friendly Google Maps cards inside chat. */
+.nasrin-chat-map{margin:12px 0 6px;overflow:hidden;border:1px solid var(--line,rgba(128,128,128,.28));border-radius:16px;background:var(--surface,rgba(128,128,128,.06));}
+.nasrin-chat-map-title{padding:10px 12px;font-size:.9rem;font-weight:600;}
+.nasrin-chat-map-canvas{width:100%;height:300px;min-height:220px;background:var(--paper,#f3f3f3);}
+.nasrin-chat-map-status{padding:8px 12px;color:var(--ink-2,#666);font-size:.82rem;}
+.nasrin-chat-map>a{display:inline-flex;margin:4px 12px 12px;color:var(--accent,#5272c5);font-size:.88rem;text-decoration:underline;}
+@media(max-width:600px){.nasrin-chat-map-canvas{height:250px;}}
+
+/* Owner-supplied NasrinAI mark: switch assets with the explicit theme and system preference. */
+#pageSpace .space-connect-logo--light,
+#pageSpace .space-connect-logo--dark { filter: none !important; }
+#pageSpace .space-connect-logo--light { display: block; }
+#pageSpace .space-connect-logo--dark { display: none; }
+html[data-theme="dark"] #pageSpace .space-connect-logo--light { display: none; }
+html[data-theme="dark"] #pageSpace .space-connect-logo--dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) #pageSpace .space-connect-logo--light { display: none; }
+  html:not([data-theme="light"]) #pageSpace .space-connect-logo--dark { display: block; }
+}

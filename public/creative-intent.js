@@ -40,6 +40,12 @@
   const action = /\b(create|generate|make|design|draw|render|produce|animate|build|turn|need|want)\b/i;
   const imageTarget = /\b(image|images|picture|pictures|photo|photos|photograph|photographs|portrait|poster|thumbnail|logo|illustration|artwork|graphic|visual|banner|cover|wallpaper|icon)\b/i;
   const videoTarget = /\b(video|videos|clip|clips|short film|reel|reels|ad|ads|advertisement|commercial|promo|promotional video|video ad)\b/i;
+  // "Edit these photos into a video", "make a video from these pictures": the
+  // video is the deliverable even though photos are mentioned. Image
+  // deliverables (thumbnail, logo, poster...) stay image requests.
+  const imageDeliverable = /\b(thumbnail|poster|cover|banner|logo|icon|wallpaper)\b/;
+  const photosIntoVideo = /\b(turn|animate|convert|make|edit|put|combine|compile|merge|assemble|stitch|create|generate|build|render|produce)\b[\s\S]*\b(into|as)\b[\s\S]*\b(video|clip|reel|movie|slideshow)\b/;
+  const videoFromPhotos = /\b(video|clip|reel|movie|slideshow)\b[\s\S]*\b(from|using|out of|with)\b[\s\S]*\b(photos?|pictures?|images?|pics?)\b/;
   const imageEnhancement = /\b(enhance|enhancement|upscale|upscaling|sharpen|sharpening|deblur|denoise|restore|restoration|improve (?:the )?(?:image|photo|picture|quality)|higher resolution|high resolution|hd|4k|8k|make it clear(?:er)?|make this clear(?:er)?|less blurry|remove blur|fix blur)\b/i;
 
   function parseShortcut(text) {
@@ -67,6 +73,7 @@
     // Route them to the existing image-edit endpoint rather than ordinary chat.
     if (isImageEnhancement(s)) return 'image';
     if (/\b(turn|animate|convert|make)\b[\s\S]*\b(into|as)\b[\s\S]*\b(video|clip|reel)\b/.test(s)) return 'video';
+    if (!imageDeliverable.test(s) && (photosIntoVideo.test(s) || videoFromPhotos.test(s))) return 'video';
     if (imageTarget.test(s) && /\b(video thumbnail|thumbnail|poster|cover|banner|logo|icon|wallpaper|photo|photograph|picture|image)\b/.test(s)
         && action.test(s)) return 'image';
 
@@ -77,5 +84,14 @@
     return null;
   }
 
-  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, commands: COMMANDS });
+  // "2 sec video of a kid laughing" -> 2. Only an explicit time unit counts, so
+  // "60 fps" or "3 kids" never become a duration. Capped at the 60-second limit.
+  function parseVideoSeconds(text) {
+    const match = String(text || '').toLowerCase().match(/(?:^|[^\d.])(\d{1,3})\s*-?\s*(seconds?|secs?|minutes?|mins?|s)\b/);
+    if (!match) return null;
+    const n = Number(match[1]) * (/^m/.test(match[2]) ? 60 : 1);
+    return n >= 1 ? Math.min(60, n) : null;
+  }
+
+  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, parseVideoSeconds, commands: COMMANDS });
 })();

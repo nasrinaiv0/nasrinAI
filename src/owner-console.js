@@ -122,6 +122,10 @@ function verifySession(token, secret, now) {
   const expected = createHmac('sha256', secret).update(parts[0]).digest();
   let supplied;
   try { supplied = Buffer.from(parts[1], 'base64url'); } catch { return null; }
+  // Buffer's base64url decoder accepts non-canonical final characters whose unused bits differ.
+  // Require a canonical round-trip so signature mutations cannot decode to the same bytes.
+  if (supplied.toString('base64url') !== parts[1]) return null;
+  if (Buffer.from(parts[0], 'base64url').toString('base64url') !== parts[0]) return null;
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
   let payload;
   try { payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')); } catch { return null; }
@@ -152,6 +156,8 @@ const dashboardHtml = `<!doctype html>
     <nav id="navigation">
       <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
       <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
+      <button class="nav-item" data-panel="logs"><span>≋</span>AI Provider Logs</button>
+      <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
       <button class="nav-item" data-panel="security"><span>◇</span>Security &amp; Audit</button>
@@ -176,11 +182,13 @@ const dashboardHtml = `<!doctype html>
 const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
+  logs: { title: 'AI Provider Logs', description: 'Request-level OpenRouter telemetry, status, tokens, cost, latency, and provider response metadata.' },
+  learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
   security: { title: 'Security & Audit', description: 'Authorization health, security events, and a traceable record of owner actions.' },
   automation: { title: 'Automation & Jobs', description: 'Workflow health, queue state, retries, and execution outcomes.' },
-  finance: { title: 'Finance & Costs', description: 'Separate provider estimates, reservations, settled costs, and verified billing.' },
+  finance: { title: 'Finance & Costs', description: 'Provider-reported costs, unknown-cost coverage, and verified provider billing.' },
   incidents: { title: 'Incidents & Alerts', description: 'Operational issues and alert delivery, with clear status and ownership.' },
   reports: { title: 'Reports & Exports', description: 'Date-scoped reports from verified data sources.' },
   settings: { title: 'Settings', description: 'Owner-console preferences and access status. Allowlist values stay in Vercel.' }
@@ -188,7 +196,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '' }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -371,6 +379,9 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const bootstrapPath = pathname === '/v1/owner/session';
     const reservedOwnerApi = pathname === '/v1/owner' || pathname.startsWith('/v1/owner/');
     const incidentCollectionPath = pathname === '/owner/api/incidents';
+    const communityCollectionPath = pathname === '/owner/api/community-learning';
+    const communityAction = /^\/owner\/api\/community-learning\/([0-9a-f-]{36})\/(approve|reject)$/.exec(pathname);
+    const communityWrite = req.method === 'POST' && Boolean(communityAction);
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
@@ -393,8 +404,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
 
     if (bootstrapPath) {
       const trustedOrigin = trustedBootstrapOrigin(req, res, config);
+      const bootstrapReject = (reason) => {
+        // Never log access tokens, email addresses, cookies, or raw client IPs.
+        logger?.warn?.('owner session bootstrap rejected', { reason, method: req.method, host: String(req.headers.host || '').split(',')[0].trim().toLowerCase() });
+        jsonError(res, req.method === 'HEAD');
+      };
       if (req.method === 'OPTIONS') {
-        if (!trustedOrigin) { jsonError(res); return true; }
+        if (!trustedOrigin) { bootstrapReject('origin_or_host'); return true; }
         res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
         res.setHeader('Access-Control-Max-Age', '600');
@@ -402,15 +418,16 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         res.end();
         return true;
       }
-      if (req.method !== 'POST' || !trustedOrigin) { jsonError(res, req.method === 'HEAD'); return true; }
+      if (req.method !== 'POST' || !trustedOrigin) { bootstrapReject('origin_or_method'); return true; }
       const allowlist = allowedRequest(req, config, clientIp);
-      if (!allowlist || !(await rateAllowed(req))) { jsonError(res); return true; }
+      if (!allowlist) { bootstrapReject('allowlist_or_client_ip'); return true; }
+      if (!(await rateAllowed(req))) { bootstrapReject('rate_limit'); return true; }
       const token = bearer(req);
-      if (!token || typeof verifyUser !== 'function') { jsonError(res); return true; }
+      if (!token || typeof verifyUser !== 'function') { bootstrapReject('missing_token_or_verifier'); return true; }
       let user;
-      try { user = await verifyUser(token); } catch { jsonError(res); return true; }
-      if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { jsonError(res); return true; }
-      if (!(await recordAudit('session_issued', user.id, req))) { jsonError(res); return true; }
+      try { user = await verifyUser(token); } catch { bootstrapReject('token_verification'); return true; }
+      if (!user?.id || !user?.email || !allowlist.emails.includes(String(user.email).trim().toLowerCase())) { bootstrapReject('email_allowlist'); return true; }
+      if (!(await recordAudit('session_issued', user.id, req))) { bootstrapReject('audit_write'); return true; }
       const issued = Math.floor(now() / 1000);
       const value = sign({ sub: user.id, email: String(user.email).trim().toLowerCase(), iat: issued, exp: issued + SESSION_SECONDS, jti: randomUUID() }, allowlist.sessionSecret);
       const secure = config?.isProduction === true || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
@@ -420,7 +437,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -493,6 +510,65 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
+    if (communityCollectionPath && (req.method === 'GET' || req.method === 'HEAD')) {
+      const url = new URL(req.url, 'http://local');
+      const status = url.searchParams.get('status') || 'pending_review';
+      if (!['pending_review', 'approved', 'rejected'].includes(status)) {
+        sendJson(res, 400, { error: { code: 'invalid_status', message: 'Choose pending_review, approved, or rejected.' } });
+        return true;
+      }
+      try {
+        const tenantId = '00000000-0000-0000-0000-000000000001';
+        const rows = await store.request('GET', 'improvement_examples?select=id,subject_type,example_text,status,created_at,expires_at,reviewed_at,reviewer_id&tenant_id=eq.' + tenantId +
+          '&status=eq.' + status + '&expires_at=gt.' + encodeURIComponent(new Date(now()).toISOString()) +
+          '&order=created_at.desc&limit=50');
+        sendJson(res, 200, { status, examples: Array.isArray(rows) ? rows : [] });
+      } catch {
+        logger?.warn?.('owner community learning list unavailable', { source: 'improvement_examples' });
+        sendJson(res, 503, { error: { code: 'learning_source_unavailable', message: 'Community learning review storage is unavailable.' } });
+      }
+      return true;
+    }
+    if (communityWrite) {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') { sendNotFound(res); return true; }
+      if (typeof store?.request !== 'function') { sendJson(res, 503, { error: { code: 'learning_source_unavailable', message: 'Community learning review storage is unavailable.' } }); return true; }
+      let body;
+      try { body = await readOwnerJson(req, 4096); } catch { sendJson(res, 400, { error: { code: 'invalid_request', message: 'A valid JSON request is required.' } }); return true; }
+      const decision = communityAction[2] === 'approve' ? 'approved' : 'rejected';
+      const reason = typeof body.reason_code === 'string' ? body.reason_code : (decision === 'approved' ? 'meets_quality_bar' : 'other');
+      const validReasons = ['meets_quality_bar', 'unclear', 'sensitive_content', 'possible_identifier', 'duplicate', 'out_of_scope', 'other'];
+      if (!validReasons.includes(reason)) { sendJson(res, 400, { error: { code: 'invalid_reason', message: 'Choose a valid review reason.' } }); return true; }
+      if (body.confirm !== (decision === 'approved' ? 'APPROVE' : 'REJECT')) { sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Explicit confirmation is required.' } }); return true; }
+      let ip = '';
+      try { ip = normalizeIp(clientIp(req)); } catch {}
+      if (!ip) { sendNotFound(res); return true; }
+      const ipHash = createHash('sha256').update(ip).digest('hex');
+      try {
+        await store.request('POST', 'rpc/review_improvement_example', { body: {
+          p_tenant_id: '00000000-0000-0000-0000-000000000001',
+          p_example_id: communityAction[1], p_reviewer_id: session.sub,
+          p_decision: decision, p_reason_code: reason
+        } });
+        if (!(await recordAudit('community_learning_' + decision, session.sub, req))) {
+          logger?.warn?.('community learning review audit unavailable after decision', { decision });
+        }
+        sendJson(res, 200, { id: communityAction[1], status: decision });
+      } catch {
+        logger?.warn?.('owner community learning decision failed', { decision });
+        sendJson(res, 409, { error: { code: 'review_transition_failed', message: 'The example may be expired, already reviewed, or no longer eligible. Refresh the queue and try again.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/community-learning/history' && (req.method === 'GET' || req.method === 'HEAD')) {
+      try {
+        const rows = await store.request('GET', 'improvement_example_review_events?select=id,example_id,reviewer_id,decision,reason_code,created_at&tenant_id=eq.00000000-0000-0000-0000-000000000001&order=created_at.desc&limit=50');
+        sendJson(res, 200, { events: Array.isArray(rows) ? rows : [] });
+      } catch {
+        logger?.warn?.('owner community learning history unavailable', { source: 'improvement_example_review_events' });
+        sendJson(res, 503, { error: { code: 'learning_history_unavailable', message: 'Review history is unavailable.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner' || pathname === '/owner/') {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -559,6 +635,302 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       });
       return true;
     }
+    if (pathname === '/owner/api/openrouter-logs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs are not connected to the owner data store.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '24h';
+      const windows = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 };
+      if (!Object.hasOwn(windows, windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 24h, 7d, 30d, or 90d.' } });
+        return true;
+      }
+      const cutoff = new Date(now() - windows[windowName] * 86400000).toISOString();
+      const status = url.searchParams.get('status') || '';
+      if (status && !['success', 'error'].includes(status)) {
+        sendJson(res, 400, { error: { code: 'invalid_status', message: 'Choose success or error.' } });
+        return true;
+      }
+      const model = String(url.searchParams.get('model') || '').trim().slice(0, 120);
+      if (model && !/^[a-zA-Z0-9:._/@ -]+$/.test(model)) {
+        sendJson(res, 400, { error: { code: 'invalid_model_filter', message: 'The model filter contains unsupported characters.' } });
+        return true;
+      }
+      const endpoint = String(url.searchParams.get('endpoint') || '').trim().slice(0, 120);
+      if (endpoint && !/^\/[a-zA-Z0-9/_-]+$/.test(endpoint)) {
+        sendJson(res, 400, { error: { code: 'invalid_endpoint_filter', message: 'The endpoint filter is invalid.' } });
+        return true;
+      }
+      const requestedLimit = Number(url.searchParams.get('limit') || 100);
+      const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 100;
+      const requestedOffset = Number(url.searchParams.get('offset') || 0);
+      const offset = Number.isSafeInteger(requestedOffset) ? Math.max(0, Math.min(requestedOffset, 10000)) : 0;
+      const filters = [
+        'select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,request_summary,response_summary,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source,provider_cost_reconciled_at',
+        'created_at=gte.' + encodeURIComponent(cutoff)
+      ];
+      if (status) filters.push('status=eq.' + encodeURIComponent(status));
+      if (model) filters.push('or=(' + ['model','requested_model'].map((field) => field + '.ilike.*' + encodeURIComponent(model) + '*').join(',') + ')');
+      if (endpoint) filters.push('endpoint=eq.' + encodeURIComponent(endpoint));
+      filters.push('order=created_at.desc', 'limit=' + limit, 'offset=' + offset);
+      try {
+        const rows = await store.request('GET', 'openrouter_logs?' + filters.join('&'));
+        if (!Array.isArray(rows)) throw new Error('invalid log rows');
+        sendJson(res, 200, {
+          source: 'supabase.openrouter_logs',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          limit,
+          offset,
+          count: rows.length,
+          has_more: rows.length === limit,
+          rows: rows.map((row) => ({
+            id: row.id,
+            request_id: row.request_id,
+            created_at: row.created_at,
+            provider: row.provider || 'openrouter',
+            upstream_provider: row.upstream_provider,
+            finish_reason: row.finish_reason,
+            generation_time_seconds: row.generation_time_seconds,
+            upstream_inference_time_seconds: row.upstream_inference_time_seconds,
+            endpoint: row.endpoint,
+            http_method: row.http_method,
+            requested_model: row.requested_model,
+            model: row.model,
+            prompt_tokens: row.prompt_tokens,
+            cached_tokens: row.cached_tokens,
+            completion_tokens: row.completion_tokens,
+            total_tokens: row.total_tokens,
+            total_cost_usd: row.total_cost_usd,
+            response_summary: row.response_summary && typeof row.response_summary === 'object' ? row.response_summary : {},
+            status: row.status,
+            http_status: row.http_status,
+            error_code: row.error_code,
+            latency_ms: row.latency_ms,
+            provider_request_id: row.provider_request_id,
+            openrouter_generation_id: row.openrouter_generation_id,
+            provider_cost_source: row.provider_cost_source,
+            provider_cost_reconciled_at: row.provider_cost_reconciled_at
+          }))
+        });
+      } catch {
+        logger?.warn?.('OpenRouter request logs unavailable', { source: 'openrouter_logs' });
+        sendJson(res, 503, { error: { code: 'openrouter_logs_unavailable', message: 'OpenRouter request logs could not be loaded. Confirm migrations 063 and 064 are applied and server-side database access is configured.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/openrouter-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (!openrouterManagementKey || typeof fetchImpl !== 'function') {
+        sendJson(res, 503, { error: { code: 'openrouter_billing_not_configured', message: 'OpenRouter billing analytics is not configured on the server.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      if (!['7d', '30d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d or 30d.' } });
+        return true;
+      }
+      const at = now();
+      const days = windowName === '7d' ? 7 : 30;
+      const timeRange = {
+        start: new Date(at - days * 24 * 60 * 60 * 1000).toISOString(),
+        end: new Date(at).toISOString()
+      };
+      const headers = { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json', 'Content-Type': 'application/json' };
+      try {
+        // The legacy /activity endpoint is no longer the reliable source for
+        // current analytics. Discover metric identifiers first, then issue a
+        // bounded query against OpenRouter's supported Analytics API.
+        let availableMetrics = [];
+        try {
+          const metaResponse = await fetchImpl('https://openrouter.ai/api/v1/analytics/meta', {
+            method: 'GET', headers, signal: AbortSignal.timeout(8000), redirect: 'error'
+          });
+          if (metaResponse.ok) {
+            const meta = await metaResponse.json();
+            const metrics = meta?.data?.metrics ?? meta?.metrics ?? meta?.data;
+            if (Array.isArray(metrics)) availableMetrics = metrics.map((item) => typeof item === 'string' ? item : item?.name ?? item?.id).filter((item) => typeof item === 'string');
+            else if (metrics && typeof metrics === 'object') availableMetrics = Object.keys(metrics);
+          }
+        } catch { /* The documented baseline metrics below remain usable. */ }
+        const metricCandidates = [
+          ['total_usage', ['total_usage', 'usage', 'spend']],
+          ['requests', ['requests', 'request_count', 'requests_count']],
+          ['tokens_prompt', ['tokens_prompt', 'prompt_tokens']],
+          ['tokens_completion', ['tokens_completion', 'completion_tokens']],
+          ['tokens_total', ['tokens_total', 'total_tokens']]
+        ];
+        const metrics = availableMetrics.length
+          ? metricCandidates.map(([, aliases]) => aliases.find((name) => availableMetrics.includes(name))).filter(Boolean)
+          : ['total_usage', 'tokens_total'];
+        if (!metrics.includes('total_usage')) throw new Error('analytics schema does not expose total_usage');
+        const analyticsResponse = await fetchImpl('https://openrouter.ai/api/v1/analytics/query', {
+          method: 'POST', headers, signal: AbortSignal.timeout(10000), redirect: 'error',
+          body: JSON.stringify({ metrics, dimensions: ['model'], granularity: 'day', time_range: timeRange, limit: 100 })
+        });
+        if (!analyticsResponse.ok) throw new Error('analytics query failed');
+        const analyticsPayload = await analyticsResponse.json();
+        const rawRows = analyticsPayload?.data?.data ?? analyticsPayload?.data?.rows ?? analyticsPayload?.rows ?? analyticsPayload?.data;
+        if (!Array.isArray(rawRows)) throw new Error('invalid analytics payload');
+        const readMetric = (row, aliases) => {
+          const bag = row?.metrics ?? row?.values ?? row;
+          for (const name of aliases) {
+            const value = bag?.[name] ?? row?.[name];
+            if (value !== null && value !== undefined && value !== '') {
+              const number = Number(value);
+              if (Number.isFinite(number) && number >= 0) return number;
+            }
+          }
+          return null;
+        };
+        const byModel = new Map();
+        for (const row of rawRows) {
+          const dimensions = row?.dimensions ?? row?.group ?? row;
+          const model = String(dimensions?.model ?? row?.model ?? 'unknown').slice(0, 160);
+          const current = byModel.get(model) || { model, requests: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, total_cost_usd: 0, cost_rows: 0 };
+          const cost = readMetric(row, ['total_usage', 'usage', 'spend']);
+          const requests = readMetric(row, ['requests', 'request_count', 'requests_count']);
+          const prompt = readMetric(row, ['tokens_prompt', 'prompt_tokens']);
+          const completion = readMetric(row, ['tokens_completion', 'completion_tokens']);
+          const total = readMetric(row, ['tokens_total', 'total_tokens']);
+          if (requests !== null) current.requests += requests;
+          if (prompt !== null) current.prompt_tokens += prompt;
+          if (completion !== null) current.completion_tokens += completion;
+          if (total !== null) current.total_tokens += total;
+          if (cost !== null) { current.total_cost_usd += cost; current.cost_rows += 1; }
+          byModel.set(model, current);
+        }
+        const credits = { total_credits: null, total_usage: null, remaining_credits: null };
+        // Credits are a separate API and use an inference key, not the
+        // management key. Failure here must not hide valid Analytics results.
+        if (openrouterManagementKey) {
+          try {
+            const creditsResponse = await fetchImpl('https://openrouter.ai/api/v1/credits', {
+              method: 'GET',
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
+              signal: AbortSignal.timeout(8000), redirect: 'error'
+            });
+            if (creditsResponse.ok) {
+              const payload = await creditsResponse.json();
+              const value = payload?.data ?? payload;
+              const totalCredits = Number(value?.total_credits);
+              const totalUsage = Number(value?.total_usage);
+              credits.total_credits = Number.isFinite(totalCredits) ? totalCredits : null;
+              credits.total_usage = Number.isFinite(totalUsage) ? totalUsage : null;
+              credits.remaining_credits = Number.isFinite(totalCredits) && Number.isFinite(totalUsage) ? totalCredits - totalUsage : null;
+            }
+          } catch { /* Balance metadata is optional; analytics remains authoritative for reported spend. */ }
+        }
+        const rows = [...byModel.values()].sort((a, b) => b.total_cost_usd - a.total_cost_usd).slice(0, 100);
+        const totalOf = (key) => rows.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+        sendJson(res, 200, {
+          source: 'openrouter_analytics_api',
+          generated_at: new Date(at).toISOString(),
+          window: windowName,
+          window_days: days,
+          activity_rows: rawRows.length,
+          totals: {
+            requests: metrics.some((name) => ['requests','request_count','requests_count'].includes(name)) ? totalOf('requests') : null,
+            prompt_tokens: metrics.some((name) => ['tokens_prompt','prompt_tokens'].includes(name)) ? totalOf('prompt_tokens') : null,
+            completion_tokens: metrics.some((name) => ['tokens_completion','completion_tokens'].includes(name)) ? totalOf('completion_tokens') : null,
+            total_tokens: metrics.some((name) => ['tokens_total','total_tokens'].includes(name)) ? totalOf('total_tokens') : null,
+            provider_reported_cost_usd: rows.some((row) => row.cost_rows > 0) ? totalOf('total_cost_usd') : null,
+            cost_source: 'OpenRouter Analytics API; totals are provider-reported, not estimated'
+          },
+          credits,
+          by_model: rows,
+          reconciliation: {
+            status: 'not_reconciled',
+            note: 'OpenRouter account analytics is shown independently. Do not add it to Supabase request costs; reconcile by generation ID before calculating combined spend.'
+          }
+        });
+      } catch {
+        logger?.warn?.('OpenRouter billing analytics unavailable', { source: 'openrouter_analytics_api' });
+        sendJson(res, 503, { error: { code: 'openrouter_billing_unavailable', message: 'OpenRouter analytics could not be retrieved. Check the management key, analytics access, and provider availability.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
+      if (!openrouterManagementKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
+        return true;
+      }
+      try {
+        const body = await readOwnerJson(req, 2048);
+        if (body.confirm !== 'RECONCILE') {
+          sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Explicit reconciliation confirmation is required.' } });
+          return true;
+        }
+        const windowName = body.window === '7d' ? '7d' : '30d';
+        const days = windowName === '7d' ? 7 : 30;
+        const cutoff = new Date(now() - days * 86400000).toISOString();
+        const rows = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,created_at,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd&provider_request_id=not.is.null&total_cost_usd=is.null&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=100');
+        if (!Array.isArray(rows)) throw new Error('invalid telemetry rows');
+        let matched = 0, updated = 0, unavailable = 0, failed = 0;
+        for (const row of rows) {
+          const generationId = typeof row.provider_request_id === 'string' ? row.provider_request_id.trim() : '';
+          if (!generationId || generationId.length > 200) { unavailable++; continue; }
+          try {
+            const response = await fetchImpl('https://openrouter.ai/api/v1/generation?id=' + encodeURIComponent(generationId), {
+              method: 'GET',
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
+              signal: AbortSignal.timeout(8000),
+              redirect: 'error'
+            });
+            if (!response.ok) { unavailable++; continue; }
+            const payload = await response.json();
+            const generation = payload?.data;
+            const costValue = generation?.total_cost ?? generation?.usage;
+            const cost = costValue === null || costValue === undefined || costValue === '' ? NaN : Number(costValue);
+            if (!generation || !Number.isFinite(cost) || cost < 0) { unavailable++; continue; }
+            const providerModel = typeof generation.model === 'string' ? generation.model.slice(0, 180) : row.model;
+            const promptTokens = Number(generation.tokens_prompt ?? generation.prompt_tokens);
+            const completionTokens = Number(generation.tokens_completion ?? generation.completion_tokens);
+            const totalTokens = Number(generation.tokens ?? generation.total_tokens);
+            const patch = {
+              total_cost_usd: cost,
+              model: providerModel || null,
+              upstream_provider: typeof generation.provider_name === 'string' ? generation.provider_name.slice(0, 160) : null,
+              finish_reason: typeof generation.finish_reason === 'string' ? generation.finish_reason.slice(0, 120) : null,
+              generation_time_seconds: Number.isFinite(Number(generation.generation_time)) && Number(generation.generation_time) >= 0 ? Number(generation.generation_time) : null,
+              upstream_inference_time_seconds: Number.isFinite(Number(generation.upstream_inference_time)) && Number(generation.upstream_inference_time) >= 0 ? Number(generation.upstream_inference_time) : null,
+              openrouter_generation_id: generationId,
+              provider_cost_source: 'openrouter_generation_api',
+              provider_cost_reconciled_at: new Date(now()).toISOString()
+            };
+            if (Number.isSafeInteger(promptTokens) && promptTokens >= 0) patch.prompt_tokens = promptTokens;
+            if (Number.isSafeInteger(completionTokens) && completionTokens >= 0) patch.completion_tokens = completionTokens;
+            if (Number.isSafeInteger(totalTokens) && totalTokens >= 0) patch.total_tokens = totalTokens;
+            const result = await store.request('PATCH', 'openrouter_logs?id=eq.' + encodeURIComponent(row.id) + '&total_cost_usd=is.null', { body: patch, headers: { Prefer: 'return=representation' } });
+            if (Array.isArray(result) && result.length) updated++;
+            else unavailable++;
+            matched++;
+          } catch {
+            failed++;
+          }
+        }
+        const summary = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,total_cost_usd,created_at&created_at=gte.' + encodeURIComponent(cutoff) + '&limit=1000');
+        const all = Array.isArray(summary) ? summary : [];
+        const reconciled = all.filter((row) => row.provider_request_id && row.total_cost_usd !== null && row.total_cost_usd !== undefined).length;
+        sendJson(res, 200, {
+          source: 'openrouter_generation_api',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          attempted: rows.length,
+          matched,
+          updated,
+          unavailable,
+          failed,
+          reconciliation: { status: failed || unavailable ? 'partial' : 'complete_for_attempted_rows', rows_with_provider_ids_and_costs: reconciled, note: 'Only request rows with provider generation IDs are eligible. Provider totals are not added to other usage tables.' }
+        });
+      } catch {
+        logger?.warn?.('OpenRouter billing reconciliation failed', { source: 'openrouter_generation_api' });
+        sendJson(res, 503, { error: { code: 'reconciliation_failed', message: 'Reconciliation could not complete. Check database access and provider availability.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner/api/export' && req.method === 'GET') {
       const url = new URL(req.url, 'http://local');
       const windowName = url.searchParams.get('window') || '24h';
@@ -576,19 +948,19 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         sendJson(res, 503, { error: { code: 'audit_unavailable', message: 'The export audit service is unavailable. Please try again later.' } });
         return true;
       }
-      const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','estimated_cost_usd','cost_estimate_rows'];
+      const columns = ['record_type','window','generated_at','window_start','window_end','provider','model','requests','successes','failures','input_tokens','output_tokens','total_tokens','active_user_ids','active_guest_ids','latency_p50_ms','latency_p95_ms','provider_reported_cost_usd','cost_known_rows','cost_unknown_rows'];
       const rows = [columns, [
         'summary', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end, '',
         '', summary.request_count, summary.success_count, summary.failure_count, summary.input_tokens,
         summary.output_tokens, summary.total_tokens, summary.active_user_ids, summary.active_guest_ids,
-        summary.latency_p50_ms, summary.latency_p95_ms, summary.estimated_cost_usd, summary.cost_estimate_rows
+        summary.latency_p50_ms, summary.latency_p95_ms, summary.provider_reported_cost_usd, summary.cost_known_rows, summary.cost_unknown_rows
       ]];
       for (const item of Array.isArray(summary.providers) ? summary.providers : []) {
         rows.push([
           'provider', windowName, new Date(at).toISOString(), summary.window_start, summary.window_end,
           item.provider, item.model, item.requests, item.successes, null, item.input_tokens,
           item.output_tokens, Number(item.input_tokens || 0) + Number(item.output_tokens || 0),
-          null, null, null, null, item.estimated_cost_usd, null
+          null, null, null, null, item.provider_reported_cost_usd, item.cost_known_rows, item.cost_unknown_rows
         ]);
       }
       const csv = rows.map((row) => row.map((value) => {

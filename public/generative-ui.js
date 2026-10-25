@@ -125,10 +125,90 @@
     typeSelect.addEventListener('change',()=>{type=typeSelect.value;draw();});presSelect.addEventListener('change',()=>{presentation=presSelect.value;draw();});draw();return card;
   }
 
+
+  // Embedded Google Maps card. URLs are built from bounded plain-text fields;
+  // model-supplied URLs are never loaded in an iframe.
+  function renderMap(payload) {
+    const title = text(payload.title, 100) || 'Map';
+    const origin = text(payload.origin, 180);
+    const destination = text(payload.destination, 180);
+    const query = text(payload.query, 240);
+    const modes = ['driving', 'walking', 'bicycling', 'transit', 'two-wheeler'];
+    const mode = modes.includes(payload.mode) ? payload.mode : 'driving';
+    if ((!origin || !destination) && !query && !destination) return null;
+
+    const card = el('section', 'genui-card genui-map-card genui-enter');
+    card.setAttribute('aria-label', title);
+    const header = el('header', 'genui-header');
+    header.append(el('h3', 'genui-title', title));
+    const summary = origin && destination ? origin + ' → ' + destination : (destination || query);
+    header.append(el('p', 'genui-subtitle', summary));
+    card.append(header);
+
+    const frameWrap = el('div', 'genui-map-frame-wrap');
+    const frame = el('iframe', 'genui-map-frame');
+    frame.title = title + ' — Google Maps';
+    frame.loading = 'lazy';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allowFullscreen = true;
+    frame.setAttribute('allowfullscreen', '');
+    frame.setAttribute('loading', 'lazy');
+    frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    frame.setAttribute('title', title + ' — Google Maps');
+    const params = new URLSearchParams();
+    params.set('output', 'embed');
+    if (origin && destination) {
+      params.set('saddr', origin);
+      params.set('daddr', destination);
+    } else {
+      params.set('q', destination || query);
+    }
+    frame.src = 'https://maps.google.com/maps?' + params.toString();
+    frame.setAttribute('src', frame.src);
+    frameWrap.append(frame);
+    card.append(frameWrap);
+
+    const actions = el('div', 'genui-map-actions');
+    const open = el('a', 'genui-map-open', 'Open in Google Maps');
+    open.href = origin && destination
+      ? 'https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(origin) + '&destination=' + encodeURIComponent(destination) + '&travelmode=' + encodeURIComponent(mode === 'two-wheeler' ? 'two-wheeler' : mode)
+      : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(destination || query);
+    open.target = '_blank';
+    open.rel = 'noopener noreferrer';
+    open.setAttribute('aria-label', 'Open ' + title + ' in Google Maps');
+    actions.append(open);
+    card.append(actions);
+    return card;
+  }
+
+  function renderSearch(payload) {
+    const query = text(payload.query, 240);
+    if (!query) return null;
+    const card = el('section', 'genui-card genui-search-card');
+    card.setAttribute('aria-label', 'Web search request');
+    card.classList.add('genui-enter');
+    const header = el('header', 'genui-header');
+    header.append(el('span', 'genui-search-icon', '⌕'));
+    header.append(el('h3', 'genui-title', 'Web search'));
+    card.append(header);
+    card.append(el('p', 'genui-search-query', query));
+    const days = Number(payload.recency_days);
+    if (Number.isFinite(days) && days >= 0) {
+      const label = days <= 1 ? 'Past 24 hours' : days <= 7 ? 'Past 7 days' : 'Recent results';
+      card.append(el('p', 'genui-subtitle', label));
+    }
+    // This widget presents a safe, readable representation of a search request.
+    // Search execution and source citations remain the responsibility of the
+    // server's web-search tool; this card never fabricates results or links.
+    return card;
+  }
+
   function render(payload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
     if (payload.type === 'mermaid') return renderMermaid(payload);
     if (payload.type === 'chart') return renderChart(payload);
+    if (payload.type === 'search') return renderSearch(payload);
+    if (payload.type === 'map') return renderMap(payload);
     if (payload.type !== 'architecture' && payload.type !== 'metrics') return null;
     const card = el('section', 'genui-card');
     card.setAttribute('aria-label', text(payload.title, 100) || 'Interactive visualization');
@@ -253,13 +333,16 @@
     }
     // Last-resort extraction for model JSON that is almost valid. Keep this
     // constrained to known text fields; never evaluate model-supplied code.
-    const typeMatch = candidate.match(/"type"\s*:\s*"(mermaid|architecture|metrics)"/i);
+    const typeMatch = candidate.match(/"type"\s*:\s*"(mermaid|architecture|metrics|map)"/i);
     if (typeMatch) {
       const field = (name) => {
         const match = candidate.match(new RegExp('"' + name + '"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"', 'i'));
         if (!match) return '';
         try { return JSON.parse('"' + match[1] + '"'); } catch { return match[1].replace(/\\\\"/g, '"').replace(/\\\\n/g, '\n').replace(/\\\\\\\\/g, '\\'); }
       };
+      if (typeMatch[1].toLowerCase() === 'map') {
+        return { type: 'map', title: field('title'), origin: field('origin'), destination: field('destination'), query: field('query'), mode: field('mode') };
+      }
       if (typeMatch[1].toLowerCase() === 'mermaid') {
         const source = field('source');
         if (source) return { type: 'mermaid', title: field('title'), description: field('description'), source };
@@ -273,7 +356,7 @@
     const original = window.NasrinFormat.render;
     window.NasrinFormat.render = function (source) {
       const raw = String(source ?? '').replace(/\\n[ \\t]*\\n/g, '\n\n');
-      const pattern = /\[\[ui\]\]([\s\S]{1,12000}?)\[\[\/ui\]\]/gi;
+      const pattern = /\[\[\s*ui\s*\]\]\s*([\s\S]{1,12000}?)\s*\[\[\s*\/ui\s*\]\]/gi;
       const matches = [...raw.matchAll(pattern)].slice(0, 3);
       if (!matches.length) return original(raw);
       const fragment = document.createDocumentFragment();
@@ -293,7 +376,13 @@
           fragment.appendChild(widget);
           blocks.push(widget);
         } else {
-          addText(match[0]);
+          // Never leak a failed/unsupported structured payload as raw protocol
+          // text into the conversation. Show a small safe fallback instead.
+          const fallback = el('section', 'genui-card genui-unavailable');
+          fallback.setAttribute('role', 'status');
+          fallback.append(el('p', 'genui-search-query', 'This interactive response could not be displayed. Please try again.'));
+          fragment.appendChild(fallback);
+          blocks.push(fallback);
         }
         cursor = match.index + match[0].length;
       }

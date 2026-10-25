@@ -52,9 +52,9 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
     const messages = external && config.ai.redactExternal
       ? req.messages.map((m) => (m.role === 'tool' ? m : { ...m, content: redactForProvider(m.content || '') }))
       : req.messages;
-    const { spendHooks, spendTier, ...providerReq } = req;
-    // The spend reservation is made for each actual provider attempt, including
-    // failover. Private callbacks never cross the provider boundary.
+    const { spendHooks, spendTier, disableFallback, ...providerReq } = req;
+    // Billing metadata is attached to each actual provider attempt, including
+    // failover. No estimated USD reservation is made; private callbacks never cross the provider boundary.
     let spendReservation = null;
     try {
       spendReservation = spendHooks
@@ -85,6 +85,7 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
   // fails in a way another provider could answer. Every real call is added to `attempts`.
   async function generateOnce(req, attempts) {
     const spec = req.route || defaultSpec;
+    const disableFallback = req.disableFallback === true;
     const key = providers[spec.provider] ? spec.provider : keys[0];
     const attachments = req.attachments || [];
 
@@ -92,7 +93,7 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
     // If an operator overrides a level to one provider only, use that
     // provider's registered default model rather than disabling resilience.
     const fallbackSpecs = [];
-    for (const provider of fallback.providers || []) {
+    for (const provider of (disableFallback ? [] : fallback.providers || [])) {
       if (provider === key || !providers[provider]) continue;
       const levels = config.ai.routing?.levels || {};
       const sameLevel = Object.values(levels)
@@ -105,6 +106,7 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
     }
 
     const useFallback = async (reason, failedKey = key) => {
+      if (disableFallback) return null;
       let lastRetryableError = null;
       const skipped = new Set([failedKey]);
       // Walk the entire fallback pool. A provider may be configured but have
@@ -183,6 +185,14 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
         }
       }
       return out;
+    },
+    // Optional provider-specific live catalog used to discover eligible fallback
+    // candidates. The policy layer handles discovery failures without blocking
+    // configured static routes.
+    async listModelsForTask(providerName, requirements = {}) {
+      const target = providers[providerName];
+      if (!target || typeof target.listModelsForTask !== 'function') return [];
+      return target.listModelsForTask(requirements);
     },
 
     // True when something can answer: a GPT provider is configured, or the

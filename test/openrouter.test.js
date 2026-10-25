@@ -7,7 +7,61 @@ function response(body, status = 200, type = 'application/json') {
 }
 const model = (id, modality = 'text', pricing = { prompt: '0.000001', completion: '0.000002' }) => ({
   id, name: id, architecture: { output_modalities: [modality], input_modalities: ['text'] }, pricing,
-  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
+  ...(modality === 'video' ? { supported_durations: [4, 6, 8], supported_resolutions: ['720p'], supported_frame_rates: [30, 60], supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: [{ unit: 'second', cost_usd: 0.12 }] } : {})
+});
+
+
+test('live routing discovery filters OpenRouter models by text, vision, and tool capabilities', async () => {
+  const catalog = [
+    { ...model('provider/text-only'), supported_parameters: ['max_tokens'] },
+    { ...model('provider/vision-text'), architecture: { output_modalities: ['text'], input_modalities: ['text', 'image'] }, supported_parameters: ['tools'] },
+    { ...model('provider/image-output', 'image'), supported_parameters: ['tools'] },
+    { ...model('provider/tool-text'), supported_parameters: ['tools'] }
+  ];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', client });
+  assert.deepEqual(await provider.listModelsForTask({ task: 'chat' }), [
+    'provider/text-only', 'provider/vision-text', 'provider/tool-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'vision', attachments: [{ kind: 'image' }] }), [
+    'provider/vision-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'chat', requiresTools: true }), [
+    'provider/vision-text', 'provider/tool-text'
+  ]);
+  assert.deepEqual(await provider.listModelsForTask({ task: 'decisions' }), []);
+});
+
+test('vision route converts validated image attachments into OpenAI-compatible multimodal content', async () => {
+  let captured;
+  const client = createOpenRouterClient({
+    apiKey: 'test-key',
+    fetchImpl: async (url, init) => {
+      if (String(url).endsWith('/models?output_modalities=all')) {
+        return response({ data: [{ ...model('deepseek/deepseek-v4-flash-vision-exp'), architecture: { output_modalities: ['text'], input_modalities: ['text', 'image'] } }] });
+      }
+      captured = JSON.parse(init.body);
+      return response({ id: 'chatcmpl-test', model: 'deepseek/deepseek-v4-flash-vision-exp', choices: [{ message: { content: 'A screenshot of a dashboard.' }, finish_reason: 'stop' }], usage: {} });
+    }
+  });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'deepseek/deepseek-v4-flash-vision-exp', client });
+  const result = await provider.generate({
+    task: 'vision',
+    model: 'deepseek/deepseek-v4-flash-vision-exp',
+    messages: [{ role: 'user', content: 'Describe this screenshot.' }],
+    attachments: ['https://example.com/screenshot.png']
+  });
+  assert.equal(result.text, 'A screenshot of a dashboard.');
+  assert.equal(captured.messages[1].content[0].text, 'Describe this screenshot.');
+  assert.deepEqual(captured.messages[1].content[1], { type: 'image_url', image_url: { url: 'https://example.com/screenshot.png' } });
+  assert.equal(captured.provider.data_collection, 'allow');
+});
+
+test('vision route rejects unsupported attachment URLs and non-vision attachment use', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [model('deepseek/deepseek-v4-flash-vision-exp')] }) });
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'deepseek/deepseek-v4-flash-vision-exp', client });
+  await assert.rejects(provider.generate({ task: 'vision', messages: [{ role: 'user', content: 'Check this' }], attachments: ['http://unsafe.example/image.png'] }), /HTTPS image URLs/);
+  await assert.rejects(provider.generate({ task: 'chat', messages: [{ role: 'user', content: 'Check this' }], attachments: ['https://example.com/image.png'] }), /dedicated OpenRouter vision task/);
 });
 
 test('OpenRouter routes tasks to modality-specific endpoints', () => {
@@ -30,17 +84,18 @@ test('catalog selection validates actual output modality and caches catalog', as
   assert.equal(calls, 2);
 });
 
-test('video pricing is looked up from the live catalog SKU map', async () => {
+test('video route lookup uses advertised capabilities without requiring price metadata', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/video', 'video'), supported_durations: [4, 8], supported_resolutions: ['720p'],
     supported_aspect_ratios: ['16:9'], generate_audio: true, pricing_skus: { generate: { unit: 'USD/second', cost_usd: '0.09' } }
   }] }) });
-  const pricing = await client.getVideoPricing({ model: 'provider/video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
-  assert.equal(pricing.costPerSecondUsd, 0.09);
-  assert.equal(pricing.source, 'openrouter-live-catalog');
+  const route = await client.getVideoRoute({ model: 'provider/video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
+  assert.equal(route.model, 'provider/video');
+  assert.equal(route.source, 'openrouter-live-capability-catalog');
+  assert.equal('costPerSecondUsd' in route, false);
 });
 
-test('video auto-routing selects only priced compatible models per tier', async () => {
+test('video auto-routing selects compatible models regardless of published price metadata', async () => {
   const catalog = [
     { ...model('provider/cheap-video', 'video'), pricing_skus: [{ unit: 'USD/second', cost_usd: 0.03 }] },
     { ...model('provider/premium-video', 'video'), pricing_skus: [{ unit: 'USD/second', cost_usd: 0.18 }] },
@@ -49,22 +104,138 @@ test('video auto-routing selects only priced compatible models per tier', async 
   ];
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
   const common = { resolution: '720p', duration: 8, aspectRatio: '16:9', generateAudio: true };
-  const max = await client.getVideoPricing({ ...common, tier: 'max' });
-  const ultra = await client.getVideoPricing({ ...common, tier: 'ultra' });
+  const max = await client.getVideoRoute({ ...common, tier: 'max' });
+  const ultra = await client.getVideoRoute({ ...common, tier: 'ultra' });
   assert.equal(max.model, 'provider/cheap-video');
-  assert.equal(max.costPerSecondUsd, 0.03);
-  assert.equal(ultra.model, 'provider/premium-video');
-  assert.equal(ultra.costPerSecondUsd, 0.18);
+  assert.equal(ultra.model, 'provider/cheap-video');
+  assert.equal('costPerSecondUsd' in max, false);
 });
 
-test('OpenRouter default generate SKU is treated as the documented per-second video rate', async () => {
+test('video route falls back to advertised quality, FPS, aspect ratio and silent mode', async () => {
+  const catalog = [
+    {
+      id: 'provider/video-defaults',
+      supported_durations: [2, 4, 8],
+      supported_resolutions: ['480p'],
+      supported_frame_rates: [30],
+      supported_aspect_ratios: ['9:16'],
+      generate_audio: false
+    }
+  ];
+  const client = createOpenRouterClient({
+    apiKey: 'test-key',
+    fetchImpl: async (url, init) => {
+      if (String(url).endsWith('/videos/models')) return response({ data: catalog });
+      if (String(url).endsWith('/videos')) return response({ id: 'job-defaults', status: 'pending' }, 202);
+      return response({ data: [] });
+    }
+  });
+  const route = await client.getVideoRoute({
+    tier: 'pro', resolution: '720p', fps: 60, duration: 2,
+    aspectRatio: '16:9', generateAudio: true
+  });
+  assert.deepEqual(
+    { resolution: route.resolution, fps: route.fps, aspectRatio: route.aspectRatio, generateAudio: route.generateAudio, duration: route.duration },
+    { resolution: '480p', fps: 30, aspectRatio: '9:16', generateAudio: false, duration: 2 }
+  );
+  const created = await client.createVideo({
+    model: route.model, prompt: 'A kid laughing', duration: route.duration,
+    resolution: route.resolution, fps: route.fps, aspect_ratio: route.aspectRatio,
+    generate_audio: route.generateAudio
+  });
+  assert.equal(created.id, 'job-defaults');
+});
+
+test('video route rounds an unsupported duration up to the nearest advertised length', async () => {
+  const catalog = [{ id: 'provider/five-ten', supported_durations: [5, 10], supported_resolutions: ['720p'],
+    supported_frame_rates: [30], supported_aspect_ratios: ['16:9'], generate_audio: false }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const route = await client.getVideoRoute({ model: 'provider/five-ten', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 });
+  assert.equal(route.model, 'provider/five-ten');
+  assert.equal(route.duration, 5, 'a 2-second request must resolve to the model shortest clip, not fail');
+});
+
+test('video route prefers a model with the exact duration over rounding on another model', async () => {
+  const base = { supported_resolutions: ['720p'], supported_frame_rates: [30], supported_aspect_ratios: ['16:9'], generate_audio: false };
+  const catalog = [{ id: 'provider/five-ten', supported_durations: [5, 10], ...base }, { id: 'provider/two-four-eight', supported_durations: [2, 4, 8], ...base }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  const route = await client.getVideoRoute({ model: 'provider/five-ten', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 });
+  assert.equal(route.model, 'provider/two-four-eight');
+  assert.equal(route.duration, 2);
+});
+
+test('video route never picks a clip longer than the provider maximum', async () => {
+  const catalog = [{ id: 'provider/long-only', supported_durations: [10, 12], supported_resolutions: ['720p'],
+    supported_frame_rates: [30], supported_aspect_ratios: ['16:9'], generate_audio: false }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalog }) });
+  await assert.rejects(client.getVideoRoute({ model: 'provider/long-only', resolution: '720p', duration: 2, aspectRatio: '16:9', maxDuration: 8 }), /advertises the requested duration/);
+});
+
+// The live OpenRouter /videos/models catalog (checked 2026-10-24) lists no
+// supported_frame_rates for any model. A missing list must mean "provider
+// default", never "unsupported".
+const catalogWithoutFrameRates = [
+  { id: 'x-ai/grok-imagine-video-1.5-lite', supported_durations: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], supported_resolutions: ['480p', '720p', '1080p'],
+    supported_aspect_ratios: ['16:9', '9:16', '1:1'], generate_audio: null },
+  { id: 'google/veo-3.1-fast', supported_durations: [4, 6, 8], supported_resolutions: ['720p', '1080p', '4K'],
+    supported_aspect_ratios: ['16:9', '9:16'], generate_audio: true }
+];
+
+test('video route works when the catalog advertises no frame rates', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: catalogWithoutFrameRates }) });
+  const route = await client.getVideoRoute({ tier: 'ultra', resolution: '720p', fps: 30, duration: 2, aspectRatio: '16:9', generateAudio: true, maxDuration: 8 });
+  assert.equal(route.model, 'x-ai/grok-imagine-video-1.5-lite');
+  assert.equal(route.duration, 2);
+  assert.equal(route.resolution, '720p');
+  assert.equal(route.fps, null, 'no frame rate is chosen when none is advertised');
+});
+
+test('a video job is created without an fps field when frame rates are not advertised', async () => {
+  let posted = null;
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/videos/models')) return response({ data: catalogWithoutFrameRates });
+    if (String(url).endsWith('/videos') && init?.method === 'POST') { posted = JSON.parse(init.body); return response({ id: 'job-1', status: 'pending' }, 202); }
+    return response({ data: [] });
+  } });
+  const provider = createOpenRouterVideoProvider({ client, tier: 'ultra', maxSeconds: 8 });
+  const resolved = await provider.validateOptions({ duration: 2, aspectRatio: '16:9', requestedResolution: '720p', fps: 30, generateAudio: true });
+  assert.equal(resolved.fps, null);
+  const id = await provider.create({ prompt: 'Palawan', aspectRatio: '16:9', seconds: 2, requestedResolution: '720p', fps: resolved.fps, generateAudio: true });
+  assert.equal(id, 'job-1');
+  assert.equal(posted.model, 'x-ai/grok-imagine-video-1.5-lite');
+  assert.equal(posted.duration, 2);
+  assert.equal('fps' in posted, false, 'an unadvertised parameter must not be sent');
+  assert.equal(posted.resolution, '720p');
+});
+
+test('OpenRouter default video route works without a local or catalog price gate', async () => {
   const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ data: [{
     ...model('provider/default-video', 'video'),
     supported_durations: [4, 8], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'],
     pricing_skus: { generate: '0.07' }
   }] }) });
-  const pricing = await client.getVideoPricing({ model: 'provider/default-video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
-  assert.equal(pricing.costPerSecondUsd, 0.07);
+  const route = await client.getVideoRoute({ model: 'provider/default-video', resolution: '720p', duration: 8, aspectRatio: '16:9' });
+  assert.equal(route.model, 'provider/default-video');
+});
+
+test('retired configured image model falls back to a live compatible image model', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url) => {
+    if (String(url).endsWith('/images/models')) return response({ data: [
+      { id: 'provider/current-image-model', architecture: { output_modalities: ['image'], input_modalities: ['text'] } }
+    ] });
+    throw new Error('unexpected endpoint');
+  } });
+  const selected = await client.selectModel('image', ['provider/retired-image-model']);
+  assert.equal(selected.id, 'provider/current-image-model');
+});
+
+test('OpenRouter model-not-found errors are retryable availability failures', async () => {
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async () => response({ error: { message: 'model not found' } }, 404) });
+  await assert.rejects(client.chat({ model: 'provider/retired-model', messages: [{ role: 'user', content: 'hello' }] }), (err) => {
+    assert.equal(err.kind, 'unavailable');
+    assert.equal(err.status, 404);
+    return true;
+  });
 });
 
 test('specialized tasks fail closed when no model is verified', async () => {
@@ -88,8 +259,62 @@ test('chat requests enforce bounded token limits and privacy provider policy', a
   await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }], maxTokens: 999999, provider: { data_collection: 'allow' } });
   assert.match(sent.url, /chat\/completions$/);
   assert.equal(sent.body.max_tokens, 32768);
-  assert.equal(sent.body.provider.data_collection, 'deny');
+  assert.equal(sent.body.provider.data_collection, 'allow');
   assert.equal(sent.headers.Authorization, 'Bearer secret');
+});
+
+test('a request can tighten the data policy to deny, and a configured deny cannot be loosened', async () => {
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
+    seen.push(JSON.parse(init.body).provider.data_collection);
+    return response({ choices: [{ message: { content: 'ok' } }] });
+  };
+  const open = createOpenRouterClient({ apiKey: 'k', fetchImpl });
+  await open.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }], provider: { data_collection: 'deny' } });
+  const strict = createOpenRouterClient({ apiKey: 'k', fetchImpl, dataCollection: 'deny' });
+  await strict.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }], provider: { data_collection: 'allow' } });
+  await strict.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }] });
+  assert.deepEqual(seen, ['deny', 'deny', 'deny']);
+});
+
+test('private requests use deny through the text provider, ordinary ones use the default', async () => {
+  const seen = [];
+  const client = createOpenRouterClient({ apiKey: 'k', fetchImpl: async (url, init) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
+    seen.push(JSON.parse(init.body).provider.data_collection);
+    return response({ choices: [{ message: { content: 'ok' } }] });
+  } });
+  const provider = createOpenRouterProvider({ apiKey: 'k', model: 'provider/model', client });
+  await provider.generate({ messages: [{ role: 'user', content: 'hi' }], model: 'provider/model' });
+  await provider.generate({ messages: [{ role: 'user', content: 'hi' }], model: 'provider/model', sensitive: true });
+  assert.deepEqual(seen, ['allow', 'deny']);
+});
+
+test('a named model missing from the live catalog is unavailable, not replaced by another model', async () => {
+  let chatCalls = 0;
+  const client = createOpenRouterClient({ apiKey: 'k', fetchImpl: async (url) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/other')] });
+    chatCalls++;
+    return response({ choices: [{ message: { content: 'ok' } }] });
+  } });
+  await assert.rejects(client.chat({ model: 'provider/retired', messages: [{ role: 'user', content: 'hi' }] }), (err) => err.kind === 'unavailable');
+  assert.equal(chatCalls, 0);
+  // With no named model, the first compatible catalog model is still used.
+  assert.equal((await client.selectModel('chat')).id, 'provider/other');
+});
+
+test('a model that rejects the request with 400 or 422 fails over; a bad key does not', async () => {
+  const statusClient = (status) => createOpenRouterClient({ apiKey: 'k', fetchImpl: async (url) => {
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
+    return response({ error: { message: 'rejected' } }, status);
+  } });
+  for (const status of [400, 422]) {
+    await assert.rejects(statusClient(status).chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }] }), (err) => err.kind === 'unavailable' && err.status === status);
+  }
+  for (const status of [401, 403]) {
+    await assert.rejects(statusClient(status).chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hi' }] }), (err) => err.kind === 'config' && err.status === status);
+  }
 });
 
 test('video job IDs are encoded and bounded', async () => {
@@ -103,7 +328,10 @@ test('video job IDs are encoded and bounded', async () => {
 test('speech and transcription use dedicated endpoints and bounded input', async () => {
   const seen = [];
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
-    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/speech', 'speech'), model('provider/stt', 'transcription')] });
+    if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [
+      { ...model('provider/speech', 'speech'), architecture: { output_modalities: ['audio'], input_modalities: ['text'] } },
+      { ...model('provider/stt', 'transcription'), architecture: { output_modalities: ['text'], input_modalities: ['audio'] } }
+    ] });
     seen.push({ url: String(url), body: init.body });
     return String(url).endsWith('/audio/speech') ? response('mp3', 200, 'audio/mpeg') : response({ text: 'hello' });
   } });
@@ -149,29 +377,38 @@ test('image and video model discovery use dedicated catalogs and reject unsuppor
   await client.createVideo({ model: 'provider/video-maker', prompt: 'A calm lake', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.12 });
   assert.equal(requests[0].duration, 8);
   await assert.rejects(client.createVideo({ model: 'provider/video-maker', prompt: 'Unsupported duration', duration: 5, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.12 }), /does not advertise the requested duration/);
-  await assert.rejects(client.createVideo({ model: 'provider/video-maker', prompt: 'Underbudget', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.01 }), /below the live catalog rate/);
+  const noPriceGate = await client.createVideo({ model: 'provider/video-maker', prompt: 'Provider billed', duration: 8, resolution: '720p', aspect_ratio: '16:9', maxCostPerSecondUsd: 0.01 });
+  assert.equal(noPriceGate.id, 'job-abc123', 'legacy local cost caps are ignored');
   assert.ok(urls.some((url) => url.endsWith('/images/models')));
   assert.ok(urls.some((url) => url.endsWith('/videos/models')));
 });
 
 
-test('OpenRouter video adapter looks up live catalog pricing and pins model and duration', async () => {
+test('OpenRouter video adapter validates capabilities and pins model and duration', async () => {
   const calls = [];
   const client = {
-    getVideoPricing: async ({ model, tier, resolution }) => ({ model: model || (tier === 'ultra' ? 'provider/premium-video' : 'provider/cheap-video'), resolution, costPerSecondUsd: 0.12, source: 'openrouter-live-catalog' }),
+    getVideoRoute: async ({ model, tier, resolution }) => ({ model: model || (tier === 'ultra' ? 'provider/premium-video' : 'provider/cheap-video'), resolution, source: 'openrouter-live-capability-catalog' }),
     createVideo: async (body) => { calls.push(body); return { id: 'job_123' }; },
     videoStatus: async (id) => ({ id, status: 'completed' }),
     videoContent: async (id) => Buffer.from('video'),
   };
   const provider = createOpenRouterVideoProvider({ client, model: 'provider/video', tier: 'max', maxSeconds: 8, resolution: '720p' });
-  assert.equal(provider.costPerSecondUsd, null);
-  assert.equal(await provider.getCostPerSecondUsd(), 0.12);
+  const validated = await provider.validateOptions();
+  assert.equal(validated.model, 'provider/video');
   assert.equal(provider.maxSeconds, 8);
   assert.equal(await provider.create({ prompt: 'A lighthouse', aspectRatio: '16:9', seconds: 8 }), 'job_123');
-  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true, maxCostPerSecondUsd: 0.12 });
+  assert.deepEqual(calls[0], { model: 'provider/video', tier: 'max', prompt: 'A lighthouse', duration: 8, aspect_ratio: '16:9', resolution: '720p', fps: 30, generate_audio: true });
   await assert.rejects(provider.create({ prompt: 'Too long', aspectRatio: '16:9', seconds: 9 }), /duration exceeds/);
   await assert.rejects(provider.extend({ prompt: 'x', videoBytes: Buffer.from('x') }), /extension is not supported/);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed' }).uri, 'job_123');
+  const nestedStatusProvider = createOpenRouterVideoProvider({ client: { ...client, videoStatus: async () => ({ data: { status: 'completed' } }) }, model: 'provider/video', tier: 'max', maxSeconds: 8 });
+  const nestedStatus = await nestedStatusProvider.status('job_nested');
+  assert.equal(nestedStatus.id, 'job_nested', 'status preserves requested ID when nested payload omits it');
+  assert.equal(nestedStatusProvider.extract(nestedStatus).done, true);
+  assert.equal(nestedStatusProvider.extract(nestedStatus).uri, 'job_nested');
+  const nestedVideoProvider = createOpenRouterVideoProvider({ client: { ...client, videoStatus: async () => ({ video: { status: 'completed' } }) }, model: 'provider/video', tier: 'max', maxSeconds: 8 });
+  const nestedVideoStatus = await nestedVideoProvider.status('job_video');
+  assert.equal(nestedVideoProvider.extract(nestedVideoStatus).uri, 'job_video');
   assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 0.037 } }).actualCostUsd, 0.037);
   assert.equal(provider.extract({ id: 'job_123', status: 'completed', usage: { cost: 'unknown' } }).actualCostUsd, null);
   assert.equal((await provider.download('job_123')).toString(), 'video');
@@ -185,19 +422,19 @@ test('image catalog schema without chat architecture is accepted, but editing re
     const path = new URL(url).pathname;
     calls.push({ path, body: init.body ? JSON.parse(init.body) : null });
     if (path === '/api/v1/images/models') return response({ data: [imageModel] });
-    if (path === '/api/v1/images/models/openai/gpt-image-2/endpoints') return response({ endpoints: [{ pricing: [{ billable: 'output_image', cost_usd: 0.04, unit: 'image' }] }] });
     if (path === '/api/v1/images') return response({ data: [{ b64_json: Buffer.from('fake-image').toString('base64') }], usage: { cost: 0.04 } });
     throw new Error('unexpected endpoint');
   } });
-  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high', maxCostUsd: 0.05 });
+  const result = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'A calm blue ocean', quality: 'high' });
   assert.equal(result.data[0].b64_json, Buffer.from('fake-image').toString('base64'));
   const generated = calls.find((x) => x.path === '/api/v1/images');
   assert.equal(generated.body.quality, 'high');
-  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'], maxCostUsd: 0.05 });
+  await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Edit this', images: ['data:image/png;base64,AAAA'] });
   const edited = calls.filter((x) => x.path === '/api/v1/images').at(-1);
   assert.equal(edited.body.input_references.length, 1);
   assert.ok(!('images' in edited.body));
-  await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Underbudget', maxCostUsd: 0.01 }), /below the live catalog price/);
+  const noImagePriceGate = await client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Provider billed' });
+  assert.equal(noImagePriceGate.data[0].b64_json, Buffer.from('fake-image').toString('base64'));
   await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Unsupported quality', quality: 'xhigh', maxCostUsd: 0.05 }), /does not advertise the requested quality/);
   await assert.rejects(client.generateImage({ model: 'openai/gpt-image-2', prompt: 'Unsupported aspect ratio', aspect_ratio: '9:16', maxCostUsd: 0.05 }), /does not advertise the requested aspect_ratio/);
 });
@@ -219,15 +456,17 @@ test('OpenRouter text adapter routes classified tasks through exact capability-c
   assert.equal(seen.includeUsage, true);
   assert.equal(seen.task, 'coding');
   assert.equal(seen.model, 'vendor/model');
+  assert.equal(seen.provider.data_collection, undefined, 'ordinary requests follow the client default');
+  await provider.generate({ system: 'S', messages: [{ role: 'user', content: 'call me on 0917' }], model: 'vendor/model', task: 'coding', maxTokens: 32, sensitive: true });
   assert.equal(seen.provider.data_collection, 'deny');
-  await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments/);
+  await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'image' }], model: 'vendor/model', attachments: [{ kind: 'image', data: 'AAAA', mime: 'image/png' }] }), /does not accept attachments|dedicated OpenRouter vision task/);
   await assert.rejects(provider.generate({ system: 'S', messages: [{ role: 'user', content: 'decide' }], model: 'vendor/model', task: 'decisions' }), /dedicated decide/);
 
   let freeCall;
   const freeProvider = createOpenRouterProvider({ apiKey: 'test-key', model: 'openrouter/free', fallbackProvider: { generate: async () => { throw new Error('legacy adapter must not be called'); } }, client: { listModels: async () => [], chat: async (args) => { freeCall = args; return { choices: [{ message: { content: 'basic fallback' }, finish_reason: 'stop' }], usage: {} }; } } });
   const freeResult = await freeProvider.generate({ system: 'S', messages: [{ role: 'user', content: 'hello' }], model: 'openrouter/free', task: 'chat' });
   assert.equal(freeResult.text, 'basic fallback');
-  assert.equal(freeCall.provider.data_collection, 'deny');
+  assert.equal(freeCall.provider.data_collection, undefined);
   await assert.rejects(freeProvider.generate({ system: 'S', messages: [{ role: 'user', content: 'write code' }], model: 'openrouter/free', task: 'coding' }), /cannot guarantee task-specific capabilities/);
 });
 
@@ -247,4 +486,24 @@ test('OpenRouter TTS pins the request to the configured Google AI Studio provide
   assert.equal(requestSeen.url.endsWith('/audio/speech'), true);
   assert.equal(requestSeen.body.model, 'google/gemini-3.8-flash-lite-tts');
   assert.deepEqual(requestSeen.body.provider, { order: ['Google AI Studio'], only: ['Google AI Studio'], allow_fallbacks: false });
+});
+
+test('task catalog discovery includes specialized models without leaking them into chat fallbacks', async () => {
+  const imageModels = [
+    { id: 'provider/image-gen', supported_parameters: { aspect_ratio: { values: ['1:1'] } } },
+    { id: 'provider/not-image', architecture: { output_modalities: ['text'] }, supported_parameters: { aspect_ratio: { values: ['1:1'] } } }
+  ];
+  const videoModels = [{ id: 'provider/video-gen', supported_durations: [4], supported_resolutions: ['720p'], supported_aspect_ratios: ['16:9'] }];
+  const client = createOpenRouterClient({ apiKey: 'test-key', fetchImpl: async (url) => {
+    const href = String(url);
+    if (href.endsWith('/images/models')) return response({ data: imageModels });
+    if (href.endsWith('/videos/models')) return response({ data: videoModels });
+    return response({ data: [model('provider/chat'), model('provider/embedding', 'embeddings')] });
+  } });
+  assert.deepEqual(await client.listCapabilityModels({ task: 'image' }), ['provider/image-gen']);
+  assert.deepEqual(await client.listCapabilityModels({ task: 'video' }), ['provider/video-gen']);
+  assert.deepEqual(await client.listCapabilityModels({ task: 'embeddings' }), ['provider/embedding']);
+  assert.deepEqual(await client.listModelsForTask({ task: 'image' }), []);
+  assert.deepEqual(await client.listModelsForTask({ task: 'video' }), []);
+  assert.deepEqual(await client.listModelsForTask({ task: 'chat' }), ['provider/chat']);
 });

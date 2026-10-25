@@ -4,17 +4,19 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
+    logs: ['AI Provider Logs', 'Request-level OpenRouter telemetry, status, tokens, cost, latency, and provider response metadata.', '≋'],
+    learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
     automation: ['Automation & Jobs', 'Workflow health, queue state, retries, and execution outcomes.', '↗'],
-    finance: ['Finance & Costs', 'Internal AI cost estimates and gross recorded PayMongo payments, not net revenue.', '▤'],
+    finance: ['Finance & Costs', 'Provider-reported AI costs where available and gross recorded PayMongo payments, not net revenue.', '▤'],
     incidents: ['Incidents & Alerts', 'Derived signals and the manual incident register; automatic alerts remain pending.', '◎'],
     reports: ['Reports & Exports', 'Date-scoped aggregate reports from verified data sources.', '▥'],
     settings: ['Settings', 'Owner-console access status. Allowlist values remain in Vercel.', '⚙']
   };
   const sources = {
-    ai_usage: ['AI usage & tokens', 'Request-level usage events and cost-estimate coverage'],
+    ai_usage: ['AI usage & tokens', 'Request-level usage events and provider-reported cost coverage'],
     users: ['Users & growth', 'Auth record counts and activity signals'],
     retention: ['Usage retention cohorts', 'First-observed signed-in model-call cohorts; not signup cohorts'],
     infrastructure: ['Infrastructure & releases', 'Vercel and dependency health integrations'],
@@ -52,8 +54,8 @@
     return Number.isFinite(n) ? new Intl.NumberFormat().format(n) : 'Unavailable';
   }
   function moneyText(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? '~' + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(n) : 'Unavailable';
+    const n = value === null || value === undefined || value === '' ? NaN : Number(value);
+    return Number.isFinite(n) ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(n) : 'Unavailable';
   }
   function notice(title, copy) {
     const n = el('div', 'notice'), body = el('div');
@@ -88,7 +90,7 @@
     const successValue = !hasUsage ? 'Unavailable' : noData ? 'No data yet' : requests > 0 ? (Number(u.success_count) / requests * 100).toFixed(1) + '%' : 'No data yet';
     const activeValue = !hasUsage ? 'Unavailable' : noData ? 'No data yet' : numberText(u.active_user_ids);
     const tokenValue = !hasUsage ? 'Unavailable' : noData ? 'No data yet' : numberText(u.total_tokens);
-    const costValue = !hasUsage || Number(u.cost_estimate_rows) === 0 ? 'Unavailable' : moneyText(u.estimated_cost_usd);
+    const costValue = !hasUsage || Number(u.cost_known_rows) === 0 ? 'Unavailable' : moneyText(u.provider_reported_cost_usd);
     const latencyValue = !hasUsage || u.latency_p95_ms === null || u.latency_p95_ms === undefined ? 'Unavailable' : numberText(Math.round(Number(u.latency_p95_ms))) + ' ms';
     grid.append(
       metric('AI requests', '✳', requestValue, 'Recorded model-call events'),
@@ -96,7 +98,7 @@
       metric('Active user IDs', '♙', activeValue, 'Distinct signed-in IDs with calls'),
       metric('Auth user records', '♧', userSummary ? numberText(userSummary.auth_user_records) : 'Unavailable', 'Aggregate count only; no user IDs or emails returned'),
       metric('Tokens recorded', '↗', tokenValue, 'Input plus output tokens'),
-      metric('Estimated AI cost', 'USD', costValue, Number(u && u.cost_estimate_rows) > 0 ? 'Internal estimate; not an invoice' : 'No cost estimates recorded'),
+      metric('Provider-reported AI cost', 'USD', costValue, Number(u && u.cost_known_rows) > 0 ? `${numberText(u.cost_known_rows)} events with cost · ${numberText(u.cost_unknown_rows)} unknown` : 'No provider-reported costs recorded'),
       metric('p95 latency', '◷', latencyValue, 'Successful-call latency, when observations exist')
     );
     c.append(grid);
@@ -149,6 +151,197 @@
     });
     c.append(cards);
 
+    if (key === 'finance') {
+      const billing = el('section', 'panel');
+      billing.classList.add('module-extra');
+      billing.append(el('h3', '', 'Live OpenRouter account billing'), el('p', 'panel-copy', 'Fetched directly from OpenRouter using a server-only management key. These provider totals are displayed separately from Supabase usage events to prevent double-counting.'));
+      const controls = el('div', 'toolbar');
+      const windowSelect = el('select', 'input');
+      windowSelect.setAttribute('aria-label', 'OpenRouter activity window');
+      [['30d','Last 30 days'],['7d','Last 7 days']].forEach(([value,label]) => {
+        const option = el('option','',label); option.value = value; windowSelect.append(option);
+      });
+      const loadButton = el('button', 'quiet-button', 'Refresh OpenRouter data'); loadButton.type = 'button';
+      const reconcileButton = el('button', 'quiet-button', 'Reconcile request costs'); reconcileButton.type = 'button';
+      reconcileButton.title = 'Fetch authoritative cost and token metadata for logged OpenRouter generation IDs.';
+      controls.append(windowSelect, loadButton, reconcileButton); billing.append(controls);
+      const result = el('div');
+      result.append(notice('Loading provider data', 'Requesting current account analytics from OpenRouter.'));
+      billing.append(result); c.append(billing);
+      const loadBilling = async () => {
+        loadButton.disabled = true; result.replaceChildren(notice('Loading provider data', 'Requesting current account analytics from OpenRouter.'));
+        try {
+          const response = await fetch('/owner/api/openrouter-billing?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Provider data unavailable');
+          result.replaceChildren();
+          result.append(el('p','panel-copy','Source: OpenRouter Management API · fetched ' + new Date(payload.generated_at).toLocaleString() + ' · window ' + payload.window));
+          const totals = payload.totals || {}, credits = payload.credits || {}, grid = el('div','grid');
+          grid.append(
+            metric('OpenRouter requests','✳',totals.requests == null ? 'Unavailable' : numberText(totals.requests),'Provider activity rows may aggregate requests'),
+            metric('Prompt tokens','↗',totals.prompt_tokens == null ? 'Unavailable' : numberText(totals.prompt_tokens),'Provider-reported'),
+            metric('Completion tokens','↗',totals.completion_tokens == null ? 'Unavailable' : numberText(totals.completion_tokens),'Provider-reported'),
+            metric('Reported activity spend','USD',moneyText(totals.provider_reported_cost_usd),'Not combined with Supabase cost totals'),
+            metric('Total credits','USD',moneyText(credits.total_credits),'OpenRouter account balance metadata'),
+            metric('Total usage','USD',moneyText(credits.total_usage),'OpenRouter account usage metadata'),
+            metric('Remaining credits','USD',moneyText(credits.remaining_credits),'Credits minus reported usage')
+          );
+          result.append(grid);
+          const list = el('div','source-list');
+          (Array.isArray(payload.by_model) ? payload.by_model : []).forEach((item) => {
+            const row = el('div','source-row'), left = el('div');
+            left.append(el('div','source-name',String(item.model || 'unknown model')),el('div','source-detail',numberText(item.requests)+' requests · '+numberText(Number(item.prompt_tokens)+Number(item.completion_tokens))+' tokens'));
+            row.append(left,el('div','source-name',moneyText(item.cost_rows ? item.total_cost_usd : null))); list.append(row);
+          });
+          if (!payload.by_model?.length) list.append(el('p','panel-copy','No model activity rows were returned for this window.'));
+          result.append(list);
+          result.append(notice('Reconciliation is separate',payload.reconciliation?.note || 'Provider totals have not been reconciled against individual request IDs.'));
+        } catch (error) {
+          result.replaceChildren(notice('OpenRouter billing unavailable',String(error?.message || 'The provider did not return billing data. Check the server-side management key and try again.')));
+        } finally { loadButton.disabled = false; }
+      };
+      reconcileButton.addEventListener('click', async () => {
+        const accepted = window.confirm('Reconcile provider-reported costs for logged OpenRouter requests in this window? This updates matching telemetry rows only and does not combine provider totals with other cost totals.');
+        if (!accepted) return;
+        reconcileButton.disabled = true;
+        try {
+          const response = await fetch('/owner/api/openrouter-billing/reconcile', {
+            method: 'POST', credentials: 'same-origin', cache: 'no-store',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm: 'RECONCILE', window: windowSelect.value })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Reconciliation unavailable');
+          result.prepend(notice('Reconciliation finished', 'Attempted ' + numberText(payload.attempted) + ' rows · updated ' + numberText(payload.updated) + ' · unavailable ' + numberText(payload.unavailable) + ' · failed ' + numberText(payload.failed) + '. Only rows with provider generation IDs can be reconciled.'));
+          await loadBilling();
+        } catch (error) {
+          result.prepend(notice('Reconciliation unavailable', String(error?.message || 'Try again after checking server configuration.')));
+        } finally {
+          reconcileButton.disabled = false;
+        }
+      });
+      loadButton.addEventListener('click', loadBilling);
+      windowSelect.addEventListener('change', loadBilling);
+      loadBilling();
+    }
+
+    if (key === 'logs') {
+      const panel = el('section', 'panel');
+      panel.classList.add('module-extra', 'provider-logs-panel');
+      panel.append(el('h3', '', 'OpenRouter request history'));
+      panel.append(el('p', 'panel-copy', 'Sanitized server-side request logs. Raw prompts, completions, uploaded files, and credentials are not shown. Actual cost is provider-reported; missing values stay unknown. Speed uses output tokens / provider generation time. Routing overhead is an estimate (total latency minus generation time), not a separate provider measurement. Provider activity totals are separate from per-request rows.'));
+      const controls = el('div', 'provider-log-filters');
+      const windowLabel = el('label', 'provider-log-field');
+      windowLabel.append(el('span', '', 'Time range'));
+      const windowSelect = el('select', 'provider-log-control');
+      [['24h','Past 24 hours'],['7d','Past 7 days'],['30d','Past 30 days'],['90d','Past 90 days']].forEach(([value,label]) => { const option = el('option','',label); option.value=value; windowSelect.append(option); });
+      windowLabel.append(windowSelect);
+      const statusLabel = el('label', 'provider-log-field');
+      statusLabel.append(el('span', '', 'Status'));
+      const statusSelect = el('select', 'provider-log-control');
+      [['','All statuses'],['success','Success'],['error','Failed']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; statusSelect.append(option); });
+      statusLabel.append(statusSelect);
+      const modelLabel = el('label', 'provider-log-field');
+      modelLabel.append(el('span', '', 'Model contains'));
+      const modelInput = el('input', 'provider-log-control');
+      modelInput.type='search'; modelInput.maxLength=120; modelInput.placeholder='Search model name';
+      modelLabel.append(modelInput);
+      const endpointLabel = el('label', 'provider-log-field');
+      endpointLabel.append(el('span', '', 'Endpoint'));
+      const endpointSelect = el('select', 'provider-log-control');
+      [['','All endpoints'],['/chat/completions','Chat / multimodal'],['/audio/speech','Speech'],['/audio/transcriptions','Transcription'],['/responses','Responses / web search'],['/embeddings','Embeddings'],['/rerank','Reranking']].forEach(([value,label]) => { const option=el('option','',label); option.value=value; endpointSelect.append(option); });
+      endpointLabel.append(endpointSelect);
+      const refresh = el('button', 'quiet-button', 'Refresh logs');
+      refresh.type='button';
+      controls.append(windowLabel,statusLabel,modelLabel,endpointLabel,refresh);
+      panel.append(controls);
+      const statusLine = el('p', 'panel-copy provider-log-status', 'Loading request history…');
+      panel.append(statusLine);
+      const tableWrap = el('div', 'provider-log-table-wrap');
+      const table = el('table', 'provider-log-table');
+      const thead = el('thead'), headerRow = el('tr');
+      ['Date','Model','Provider','Upstream provider','Endpoint','Status','Input tokens','Cached tokens','Output tokens','Speed (tok/s)','Routing overhead*','Time to finish','Total latency','Actual cost (USD)','Finish reason','Cost source','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
+      thead.append(headerRow);
+      const tbody = el('tbody');
+      table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
+      const pager = el('div','provider-log-pager');
+      const previous = el('button','quiet-button','Previous'); previous.type='button';
+      const next = el('button','quiet-button','Next'); next.type='button';
+      const pageLabel = el('span','panel-copy','Page 1');
+      pager.append(previous,pageLabel,next); panel.append(pager);
+      c.append(panel);
+      let offset = 0, hasMore = false, loading = false;
+      const cell = (row, value, cls) => { const td=el('td',cls || '', value === null || value === undefined || value === '' ? '—' : String(value)); row.append(td); };
+      const fmt = (value) => { if (!value) return '—'; const date=new Date(value); return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString(); };
+      const num = (value) => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? '—' : numberText(value);
+      const load = async (reset) => {
+        if (loading) return;
+        if (reset) offset=0;
+        loading=true; refresh.disabled=true; previous.disabled=offset===0; next.disabled=true;
+        statusLine.textContent='Loading request history…';
+        try {
+          const params=new URLSearchParams({window:windowSelect.value,limit:'50',offset:String(offset)});
+          if (statusSelect.value) params.set('status',statusSelect.value);
+          if (modelInput.value.trim()) params.set('model',modelInput.value.trim());
+          if (endpointSelect.value) params.set('endpoint',endpointSelect.value);
+          const response=await fetch('/owner/api/openrouter-logs?'+params.toString(),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+          const payload=await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Request logs unavailable');
+          const rows=Array.isArray(payload.rows)?payload.rows:[];
+          tbody.replaceChildren();
+          rows.forEach((item) => {
+            const tr=el('tr');
+            const model= item.model || item.requested_model || 'Unknown model';
+            const statusText=String(item.status || 'unknown').toUpperCase() + (item.http_status ? ' · HTTP '+item.http_status : '');
+            const resp=item.response_summary && typeof item.response_summary==='object' ? item.response_summary : {};
+            const finish=resp.finish_reason || resp.finishReason || resp.native_finish_reason || '—';
+            const cost=item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
+            const generationSeconds = item.generation_time_seconds===null || item.generation_time_seconds===undefined ? null : Number(item.generation_time_seconds);
+            const outputTokens = item.completion_tokens===null || item.completion_tokens===undefined ? null : Number(item.completion_tokens);
+            const speed = generationSeconds > 0 && Number.isFinite(outputTokens) ? (outputTokens / generationSeconds).toFixed(2) : '—';
+            const routingOverhead = generationSeconds !== null && Number.isFinite(Number(item.latency_ms)) ? Math.max(0, Number(item.latency_ms) - generationSeconds * 1000).toFixed(0) + ' ms (est.)' : '—';
+            cell(tr,fmt(item.created_at));
+            cell(tr,model,'provider-log-model');
+            cell(tr,item.provider || 'openrouter');
+            cell(tr,item.upstream_provider || 'Not reconciled');
+            cell(tr,(item.http_method || 'POST')+' '+(item.endpoint || '—'));
+            const statusCell=el('td'); statusCell.append(state(statusText,item.status==='success'?'available':'unavailable')); tr.append(statusCell);
+            cell(tr,num(item.prompt_tokens));
+            cell(tr,num(item.cached_tokens));
+            cell(tr,num(item.completion_tokens));
+            cell(tr,speed);
+            cell(tr,routingOverhead);
+            cell(tr,generationSeconds === null || !Number.isFinite(generationSeconds) ? '—' : generationSeconds.toFixed(3)+' s');
+            cell(tr,item.latency_ms===null || item.latency_ms===undefined ? '—' : num(item.latency_ms)+' ms');
+            cell(tr,cost);
+            cell(tr,item.finish_reason || finish);
+            cell(tr,item.provider_cost_source === 'openrouter_generation_api' ? 'OpenRouter generation API' : item.total_cost_usd == null ? 'Unavailable' : 'Response usage');
+            const requestId=String(item.provider_request_id || item.openrouter_generation_id || item.request_id || item.id || '—');
+            const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
+            tbody.append(tr);
+          });
+          hasMore=Boolean(payload.has_more);
+          previous.disabled=offset===0; next.disabled=!hasMore;
+          pageLabel.textContent='Page '+(Math.floor(offset/50)+1);
+          statusLine.textContent=rows.length ? 'Showing '+numberText(offset+1)+'–'+numberText(offset+rows.length)+' · '+payload.window+' · updated '+fmt(payload.generated_at) : 'No request logs found for these filters.';
+          if (!rows.length && offset>0) { offset=Math.max(0,offset-50); previous.disabled=offset===0; }
+        } catch (error) {
+          tbody.replaceChildren();
+          statusLine.textContent=String(error?.message || 'Request logs could not be loaded.');
+        } finally {
+          loading=false; refresh.disabled=false; previous.disabled=offset===0; next.disabled=!hasMore;
+        }
+      };
+      refresh.addEventListener('click',()=>load(true));
+      windowSelect.addEventListener('change',()=>load(true));
+      statusSelect.addEventListener('change',()=>load(true));
+      endpointSelect.addEventListener('change',()=>load(true));
+      modelInput.addEventListener('keydown',(event)=>{if(event.key==='Enter')load(true);});
+      previous.addEventListener('click',()=>{if(offset>=50){offset-=50;load(false);}});
+      next.addEventListener('click',()=>{if(hasMore){offset+=50;load(false);}});
+      load(true);
+    }
+
     if (key === 'ai') {
       const usage = data && data.usage_24h;
       const providers = data && data.usage_7d && Array.isArray(data.usage_7d.providers) ? data.usage_7d.providers : [];
@@ -169,7 +362,7 @@
         providers.forEach((item) => {
           const row = el('div', 'source-row'), left = el('div');
           left.append(el('div', 'source-name', item.provider + ' / ' + item.model), el('div', 'source-detail', numberText(item.requests) + ' requests · ' + numberText(Number(item.input_tokens) + Number(item.output_tokens)) + ' tokens'));
-          row.append(left, el('div', 'source-name', moneyText(item.estimated_cost_usd)));
+          row.append(left, el('div', 'source-name', moneyText(item.provider_reported_cost_usd)));
           list.append(row);
         });
       } else list.append(el('p', 'panel-copy', 'Provider breakdown unavailable until usage telemetry is connected.'));
@@ -272,7 +465,7 @@
     }
 
     if (key === 'finance') {
-      const usage = data && data.usage_24h, plans = data && data.plans_24h, hasCosts = Boolean(usage && Number(usage.cost_estimate_rows) > 0), panel = el('section', 'panel');
+      const usage = data && data.usage_24h, plans = data && data.plans_24h, hasCosts = Boolean(usage && Number(usage.cost_known_rows) > 0), panel = el('section', 'panel');
       const paidByCurrency = Array.isArray(plans?.gross_paid_by_currency) ? plans.gross_paid_by_currency : [];
       const phpPaid = paidByCurrency.find((item) => item && item.currency === 'PHP');
       const paidPaymentCount = plans && Number.isFinite(Number(plans.paid_payment_count)) ? Number(plans.paid_payment_count) : null;
@@ -281,8 +474,8 @@
       panel.append(el('h3', '', 'Recorded AI cost estimates'), el('p', 'panel-copy', 'These are internal estimates recorded with model calls, not provider invoices, settled payments, revenue, refunds, or net margin.'));
       const grid = el('div', 'grid');
       grid.append(
-        metric('Estimated AI cost · 24h', 'USD', hasCosts ? moneyText(usage.estimated_cost_usd) : 'Unavailable', hasCosts ? 'Recorded cost estimates only' : 'No recorded cost estimates'),
-        metric('Requests with cost', '▤', hasCosts ? numberText(usage.cost_estimate_rows) : 'Unavailable', 'Usage events with an estimate'),
+        metric('Provider-reported AI cost · 24h', 'USD', hasCosts ? moneyText(usage.provider_reported_cost_usd) : 'Unavailable', hasCosts ? `${numberText(usage.cost_known_rows)} known · ${numberText(usage.cost_unknown_rows)} unknown` : 'No provider-reported costs'),
+        metric('Requests with provider cost', '▤', hasCosts ? numberText(usage.cost_known_rows) : 'Unavailable', 'Events with provider-reported cost'),
         metric('Requests · 24h', '✳', usage ? numberText(usage.request_count) : 'Unavailable', 'Recorded usage events'),
         metric('Active paid plan periods', '◇', plans ? numberText(plans.active_paid_periods) : 'Unavailable', 'Unexpired active periods, not unique users'),
         metric('Pro periods', 'P', plans ? numberText(plans.active_pro_periods) : 'Unavailable', 'Current active Pro periods'),
@@ -491,6 +684,83 @@
       c.append(panel);
     }
   }
+  async function renderLearning() {
+    const c = $('content');
+    c.replaceChildren();
+    c.append(head('Community Learning Review', 'Only approved examples can be retrieved by NasrinAI. Review decisions are recorded.', 'Owner review'));
+    const toolbar = el('div', 'module-meta');
+    const statusSelect = el('select', 'quiet-button');
+    [['pending_review','Pending review'],['approved','Approved'],['rejected','Rejected']].forEach(([value,label]) => {
+      const option = el('option', '', label); option.value = value; statusSelect.append(option);
+    });
+    const historyButton = el('button', 'quiet-button', 'View review history'); historyButton.type = 'button';
+    toolbar.append(statusSelect, historyButton); c.append(toolbar);
+    const list = el('div', 'source-list');
+    c.append(list);
+    async function load() {
+      list.replaceChildren(notice('Loading examples…', 'Fetching eligible examples from the protected review queue.'));
+      try {
+        const response = await fetch('/owner/api/community-learning?status=' + encodeURIComponent(statusSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('queue unavailable');
+        const payload = await response.json();
+        list.replaceChildren();
+        const examples = Array.isArray(payload.examples) ? payload.examples : [];
+        if (!examples.length) { list.append(notice('No examples in this queue', statusSelect.value === 'pending_review' ? 'New eligible examples appear here only when collection is permitted and screening passes.' : 'There are no examples in this status.')); return; }
+        examples.forEach((item) => {
+          const card = el('article', 'panel'), top = el('div', 'source-row'), left = el('div');
+          left.append(el('div', 'source-name', (item.subject_type === 'guest' ? 'Guest' : 'Signed-in user') + ' · ' + new Date(item.created_at).toLocaleString()));
+          left.append(el('div', 'source-detail', 'Expires ' + new Date(item.expires_at).toLocaleString() + ' · ID ' + String(item.id).slice(0,8)));
+          top.append(left, state(String(item.status || statusSelect.value).replace('_',' ').toUpperCase(), item.status === 'approved' ? 'available' : item.status === 'rejected' ? 'unavailable' : ''));
+          card.append(top);
+          const content = el('pre', 'learning-example', String(item.example_text || '')); content.setAttribute('tabindex','0'); content.setAttribute('aria-label','Example question and answer');
+          card.append(content);
+          if (item.status === 'pending_review') {
+            const actions = el('div', 'module-meta');
+            const reason = el('select', 'quiet-button');
+            [['meets_quality_bar','Meets quality bar'],['unclear','Unclear'],['sensitive_content','Sensitive content'],['possible_identifier','Possible identifier'],['duplicate','Duplicate'],['out_of_scope','Out of scope'],['other','Other']].forEach(([value,label]) => { const option=el('option','','' + label); option.value=value; reason.append(option); });
+            const approve = el('button','quiet-button','Approve example'); approve.type='button';
+            const reject = el('button','quiet-button','Reject example'); reject.type='button';
+            approve.addEventListener('click', () => decide(item.id,'approve',reason.value));
+            reject.addEventListener('click', () => decide(item.id,'reject',reason.value));
+            actions.append(reason,approve,reject); card.append(actions);
+          } else {
+            card.append(el('p','panel-copy','Reviewed ' + (item.reviewed_at ? new Date(item.reviewed_at).toLocaleString() : 'at an earlier time') + (item.reviewer_id ? ' · reviewer ' + item.reviewer_id : '')));
+          }
+          list.append(card);
+        });
+      } catch {
+        list.replaceChildren(notice('Review queue unavailable', 'Check that the latest deployment and database migrations are applied. No review action was taken.'));
+      }
+    }
+    async function decide(id, action, reason) {
+      const expected = action === 'approve' ? 'APPROVE' : 'REJECT';
+      if (!window.confirm((action === 'approve' ? 'Approve' : 'Reject') + ' this example? ' + (action === 'approve' ? 'NasrinAI may retrieve it in future answers.' : 'It will be excluded from retrieval.'))) return;
+      try {
+        const response = await fetch('/owner/api/community-learning/' + encodeURIComponent(id) + '/' + action, { method:'POST', credentials:'same-origin', cache:'no-store', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify({ confirm: expected, reason_code: reason }) });
+        if (!response.ok) { const result=await response.json().catch(()=>({})); throw new Error(result?.error?.message || 'Review action failed.'); }
+        await load();
+      } catch (error) { list.prepend(notice('Could not save review', error.message || 'Refresh and try again.')); }
+    }
+    historyButton.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/owner/api/community-learning/history', { credentials:'same-origin', cache:'no-store', headers:{Accept:'application/json'} });
+        if (!response.ok) throw new Error('history unavailable');
+        const payload = await response.json();
+        const history = el('section','panel'); history.append(el('h3','','Recent review history'),el('p','panel-copy','Last 50 owner review decisions.'));
+        const rows = el('div','source-list');
+        (Array.isArray(payload.events)?payload.events:[]).forEach((event) => {
+          const row=el('div','source-row'), left=el('div');
+          left.append(el('div','source-name',String(event.decision).toUpperCase()+' · '+String(event.reason_code).replaceAll('_',' ')));
+          left.append(el('div','source-detail',new Date(event.created_at).toLocaleString()+' · example '+String(event.example_id).slice(0,8)+' · reviewer '+String(event.reviewer_id)));
+          row.append(left); rows.append(row);
+        });
+        if (!payload.events?.length) rows.append(notice('No review history yet','Review decisions will appear here.'));
+        history.append(rows); c.append(history);
+      } catch { c.append(notice('History unavailable','The review history source is not available.')); }
+    });
+    statusSelect.addEventListener('change', load);
+    await load();
+  }
   function show(key) {
     active = names[key] ? key : 'overview';
     const meta = names[active];
@@ -503,6 +773,7 @@
       button.setAttribute('aria-current', selected ? 'page' : 'false');
     });
     if (active === 'overview') renderOverview();
+    else if (active === 'learning') renderLearning();
     else renderModule(active);
   }
   async function refresh() {

@@ -73,16 +73,20 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     return text ? JSON.parse(text) : null;
   }
 
-  async function mediaRequest(method, path, { bytes, mime = 'application/octet-stream' } = {}) {
+  async function mediaRequest(method, path, { bytes, mime = 'application/octet-stream', bucket = 'media', upsert = false } = {}) {
+    if (!['media', 'generated-videos'].includes(bucket) || typeof path !== 'string' ||
+        !path || path.startsWith('/') || path.split('/').some((part) => !part || part === '.' || part === '..')) {
+      throw new Error('invalid media storage path');
+    }
     const deleting = method === 'DELETE';
     let resp;
     try {
-      resp = await fetchImpl(url + (deleting ? '/storage/v1/object/media' : '/storage/v1/object/media/' + path), {
+      resp = await fetchImpl(url + (deleting ? '/storage/v1/object/' + bucket : '/storage/v1/object/' + bucket + '/' + path), {
         method,
         headers: {
           apikey: serviceKey,
           Authorization: 'Bearer ' + serviceKey,
-          ...(bytes ? { 'Content-Type': mime, 'x-upsert': 'false' } : {}),
+          ...(bytes ? { 'Content-Type': mime, 'x-upsert': String(upsert) } : {}),
           ...(deleting ? { 'Content-Type': 'application/json' } : {})
         },
         ...(bytes ? { body: bytes } : {}),
@@ -377,12 +381,19 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const reservation = e.reservationId ? { reservation_id: e.reservationId } : {};
       const spendReservation = e.spendReservationId ? { spend_reservation_id: e.spendReservationId } : {};
       const routing = {
-        task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null,
+        task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null, cost_source: e.costSource ?? null,
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
         await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...routing } });
       } catch (err) {
+        // Deploy can precede migration 062. Preserve routing telemetry when only
+        // the new provenance column is missing; old rows remain cost-unknown.
+        if (/cost_source/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { cost_source, ...legacyRouting } = routing;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...legacyRouting } });
+          return;
+        }
         // Before migration 003 the routing columns do not exist: keep the basic record.
         if (!/PGRST204|column|budget_blocked|23514/.test(err.message)) throw err;
         if (body.outcome === 'budget_blocked') return;
@@ -427,7 +438,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
       const rows = await request('POST', 'improvement_examples?select=id', {
         prefer: 'return=representation',
-        body: { tenant_id: tenantId, subject_type: subjectType, subject_id: subjectId, consent_version: consentVersion, example_text: exampleText, status: 'pending_review', expires_at: expiresAt }
+        body: { tenant_id: tenantId, subject_type: subjectType, subject_id: subjectId, consent_version: consentVersion, example_text: exampleText, status: 'approved', reviewed_at: new Date().toISOString(), reviewer_id: 'automated_safety_screen', expires_at: expiresAt }
       });
       if (!Array.isArray(rows) || !rows[0]?.id) throw new UpstreamError('improvement example insert returned no id');
       return rows[0].id;
@@ -975,9 +986,45 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         prompt:r.prompt, targetSeconds:r.target_seconds, producedSeconds:r.produced_seconds, status:r.status, cacheKey:r.cache_key || null,
         provider:r.provider, providerOperation:r.provider_operation, providerVideoUri:r.provider_video_uri,
         mime:r.mime, bytes:r.bytes ? Buffer.from(String(r.bytes).replace(/^\\x/, ''), 'hex') : null,
+        storageBucket:r.storage_bucket || null, storagePath:r.storage_path || null,
+        storageBytes:r.storage_bytes == null ? null : Number(r.storage_bytes), storageUploadedAt:r.storage_uploaded_at || null,
         spendReservationId:r.spend_reservation_id || null, estimatedCostUsd:r.estimated_cost_usd == null ? null : Number(r.estimated_cost_usd),
         actualCostUsd:r.actual_cost_usd == null ? null : Number(r.actual_cost_usd), costReconciledAt:r.cost_reconciled_at || null,
         errorCode:r.error_code, errorMessage:r.error_message, createdAt:r.created_at, updatedAt:r.updated_at };
+    },
+
+    async uploadGeneratedVideo({ tenantId, ownerType, ownerId, id, bytes, mime = 'video/mp4' }) {
+      if (!UUID.test(String(tenantId)) || !UUID.test(String(id)) || !OWNER_ID.test(String(ownerId)) ||
+          !OWNER_TYPES.has(ownerType) || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 50 * 1024 * 1024 ||
+          !['video/mp4', 'video/webm', 'video/quicktime'].includes(mime)) {
+        throw new Error('invalid generated video storage request');
+      }
+      const video = await this.getVideo({ tenantId, ownerType, ownerId, id });
+      if (!video || video.status !== 'in_progress' && video.status !== 'completed') return null;
+      const storagePath = tenantId + '/' + ownerType + '/' + ownerId + '/' + id + (mime === 'video/webm' ? '.webm' : mime === 'video/quicktime' ? '.mov' : '.mp4');
+      await mediaRequest('POST', storagePath, { bytes, mime, bucket: 'generated-videos', upsert: true });
+      try {
+        const ok = await this.updateVideo(id, {
+          storageBucket: 'generated-videos', storagePath, storageBytes: bytes.length,
+          storageUploadedAt: new Date().toISOString(), mime
+        });
+        if (!ok) throw new UpstreamError('generated video storage metadata update returned no row');
+      } catch (err) {
+        await mediaRequest('DELETE', storagePath, { bucket: 'generated-videos' }).catch(() => {});
+        throw err;
+      }
+      return { bucket: 'generated-videos', path: storagePath, bytes: bytes.length };
+    },
+
+    async readGeneratedVideo({ tenantId, ownerType, ownerId, id }) {
+      const video = await this.getVideo({ tenantId, ownerType, ownerId, id });
+      if (!video || video.status !== 'completed' || video.storageBucket !== 'generated-videos' || !video.storagePath) return null;
+      const bytes = await mediaRequest('GET', video.storagePath, { bucket: 'generated-videos' });
+      if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 50 * 1024 * 1024 ||
+          (video.storageBytes != null && bytes.length !== video.storageBytes)) {
+        throw new UpstreamError('stored generated video failed integrity checks');
+      }
+      return { ...video, bytes };
     },
 
     async updateVideo(id, patch) {
@@ -985,8 +1032,9 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const body = {};
       const map = { tenantId:'tenant_id', conversationId:'conversation_id', targetSeconds:'target_seconds',
         producedSeconds:'produced_seconds', status:'status', cacheKey:'cache_key', providerOperation:'provider_operation',
-        providerVideoUri:'provider_video_uri', mime:'mime', bytes:'bytes', spendReservationId:'spend_reservation_id',
-        estimatedCostUsd:'estimated_cost_usd', actualCostUsd:'actual_cost_usd', costReconciledAt:'cost_reconciled_at',
+        providerVideoUri:'provider_video_uri', mime:'mime', bytes:'bytes',
+        storageBucket:'storage_bucket', storagePath:'storage_path', storageBytes:'storage_bytes', storageUploadedAt:'storage_uploaded_at',
+        spendReservationId:'spend_reservation_id', estimatedCostUsd:'estimated_cost_usd', actualCostUsd:'actual_cost_usd', costReconciledAt:'cost_reconciled_at',
         errorCode:'error_code', errorMessage:'error_message' };
       for (const [k,col] of Object.entries(map)) if (k in patch) body[col] = k === 'bytes' && patch[k] ? '\\x' + Buffer.from(patch[k]).toString('hex') : patch[k];
       body.updated_at = new Date().toISOString();

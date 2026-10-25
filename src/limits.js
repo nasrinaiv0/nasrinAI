@@ -149,6 +149,13 @@ export function createLimiter({ store, limits, plans = null, now = () => Date.no
       await hit(`lib:${caller.tenantId}:${caller.actor.id}`, limits.userLibraryHour, 'You have added a lot to your Library this hour. Please try again later.');
     },
 
+    // Videos started: per person, per hour, with a message about videos. Only
+    // requests that actually start a video should call this.
+    async video(caller, perHour) {
+      const { type, id } = caller.actor;
+      await hit(`vid:${type}:${caller.tenantId}:${id}`, perHour, 'You have reached the hourly video limit. Please try again later.');
+    },
+
     // Sign-in attempts (codes sent, codes tried, refreshes), by IP or by a hash of the address.
     async signIn(bucket, limit) {
       await hit(`si:${bucket}`, limit, 'Too many sign-in attempts. Please wait a while and try again.');
@@ -259,6 +266,7 @@ export function createUsageLog({ store, logger }) {
         task: e.task || null,
         level: Number.isInteger(e.level) ? e.level : null,
         costUsd: Number.isFinite(e.costUsd) ? Math.max(0, e.costUsd) : null,
+        costSource: e.costSource === 'provider_reported' && Number.isFinite(e.costUsd) ? 'provider_reported' : null,
         cachedTokens: Number.isFinite(e.cachedTokens) ? Math.max(0, Math.round(e.cachedTokens)) : null,
         escalated: e.escalated === true,
         cacheHit: e.cacheHit === true

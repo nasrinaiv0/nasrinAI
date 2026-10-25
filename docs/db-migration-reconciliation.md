@@ -27,3 +27,25 @@ Do not insert synthetic migration-history rows or mark a migration applied merel
 - Add an idempotent migration and a regression test for every schema/security fix.
 - The CI scratch-database replay verifies repeatability; it does not prove production schema parity.
 - Live production migration state remains unverified until the comparison above is completed.
+
+## Verified production snapshot — 2026-10-23
+
+Read-only checks against the connected production Supabase project confirmed the migration registry currently contains these labels:
+
+- `017_retention_config`
+- `024_security_definer_search_path`
+- `025_move_vector_to_extensions`
+- `026_media_bucket_size_limit`
+- `041_google_connections`
+- `046_video_studio_audio_assets`
+- `051_video_studio_projects`
+- `052_video_studio_assets_bucket`
+- `056_video_studio_render_jobs`
+- `060_server_only_rls_deny_policies`
+- `061_foreign_key_performance_indexes`
+
+The registry does **not** currently contain labels for migrations 057, 058, or 059. However, the live schema contains `public.owner_audit_events`, `public.owner_console_incidents`, and `public.owner_alert_outbox`, along with 13 `public.owner_console_*` functions. The 13 functions inspected are all `SECURITY DEFINER`, use `search_path=public, pg_temp`, deny execution to `anon` and `authenticated`, and grant execution to `service_role`.
+
+This confirms a history/schema mismatch; it does **not** establish when or by what deployment path the objects were created, nor prove every statement in 057–059 matches production. Do not replay those files. Next, compare each migration's tables, constraints, indexes, policies, grants, and function definitions against the live objects and document any differences before deciding on a formal baseline or corrective migration.
+
+Migrations 060 and 061 are present in the registry and were separately verified after application. No production writes were made during this snapshot. Migration 062 remains unapproved and unapplied.

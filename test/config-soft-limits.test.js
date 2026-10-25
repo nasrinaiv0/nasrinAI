@@ -73,3 +73,43 @@ test('OpenRouter video routes support Pro 720p, Max 1080p and Ultra 1080p/4K add
   assert.equal(cfg.video.tierRoutes.ultra.allow4kAddon, true);
   assert.equal(cfg.video.tierRoutes.ultra.model, 'heygen/heygen-video-1');
 });
+
+
+test('OpenRouter image routing is enabled for every tier without local price metadata', () => {
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    IMAGE_TIER_1_PRIMARY_PRICE: 'unverified',
+    IMAGE_TIER_2_PRIMARY_PRICE: '',
+    IMAGE_TIER_3_PRIMARY_PRICE: '0',
+    IMAGE_TIER_4_PRIMARY_PRICE: '999999'
+  });
+  assert.deepEqual(Object.keys(cfg.images.tiers), ['1', '2', '3', '4']);
+  for (const tier of ['1', '2', '3', '4']) {
+    assert.equal(cfg.images.tiers[tier].primary.provider, 'openrouter');
+    assert.equal(cfg.images.tiers[tier].primary.model, 'openai/gpt-image-2');
+  }
+  assert.doesNotMatch(cfg.warnings.join(' '), /PRICE|price/i);
+});
+
+test('OpenAI direct image routing is enabled without a local price when OpenRouter and Gemini are absent', () => {
+  const cfg = loadConfig({ NODE_ENV: 'test', OPENAI_API_KEY: 'sk-test-key' });
+  assert.deepEqual(Object.keys(cfg.images.tiers), ['1', '2', '3', '4']);
+  assert.equal(cfg.images.tiers['1'].primary.provider, 'openai');
+  assert.equal(cfg.images.tiers['1'].primary.model, 'gpt-image-1');
+});
+
+
+test('image routing chooses a configured backup provider without price metadata', () => {
+  const cfg = loadConfig({
+    NODE_ENV: 'test',
+    OPENROUTER_API_KEY: 'test-openrouter-key',
+    OPENAI_API_KEY: 'sk-test-key',
+    IMAGE_TIER_1_PRIMARY_PRICE: 'not-verified'
+  });
+  for (const tier of ['1', '2', '3', '4']) {
+    assert.equal(cfg.images.tiers[tier].primary.provider, 'openrouter');
+    assert.equal(cfg.images.tiers[tier].fallback.provider, 'openai');
+    assert.equal(cfg.images.tiers[tier].fallback.model, 'gpt-image-1');
+  }
+});

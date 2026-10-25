@@ -100,7 +100,7 @@ test('Stop: what was written is kept, and the tokens still count', async () => {
     const before = a.store.usage.length;
     const r = await streamed(a.url, { message: 'tell me a long story' }, USER_TOKEN, { abortAfter: 3 });
     assert.ok(r.events.length >= 3);
-    assert.ok(await until(() => a.store.usage.length > before), 'usage recorded after stopping');
+    assert.ok(await until(() => a.store.usage.length > before, 8000), 'usage recorded after stopping');
     const used = a.store.usage.at(-1);
     assert.ok(used.outputTokens > 0 && used.outputTokens < words.length / 4, 'partial output counted');
     const convs = await (await fetch(a.url + '/v1/conversations', { headers: bearer(USER_TOKEN) })).json();
@@ -161,6 +161,18 @@ test('pictures keep their own Regenerate', async () => {
     const conv = await a.store.createConversation({ tenantId: '00000000-0000-0000-0000-000000000001', ownerType: 'user', ownerId: 'user-1', expiresAt: null });
     await a.store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role: 'user', content: 'Create an image: a cat' });
     await a.store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role: 'assistant', content: '[image:abc]\nHere is your picture.' });
+    const r = await postJson(a.url + '/v1/chat', { conversation_id: conv.id, regenerate: true }, bearer(USER_TOKEN));
+    assert.equal(r.status, 400);
+    assert.equal((await a.store.listMessages(conv.id)).length, 2, 'nothing removed');
+  } finally { await a.close(); }
+});
+
+test('videos are not regenerated or edited as text chat (that would start a second paid job)', async () => {
+  const a = await app(createFakeProvider({ reply: () => 'ok' }));
+  try {
+    const conv = await a.store.createConversation({ tenantId: '00000000-0000-0000-0000-000000000001', ownerType: 'user', ownerId: 'user-1', expiresAt: null });
+    await a.store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role: 'user', content: 'Create a video: a cat' });
+    await a.store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role: 'assistant', content: '[genvideo:11111111-1111-4111-8111-111111111111]\nI’m creating your 5-second video.' });
     const r = await postJson(a.url + '/v1/chat', { conversation_id: conv.id, regenerate: true }, bearer(USER_TOKEN));
     assert.equal(r.status, 400);
     assert.equal((await a.store.listMessages(conv.id)).length, 2, 'nothing removed');

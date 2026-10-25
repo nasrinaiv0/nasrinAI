@@ -13,7 +13,7 @@ message ─▶ can code answer it? ──yes──▶ answer (no model, no cost)
            cheapest candidate at that level that is allowed:
              • within the tier's range (Quick 1–2, Pro 1–3, Max 1–4, Ultra 1–5)
              • private data never goes to a service that trains on it
-             • the price is known and fits the budget (else a lower level)
+             • the model is compatible with task, privacy, tools, and attachments
               ▼
            call ─▶ answer empty or cut off? ─▶ one level up (bounded)
               │      model down? ─▶ next candidate at the same level, or the same
@@ -43,42 +43,31 @@ nowhere else in the code.
 The tier a person picks sets **how high** routing may go, not where it starts.
 "hi" on Ultra is still answered by a level-1 model.
 
-## Budgets
+## Provider billing and usage limits
 
-Spending is estimated from provider prices and recorded in a shared PostgreSQL
-ledger (`spend_reservations`) before a paid provider call. `usage_events` links
-to the reservation for audit and avoids double-counting. A transaction-scoped
-advisory lock serializes reservations across serverless instances; local cached
-balances are only routing hints, never the enforcement point.
+Provider accounts are the source of truth for model operating costs. NasrinAI does
+not gate model, image, speech, realtime voice, or video requests using local
+per-model price snapshots or estimated USD reservations. If a provider response
+includes an actual billable cost, usage telemetry records it; otherwise cost is
+unknown (`null`), not a guessed amount or zero.
 
-| Setting | Default | |
-| --- | --- | --- |
-| `DAILY_BUDGET_USD` | 3 | Manila day |
-| `WEEKLY_BUDGET_USD` | 21 | rolling last 7 days |
-| `MONTHLY_BUDGET_USD` | 90 | rolling last 30 days |
-| `MAX_REQUEST_COST_USD` | 0.05 | one message; dearer levels are stepped down |
+Keep provider-side billing alerts and spend caps enabled for every configured
+provider. Provider dashboards and invoices may update asynchronously and are
+authoritative for final charges.
 
-Pictures have their own limits (`IMAGE_DAILY_BUDGET_USD` 1, `IMAGE_WEEKLY_BUDGET_USD` 5,
-`IMAGE_MONTHLY_BUDGET_USD` 15): picture spending never uses up the reasoning budget, and reasoning
-spending never blocks pictures. A picture with a fallback reserves for both provider attempts.
+Application safeguards remain separate from money: authenticated ownership and
+plan checks, token allowances/reservations, hourly caller/IP abuse limits,
+per-plan image-generation quotas, supported model/media capabilities, video
+duration and quality restrictions, and the account-scoped realtime daily/token
+allowances. These controls limit access and exposure but are not an exact USD
+spending cap.
 
-The router tries cheaper candidates during preflight, then the database checks
-each provider attempt again atomically before it starts. If no reservation fits,
-the price is unknown, or the ledger is unavailable, paid work is refused rather
-than sent to a provider. Configured free-tier and local zero-cost models may
-still answer public questions.
+### Media and realtime
 
-With the default $0.05 overall request cap, levels 4–5 may be stepped down to
-level 3. Tier-specific request caps remain $0.02 / $0.05 / $0.10 / $0.25 for
-Quick / Pro / Max / Ultra; these are independent of the shared period ceilings.
-
-### Other paid media and realtime
-
-- Web search reserves for the search tool and its follow-up model call before searching.
-- Server-generated speech reserves a conservative per-character amount before synthesis.
-- Video generation reserves the full provider chunk duration for the requested clip before job creation. The per-video guard is `VIDEO_MAX_COST_USD` (default 32 USD); because the default shared daily budget is $3 and video jobs reserve up to $32, video requests may be refused until the operator configures budgets appropriate for the selected model/resolution. Cached video reuse does not reserve new spend.
-- Realtime voice reserves a shared daily allowance atomically per account (across sessions/devices), resetting at Manila midnight: Quick 5 minutes, Pro 15, Max 20, Ultra 30. It also reserves `REALTIME_TOKEN_RESERVE_PER_MINUTE` token-quota units per started minute (default 10,000) against the paid actor allowance and configured business-tenant ceiling where applicable, because browser-direct sessions do not provide independently verified per-turn usage. These token units are conservative accounting reservations, not provider-reported token counts. A session is shortened to the remaining tier allowance where possible. The global estimated-spend limits still apply ($3 daily / $21 rolling 7 days / $90 rolling 30 days), so higher-cost sessions may be shorter or refused if the spend ledger cannot cover the conservative reservation. OpenAI sessions are capped to whole minutes within the configured USD ceilings; Gemini retains a 30-minute maximum exposure reservation because credential expiry does not prove an established session has ended. Keep provider-side spending limits enabled.
-- Media estimates are intentionally conservative. They may overcount short sessions/jobs; they are not a substitute for provider-side account spending limits. Unknown model/resolution prices fail closed.
+- Web search remains subject to caller/IP limits and the normal token allowance.
+- Generated speech remains limited per caller and IP; provider billing applies.
+- Video remains asynchronous and restricted to eligible plans and supported provider capabilities. If a provider does not return a final cost, NasrinAI leaves the cost unknown and does not invent a fallback estimate.
+- Realtime voice keeps its shared daily allowance across sessions/devices, resetting at Manila midnight: Quick 5 minutes, Pro 15, Max 20, Ultra 30. It also reserves `REALTIME_TOKEN_RESERVE_PER_MINUTE` token-quota units per started minute against the applicable paid actor allowance and business-tenant ceiling. These are conservative quota units, not provider-reported token counts. Sessions can be shortened or refused by plan, token, or abuse controls. Provider account controls govern actual USD spend.
 
 ## Saving tokens
 
@@ -143,4 +132,45 @@ Privacy is a routing constraint, not a pricing optimization. Sensitive content m
 
 Image and video are separate capability routes. Image generation keeps its own tier/budget controls. Video remains asynchronous and is available only on Max and Ultra plans and uses Gemini Veo 3.1 Standard by default for final quality; Veo 3.1 Fast is the lower-cost operator choice. OpenAI's Sora 2 API is not a production option because OpenAI removed the Sora 2 API/Videos API on September 24, 2026.
 
-Provider pricing is stored in config/model-prices.json; production budgets must be reviewed whenever provider pricing changes. Claude Sonnet 5.5 is $2/$10 and Opus 5.5 is $4/$20 per million input/output tokens. Gemini's Veo 3.1 Standard is $0.40/sec at 720p/1080p, while Veo 3.1 Fast is $0.10/sec at 720p. Gemini's current pricing page also lists Gemini Omni Flash at about $0.10/sec for 720p video, but NasrinAI's current production adapter is Veo-based, so Omni should be introduced through a dedicated adapter rather than by swapping a model string.
+Provider-side billing dashboards and invoices are authoritative for actual costs. Do not add per-model USD prices to runtime routing policy; model availability is governed by explicit route configuration, capabilities, privacy policy, plan, token quotas and abuse controls. Keep `config/model-prices.json` out of production runtime imports.
+
+
+## OpenRouter chat model pools
+
+With `OPENROUTER_API_KEY` configured, the requested DeepSeek V4/V4.1 Flash, GLM 5.3 Flash, MiMo V2.6 Flash/Pro, GPT-6 Luna/Luna Pro, Claude Haiku 5.5, Qwen3.8 Flash/27B, and Ling 3.1 Flash models are active default candidates for paid tiers. Task-aware ordering and existing capability, privacy, tier, and quota checks still apply. Provider-reported usage and billing remain authoritative.
+
+Quick/guest remains Nemotron-first and is limited to those Nemotron models plus `openai/gpt-6-luna` as an emergency OpenRouter fallback. It cannot fall through to Luna Pro, MiMo Pro, or other paid-tier candidates, including with a `ROUTE_LEVEL_n` override. Catalog presence is not proof of account-level availability; authenticated live smoke tests are required before each endpoint can be called verified.
+
+
+## Live OpenRouter model discovery
+
+When OpenRouter is configured, paid-tier routing supplements the maintained shortlist
+with models discovered from OpenRouter's live `/models?output_modalities=all`
+catalog. Discovery is capability-filtered: general routes require text output,
+vision requests require image input, tool-using requests require advertised tool
+support, and specialized Decisions, image, video, audio, embedding, reranking, and
+PDF tasks are not treated as ordinary chat routes. Quick/guest remain on the
+explicit Nemotron-first and emergency allowlist.
+
+Live discovery means a model is eligible to be attempted; it does **not** mark the
+model as live-tested or guarantee account access, provider uptime, or quota. Catalog
+failures do not interrupt configured static routes.
+
+
+## OpenRouter endpoint verification
+
+Run `npm run verify:openrouter` with `OPENROUTER_API_KEY` set in the local environment
+to make authenticated, minimal-cost text-generation probes against every model in
+the live catalog that advertises text output. Use `--model <provider/model-id>` to
+probe one model or `--json` to emit machine-readable results for CI artifacts or
+the owner monitoring pipeline. The verifier reports catalog metadata, the exact
+endpoint used, returned model ID, latency, usage fields, and provider error
+classification; it never prints the API key.
+
+A model is marked live-verified by this probe only after a successful non-empty
+text response. Catalog presence, advertised capabilities, and configured routes
+are separate from endpoint verification. Models requiring specialized media,
+embeddings, reranking, or decision endpoints are explicitly reported as not tested
+by the text probe and must be verified with their task-specific request fixtures
+before being advertised as verified. The script is opt-in because each probe sends
+a real provider request and may incur usage charges.

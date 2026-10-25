@@ -37,6 +37,39 @@ async function format() {
   return sandbox.window.NasrinFormat;
 }
 
+test('base formatter renders a readable search fallback when the UI enhancer is unavailable', async () => {
+  const { render } = await format();
+  const { node } = render('[[ui]]{"type":"search","query":"weather in Davao"}[[/ui]]');
+  assert.equal(node.textContent, 'Web search requested: weather in Davao.');
+  assert.doesNotMatch(node.textContent, /\[\[ui\]\]|\[\[\/ui\]\]|"type"\s*:/);
+});
+
+test('base formatter hides malformed structured UI payloads instead of exposing protocol JSON', async () => {
+  const { render } = await format();
+  const { node } = render('[[ui]]{"type":"search","query": [[/ui]]');
+  assert.equal(node.textContent, 'An interactive response could not be displayed. Please try again.');
+  assert.doesNotMatch(node.textContent, /\[\[ui\]\]|\[\[\/ui\]\]|"type"\s*:/);
+});
+
+
+
+test('map structured UI guidance requires known endpoints and prohibits invented live route facts', async () => {
+  const source = await readFile(new URL('../src/ai/prompt.js', import.meta.url), 'utf8');
+  assert.match(source, /registered map widget/);
+  assert.match(source, /Never invent a current location, route distance, ETA, traffic condition/);
+  assert.match(source, /"type":"map"/);
+});
+
+test('embedded map renderer builds Google-owned iframe and safe Maps links from bounded fields', async () => {
+  const source = await readFile(new URL('../public/generative-ui.js', import.meta.url), 'utf8');
+  assert.match(source, /function renderMap\(payload\)/);
+  assert.match(source, /https:\/\/maps\.google\.com\/maps\?/);
+  assert.match(source, /https:\/\/www\.google\.com\/maps\/dir\//);
+  assert.match(source, /noopener noreferrer/);
+  assert.match(source, /payload\.type === 'map'/);
+  assert.doesNotMatch(source, /iframe\.src\s*=\s*payload\./);
+});
+
 test('Markdown tables render as a real table, built safely, inside a scroll box', async () => {
   const { render, plain } = await format();
   const { node } = render('Here is a comparison.\n\n| Plan | Price | **Best for** |\n|---|:---:|---|\n| Free | ₱0 | Trying it |\n| Max | `₱199` | Daily work |\n\nPick Max.');
@@ -177,4 +210,38 @@ test('unsafe source URLs are not treated as trusted citations', async () => {
   const result = F.sources(reply);
   assert.equal(result.links.length, 0);
   assert.match(result.text, /javascript:alert/);
+});
+
+test('raw structured search payloads degrade to readable text when the UI enhancer is unavailable', async () => {
+  const F = await format();
+  const reply = '[[ui]] {"type":"search","query":"latest news Philippines","recency_days":1} [[/ui]]';
+  const rendered = F.render(reply).node;
+  const visible = rendered.textContent || '';
+  assert.match(visible, /Web search requested: latest news Philippines/);
+  assert.doesNotMatch(visible, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]|"type"\\s*:\\s*"search"/);
+});
+
+test('malformed structured UI payloads never leak protocol markers to the base renderer', async () => {
+  const F = await format();
+  const rendered = F.render('[[ui]] {not valid json} [[/ui]]').node;
+  const visible = rendered.textContent || '';
+  assert.match(visible, /interactive response could not be displayed/i);
+  assert.doesNotMatch(visible, /\\[\\[ui\\]\\]|\\[\\[\\/ui\\]\\]/);
+});
+
+
+test('rich inline links remain clickable and safe; untrusted HTML is rendered as text', async () => {
+  const { render } = await format();
+  const rendered = render('Read [the official guide](https://example.com/docs).').node;
+  const links = rendered.all('A');
+  assert.equal(links.length, 1);
+  assert.equal(links[0].href, 'https://example.com/docs');
+  assert.equal(links[0].rel, 'noopener noreferrer nofollow');
+  assert.equal(links[0].target, '_blank');
+
+  const unsafe = render('<img src=x onerror=alert(1)> [bad](javascript:alert(1))').node;
+  assert.equal(unsafe.all('IMG').length, 0);
+  assert.equal(unsafe.all('A').length, 0);
+  assert.match(unsafe.textContent, /<img src=x onerror=alert\(1\)>/);
+  assert.match(unsafe.textContent, /javascript:alert\(1\)/);
 });

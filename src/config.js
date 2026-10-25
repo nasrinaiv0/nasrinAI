@@ -2,7 +2,6 @@
 // Invalid or missing values stop the server in production instead of failing later.
 
 import { parseKey as parseConnectorKey } from './connectors/secret.js';
-import { loadPrices, priceOf } from './ai/pricing.js';
 import { FREE_LLM_CATALOG } from './ai/free-provider-catalog.js';
 import { isIP } from 'node:net';
 
@@ -291,38 +290,62 @@ export function loadConfig(env = process.env) {
     providers: Object.freeze(fallbackProviders)
   });
 
-  // Cost-aware routing (Phase 4.1). ROUTING=smart picks the cheapest capable
-  // level for each message; ROUTING=fixed keeps one model per tier (TIER_*).
-  // Levels: 1 cheapest/free, 2 low-cost GPT, 3 professional GPT, 4 advanced
-  // reasoning GPT, 5 strongest configured general-purpose GPT. Keep model IDs
-  // in this config and price file so unknown models fail closed. Each ROUTE_LEVEL_n lists candidates in order of preference,
+  // Smart routing classifies intent and selects a compatible model from configured
+  // candidates. Provider billing owns model cost; ROUTE_LEVEL_n lists candidates in order of preference,
   // comma-separated, as provider:model[:effort]. Model ids live only here.
   const routingMode = String(env.ROUTING ?? (['openai', 'gemini', 'claude', 'openrouter', 'local', 'auto'].includes(aiProvider) || Boolean(geminiKey) || Boolean(anthropicKey) ? 'smart' : 'fixed')).trim().toLowerCase();
   if (!['smart', 'fixed'].includes(routingMode)) throw new ConfigError('ROUTING: smart or fixed');
   const has = (k) => providerKeys.includes(k) && (k !== 'openai' || Boolean(env.OPENAI_API_KEY)) && (k !== 'openrouter' || Boolean(openrouterApiKey));
-  // Last-resort, explicitly priced model choices for when an operator's custom
-  // ROUTE_LEVEL_n and TIER_* names are absent from the price registry.
-  // Every candidate still passes the full policy checks before it can run.
+  // Last-resort compatible model choices for when custom ROUTE_LEVEL_n and TIER_* routes fail.
   const safeFallbacks = Object.freeze([
     ...(has('local') && local ? [{ provider: 'local', model: local.model, effort: null }] : []),
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
+  // Guest/free Quick use explicitly free OpenRouter models first, then GPT-6 Luna as the sole paid fallback.
+  // Never use openrouter/free, which does not guarantee a model family.
+  const nemotronDefaults = has('openrouter') ? [
+    'openrouter:nvidia/nemotron-3.5-lightning:free',
+    'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
+    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
+  ] : [];
+  // Operators may add any OpenRouter model currently marked explicitly free
+  // in the provider catalog without code changes. Ignore non-free IDs so this
+  // configuration cannot turn Guest/Quick into a paid route.
+  const configuredOpenRouterFreeModels = has('openrouter')
+    ? String(env.OPENROUTER_FREE_MODELS || '')
+      .split(/[;,\n]/)
+      .map((value) => value.trim())
+      .filter((value) => /^[a-z0-9._-]+\/[a-z0-9._-]+:free$/i.test(value))
+      .map((model) => 'openrouter:' + model)
+    : [];
+  const quickFreeDefaults = [...new Set([...nemotronDefaults, ...configuredOpenRouterFreeModels])];
+  // OpenRouter chat candidates are real routing candidates, not catalog-only metadata.
+  const openRouterProCandidates = has('openrouter') ? [
+    'openrouter:deepseek/deepseek-v4.1-flash',
+    'openrouter:deepseek/deepseek-v4.1-flash-1017',
+    'openrouter:deepseek/deepseek-v4-flash-0731',
+    'openrouter:deepseek/deepseek-v4-flash-vision-exp',
+    'openrouter:z-ai/glm-5.3-flash',
+    'openrouter:xiaomi/mimo-v2.6-flash',
+    'openrouter:openai/gpt-6-luna',
+    'openrouter:anthropic/claude-haiku-5.5',
+    'openrouter:qwen/qwen3.8-flash',
+    'openrouter:qwen/qwen3.8-27b',
+    'openrouter:inclusionai/ling-3.1-flash'
+  ] : [];
+  const openRouterMaxCandidates = has('openrouter') ? [
+    'openrouter:xiaomi/mimo-v2.6-pro',
+    'openrouter:openai/gpt-6-luna-pro',
+    ...openRouterProCandidates
+  ] : [];
   const defaultsByLevel = {
-    // Free-tier providers are emergency-only fallback targets, never normal
-    // routing candidates. Level 1 uses configured general-purpose models; the
-    // fallback pool may still try allowlisted free models after paid providers fail.
-    1: [
-      has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '',
-      has('local') && local ? 'local:' + local.model : '',
-      has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '',
-      has('openai') ? 'openai:gpt-5.4-nano' : '',
-      aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''
-    ],
-    2: [has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : ''],
-    3: [has('openrouter') ? 'openrouter:openai/gpt-6-sol' : '', has('openai') ? 'openai:gpt-5.4:medium' : ''],
-    4: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : ''],
-    5: [has('openrouter') ? 'openrouter:openai/gpt-6.1-sol' : '', has('openai') ? 'openai:gpt-5.4:high' : '']
+    // Guest/free Quick tries every eligible free model before GPT-6 Luna. Policy filters this pool by plan.
+    1: quickFreeDefaults.length ? [...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), ...(has('openrouter') ? ['openrouter:openai/gpt-6-luna'] : [])] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', ...openRouterProCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    5: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
@@ -332,20 +355,13 @@ export function loadConfig(env = process.env) {
     const normalCandidates = parsed.filter((spec) => !freeProviderSettings.some((p) => p.id === spec.provider && p.freeModels.includes(spec.model)));
     // In auto mode, intent classification always checks OpenRouter's
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
-    const openRouterDefaults = {
-      1: 'openai/gpt-6-luna',
-      2: 'openai/gpt-6-luna',
-      3: 'openai/gpt-6-sol',
-      4: 'openai/gpt-6.1-sol',
-      5: 'openai/gpt-6.1-sol'
-    };
-    const openRouterFirst = has('openrouter')
-      ? tierSpec('ROUTE_LEVEL_' + n, 'openrouter:' + openRouterDefaults[n])
-      : null;
-    const orderedCandidates = openRouterFirst
-      ? [openRouterFirst, ...normalCandidates.filter((spec) => spec.provider !== 'openrouter' || spec.model !== openRouterFirst.model)]
-      : normalCandidates;
-    levels[n] = Object.freeze(orderedCandidates);
+    // In auto mode, put the configured OpenRouter tier model first for intent
+    // scanning. Quick/guest policy filters this to the Nemotron allowlist later.
+    const openRouterFirst = aiProvider === 'auto' && has('openrouter')
+      ? [Object.freeze({ provider: 'openrouter', model: n === 1 ? tiers.nasrinai.model : n === 2 ? tiers.pro.model : n === 3 ? tiers.max.model : tiers.ultra.model, effort: null })]
+      : [];
+    const combined = [...openRouterFirst, ...normalCandidates.filter((candidate) => !openRouterFirst.some((first) => first.provider === candidate.provider && first.model === candidate.model))];
+    levels[n] = Object.freeze(combined);
     // A level with nothing configured uses the level below it.
     if (!levels[n].length && n > 1) levels[n] = levels[n - 1];
   }
@@ -391,14 +407,9 @@ export function loadConfig(env = process.env) {
     if (!m || Number(m[1]) > Number(m[2])) throw new ConfigError(`${name}: use a range like 1-3`);
     return Object.freeze([Number(m[1]), Number(m[2])]);
   };
-  const usd = (name, value, fallbackValue) => {
-    const v = value === undefined || String(value).trim() === '' ? fallbackValue : Number(String(value).trim());
-    if (v === null) return null;
-    if (!Number.isFinite(v) || v < 0 || v > 100000) throw new ConfigError(`${name}: a dollar amount, for example 1 or 0.25`);
-    return v;
-  };
   const routing = Object.freeze({
     mode: routingMode,
+    quickNemotronOnly: has('openrouter'),
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
@@ -421,21 +432,6 @@ export function loadConfig(env = process.env) {
     // Coding answers (including Claude's Max/Ultra coding lane) are remembered too, per person.
     cacheCoding: String(env.CACHE_CODING ?? 'true').toLowerCase() !== 'false',
     geminiFreeTier: String(env.GEMINI_FREE_TIER ?? 'true').toLowerCase() !== 'false',
-    // Spending limits in USD (estimated). Empty = no limit for that period.
-    budget: Object.freeze({
-      dailyUsd: usd('DAILY_BUDGET_USD', env.DAILY_BUDGET_USD, 3),
-      weeklyUsd: usd('WEEKLY_BUDGET_USD', env.WEEKLY_BUDGET_USD, 21),
-      monthlyUsd: usd('MONTHLY_BUDGET_USD', env.MONTHLY_BUDGET_USD, 90),
-      maxRequestUsd: usd('MAX_REQUEST_COST_USD', env.MAX_REQUEST_COST_USD, 0.05),
-      // Per-tier caps prevent expensive Max/Ultra coding from being blocked by
-      // the Quick/Pro ceiling while preserving a hard global default.
-      maxRequestUsdByTier: Object.freeze({
-        nasrinai: usd('MAX_REQUEST_COST_NASRINAI_USD', env.MAX_REQUEST_COST_NASRINAI_USD, 0.02),
-        pro: usd('MAX_REQUEST_COST_PRO_USD', env.MAX_REQUEST_COST_PRO_USD, 0.05),
-        max: usd('MAX_REQUEST_COST_MAX_USD', env.MAX_REQUEST_COST_MAX_USD, 0.10),
-        ultra: usd('MAX_REQUEST_COST_ULTRA_USD', env.MAX_REQUEST_COST_ULTRA_USD, 0.25)
-      })
-    })
   });
   const tierList = (name, value) => {
     const ids = String(value).split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
@@ -450,14 +446,19 @@ export function loadConfig(env = process.env) {
   // taking the whole site down: off is the safe state for an optional feature.
   const warnings = [];
 
-  // OpenRouter web search uses the server-side OpenRouter key and live tool pricing.
+  // OpenRouter web search uses the server-side OpenRouter key and provider billing.
   // It is independent of the selected chat provider and does not require Google credentials.
-  const WEB_SEARCH_DEFAULT = 'openrouter/auto';
+  // The Responses API server-side web-search tool requires a model with tool support.
+  // OpenRouter's Auto router can return HTTP 400 for this tool path; use a verified
+  // free model that advertises Responses API + tool support rather than silently
+  // routing guest/Quick research through an arbitrary paid model.
+  const WEB_SEARCH_DEFAULT = 'nvidia/nemotron-3-super-120b-a12b:free';
   function webSearchModel() {
     const set = String(env.OPENROUTER_WEB_SEARCH_MODEL ?? '').trim();
     if (env.OPENROUTER_WEB_SEARCH_MODEL !== undefined && !set) return '';
     if (!openrouterApiKey || aiProvider === 'fake' || aiProvider === 'none') return '';
-    return set || WEB_SEARCH_DEFAULT;
+    if (!set || set === 'openrouter/auto') return WEB_SEARCH_DEFAULT;
+    return set;
   }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
@@ -540,42 +541,59 @@ export function loadConfig(env = process.env) {
     authGoogle = false;
   }
 
-  // Picture routing by tier (Phase 4.2). Each tier has a primary and an
-  // optional fallback: IMAGE_TIER_n_{PRIMARY,FALLBACK}_{PROVIDER,MODEL,PRICE}.
-  // Tier 1 defaults to Gemini (GEMINI_API_KEY, IMAGE_MODEL) with the older
-  // IMAGE_FALLBACK_MODEL / IMAGE_FALLBACK_PRICE as its fallback. Tiers 2-4
-  // exist only when set. Model names and prices (USD per picture) come from
-  // the providers' pricing pages; a Gemini price may come from
-  // config/model-prices.json instead. A wrong slot is switched off with a
-  // warning; the site keeps working.
+  // Picture routing by tier. Providers own image pricing and billing; this
+  // config validates provider credentials and model IDs only. Legacy *_PRICE
+  // environment variables are ignored and are not required to enable a route.
   const imageKeys = { gemini: geminiKey, openai: String(env.OPENAI_API_KEY || ''), openrouter: String(env.OPENROUTER_API_KEY || '') };
   const imageSlot = (prefix, d = {}) => {
     const named = String(env[prefix + '_PROVIDER'] || d.provider || '').trim().toLowerCase();
     const provider = named === 'google' ? 'gemini' : named;   // google = gemini
-    const model = String(env[prefix + '_MODEL'] || d.model || '').trim();
-    const priceRaw = String(env[prefix + '_PRICE'] ?? d.price ?? '').trim();
+    // Provider overrides must carry a model for that same provider. Previously,
+    // selecting e.g. openai while the default route was Gemini could silently
+    // pair the OpenAI adapter with a Gemini model ID, making generation fail.
+    const defaultModelByProvider = {
+      gemini: String(env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image').trim(),
+      openai: 'gpt-image-1',
+      openrouter: 'openai/gpt-image-2'
+    };
+    const providerChanged = Boolean(named) && provider !== d.provider;
+    const model = String(env[prefix + '_MODEL'] || (providerChanged ? defaultModelByProvider[provider] : d.model) || defaultModelByProvider[provider] || '').trim();
     if (!provider && !model) return null;
     const off = (why) => { warnings.push(`${prefix}: ${why} This picture route is off.`); return null; };
     if (!(provider in imageKeys)) return off('_PROVIDER must be google (gemini), openai or openrouter.');
     if (!imageKeys[provider]) return off(`needs ${provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'OPENAI_API_KEY'}.`);
     if (!(provider === 'openrouter' ? /^[a-z0-9][a-z0-9._-]{0,79}\/[a-z0-9][a-z0-9._:/-]{0,99}$/i.test(model) : /^[a-z0-9][a-z0-9.-]{1,79}$/i.test(model))) return off('_MODEL: use the exact model ID from the provider catalog.');
     if (provider === 'openai' && !/^gpt-image/.test(model)) return off('_MODEL: use the GPT Image model name from OpenAI, for example gpt-image-….');
-    if (provider === 'openrouter' && !['openai/gpt-image-2', 'openai/gpt-image-2.5-flare', 'openai/gpt-image-2.5-sunburst'].includes(model)) return off('_MODEL: use a verified OpenRouter image model, such as openai/gpt-image-2 or openai/gpt-image-2.5-flare.');
-    let price = null;
-    if (priceRaw) {
-      price = Number(priceRaw);
-      if (!Number.isFinite(price) || price <= 0 || price > 1) return off('_PRICE: the price of one picture in US dollars, for example 0.04.');
-    } else if (provider !== 'gemini') return off('_PRICE: the price of one picture in US dollars is needed, for example 0.04.');
-    // OpenAI's quality setting drives its price (OpenAI's default is high).
+    // Avoid a stale local image-model allowlist. The adapter verifies the model
+    // against the live image catalog and validates task-specific capabilities.
+    // OpenAI's quality setting controls image output quality (default high).
     const quality = String(env[prefix + '_QUALITY'] || '').trim().toLowerCase() || null;
     if (quality && (provider !== 'openai' || !['low', 'medium', 'high', 'xhigh', 'max', 'auto'].includes(quality))) return off('_QUALITY: low, medium, high, xhigh, max or auto (OpenAI only).');
-    return Object.freeze({ provider, model, price, ...(quality ? { quality } : {}) });
+    return Object.freeze({ provider, model, ...(quality ? { quality } : {}) });
   };
   const imageTiers = {};
+  // A configured provider key is sufficient to enable image routing. Never
+  // require a locally verified price: providers own model availability and
+  // billing. OpenRouter resolves this preferred ID against its live image
+  // catalog and may select another compatible image model when it is retired.
+  const defaultImageRoute = geminiKey
+    ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' }
+    : openrouterApiKey
+      ? { provider: 'openrouter', model: 'openai/gpt-image-2' }
+      : env.OPENAI_API_KEY
+        ? { provider: 'openai', model: 'gpt-image-1' }
+        : {};
+  const defaultImageFallback = defaultImageRoute.provider === 'gemini'
+    ? (openrouterApiKey ? { provider: 'openrouter', model: 'openai/gpt-image-2' } : env.OPENAI_API_KEY ? { provider: 'openai', model: 'gpt-image-1' } : {})
+    : defaultImageRoute.provider === 'openrouter'
+      ? (env.OPENAI_API_KEY ? { provider: 'openai', model: 'gpt-image-1' } : geminiKey ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' } : {})
+      : defaultImageRoute.provider === 'openai' && geminiKey
+        ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' }
+        : {};
   for (const n of [1, 2, 3, 4]) {
-    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, n === 1 && geminiKey ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' } : {});
-    const legacy = n === 1 && (env.IMAGE_FALLBACK_MODEL || env.IMAGE_FALLBACK_PRICE)
-      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL, price: env.IMAGE_FALLBACK_PRICE } : {};
+    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, defaultImageRoute);
+    const legacy = n === 1 && env.IMAGE_FALLBACK_MODEL
+      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : defaultImageFallback;
     const fallback = imageSlot(`IMAGE_TIER_${n}_FALLBACK`, legacy);
     if (primary) imageTiers[n] = Object.freeze({ primary, fallback });
     else if (fallback) warnings.push(`IMAGE_TIER_${n}_FALLBACK is set without a primary. Tier ${n} pictures are off.`);
@@ -708,7 +726,7 @@ export function loadConfig(env = process.env) {
   const videoProviderName = String(env.VIDEO_PROVIDER || 'gemini').trim().toLowerCase();
   if (!['gemini', 'openrouter'].includes(videoProviderName)) throw new ConfigError('VIDEO_PROVIDER: use gemini or openrouter');
   // HeyGen Video 1 is the primary OpenRouter video model. Per-tier model
-  // overrides remain available, but must pass live capability and pricing checks.
+  // overrides remain available, but must pass live capability checks.
   const openRouterVideoModel = String(env.OPENROUTER_VIDEO_MODEL || 'heygen/heygen-video-1').trim();
   const videoTierRoutes = Object.freeze(Object.fromEntries(['pro', 'max', 'ultra'].map((tier) => {
     const prefix = 'OPENROUTER_VIDEO_' + tier.toUpperCase();
@@ -737,8 +755,7 @@ export function loadConfig(env = process.env) {
     tierRoutes: videoTierRoutes,
     resolution: String(env.VIDEO_RESOLUTION || (videoProviderName === 'openrouter' ? '720p' : '1080p')).trim().toLowerCase(),
     perHour: toInt('VIDEO_PER_HOUR', env.VIDEO_PER_HOUR, 1, 1, 10),
-    maxSeconds: 60,
-    maxCostUsd: usd('VIDEO_MAX_COST_USD', env.VIDEO_MAX_COST_USD, 32)
+    maxSeconds: 60
   });
 
   const effort = String(env.OPENAI_REASONING_EFFORT || 'low').trim().toLowerCase();
@@ -805,7 +822,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-19a').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-24').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -821,12 +838,6 @@ export function loadConfig(env = process.env) {
       // Signed-in users' pictures are deleted after this many days (owner's
       // decision: 30; 0 keeps them). Guests' go with their chats (24 hours).
       retentionDays: toInt('IMAGE_RETENTION_DAYS', env.IMAGE_RETENTION_DAYS, 30, 0, 3650),
-      // Picture spending limits (USD, estimated), separate from chat budgets.
-      budget: Object.freeze({
-        dailyUsd: usd('IMAGE_DAILY_BUDGET_USD', env.IMAGE_DAILY_BUDGET_USD, 1),
-        weeklyUsd: usd('IMAGE_WEEKLY_BUDGET_USD', env.IMAGE_WEEKLY_BUDGET_USD, 5),
-        monthlyUsd: usd('IMAGE_MONTHLY_BUDGET_USD', env.IMAGE_MONTHLY_BUDGET_USD, 15)
-      }),
       // Picture routes by tier: { n: { primary, fallback } } (see above).
       tiers: Object.freeze(imageTiers),
       // Tier 1's fallback (kept for older code and tests), or null.
@@ -842,6 +853,8 @@ export function loadConfig(env = process.env) {
       googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),
       googleEngineId: String(env.WEB_GOOGLE_CX || '').trim()
     }),
+    weather: Object.freeze({ googleApiKey: String(env.GOOGLE_WEATHER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim() }),
+    maps: Object.freeze({ serverApiKey: String(env.GOOGLE_MAPS_SERVER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim(), browserApiKey: String(env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim() }),
     tools: Object.freeze({ enabled: toolsEnabled }),
     professional: Object.freeze({ enabled: professionalEnabled }),
     library,
@@ -861,6 +874,11 @@ export function loadConfig(env = process.env) {
       provider: aiProvider,
       openaiApiKey: String(env.OPENAI_API_KEY || ''),
       openrouterApiKey: String(env.OPENROUTER_API_KEY || ''),
+      // OpenRouter data policy for chat: allow (default) or deny. Private requests always use deny.
+      openrouterDataCollection: (() => {
+        const v = String(env.OPENROUTER_DATA_COLLECTION ?? '').trim().toLowerCase();
+        return v === '' || v === 'allow' ? 'allow' : 'deny';
+      })(),
       // The OpenAI provider's default model (usage records, health check).
       openaiModel: tiers.nasrinai.provider === 'openai' ? tiers.nasrinai.model : (fallback ? fallback.model : 'gpt-4o-mini'),
       // NasrinAI's own model server (AI_PROVIDER=local or auto), or null.

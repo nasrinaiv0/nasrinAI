@@ -776,28 +776,58 @@
   let ownerBootstrapAt = 0;
 
   async function syncOwnerConsoleEntry(token) {
-    if (!token || (ownerBootstrapToken === token && Date.now() - ownerBootstrapAt < 8 * 60 * 1000)) return;
-    ownerBootstrapToken = token;
-    ownerBootstrapAt = Date.now();
-    const existing = $('ownerConsoleEntry');
-    if (existing) existing.remove();
+    const entry = $('spaceOwnerConsole');
+    if (!token) {
+      if (entry) entry.hidden = true;
+      ownerBootstrapToken = '';
+      return;
+    }
+    const now = Date.now();
+    if (ownerBootstrapToken === token && now - ownerBootstrapAt < 8 * 60 * 1000) {
+      if (entry) entry.hidden = false;
+      return;
+    }
+    if (now - ownerBootstrapAt < 10 * 1000) return;
+    ownerBootstrapAt = now;
+    if (entry) entry.hidden = true;
     try {
       const response = await fetch('https://owner.nasrinai.com/v1/owner/session', {
         method: 'POST', credentials: 'include', mode: 'cors', cache: 'no-store',
         headers: { Authorization: 'Bearer ' + token }
       });
-      if (response.status === 204 && !document.getElementById('ownerConsoleEntry')) {
-        const button = document.createElement('button');
-        button.type = 'button'; button.id = 'ownerConsoleEntry'; button.className = 'menu-row';
-        button.textContent = 'Owner Command Center';
-        button.addEventListener('click', async () => { await syncOwnerConsoleEntry(account && account.token); window.location.href = 'https://owner.nasrinai.com/owner'; });
-        $('pageMain')?.appendChild(button);
-      } else if (response.status !== 204) $('ownerConsoleEntry')?.remove();
-    } catch {
+      // Server-side verification requires both the signed-in email and client IP
+      // to match the owner allowlists. The client only displays the entry on 204.
+      if (response.status !== 204) {
+        ownerBootstrapToken = '';
+        if (entry) entry.hidden = true;
+        return;
+      }
+      ownerBootstrapToken = token;
       ownerBootstrapAt = Date.now();
-      $('ownerConsoleEntry')?.remove();
+      if (entry) entry.hidden = false;
+    } catch {
+      ownerBootstrapToken = '';
+      ownerBootstrapAt = Date.now();
+      if (entry) entry.hidden = true;
     }
   }
+
+  const ownerConsoleTile = $('spaceOwnerConsole');
+  if (ownerConsoleTile) ownerConsoleTile.addEventListener('click', async () => {
+    const freshToken = await credential(true).catch(() => null);
+    if (!freshToken) {
+      ownerBootstrapToken = '';
+      ownerBootstrapAt = 0;
+      ownerConsoleTile.hidden = true;
+      return;
+    }
+    ownerBootstrapToken = '';
+    ownerBootstrapAt = 0;
+    await syncOwnerConsoleEntry(freshToken);
+    if (ownerBootstrapToken === freshToken && !ownerConsoleTile.hidden) {
+      window.location.href = 'https://owner.nasrinai.com/owner';
+    }
+  });
 
   async function credential(fresh) {
     if (account) {
@@ -1341,6 +1371,12 @@
         text = text.replace(/\s*\[image:[0-9a-f-]{36}\]\s*/g, '\n\n').trim();
         if (!text) text = generatedImageIds.length === 1 ? 'Here is your picture.' : 'Here are your pictures.';
       }
+      // A generated video (saved chat marker): the player resumes or plays it,
+      // so it is still there after a refresh.
+      const generatedVideoIds = [...text.matchAll(/\[genvideo:([0-9a-f-]{36})\]/g)].map((m) => m[1]);
+      if (generatedVideoIds.length) {
+        text = text.replace(/\s*\[genvideo:[0-9a-f-]{36}\]\s*/g, '\n\n').trim() || 'Here is your video.';
+      }
       // Screen recordings from render-and-test, right under the screenshot.
       for (let vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text); vid; vid = /^\[video:([0-9a-f-]{36})\]\s*/.exec(text)) {
         el.appendChild(recordingFigure(vid[1]));
@@ -1359,9 +1395,14 @@
       body.className = 'msg-body rich';
       const { node, blocks } = window.NasrinFormat.render(text);
       body.appendChild(node);
+      // Live Google Maps tool results arrive as bounded response metadata, so the map is rendered here in-chat without requiring a Maps-page redirect.
+      if (Array.isArray(responseMetadata?.maps) && window.NasrinChatMaps?.render) {
+        for (const mapResult of responseMetadata.maps.slice(0, 4)) window.NasrinChatMaps.render(body, mapResult);
+      }
       // Blocks fade in one after another (headings, paragraphs, lists, code).
       if (animate && !reduced()) blocks.forEach((b, i) => { b.classList.add('reveal'); b.style.setProperty('--d', Math.min(i, 12) * 70 + 'ms'); });
       el.appendChild(body);
+      for (const videoId of generatedVideoIds) el.appendChild(videoPlayer(videoId));
       // Show generated images after the reply text, preserving the natural reading order.
       if (generatedImageIds?.length) {
         if (generatedImageIds.length > 10) {
@@ -2960,7 +3001,7 @@
       }
     }
     const lastUser = msgs.filter((m) => m.classList.contains('user')).at(-1);
-    if (lastUser && lastUser.dataset.id && conversationId && !/^Create an image: /.test(lastUser.dataset.text || '')) {
+    if (lastUser && lastUser.dataset.id && conversationId && !/^Create (?:an image|a video): /.test(lastUser.dataset.text || '')) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'edit-msg';
@@ -2986,70 +3027,133 @@
   }
   $('editCancel').addEventListener('click', () => { cancelEdit(); input.value = ''; autosize(); });
 
+  // Photos can't be fed to video generation (it starts from a description), so
+  // point to Video Studio, which builds a video from photos on a timeline.
+  function offerStudioForPhotos(text) {
+    pending = [];
+    renderTray();
+    show('user', text);
+    input.value = '';
+    autosize();
+    const card = document.createElement('div');
+    card.className = 'msg assistant';
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.textContent = 'Video generation starts from a description, so it can’t use your photos as frames. Video Studio can put your photos on a timeline, trim them, add titles and audio, and export an MP4. Or describe the video you want and I’ll generate it.';
+    const link = document.createElement('a');
+    link.className = 'btn small';
+    link.href = '/video-studio.html';
+    link.textContent = 'Open Video Studio';
+    card.append(body, link);
+    log.appendChild(card);
+    scrollToEnd(card);
+  }
+
+  // The player for a generated video. It only ever CHECKS the saved job (GET)
+  // and never starts one, so it is safe to build again after a refresh or when
+  // an old chat is opened: a finished video plays, one still rendering keeps
+  // updating, and nothing is paid for twice.
+  function videoPlayer(id) {
+    const box = document.createElement('div');
+    box.className = 'generated-video';
+    const note = document.createElement('p');
+    note.className = 'msg-meta';
+    note.textContent = 'Checking your video…';
+    const loader = genLoader('Creating your video');
+    box.append(note, loader.el);
+    let pollFailures = 0;
+    let pollDelayMs = 3000;
+    const poll = async () => {
+      if (!box.isConnected) return; // the chat was left: stop; opening it again resumes
+      try {
+        const state = await api('/v1/videos/' + encodeURIComponent(id));
+        pollFailures = 0;
+        pollDelayMs = 10000;
+        if (state.status === 'completed') {
+          loader.remove();
+          note.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
+          const downloadLink = document.createElement('a');
+          downloadLink.className = 'btn small';
+          downloadLink.href = state.download;
+          downloadLink.download = '';
+          downloadLink.textContent = 'Download MP4';
+          // Show the video itself in the chat, not just a link. The content
+          // endpoint checks ownership of the job.
+          if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
+            const preview = document.createElement('video');
+            preview.className = 'generated-video-preview';
+            preview.controls = true;
+            preview.playsInline = true;
+            preview.preload = 'metadata';
+            preview.setAttribute('aria-label', 'Generated video preview');
+            preview.style.display = 'block';
+            preview.style.width = '100%';
+            preview.style.maxWidth = '640px';
+            preview.style.maxHeight = '70vh';
+            preview.style.marginTop = '12px';
+            preview.style.borderRadius = '14px';
+            preview.style.background = '#000';
+            preview.src = state.download;
+            preview.addEventListener('error', () => {
+              const warning = document.createElement('p');
+              warning.className = 'msg-meta';
+              warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
+              box.insertBefore(warning, downloadLink);
+            }, { once: true });
+            box.appendChild(preview);
+          }
+          box.appendChild(downloadLink);
+          if (box.dataset.waited) deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
+          scrollToEnd(box);
+          return;
+        }
+        if (state.status === 'failed') { loader.remove(); note.textContent = state.error?.message || 'The video could not be completed.'; return; }
+        box.dataset.waited = 'true';
+        if (state.provider_poll_warning) {
+          note.textContent = 'The video provider is taking longer to respond. NasrinAI is checking the existing job; it will not submit a duplicate generation request.';
+          pollDelayMs = 20000;
+        } else {
+          note.textContent = 'Your video is being created. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.';
+        }
+        loader.set((state.provider_poll_warning ? 'Checking video status' : 'Creating your video') + ' · ' + Math.max(1, Number(state.progress) || 1) + '%');
+        setTimeout(poll, pollDelayMs);
+      } catch (err) {
+        if (err.code === 'video_plan_required' || err.status === 403 || err.status === 404) { loader.remove(); note.textContent = err.status === 404 ? 'This video is no longer available.' : (err.message || 'Video creation is not available on your plan.'); return; }
+        pollFailures += 1;
+        pollDelayMs = Math.min(30000, 10000 * (2 ** Math.min(2, pollFailures - 1)));
+        if (pollFailures >= 3) note.textContent = 'NasrinAI is having trouble checking this video’s status. It will keep checking the same job and will not submit another generation request.';
+        setTimeout(poll, pollDelayMs);
+      }
+    };
+    // Start once the player is in the page, so a chat that is being replaced
+    // never leaves a poller running.
+    setTimeout(poll, 0);
+    return box;
+  }
+
   async function sendVideo(text) {
-    const videoTier = String(currentModel || 'nasrinai').trim().toLowerCase();
-    const defaultResolution = videoTier === 'pro' ? '480p' : '720p';
-    // Keep the client choices aligned with server-enforced base entitlements.
-    // 4K remains hidden until a verified account-level add-on entitlement exists.
-    const resolutionChoices = videoTier === 'pro' ? '360p or 480p' : '360p, 480p, 720p, 1080p, or 4k';
-    const resolutionInput = window.prompt('Video resolution (default ' + defaultResolution + '). Available base options: ' + resolutionChoices + '.', defaultResolution);
-    if (resolutionInput === null) return;
-    const resolution = String(resolutionInput || defaultResolution).trim().toLowerCase();
-    const allowedChoices = videoTier === 'pro' ? ['360p', '480p'] : ['360p', '480p', '720p', '1080p', '4k'];
-    if (!allowedChoices.includes(resolution)) {
-      show('problem', 'Choose a resolution available on your selected plan: ' + resolutionChoices + '.');
-      return;
-    }
-    const fpsInput = window.prompt('Video frame rate (default 30 FPS). Enter 30 or 60.', '30');
-    if (fpsInput === null) return;
-    const fps = Number(fpsInput || 30);
-    if (![30, 60].includes(fps)) {
-      show('problem', 'Choose 30 or 60 FPS.');
-      return;
-    }
-    if (!window.confirm('Create this video at ' + resolution + ' / ' + fps + ' FPS? NasrinAI will use your weekly video-seconds allowance. Your plan and the provider determine the final available quality.')) return;
+    // No native browser dialogs here: they are blocked or unreadable in many
+    // mobile browsers. Quality and frame rate are chosen by the server
+    // from the plan and the model's advertised options; the clip length comes
+    // from the message ("2 sec video of ...") and defaults to 8 seconds.
+    const seconds = window.NasrinCreativeIntent.parseVideoSeconds(text) || 8;
     noticesOnSend();
     show('user', text);
     input.value = '';
     autosize();
     setImageMode(false);
     try {
-      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds: 8, tier: currentModel || 'nasrinai', resolution, fps, conversation_id: conversationId || undefined }) });
+      const data = await api('/v1/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text, seconds, tier: currentModel || 'nasrinai', conversation_id: conversationId || undefined }) })
       const id = data.video_id;
       if (!id) throw new Error('The video job could not be started.');
-      const card = document.createElement('div');
-      card.className = 'msg assistant';
-      const body = document.createElement('div');
-      body.className = 'msg-body';
-      body.textContent = 'I’m creating your video. You can keep using NasrinAI while it renders.';
-      const loader = genLoader('Creating your video');
-      card.append(body, loader.el);
-      log.appendChild(card);
-      scrollToEnd(card);
-      const poll = async () => {
-        try {
-          const state = await api('/v1/videos/' + encodeURIComponent(id));
-          if (state.status === 'completed') {
-            loader.remove();
-            body.textContent = 'Your video is ready.';
-            const a = document.createElement('a');
-            a.className = 'btn small';
-            a.href = state.download;
-            a.download = '';
-            a.textContent = 'Download MP4';
-            card.appendChild(a);
-            deviceNotify('NasrinAI video ready', 'Your Ultra video has finished rendering.', 'nasrinai-video-' + id);
-            return;
-          }
-          if (state.status === 'failed') { loader.remove(); body.textContent = state.error?.message || 'The video could not be completed.'; return; }
-          loader.set('Creating your video · ' + Math.max(1, Number(state.progress) || 1) + '%');
-          setTimeout(poll, 10000);
-        } catch (err) {
-          if (err.code === 'video_plan_required' || err.status === 403) { loader.remove(); body.textContent = err.message || 'Video creation is available on Ultra.'; return; }
-          setTimeout(poll, 15000);
-        }
-      };
-      poll();
+      // The server saved this request and the video into a chat: keep using it,
+      // so the video is still there after a refresh.
+      if (data.conversation_id) {
+        conversationId = data.conversation_id;
+        saved.set(identityKey(KEYS.conversation), conversationId);
+      }
+      const length = Number(data.target_seconds) || seconds;
+      show('assistant', '[genvideo:' + id + ']\nI’m creating your ' + length + '-second video. It uses your weekly video allowance, and you can keep using NasrinAI while it renders.');
     } catch (err) {
       show('problem', err.message || 'The video could not be started.');
       Nasrin.flash('sad', 2400);
@@ -3194,6 +3298,7 @@
       return;
     }
     if (!imageMode && intent === 'video') {
+      if (pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) return offerStudioForPhotos(text);
       const prompt = shortcut ? shortcutImagePrompt(shortcut) : text;
       return sendVideo(prompt);
     }
@@ -5981,6 +6086,9 @@
     account = { email, token: data.access_token, until: Date.now() + (Number(data.expires_in) || 3600) * 1000 };
     saved.set(KEYS.account, { email });
     renderAccount();
+    // Bootstrap owner visibility as soon as a signed-in session is established.
+    // The tile is hidden by default, so waiting for its click would deadlock visibility.
+    void syncOwnerConsoleEntry(account.token);
     return account;
   }
 
@@ -5990,7 +6098,7 @@
     ownerBootstrapToken = '';
     ownerBootstrapAt = 0;
     saved.del(KEYS.account);
-    $('ownerConsoleEntry')?.remove();
+    if ($('spaceOwnerConsole')) $('spaceOwnerConsole').hidden = true;
     void fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }).catch(() => {});
     renderAccount();
     renderImageHint();

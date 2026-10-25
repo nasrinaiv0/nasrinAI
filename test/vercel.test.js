@@ -20,7 +20,8 @@ test('retention stays hourly, the web crawler runs every five minutes, and rende
   assert.deepEqual(config.crons, [
     { path: '/v1/internal/retention', schedule: '0 * * * *' },
     { path: '/v1/internal/web-crawl', schedule: '*/5 * * * *' },
-    { path: '/v1/internal/video-studio-render', schedule: '* * * * *' }
+    { path: '/v1/internal/video-studio-render', schedule: '* * * * *' },
+    { path: '/v1/internal/owner-alerts', schedule: '*/5 * * * *' }
   ]);
 });
 

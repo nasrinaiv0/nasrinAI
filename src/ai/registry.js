@@ -16,7 +16,7 @@ import { assertProvider } from './provider.js';
 //   AI_PROVIDER=auto        configured local/direct providers with explicit fallback
 //   AI_PROVIDER=fake    local echo, not allowed in production
 //   AI_PROVIDER=none    chat answers "unavailable" (the default)
-export function providerFromConfig(config, { logger = { info() {}, warn() {} } } = {}) {
+export function providerFromConfig(config, { logger = { info() {}, warn() {} }, openRouterClient = null } = {}) {
   const mode = config.ai.provider;
   if (mode === 'none' && !(config.ai.freeProviders || []).length && !config.ai.geminiApiKey) return null;
   const providers = {};
@@ -46,7 +46,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
     providers.anthropic = assertProvider(createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: anthropicModel }));
   }
   if (config.ai.openrouterApiKey && mode !== 'fake' && mode !== 'none') {
-    providers.openrouter = assertProvider(createOpenRouterProvider({ apiKey: config.ai.openrouterApiKey, model: 'openai/gpt-6-sol' }));
+    providers.openrouter = assertProvider(createOpenRouterProvider({ apiKey: config.ai.openrouterApiKey, model: 'openai/gpt-6-sol', client: openRouterClient || undefined, dataCollection: config.ai.openrouterDataCollection }));
   }
   if (config.ai.geminiApiKey && mode !== 'fake') {
     const geminiModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'gemini')?.model || 'gemini-3.1-flash-lite';
@@ -60,7 +60,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} } }
         vision: false, timeoutMs: 60_000, id: p.id,
         external: true, trainsOnData: false, tools: false
       });
-      providers[p.id] = assertProvider(createOpenRouterProvider({ apiKey: p.apiKey, model: p.model, fallbackProvider: freeFallback }));
+      providers[p.id] = assertProvider(createOpenRouterProvider({ apiKey: p.apiKey, model: p.model, fallbackProvider: freeFallback, dataCollection: config.ai.openrouterDataCollection }));
     } else if (p.adapter === 'openai-compatible') {
       providers[p.id] = assertProvider(createLocalProvider({
         baseUrl: p.baseUrl, model: p.model, apiKey: p.apiKey,

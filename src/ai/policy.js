@@ -1,15 +1,15 @@
 import { createHash } from 'node:crypto';
 import { ProviderError } from './provider.js';
 import { classify } from './classify.js';
-import { priceOf, costOf, estimateTokens } from './pricing.js';
+import { estimateTokens } from './token-estimate.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
+import { isOpenRouterChatCandidateEligible } from './openrouter-runtime-eligibility.js';
 
-// The cost-aware routing policy (Phase 4.1), between the chat and the router:
+// The routing policy (Phase 4.1), between chat and the router:
 //
-//   classify -> level within the tier's range -> privacy -> cheapest candidate
-//   that fits the budget -> call -> validate -> (escalate once, bounded) -> done
+//   classify -> level within the tier's range -> privacy/capability checks -> call -> validate -> bounded escalation
 //
 // Candidates per level come from config (ROUTE_LEVEL_n). Provider accounts own
 // their billing and pricing; local price snapshots must never block model routing.
@@ -17,7 +17,7 @@ import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, prices, budget, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
+export function createPolicy({ config, provider, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
   const r = config.ai.routing;
   const cache = new Map();   // key -> { at, value }
   // Brief per-model circuit breaker: after a transient outage, avoid paying the
@@ -26,17 +26,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
   const failureCooldowns = new Map(); // provider:model:effort -> epoch ms
 
   const capsOf = (spec) => (provider.capsOf ? provider.capsOf(spec.provider) : provider.capabilities());
-  const priceFor = (spec) => {
-    // Only exact model IDs explicitly allowlisted in the environment are treated as free.
-    // A provider can offer both free and paid models; never infer zero cost from provider name.
-    if (spec.provider !== 'openrouter' && (r.freeModels?.[spec.provider] || []).includes(spec.model)) return { input: 0, cachedInput: 0, output: 0, free: true };
-    return priceOf(prices, spec.provider, spec.model, { freeTier: spec.provider === 'gemini' && r.geminiFreeTier });
-  };
 
-  function estimate(spec, inputTokens, level, minOut = 0) {
-    const out = Math.max(r.maxTokens[level], minOut) * (1 + (EFFORT_FACTOR[spec.effort] ?? 1));
-    return costOf(priceFor(spec), { inputTokens, outputTokens: out });
-  }
 
   // Why a candidate cannot be used for this request, or null if it can.
   function blocker(spec, { sensitive, attachments, inputTokens, level, left, minOut = 0, reqToolsCount = 0, tier, task }) {
@@ -51,23 +41,23 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
     if (attachments.some((a) => a.kind === 'image') && c.vision === false) return 'cannot see photos';
     if (attachments.length && c.pdf === false) return 'cannot read attachments';
     if (reqToolsCount > 0 && c.tools === false) return 'does not support tools';
-    const cost = estimate(spec, inputTokens, level, minOut);
     return null;
   }
 
   return {
-    budgetLeft: () => budget.remaining(),
-    spent: (usd) => budget.spend(usd),
-    maxRequestUsd: budget.maxRequestUsd,
+    // Provider invoices, not local model-price estimates, are the source of cost truth.
+    budgetLeft: async () => ({ usd: Infinity, limitedBy: null, unknown: false }),
+    spent: () => {},
+    maxRequestUsd: null,
 
     // What the message needs and where it may go. tier: nasrinai | pro | max | ultra.
-    plan({ tier, message, history = [], attachments = [] }) {
+    plan({ tier, paidQuick = false, message, history = [], attachments = [] }) {
       const c = classify({ message, history, attachments });
       const [lo, hi] = r.tierRange[tier] || r.tierRange.nasrinai;
       const level = Math.min(hi, Math.max(lo, c.level));
       const text = [message, ...history.slice(-6).map((m) => m.content)].join('\n');
       const sensitive = attachments.length > 0 || redactForProvider(text) !== text;
-      return { tier, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
+      return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
         historyChars: r.historyChars[level], maxTokens: r.maxTokens[level] };
     },
 
@@ -115,15 +105,74 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
       const tried = new Set();
       let lastFailed = null;   // { spec, level } of a retryable failure, for one same-model retry
       let sameRetried = false;
+      // Live catalog candidates extend paid-tier routing without changing the
+      // Quick/guest allowlist. Failure to read the catalog must not block static
+      // configured routes.
+      let liveOpenRouterModels = [];
+      // Discover live OpenRouter text-capable models for every tier. Guest/Quick
+      // are filtered to :free IDs below, while paid tiers may use the broader list.
+      if (typeof provider.listModelsForTask === 'function') {
+        try {
+          liveOpenRouterModels = await provider.listModelsForTask('openrouter', {
+            task: plan.task,
+            requiresTools: Array.isArray(req.tools) && req.tools.length > 0,
+            attachments
+          });
+        } catch (catalogError) {
+          logger.warn('OpenRouter live model discovery failed; using configured routes', {
+            task: plan.task, error: catalogError?.message || 'unknown'
+          });
+        }
+      }
 
       for (;;) {
         // The cheapest usable candidate at this level, else lower levels (downgrade).
         let spec = null; let at = level; const why = [];
         for (let l = level; l >= plan.floor && !spec; l--) {
           const candidates = [];
-          const ordered = prioritizeOpenRouterCandidates(plan.task, r.levels[l]);
+          const tierCandidates = r.levels[l];
+          // New live-listed text models become eligible fallbacks at the selected
+          // level. They remain subject to tier ceiling, privacy, and retry limits.
+          const configuredOpenRouterIds = new Set((tierCandidates || [])
+            .filter((candidate) => candidate.provider === 'openrouter')
+            .map((candidate) => candidate.model));
+          const dynamicOpenRouterCandidates = liveOpenRouterModels
+            .filter((model) => !configuredOpenRouterIds.has(model))
+            .map((model) => ({ provider: 'openrouter', model, effort: null }));
+          // Try live-discovered candidates before the static shortlist so
+          // bounded retries do not starve newly listed models behind stale IDs.
+          // Task prioritization still orders the full eligible candidate set.
+          const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates];
+          // Enforce plan eligibility before ranking or trying any candidate.
+          // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
+          // Luna is the sole paid-model escape hatch and is ordered after every
+          // free candidate. Paid subscriptions (including separately paid Quick)
+          // must never consume OpenRouter's free endpoints, even for simple chat.
+          const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
+          const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
+            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly;
+            // Preserve the existing legacy/dynamic chat route policy, while
+            // enforcing the approved registry for any model ID it recognizes.
+            // Specialized endpoints and inferred IDs never enter chat completion.
+            return isOpenRouterChatCandidateEligible({
+              modelId: candidate.model,
+              tier: plan.tier,
+              paidQuick: plan.paidQuick,
+              task: plan.task,
+              verifiedIds: liveOpenRouterModels
+            }) && (!(r.quickNemotronOnly && freeQuick)
+              || /:free$/i.test(candidate.model)
+              || candidate.model === 'openai/gpt-6-luna');
+          });
+          const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
+          const ordered = r.quickNemotronOnly && freeQuick
+            ? [
+                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
+                ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
+              ]
+            : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = ordered.filter((candidate) => candidate.provider !== 'openrouter');
+          const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
           // Intent is classified and the tier's level ceiling is applied before
           // this point. Within that permitted level, configured OpenRouter models
@@ -134,7 +183,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
             const codingSpec = plan.tier === 'ultra' && l >= 4
               ? (r.coding?.ultraDeep || r.coding?.ultra)
               : r.coding?.[plan.tier];
-            if (codingSpec && !candidates.some((candidate) =>
+            if (!(r.quickNemotronOnly && plan.tier === 'nasrinai') && codingSpec && !candidates.some((candidate) =>
               candidate.provider === codingSpec.provider && candidate.model === codingSpec.model && candidate.effort === codingSpec.effort)) {
               candidates.push(codingSpec);
             }
@@ -163,41 +212,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           logger.info('retrying the same model once', { provider: spec.provider, waitMs: retryWaitMs });
           await sleep(retryWaitMs);
         }
-        // Every routed candidate lacks a price (for example ROUTE_LEVEL_n names a
-        // model that is not in config/model-prices.json). Unpriced models stay
-        // blocked, but the tier's own configured model is still a safe choice when
-        // it has a price and passes every privacy, capability and budget rule.
-        // Budget or capability blocks never reach this: only a missing price does.
-        if (!spec && why.some((w) => /no price on file/.test(w))) {
-          const own = config.ai.tiers?.[plan.tier];
-          const k = own && `${own.provider}:${own.model}:${own.effort}`;
-          if (own && !tried.has(k) && !blocker(own, {
-            sensitive: plan.sensitive, attachments, inputTokens, level: plan.floor, left, minOut: minTokens,
-            reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
-          })) {
-            logger.error('configured route models have no price on file; using the tier model instead. Add their prices to config/model-prices.json', { tier: plan.tier, using: `${own.provider}:${own.model}`, reasons: why });
-            spec = own; at = plan.floor;
-          }
-        }
-        if (!spec && why.some((w) => /no price on file/.test(w))) {
-          // Last-resort models are explicitly configured and still pass every
-          // privacy, capability, price, per-request and remaining-budget check.
-          for (const safe of (r.safeFallbacks || [])) {
-            const k = `${safe.provider}:${safe.model}:${safe.effort}`;
-            if (tried.has(k)) continue;
-            const b = blocker(safe, {
-              sensitive: plan.sensitive, attachments, inputTokens, level: plan.floor, left, minOut: minTokens,
-              reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0, tier: plan.tier, task: plan.task
-            });
-            if (b) { why.push(`${safe.provider}:${safe.model} (safe fallback: ${b})`); continue; }
-            logger.warn('using explicitly priced safe fallback', { tier: plan.tier, provider: safe.provider, model: safe.model });
-            spec = safe; at = plan.floor; break;
-          }
-        }
         if (!spec) {
-          if (why.some((w) => /no price on file/.test(w))) {
-            logger.error('no price on file for the routed models; add them to config/model-prices.json', { reasons: why });
-          }
           logger.warn('no model can take this request', { level, reasons: why });
           if (why.length && why.every((w) => /cannot (read|see)/.test(w))) {
             throw new HttpError(400, 'attachment_unsupported', 'NasrinAI cannot read that kind of file right now. Try another file, or remove it.');
@@ -207,7 +222,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
               ? 'NasrinAI has reached its spending limit for now. Please try again later.'
               : 'NasrinAI cannot answer this right now. Please try again in a moment.', { retryAfter: 600 });
         }
-        if (at < level) logger.info('downgraded to fit the budget', { from: level, to: at });
+        if (at < level) logger.info('downgraded to a compatible configured route', { from: level, to: at });
 
         const started = now();
         const normalMaxTokens = Math.max(r.maxTokens[at], minTokens);
@@ -220,7 +235,8 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens });
+          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, sensitive: plan.sensitive === true,
+            disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' && plan.paidQuick !== true });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
             const actual = hasUsage && result.fallback !== true
@@ -246,7 +262,7 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
             ? result.actualCostUsd
             : Number.isFinite(result.costUsd) && result.costUsd >= 0
               ? result.costUsd
-              : (costOf(priceFor(actualSpec), { inputTokens: result.inputTokens, cachedTokens, outputTokens: result.outputTokens }) ?? 0);
+              : null;
           const text = String(result.text || '').trim();
           const asksTools = Array.isArray(result.toolCalls) && result.toolCalls.length > 0;
           const valid = asksTools || (text.length > 0 && !(result.finishReason === 'length' && text.length < 40));
@@ -276,7 +292,14 @@ export function createPolicy({ config, provider, prices, budget, logger, now = (
             }
           }
           calls += attempts.length;
-          if (calls > r.maxRetries) throw Object.assign(err, { level: at });
+          // Quick/guest must be able to walk its configured OpenRouter-only
+          // candidate list (Nemotron first, then the emergency model). Keep this
+          // bounded to the candidates configured at the active level; other tiers
+          // retain the normal retry cap.
+          const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai' && plan.paidQuick !== true
+            ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter').length)
+            : r.maxRetries;
+          if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).
           tried.add(`${spec.provider}:${spec.model}:${spec.effort}`);
           for (const a of attempts) tried.add(`${a.provider}:${a.model}:${a.effort}`);
