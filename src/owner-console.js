@@ -200,7 +200,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '', openrouterApiKey = '' }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '' }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -846,13 +846,18 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const metaResponse = await fetchImpl('https://openrouter.ai/api/v1/analytics/meta', {
             method: 'GET', headers, signal: AbortSignal.timeout(8000), redirect: 'error'
           });
+          if (metaResponse.status === 401) throw new Error('management_unauthorized');
+          if (metaResponse.status === 403) throw new Error('management_forbidden');
           if (metaResponse.ok) {
             const meta = await metaResponse.json();
             const metrics = meta?.data?.metrics ?? meta?.metrics ?? meta?.data;
             if (Array.isArray(metrics)) availableMetrics = metrics.map((item) => typeof item === 'string' ? item : item?.name ?? item?.id).filter((item) => typeof item === 'string');
             else if (metrics && typeof metrics === 'object') availableMetrics = Object.keys(metrics);
           }
-        } catch { /* The documented baseline metrics below remain usable. */ }
+        } catch (error) {
+          if (error?.message === 'management_unauthorized' || error?.message === 'management_forbidden') throw error;
+          /* The documented baseline metrics below remain usable. */
+        }
         const metricCandidates = [
           ['total_usage', ['total_usage', 'usage', 'spend']],
           ['requests', ['requests', 'request_count', 'requests_count']],
@@ -868,6 +873,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           method: 'POST', headers, signal: AbortSignal.timeout(10000), redirect: 'error',
           body: JSON.stringify({ metrics, dimensions: ['model'], granularity: 'day', time_range: timeRange, limit: 100 })
         });
+        if (analyticsResponse.status === 401) throw new Error('management_unauthorized');
+        if (analyticsResponse.status === 403) throw new Error('management_forbidden');
         if (!analyticsResponse.ok) throw new Error('analytics query failed');
         const analyticsPayload = await analyticsResponse.json();
         const rawRows = analyticsPayload?.data?.data ?? analyticsPayload?.data?.rows ?? analyticsPayload?.rows ?? analyticsPayload?.data;
@@ -903,11 +910,11 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const credits = { total_credits: null, total_usage: null, remaining_credits: null };
         // Credits are a separate API and use an inference key, not the
         // management key. Failure here must not hide valid Analytics results.
-        if (openrouterApiKey) {
+        if (openrouterManagementKey) {
           try {
             const creditsResponse = await fetchImpl('https://openrouter.ai/api/v1/credits', {
               method: 'GET',
-              headers: { Authorization: 'Bearer ' + openrouterApiKey, Accept: 'application/json' },
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
               signal: AbortSignal.timeout(8000), redirect: 'error'
             });
             if (creditsResponse.ok) {
@@ -951,7 +958,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
     if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
-      if (!openrouterApiKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
+      if (!openrouterManagementKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
         return true;
       }
@@ -973,7 +980,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           try {
             const response = await fetchImpl('https://openrouter.ai/api/v1/generation?id=' + encodeURIComponent(generationId), {
               method: 'GET',
-              headers: { Authorization: 'Bearer ' + openrouterApiKey, Accept: 'application/json' },
+              headers: { Authorization: 'Bearer ' + openrouterManagementKey, Accept: 'application/json' },
               signal: AbortSignal.timeout(8000),
               redirect: 'error'
             });
