@@ -92,7 +92,7 @@ test('chat: the business server asks about an order; the declared call is made w
   try {
     await a.put('shop', SHOP);
     const out = await (await postJson(a.url + '/v1/chat', { message: 'Where is order 12345?' }, bearer(MGMT))).json();
-    assert.equal(a.calls.length, 1);
+    assert.equal(a.calls.length, 1, JSON.stringify(out));
     assert.equal(String(a.calls[0].url), 'https://api.shop.example.com/v1/orders/12345');
     assert.equal(a.calls[0].method, 'GET');
     assert.equal(a.calls[0].headers['X-Api-Key'], 'shop-key-123', 'decrypted only for the call');
