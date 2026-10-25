@@ -166,7 +166,8 @@ export async function runOpenRouterGenerationSync({
         if (!generation) { unavailable++; return null; }
         fetched++;
         return toStoredRow(generation);
-      } catch {
+      } catch (error) {
+        if (error?.message === 'generation_unauthorized' || error?.message === 'generation_forbidden') throw error;
         failed++;
         return null;
       }
