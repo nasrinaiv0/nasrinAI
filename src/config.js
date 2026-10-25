@@ -385,9 +385,9 @@ export function loadConfig(env = process.env) {
   }
   if (routingMode === 'smart' && !levels[1].length) throw new ConfigError('ROUTING=smart needs at least one model for ROUTE_LEVEL_1');
 
-  // Coding specialists are explicit, tier-scoped routes. Prefer the requested
-  // OpenRouter Sol models when OPENROUTER_API_KEY is configured; retain the
-  // previous Anthropic defaults only when OpenRouter is not configured.
+  // Coding specialists are explicit, tier-scoped routes. In Auto mode, prefer
+  // direct Anthropic coding models when configured; use OpenRouter as the
+  // specialist fallback. Explicit OpenRouter mode retains its pinned behavior.
   const codingModel = (name, value, fallback, allowedModels) => {
     const raw = value === undefined || String(value).trim() === '' ? fallback : String(value).trim();
     if (!raw) return null;
@@ -404,7 +404,7 @@ export function loadConfig(env = process.env) {
     }
     throw new ConfigError(`${name}: use an approved openrouter:openai/gpt-6-sol or openrouter:openai/gpt-6.1-sol model (or an approved anthropic:claude-... fallback)`);
   };
-  const codingOpenRouter = has('openrouter');
+  const codingOpenRouter = has('openrouter') && (aiProvider !== 'auto' || !has('anthropic'));
   const codingAnthropic = has('anthropic');
   const codingFallback = (openrouterModel, anthropicModel) => codingOpenRouter
     ? `openrouter:${openrouterModel}`
