@@ -842,7 +842,27 @@
           const tr = el('tr');
           const status = String(row.catalog_status || 'unknown').replaceAll('_',' ');
           const cost = row.cost_usd === null || row.cost_usd === undefined || !Number.isFinite(Number(row.cost_usd))
-            ? 'Unknown' : '        if (!scopedRows.length || (isOpenRouter && !scopedRows.some((row) => row.catalog_status === 'not_listed'))) {
+            ? 'Unknown' : String.fromCharCode(36) + Number(row.cost_usd).toFixed(6);
+          const cells = [
+            row.provider || 'Unknown',
+            row.model || 'Unknown',
+            status,
+            safeCount(row.request_count).toLocaleString(),
+            safeCount(row.successes).toLocaleString() + ' / ' + safeCount(row.failures).toLocaleString(),
+            safeCount(row.input_tokens).toLocaleString() + ' / ' + safeCount(row.output_tokens).toLocaleString(),
+            cost,
+            safeDate(row.first_seen),
+            safeDate(row.last_seen),
+            sourcesFor(row).join(', ') || 'Unknown'
+          ];
+          cells.forEach((value, index) => {
+            const td = el('td', index === 2 ? 'status-text' : '', String(value));
+            if (index === 1) td.classList.add('model-id-cell');
+            tr.append(td);
+          });
+          tbody.append(tr);
+        });
+        if (!scopedRows.length || (isOpenRouter && !scopedRows.some((row) => row.catalog_status === 'not_listed'))) {
           const emptyRow = el('tr');
           const emptyCell = el('td', '', isOpenRouter ? 'No confirmed unlisted OpenRouter models found for this period.' : 'No other-provider model usage records found for this period.');
           emptyCell.colSpan = 10;
