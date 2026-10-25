@@ -1,3 +1,4 @@
+- Apply production migration `066_openrouter_logs_explicit_deny_policy`; verified its registry entry and restrictive deny policy for browser roles. Supabase security advisor no longer reports `openrouter_logs` as RLS-enabled without a policy; leaked-password protection remains disabled.
 - Fix OpenRouter billing analytics parsing to accept the documented `data.data` response envelope; update regression coverage to use the official flat-row response shape and `request_count` metric.
 
 - Route OpenRouter Responses API web search away from `openrouter/auto` to the verified free `nvidia/nemotron-3-super-120b-a12b:free` model, which advertises Responses API and tool support; preserve explicitly configured model IDs other than Auto. This prevents the known production Auto-model HTTP 400 route while keeping Quick/guest search on a free model.
