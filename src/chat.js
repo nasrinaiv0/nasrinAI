@@ -355,7 +355,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // raw provider output or internal/tool context through this path.
       reply = clean(keepIdentity(typeof reply === 'string' ? reply : ''));
       if (!reply) reply = 'I couldn’t produce a safe, readable reply. Please try again.';
-      const assistant = await conversations.add(conv, 'assistant', reply);
+      let assistant = await conversations.add(conv, 'assistant', reply);
       // Memory is updated after the exchange is durably saved. Only the user's
       // own message is considered; assistant output, retrieved history, and tools
       // can never plant personal memories. The feature is opt-in and failure-isolated.
@@ -379,14 +379,28 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         ? {
             input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)),
             output_tokens: Math.max(0, Math.round(responseUsage.outputTokens)),
-            estimated: false
+            estimated: false,
+            source: 'provider'
           }
         : {
             input_tokens: estimateTextTokenCount(typed),
             output_tokens: estimateTextTokenCount(reply),
-            estimated: true
+            estimated: true,
+            source: 'text_estimate'
           };
-      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: { timestamp: responseTimestamp, duration_ms: Math.max(0, now() - requestStartedAt), usage: usageMetadata, ...(mapResults.length ? { maps: mapResults } : {}) }, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
+      const responseMetadata = {
+        timestamp: responseTimestamp,
+        duration_ms: Math.max(0, now() - requestStartedAt),
+        usage: usageMetadata,
+        ...(mapResults.length ? { maps: mapResults } : {})
+      };
+      try {
+        assistant = await conversations.setResponseMetadata(assistant, responseMetadata);
+      } catch (err) {
+        logger.warn('reply usage metadata persistence failed', { error: String(err?.message || 'error').slice(0, 120) });
+        assistant = { ...assistant, responseMetadata };
+      }
+      return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: responseMetadata, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
 
     // Requests for private system details are refused in code, before any model call.
