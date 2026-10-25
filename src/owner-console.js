@@ -897,8 +897,12 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const rows = [];
         for (const row of routerRows) {
           const actual = String(row.model || '').trim();
-          const model = normalizeModel(actual || row.requested_model, 'openrouter');
-          const status = String(row.status || 'unknown').toLowerCase();
+          // Keep requested aliases visible when OpenRouter does not report the resolved model.
+          // Such rows are inferred request targets, not proof that the alias itself executed.
+          const model = normalizeModel(actual || row.requested_model || 'Actual model not reported', 'openrouter');
+          const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
+          const catalogStatus = model && catalogs.openrouter ? (catalogs.openrouter.has(model) ? 'listed' : 'not_listed') : 'unknown';
+          const modelStatus = actual ? 'observed' : row.requested_model ? 'inferred' : 'unavailable';
           rows.push({
             id: row.id, request_id: row.request_id, created_at: row.created_at, provider: 'openrouter',
             upstream_provider: row.upstream_provider || null, endpoint: row.endpoint, http_method: row.http_method,
@@ -908,7 +912,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             provider_request_id: row.provider_request_id, openrouter_generation_id: row.openrouter_generation_id,
             finish_reason: row.finish_reason, generation_time_seconds: row.generation_time_seconds,
             upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms,
-            catalog_status: model && catalogs.openrouter ? (catalogs.openrouter.has(model) ? 'listed' : 'not_listed') : 'unknown',
+            catalog_status: catalogStatus, model_status: modelStatus,
+            model_status_source: actual ? 'provider_response' : row.requested_model ? 'requested_model_alias' : 'missing_model_metadata',
             telemetry_source: 'openrouter_logs', cost_kind: row.total_cost_usd == null ? 'unknown' : 'provider_reported'
           });
         }
@@ -917,24 +922,29 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // OpenRouter's detailed request log is authoritative for that route; do not double-count its aggregate usage event.
           if (provider === 'openrouter') continue;
           const catalogProvider = provider === 'gemini' ? 'google' : provider;
-          const model = normalizeModel(row.model, catalogProvider);
-          const outcome = String(row.outcome || 'unknown').toLowerCase();
+          const model = normalizeModel(row.model, catalogProvider) || 'Actual model not reported';
+          const outcome = String(row.outcome || 'unknown').trim().toLowerCase() || 'unknown';
+          const successOutcomes = ['ok', 'success', 'succeeded', 'complete', 'completed'];
+          const failureOutcomes = ['error', 'failed', 'failure', 'timeout', 'timed_out', 'cancelled', 'canceled'];
+          const status = successOutcomes.includes(outcome) ? 'success' : failureOutcomes.includes(outcome) ? 'error' : outcome;
+          const estimate = row.cost_usd == null || row.cost_usd === '' || !Number.isFinite(Number(row.cost_usd)) || Number(row.cost_usd) < 0 ? null : Number(row.cost_usd);
           rows.push({
             id: null, request_id: null, created_at: row.created_at, provider: catalogProvider,
             upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
-            status: ['ok', 'success', 'succeeded'].includes(outcome) ? 'success' : outcome && outcome !== 'unknown' ? 'error' : 'unknown',
-            http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
+            status, http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
-            total_cost_usd: null, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
+            total_cost_usd: estimate, provider_cost_source: null, provider_request_id: null, openrouter_generation_id: null,
             finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
-            catalog_status: model && catalogs[catalogProvider] ? (catalogs[catalogProvider].has(model) ? 'listed' : 'not_listed') : 'unknown',
-            telemetry_source: 'usage_events', cost_kind: 'unknown'
+            catalog_status: model !== 'Actual model not reported' && catalogs[catalogProvider] ? (catalogs[catalogProvider].has(model) ? 'listed' : 'not_listed') : 'unknown',
+            model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
+            model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
+            telemetry_source: 'usage_events', cost_kind: estimate == null ? 'unknown' : 'estimated'
           });
         }
         const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
         const filtered = rows.filter((row) => {
           if (canonicalFilter !== 'all' && row.provider !== canonicalFilter) return false;
-          if (statusFilter && row.status !== statusFilter) return false;
+          if (statusFilter && !((statusFilter === 'success' && ['success', 'ok', 'succeeded', 'complete', 'completed'].includes(row.status)) || (statusFilter === 'error' && ['error', 'failed', 'failure', 'timeout', 'timed_out', 'cancelled', 'canceled'].includes(row.status)))) return false;
           if (modelFilter && ![row.model, row.requested_model].some((value) => String(value || '').toLowerCase().includes(modelFilter.toLowerCase()))) return false;
           if (endpointFilter && row.endpoint !== endpointFilter) return false;
           if (scope === 'listed' && row.catalog_status !== 'listed') return false;
