@@ -87,6 +87,10 @@
       "destination": "/api/internal-owner-alerts"
     },
     {
+      "source": "/v1/internal/openrouter-generation-sync",
+      "destination": "/api/internal-openrouter-generation-sync"
+    },
+    {
       "source": "/v1",
       "destination": "/api/index?__path=/v1"
     },
@@ -97,10 +101,6 @@
     {
       "source": "/healthz",
       "destination": "/api/index?__path=/healthz"
-    },
-    {
-      "source": "/v1/internal/openrouter-generation-sync",
-      "destination": "/api/internal-openrouter-generation-sync"
     }
   ],
   "headers": [
