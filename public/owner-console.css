@@ -7,7 +7,7 @@
 
 
 /* Owner-only OpenRouter request log table */
-.provider-log-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto;gap:12px;align-items:end;margin:18px 0}
+.provider-log-filters{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr)) auto;gap:12px;align-items:end;margin:18px 0}
 .provider-log-field{display:flex;flex-direction:column;gap:6px;min-width:0;color:var(--muted,#8d94a7);font-size:12px}
 .provider-log-control{width:100%;min-width:0;min-height:40px;border:1px solid var(--border,#303747);border-radius:10px;padding:8px 10px;background:var(--surface,#111723);color:var(--text,#f3f5f9);font:inherit}
 .provider-log-status{margin:10px 0 14px}
