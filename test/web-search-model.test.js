@@ -10,11 +10,12 @@ const ENV = { NODE_ENV: 'test', AI_PROVIDER: 'openrouter', OPENROUTER_API_KEY: '
 
 test('OpenRouter web search is enabled by default when its key is configured', () => {
   const cfg = loadConfig(ENV);
-  assert.equal(cfg.web.searchModel, 'openrouter/auto');
+  assert.equal(cfg.web.searchModel, 'nvidia/nemotron-3-super-120b-a12b:free');
   assert.deepEqual(cfg.warnings.filter((w) => w.startsWith('OPENROUTER_WEB_SEARCH_MODEL')), []);
 });
 
-test('custom OpenRouter search model is accepted without local price verification; empty disables primary search', () => {
+test('auto router is replaced for Responses API search; explicit models are preserved and empty disables primary search', () => {
+  assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: 'openrouter/auto' }).web.searchModel, 'nvidia/nemotron-3-super-120b-a12b:free');
   assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: 'openrouter/some-model' }).web.searchModel, 'openrouter/some-model');
   assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: '' }).web.searchModel, '');
   assert.equal(loadConfig({ ...ENV, OPENROUTER_WEB_SEARCH_MODEL: 'openrouter/some-model', MODEL_PRICES_JSON: '{}' }).web.searchModel, 'openrouter/some-model');
