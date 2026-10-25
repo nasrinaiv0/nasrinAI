@@ -1,3 +1,5 @@
+- Fix OpenRouter billing analytics parsing to accept the documented `data.data` response envelope; update regression coverage to use the official flat-row response shape and `request_count` metric.
+
 - Route OpenRouter Responses API web search away from `openrouter/auto` to the verified free `nvidia/nemotron-3-super-120b-a12b:free` model, which advertises Responses API and tool support; preserve explicitly configured model IDs other than Auto. This prevents the known production Auto-model HTTP 400 route while keeping Quick/guest search on a free model.
 - Replace Owner Command Center billing's legacy OpenRouter activity call with the documented Analytics API, discover available metrics before querying, bound requests to 7/30 days, and keep provider-reported spend separate from Supabase cost data. Credits metadata remains optional if its endpoint is unavailable.
 - Add regression coverage for free-model search routing and analytics billing response parsing. Production behavior remains subject to post-deployment smoke tests.
