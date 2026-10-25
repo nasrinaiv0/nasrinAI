@@ -1,3 +1,7 @@
+- Record the 2026-10-25 production audit snapshot: migration history still needs manual reconciliation, Supabase Auth leaked-password protection remains disabled, and provider end-to-end verification is still open. No production migration or Auth setting was changed.
+
+- Add migration 066 with an explicit restrictive deny policy for browser roles on OpenRouter telemetry; revoke all browser/public table privileges while preserving service-role select/insert. Add SQL regression checks for RLS, policy semantics, and grants. This is a defense-in-depth database change; it does not resolve migration-history drift or prove provider workflows are production-verified.
+
 - Fix transcription model discovery to recognize text-output models that accept audio input; keep the audio-input capability check mandatory and add regression coverage.
 - Align the transcription catalog fixture with an audio-input/text-output model contract, keeping capability checks strict rather than weakening runtime modality validation for a legacy test fixture.
 - Preserve compatibility with OpenRouter catalogs that label speech outputs as either `audio` or `speech`, and transcription outputs as `text` or `transcription`; enforce rerank `topN` response bounds in regression coverage.
