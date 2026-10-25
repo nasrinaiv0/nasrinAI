@@ -142,10 +142,10 @@ test('auto mode prefers direct providers and keeps OpenRouter available as fallb
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
 });
 
-test('provider choice: auto is the configured default; empty environment stays safely disabled', () => {
+test('provider choice: explicit Auto works; unconfigured environment stays safely disabled', () => {
   assert.equal(providerFromConfig(loadConfig({})), null);
-  assert.equal(loadConfig({ OPENAI_API_KEY: KEY }).ai.provider, 'auto');
-  assert.equal(loadConfig({ OPENROUTER_API_KEY: 'or-test-key' }).ai.provider, 'auto');
+  assert.equal(loadConfig({ AI_PROVIDER: 'auto', OPENAI_API_KEY: KEY }).ai.provider, 'auto');
+  assert.equal(loadConfig({ AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key' }).ai.provider, 'auto');
   assert.throws(() => loadConfig({ AI_PROVIDER: 'openai' }), ConfigError);
   assert.deepEqual(providerFromConfig(loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: KEY })).providerIds, ['openai']);
   assert.deepEqual(providerFromConfig(loadConfig({ AI_PROVIDER: 'fake' })).providerIds, ['fake']);
