@@ -7,14 +7,14 @@ const TOKEN = ['valid-access-', 'token-1234567890'].join('');
 const EMAIL = 'owner@example.com';
 const IP = '203.0.113.42';
 
-function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null, fetchImpl, openrouterManagementKey = '' } = {}) {
+function setup({ ownerConsole, ip = IP, email = EMAIL, now = () => 1_800_000_000_000, verifyUser, store = null, fetchImpl, openrouterManagementKey = '', openrouterApiKey = '' } = {}) {
   const config = {
     isProduction: true,
     ownerConsole: ownerConsole || { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET }
   };
   const verifier = verifyUser || (async (token) => token === TOKEN ? { id: 'user-1', email } : null);
   const activeStore = store || { kind: 'supabase', request: async (_method, path) => { if (path === 'rpc/owner_console_record_audit') return null; throw new Error('source unavailable'); } };
-  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now, fetchImpl, openrouterManagementKey });
+  const consoleHandler = createOwnerConsole({ config, verifyUser: verifier, store: activeStore, clientIp: (req) => req.testIp ?? ip, now, fetchImpl, openrouterManagementKey, openrouterApiKey });
   return { config, consoleHandler };
 }
 
@@ -361,7 +361,7 @@ test('OpenRouter billing uses Analytics API and keeps optional credits failures 
     if (String(url).endsWith('/credits')) return { ok: false, status: 403, json: async () => ({}) };
     throw new Error('unexpected upstream URL');
   };
-  const { consoleHandler } = setup({ fetchImpl, openrouterManagementKey: 'management-test-key' });
+  const { consoleHandler } = setup({ fetchImpl, openrouterManagementKey: 'management-test-key', openrouterApiKey: 'inference-test-key' });
   const opened = await bootstrap(consoleHandler);
   const cookie = opened.res.headers['set-cookie'].split(';')[0];
   const out = request('GET', '/owner/api/openrouter-billing?window=7d', { headers: { cookie }, testIp: IP });
@@ -379,8 +379,26 @@ test('OpenRouter billing uses Analytics API and keeps optional credits failures 
   assert.ok(query);
   assert.equal(query.options.method, 'POST');
   assert.equal(query.options.headers.Authorization, 'Bearer management-test-key');
+  const creditsCall = calls.find((call) => call.url.endsWith('/credits'));
+  assert.ok(creditsCall);
+  assert.equal(creditsCall.options.headers.Authorization, 'Bearer inference-test-key');
   assert.equal(JSON.parse(query.options.body).time_range.start, new Date(1_800_000_000_000 - 7 * 86400000).toISOString());
   assert.equal(calls.some((call) => call.url.endsWith('/activity')), false);
+});
+
+test('OpenRouter Analytics 403 is reported safely as a Management API permission error', async () => {
+  const secretSentinel = 'never-echo-management-secret';
+  const fetchImpl = async () => ({ ok: false, status: 403, json: async () => ({ message: secretSentinel }) });
+  const { consoleHandler } = setup({ fetchImpl, openrouterManagementKey: secretSentinel });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/openrouter-billing?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-billing');
+  assert.equal(out.res.statusCode, 403);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.error.code, 'openrouter_management_forbidden');
+  assert.match(payload.error.message, /authorized Management API key/);
+  assert.equal(out.res.body.includes(secretSentinel), false);
 });
 
 test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {

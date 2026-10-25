@@ -1,3 +1,10 @@
+## OpenRouter management and inference credential separation — 2026-10-25
+
+- Preserve the existing Owner Command Center and Supabase telemetry architecture. Use `OPENROUTER_MANAGEMENT_KEY` (with legacy `OPENROUTER_MANAGEMENT_API_KEY` compatibility) for Analytics API queries; use the inference `OPENROUTER_API_KEY` for generation metadata reconciliation and optional credits requests.
+- Return safe, explicit 401/403 responses for Analytics permission failures. Do not log raw upstream response bodies, credentials, or provider error payloads.
+- Add regression coverage proving Analytics and credits requests use separate Authorization values and that a 403 does not echo a secret. Update the telemetry setup instructions.
+- **Validation:** CI is running; Documentation Gate must pass. Live provider verification remains pending and requires configured server-only keys.
+
 ## Fix malformed Owner Command Center script in unlisted-model inventory PR — 2026-10-25
 
 - Removed duplicated trailing fragments accidentally appended after the `public/owner-console.js` IIFE, which caused the browser-script syntax test to fail with `Unexpected token ']'`.

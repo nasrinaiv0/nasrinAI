@@ -1,3 +1,5 @@
+- Fix OpenRouter credential boundaries in the existing Owner Command Center: `OPENROUTER_MANAGEMENT_KEY` (with legacy `OPENROUTER_MANAGEMENT_API_KEY` compatibility) is used for account Analytics API queries, while the inference `OPENROUTER_API_KEY` is used for generation metadata reconciliation and optional credits. Return safe, explicit 401/403 management-key errors without logging provider response bodies or credentials. Document the server-only environment variables and add regression coverage for separate authorization headers.
+
 - Implement private durable storage for generated chat videos: completed provider output is uploaded to the private Supabase `generated-videos` bucket (up to 50 MiB), storage metadata is saved to `generated_videos`, and authenticated owner-scoped playback prefers stored bytes over provider URLs. Add a memory-store adapter and regression coverage for provider-independent playback; upload failures retain the bounded legacy fallback and are logged.
 
 - Document Supabase Auth leaked-password protection as intentionally deferred per owner direction; retain it as a future security-hardening task and do not mark it enabled/resolved.
