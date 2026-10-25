@@ -1174,3 +1174,12 @@ All report views share:
 - Sensitive fields are minimized/redacted; report access and export creation are audited without recording export contents.
 - No UI control appears functional unless its backend capability exists. Tests cover authorization, filters/date boundaries, metric calculations, empty/unavailable/stale sources, export safety, and each panel-to-report destination.
 - This is a documentation-only specification. Do not modify UI, application code, APIs, SQL/migrations, environment variables, or production settings as part of this documentation change.
+
+
+## AI Logs, Unlisted Models, and AI Models Activities
+
+- **AI Logs** shows recorded requests only when the observed model ID is confirmed in the live catalog for the relevant provider. Existing table columns, status/model/endpoint filters, pagination, and sanitized output are retained. New filters include provider and short/long time windows (15m, 30m, 1h, 5h, 12h, 24h, 7d, 30d, 90d).
+- **Unlisted Models** shows model IDs in recorded telemetry that are confirmed absent from the provider catalog. Catalog/API failures are labeled unknown and are not falsely classified as unlisted. Catalog checks use OpenRouter's public catalog and authenticated OpenAI, Anthropic, and Google/Gemini model-list APIs when the corresponding server-side credentials are configured.
+- **AI Models Activities** aggregates observed requests by provider and model, including successes, failures, unknown outcomes, latest status, and provider-reported cost coverage. Cost is unknown unless the row contains a provider-reported value; estimates are not presented as provider charges.
+- The /owner/api/ai-logs endpoint is owner-session protected, uses a strict provider/window allowlist, sanitizes fields, and never returns prompt/completion content or provider credentials. The existing /owner/api/openrouter-logs endpoint remains for backward compatibility.
+- **Coverage boundary:** data comes from NasrinAI usage_events and OpenRouter openrouter_logs records. Independent provider-account calls are not visible unless a connected provider activity importer records them. A model appearing in a catalog is not proof of model execution. Catalog and telemetry queries are bounded to 1,000 rows per source; responses mark when that cap is reached and counts may therefore be incomplete until pagination is extended.
