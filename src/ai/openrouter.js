@@ -1,5 +1,5 @@
 import { ProviderError } from './provider.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readToolCalls } from './tool-format.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
@@ -328,9 +328,13 @@ export function createOpenRouterClient({
       ? { id: 'openrouter/free' }
       : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens });
     const normalizedSessionId = sessionId == null ? null : (typeof sessionId === 'string' ? sessionId.trim() : '');
-    // Session metadata must not carry whitespace/control characters across the provider boundary.
-    if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256 || /[\\s\\u0000-\\u001f\\u007f]/u.test(normalizedSessionId))) {
-      throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 characters without whitespace or control characters');
+    const hasUnsafeSessionIdCharacters = typeof normalizedSessionId === 'string'
+      && [...normalizedSessionId].some((character) => {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127;
+      });
+    if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256 || hasUnsafeSessionIdCharacters)) {
+      throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 safe characters');
     }
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: provider.data_collection === 'deny' ? 'deny' : defaultDataCollection, allow_fallbacks: provider.allow_fallbacks !== false } };
@@ -614,7 +618,7 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
     },
-    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [], sensitive = false }) {
+    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [], sensitive = false, conversationId = null }) {
       const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
       if (hasAttachments && task !== 'vision') throw new ProviderError('config', 'Attachments require the dedicated OpenRouter vision task');
       if (hasAttachments && attachments.length > 8) throw new ProviderError('config', 'At most 8 image attachments are supported per vision request');
@@ -644,8 +648,13 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
         for (const url of imageUrls) blocks.push({ type: 'image_url', image_url: { url } });
         normalizedMessages[target] = { ...normalizedMessages[target], content: blocks };
       }
+      // Hash the internal conversation ID so OpenRouter receives a stable opaque
+      // session key rather than a database identifier or any user information.
+      const sessionId = typeof conversationId === 'string' && conversationId.length > 0
+        ? `nasrinai-${createHash('sha256').update(conversationId).digest('hex')}`
+        : undefined;
       const result = await openrouter.chat({
-        task: normalizeTask(task), model: requestedModel,
+        task: normalizeTask(task), model: requestedModel, sessionId,
         messages: [{ role: 'system', content: system }, ...normalizedMessages],
         tools, maxTokens, signal, includeUsage: true,
         // Private requests (contact details, attachments) stay on providers that
