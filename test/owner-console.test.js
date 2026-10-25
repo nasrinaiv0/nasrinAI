@@ -41,6 +41,35 @@ async function bootstrap(handler, options = {}) {
   return pair;
 }
 
+test('owner OpenRouter verification dispatch requires explicit cost confirmation and uses the protected GitHub workflow', async () => {
+  const calls = [];
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, githubActions: { enabled: true, token: 'github-actions-token-value-123456789' } };
+  const { consoleHandler } = setup({
+    ownerConsole,
+    fetchImpl: async (url, options) => { calls.push({ url, options }); return { ok: true, status: 204 }; }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const makeDispatch = async (body) => {
+    const out = request('POST', '/owner/api/verify-openrouter-models', { headers: { ...sameOrigin, cookie, 'content-type': 'application/json' }, testIp: IP });
+    out.req[Symbol.asyncIterator] = async function* () { yield Buffer.from(JSON.stringify(body)); };
+    await consoleHandler.handle(out.req, out.res, '/owner/api/verify-openrouter-models');
+    return out;
+  };
+  const denied = await makeDispatch({ model: '', confirm_provider_costs: false });
+  assert.equal(denied.res.statusCode, 400);
+  assert.equal(calls.length, 0);
+  const result = await makeDispatch({ model: 'openai/gpt-6-sol', confirm_provider_costs: true });
+  assert.equal(result.res.statusCode, 202);
+  assert.equal(JSON.parse(result.res.body).status, 'queued');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /actions\/workflows\/verify-openrouter-models\.yml\/dispatches$/);
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer github-actions-token-value-123456789');
+  assert.deepEqual(JSON.parse(calls[0].options.body), { ref: 'main', inputs: { model: 'openai/gpt-6-sol', confirm_provider_costs: 'true' } });
+  assert.equal(result.res.body.includes('github-actions-token-value-123456789'), false);
+});
+
 test('owner session bootstrap requires exact allowlisted identity and IP, then issues a short secure cookie', async () => {
   const { consoleHandler } = setup();
   const out = await bootstrap(consoleHandler);
