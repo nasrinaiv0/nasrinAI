@@ -54,7 +54,7 @@ test('definitions: only https public hosts, declared paths, safe patterns, expli
 async function bizApp({ calls = [], reply, respond } = {}) {
   const provider = createFakeProvider({ models: ['gpt-6-luna'], reply });
   const connectorCall = async (req) => { calls.push(req); return respond ? respond(req) : { status: 200, type: 'application/json', text: '{"status":"shipped","eta":"Oct 8"}' }; };
-  const built = buildTestApp({ provider, connectorCall, env: { ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), CONNECTOR_SECRET_KEY: KEY_HEX } });
+  const built = buildTestApp({ provider, connectorCall, env: { AI_PROVIDER: 'openai', ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), CONNECTOR_SECRET_KEY: KEY_HEX } });
   built.store.addApiKey({ id: 'ffffffffffff', tenant_id: BIZ_TENANT, kind: 'secret', secret_hash: hashSecret(MGMT_SECRET), scopes: ['chat', 'connectors'] });
   const srv = await serve(built.app);
   const put = (name, body, token = MGMT) => fetch(srv.url + '/v1/connectors/' + name, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...bearer(token) }, body: JSON.stringify(body) });
