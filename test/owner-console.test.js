@@ -541,7 +541,11 @@ test('cross-provider model inventory is owner-authenticated, sanitized, and does
   assert.ok(payload.rows.some((row) => row.provider === 'anthropic' && row.model === 'claude-sonnet-example'));
   assert.ok(payload.rows.some((row) => row.model === 'providerx/actual-model'));
   assert.equal(payload.rows.some((row) => row.model === 'openrouter/auto'), false);
-  assert.equal(payload.catalog_coverage.openrouter, 'unavailable');
+  assert.equal(payload.rows.find((row) => row.model === 'providerx/actual-model').cost_usd, null);
+  assert.equal(payload.catalog_source, 'nasrinai_configured_catalog');
+  assert.equal(payload.rows.find((row) => row.model === 'claude-sonnet-example').catalog_status, 'not_listed');
+  assert.equal(payload.rows.find((row) => row.model === 'providerx/actual-model').catalog_status, 'not_listed');
+  assert.equal(payload.rows.find((row) => row.model === 'claude-sonnet-example').cost_usd, null);
   assert.equal(out.res.body.includes('prompt_tokens'), false);
 });
 
