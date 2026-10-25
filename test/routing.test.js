@@ -656,3 +656,26 @@ test('Phase 2 runtime gate enforces registry tier, inferred-ID and endpoint elig
   assert.equal(isOpenRouterChatCandidateEligible({ modelId: 'provider/newly-listed-chat', tier: 'nasrinai' }), false, 'free Quick cannot use unmarked paid IDs');
 });
 
+
+test('free Quick prioritizes OpenRouter free models and reserves Luna for heavy tasks', async () => {
+  const a = setup({ env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key' } });
+  const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
+  assert.equal(plan.paidQuick, false);
+  const result = await a.policy.run(plan, req('hello'));
+  assert.equal(result.spec.provider, 'openrouter');
+  assert.match(result.spec.model, /:free$/i);
+  assert.equal(a.openrouter.calls.length, 1);
+  assert.equal(a.groq.calls.length, 0, 'direct free providers must not precede OpenRouter free models');
+});
+
+test('paid Quick only selects non-free OpenRouter models and never Luna', async () => {
+  const a = setup({ env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key' } });
+  const plan = a.policy.plan({ tier: 'nasrinai', paidQuick: true, message: 'hello' });
+  assert.equal(plan.paidQuick, true);
+  const result = await a.policy.run(plan, req('hello'));
+  assert.equal(result.spec.provider, 'openrouter');
+  assert.doesNotMatch(result.spec.model, /:free$/i);
+  assert.notEqual(result.spec.model, 'openai/gpt-6-luna');
+  assert.equal(a.groq.calls.length, 0);
+  assert.equal(a.openai.calls.length, 0);
+});
