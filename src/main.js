@@ -195,7 +195,7 @@ export function buildApp({ config, logger }) {
         })]))
       : Object.fromEntries(['max', 'ultra'].map((tier) => [tier, createVideoProvider({ apiKey: config.ai.geminiApiKey, model: effective.video.model, resolution: effective.video.resolution })]))
     : null;
-  const videos = createVideos({ store, plans, provider: videoProviders, limiter, usageLog, config: effective, logger });
+  const videos = createVideos({ store, conversations, plans, provider: videoProviders, limiter, usageLog, config: effective, logger });
   const elevenlabs = createElevenLabs({ apiKey: process.env.ELEVENLABS_API_KEY || '' });
   const videoStudioExporter = createVideoStudioExporter();
   const videoStudioRenderWorker = config.supabaseUrl && config.supabaseSecretKey
