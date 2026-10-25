@@ -1,3 +1,7 @@
+## Configured-catalog UI wording — 2026-10-26
+
+- Update AI Logs empty-state/status copy so it accurately describes configured NasrinAI catalog membership rather than claiming a live provider catalog was checked.
+
 ## Direct-provider cost provenance correction — 2026-10-26
 
 - Read the existing `usage_events.cost_source` column introduced by migration 062. Direct-provider `cost_usd` is considered provider-reported only when `cost_source = provider_reported` and the amount is finite and non-negative.
