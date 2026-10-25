@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOwnerConsole, OWNER_SESSION_SECONDS } from '../src/owner-console.js';
