@@ -871,7 +871,7 @@
            row.sources.join(', ')].forEach((value,index) => tr.append(el(index===2?'td':'td', index===2?'status-text':'',String(value))));
           tbody.append(tr);
         });
-        if (!payload.rows.length) tbody.append(el('tr','','')).firstChild?.append(el('td','','No model usage records found for this period.'));
+        if (!payload.rows.length) { const emptyRow = el('tr'); const emptyCell = el('td', '', 'No model usage records found for this period.'); emptyCell.colSpan = 10; emptyRow.append(emptyCell); tbody.append(emptyRow); }
         t.append(tbody); table.append(t); result.append(table);
       } catch (error) {
         result.replaceChildren(notice('Model inventory unavailable', error.message || 'No data was changed.'));
