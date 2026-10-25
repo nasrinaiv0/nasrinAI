@@ -1026,7 +1026,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           if (!item) {
             item = { provider: p, model: m, first_seen: row.created_at || null, last_seen: row.created_at || null,
               request_count: 0, successes: 0, failures: 0, input_tokens: 0, output_tokens: 0,
-              cost_usd: 0, cost_known: false, sources: new Set(), actual_model_confirmed: false };
+              cost_usd: 0, cost_known: false, cost_sources: new Set(), sources: new Set(), actual_model_confirmed: false };
             grouped.set(key, item);
           }
           item.request_count++;
@@ -1041,7 +1041,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // usage_events.cost_usd is an application-side estimate without provenance.
           const cost = source === 'usage_events' && row.cost_source === 'provider_reported' ? row.cost_usd : source === 'openrouter_logs' && row.provider_cost_source === 'openrouter_generation_api' ? row.total_cost_usd : null;
           if (cost !== null && cost !== undefined && Number.isFinite(Number(cost)) && Number(cost) >= 0) {
-            item.cost_usd += Number(cost); item.cost_known = true;
+            item.cost_usd += Number(cost); item.cost_known = true; item.cost_sources.add(source === 'usage_events' ? 'usage_events.provider_reported' : 'openrouter_generation_api');
           }
           item.sources.add(source);
           item.actual_model_confirmed ||= actual === true;
@@ -1058,6 +1058,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             request_count: item.request_count, successes: item.successes, failures: item.failures,
             input_tokens: item.input_tokens, output_tokens: item.output_tokens,
             cost_usd: item.cost_known ? Number(item.cost_usd.toFixed(8)) : null,
+            cost_kind: item.cost_known ? 'provider_reported' : 'unknown',
+            provider_cost_source: item.cost_sources.size === 1 ? [...item.cost_sources][0] : item.cost_sources.size > 1 ? 'multiple_verified_sources' : null,
             catalog_status: catalogStatus, sources: [...item.sources].sort()
           };
           return result;
