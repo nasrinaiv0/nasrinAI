@@ -1,3 +1,10 @@
+## PR #599 conflict resolution (2026-10-25)
+
+- Synced `docs/openrouter-model-shortlist-2026-10` with the latest `main` while preserving the PR's unique operator shortlist at `docs/OPENROUTER_MODEL_SHORTLIST_2026-10-24.md`.
+- No runtime routing, model allowlist, environment variable, provider account setting, or production configuration was changed. The shortlist remains advisory and requires authenticated live endpoint verification before any operational model changes.
+
+- Re-synchronized with current main commit `99f3017dafc6aba9305499cf1708f24aaa3a2802` using a two-parent merge commit. The merge preserves current main changes and this PR's unique changes; fresh CI and Documentation Gate validation are pending.
+
 ## OpenRouter actual-model visibility and catalog guardrails — 2026-10-25
 
 - Provider-log `model` now records only the model identifier returned by OpenRouter; it no longer substitutes the requested alias when upstream response metadata is absent.
