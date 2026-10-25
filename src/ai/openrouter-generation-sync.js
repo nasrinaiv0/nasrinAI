@@ -1,7 +1,8 @@
 /**
  * Sync provider-reported OpenRouter generation records into private Supabase storage.
- * Analytics (management key) discovers generation IDs; /generation (inference key)
- * retrieves authoritative per-generation details. No prompt/completion content is stored.
+ * The request telemetry table is the discovery source for generation IDs; /generation
+ * (NasrinAI inference key) supplies authoritative provider metrics. No prompt/completion
+ * content is stored. The management key is intentionally not required.
  */
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -22,64 +23,39 @@ async function readJson(response, label) {
   try { return await response.json(); } catch { throw new Error(label + '_invalid_json'); }
 }
 
-function analyticsRows(payload) {
-  const rows = payload?.data?.data ?? payload?.data?.rows ?? payload?.rows ?? [];
-  if (!Array.isArray(rows)) throw new Error('analytics_invalid_shape');
-  return rows;
-}
-
-function analyticsGenerationIds(payload) {
+async function discoverGenerationIdsFromLogs({ start, end, supabaseUrl, serviceKey, fetchImpl, timeoutMs }) {
   const ids = new Set();
-  for (const row of analyticsRows(payload)) {
-    const id = row?.generation_id ?? row?.dimensions?.generation_id ?? row?.group?.generation_id;
-    if (validGenerationId(id)) ids.add(id);
-  }
-  return [...ids];
-}
-
-/**
- * OpenRouter analytics can return at most 1,000 rows per query. Treat that as
- * a per-request page size, not a total sync limit: recursively split saturated
- * time windows and deduplicate IDs across the resulting intervals.
- */
-async function discoverGenerationIds({ start, end, managementKey, fetchImpl, timeoutMs }) {
-  const queryWindow = async (windowStart, windowEnd) => {
-    const response = await fetchImpl(OPENROUTER_BASE + '/analytics/query', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + managementKey, Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        metrics: ['total_usage'],
-        dimensions: ['generation_id'],
-        time_range: { start: windowStart, end: windowEnd },
-        limit: 1000
-      }),
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const query = new URLSearchParams({
+      select: 'openrouter_generation_id,provider_request_id,created_at',
+      provider: 'eq.openrouter',
+      order: 'created_at.asc',
+      limit: String(pageSize),
+      offset: String(offset)
+    });
+    query.append('and', '(created_at.gte.' + start + ',created_at.lte.' + end + ')');
+    const response = await fetchImpl(supabaseUrl + '/rest/v1/openrouter_logs?' + query.toString(), {
+      method: 'GET',
+      headers: {
+        apikey: serviceKey,
+        Authorization: 'Bearer ' + serviceKey,
+        Accept: 'application/json'
+      },
       redirect: 'error',
       signal: AbortSignal.timeout(timeoutMs)
     });
-    return readJson(response, 'analytics');
-  };
-
-  const collect = async (windowStart, windowEnd, depth = 0) => {
-    if (depth > 32) throw new Error('analytics_window_split_limit');
-    const payload = await queryWindow(windowStart, windowEnd);
-    const rows = analyticsRows(payload);
-    if (rows.length < 1000) return analyticsGenerationIds(payload);
-
-    const from = Date.parse(windowStart);
-    const to = Date.parse(windowEnd);
-    const midpoint = Math.floor((from + to) / 2);
-    if (!Number.isFinite(from) || !Number.isFinite(to) || midpoint <= from || midpoint >= to) {
-      throw new Error('analytics_window_overflow');
+    const payload = await readJson(response, 'supabase_logs');
+    if (!Array.isArray(payload)) throw new Error('supabase_logs_invalid_shape');
+    for (const row of payload) {
+      const id = validGenerationId(row?.openrouter_generation_id)
+        ? row.openrouter_generation_id
+        : validGenerationId(row?.provider_request_id) ? row.provider_request_id : null;
+      if (id) ids.add(id);
     }
-    const mid = new Date(midpoint).toISOString();
-    const [left, right] = await Promise.all([
-      collect(windowStart, mid, depth + 1),
-      collect(mid, windowEnd, depth + 1)
-    ]);
-    return [...new Set([...left, ...right])];
-  };
-
-  return collect(start, end);
+    if (payload.length < pageSize) break;
+  }
+  return [...ids];
 }
 
 async function fetchGeneration(id, inferenceKey, fetchImpl, timeoutMs = 8000) {
@@ -188,8 +164,6 @@ async function readJsonOrNoContent(response, label) {
 export async function runOpenRouterGenerationSync({
   env = process.env, fetchImpl = fetch, now = () => Date.now(), timeoutMs = 8000, lookbackHours = 48
 } = {}) {
-  const managementKey = String(env.OPENROUTER_MANAGEMENT_KEY || env.OPENROUTER_MANAGEMENT_API_KEY || '').trim();
-  if (!managementKey) throw new Error('missing_openrouter_management_key');
   const inferenceKey = required(env, 'OPENROUTER_API_KEY');
   const supabaseUrl = required(env, 'SUPABASE_URL').replace(/\/+$/, '');
   const serviceKey = required(env, 'SUPABASE_SECRET_KEY');
@@ -197,7 +171,7 @@ export async function runOpenRouterGenerationSync({
 
   const end = new Date(now()).toISOString();
   const start = new Date(now() - Math.min(Math.max(Number(lookbackHours) || 48, 1), 168) * 3600000).toISOString();
-  const ids = await discoverGenerationIds({ start, end, managementKey, fetchImpl, timeoutMs });
+  const ids = await discoverGenerationIdsFromLogs({ start, end, supabaseUrl, serviceKey, fetchImpl, timeoutMs });
   let fetched = 0, unavailable = 0, failed = 0;
   const rows = [];
   for (let i = 0; i < ids.length; i += 5) {
@@ -217,7 +191,7 @@ export async function runOpenRouterGenerationSync({
   }
   const saved = rows.length ? await upsertRows(rows, { supabaseUrl, serviceKey, fetchImpl, timeoutMs }) : 0;
   return {
-    source: 'openrouter_analytics_and_generation_api',
+    source: 'openrouter_logs_and_generation_api',
     window: { start, end },
     discovered: ids.length,
     fetched,
