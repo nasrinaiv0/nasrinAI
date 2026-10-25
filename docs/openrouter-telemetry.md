@@ -41,3 +41,13 @@ Cached token counts are captured from provider usage metadata when available. Ac
 ## Cross-provider unlisted model inventory
 
 The Owner Command Center exposes a separate read-only **Unlisted / Guardrail Models** category aggregating sanitized model/provider metadata from `usage_events` and `openrouter_logs`. `openrouter/auto` is a requested alias, not an actual model, and is excluded as a model identity unless OpenRouter returns an actual model ID. OpenRouter catalog status is checked against its current public model catalog when available. Other provider records are included, but their catalog status remains `unknown` until a verified provider-specific catalog/guardrail adapter is available; catalog fetch failures never imply a model is unlisted. Prompts, completions, raw request summaries, and credentials are not returned.
+
+
+
+## Local daily CSV reconciliation utility
+
+The production application remains Node/Vercel with Supabase as its durable telemetry store. For operators who also need a local daily CSV snapshot, use `scripts/openrouter_activity_sync.py`. It reads the day's generation IDs from the existing `public.openrouter_logs` table, fetches per-generation metadata, validates actual model IDs against the current public catalog, and atomically upserts `openrouter_activity_YYYY-MM-DD.csv` by `generation_id`.
+
+Install dependencies with `python -m pip install -r requirements-openrouter-sync.txt`. Configure these environment variables in the local shell (never commit them): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `OPENROUTER_API_KEY` (inference key for `/generation`), and `OPENROUTER_MANAGEMENT_KEY` (Management API key for `/activity`). Optional controls are `OPENROUTER_DATE`, `OPENROUTER_LOG_DIR`, `OPENROUTER_TIMEOUT`, and `OPENROUTER_PAGE_SIZE`.
+
+Run `python scripts/openrouter_activity_sync.py`. The `/activity` response is aggregate analytics and is used only as an independent summary; it does not contain per-generation IDs and is not merged as if it were generation data. Generation IDs come from Supabase telemetry. The script never requests prompt/completion content, skips missing or unavailable generation metadata safely, keeps API keys out of logs, and leaves existing CSV data intact if the input file cannot be read. `Unlisted` means the model slug was absent from the successfully fetched catalog; missing IDs and `openrouter/auto` are `Unknown`, not false-positive unlisted models.

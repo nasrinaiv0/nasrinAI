@@ -1,3 +1,9 @@
+## Local OpenRouter activity CSV sync utility — 2026-10-25
+
+- Add `scripts/openrouter_activity_sync.py` for operator-run daily CSV snapshots without introducing a Python runtime into the Node/Vercel production server. The script uses Supabase `openrouter_logs` to discover generation IDs, calls the Management-key `/activity` endpoint for aggregate analytics only, reconciles generation metadata with the inference key, and checks actual model IDs against the public catalog.
+- Upsert local daily CSV rows by `generation_id` with atomic replacement; classify model slugs as `Catalog`, `Unlisted`, or `Unknown`, treating missing IDs and `openrouter/auto` as unknown. No prompt/completion content is requested or persisted, and credentials/raw provider error bodies are not logged.
+- Add focused Python unit tests and CI execution. Live Supabase/OpenRouter verification requires operator-provided server-only/local environment variables and is not claimed by CI.
+
 ## OpenRouter management and inference credential separation — 2026-10-25
 
 - Preserve the existing Owner Command Center and Supabase telemetry architecture. Use `OPENROUTER_MANAGEMENT_KEY` (with legacy `OPENROUTER_MANAGEMENT_API_KEY` compatibility) for Analytics API queries; use the inference `OPENROUTER_API_KEY` for generation metadata reconciliation and optional credits requests.
