@@ -1,3 +1,21 @@
+## fix/video-persist-in-chat (2026-10-25)
+
+- Add migration `067_generated_videos_storage.sql` to provision a private Supabase Storage bucket for generated videos and add storage metadata columns to `public.generated_videos`.
+- The bucket is private, limited to 50 MB per object, and accepts supported video MIME types only. Browser roles retain no direct table access; trusted server routes must mediate storage operations.
+- The migration is safe to rerun and skips Storage bucket DDL in plain PostgreSQL CI environments without the Supabase Storage schema.
+- Fix the migration regression test to check `storage.buckets` in nested PL/pgSQL control flow, avoiding a missing-relation parse failure in plain PostgreSQL CI.
+- Implement the server-side storage pipeline: after provider download, upload eligible MP4 output (up to the bucket's 50 MiB limit) to the private `generated-videos` bucket, persist bucket/path/size/upload timestamp, and prefer stored bytes on authenticated owner-checked playback. Storage paths include tenant, owner type, owner id, and video id. Provider URLs and small database-byte fallback remain only for upload failures or objects beyond the bucket limit; failures are logged and must not create a second provider job.
+- Add regression coverage proving completed videos persist to storage and remain readable after clearing the provider URI and database byte fallback.
+- **Validation status:** implementation and tests are committed to this PR branch; CI and production playback must pass before the pipeline is considered fully verified. The production migration has already been applied separately; do not apply it again as part of PR review.
+
+## fix/video-persist-in-chat (2026-10-25)
+
+- Videos now stay in the chat after a refresh: starting a video saves the request and a `[genvideo:<id>]` reply into the chat (same pattern as pictures); opening the chat shows the player again (playing, or still rendering). Saving never fails the paid job.
+- A job that finished at the provider while nobody was watching is delivered instead of being discarded at the 10-minute limit: one last provider check runs first; only still-unfinished jobs time out.
+- Video messages cannot be regenerated or edited as text chat (server guard + no Edit button), so no second paid job can start by accident.
+- Migration 067's private bucket and metadata are now wired to the server-side upload/download pipeline. Videos up to 50 MiB are uploaded after provider download; playback uses the owner-scoped storage object first and retains a bounded legacy fallback if upload fails. Terms/Privacy unchanged.
+- **Known limit:** objects above the 50 MiB bucket limit cannot be durably stored by this pipeline and use the provider URI fallback; production end-to-end playback and CI remain release gates.
+
 ## Owner-directed deferral — 2026-10-25
 
 - Supabase Auth leaked-password protection is intentionally skipped for now per owner direction. Retain as a documented future security-hardening task; do not describe it as enabled or resolved. This item alone should not block the current release.
