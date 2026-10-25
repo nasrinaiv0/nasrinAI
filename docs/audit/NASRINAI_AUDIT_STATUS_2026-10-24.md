@@ -1,3 +1,18 @@
+## Live revalidation snapshot — 2026-10-25
+
+Read-only checks performed against the connected production Supabase project and Vercel deployment:
+
+- Production Vercel alias `nasrinai.com` resolved to deployment `dpl_5e213TxeUvCHMmYAiGiXrju33CVE`, state `READY`, serving `main` commit `6c829afd06aefbb141846585e78c56085cee4fd0`. This verifies deployment identity/state, not provider end-to-end behavior.
+- Supabase migration registry contains labels `060`, `061`, `062`, and `055` with timestamps whose ordering does not match the numeric prefixes. Labels `057`–`059` are still absent while the corresponding Owner Console objects exist. Do not replay or fabricate migration history; compare exact SQL definitions and live schema before reconciling.
+- `public.openrouter_logs` exists with RLS enabled and zero policies. Current grants show `postgres` and `service_role`; no `anon` or `authenticated` grants were returned. RLS with no policies is fail-closed for browser roles, but Supabase reports an informational `rls_enabled_no_policy` lint. PR #610 adds an explicit restrictive deny policy plus regression coverage as defense in depth; it is not yet applied to production.
+- Supabase Auth advisor reports leaked-password protection disabled (warning). This is an Auth dashboard/project setting, not a SQL migration; it remains an operator action and must be verified in Auth settings after enabling.
+- The current production runtime error summary includes one historical Connect site-analysis failure: `redirect_not_allowed` on `/api/index` at 2026-10-24T14:43:20Z. The safe fetcher intentionally rejects redirects; inspect the site URL and decide whether bounded, DNS-revalidated HTTPS redirects can be supported without weakening SSRF protection. This error is not yet fixed.
+- Source inspection confirms image, video, speech, and transcription adapters are wired in `src/main.js`; semantic-cache embeddings currently use OpenAI and are optional. The generic capability-adapter module's unit tests are not evidence that every registry capability (embeddings, reranking, structured decisions) is integrated. Keep unverified categories disabled.
+
+**Phase 3–5 status remains OPEN.** PR #610 is a scoped database defense-in-depth fix; migration-history reconciliation, the Auth setting, provider live smoke tests, billing/idempotency checks, and production end-to-end reliability tests remain required before the audit can close.
+
+---
+
 # NasrinAI Audit Status — 2026-10-24
 
 ## Purpose and status
