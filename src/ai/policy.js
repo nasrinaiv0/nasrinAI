@@ -150,7 +150,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
-            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly;
+            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
@@ -167,12 +167,19 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           const prioritized = prioritizeOpenRouterCandidates(plan.task, eligibleCandidates);
           const ordered = r.quickNemotronOnly && freeQuick
             ? [
+                // Prefer OpenRouter's explicitly free endpoints, then the
+                // separately configured free-provider pool, and only then the
+                // single approved paid emergency fallback.
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model)),
+                ...prioritized.filter((candidate) => candidate.provider !== 'openrouter'
+                  && (r.freeModels?.[candidate.provider] || []).includes(candidate.model)),
                 ...prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
               ]
             : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = r.quickNemotronOnly && plan.tier === 'nasrinai' ? [] : ordered.filter((candidate) => candidate.provider !== 'openrouter');
+          const otherCandidates = r.quickNemotronOnly && freeQuick
+            ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
+            : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
           // Intent is classified and the tier's level ceiling is applied before
           // this point. Within that permitted level, configured OpenRouter models
@@ -297,7 +304,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // bounded to the candidates configured at the active level; other tiers
           // retain the normal retry cap.
           const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai' && plan.paidQuick !== true
-            ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter').length)
+            ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter' || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)).length)
             : r.maxRetries;
           if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).
