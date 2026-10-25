@@ -50,7 +50,7 @@ The production application remains Node/Vercel with Supabase as its durable tele
 
 Install dependencies with `python -m pip install -r requirements-openrouter-sync.txt`. Configure these environment variables in the local shell (never commit them): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `OPENROUTER_API_KEY` (inference key for `/generation`), and `OPENROUTER_MANAGEMENT_KEY` (Management API key for `/activity`). Optional controls are `OPENROUTER_DATE`, `OPENROUTER_LOG_DIR`, `OPENROUTER_TIMEOUT`, and `OPENROUTER_PAGE_SIZE`.
 
-Run `python scripts/openrouter_activity_sync.py`. The `/activity` response is aggregate analytics and is used only as an independent summary; it does not contain per-generation IDs and is not merged as if it were generation data. Generation IDs come from Supabase telemetry. The script never requests prompt/completion content, skips missing or unavailable generation metadata safely, keeps API keys out of logs, and leaves existing CSV data intact if the input file cannot be read. `Unlisted` means the model slug was absent from the successfully fetched catalog; missing IDs and `openrouter/auto` are `Unknown`, not false-positive unlisted models.
+Run `python scripts/openrouter_activity_sync.py`. The `/activity` response is aggregate analytics and is used only as an independent summary; it does not contain per-generation IDs and is not merged as if it were generation data. Generation IDs are discovered directly from OpenRouter account analytics and are also reconciled against Supabase request telemetry. The script never requests prompt/completion content, skips missing or unavailable generation metadata safely, keeps API keys out of logs, and leaves existing CSV data intact if the input file cannot be read. `Unlisted` means the model slug was absent from the successfully fetched catalog; missing IDs and `openrouter/auto` are `Unknown`, not false-positive unlisted models.
 
 
 ## Account generation discovery and sync
@@ -65,3 +65,12 @@ The protected Vercel cron at `/v1/internal/openrouter-generation-sync` runs ever
 Required server-only Vercel variables: `CRON_SECRET` (at least 32 characters), `OPENROUTER_MANAGEMENT_KEY` (or legacy `OPENROUTER_MANAGEMENT_API_KEY`), `OPENROUTER_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SECRET_KEY`. Never reuse the Management key for generation-detail requests. Do not expose any of these variables in browser code.
 
 The generation table intentionally stores selected metadata only. It does not persist the raw response, prompt, completion, or uploaded content. Cost remains null if OpenRouter does not provide a valid non-negative cost. The cron reports discovered/fetched/saved/unavailable/failed counts and whether the 1,000-ID analytics cap may have been reached. A successful deploy does not prove the cron is configured with valid credentials; inspect the cron response and the Owner Command Center after applying migration 072.
+
+
+```sql
+select generation_id, created_at, model, provider_name, cost_total,
+       tokens_prompt, tokens_completion, tokens_cached, finish_reason, synced_at
+from public.openrouter_generations
+order by created_at desc
+limit 100;
+```
