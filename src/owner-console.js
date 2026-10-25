@@ -414,6 +414,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const workflowWrite = req.method === 'POST' && workflowDispatchPath;
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
+    const reconciliationWrite = req.method === 'POST' && pathname === '/owner/api/openrouter-billing/reconcile';
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
 
     // In production the console UI/API exists only on the dedicated subdomain.
@@ -467,7 +468,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite && !reconciliationWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -1220,6 +1221,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
     if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+        sendNotFound(res);
+        return true;
+      }
       if (!openrouterApiKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
         return true;
@@ -1233,12 +1238,25 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const windowName = body.window === '7d' ? '7d' : '30d';
         const days = windowName === '7d' ? 7 : 30;
         const cutoff = new Date(now() - days * 86400000).toISOString();
-        const rows = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,created_at,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd&provider_request_id=not.is.null&total_cost_usd=is.null&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=100');
+        // Query a bounded recent window, then reconcile only rows with a real
+        // OpenRouter generation ID. Legacy cost values without provenance are
+        // deliberately eligible for authoritative replacement/backfill.
+        const rows = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,openrouter_generation_id,created_at,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=500');
         if (!Array.isArray(rows)) throw new Error('invalid telemetry rows');
+        const eligible = rows.filter((row) => {
+          const candidates = [row.openrouter_generation_id, row.provider_request_id]
+            .filter((value) => typeof value === 'string')
+            .map((value) => value.trim());
+          const validId = candidates.some((id) => /^gen-[0-9A-Za-z-]{1,120}$/.test(id));
+          const verified = row.provider_cost_source === 'openrouter_generation_api' &&
+            row.total_cost_usd !== null && row.total_cost_usd !== undefined &&
+            row.total_cost_usd !== '' && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0;
+          return validId && !verified;
+        });
         let matched = 0, updated = 0, unavailable = 0, failed = 0;
-        for (const row of rows) {
-          const generationId = typeof row.provider_request_id === 'string' ? row.provider_request_id.trim() : '';
-          if (!generationId || generationId.length > 200) { unavailable++; continue; }
+        for (const row of eligible) {
+          const generationId = [row.openrouter_generation_id, row.provider_request_id]
+            .find((value) => typeof value === 'string' && /^gen-[0-9A-Za-z-]{1,120}$/.test(value.trim()))?.trim() || '';
           try {
             const response = await fetchImpl('https://openrouter.ai/api/v1/generation?id=' + encodeURIComponent(generationId), {
               method: 'GET',
@@ -1251,18 +1269,20 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             const generation = payload?.data;
             const costValue = generation?.total_cost ?? generation?.usage;
             const cost = costValue === null || costValue === undefined || costValue === '' ? NaN : Number(costValue);
-            if (!generation || !Number.isFinite(cost) || cost < 0) { unavailable++; continue; }
+            if (!generation || (generation.id && generation.id !== generationId) || !Number.isFinite(cost) || cost < 0) { unavailable++; continue; }
             const providerModel = typeof generation.model === 'string' ? generation.model.slice(0, 180) : row.model;
             const promptTokens = Number(generation.tokens_prompt ?? generation.prompt_tokens);
             const completionTokens = Number(generation.tokens_completion ?? generation.completion_tokens);
             const totalTokens = Number(generation.tokens ?? generation.total_tokens);
+            const generationTime = Number(generation.generation_time);
+            const upstreamTime = Number(generation.upstream_inference_time);
             const patch = {
               total_cost_usd: cost,
               model: providerModel || null,
               upstream_provider: typeof generation.provider_name === 'string' ? generation.provider_name.slice(0, 160) : null,
-              finish_reason: typeof generation.finish_reason === 'string' ? generation.finish_reason.slice(0, 120) : null,
-              generation_time_seconds: Number.isFinite(Number(generation.generation_time)) && Number(generation.generation_time) >= 0 ? Number(generation.generation_time) : null,
-              upstream_inference_time_seconds: Number.isFinite(Number(generation.upstream_inference_time)) && Number(generation.upstream_inference_time) >= 0 ? Number(generation.upstream_inference_time) : null,
+              finish_reason: typeof (generation.native_finish_reason ?? generation.finish_reason) === 'string' ? String(generation.native_finish_reason ?? generation.finish_reason).slice(0, 120) : null,
+              generation_time_seconds: Number.isFinite(generationTime) && generationTime >= 0 ? generationTime / 1000 : null,
+              upstream_inference_time_seconds: Number.isFinite(upstreamTime) && upstreamTime >= 0 ? upstreamTime / 1000 : null,
               openrouter_generation_id: generationId,
               provider_cost_source: 'openrouter_generation_api',
               provider_cost_reconciled_at: new Date(now()).toISOString()
@@ -1270,7 +1290,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             if (Number.isSafeInteger(promptTokens) && promptTokens >= 0) patch.prompt_tokens = promptTokens;
             if (Number.isSafeInteger(completionTokens) && completionTokens >= 0) patch.completion_tokens = completionTokens;
             if (Number.isSafeInteger(totalTokens) && totalTokens >= 0) patch.total_tokens = totalTokens;
-            const result = await store.request('PATCH', 'openrouter_logs?id=eq.' + encodeURIComponent(row.id) + '&total_cost_usd=is.null', { body: patch, headers: { Prefer: 'return=representation' } });
+            // Optimistic concurrency guard: only replace the exact cost/provenance
+            // observed above, so a concurrent verified reconciliation is never overwritten.
+            const sourceFilter = row.provider_cost_source === null || row.provider_cost_source === undefined || row.provider_cost_source === ''
+              ? '&provider_cost_source=is.null'
+              : '&provider_cost_source=eq.' + encodeURIComponent(String(row.provider_cost_source));
+            const costFilter = row.total_cost_usd === null || row.total_cost_usd === undefined || row.total_cost_usd === ''
+              ? '&total_cost_usd=is.null'
+              : '&total_cost_usd=eq.' + encodeURIComponent(String(row.total_cost_usd));
+            const result = await store.request('PATCH', 'openrouter_logs?id=eq.' + encodeURIComponent(row.id) + sourceFilter + costFilter, { body: patch, headers: { Prefer: 'return=representation' } });
             if (Array.isArray(result) && result.length) updated++;
             else unavailable++;
             matched++;
@@ -1278,14 +1306,14 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             failed++;
           }
         }
-        const summary = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,total_cost_usd,created_at&created_at=gte.' + encodeURIComponent(cutoff) + '&limit=1000');
+        const summary = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,openrouter_generation_id,total_cost_usd,provider_cost_source,created_at&created_at=gte.' + encodeURIComponent(cutoff) + '&limit=1000');
         const all = Array.isArray(summary) ? summary : [];
-        const reconciled = all.filter((row) => row.provider_request_id && row.total_cost_usd !== null && row.total_cost_usd !== undefined).length;
+        const reconciled = all.filter((row) => (row.openrouter_generation_id || row.provider_request_id) && row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd !== null && row.total_cost_usd !== undefined && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0).length;
         sendJson(res, 200, {
           source: 'openrouter_generation_api',
           generated_at: new Date(now()).toISOString(),
           window: windowName,
-          attempted: rows.length,
+          attempted: eligible.length,
           matched,
           updated,
           unavailable,
