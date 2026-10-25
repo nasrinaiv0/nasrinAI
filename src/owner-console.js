@@ -208,8 +208,8 @@ const panels = {
   overview: { title: 'Good to have you back.', description: 'A clear view of platform health, AI operations, and business signals.' },
   ai: { title: 'AI Operations', description: 'Provider performance, routing, latency, and token usage — only from verified telemetry.' },
   logs: { title: 'AI Logs', description: 'Request-level provider telemetry, status, tokens, cost, latency, and response metadata.' },
-  'openrouter-unlisted': { title: 'Unlisted Models', description: 'Only actual models returned by OpenRouter that are confirmed absent from its current model catalog. Unknown catalog results are excluded from this list.' },
-  'other-unlisted': { title: 'AI Models Activities', description: 'Models used by other providers, compared with provider-specific catalogs when a verified adapter is available.' },
+  'openrouter-unlisted': { title: 'Unlisted Models', description: 'Logged models missing from NasrinAI’s configured catalog.' },
+  'other-unlisted': { title: 'AI Models Activities', description: 'All logged models: listed and unlisted.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
@@ -932,13 +932,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             upstream_provider: row.upstream_provider || null, endpoint: row.endpoint, http_method: row.http_method,
             requested_model: row.requested_model, model, status, http_status: row.http_status, error_code: row.error_code,
             prompt_tokens: row.prompt_tokens, cached_tokens: row.cached_tokens, completion_tokens: row.completion_tokens,
-            total_tokens: row.total_tokens, total_cost_usd: row.total_cost_usd, provider_cost_source: row.provider_cost_source,
+            total_tokens: row.total_tokens,
+            total_cost_usd: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? Number(row.total_cost_usd) : null,
+            provider_cost_source: row.provider_cost_source === 'openrouter_generation_api' ? row.provider_cost_source : null,
             provider_request_id: row.provider_request_id, openrouter_generation_id: row.openrouter_generation_id,
             finish_reason: row.finish_reason, generation_time_seconds: row.generation_time_seconds,
             upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms,
             catalog_status: catalogStatus, model_status: modelStatus,
             model_status_source: actual ? 'provider_response' : row.requested_model ? 'requested_model_alias' : 'missing_model_metadata',
-            telemetry_source: 'openrouter_logs', cost_kind: row.total_cost_usd == null ? 'unknown' : 'provider_reported'
+            telemetry_source: 'openrouter_logs', cost_kind: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? 'provider_reported' : 'unknown'
           });
         }
         for (const row of usageRows) {
@@ -1034,7 +1036,9 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           else if (status) item.failures++;
           item.input_tokens += Math.max(0, Number(row.input_tokens ?? row.prompt_tokens) || 0);
           item.output_tokens += Math.max(0, Number(row.output_tokens ?? row.completion_tokens) || 0);
-          const cost = row.cost_usd ?? row.total_cost_usd;
+          // Only generation-reconciled OpenRouter cost is verified provider spend.
+          // usage_events.cost_usd is an application-side estimate without provenance.
+          const cost = source === 'openrouter_logs' && row.provider_cost_source === 'openrouter_generation_api' ? row.total_cost_usd : null;
           if (cost !== null && cost !== undefined && Number.isFinite(Number(cost)) && Number(cost) >= 0) {
             item.cost_usd += Number(cost); item.cost_known = true;
           }
