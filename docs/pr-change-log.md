@@ -2435,3 +2435,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added cached-token telemetry with migration 066; missing provider fields remain NULL/unknown rather than being shown as zero.
 - Expanded the owner-only request table with provider, input/cached/output tokens, output tokens per second, estimated routing overhead, time to finish, total latency, actual provider-reported cost, finish reason, and cost-source attribution.
 - Speed is derived from output tokens and provider generation time. Routing overhead is an estimate, not an authoritative provider metric. No prompts or completions are exposed.
+
+
+## Owner Console — expanded AI Provider Logs
+- Added cached-token telemetry with migration 066; missing provider fields remain NULL/unknown rather than being shown as zero.
+- Expanded the owner-only request table with provider, input/cached/output tokens, output tokens per second, estimated routing overhead, time to finish, total latency, actual provider-reported cost, finish reason, and cost-source attribution.
+- Speed is derived from output tokens and provider generation time. Routing overhead is an estimate, not an authoritative provider metric. No prompts or completions are exposed.
