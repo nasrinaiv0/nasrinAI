@@ -754,4 +754,14 @@ test('OpenRouter generation reconciliation uses generation IDs and backfills unv
   assert.ok(calls.some((call) => call.patch?.total_cost_usd === 0.03 && call.patch?.provider_cost_source === 'openrouter_generation_api'));
   assert.ok(calls.some((call) => call.patch?.total_cost_usd === 0 && call.patch?.generation_time_seconds === 1.2));
   assert.ok(generationCalls.every((call) => call.options.headers.Authorization === 'Bearer openrouter-inference-key-123456789'));
+
+  const crossOrigin = request('POST', '/owner/api/openrouter-billing/reconcile', {
+    headers: { ...sameOrigin, origin: 'https://attacker.example', cookie, 'content-type': 'application/json' },
+    testIp: IP
+  });
+  crossOrigin.req[Symbol.asyncIterator] = async function* () {
+    yield Buffer.from(JSON.stringify({ confirm: 'RECONCILE', window: '7d' }));
+  };
+  await consoleHandler.handle(crossOrigin.req, crossOrigin.res, '/owner/api/openrouter-billing/reconcile');
+  assert.equal(crossOrigin.res.statusCode, 404, 'cross-origin reconciliation requests must be rejected');
 });
