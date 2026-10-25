@@ -498,7 +498,7 @@
           hasMore=Boolean(payload.has_more);
           previous.disabled=offset===0; next.disabled=!hasMore;
           pageLabel.textContent='Page '+(Math.floor(offset/50)+1);
-          statusLine.textContent=rows.length ? 'Showing '+numberText(offset+1)+'–'+numberText(offset+rows.length)+' · '+payload.window+' · provider catalog checked · updated '+fmt(payload.generated_at)+(payload.coverage_limited ? ' · telemetry cap reached' : '') : 'No catalog-listed request logs found for these filters. Check provider catalog availability if expected models are missing.';
+          statusLine.textContent=rows.length ? 'Showing '+numberText(offset+1)+'–'+numberText(offset+rows.length)+' · '+payload.window+' · NasrinAI configured catalog · updated '+fmt(payload.generated_at)+(payload.coverage_limited ? ' · telemetry cap reached' : '') : 'No catalog-listed request logs found for these filters. Check configured catalog membership and telemetry coverage if expected models are missing.';
           if (!rows.length && offset>0) { offset=Math.max(0,offset-50); previous.disabled=offset===0; }
         } catch (error) {
           tbody.replaceChildren();
