@@ -1,11 +1,6 @@
 # Smart routing: the cheapest model that can do the job
 
-Each message goes through **NasrinAI Auto** by default: it chooses the cheapest
-eligible model that can answer well, preferring configured direct providers and
-using OpenRouter as an additional gateway/fallback. Strong models are used when
-the task needs them, never just because they exist. Explicit provider modes remain
-available for operators who intentionally want to pin a provider. The user still
-sees one assistant, Nasrin.
+Each message goes through **NasrinAI Auto** by default. For **free Quick**, OpenRouter's `:free` models are primary, explicitly allowlisted direct free providers are fallback, and GPT-6 Luna is reserved for heavy tasks after free options fail. **Paid Quick** uses non-free OpenRouter models only, with the configured shortlist ordered cheapest-first; it does not use free endpoints or unrelated direct-provider routes. Other tiers follow the general Auto strategy, preferring configured direct providers and using OpenRouter as an additional gateway/fallback. Explicit provider modes remain available for operators. The user still sees one assistant, Nasrin.
 
 ```
 message ─▶ can code answer it? ──yes──▶ answer (no model, no cost)
