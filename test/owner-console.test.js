@@ -661,3 +661,42 @@ test('owner console table settings support per-table visibility, density, pinnin
   assert.match(script, /ai-logs/);
   assert.match(script, /ai-model-activities/);
 });
+
+
+test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases out of Unlisted Models', async () => {
+  const timestamp = new Date(1_800_000_000_000).toISOString();
+  const store = {
+    kind: 'supabase',
+    request: async (_method, path) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      if (path.startsWith('usage_events?')) return [];
+      if (path.startsWith('openrouter_logs?')) return [
+        { id: 'listed', created_at: timestamp, provider: 'openrouter', requested_model: 'nvidia/nemotron-3-ultra-550b-a55b:free', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', status: 'success', endpoint: '/chat/completions' },
+        { id: 'unlisted', created_at: timestamp, provider: 'openrouter', requested_model: 'vendor/not-in-nasrin-catalog', model: 'vendor/not-in-nasrin-catalog', status: 'success', endpoint: '/chat/completions' },
+        { id: 'alias', created_at: timestamp, provider: 'openrouter', requested_model: 'openrouter/auto', model: null, status: 'running', endpoint: '/chat/completions' }
+      ];
+      throw new Error('unexpected telemetry query');
+    }
+  };
+  const { consoleHandler } = setup({
+    store,
+    fetchImpl: async () => { throw new Error('catalog classification must not call provider live catalogs'); }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  async function load(scope) {
+    const out = request('GET', '/owner/api/ai-logs?window=24h&provider=all&scope=' + scope + '&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+    await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
+    assert.equal(out.res.statusCode, 200);
+    return JSON.parse(out.res.body);
+  }
+  const listed = await load('listed');
+  assert.deepEqual(listed.rows.map(row => row.id), ['listed']);
+  assert.equal(listed.rows[0].catalog_status, 'listed');
+  const unlisted = await load('unlisted');
+  assert.deepEqual(unlisted.rows.map(row => row.id), ['unlisted']);
+  assert.equal(unlisted.rows[0].catalog_status, 'not_listed');
+  const all = await load('all');
+  assert.equal(all.rows.length, 3);
+  assert.equal(all.rows.find(row => row.id === 'alias').catalog_status, 'unknown');
+});
