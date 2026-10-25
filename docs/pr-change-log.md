@@ -2430,3 +2430,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - Vercel reported a successful status check while the actual deployment was `CANCELED` by the project ignored-build step. Set the repository-level `ignoreCommand` to `exit 1` so this PR produces a real Preview deployment.
 - **Validation:** rerun CI and verify the deployment reaches `READY` before API/browser smoke tests. No production deployment or database migration was performed.
+
+## Owner Console — expanded AI Provider Logs
+- Added cached-token telemetry with migration 066; missing provider fields remain NULL/unknown rather than being shown as zero.
+- Expanded the owner-only request table with provider, input/cached/output tokens, output tokens per second, estimated routing overhead, time to finish, total latency, actual provider-reported cost, finish reason, and cost-source attribution.
+- Speed is derived from output tokens and provider generation time. Routing overhead is an estimate, not an authoritative provider metric. No prompts or completions are exposed.
