@@ -584,3 +584,48 @@ test('regional analytics API is owner-session protected, bounded, and aggregate-
   await consoleHandler.handle(denied.req, denied.res, '/owner/api/regional-analytics');
   assert.equal(denied.res.statusCode, 404);
 });
+
+
+test('cross-provider AI logs apply short time windows, provider filters, live catalog membership, and provider-cost labeling', async () => {
+  const timestamp = new Date(1_800_000_000_000).toISOString();
+  const store = {
+    kind: 'supabase',
+    request: async (_method, path) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      if (path.startsWith('usage_events?')) return [];
+      if (path.startsWith('openrouter_logs?')) return [{
+        id: 'log-1', request_id: 'req-1', created_at: timestamp, provider: 'openrouter',
+        requested_model: 'openrouter/auto', model: 'openai/gpt-4o-mini', upstream_provider: 'OpenAI',
+        endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
+        prompt_tokens: 12, cached_tokens: 2, completion_tokens: 8, total_tokens: 20,
+        total_cost_usd: 0.0012, provider_cost_source: 'openrouter_generation_api',
+        provider_request_id: 'gen-1', latency_ms: 250, generation_time_seconds: 0.1
+      }];
+      throw new Error('unexpected telemetry query');
+    }
+  };
+  const { consoleHandler } = setup({
+    store,
+    fetchImpl: async (url) => {
+      assert.equal(url, 'https://openrouter.ai/api/v1/models');
+      return { ok: true, json: async () => ({ data: [{ id: 'openai/gpt-4o-mini' }] }) };
+    }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/ai-logs?window=15m&provider=openrouter&scope=listed&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.window, '15m');
+  assert.equal(payload.provider, 'openrouter');
+  assert.equal(payload.rows.length, 1);
+  assert.equal(payload.rows[0].catalog_status, 'listed');
+  assert.equal(payload.rows[0].model, 'openai/gpt-4o-mini');
+  assert.equal(payload.rows[0].cost_kind, 'provider_reported');
+  assert.equal(payload.rows[0].total_cost_usd, 0.0012);
+
+  const invalid = request('GET', '/owner/api/ai-logs?window=2m&provider=openrouter', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/ai-logs');
+  assert.equal(invalid.res.statusCode, 400);
+});
