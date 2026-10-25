@@ -408,6 +408,24 @@ body:not(.has-chat) #newChat { display: none; }
 .rich .step.is-done .step-text { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--line); }
 
 .rich .code-block { border: 1px solid var(--line); border-radius: 0.95rem; overflow: hidden; background: var(--paper); }
+.rich .answer-divider { border: 0; border-top: 1px solid var(--line); margin: 1.15rem 0; opacity: .8; }
+.rich p { overflow-wrap: anywhere; }
+.rich p + p { margin-top: .8rem; }
+.rich strong { font-weight: 650; }
+.rich em { font-style: italic; }
+.rich del { color: var(--ink-3); text-decoration: line-through; text-decoration-color: currentColor; }
+.rich p code, .rich li code, .rich td code, .rich th code, .rich blockquote code { padding: .12em .36em; border: 1px solid var(--line); border-radius: .35rem; background: var(--surface); font-size: .9em; overflow-wrap: anywhere; }
+.rich .task-item { display: flex; align-items: flex-start; gap: .55rem; margin: .35rem 0; }
+.rich .task-checkbox { flex: 0 0 auto; width: 1rem; height: 1rem; margin: .28rem 0 0; accent-color: var(--ink-2); }
+.rich .task-text { min-width: 0; }
+.rich .task-item.is-complete .task-text { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--line); }
+@media (max-width: 600px) {
+  .rich .table-wrap { margin-inline: 0; border-radius: .7rem; }
+  .rich table { font-size: .82rem; }
+  .rich th, .rich td { min-width: 5.25rem; padding: .45rem .6rem; }
+  .rich .code-head { min-height: 2.6rem; }
+  .rich .code-copy { min-height: 2rem; padding-inline: .6rem; }
+}
 .rich .code-head { display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0.5rem 0.35rem 0.8rem; border-bottom: 1px solid var(--line); font-size: 0.75rem; color: var(--ink-3); }
 .rich .code-copy { border: 0; background: transparent; color: var(--ink-2); font-size: 0.75rem; font-weight: 500; padding: 0.25rem 0.5rem; border-radius: 999px; }
 .rich .code-copy:hover { background: var(--surface); color: var(--ink); }
