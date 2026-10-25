@@ -1,4 +1,4 @@
--- Migration 066: browser roles cannot read/write credentials or OAuth state.
+-- Migration 067: browser roles cannot read/write credentials or OAuth state.
 begin;
 
 insert into public.integration_connections
@@ -13,14 +13,14 @@ begin
      or has_table_privilege('authenticated', 'public.integration_connections', 'insert')
      or has_table_privilege('anon', 'public.integration_oauth_states', 'select')
      or has_table_privilege('authenticated', 'public.integration_oauth_states', 'insert') then
-    raise exception '066: browser roles must not access integration credential tables';
+    raise exception '067: browser roles must not access integration credential tables';
   end if;
   begin
     insert into public.integration_connections
       (tenant_id, user_id, provider, provider_account_id, credential_enc)
     values
       ('00000000-0000-0000-0000-000000000001', 'user-2', 'render', 'acct-b', 'plaintext-token');
-    raise exception '066: plaintext credentials must be refused';
+    raise exception '067: plaintext credentials must be refused';
   exception when check_violation then null;
   end;
   begin
@@ -28,7 +28,7 @@ begin
       (tenant_id, user_id, provider, provider_account_id, credential_enc)
     values
       ('00000000-0000-0000-0000-000000000001', 'user-1', 'render', 'acct-a', 'v1.other.cipher');
-    raise exception '066: duplicate user/provider/account connection must be refused';
+    raise exception '067: duplicate user/provider/account connection must be refused';
   exception when unique_violation then null;
   end;
   begin
@@ -36,7 +36,7 @@ begin
       (tenant_id, user_id, provider, provider_account_id, credential_enc)
     values
       ('00000000-0000-0000-0000-000000000001', 'user-1', 'not-a-provider', 'acct-x', 'v1.a.b.c');
-    raise exception '066: unknown providers must be refused';
+    raise exception '067: unknown providers must be refused';
   exception when check_violation then null;
   end;
 end $$;

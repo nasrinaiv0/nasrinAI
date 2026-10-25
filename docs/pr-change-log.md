@@ -1,3 +1,15 @@
+## Phase 3–5 audit snapshot (2026-10-25)
+
+- Record read-only production evidence for the active Vercel commit, Supabase migration-label drift, OpenRouter telemetry grants/RLS, the Auth leaked-password-protection warning, and a historical Connect redirect rejection.
+- Explicitly retain Phase 3–5 as open: the telemetry policy change is defense in depth, and migration reconciliation, Auth configuration, provider live smoke tests, spend/idempotency checks, and end-to-end release tests remain outstanding.
+- **Validation:** evidence is based on read-only Vercel/Supabase inspection and source review. No production migration, Auth setting, or paid provider generation was executed.
+
+## Phase 3 — explicit OpenRouter telemetry access boundary (2026-10-25)
+
+- Add migration `066_openrouter_logs_explicit_deny_policy.sql` with an explicit restrictive `USING (false)` / `WITH CHECK (false)` policy for `anon` and `authenticated` on `public.openrouter_logs`; revoke browser/public privileges and preserve server-side `service_role` select/insert.
+- Add `db/tests/066_openrouter_logs_explicit_deny_policy.test.sql` to verify RLS, deny-policy shape, browser-role privileges, and service-role access.
+- **Validation:** migration and SQL regression test added to the feature branch. They have not been run against CI or production, and the migration has not been applied to production. Do not merge/apply until database tests and Documentation Gate pass. This defense-in-depth change does not reconcile historical migration drift.
+
 ## Phase 3 transcription discovery CI fix (2026-10-25)
 
 - Fix task-filtered model discovery: transcription returns text, so catalog discovery accepts text-output models while requiring explicit audio input.
@@ -2403,10 +2415,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 ## PR #409 — Universal user-owned integration security groundwork (2026-10-25)
 
 - Add server-side tenant/user ownership checks, an AES-256-GCM credential envelope with authenticated context, a server-only integration store, and read-only list/detail routes.
-- Add migration 066 for encrypted integration connections and expiring OAuth-state records, with browser-role access revoked and RLS denial policies.
+- Add migration 067 for encrypted integration connections and expiring OAuth-state records, with browser-role access revoked and RLS denial policies.
 - Add regression coverage for user isolation, encrypted secret round-trips, tampering, and integration-store behavior. The existing Developer Tools UI on current main is preserved.
 - Provider-specific OAuth adapters, OAuth callbacks, provider writes, and production migration execution are not included in this phase.
-- **Validation:** rerun CI and the documentation gate on the synchronized PR head. Do not apply migration 066 to production until separately approved and reviewed; the encryption key is server-only.
+- **Validation:** rerun CI and the documentation gate on the synchronized PR head. Do not apply migration 067 to production until separately approved and reviewed; the encryption key is server-only.
 
 ## PR #409 preview build enforcement (2026-10-25)
 

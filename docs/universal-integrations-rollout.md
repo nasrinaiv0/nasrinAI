@@ -6,14 +6,14 @@
 - AES-256-GCM authenticated encryption helper for provider credentials, with associated data support so ciphertext can be bound to a specific user/provider/account.
 - Owner-scoped persistence primitives that query by verified tenant and user, plus safe account metadata projections.
 - Authenticated read-only API routes: GET /v1/integrations and GET /v1/integrations/:id. These return status metadata only, never credential ciphertext.
-- Server-only Supabase tables for encrypted integration credentials and one-time OAuth-state records (migration 066), plus database regression checks.
+- Server-only Supabase tables for encrypted integration credentials and one-time OAuth-state records (migration 067), plus database regression checks.
 - Test coverage for ownership, secret encryption/tampering, owner-scoped queries, and credential redaction.
 
 ## Required deployment setup
 
 1. Generate a new independent 32-byte encryption key and encode it as base64. For example, on a trusted local machine run: openssl rand -base64 32.
 2. Add the result to Vercel as the sensitive, server-only environment variable NASRINAI_INTEGRATION_ENCRYPTION_KEY for Preview and Production as appropriate. Do not use a provider token as this key, do not expose it with a NEXT_PUBLIC_ prefix, and do not paste it into chat or source control.
-3. In Supabase SQL Editor, run db/migrations/066_user_owned_integrations.sql after the existing migrations. The migration is designed to be repeatable; the database CI job also runs each migration twice.
+3. In Supabase SQL Editor, run db/migrations/067_user_owned_integrations.sql after the existing migrations. The migration is designed to be repeatable; the database CI job also runs each migration twice.
 4. Deploy only after the PR's complete CI, including the database job, passes.
 
 ## What remains before provider connections can be enabled

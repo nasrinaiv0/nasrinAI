@@ -1,4 +1,4 @@
--- NasrinAI universal user-owned provider connections (migration 066).
+-- NasrinAI universal user-owned provider connections (migration 067).
 -- Credentials are authenticated-encrypted by the server; browser roles never access this table.
 begin;
 
