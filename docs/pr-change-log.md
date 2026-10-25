@@ -1,3 +1,9 @@
+## Guest-session Supabase secret-key compatibility — 2026-10-26
+
+- Fix the shared Supabase store to send modern `sb_secret_` API keys through the `apikey` header without misusing them as JWT Bearer credentials. Legacy `service_role` JWT compatibility is preserved.
+- Add regression coverage for the new key format. No database migration or production environment value is changed by this code patch.
+- The known production API status endpoint reports healthy; live guest-session POST verification and CI are still required before calling this fully resolved.
+
 ## Catalog scope regression correction — 2026-10-26
 
 - Correct the legacy AI Logs regression fixture that expected live OpenRouter catalog membership. It now uses a NasrinAI-configured model, verifies no live catalog call is needed, and expects unresolved aliases to remain `unknown`.
