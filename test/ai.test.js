@@ -68,6 +68,8 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
   assert.ok(config.ai.fallback.providers.includes('openai'));
   assert.ok(config.ai.fallback.providers.includes('gemini'));
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
+  assert.equal(config.ai.routing.coding.max.provider, 'anthropic',
+    'Auto should prefer the direct Anthropic coding specialist when it is configured and keep OpenRouter as fallback');
 
   const customized = loadConfig({
     AI_PROVIDER: 'auto',
