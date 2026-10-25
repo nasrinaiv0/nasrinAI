@@ -827,9 +827,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       }
       const cutoff = new Date(now() - windowsMs[windowName]).toISOString();
       const providerFilter = String(url.searchParams.get('provider') || 'all').toLowerCase();
-      const allowedProviders = ['all', 'openrouter', 'google', 'gemini', 'openai', 'anthropic', 'claude'];
-      if (!allowedProviders.includes(providerFilter)) {
-        sendJson(res, 400, { error: { code: 'invalid_provider', message: 'Choose a supported provider or all.' } });
+      // Provider names are normalized and filtered in memory; allow future integrations without
+      // coupling this endpoint to a fixed provider allowlist.
+      if (providerFilter.length > 60 || !/^[a-z0-9 _.-]+$/.test(providerFilter)) {
+        sendJson(res, 400, { error: { code: 'invalid_provider', message: 'Choose a valid provider name or all.' } });
         return true;
       }
       const statusFilter = String(url.searchParams.get('status') || '').toLowerCase();
