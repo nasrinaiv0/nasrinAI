@@ -1183,3 +1183,8 @@ All report views share:
 - **AI Models Activities** aggregates observed requests by provider and model, including successes, failures, unknown outcomes, latest status, and provider-reported cost coverage. Cost is unknown unless the row contains a provider-reported value; estimates are not presented as provider charges.
 - The /owner/api/ai-logs endpoint is owner-session protected, uses a strict provider/window allowlist, sanitizes fields, and never returns prompt/completion content or provider credentials. The existing /owner/api/openrouter-logs endpoint remains for backward compatibility.
 - **Coverage boundary:** data comes from NasrinAI usage_events and OpenRouter openrouter_logs records. Independent provider-account calls are not visible unless a connected provider activity importer records them. A model appearing in a catalog is not proof of model execution. Catalog and telemetry queries are bounded to 1,000 rows per source; responses mark when that cap is reached and counts may therefore be incomplete until pagination is extended.
+
+
+## OpenRouter account generation records
+
+Owner AI Logs now has an additional server-synced source: provider-discovered OpenRouter generation records in `openrouter_generations`. The cron imports recent generation IDs from account analytics every 15 minutes and fetches authoritative per-generation metadata. Rows are explicitly labeled as `openrouter_generations` and only appear when no matching local request log exists, so they are not double-counted. This source requires migration 072 and the server-only Management/inference keys plus Supabase secret key.
