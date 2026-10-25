@@ -106,3 +106,5 @@
 - Documented the requested OpenRouter video model allowlist with verified IDs `heygen/heygen-video-1` and `alibaba/wan-3.0`, current model-specific duration constraints, and safe modality-preserving failover policy for image, video, voice, and coding.
 
 - Add a manual GitHub Actions workflow to verify live OpenRouter text-model availability and upload a JSON report. Runs only on explicit dispatch with cost confirmation; uses `OPENROUTER_API_KEY`.
+
+- Improve Owner Command Center AI Models Activities to retain every observed request status rather than collapsing non-success values into errors. Show inferred/unavailable model metadata separately from provider catalog membership, and separate internal usage estimates from provider-reported costs. Add regression coverage for unresolved OpenRouter aliases and nonterminal running status.
