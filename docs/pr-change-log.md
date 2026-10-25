@@ -1,8 +1,9 @@
-## PR #543 conflict resolution (2026-10-25)
+## OpenRouter provider-log telemetry correctness — 2026-10-25
 
-- Synchronized `feature/owner-console-v2-current-main` with the latest `main` after inspecting the conflicting Owner Command Center implementation, migration 057/058, route/CSP configuration, tests, and documentation.
-- The current `main` tree already contains the newer Owner Command Center implementation, including stronger request/session checks, the current migration definitions, expanded regression tests, the owner entry in NasrinAI Space, Google Maps CSP allowances, and owner-alert routing. The older branch versions were superseded, so the synchronization preserves the current `main` tree rather than reintroducing outdated implementations.
-- No production migration, production deployment, or PR merge was performed. The PR now has no functional diff against `main`; it should be closed or re-scoped instead of merged as a duplicate. It remains open for owner review.
+- Fix generation-ID capture: successful inference responses now persist the OpenRouter response-body `id` when request-ID headers are absent, while excluding model-catalog discovery endpoints from that fallback. This allows new eligible requests to be reconciled without trusting user-supplied IDs.
+- Clarify AI Provider Logs: `/models`, `/images/models`, and `/videos/models` are catalog/discovery calls, not inference calls; inference-only token, speed, generation-time, finish-reason, and cost cells now show “N/A · catalog request” for those rows.
+- Keep the owner-only logs API read-only, bounded, and sanitized; no prompts, completions, raw provider error bodies, or credentials are exposed.
+- **Validation:** regression coverage updated to assert response-body ID fallback when headers are absent. CI and deployed live-provider verification are still pending; historical rows without any stored provider/generation ID cannot be retroactively reconciled from this change alone.
 
 ## PR #611 CI follow-up (2026-10-25)
 
