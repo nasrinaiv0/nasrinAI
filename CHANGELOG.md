@@ -1,6 +1,6 @@
 ## Auto provider default and OpenRouter fallback — 2026-10-26
 
-- Restore the agreed routing contract: Auto is the default whenever provider credentials are configured; an environment with no provider credentials remains safely disabled.
+- Restore the agreed production routing contract: `AI_PROVIDER=auto` is the documented production default and is also selected automatically for production when provider credentials exist but the variable is omitted. Unconfigured local/test environments remain safely disabled.
 - In Auto mode, prefer configured direct providers instead of injecting OpenRouter ahead of every route. Keep OpenRouter available as an additional fallback when independent direct providers are configured.
 - Fix Quick fallback ordering so explicitly allowlisted direct free-provider candidates are actually appended and tried before OpenRouter free models; retain the approved Luna emergency route and all tier/privacy/capability restrictions.
 - Add regression coverage and update routing/deployment documentation. No production environment variables, merge, or deployment are changed by this PR.
