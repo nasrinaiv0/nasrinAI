@@ -1,3 +1,7 @@
+## Unreleased
+
+- Persist sanitized reply timing and token-usage metadata on assistant messages in Supabase; conversation history and the reply details panel now use saved metadata instead of estimating historical token counts from text. Replies without stored metadata show "Not reported".
+
 ## Quick free/paid routing correction — 2026-10-26
 
 - Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.

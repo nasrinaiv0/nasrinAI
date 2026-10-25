@@ -47,7 +47,10 @@ const RECALL_STOP = new Set(('what when where which would could about from with 
 export const recallTopicTerms = (text) => [...new Set(String(text || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [])].filter((w) => !RECALL_STOP.has(w)).slice(0, 8);
 
 export const publicConversation = (c) => ({ id: c.id, title: c.title, created_at: c.createdAt, updated_at: c.updatedAt });
-export const publicMessage = (m) => ({ id: m.id, role: m.role, content: m.content, created_at: m.createdAt });
+export const publicMessage = (m) => ({
+  id: m.id, role: m.role, content: m.content, created_at: m.createdAt,
+  ...(m.responseMetadata && typeof m.responseMetadata === 'object' ? { response_metadata: m.responseMetadata } : {})
+});
 
 export function createConversations({ store, config, logger, now = () => Date.now() }) {
   let lastPurge = 0;
@@ -157,6 +160,12 @@ export function createConversations({ store, config, logger, now = () => Date.no
     },
     add(conv, role, content) {
       return store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role, content });
+    },
+
+    async setResponseMetadata(message, responseMetadata) {
+      if (!message?.id || typeof store.setMessageResponseMetadata !== 'function') return message;
+      const saved = await store.setMessageResponseMetadata(message.id, responseMetadata);
+      return saved || { ...message, responseMetadata };
     },
 
     // Only ever called with a conversation already checked with get().

@@ -7,7 +7,7 @@ const KEY_ID = /^[0-9a-f]{12}$/;
 const OWNER_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const OWNER_TYPES = new Set(['user', 'guest', 'service']);
 const CONVERSATION_COLUMNS = 'id,tenant_id,owner_type,owner_id,title,created_at,updated_at,expires_at';
-const MESSAGE_COLUMNS = 'id,role,content,created_at';
+const MESSAGE_COLUMNS = 'id,role,content,created_at,response_metadata';
 
 const PROJECT_COLUMNS = 'id,name,description,instructions,status,created_at,updated_at';
 const mapProject = (r) => ({ id: r.id, name: r.name, description: r.description, instructions: r.instructions, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at });
@@ -331,6 +331,15 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       return mapMessage(rows[0]);
     },
 
+    async setMessageResponseMetadata(id, responseMetadata) {
+      if (!UUID.test(String(id))) return null;
+      const rows = await request('PATCH', `messages?id=eq.${id}&select=${MESSAGE_COLUMNS}`, {
+        prefer: 'return=representation',
+        body: { response_metadata: responseMetadata }
+      });
+      return rows && rows[0] ? mapMessage(rows[0]) : null;
+    },
+
     // The latest `limit` messages, oldest first.
     async listMessages(conversationId, limit = 50) {
       if (!UUID.test(String(conversationId))) return [];
@@ -347,7 +356,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
 
     async getMessage(id) {
       if (!UUID.test(String(id))) return null;
-      const rows = await request('GET', `messages?id=eq.${id}&select=id,conversation_id,role,content,created_at&limit=1`);
+      const rows = await request('GET', `messages?id=eq.${id}&select=id,conversation_id,role,content,created_at,response_metadata&limit=1`);
       const r = rows && rows[0];
       return r ? { ...mapMessage(r), conversationId: r.conversation_id } : null;
     },

@@ -1,3 +1,10 @@
+## PR #639 — Persist real token usage for reply details (2026-10-26)
+
+- Store sanitized response metadata, including provider-reported input/output tokens and request duration, on the exact assistant message in Supabase.
+- Return saved metadata in conversation history so the reply details panel remains accurate after refresh.
+- Remove text-length token estimates for historical replies; missing persisted metadata displays "Not reported" rather than a guessed value.
+- Add migration 073 and regression coverage for persisted metadata.
+
 ## Quick free/paid routing correction — 2026-10-26
 
 - Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
