@@ -1,5 +1,5 @@
 import { ProviderError } from './provider.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readToolCalls } from './tool-format.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
@@ -321,14 +321,19 @@ export function createOpenRouterClient({
     return eligible[0];
   }
 
-  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, includeUsage = false, provider = {}, signal }) {
+  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, includeUsage = false, provider = {}, signal, sessionId }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
     const selected = model === 'openrouter/free' && task === 'chat' && !(Array.isArray(tools) && tools.length)
       ? { id: 'openrouter/free' }
       : await selectModel(task, model ? [cleanModelId(model)] : preferred, { requiresTools: Array.isArray(tools) && tools.length > 0, minContextTokens });
+    const normalizedSessionId = sessionId == null ? null : (typeof sessionId === 'string' ? sessionId.trim() : '');
+    if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256 || /[\\u0000-\\u001f\\u007f]/.test(normalizedSessionId))) {
+      throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 safe characters');
+    }
     const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
       provider: { ...provider, data_collection: provider.data_collection === 'deny' ? 'deny' : defaultDataCollection, allow_fallbacks: provider.allow_fallbacks !== false } };
+    if (normalizedSessionId) payload.session_id = normalizedSessionId;
     if (includeUsage) payload.usage = { include: true };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
     if (Number.isFinite(temperature)) payload.temperature = Math.max(0, Math.min(2, temperature));
@@ -608,7 +613,7 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
     },
-    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [], sensitive = false }) {
+    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [], sensitive = false, conversationId = null }) {
       const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
       if (hasAttachments && task !== 'vision') throw new ProviderError('config', 'Attachments require the dedicated OpenRouter vision task');
       if (hasAttachments && attachments.length > 8) throw new ProviderError('config', 'At most 8 image attachments are supported per vision request');
@@ -638,8 +643,13 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
         for (const url of imageUrls) blocks.push({ type: 'image_url', image_url: { url } });
         normalizedMessages[target] = { ...normalizedMessages[target], content: blocks };
       }
+      // Hash the internal conversation ID so OpenRouter receives a stable opaque
+      // session key rather than a database identifier or any user information.
+      const sessionId = typeof conversationId === 'string' && conversationId.length > 0
+        ? `nasrinai-${createHash('sha256').update(conversationId).digest('hex')}`
+        : undefined;
       const result = await openrouter.chat({
-        task: normalizeTask(task), model: requestedModel,
+        task: normalizeTask(task), model: requestedModel, sessionId,
         messages: [{ role: 'system', content: system }, ...normalizedMessages],
         tools, maxTokens, signal, includeUsage: true,
         // Private requests (contact details, attachments) stay on providers that
