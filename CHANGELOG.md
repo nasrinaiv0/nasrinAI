@@ -1,3 +1,4 @@
+- Fix guest-session database access for modern Supabase `sb_secret_` keys: send the opaque secret in `apikey` only rather than incorrectly treating it as a JWT Bearer token. Preserve the Authorization header for legacy `service_role` JWTs. Add regression coverage.
 - Update the AI Logs regression fixture to use a model in NasrinAI's configured catalog; verify live provider catalog calls are not used for inventory classification and unresolved aliases remain `unknown`.
 - Align AI Logs status copy with the configured NasrinAI catalog rather than implying a live provider-catalog check.
 - Respect the migration-062 `usage_events.cost_source` provenance marker: direct-provider usage costs are shown only when explicitly marked `provider_reported` with a valid non-negative amount; legacy/unmarked amounts remain unavailable.
