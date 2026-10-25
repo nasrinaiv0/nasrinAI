@@ -133,8 +133,9 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   assert.equal(a.openai.calls.length, 0);
   assert.equal(a.gemini.calls.length, 0);
 
+  const heavyMessage = 'Analyze the architecture and debug this complex production failure';
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
-  await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: heavyMessage }), req(heavyMessage)), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
   assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'only free models and the authorized Luna fallback are eligible');
   assert.equal(down.openrouter.calls.at(-1).model, 'openai/gpt-6-luna', 'Luna is attempted only after free models fail');
@@ -148,14 +149,14 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
     },
     reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
   });
-  await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof HttpError || e instanceof ProviderError);
+  await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: heavyMessage }), req(heavyMessage)), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(overridden.openrouter.calls.length > 0);
   assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'custom routes cannot bypass free-first/Luna-only eligibility');
   assert.equal(overridden.openrouter.calls.at(-1).model, 'openai/gpt-6-luna');
   assert.equal(overridden.openai.calls.length, 0);
   assert.equal(overridden.gemini.calls.length, 0);
 });
-test('Auto prefers an explicitly allowlisted direct free provider before OpenRouter free models', async () => {
+test('Free Quick prefers OpenRouter free models before direct free-provider fallback', async () => {
   const a = setup({
     env: {
       AI_PROVIDER: 'auto',
@@ -170,8 +171,8 @@ test('Auto prefers an explicitly allowlisted direct free provider before OpenRou
   const run = await a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello'));
   assert.equal(run.spec.provider, 'groq');
   assert.equal(run.spec.model, 'llama-3.3-70b-versatile');
-  assert.equal(a.openrouter.calls.length, 0, 'healthy direct free capacity should avoid the OpenRouter fallback');
-  assert.equal(a.groq.calls.length, 1, 'the configured allowlisted direct free provider is preferred');
+  assert.ok(a.openrouter.calls.length > 0, 'OpenRouter free models are attempted first');
+  assert.equal(a.groq.calls.length, 1, 'allowlisted direct free provider is the fallback');
   assert.equal(a.openai.calls.length, 0, 'Quick never falls back to a paid OpenAI route');
   assert.equal(a.gemini.calls.length, 0, 'Quick never falls back to an unapproved provider route');
 });
