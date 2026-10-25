@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createOpenRouterClient } from '../src/ai/openrouter.js';
+import { createOpenRouterClient, createOpenRouterProvider } from '../src/ai/openrouter.js';
 import { createOpenRouterTelemetry } from '../src/ai/openrouter-telemetry.js';
 
 function jsonResponse(body, status = 200, headers = {}) {
@@ -143,4 +143,47 @@ test('OpenRouter telemetry never substitutes the requested alias when actual mod
   assert.ok(inference);
   assert.equal(inference.requestedModel, 'provider/model');
   assert.equal(inference.model, null);
+});
+
+
+test('OpenRouter chat includes a validated optional session_id and omits it when absent', async () => {
+  const payloads = [];
+  const client = createOpenRouterClient({
+    apiKey: 'test-key',
+    fetchImpl: async (url, init) => {
+      if (String(url).includes('/models?')) return jsonResponse({ data: [{
+        id: 'provider/model',
+        architecture: { output_modalities: ['text'], input_modalities: ['text'] }
+      }] });
+      payloads.push(JSON.parse(init.body));
+      return jsonResponse({ choices: [{ message: { content: 'ok' } }] });
+    }
+  });
+  const messages = [{ role: 'user', content: 'hello' }];
+  await client.chat({ model: 'provider/model', messages, sessionId: 'nasrinai-test-session' });
+  await client.chat({ model: 'provider/model', messages });
+  assert.equal(payloads[0].session_id, 'nasrinai-test-session');
+  assert.equal(Object.hasOwn(payloads[1], 'session_id'), false);
+  await assert.rejects(client.chat({ model: 'provider/model', messages, sessionId: 'x'.repeat(257) }), /session ID/);
+  await assert.rejects(client.chat({ model: 'provider/model', messages, sessionId: 'bad\nvalue' }), /session ID/);
+});
+
+test('NasrinAI OpenRouter provider derives a stable opaque session ID per conversation', async () => {
+  const calls = [];
+  const client = {
+    listModels: async () => [{ id: 'provider/model', architecture: { output_modalities: ['text'], input_modalities: ['text'] } }],
+    chat: async (args) => {
+      calls.push(args);
+      return { model: 'provider/model', choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: {} };
+    }
+  };
+  const provider = createOpenRouterProvider({ apiKey: 'test-key', model: 'provider/model', client });
+  const base = { system: 'S', messages: [{ role: 'user', content: 'hello' }], model: 'provider/model' };
+  await provider.generate({ ...base, conversationId: 'internal-conversation-123' });
+  await provider.generate({ ...base, conversationId: 'internal-conversation-123' });
+  await provider.generate({ ...base, conversationId: 'another-conversation' });
+  assert.equal(calls[0].sessionId, calls[1].sessionId);
+  assert.notEqual(calls[0].sessionId, calls[2].sessionId);
+  assert.match(calls[0].sessionId, /^nasrinai-[a-f0-9]{64}$/);
+  assert.equal(calls[0].sessionId.includes('internal-conversation-123'), false);
 });
