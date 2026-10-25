@@ -1,3 +1,9 @@
+## Fix malformed Owner Command Center script in unlisted-model inventory PR — 2026-10-25
+
+- Removed duplicated trailing fragments accidentally appended after the `public/owner-console.js` IIFE, which caused the browser-script syntax test to fail with `Unexpected token ']'`.
+- Kept the complete first script body, including both dedicated OpenRouter and other-provider navigation categories.
+- CI revalidation pending after this commit; no production deployment or credentials used.
+
 ## Dedicated OpenRouter and other-provider unlisted model tabs — 2026-10-25
 
 - Split the cross-provider model inventory into two distinct navigation categories: **OpenRouter Unlisted Models** and **Other Provider Unlisted Models**.
