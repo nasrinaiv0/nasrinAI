@@ -792,8 +792,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           }
         } catch { /* Catalog state remains unknown; never infer unlisted from a failed fetch. */ }
         const rows = [...grouped.values()].map((item) => {
-          const normalizedProvider = item.provider.replace(/\s+/g, '');
-          const catalogStatus = normalizedProvider === 'openrouter'
+          const cameFromOpenRouter = item.sources.has('openrouter_logs') || item.provider.replace(/\s+/g, '') === 'openrouter';
+          const catalogStatus = cameFromOpenRouter
             ? (openRouterCatalog ? (openRouterCatalog.has(item.model) ? 'listed' : 'not_listed') : 'unknown')
             : 'unknown';
           const result = {
