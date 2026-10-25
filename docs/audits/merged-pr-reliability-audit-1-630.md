@@ -5,6 +5,8 @@
 **Baseline main SHA:** `8a8cd18227b4bbc040c9a6534cd834e5f16777b8`  
 **Status:** In progress — inventory and first failure triage completed; full code-level review and corrective PRs remain open.
 
+**Current-main baseline verification:** Commit `8a8cd18227b4bbc040c9a6534cd834e5f16777b8` has completed `test`, `database`, and `dependency-audit` checks all green (completed 2026-10-25 19:13 UTC). The current-main test check is green; historical red checks must be treated as historical evidence until a defect is reproduced on current main.
+
 ## Scope and method
 
 The request is to audit pull requests numbered #1 through #630 and correct defects that reached `main`. The initial GitHub REST inventory retrieved 625 closed PR records in the range and identified 583 merged PRs. This is not yet a complete inventory of every PR number because open PRs are not part of the closed-PR pages.
@@ -47,7 +49,7 @@ This list is based on GitHub's status search and is not itself a verdict. Some h
 | Finding | Corrective branch / PR | Verification | Status |
 |---|---|---|---|
 | Initial inventory and triage | `audit/merged-pr-reliability-1-630` | GitHub API inventory and merge-commit check-runs | In progress |
-| #620 test failure | Pending | Exact failed assertion and current-main reproduction required | Open |
-| #584 test failures | Pending | Exact failed assertions and current-main reproduction required | Open |
-| #559 test failure | Pending | Exact failed assertion and current-main reproduction required | Open |
-| #570 dependency audit | Pending | Current lockfile audit and compatible remediation required | Open |
+| #620 test failure | Later fix candidate: #622 (session ID validation) | Historical failure: optional `session_id` test expected rejection but got fulfillment. Current-main test suite is green; confirm regression test now passes before closing. | Triage |
+| #584 test failures | Later fix candidate: #585 (UI payload tests) | Two failures: raw structured search payload did not degrade to readable text; malformed `[[ui]]` payload leaked protocol markers. Current-main test suite is green; verify these exact regressions on current main. | Triage |
+| #559 test failure | Later fix candidate: #560 (image routing CI) | Historical failure: image-tier test expected only IDs `1`,`2` but observed `1`,`2`,`3`,`4`. Current-main test suite is green; verify behavior against intended tier policy. | Triage |
+| #570 dependency audit | Pending | Historical audit found four high-severity transitive Zod findings under Vercel sandbox dependencies. Current-main dependency-audit is green; compare current lockfile and audit evidence before closing. | Triage |
