@@ -1,3 +1,9 @@
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
+- Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
 ## OpenRouter generation discovery sync — 2026-10-26
 
 - Port the supplied sync template into a protected 15-minute Vercel cron: Management API analytics discovers generation IDs; the separate inference key retrieves per-generation details; Supabase upserts records idempotently by generation ID.
