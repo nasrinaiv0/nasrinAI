@@ -1,3 +1,9 @@
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick uses OpenRouter `:free` models first, allowlisted direct free providers as fallback, and GPT-6 Luna only for heavy tasks after free candidates fail.
+- Paid Quick uses non-free OpenRouter models only and prefers the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
 ## Rich reply rendering polish — 2026-10-26
 
 - Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
