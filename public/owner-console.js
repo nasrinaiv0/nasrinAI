@@ -79,6 +79,100 @@
     });
     return list;
   }
+  function addTableSettings(panel, table, storageKey) {
+    const headers = Array.from(table.querySelectorAll('thead th'));
+    if (!headers.length) return;
+    const labels = headers.map((th, index) => (th.textContent || 'Column ' + (index + 1)).trim());
+    const defaults = { order: labels.map((_, i) => i), hidden: [], density: 'compact', pinned: 0 };
+    let saved = defaults;
+    try {
+      const raw = localStorage.getItem('nasrinai-owner-table:' + storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.order) && Array.isArray(parsed.hidden) && ['compact','regular','expanded'].includes(parsed.density)) {
+          const valid = parsed.order.filter(i => Number.isInteger(i) && i >= 0 && i < labels.length);
+          saved = { order: [...new Set(valid.concat(defaults.order))], hidden: parsed.hidden.filter(i => Number.isInteger(i) && i >= 0 && i < labels.length), density: parsed.density, pinned: Number.isInteger(parsed.pinned) ? Math.max(0, Math.min(parsed.pinned, labels.length - 1)) : 0 };
+        }
+      }
+    } catch (_) {}
+    let settings = saved;
+    const toolbar = el('div', 'table-settings-toolbar');
+    const trigger = el('button', 'quiet-button table-settings-trigger', '⚙ Table settings');
+    trigger.type = 'button'; trigger.setAttribute('aria-expanded', 'false');
+    const popover = el('section', 'table-settings-popover'); popover.hidden = true;
+    const top = el('div', 'table-settings-top');
+    top.append(el('strong', '', 'Table settings'));
+    const reset = el('button', 'table-settings-reset', 'Reset'); reset.type = 'button';
+    top.append(reset);
+    const tabs = el('div', 'table-settings-tabs');
+    const columnsTab = el('button', 'table-settings-tab active', 'Columns'); columnsTab.type = 'button';
+    const densityTab = el('button', 'table-settings-tab', 'Density'); densityTab.type = 'button';
+    tabs.append(columnsTab, densityTab);
+    const body = el('div', 'table-settings-body');
+    const save = () => { try { localStorage.setItem('nasrinai-owner-table:' + storageKey, JSON.stringify(settings)); } catch (_) {} };
+    const moveColumn = (from, to) => {
+      if (to < 0 || to >= settings.order.length || from === to) return;
+      const [item] = settings.order.splice(from, 1); settings.order.splice(to, 0, item); save(); renderSettings(); apply();
+    };
+    function apply() {
+      const allRows = Array.from(table.querySelectorAll('tr'));
+      allRows.forEach(row => {
+        const cells = Array.from(row.children);
+        settings.order.forEach((originalIndex, displayIndex) => {
+          const cell = cells.find(node => Number(node.dataset.originalColumn) === originalIndex);
+          if (cell) row.appendChild(cell);
+        });
+      });
+      allRows.forEach(row => Array.from(row.children).forEach(cell => {
+        const index = Number(cell.dataset.originalColumn);
+        cell.hidden = settings.hidden.includes(index);
+        cell.classList.toggle('table-column-pinned', index === settings.pinned);
+      }));
+      table.dataset.density = settings.density;
+    }
+    function markColumns() {
+      Array.from(table.querySelectorAll('tr')).forEach(row => Array.from(row.children).forEach((cell, index) => {
+        if (!cell.dataset.originalColumn) cell.dataset.originalColumn = String(index);
+      }));
+    }
+    function renderSettings() {
+      body.replaceChildren();
+      columnsTab.classList.toggle('active', !body.dataset.mode || body.dataset.mode === 'columns');
+      densityTab.classList.toggle('active', body.dataset.mode === 'density');
+      if (body.dataset.mode === 'density') {
+        [['compact','Compact'],['regular','Regular'],['expanded','Expanded']].forEach(([value,label]) => {
+          const button = el('button', 'table-density-option' + (settings.density === value ? ' selected' : ''), label + (settings.density === value ? '  ✓' : ''));
+          button.type = 'button'; button.addEventListener('click', () => { settings.density = value; save(); renderSettings(); apply(); }); body.append(button);
+        });
+        return;
+      }
+      const pinnedLabel = el('label', 'table-pinned-row');
+      const pinSelect = el('select', 'provider-log-control'); pinSelect.setAttribute('aria-label', 'Pinned column');
+      labels.forEach((label, index) => { const option = el('option','',label); option.value = String(index); option.selected = settings.pinned === index; pinSelect.append(option); });
+      pinSelect.addEventListener('change', () => { settings.pinned = Number(pinSelect.value); save(); apply(); });
+      pinnedLabel.append(el('span','','Pinned column'), pinSelect); body.append(pinnedLabel);
+      settings.order.forEach((originalIndex, position) => {
+        const row = el('div','table-column-option'); row.draggable = true; row.dataset.column = String(originalIndex);
+        const grip = el('span','table-column-grip','⠿'); grip.setAttribute('aria-hidden','true');
+        const checkbox = el('input',''); checkbox.type = 'checkbox'; checkbox.checked = !settings.hidden.includes(originalIndex); checkbox.setAttribute('aria-label','Show '+labels[originalIndex]);
+        checkbox.addEventListener('change', () => { settings.hidden = checkbox.checked ? settings.hidden.filter(i => i !== originalIndex) : [...settings.hidden, originalIndex]; save(); apply(); });
+        const label = el('label','table-column-label',labels[originalIndex]); label.prepend(checkbox);
+        row.append(grip,label);
+        row.addEventListener('dragstart', event => { event.dataTransfer.setData('text/plain', String(originalIndex)); event.dataTransfer.effectAllowed = 'move'; });
+        row.addEventListener('dragover', event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; });
+        row.addEventListener('drop', event => { event.preventDefault(); const from = settings.order.indexOf(Number(event.dataTransfer.getData('text/plain'))); moveColumn(from, position); });
+        body.append(row);
+      });
+    }
+    columnsTab.addEventListener('click', () => { body.dataset.mode = 'columns'; renderSettings(); });
+    densityTab.addEventListener('click', () => { body.dataset.mode = 'density'; renderSettings(); });
+    trigger.addEventListener('click', () => { popover.hidden = !popover.hidden; trigger.setAttribute('aria-expanded', String(!popover.hidden)); });
+    reset.addEventListener('click', () => { settings = { ...defaults, order: defaults.order.slice(), hidden: [] }; save(); renderSettings(); apply(); });
+    markColumns(); toolbar.append(trigger); popover.append(top,tabs,body); toolbar.append(popover); panel.append(toolbar);
+    renderSettings(); apply();
+    return apply;
+  }
+
   function renderOverview() {
     const c = $('content'), u = data && data.usage_24h, userSummary = data && data.user_summary;
     const hasUsage = Boolean(u), requests = hasUsage ? Number(u.request_count) : NaN;
@@ -332,6 +426,7 @@
       thead.append(headerRow);
       const tbody = el('tbody');
       table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
+      addTableSettings(panel, table, 'ai-logs');
       const pager = el('div','provider-log-pager');
       const previous = el('button','quiet-button','Previous'); previous.type='button';
       const next = el('button','quiet-button','Next'); next.type='button';
@@ -959,6 +1054,7 @@
         });
         if(!groups.size){const tr=el('tr'),td=el('td','','No model activity found for the selected provider and time range.');td.colSpan=14;tr.append(td);tbody.append(tr);}
         table.append(tbody);wrap.append(table);result.append(wrap);
+        addTableSettings(result, table, 'ai-model-activities');
         if(payload.coverage_limited)result.append(notice('Telemetry coverage is limited','At least one source returned 1,000 rows. Counts may be incomplete for this period.'));
       }catch(error){result.replaceChildren(notice('AI Models Activities unavailable',String(error?.message||'Provider activity could not be loaded.')));}
       finally{refresh.disabled=false;}
