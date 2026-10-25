@@ -55,7 +55,7 @@ test('regional analytics skips other tenants and missing trusted location', asyn
     caller: { tenantId: 'customer-tenant', actor: { type: 'user', id: 'u1' } }
   }), false);
   assert.equal(await analytics.record({
-    req: { headers: { 'x-vercel-ip-country': 'PH' } },
+    req: { headers: {} },
     caller: { tenantId: 'platform', actor: { type: 'guest', id: 'g1' } }
   }), false);
   assert.equal(calls, 0);
