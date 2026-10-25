@@ -884,6 +884,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       result = await provider.generate({
         system: legacySystem,
         messages: history,
+        conversationId: conv.id,
         model,
         route: { provider: choice.provider, model: choice.model, effort: choice.effort },
         reasoningEffort: choice.effort || undefined,
