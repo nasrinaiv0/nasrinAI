@@ -1,3 +1,5 @@
+- **Follow-up correctness fix (2026-10-25):** accept OpenRouter Analytics API's documented `data.data` rows envelope and test the documented flat-row shape (`request_count`, `total_usage`, token metrics). The earlier fixture used a noncanonical shape and failed to catch this parsing bug; live account verification remains pending.
+
 ## Phase 3–5 priority follow-up — OpenRouter search and billing (2026-10-25)
 
 - Production logs showed repeated HTTP 400 failures for the Responses API web-search request configured with `openrouter/auto`. Route the default and that specific Auto setting to `nvidia/nemotron-3-super-120b-a12b:free`, which OpenRouter currently documents as supporting the Responses API and tool calling. Explicit non-Auto model overrides remain supported.
