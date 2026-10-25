@@ -1,6 +1,6 @@
 ## OpenRouter generation-log reconciliation correction — 2026-10-26
 
-- Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; retain the existing owner session, email/IP allowlist, rate-limit, same-origin and confirmation controls.
+- Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; require same-origin JSON requests and retain the owner session, email/IP allowlist, rate-limit and explicit confirmation controls.
 - Reconcile using `openrouter_generation_id` first, with a validated `gen-` provider request ID fallback; arbitrary request IDs are not sent to the generation endpoint.
 - Revisit recent rows with missing or unverified cost provenance, including legacy rows with an existing unmarked cost, and overwrite only after a successful generation lookup returns a finite non-negative authoritative cost and matching generation identity.
 - Persist provider-reported cost provenance, model/provider, token counts and generation timing; convert generation API timing values from milliseconds to seconds. Do not fetch or store prompt/completion content.
