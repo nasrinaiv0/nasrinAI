@@ -146,12 +146,11 @@ export function loadConfig(env = process.env) {
     throw new ConfigError('set SUPABASE_URL and SUPABASE_SECRET_KEY together');
   }
 
-  // Auto is the default when at least one provider credential is configured.
-  // Keep an unconfigured local/test environment safely disabled rather than
-  // making startup fail because no inference provider exists.
+  // Production defaults to Auto when provider credentials exist; local/test
+  // environments without an explicit mode remain safely disabled.
   const hasConfiguredProviderKey = [env.OPENAI_API_KEY, env.GEMINI_API_KEY, env.ANTHROPIC_API_KEY, env.OPENROUTER_API_KEY]
     .some((key) => String(key || '').trim());
-  const aiProvider = String(env.AI_PROVIDER || (hasConfiguredProviderKey ? 'auto' : 'none')).trim().toLowerCase();
+  const aiProvider = String(env.AI_PROVIDER || (isProduction && hasConfiguredProviderKey ? 'auto' : 'none')).trim().toLowerCase();
   // GPT (openai), LOCAL (local) or AUTO (auto: own model first, GPT when it
   // is down or a tier asks for GPT).
   if (!['none', 'openai', 'gemini', 'claude', 'openrouter', 'local', 'auto', 'fake'].includes(aiProvider)) throw new ConfigError('AI_PROVIDER: use none, openai, gemini, claude, openrouter, local, auto or fake');
