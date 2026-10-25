@@ -36,7 +36,7 @@ message ─▶ can code answer it? ──yes──▶ answer (no model, no cost)
 | 4 | Architecture, security design, big refactors | `gpt-5.4` (high) |
 | 5 | Whole-system redesigns, long-horizon planning | `gpt-5.4` (high) |
 
-**Coding specialist lane:** Claude is not part of the general levels. **Max** uses Claude Sonnet 5.5 for coding/debugging. **Ultra** uses Sonnet 5.5 for levels 2-3 and upgrades to Claude Opus 5.5 only for levels 4-5. If Anthropic is unavailable or fails, routing falls back to the normal same-level provider pool. This is a hard tier/task gate, so `ROUTE_LEVEL_n` overrides cannot expose Claude to Quick/Pro or to non-coding work.
+**Coding specialist lane:** Claude is not part of the general levels. In Auto mode, direct Anthropic is preferred for the specialist lane when configured; otherwise OpenRouter can supply the approved specialist model. **Max** uses Claude Sonnet 5.5 for coding/debugging. **Ultra** uses Sonnet 5.5 for levels 2-3 and upgrades to Claude Opus 5.5 only for levels 4-5. If the specialist route is unavailable, routing falls back to the normal same-level provider pool. This is a hard tier/task gate, so `ROUTE_LEVEL_n` overrides cannot expose Claude to Quick/Pro or to non-coding work.
 
 Model ids were checked against OpenAI's and Google's model pages on
 2026-10-05. `gpt-5` and `gpt-5-mini` are marked deprecated there, so they
