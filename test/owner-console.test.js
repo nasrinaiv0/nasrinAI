@@ -432,6 +432,47 @@ test('OpenRouter Analytics 403 is reported safely as a Management API permission
   assert.equal(out.res.body.includes(secretSentinel), false);
 });
 
+test('estimated request-cost summary is owner-only, bounded, aggregate-only, and explicitly estimated', async () => {
+  let called = false;
+  const store = {
+    kind: 'supabase',
+    request: async (method, path, options = {}) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      assert.equal(method, 'POST');
+      assert.equal(path, 'rpc/owner_console_estimated_cost_summary');
+      assert.ok(options.body.p_since);
+      called = true;
+      return {
+        request_count: 3,
+        estimated_total_usd: 0.0125,
+        pricing_versions: ['2026-10-26-v1'],
+        rows: [{ provider: 'google', model: 'gemini-3.1-flash-lite', request_count: 3, estimated_cost_usd: 0.0125, latest_at: '2026-10-26T01:00:00Z', pricing_version: '2026-10-26-v1' }]
+      };
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/estimated-costs?window=30d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/estimated-costs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.summary.estimated_total_usd, 0.0125);
+  assert.equal(payload.summary.request_count, 3);
+  assert.equal(payload.summary.rows[0].provider, 'google');
+  assert.match(payload.note, /not provider-billed actual costs/i);
+  assert.equal(out.res.body.includes('actor_id'), false);
+  assert.equal(called, true);
+
+  const invalid = request('GET', '/owner/api/estimated-costs?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/estimated-costs');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/estimated-costs?window=30d', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/estimated-costs');
+  assert.equal(denied.res.statusCode, 404);
+});
+
 test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {
   let queriedPath = '';
   const store = {
