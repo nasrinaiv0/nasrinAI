@@ -2704,3 +2704,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Restrict Guest and Quick Free OpenRouter chat eligibility to the configured NasrinAI catalog of chat-capable free models.
 - Add configured Nemotron and Gemma free chat candidates to Quick Free defaults while keeping paid Quick and higher tiers separate.
 - Correct policy module import ordering so test modules can load; CI must confirm the fix.
+
+## PR #642 follow-up — direct Gemini for Guest/Quick Free — 2026-10-26
+- Added direct Gemini Flash Lite as an approved Guest/Quick Free fallback outside OpenRouter when Gemini credentials are configured.
+- Preserved OpenRouter catalog free-model priority, paid-model restrictions, and the authorized heavy-task Luna escape hatch ordering.
+- Kept scraping/web research and orchestration tool access in the shared tool layer; provider fallback changes do not remove task/tool capabilities. Regression tests cover the direct Gemini fallback.
