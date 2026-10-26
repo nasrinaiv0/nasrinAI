@@ -2683,3 +2683,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **PR #657 — Multilingual browser TTS:** Browser speech synthesis now sets a best-effort language from the text's writing system, selects a matching installed device voice in automatic mode, and lists all installed voices matching the preferred language. Latin-script speech follows the language preference or device language; no speech text is sent to an external service for browser TTS.
 
+
+
+## Compact premium map cards in chat replies (2026-10-27)
+- Render Google Maps reply cards as compact two-column cards: a fixed rectangular map preview on the left and concise route/place details plus the Maps link on the right.
+- Bound card and map heights, prevent inherited oval/button-like shapes, clamp layout widths, and use smaller mobile typography and spacing.
+- Keep the existing Google Maps loading, route, and fallback behavior unchanged. Regression tests cover the compact grid and rectangular responsive canvas.
