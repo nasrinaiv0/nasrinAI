@@ -95,7 +95,7 @@ test('provider failover: Anthropic configuration/quota failure falls through to 
 });
 
 
-test('provider failover: continues to the next free provider when a fallback is rate-limited', async () => {
+test('provider failover: paid-tier requests do not spill into Quick Free providers', async () => {
   const env = {
     AI_PROVIDER: 'openai',
     OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30),
@@ -112,12 +112,10 @@ test('provider failover: continues to the next free provider when a fallback is 
   const groq = createFakeProvider({ models: ['llama-3.3-70b-versatile'], dataLeavesServer: true });
   groq.id = 'groq';
   const r = createRouter({ providers: { openai: primary, gemini, groq }, config: loadConfig(env), logger: quiet });
-  const out = await ask(r, { provider: 'openai', model: 'gpt-4o-mini' });
-  assert.equal(out.provider, 'groq');
-  assert.equal(out.fallback, true);
+  await assert.rejects(ask(r, { provider: 'openai', model: 'gpt-4o-mini' }), (error) => error instanceof ProviderError);
   assert.equal(primary.calls.length, 1);
-  assert.equal(gemini.calls.length, 1, 'the rate-limited fallback is attempted once');
-  assert.equal(groq.calls.length, 1, 'router continues to the next eligible provider');
+  assert.equal(gemini.calls.length, 1, 'the configured paid-provider fallback is attempted once');
+  assert.equal(groq.calls.length, 0, 'Quick Free direct providers must not be reached from a paid-tier request');
 });
 
 

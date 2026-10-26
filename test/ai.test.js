@@ -83,7 +83,7 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
   assert.ok(customized.ai.fallback.providers.includes('openrouter'), 'OpenRouter remains available as a provider fallback');
 });
 
-test('Groq registers as an OpenAI-compatible provider and participates in allowlisted free-model failover', () => {
+test('Groq registers as an OpenAI-compatible provider but is excluded from generic cross-tier fallback', () => {
   const config = loadConfig({
     AI_PROVIDER: 'auto',
     AI_FALLBACK: 'auto',
@@ -94,8 +94,7 @@ test('Groq registers as an OpenAI-compatible provider and participates in allowl
   });
   const provider = providerFromConfig(config);
   assert.ok(provider.providerIds.includes('groq'));
-  assert.ok(config.ai.fallback.providers.includes('groq'));
-  assert.equal(config.ai.fallback.providers.at(-1), 'groq', 'free-tier providers are last-resort after paid providers');
+  assert.ok(!config.ai.fallback.providers.includes('groq'), 'Quick Free direct providers must not enter generic fallback');
   assert.ok(!Object.values(config.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'), 'free-tier providers must not be normal routing candidates');
 });
 
