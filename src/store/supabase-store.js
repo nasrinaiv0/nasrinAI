@@ -404,11 +404,6 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
-        const metadata = {
-          request_id: body.request_id, endpoint: body.endpoint, http_method: body.http_method,
-          http_status: body.http_status, error_code: body.error_code,
-          provider_request_id: body.provider_request_id, finish_reason: body.finish_reason
-        };
         await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...routing } });
       } catch (err) {
         // App deployment can precede migration 076. Retry without the new
