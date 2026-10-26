@@ -64,7 +64,12 @@ begin
         'pricing_version', grouped.pricing_version
       ) order by grouped.estimated_cost_usd desc, grouped.provider, grouped.model)
       from (
-        select provider, model, count(*)::bigint as request_count,
+        select case lower(provider)
+                 when 'gemini' then 'google'
+                 when 'claude' then 'anthropic'
+                 else lower(provider)
+               end as provider,
+               model, count(*)::bigint as request_count,
                sum(estimated_cost_usd) as estimated_cost_usd,
                max(created_at) as latest_at,
                max(pricing_version) as pricing_version
@@ -72,8 +77,12 @@ begin
         where created_at >= p_since
           and estimated_cost_usd is not null
           and estimated_cost_source = 'pricing_registry_v1_standard_list_price'
-          and provider <> 'openrouter'
-        group by provider, model
+          and lower(coalesce(provider, '')) <> 'openrouter'
+        group by case lower(provider)
+                   when 'gemini' then 'google'
+                   when 'claude' then 'anthropic'
+                   else lower(provider)
+                 end, model
         order by sum(estimated_cost_usd) desc
         limit 200
       ) grouped
@@ -84,7 +93,7 @@ begin
   where created_at >= p_since
     and estimated_cost_usd is not null
     and estimated_cost_source = 'pricing_registry_v1_standard_list_price'
-    and provider <> 'openrouter';
+    and lower(coalesce(provider, '')) <> 'openrouter';
 
   return v_result;
 end;
