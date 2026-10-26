@@ -8,7 +8,7 @@ test('OpenAI direct request estimate accounts for cached input at its separate r
     inputTokens: 1_000_000, cachedTokens: 100_000, outputTokens: 200_000
   });
   assert.equal(amount, 0.191);
-  assert.equal(PROVIDER_PRICING_VERSION, '2026-10-26-v1');
+  assert.equal(PROVIDER_PRICING_VERSION, '2026-10-26-v2');
 });
 
 test('Anthropic estimate treats cache-read tokens as separate from input_tokens', () => {
@@ -40,4 +40,31 @@ test('unknown providers, unpriced models, and invalid token counts remain unknow
   assert.equal(estimateProviderRequestCost({ provider: 'local', model: 'llama3', inputTokens: 10, outputTokens: 10 }), null);
   assert.equal(estimateProviderRequestCost({ provider: 'openai', model: 'gpt-6-luna', inputTokens: -1, outputTokens: 10 }), null);
   assert.equal(estimateProviderRequestCost({ provider: 'openai', model: 'gpt-6-luna', inputTokens: 1, cachedTokens: 2, outputTokens: 10 }), null);
+});
+
+
+test('Cerebras estimates use provider-specific published token rates', () => {
+  const amount = estimateProviderRequestCost({
+    provider: 'cerebras', model: 'gpt-oss-120b',
+    inputTokens: 1_000_000, outputTokens: 1_000_000
+  });
+  assert.equal(amount, 1.1);
+});
+
+test('Cloudflare Workers AI estimates use exact model IDs and public token rates', () => {
+  const amount = estimateProviderRequestCost({
+    provider: 'cloudflare-workers-ai', model: '@cf/openai/gpt-oss-120b',
+    inputTokens: 1_000_000, outputTokens: 1_000_000
+  });
+  assert.equal(amount, 1.1);
+});
+
+test('Unknown Cerebras and Cloudflare models remain unknown, not zero-cost', () => {
+  assert.equal(estimateProviderRequestCost({ provider: 'cerebras', model: 'not-a-real-model', inputTokens: 100, outputTokens: 100 }), null);
+  assert.equal(estimateProviderRequestCost({ provider: 'cloudflare-workers-ai', model: '@cf/unknown/model', inputTokens: 100, outputTokens: 100 }), null);
+});
+
+test('Invalid token counts are rejected for Cerebras and Cloudflare estimates', () => {
+  assert.equal(estimateProviderRequestCost({ provider: 'cerebras', model: 'gpt-oss-120b', inputTokens: -1, outputTokens: 10 }), null);
+  assert.equal(estimateProviderRequestCost({ provider: 'cloudflare-workers-ai', model: '@cf/openai/gpt-oss-120b', inputTokens: 10, cachedTokens: 20, outputTokens: 10 }), null);
 });
