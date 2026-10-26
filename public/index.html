@@ -978,8 +978,9 @@
     <div class="sheet-grip" aria-hidden="true"></div>
     <div class="sheet-head"><h2 id="termsTitle">Before you continue</h2></div>
     <p class="signin-lede" id="termsLede">Please read and accept NasrinAI’s Terms of Service.</p>
+    <p class="guest-privacy-notice" id="guestPrivacyNotice" hidden>Guest access: eligible prompts and replies may be screened, retained without a routine expiry, and used to improve NasrinAI. Not every message is eligible, and this does not automatically train model weights. Sign in to access the privacy controls available to your account. Applicable privacy and deletion rights still apply. Please do not submit passwords, API keys, or sensitive personal information.</p>
     <ul class="terms-notes" id="termsNotes"><li>Replies come from an AI and can be wrong. Check anything important.</li></ul>
-    <label class="check-row"><input type="checkbox" id="termsCheck"> <span>I agree to the <a href="/legal.html?doc=terms">Terms of Service</a>.</span></label>
+    <label class="check-row"><input type="checkbox" id="termsCheck"> <span id="termsCheckCopy">I agree to the </span><a href="/legal.html?doc=terms">Terms of Service</a><span id="termsGuestConsentCopy" hidden> and understand the Guest data notice above</span>.</label>
     <p class="terms-note">How your information is used is explained in the <a href="/legal.html?doc=privacy">Privacy Notice</a>.</p>
     <button type="button" class="btn wide" id="termsAccept" disabled>Continue</button>
     <button type="button" class="text-btn" id="termsLater">Sign out instead</button>
