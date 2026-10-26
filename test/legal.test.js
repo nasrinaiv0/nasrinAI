@@ -77,7 +77,7 @@ test('improvement consent is separate, identity-scoped, versioned, and withdrawa
     const finalState = await (await fetch(url, { headers: bearer(USER_TOKEN) })).json();
     assert.equal(finalState.enabled, false);
     assert.equal(finalState.decision, 'withdrawn');
-    assert.equal(a.store.improvementConsentEvents.length, 2, 'prior consent evidence remains append-only');
+    assert.equal(a.store.improvementConsentEvents.length, 3, 'user and Guest consent evidence remains append-only');
     assert.ok(a.store.improvementConsentEvents.every((e) => !('content' in e)), 'consent records never contain chat content');
     const guestGrant = await put(guestToken, { enabled: true, version: guestBefore.version });
     assert.equal(guestGrant.status, 200);
