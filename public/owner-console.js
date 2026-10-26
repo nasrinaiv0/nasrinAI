@@ -399,6 +399,46 @@
       const result = el('div');
       result.append(notice('Loading provider billing', 'Checking optional organization billing APIs.'));
       panel.append(controls, result); c.append(panel);
+
+      const estimatePanel = el('section', 'panel');
+      estimatePanel.classList.add('module-extra');
+      estimatePanel.append(el('h3', '', 'Estimated direct-provider request spend'));
+      estimatePanel.append(el('p', 'panel-copy', 'Summed from request-level token usage and the versioned list-price registry. This is an estimate, not an invoice total; free Gemini quota and provider-specific discounts are not assumed.'));
+      const estimateResult = el('div');
+      estimateResult.append(notice('Loading estimates', 'Reading aggregated estimates from recorded request usage.'));
+      estimatePanel.append(estimateResult);
+      c.append(estimatePanel);
+      const loadEstimates = async () => {
+        estimateResult.replaceChildren(notice('Loading estimates', 'Fetching aggregate request estimates for ' + windowSelect.value + '.'));
+        try {
+          const response = await fetch('/owner/api/estimated-costs?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Estimated request costs unavailable.');
+          const summary = payload.summary || {};
+          estimateResult.replaceChildren();
+          estimateResult.append(el('p', 'panel-copy', 'Updated ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · ' + numberText(summary.request_count || 0) + ' priced requests.'));
+          const grid = el('div', 'grid');
+          grid.append(metric('Estimated request spend', 'USD', moneyText(summary.estimated_total_usd), 'Versioned list-price estimate · not actual provider billing'));
+          grid.append(metric('Priced requests', 'Σ', numberText(summary.request_count || 0), (Array.isArray(summary.pricing_versions) ? summary.pricing_versions.join(', ') : 'Pricing version unavailable')));
+          estimateResult.append(grid);
+          const list = el('div', 'source-list');
+          (Array.isArray(summary.rows) ? summary.rows : []).forEach((item) => {
+            const row = el('div', 'source-row'), left = el('div');
+            left.append(el('div', 'source-name', String(item.provider || 'unknown') + ' · ' + String(item.model || 'unknown model')),
+              el('div', 'source-detail', numberText(item.request_count || 0) + ' requests · latest ' + (item.latest_at ? new Date(item.latest_at).toLocaleString() : 'unknown')));
+            row.append(left, el('div', 'source-name', moneyText(item.estimated_cost_usd)));
+            list.append(row);
+          });
+          if (!summary.rows?.length) list.append(el('p', 'panel-copy', 'No priced direct-provider request estimates found in this window.'));
+          estimateResult.append(list);
+          estimateResult.append(notice('Estimate boundary', payload.note || 'Estimates are separate from provider-reported actual costs.'));
+        } catch (error) {
+          estimateResult.replaceChildren(notice('Estimated request costs unavailable', String(error?.message || 'Confirm migration 077 is applied and retry.')));
+        }
+      };
+      windowSelect.addEventListener('change', loadEstimates);
+      loadEstimates();
+
       const load = async () => {
         refresh.disabled = true;
         result.replaceChildren(notice('Loading provider billing', 'Fetching read-only organization-level billing reports.'));
