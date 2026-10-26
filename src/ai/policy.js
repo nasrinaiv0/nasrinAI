@@ -162,9 +162,17 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // bounded retries do not starve newly listed models behind stale IDs.
           // Task prioritization still orders the full eligible candidate set.
           const configuredFreeProviderCandidates = plan.tier === 'nasrinai' && plan.paidQuick !== true
-            ? (config.ai.freeProviders || [])
-              .filter((p) => p.id !== 'openrouter' && Array.isArray(p.freeModels) && p.freeModels.includes(p.model))
-              .flatMap((p) => (r.freeModels?.[p.id] || []).map((model) => ({ provider: p.id, model, effort: null })))
+            ? [
+                ...(config.ai.freeProviders || [])
+                  .filter((p) => p.id !== 'openrouter' && Array.isArray(p.freeModels) && p.freeModels.includes(p.model))
+                  .flatMap((p) => (r.freeModels?.[p.id] || []).map((model) => ({ provider: p.id, model, effort: null }))),
+                // Gemini is a direct provider, outside OpenRouter. Keep a direct
+                // Flash Lite route available to Guest/Quick Free when credentials
+                // are configured, after the approved OpenRouter free-model pool.
+                ...(config.ai.providerKeys?.includes('gemini')
+                  ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }]
+                  : [])
+              ]
             : [];
           const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates, ...configuredFreeProviderCandidates,
             ...(heavyQuickTask ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
@@ -185,7 +193,10 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           );
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
             if (candidate.provider !== 'openrouter') return !strictQuickFree
-              || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
+              || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)
+              || (candidate.provider === 'gemini'
+                && candidate.model === 'gemini-3.1-flash-lite'
+                && config.ai.providerKeys?.includes('gemini'));
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
