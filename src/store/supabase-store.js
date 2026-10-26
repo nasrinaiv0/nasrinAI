@@ -401,11 +401,21 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const spendReservation = e.spendReservationId ? { spend_reservation_id: e.spendReservationId } : {};
       const routing = {
         task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null, cost_source: e.costSource ?? null,
+        estimated_cost_usd: e.estimatedCostUsd ?? null, estimated_cost_source: e.estimatedCostSource ?? null,
+        pricing_version: e.pricingVersion ?? null, estimated_cost_at: e.estimatedCostAt ?? null,
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
         await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...routing } });
       } catch (err) {
+        // Estimates are optional telemetry and have a dedicated migration. If
+        // the app rolls out first, retry without estimates while retaining actual
+        // provider cost provenance and request activity where the schema permits.
+        if (/estimated_cost_usd|estimated_cost_source|pricing_version|estimated_cost_at/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { estimated_cost_usd, estimated_cost_source, pricing_version, estimated_cost_at, ...withoutEstimates } = routing;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...withoutEstimates } });
+          return;
+        }
         // App deployment can precede migration 076. Retry without the new
         // request metadata columns so telemetry still records on an older schema.
         if (/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
