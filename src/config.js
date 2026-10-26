@@ -275,7 +275,7 @@ export function loadConfig(env = process.env) {
   ]);
   const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'mistral', 'nvidia-nim', 'openrouter'];
   const eligibleFreeProviderIds = freeProviderSettings
-    .filter((p) => p.freeModels.includes(p.model))
+    .filter((p) => (QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter') && p.freeModels.includes(p.model))
     .map((p) => p.id);
   const freeFallbackProviders = [
     ...freeFallbackPriority.filter((id) => eligibleFreeProviderIds.includes(id)),
