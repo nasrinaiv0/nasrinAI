@@ -11,8 +11,8 @@ function canonicalProvider(value) {
 }
 function canonicalModel(provider, value) {
   let model = String(value || '').trim().toLowerCase();
-  if (model.startsWith(provider + '/')) model = model.slice(provider.length + 1);
-  if (model.startsWith(provider + ':')) model = model.slice(provider.length + 1);
+  const prefixes = provider === 'gemini' ? ['gemini/', 'google/', 'google:'] : provider === 'anthropic' ? ['anthropic/', 'claude/', 'anthropic:'] : ['openai/', 'openai:'];
+  for (const prefix of prefixes) if (model.startsWith(prefix)) { model = model.slice(prefix.length); break; }
   if (provider === 'anthropic') {
     model = model.replace(/claude-(haiku|sonnet|opus)-5-5/g, 'claude-$1-5.5');
   }
