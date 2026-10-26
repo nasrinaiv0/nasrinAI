@@ -61,6 +61,19 @@
       "output": 3.75
     }
   },
+  "cerebras": {
+    "gpt-oss-120b": { "input": 0.35, "cached_input": 0.35, "output": 0.75 },
+    "qwen-3.8-27b": { "input": 0.99, "cached_input": 0.99, "output": 1.49 },
+    "_note": "Cerebras Developer-tier list prices in USD per 1M tokens. Estimate only; enterprise or subscription rates may differ."
+  },
+  "cloudflare-workers-ai": {
+    "@cf/openai/gpt-oss-120b": { "input": 0.35, "cached_input": 0.35, "output": 0.75 },
+    "@cf/qwen/qwen3.8-27b": { "input": 0.45, "cached_input": 0.45, "output": 3.2 },
+    "@cf/qwen/qwen3-30b-a3b-fp8": { "input": 0.051, "cached_input": 0.051, "output": 0.335 },
+    "@cf/meta/llama-4-scout-17b-16e-instruct": { "input": 0.27, "cached_input": 0.27, "output": 0.85 },
+    "@cf/meta/llama-guard-3-8b": { "input": 0.484, "cached_input": 0.484, "output": 0.03 },
+    "_note": "Cloudflare Workers AI model-level public rates in USD per 1M tokens. Estimate only; free neuron allocations and account-level billing adjustments are not allocated per request."
+  },
   "local": {
     "*": {
       "input": 0,
@@ -189,6 +202,6 @@
       "720p": 0.125
     }
   },
-  "_pricing_version": "2026-10-26-v1",
-  "_pricing_notes": "Provider list-price snapshots for estimates only. These are not provider-billed actual costs. Gemini estimates use paid Standard list rates because runtime credentials do not prove free-quota usage. Verify rates before changing this registry."
+  "_pricing_version": "2026-10-26-v2",
+  "_pricing_notes": "Provider list-price snapshots for estimates only. These are not provider-billed actual costs. Gemini estimates use paid Standard list rates because runtime credentials do not prove free-quota usage. Cerebras and Cloudflare Workers AI estimates use public list rates; Cloudflare free neuron allocation and account-level adjustments are not allocated per request. Verify rates before changing this registry."
 }
