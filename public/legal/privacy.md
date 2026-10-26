@@ -1,13 +1,13 @@
 # Privacy Notice
 
 
-**Version 2026-10-24** · Effective: 24 October 2026 · Last updated: 24 October 2026
+**Version 2026-10-26** · Effective: 26 October 2026 · Last updated: 26 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 
 ## In short
 
-- **Guests:** your chat is kept for 24 hours, then deleted. No account, no email.
+- **Guests:** raw chat history expires after 24 hours. Eligible, privacy-screened improvement examples may be retained without a routine expiry; the full raw chat is not retained indefinitely for that purpose.
 - **Signed in:** we keep your email address, your chats and the photos and files you send until you delete them or your account, or until the keep-time you choose in your Library (30 days, 1 year or your own number of days). If you have not chosen, pictures Nasrin makes are deleted after **30 days**.
 - **Memory:** Nasrin remembers only notes you confirm, and you can delete them any time.
 - **To answer you**, your messages go to AI services (OpenAI, and Google Gemini when switched on). Emails, phone numbers and card numbers are removed first.
@@ -35,7 +35,7 @@ NasrinAI (https://nasrinai.com) is operated by **NasrinAI**, 142 Pag-asa Village
 ### When you chat as a guest
 - **A random guest ID**, inside a signed token stored in your browser. Used to keep your chat together and to apply fair-use limits. *Basis: providing the service you asked for (contract) and our legitimate interest in preventing abuse.*
 - **Your messages and Nasrin's replies.** Used to answer you and to keep the conversation going. Deleted automatically 24 hours after the chat starts. *Basis: contract.*
-- **Guest conversation improvement.** Guest conversations may be used to improve NasrinAI's own systems, including its response quality and routing. Before any conversation content is selected for this purpose, automated privacy filters are intended to detect and remove or redact personal, identifying, credential-like, and other sensitive information. We minimize and de-identify the content used for improvement and do not intend to use raw guest conversations as training data. Automated filters are not perfect and may miss sensitive details, so do not submit passwords, authentication codes, API keys, financial account details, or other secrets. Guest chat messages and replies remain subject to the 24-hour chat-retention rule; this improvement use does not mean the original chat is retained indefinitely. *Basis: improving and securing the service, subject to applicable law and any required notice or consent.*
+- **Guest conversation improvement.** Before Guest chat, we show a notice explaining that eligible prompts and replies may be screened, minimized, retained without a routine expiry, and used to improve NasrinAI. Continuing as Guest records an acknowledgement for that guest session. Only eligible, screened examples may be retained for improvement; raw chat history still expires after 24 hours. Automated filters may miss sensitive details, so do not submit passwords, authentication codes, API keys, financial account details, or other secrets. Eligible improvement examples are retained without routine time-based deletion while the applicable authorization remains active, but may be deleted to honor withdrawal, applicable privacy requests, legal obligations, or security requirements. Retention in a database does not itself train model weights; training/evaluation is a separate process. *Basis: the disclosed improvement purpose and applicable lawful basis/consent requirements.*
 - **Pictures you ask Nasrin to make.** Kept with the chat and deleted with it.
 
 ### When you sign in

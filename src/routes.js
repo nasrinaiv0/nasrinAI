@@ -566,8 +566,8 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Improvement consent is independent of Terms and personal Memory.
-      // This endpoint records explicit consent for limited, redacted Quick-tier learning examples.
+      // Improvement authorization is independent of personal Memory.
+      // Guest acknowledgement is versioned at first use; signed-in users retain an account preference.
       method: 'GET',
       path: '/v1/improvement-consent',
       scope: 'chat',
@@ -589,6 +589,9 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!store?.getImprovementConsent || !store?.recordImprovementConsent) throw new HttpError(503, 'consent_unavailable', 'Improvement privacy settings are not available right now.');
         if (!body || typeof body.enabled !== 'boolean' || body.version !== IMPROVEMENT_CONSENT_VERSION) {
           throw new HttpError(400, 'invalid_consent', 'Refresh the privacy settings and choose again.');
+        }
+        if (caller.actor.type === 'guest' && body.enabled !== true) {
+          throw new HttpError(403, 'guest_improvement_required', 'Guest access does not provide an improvement opt-out switch. You can still exercise applicable privacy rights or sign in to use account controls.');
         }
         const identity = { tenantId: caller.tenantId, subjectType: caller.actor.type, subjectId: caller.actor.id };
         const current = await store.getImprovementConsent(identity);

@@ -1,3 +1,10 @@
+## Guest improvement notice and consent-aware retention — 2026-10-26
+
+- Add a first-use Guest disclosure before chat. Continuing requires an explicit acknowledgement, records the current version against the server-issued guest session, and offers a sign-in path to account privacy controls.
+- Keep raw Guest chat history on its existing 24-hour expiry. Eligible, screened improvement examples are stored separately without routine time-based expiry; consent withdrawal, deletion requests, security requirements, and applicable law remain enforceable.
+- Update improvement-store expiry handling and the Privacy Notice so database retention is not misrepresented as automatic model training. Signed-in improvement preferences remain separate.
+- **Validation:** CI and database migration tests must pass on the PR head. No production migration, merge, or deployment is performed by this change.
+
 ## Owner cost and reply usage telemetry follow-up — 2026-10-26
 
 - Use valid stored `openrouter_logs.total_cost_usd` values for Owner AI Logs and Finance even when legacy rows have no provenance marker; new telemetry writes identify this source and migration 074 backfills existing populated rows.
