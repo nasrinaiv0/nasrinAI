@@ -2769,3 +2769,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fix embedded Google Maps cards that render unevenly in chat by enforcing a full-width card/header and a bounded, responsive iframe canvas.
 - Polish mobile spacing, rounded corners, action-button states, and keyboard-visible focus styling without changing map URL construction or provider behavior.
 - Add a regression test for full-width layout, iframe positioning, the mobile breakpoint, and focus styling. CI must pass before merge.
+
+- **PR #657 — Multilingual browser TTS:** Browser speech synthesis now sets a best-effort language from the text's writing system, selects a matching installed device voice in automatic mode, and lists all installed voices matching the preferred language. Latin-script speech follows the language preference or device language; no speech text is sent to an external service for browser TTS.

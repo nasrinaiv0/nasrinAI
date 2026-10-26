@@ -3997,6 +3997,37 @@
     };
   }
 
+  // Best-effort script detection happens on-device; no speech text is sent elsewhere.
+  // Latin-script languages use the selected preference or the browser's language.
+  function speechLanguageForText(text) {
+    const value = String(text || '');
+    const has = (re) => re.test(value);
+    if (has(/[\u3040-\u30ff]/)) return 'ja-JP';
+    if (has(/[\uac00-\ud7af]/)) return 'ko-KR';
+    if (has(/[\u0e00-\u0e7f]/)) return 'th-TH';
+    if (has(/[\u0e80-\u0eff]/)) return 'lo-LA';
+    if (has(/[\u1780-\u17ff]/)) return 'km-KH';
+    if (has(/[\u1000-\u109f]/)) return 'my-MM';
+    if (has(/[\u0d00-\u0d7f]/)) return 'ml-IN';
+    if (has(/[\u0c80-\u0cff]/)) return 'kn-IN';
+    if (has(/[\u0c00-\u0c7f]/)) return 'te-IN';
+    if (has(/[\u0b80-\u0bff]/)) return 'ta-IN';
+    if (has(/[\u0a80-\u0aff]/)) return 'gu-IN';
+    if (has(/[\u0a00-\u0a7f]/)) return 'pa-IN';
+    if (has(/[\u0980-\u09ff]/)) return 'bn-BD';
+    if (has(/[\u0900-\u097f]/)) return 'hi-IN';
+    if (has(/[\u0600-\u06ff]/)) return 'ar';
+    if (has(/[\u0590-\u05ff]/)) return 'he';
+    if (has(/[\u0400-\u04ff]/)) return 'ru';
+    if (has(/[\u0370-\u03ff]/)) return 'el';
+    if (has(/[\u0530-\u058f]/)) return 'hy';
+    if (has(/[\u10a0-\u10ff]/)) return 'ka';
+    if (has(/[\u4e00-\u9fff]/)) return 'zh';
+    const preferred = saved.get(KEYS.language);
+    if (preferred && preferred !== 'auto') return preferred;
+    return String(navigator.language || 'en');
+  }
+
   // The phone's own voice. Read sentence by sentence: some browsers stop long
   // utterances part-way, and the first words start sooner.
   function playDevice(text, voiceId, button) {
@@ -4004,7 +4035,17 @@
       const synth = window.speechSynthesis;
       synth.cancel();
       const uri = voiceId.slice('device:'.length);
-      const voiceObj = uri !== 'default' ? synth.getVoices().find((x) => x.voiceURI === uri) : null;
+      const voices = synth.getVoices();
+      const detectedLang = speechLanguageForText(text);
+      const langBase = detectedLang.toLowerCase().split('-')[0];
+      const preferredBase = languageBase();
+      const voiceObj = uri !== 'default'
+        ? voices.find((x) => x.voiceURI === uri)
+        : voices.find((x) => String(x.lang || '').toLowerCase() === detectedLang.toLowerCase()) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === langBase) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === preferredBase) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === String(navigator.language || 'en').toLowerCase().split('-')[0]) ||
+          null;
       const chunks = (window.NasrinFormat.plain(text).slice(0, 4000).match(/[^.!?\n]+[.!?]*\s*/g) || [text])
         .reduce((acc, s) => { if (acc.length && (acc[acc.length - 1] + s).length < 220) acc[acc.length - 1] += s; else acc.push(s); return acc; }, [])
         .map((c) => c.trim()).filter(Boolean);
@@ -4021,7 +4062,12 @@
       Nasrin.mood('speaking');
       chunks.forEach((c, i) => {
         const u = new SpeechSynthesisUtterance(c);
-        if (voiceObj) { u.voice = voiceObj; u.lang = voiceObj.lang; }
+        // Set the requested language even if this browser lacks a matching installed voice.
+        u.lang = detectedLang;
+        if (voiceObj) {
+          u.voice = voiceObj;
+          if (uri !== 'default') u.lang = voiceObj.lang || detectedLang;
+        }
         u.rate = speechRate;
         if (i === chunks.length - 1) { u.onend = finish; }
         u.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled') finish(); };
@@ -4835,14 +4881,16 @@
   });
 
   const PREVIEW = 'Hi, I’m Nasrin. This is how I sound.';
+  // The browser supplies installed voices and performs speech synthesis locally.
+  // Keep all matching voices available; devices can have many language packs.
   function deviceVoices() {
     if (!canDevice) return [];
     const lang = languageBase();
     const all = window.speechSynthesis.getVoices();
-    const mine = all.filter((v) => v.lang.toLowerCase().startsWith(lang));
-    const english = lang === 'en' ? [] : all.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const mine = all.filter((v) => String(v.lang || '').toLowerCase().startsWith(lang));
+    const english = lang === 'en' ? [] : all.filter((v) => String(v.lang || '').toLowerCase().startsWith('en'));
     const seen = new Set();
-    return mine.concat(english).filter((v) => !seen.has(v.voiceURI) && seen.add(v.voiceURI)).slice(0, 6);
+    return mine.concat(english).filter((v) => v.voiceURI && !seen.has(v.voiceURI) && seen.add(v.voiceURI));
   }
 
   function voiceRow(value, name, preview, { disabled = false, provider = '' } = {}) {

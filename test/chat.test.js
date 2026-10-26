@@ -350,3 +350,13 @@ test('system prompt enforces platform-wide intent understanding and action routi
     assert.match(system, /Action and safety discipline/i);
   });
 });
+
+test('browser TTS supports multilingual language selection and matching installed voices', async () => {
+  const fs = await import('node:fs/promises');
+  const src = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(src, /function speechLanguageForText\(text\)/);
+  assert.match(src, /const detectedLang = speechLanguageForText\(text\)/);
+  assert.match(src, /u\.lang = detectedLang/);
+  assert.match(src, /window\.speechSynthesis\.getVoices\(\)/);
+  assert.doesNotMatch(src, /return mine\.concat\(english\).*slice\(0, 6\)/);
+});
