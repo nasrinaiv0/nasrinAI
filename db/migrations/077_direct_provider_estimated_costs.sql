@@ -32,3 +32,63 @@ comment on column public.usage_events.estimated_cost_source is
   'Explicit estimate provenance. Never use this column as actual provider spend.';
 comment on column public.usage_events.pricing_version is
   'Pricing registry snapshot identifier used for estimated_cost_usd.';
+
+-- Aggregate-only owner dashboard endpoint. It never returns actor IDs or message content.
+create or replace function public.owner_console_estimated_cost_summary(p_since timestamptz)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public
+as $estimated_cost_summary$
+declare
+  v_result jsonb;
+begin
+  if p_since is null or p_since > now() or p_since < now() - interval '90 days' then
+    raise exception 'p_since must be within the last 90 days';
+  end if;
+
+  select jsonb_build_object(
+    'request_count', count(*)::bigint,
+    'estimated_total_usd', coalesce(sum(estimated_cost_usd), 0),
+    'pricing_versions', coalesce(jsonb_agg(distinct pricing_version) filter (where pricing_version is not null), '[]'::jsonb),
+    'rows', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'provider', grouped.provider,
+        'model', grouped.model,
+        'request_count', grouped.request_count,
+        'estimated_cost_usd', grouped.estimated_cost_usd,
+        'latest_at', grouped.latest_at,
+        'pricing_version', grouped.pricing_version
+      ) order by grouped.estimated_cost_usd desc, grouped.provider, grouped.model)
+      from (
+        select provider, model, count(*)::bigint as request_count,
+               sum(estimated_cost_usd) as estimated_cost_usd,
+               max(created_at) as latest_at,
+               max(pricing_version) as pricing_version
+        from public.usage_events
+        where created_at >= p_since
+          and estimated_cost_usd is not null
+          and estimated_cost_source = 'pricing_registry_v1_standard_list_price'
+          and provider <> 'openrouter'
+        group by provider, model
+        order by sum(estimated_cost_usd) desc
+        limit 200
+      ) grouped
+    ), '[]'::jsonb)
+  )
+  into v_result
+  from public.usage_events
+  where created_at >= p_since
+    and estimated_cost_usd is not null
+    and estimated_cost_source = 'pricing_registry_v1_standard_list_price'
+    and provider <> 'openrouter';
+
+  return v_result;
+end;
+$estimated_cost_summary$;
+
+revoke execute on function public.owner_console_estimated_cost_summary(timestamptz)
+  from public, anon, authenticated, service_role;
+grant execute on function public.owner_console_estimated_cost_summary(timestamptz)
+  to service_role;
