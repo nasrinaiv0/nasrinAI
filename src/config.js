@@ -894,6 +894,8 @@ export function loadConfig(env = process.env) {
     web: Object.freeze({
       links: String(env.WEB_LINKS ?? 'true').toLowerCase() !== 'false',
       searchModel: webSearchModel(),
+      // Optional: a non-free search model for paid plans (never a :free model). Blank = use searchModel.
+      paidSearchModel: (() => { const v = String(env.OPENROUTER_WEB_SEARCH_PAID_MODEL ?? '').trim(); return v && !/:free$/i.test(v) && openrouterApiKey ? v : ''; })(),
       // Optional official Google Custom Search API. Configure both values
       // to enable a failure-only fallback for the primary OpenRouter web search.
       googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),

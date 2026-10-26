@@ -17,6 +17,8 @@ searches one person can trigger per hour. `WEB_LINKS=false` turns it off.
 
 ## Web search
 
+> Paid plans: set `OPENROUTER_WEB_SEARCH_PAID_MODEL` (a non-free model, for example `google/gemini-3.8-flash`) to search through it instead of the free default. Blank keeps the default; a `:free` id is ignored. To revert, delete the variable.
+
 Questions that benefit from current facts are answered using OpenRouter's
 `openrouter:web_search` server tool through the OpenRouter Responses API.
 OpenRouter can choose when to search and can run multiple searches during one

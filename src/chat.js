@@ -573,6 +573,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
         webProviderStarted = true;
         const found = await webSearch.search({
+          // Paid plans never search through a free model when a paid one is configured.
+          model: accountPlan !== 'free' ? (config.web?.paidSearchModel || null) : null,
           system: webSystem,
           messages: webMessages,
           onText: live ? (delta) => live.push(delta) : null

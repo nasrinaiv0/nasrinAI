@@ -1,3 +1,11 @@
+## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
+
+- Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).
+- Free Quick/guests: simple chat starts with a free model; heavy work, pages to scrape/extract, current-web questions and attached files start with GPT-6 Luna, with the free models behind it. If every free model fails, Luna is the backup for any task. Without OpenRouter configured, direct providers are unchanged.
+- Paid Quick: unchanged rule, never a `:free` model and never the free-tier Luna route (tested).
+- Optional `OPENROUTER_WEB_SEARCH_PAID_MODEL` (never a `:free` id): paid plans search the internet through it instead of the free default; blank keeps current behavior.
+- Free Quick answers that use the heavy/scrape/web/file route get the roomier level-3 reply (1600 tokens) and history (16000 characters) budget instead of the 700–1000 token Quick chat size, so long answers are not cut off; token allowances and reservations still apply. Simple chat is unchanged.
+- No migration; no new model IDs invented (registry IDs only).
 ## PR #653 — Preserve paid tier on weekly usage lookup failure — 2026-10-27
 
 - Update `src/plans.js` so a transient weekly token-usage lookup error does not downgrade a verified active Pro, Max, or Ultra subscription to Quick. Subscription verification itself remains fail-closed.
@@ -2756,6 +2764,15 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add configured Nemotron and Gemma free chat candidates to Quick Free defaults while keeping paid Quick and higher tiers separate.
 - Correct policy module import ordering so test modules can load; CI must confirm the fix.
 
+## PR #642 follow-up — direct Gemini for Guest/Quick Free — 2026-10-26
+- Added direct Gemini Flash Lite as an approved Guest/Quick Free fallback outside OpenRouter when Gemini credentials are configured.
+- Preserved OpenRouter catalog free-model priority, paid-model restrictions, and the authorized heavy-task Luna escape hatch ordering.
+- Kept scraping/web research and orchestration tool access in the shared tool layer; provider fallback changes do not remove task/tool capabilities. Regression tests cover the direct Gemini fallback.
+
+## PR #643 follow-up — GPT-6 Luna file routing for Quick — 2026-10-26
+- Added GPT-6 Luna as a first-class route for file extraction, document interpretation, and attachment-based tasks for both Quick Free and paid Quick, rather than limiting it to a generic heavy-task fallback.
+- Quick Free still tries Luna only for file/document tasks as an explicit exception; ordinary chat remains on approved free OpenRouter models and direct Gemini fallback. Paid Quick keeps its paid-model routing policy.
+- Added regression coverage for both Quick Free and paid Quick attachment routing. CI and production verification remain required.
 
 ## PR #646 — Quick Free direct-provider allowlist — 2026-10-26
 

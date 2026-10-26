@@ -7,6 +7,7 @@ import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 import { OPENROUTER_MODEL_ROUTING } from './openrouter-tier-routing.js';
 import { isOpenRouterChatCandidateEligible } from './openrouter-runtime-eligibility.js';
+import { needsWeb } from '../web/search.js';
 
 // Quick Free/Guest OpenRouter chat is restricted to the maintained NasrinAI
 // routing catalog. Live discovery may verify availability, but must never expand
@@ -68,8 +69,20 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       const level = Math.min(hi, Math.max(lo, c.level));
       const text = [message, ...history.slice(-6).map((m) => m.content)].join('\n');
       const sensitive = attachments.length > 0 || redactForProvider(text) !== text;
-      return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
-        historyChars: r.historyChars[level], maxTokens: r.maxTokens[level] };
+      // Free Quick answers heavy work, pages to read/scrape, current-web questions
+      // and attached files with GPT-6 Luna as one of its main models (see run()).
+      const freeQuickPlan = tier === 'nasrinai' && paidQuick !== true;
+      const lunaPrimary = freeQuickPlan && (c.level >= 3
+        || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(c.task)
+        || attachments.length > 0
+        || /https?:\/\/|\b(?:scrap|crawl|extract)\w*/i.test(String(message || ''))
+        || needsWeb(message));
+      return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, lunaPrimary, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
+        // Heavy, scraping, web and file answers on free Quick get the roomier
+        // level-3 reply and history budget, so a long answer is not cut at the
+        // Quick chat size. Allowances and reservations still apply as usual.
+        historyChars: lunaPrimary ? Math.max(r.historyChars[level], r.historyChars[3]) : r.historyChars[level],
+        maxTokens: lunaPrimary ? Math.max(r.maxTokens[level], r.maxTokens[3]) : r.maxTokens[level] };
     },
 
     // Safe to reuse an earlier answer? Only a first, public, simple question,
@@ -115,8 +128,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       let calls = 0;   // model calls made so far that failed, counting any failover the router made itself
       const tried = new Set();
       let quickLunaFallback = null;
-      const heavyQuickTask = plan.tier === 'nasrinai' && plan.paidQuick !== true
-        && (plan.wanted >= 3 || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(plan.task));
+      // Free Quick (and guests) use the free models first. GPT-6 Luna, the cheap
+      // paid model the approved registry lists as the free tier's fallback
+      // (`quick-free-fallback`), is the backup for ANY task once every eligible
+      // free model has failed, never a routine first choice. Paid Quick never
+      // uses free models, and never this fallback.
+      const heavyQuickTask = plan.tier === 'nasrinai' && plan.paidQuick !== true;
       let lastFailed = null;   // { spec, level } of a retryable failure, for one same-model retry
       let sameRetried = false;
       // Live catalog candidates extend paid-tier routing without changing the
@@ -166,8 +183,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               .filter((p) => p.id !== 'openrouter' && Array.isArray(p.freeModels) && p.freeModels.includes(p.model))
               .flatMap((p) => (r.freeModels?.[p.id] || []).map((model) => ({ provider: p.id, model, effort: null })))
             : [];
-          const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates, ...configuredFreeProviderCandidates,
-            ...(heavyQuickTask ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
+          const baseCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates, ...configuredFreeProviderCandidates];
+          // Luna is added only where OpenRouter is already part of this level's
+          // routes, so a deployment without OpenRouter keeps its own providers.
+          const expandedTierCandidates = [...baseCandidates,
+            ...(heavyQuickTask && baseCandidates.some((candidate) => candidate.provider === 'openrouter')
+              ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
           // Enforce plan eligibility before ranking or trying any candidate.
           // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
           // Luna is the sole paid-model escape hatch and is attempted only after
@@ -204,7 +225,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           });
           const lunaCandidate = heavyQuickTask ? eligibleCandidates.find((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna') : null;
           if (lunaCandidate && !quickLunaFallback) quickLunaFallback = { spec: lunaCandidate, level: l };
-          const routableCandidates = heavyQuickTask
+          const routableCandidates = heavyQuickTask && !plan.lunaPrimary
             ? eligibleCandidates.filter((candidate) => !(candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna'))
             : eligibleCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, routableCandidates);
@@ -216,8 +237,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             const ai = paidQuickCostOrder.indexOf(a.model); const bi = paidQuickCostOrder.indexOf(b.model);
             return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
           });
+          const lunaFirst = plan.lunaPrimary
+            ? prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna')
+            : [];
           const ordered = strictQuickFree
             ? [
+                ...lunaFirst,
                 ...openRouterFreeCandidates,
                 ...directFreeCandidates
               ]
@@ -234,9 +259,10 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
           if (strictQuickFree) {
+            // Heavy, scraping, web and file requests start with Luna, then the free pool.
+            if (plan.lunaPrimary) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
             candidates.push(...otherCandidates);
-            if (heavyQuickTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
           } else if (paidQuick) {
             candidates.push(...openRouterCandidates.filter((candidate) => !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna'));
           } else {
@@ -275,7 +301,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             spec = s; at = l; break;
           }
         }
-        // Heavy free Quick tasks may use GPT-6 Luna only after every eligible free candidate across the allowed levels failed.
+        // Free Quick may use GPT-6 Luna only after every eligible free candidate across the allowed levels failed.
         if (!spec && quickLunaFallback && !tried.has('openrouter:openai/gpt-6-luna:null')) {
           const candidate = quickLunaFallback.spec;
           const cooldownUntil = failureCooldowns.get('openrouter:openai/gpt-6-luna:null') || 0;
@@ -310,7 +336,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         if (at < level) logger.info('downgraded to a compatible configured route', { from: level, to: at });
 
         const started = now();
-        const normalMaxTokens = Math.max(r.maxTokens[at], minTokens);
+        const normalMaxTokens = Math.max(r.maxTokens[at], plan.lunaPrimary ? plan.maxTokens : 0, minTokens);
         const boundedMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens >= 64
           ? Math.min(normalMaxTokens, requestedMaxTokens) : normalMaxTokens;
         const callMaxTokens = boundedMaxTokens;
