@@ -390,7 +390,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       if (!['user', 'guest'].includes(subjectType) || typeof subjectId !== 'string' || !subjectId || subjectId.length > 80
           || !/^[A-Za-z0-9._-]{1,40}$/.test(String(consentVersion)) || consentVersion === '2026-10-10-preference-only'
           || typeof exampleText !== 'string' || !exampleText.trim() || exampleText.length > 12000
-          || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= now()) throw new Error('invalid improvement example');
+          || (expiresAt !== null && (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= now()))) throw new Error('invalid improvement example');
       const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
       const row = { id: randomUUID(), tenantId, subjectType, subjectId, consentVersion, exampleText, status: 'approved', createdAt: iso(), expiresAt, reviewedAt: iso(), reviewerId: 'automated_safety_screen' };
@@ -423,11 +423,10 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       return ids.length;
     },
     async purgeImprovementExamples() {
-      const cutoffGuest = now() - 24 * 60 * 60 * 1000;
       for (let i = improvementExamples.length - 1; i >= 0; i--) {
         const e = improvementExamples[i];
         const latest = improvementConsentEvents.filter((c) => c.tenantId === e.tenantId && c.subjectType === e.subjectType && c.subjectId === e.subjectId).sort((x, y) => Date.parse(y.created_at) - Date.parse(x.created_at) || (y.sequence ?? 0) - (x.sequence ?? 0))[0];
-        if (Date.parse(e.expiresAt) <= now() || (e.subjectType === 'guest' && Date.parse(e.createdAt) < cutoffGuest) || !latest || latest.decision !== 'granted' || latest.version !== e.consentVersion || e.consentVersion === '2026-10-10-preference-only') improvementExamples.splice(i, 1);
+        if ((e.expiresAt !== null && Date.parse(e.expiresAt) <= now()) || !latest || latest.decision !== 'granted' || latest.version !== e.consentVersion || e.consentVersion === '2026-10-10-preference-only') improvementExamples.splice(i, 1);
       }
     },
     async purgeImprovementConsent() {
@@ -436,7 +435,8 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       for (let i = improvementConsentEvents.length - 1; i >= 0; i--) {
         const e = improvementConsentEvents[i];
         const cutoff = e.subjectType === 'guest' ? cutoffGuest : cutoffUser;
-        if (Date.parse(e.created_at) < cutoff) improvementConsentEvents.splice(i, 1);
+        const hasRetainedExamples = improvementExamples.some((example) => example.tenantId === e.tenantId && example.subjectType === e.subjectType && example.subjectId === e.subjectId);
+        if (Date.parse(e.created_at) < cutoff && !hasRetainedExamples) improvementConsentEvents.splice(i, 1);
       }
     },
     async getImprovementConsent({ tenantId, subjectType, subjectId }) {
