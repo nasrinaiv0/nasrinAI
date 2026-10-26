@@ -75,3 +75,14 @@ No autonomous publishing, social account access, face/voice identity training, a
 - The current renderer and provider-backed generation path are not equivalent to an arbitrary skill runtime. First import provider-independent skill instructions as **planning guidance only**. Any script execution or external API integration must be a separate, explicit adapter with its own tool schema, sandbox, budget gate, test coverage and rollout approval.
 - Proposed source staging path for the five instruction-only candidates: `docs/integrations/media-skills/proposed-imports/<skill-id>/SKILL.md` in the documentation/review branch, or an agreed runtime path only after the existing loader is identified. Do not silently choose a production runtime destination before verifying how current orchestration loads skill instructions.
 - Keep `EVAL.md` out of any production agent context. Use it only to derive NasrinAI-owned evaluation cases, then write tests into the appropriate existing test structure.
+
+
+## Verified current-repository references
+
+Reviewed current `main` files on 2026-10-27:
+- `knowledge/nasrinai_skills_kb.json` blob SHA `02d659b064611c35a81d631c48dc1934cb39146e`: descriptive user-facing knowledge base, schema `1.0.0`, last updated 2026-10-21; explicitly warns not to claim a skill is implemented/enabled without live configuration and tests.
+- `docs/NASRINAI_SKILLS.md` blob SHA `982a339613fa176154a5311a83e5d70dc03b6d82`: documents skill metadata and lifecycle (`implemented_verified`, `partially_implemented`, `planned`, `blocked`, `needs_verification`).
+- `src/video-studio-render-worker.js` blob SHA `25ce5b7025cedb5b6ee3ed23e82e7280c97abd9b`: existing worker uses Vercel Sandbox and FFmpeg for the current bounded render flow. Its existence does **not** establish that it is a safe arbitrary-skill executor.
+- `docs/ai-video-studio-architecture.md` blob SHA `1bf02419314edb87cea96a719f465a6f3f0d5c06`: notes production migration application, live Sandbox execution and device/browser validation still need verification.
+
+The current worker installs FFmpeg in its sandbox when absent and then applies a deny-all network policy; do not assume this sequence is suitable for arbitrary third-party scripts. Before enabling skills that execute code, prebuild and pin worker images, avoid runtime package installation, review sandbox network timing, and add an explicit tool/executable allowlist. The initial five instruction-only candidates should not invoke the render worker directly.
