@@ -312,9 +312,14 @@ export function loadConfig(env = process.env) {
   // free-provider allowlists, and keeps GPT-6 Luna as the final emergency fallback.
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
+    // Keep Guest/Quick Free on the configured NasrinAI chat-capable free catalog.
     'openrouter:nvidia/nemotron-3.5-lightning:free',
+    'openrouter:nvidia/nemotron-3.5-super-vl:free',
     'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
-    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
+    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free',
+    'openrouter:nvidia/nemotron-3.5-content-safety:free',
+    'openrouter:google/gemma-4-26b-a4b-it:free',
+    'openrouter:google/gemma-4-31b-it:free'
   ] : [];
   // Operators may add any OpenRouter model currently marked explicitly free
   // in the provider catalog without code changes. Ignore non-free IDs so this
