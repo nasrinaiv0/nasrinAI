@@ -896,12 +896,24 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const [usageRows, routerRows] = await Promise.all([
           (async () => {
             const cutoffFilter = 'created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000';
+            const columns = 'request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,cached_tokens,output_tokens,latency_ms,cost_usd,cost_source,estimated_cost_usd,estimated_cost_source,pricing_version,estimated_cost_at';
+            const baseColumns = 'request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,cached_tokens,output_tokens,latency_ms,cost_usd,cost_source';
+            const legacyColumns = 'provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source';
             try {
-              return await store.request('GET', 'usage_events?select=request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&' + cutoffFilter);
+              return await store.request('GET', 'usage_events?select=' + columns + '&' + cutoffFilter);
             } catch (error) {
-              // Keep logs readable during a rolling deploy before migration 076 is applied.
-              if (!/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason/i.test(String(error?.message || error)) || !/PGRST204|column|schema cache/i.test(String(error?.message || error))) throw error;
-              return store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&' + cutoffFilter);
+              if (!/PGRST204|column|schema cache/i.test(String(error?.message || error))) throw error;
+              if (/estimated_cost_usd|estimated_cost_source|pricing_version|estimated_cost_at/i.test(String(error?.message || error))) {
+                try { return await store.request('GET', 'usage_events?select=' + baseColumns + '&' + cutoffFilter); }
+                catch (baseError) {
+                  if (!/PGRST204|column|schema cache/i.test(String(baseError?.message || baseError)) || !/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason|cached_tokens/i.test(String(baseError?.message || baseError))) throw baseError;
+                  return store.request('GET', 'usage_events?select=' + legacyColumns + '&' + cutoffFilter);
+                }
+              }
+              if (/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason|cached_tokens/i.test(String(error?.message || error))) {
+                return store.request('GET', 'usage_events?select=' + legacyColumns + '&' + cutoffFilter);
+              }
+              throw error;
             }
           })(),
           store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
@@ -1022,13 +1034,23 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             upstream_provider: null, endpoint: row.endpoint || null, http_method: row.http_method || null, requested_model: model, model,
             status, http_status: row.http_status ?? null, error_code: row.error_code || null, prompt_tokens: row.input_tokens, cached_tokens: row.cached_tokens ?? null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
-            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? Number(row.cost_usd) : null,
-            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null, provider_request_id: row.provider_request_id || null, openrouter_generation_id: null,
+            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0
+              ? Number(row.cost_usd)
+              : row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' && row.estimated_cost_usd != null && Number.isFinite(Number(row.estimated_cost_usd)) && Number(row.estimated_cost_usd) >= 0
+                ? Number(row.estimated_cost_usd) : null,
+            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null,
+            estimated_cost_source: row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' ? row.estimated_cost_source : null,
+            pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null,
+            provider_request_id: row.provider_request_id || null, openrouter_generation_id: null,
             finish_reason: row.finish_reason || null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
             catalog_status: ownerCatalogStatus(model, catalogProvider),
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
-            telemetry_source: 'usage_events', cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? 'provider_reported' : 'unknown'
+            telemetry_source: 'usage_events',
+            cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0
+              ? 'provider_reported'
+              : row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' && row.estimated_cost_usd != null && Number.isFinite(Number(row.estimated_cost_usd)) && Number(row.estimated_cost_usd) >= 0
+                ? 'estimated' : 'unknown'
           });
         }
         const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
