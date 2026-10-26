@@ -331,15 +331,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           }
         }
         // Heavy free Quick tasks may use GPT-6 Luna only after every eligible free candidate across the allowed levels failed.
-        if (!spec && quickLunaFallback && !tried.has('openrouter:openai/gpt-6-luna:null')) {
+        if (!spec && quickLunaFallback && !tried.has('openrouter:openai/gpt-6-luna-decisions:null')) {
           const candidate = quickLunaFallback.spec;
-          const cooldownUntil = failureCooldowns.get('openrouter:openai/gpt-6-luna:null') || 0;
+          const cooldownUntil = failureCooldowns.get('openrouter:openai/gpt-6-luna-decisions:null') || 0;
           const b = blocker(candidate, {
             sensitive: plan.sensitive, attachments, inputTokens, level: quickLunaFallback.level, left,
             minOut: minTokens, reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0,
             tier: plan.tier, task: plan.task
           });
-          if (!b && cooldownUntil <= now() && !excluded.has('openrouter:openai/gpt-6-luna')) {
+          if (!b && cooldownUntil <= now() && !excluded.has('openrouter:openai/gpt-6-luna-decisions')) {
             spec = candidate;
             at = quickLunaFallback.level;
           }
