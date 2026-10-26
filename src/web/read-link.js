@@ -114,6 +114,111 @@ function get(u, accept = 'text/html,text/plain;q=0.9,*/*;q=0.1') {
   });
 }
 
+// ---- Linear-time HTML scanning --------------------------------------------
+// Pages come from anyone, so the cleaner must never rescan the page again and
+// again when a closing tag or ">" is missing (that made one request stall the
+// whole server). Everything below moves forward through the text once.
+const MAX_TAG = 2000;
+// ASCII-only lower-casing keeps every index the same as in the original text.
+const asciiLower = (value) => value.replace(/[A-Z]+/g, (m) => m.toLowerCase());
+const DROP = new Set(['script', 'style', 'noscript', 'svg', 'nav', 'footer', 'header', 'form', 'iframe', 'template', 'aside', 'dialog', 'menu']);
+const BREAK_AFTER = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'section', 'article', 'main', 'blockquote']);
+const isNameChar = (c) => (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 45 || c === 58;
+
+// Finds the ">" that ends a tag starting at `from`, remembering the last answer
+// so a run of "<" with no ">" costs one scan in total, not one per "<".
+function gtFinder(src) {
+  let last = -2;
+  let asked = 0;
+  return (from) => {
+    // Reuse the last answer only for a later (or equal) start: nothing lies
+    // between the two, so it is still the first ">" at or after `from`.
+    if (from >= asked && last === -1) return -1;
+    if (from < asked || last < from) { last = src.indexOf('>', from); asked = from; }
+    return last;
+  };
+}
+
+// First <name ...>...</name> element: { open, innerStart, innerEnd, end } or null.
+function firstElement(src, lower, name, gt) {
+  let from = 0;
+  for (;;) {
+    const open = lower.indexOf('<' + name, from);
+    if (open < 0) return null;
+    const after = lower.charCodeAt(open + 1 + name.length);
+    if (!(isNameChar(after))) {
+      const openEnd = gt(open);
+      if (openEnd < 0 || openEnd - open > MAX_TAG) { from = open + 1; continue; }
+      const close = lower.indexOf('</' + name, openEnd);
+      if (close < 0) return null;
+      const closeEnd = src.indexOf('>', close);
+      return { open, innerStart: openEnd + 1, innerEnd: close, end: closeEnd < 0 ? src.length : closeEnd + 1 };
+    }
+    from = open + 1;
+  }
+}
+
+// Every <name ...> start tag, as its raw text (at most MAX_TAG long).
+function* startTags(src, lower, name, gt) {
+  let from = 0;
+  for (;;) {
+    const open = lower.indexOf('<' + name, from);
+    if (open < 0) return;
+    from = open + 1;
+    if (isNameChar(lower.charCodeAt(open + 1 + name.length))) continue;
+    const end = gt(open);
+    if (end < 0) return;
+    if (end - open > MAX_TAG) continue;
+    yield src.slice(open, end + 1);
+  }
+}
+
+// Tags and unwanted elements out, block ends turned into line breaks.
+function stripHtml(src, lower, gt) {
+  const out = [];
+  const noClose = new Set();
+  let noCommentEnd = false;
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const lt = src.indexOf('<', i);
+    if (lt < 0) { out.push(src.slice(i)); break; }
+    if (lt > i) out.push(src.slice(i, lt));
+    const c = lower.charCodeAt(lt + 1);
+    if (c === 33 && !noCommentEnd && lower.startsWith('<!--', lt)) { // comment
+      const end = lower.indexOf('-->', lt + 4);
+      if (end >= 0) { out.push(' '); i = end + 3; continue; }
+      noCommentEnd = true; // never ends: later "<!--" are plain tags too
+    }
+    const closing = c === 47;
+    const nameStart = lt + (closing ? 2 : 1);
+    let nameEnd = nameStart;
+    while (nameEnd < n && isNameChar(lower.charCodeAt(nameEnd))) nameEnd++;
+    const letter = lower.charCodeAt(nameStart);
+    const isTag = nameEnd > nameStart && letter >= 97 && letter <= 122;
+    const special = c === 33 || c === 63; // <!doctype>, <?xml?>
+    if (!isTag && !special) { out.push('<'); i = lt + 1; continue; } // a plain "<" in the text
+    const end = gt(lt);
+    if (end < 0 || end - lt > MAX_TAG) { out.push('<'); i = lt + 1; continue; }
+    if (special) { out.push(' '); i = end + 1; continue; }
+    const name = lower.slice(nameStart, nameEnd);
+    i = end + 1;
+    if (closing) { out.push(BREAK_AFTER.has(name) ? '\n' : ' '); continue; }
+    if (DROP.has(name) && !noClose.has(name)) {
+      const close = lower.indexOf('</' + name, i);
+      if (close < 0) { noClose.add(name); out.push(' '); continue; } // never closed: keep what follows
+      const closeEnd = gt(close);
+      out.push(' ');
+      i = closeEnd < 0 ? n : closeEnd + 1;
+      continue;
+    }
+    if (name === 'br') out.push('\n');
+    else if (name === 'li') out.push('\n- ');
+    else out.push(' ');
+  }
+  return out.join('');
+}
+
 // HTML to readable text: drops scripts, styles, navigation chrome and tags.
 export function htmlToText(html) {
   const decode = (value) => String(value || '')
@@ -137,15 +242,17 @@ export function htmlToText(html) {
     const bare = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*([^\\s>]+)', 'i').exec(tag);
     return bare ? decode(bare[1].endsWith('/') ? bare[1].slice(0, -1) : bare[1]).trim() : '';
   };
+  const lower = asciiLower(html);
+  const gt = gtFinder(html);
   const meta = (key) => {
-    for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
-      const tag = match[0];
+    for (const tag of startTags(html, lower, 'meta', gt)) {
       const label = (attrs(tag, 'name') || attrs(tag, 'property') || attrs(tag, 'itemprop')).toLowerCase();
       if (label === key.toLowerCase()) return attrs(tag, 'content').slice(0, 500);
     }
     return '';
   };
-  const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  const titleEl = firstElement(html, lower, 'title', gt);
+  const titleTag = titleEl ? [null, html.slice(titleEl.innerStart, titleEl.innerEnd)] : null;
   const pick = (...values) => values.map((v) => String(v || '').trim()).find(Boolean) || '';
   const title = decode(pick(meta('og:title'), meta('twitter:title'), titleTag?.[1])).replace(/\s+/g, ' ').trim().slice(0, 200);
   const metadata = {
@@ -154,9 +261,9 @@ export function htmlToText(html) {
     author: pick(meta('author'), meta('article:author'), meta('parsely-author')).replace(/\s+/g, ' ').slice(0, 160),
     publishedAt: pick(meta('article:published_time'), meta('datePublished'), meta('date'), meta('pubdate')).replace(/\s+/g, ' ').slice(0, 80),
     canonical: (() => {
-      for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
-        if (/rel\s*=\s*["'][^"']*\bcanonical\b[^"']*["']/i.test(match[0])) {
-          const href = attrs(match[0], 'href');
+      for (const tag of startTags(html, lower, 'link', gt)) {
+        if (/rel\s*=\s*["'][^"']*\bcanonical\b[^"']*["']/i.test(tag)) {
+          const href = attrs(tag, 'href');
           try {
             const u = new URL(href);
             if (['http:', 'https:'].includes(u.protocol) && u.hostname && !u.username && !u.password) return u.href;
@@ -166,18 +273,26 @@ export function htmlToText(html) {
       return '';
     })()
   };
-  const article = /<article\b[^>]*>[\s\S]*?<\/article>/i.exec(html);
-  const main = /<main\b[^>]*>[\s\S]*?<\/main>/i.exec(html);
-  const sourceHtml = article?.[0] || main?.[0] || html;
-  const body = sourceHtml
-    .replace(/<(script|style|noscript|svg|nav|footer|header|form|iframe|template)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(aside|dialog|menu)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr|\/section|\/article|\/main|\/blockquote)\s*\/?>/gi, '\n')
-    .replace(/<li\b[^>]*>/gi, '\n- ')
-    .replace(/<[^>]+>/g, ' ');
+  const region = firstElement(html, lower, 'article', gt) || firstElement(html, lower, 'main', gt);
+  const sourceHtml = region ? html.slice(region.open, region.end) : html;
+  const body = stripHtml(sourceHtml, region ? lower.slice(region.open, region.end) : lower, region ? gtFinder(sourceHtml) : gt);
   const text = decode(body).replace(/[ \t\r\f\v]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   return { title, text, ...metadata };
+}
+
+// Text from the page's bytes in its declared character set (the Content-Type
+// header first, then a <meta charset> near the top). Unknown names fall back
+// to UTF-8; decoding never throws.
+function decodeBody(bytes, type) {
+  let label = /charset\s*=\s*["']?([\w.:-]+)/i.exec(type)?.[1] || '';
+  if (!label && /html/i.test(type)) {
+    const head = bytes.subarray(0, 2048).toString('latin1');
+    label = /<meta[^>]{0,300}charset\s*=\s*["']?([\w.:-]+)/i.exec(head)?.[1] || '';
+  }
+  if (label && !/^utf-?8$/i.test(label)) {
+    try { return new TextDecoder(label, { fatal: false }).decode(bytes); } catch { /* unknown name */ }
+  }
+  return bytes.toString('utf8');
 }
 
 // Resolves { url, title, text } (plus the page's `html` with withHtml) or { url, error }.
@@ -205,7 +320,7 @@ export async function readLink(raw, { maxChars = 12_000, getImpl = get, withHtml
         chunks.push(c);
       }
       if (tooLarge) return { url: raw, error: 'the page is too large' };
-      const body = Buffer.concat(chunks).toString('utf8');
+      const body = decodeBody(Buffer.concat(chunks), type);
       const extracted = /html/i.test(type) ? htmlToText(body) : { title: '', text: body };
       const { title, text } = extracted;
       if (!text.trim()) return { url: raw, error: 'the page has no readable text' };

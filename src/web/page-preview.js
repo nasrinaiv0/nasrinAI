@@ -16,7 +16,7 @@ function rasterType(bytes) {
 }
 
 function metaImage(html, pageUrl) {
-  const tags = String(html || '').match(/<meta\b[^>]*>/gi) || [];
+  const tags = String(html || '').slice(0, 400_000).match(/<meta\b[^>]{0,2000}>/gi) || [];
   const wanted = [];
   for (const tag of tags) {
     const key = (tag.match(/\b(?:property|name)\s*=\s*["']([^"']+)["']/i) || [])[1] || '';

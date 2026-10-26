@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Fix: the link reader can no longer be stalled by a crafted page (linear-time HTML cleaning); pages in other character sets are now read correctly.
+
 - Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
 - Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
 

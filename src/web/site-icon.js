@@ -38,7 +38,7 @@ export function imageType(b) {
 // (large, usually PNG), then icons with the biggest declared size.
 export function iconLinks(html, base) {
   const out = [];
-  for (const m of String(html || '').slice(0, 200_000).matchAll(/<link\b[^>]*>/gi)) {
+  for (const m of String(html || '').slice(0, 200_000).matchAll(/<link\b[^>]{0,2000}>/gi)) {
     const tag = m[0];
     const rel = (/\brel\s*=\s*["']([^"']+)["']/i.exec(tag) || [])[1] || '';
     const href = (/\bhref\s*=\s*["']([^"']+)["']/i.exec(tag) || [])[1];

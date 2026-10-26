@@ -56,7 +56,7 @@ function dateOf(raw) {
 export function metaFromHtml(html, url) {
   const head = String(html || '').slice(0, 400_000);
   const metas = [];
-  for (const m of head.matchAll(/<meta\b[^>]*>/gi)) {
+  for (const m of head.matchAll(/<meta\b[^>]{0,2000}>/gi)) {
     const tag = m[0];
     const key = (/\b(?:name|property|itemprop)\s*=\s*["']([^"']+)["']/i.exec(tag) || [])[1];
     const value = (/\bcontent\s*=\s*"([^"]*)"/i.exec(tag) || /\bcontent\s*=\s*'([^']*)'/i.exec(tag) || [])[1];
@@ -67,9 +67,17 @@ export function metaFromHtml(html, url) {
 
   // JSON-LD (the first scholarly or article-like item).
   let ld = null;
-  for (const m of head.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+  // Opening tags are found with a bounded pattern and the end by index, so a
+  // page full of unclosed scripts cannot make this rescan the page each time.
+  const headLower = head.replace(/[A-Z]+/g, (x) => x.toLowerCase());
+  let ldTags = 0;
+  for (const m of head.matchAll(/<script\b[^>]{0,2000}type\s*=\s*["']application\/ld\+json["'][^>]{0,2000}>/gi)) {
+    if (++ldTags > 10) break;
+    const bodyStart = m.index + m[0].length;
+    const bodyEnd = headLower.indexOf('</script', bodyStart);
+    if (bodyEnd < 0) break;
     try {
-      const data = JSON.parse(m[1]);
+      const data = JSON.parse(head.slice(bodyStart, bodyEnd));
       const items = [].concat(data['@graph'] || data).flat();
       ld = items.find((x) => x && /ScholarlyArticle|Article|Book|Report|Thesis|Chapter|NewsArticle|BlogPosting|WebPage/i.test([].concat(x['@type'] || '').join(' '))) || ld;
       if (ld) break;

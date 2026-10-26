@@ -24,8 +24,8 @@ export function extractWebAssets(html, baseUrl) {
       if (u && media.length < MAX_MEDIA && !media.some((m) => m.url === u.href)) media.push({ url: u.href, kind, alt: String(alt).slice(0, 240) });
     } catch {}
   };
-  for (const m of String(html || '').matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>/gi)) addLink(m[1]);
-  for (const m of String(html || '').matchAll(/<(img|video|audio|source|track)\b([^>]*)>/gi)) {
+  for (const m of String(html || '').slice(0, 400_000).matchAll(/<a\b[^>]{0,2000}href\s*=\s*["']([^"'#]+)["'][^>]{0,2000}>/gi)) addLink(m[1]);
+  for (const m of String(html || '').slice(0, 400_000).matchAll(/<(img|video|audio|source|track)\b([^>]{0,2000})>/gi)) {
     const tag = m[1].toLowerCase(), attrs = m[2];
     const src = /\b(?:src|poster)\s*=\s*["']([^"']+)["']/i.exec(attrs)?.[1];
     const alt = /\b(?:alt|title|aria-label)\s*=\s*["']([^"']*)["']/i.exec(attrs)?.[1] || '';

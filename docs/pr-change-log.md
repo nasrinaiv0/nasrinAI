@@ -1,3 +1,10 @@
+## fix/link-reader-linear-time (2026-10-26)
+
+- Security/availability: the link reader's HTML cleaner used lazy regexes that rescanned the page whenever a closing tag or `>` was missing; a 360 KB crafted page blocked a server instance for 4.6 s (any guest could trigger it through a pasted link, and research/crawl/previews share the code). It is now a single forward pass (`stripHtml`, memoised tag ends); every hostile shape (unclosed form/script/nav, unterminated comments, endless `<meta`/`<link`/`<title`/`<article`) stays under about 0.3 s at 1.4 MB.
+- Same bounded scanning for citation details (`cite.js`, JSON-LD scripts), page previews, site icons and the crawler's link/media extraction (tag bodies capped at 2000 characters, scanned input capped at 400 KB).
+- Browsing quality: pages are decoded in their declared character set (Content-Type, then `<meta charset>`), so Latin-1, Windows-1252 and Shift_JIS pages are readable; unknown names fall back to UTF-8. A stray `<` in text (`3 < 5`) is kept. `<br>` with attributes now breaks the line.
+- No migration, no new dependency, SSRF rules unchanged.
+
 ## Owner cost and reply usage telemetry follow-up — 2026-10-26
 
 - Use valid stored `openrouter_logs.total_cost_usd` values for Owner AI Logs and Finance even when legacy rows have no provenance marker; new telemetry writes identify this source and migration 074 backfills existing populated rows.
