@@ -2689,3 +2689,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Render Google Maps reply cards as compact two-column cards: a fixed rectangular map preview on the left and concise route/place details plus the Maps link on the right.
 - Bound card and map heights, prevent inherited oval/button-like shapes, clamp layout widths, and use smaller mobile typography and spacing.
 - Keep the existing Google Maps loading, route, and fallback behavior unchanged. Regression tests cover the compact grid and rectangular responsive canvas.
+
+- **Nearby business cards in map replies:** Replace the oversized map/link panel with a responsive map followed by up to five nearby business cards. Use Google Places results for business names, photos, ratings, categories, addresses, and open/closed status when Google returns those fields. Cards link to the individual business in Google Maps; no results are fabricated. Requires Places library/API enabled and billing configured for the browser key.
