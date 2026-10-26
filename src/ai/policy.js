@@ -164,8 +164,17 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
           const paidQuick = plan.tier === 'nasrinai' && plan.paidQuick === true;
+          // Enforce the OpenRouter free-only pool whenever an OpenRouter route is
+          // configured for this level, even if the legacy quickNemotronOnly flag
+          // is stale/false. Environments without OpenRouter retain their configured
+          // provider routing rather than being forced into an empty allowlist.
+          const strictQuickFree = freeQuick && (
+            r.quickNemotronOnly
+            || expandedTierCandidates.some((candidate) => candidate.provider === 'openrouter')
+          );
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
-            if (candidate.provider !== 'openrouter') return !freeQuick || !r.quickNemotronOnly || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
+            if (candidate.provider !== 'openrouter') return !strictQuickFree
+              || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
@@ -176,7 +185,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               task: plan.task,
               verifiedIds: liveOpenRouterModels
             }) && (
-              (freeQuick && (!r.quickNemotronOnly || /:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+              (strictQuickFree && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+              || (freeQuick && !strictQuickFree)
               || (paidQuick && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna')
               || (!freeQuick && !paidQuick)
             );
@@ -195,7 +205,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             const ai = paidQuickCostOrder.indexOf(a.model); const bi = paidQuickCostOrder.indexOf(b.model);
             return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
           });
-          const ordered = r.quickNemotronOnly && freeQuick
+          const ordered = strictQuickFree
             ? [
                 ...openRouterFreeCandidates,
                 ...directFreeCandidates
@@ -204,7 +214,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               ? paidQuickCandidates
               : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = r.quickNemotronOnly && freeQuick
+          const otherCandidates = strictQuickFree
             ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
             : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
@@ -212,7 +222,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // this point. Within that permitted level, configured OpenRouter models
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
-          if (r.quickNemotronOnly && freeQuick) {
+          if (strictQuickFree) {
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
             candidates.push(...otherCandidates);
             if (heavyQuickTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));

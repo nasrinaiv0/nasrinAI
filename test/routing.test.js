@@ -223,6 +223,30 @@ test('Guest/Quick accept operator-configured OpenRouter :free models and reject 
   assert.equal(attempted.at(-1), 'openai/gpt-6-luna');
 });
 
+test('Quick free routing never admits paid models when OpenRouter is not the only provider flag', async () => {
+  const paidModel = 'deepseek/deepseek-v4.1-flash';
+  const a = setup({
+    env: {
+      OPENROUTER_API_KEY: 'or-test-key',
+      ROUTE_LEVEL_1: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+      ROUTE_LEVEL_2: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+      ROUTE_LEVEL_3: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+      ROUTE_LEVEL_4: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`,
+      ROUTE_LEVEL_5: `openrouter:${paidModel},openrouter:nvidia/nemotron-3.5-lightning:free`
+    },
+    liveOpenRouterModels: [paidModel, 'nvidia/nemotron-3.5-lightning:free']
+  });
+  // Simulate a configuration where the legacy provider-presence flag is false.
+  // Plan policy, not that flag, must still prevent paid IDs on free Quick.
+  const config = { ...a.config, ai: { ...a.config.ai, routing: { ...a.config.ai.routing, quickNemotronOnly: false } } };
+  const router = createRouter({ providers: { gemini: a.gemini, openai: a.openai, openrouter: a.openrouter, groq: a.groq }, config, logger: quiet });
+  const policy = createPolicy({ config, provider: router, logger: quiet, sleep: async () => {} });
+  const plan = policy.plan({ tier: 'nasrinai', paidQuick: false, message: 'Hello!' });
+  const run = await policy.run(plan, req('Hello!'));
+  assert.equal(run.spec.model, 'nvidia/nemotron-3.5-lightning:free');
+  assert.ok(a.openrouter.calls.every((call) => /:free$/i.test(call.model)), 'free Quick must never call paid OpenRouter models');
+});
+
 test('paid tiers never use free OpenRouter models, even for simple intent', async () => {
   const paidModels = {
     pro: 'anthropic/claude-sonnet-5.5',

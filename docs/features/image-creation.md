@@ -163,3 +163,8 @@ a **Create** button; the result as an image in the conversation with
 2. May guests create images before a sign-in screen exists? Suggested: a small
    daily allowance per guest and a low total guest ceiling.
 3. How long signed-in users' images are kept (suggested: 30 days).
+
+
+## Quick Free image-generation billing
+
+Quick Free text chat remains restricted by the Quick free-model routing policy. Image generation is a separate paid capability: when `OPENROUTER_API_KEY` is configured, tier 1 defaults to OpenRouter `openai/gpt-image-2` with `openai/gpt-image-2.5-flare` as the paid, speed-oriented fallback. Provider-reported image cost is recorded through the existing image usage and OpenRouter telemetry paths. You can override either route with `IMAGE_TIER_1_PRIMARY_*` and `IMAGE_TIER_1_FALLBACK_*` variables. Image generation is still subject to existing image quotas, budgets, and provider billing; it is not free just because the user's chat tier is Quick Free.
