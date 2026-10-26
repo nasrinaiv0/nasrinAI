@@ -1,6 +1,6 @@
 import { loadPrices, priceOf, costOf } from './pricing.js';
 
-export const PROVIDER_PRICING_VERSION = '2026-10-26-v1';
+export const PROVIDER_PRICING_VERSION = '2026-10-26-v2';
 const PRICES = loadPrices();
 
 function canonicalProvider(value) {
