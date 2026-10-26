@@ -75,7 +75,7 @@
       source.connect(processor);processor.connect(ctx.destination);
       ws.onopen=()=>{
         try{
-          ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:'Speak in a natural adult vocal register at a comfortable, moderate pitch and normal conversational speed. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Keep articulation clear and intonation relaxed. ' + (session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.')}]}}}));
+          ws.send(JSON.stringify({setup:{model:String(session.model||'gemini-3.8-live').startsWith('models/')?String(session.model):'models/'+String(session.model||'gemini-3.8-live'),generationConfig:{responseModalities:['AUDIO'],maxOutputTokens:Math.max(1,Math.min(1024,Number(session.maxOutputTokens)||256)),speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Kore'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:String(session.instructions||'You are NasrinAI. Keep replies brief, accurate, natural, and safe.')}]}}}));
           state.setupTimer=setTimeout(()=>{if(!state.ready&&!state.stopping)hooks.error('Voice setup timed out. Please try again.');},12000);
         }catch(e){hooks.error('Could not initialize voice. Please try again.');}
       };
@@ -85,7 +85,10 @@
           if(typeof Blob!=='undefined'&&raw instanceof Blob)raw=await raw.arrayBuffer();
           const msg=JSON.parse(typeof raw==='string'?raw:decoder.decode(raw));
           if(msg.error){
-            hooks.error('Voice connection failed. Please try again.');return;
+            const code=String(msg.error.code||msg.error.status||'').slice(0,80);
+            hooks.error(code ? `Gemini Live rejected the session (${code}). Check the Live model and session configuration.` : 'Gemini Live rejected the session configuration.');
+            try{ws.close(1000,'provider setup error');}catch{}
+            return;
           }
           if(msg.setupComplete){
             clearTimeout(state.setupTimer);state.ready=true;hooks.open();return;
@@ -101,8 +104,8 @@
           if(!(err instanceof SyntaxError))hooks.error('Could not process voice audio. Please try again.');
         }
       };
-      ws.onerror=()=>{if(!state.stopping)hooks.error('Voice connection failed. Please check your connection and try again.');};
-      ws.onclose=()=>{clearTimeout(state.setupTimer);if(!state.stopping)hooks.close();};
+      ws.onerror=()=>{if(!state.stopping)hooks.error('Gemini Live WebSocket failed. Check network access and session authorization.');};
+      ws.onclose=(event)=>{clearTimeout(state.setupTimer);if(!state.stopping){const code=Number(event?.code)||0;hooks.error(code&&code!==1000?`Gemini Live disconnected (WebSocket ${code}).`:'Gemini Live connection closed.');hooks.close();}};
       return state;
     },
     stop
