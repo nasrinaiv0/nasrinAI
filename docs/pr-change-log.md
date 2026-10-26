@@ -2707,3 +2707,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Align the ephemeral-token session constraints with the browser's Gemini Live setup, including audio response modality, bounded output tokens, and the selected prebuilt voice.
 - Normalize model names before setup and surface sanitized provider error/close codes so session failures are diagnosable without exposing credentials, audio, or transcripts.
 - **Validation:** GitHub Actions CI passed on the implementation head. Documentation Gate initially failed because the required changelog entry was missing; rerun both checks on this changelog-updated head before merge. No merge or deployment is claimed.
+
+
+## Production follow-up — Gemini Live reconnect loop (2026-10-27)
+
+- Fix an iOS/Safari startup race in `public/gemini-realtime.js`: microphone permission is awaited before opening the Gemini WebSocket, so a slow permission prompt cannot let the socket's `open` event fire before its handler is registered.
+- Add a browser regression test that verifies no socket is created during the microphone permission await and that the open handler is registered before startup returns.
+- **Validation:** CI and production voice smoke test are required; do not call the issue resolved until the deployed production voice session reaches `setupComplete` and audio works on iPhone Safari.

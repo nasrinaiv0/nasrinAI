@@ -44,8 +44,10 @@
     async start(session, hooks) {
       if(!window.WebSocket||!window.AudioContext||!navigator.mediaDevices?.getUserMedia) throw new Error('Realtime voice is not supported in this browser.');
       const state={ws:null,ctx:null,processor:null,stream:null,sources:[],next:0,buffer:[],ready:false,stopping:false,setupTimer:null};
-      const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(session.value));
-      ws.binaryType='arraybuffer';
+      // Request microphone permission before opening the socket. iOS Safari may
+      // show a permission prompt long enough for a socket's onopen event to fire;
+      // registering handlers after that await silently loses the event and leaves
+      // the UI stuck in "Starting secure realtime voice" until reconnect.
       const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
       const ctx=hooks.audioContext||new AudioContext();
       try{await ctx.resume();}catch{}
@@ -56,6 +58,10 @@
         try{const out=ctx.createMediaStreamDestination();el.srcObject=out.stream;el.play().catch(()=>{});Object.assign(state,{out,el});}
         catch{/* falls back to the context's own output */}
       }
+      // Open only after all permission awaits are complete, then attach handlers
+      // synchronously in this turn so the initial open event cannot be missed.
+      const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(session.value));
+      ws.binaryType='arraybuffer';
       Object.assign(state,{ws,ctx,processor,stream});hooks.state(state);
       const flush=()=>{
         if(!state.ready||ws.readyState!==WebSocket.OPEN||!state.buffer.length)return;
