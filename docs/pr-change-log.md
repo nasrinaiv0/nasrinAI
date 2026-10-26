@@ -1,3 +1,9 @@
+## Owner cost and reply usage telemetry follow-up — 2026-10-26
+
+- Use valid stored `openrouter_logs.total_cost_usd` values for Owner AI Logs and Finance even when legacy rows have no provenance marker; new telemetry writes identify this source and migration 074 backfills existing populated rows.
+- Persist response metadata in the same insert as the assistant message so saved conversation history receives token usage/timing metadata atomically.
+- Keep estimates explicitly labeled; never misrepresent estimated token counts as provider-reported usage.
+
 ## PR #639 — Persist real token usage for reply details (2026-10-26)
 
 - Store sanitized response metadata, including provider-reported input/output tokens and request duration, on the exact assistant message in Supabase.

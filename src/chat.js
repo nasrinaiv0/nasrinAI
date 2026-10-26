@@ -355,26 +355,12 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // raw provider output or internal/tool context through this path.
       reply = clean(keepIdentity(typeof reply === 'string' ? reply : ''));
       if (!reply) reply = 'I couldn’t produce a safe, readable reply. Please try again.';
-      let assistant = await conversations.add(conv, 'assistant', reply);
-      // Memory is updated after the exchange is durably saved. Only the user's
-      // own message is considered; assistant output, retrieved history, and tools
-      // can never plant personal memories. The feature is opt-in and failure-isolated.
-      if (!regenerate && editId === null && memory?.consolidate) {
-        await memory.consolidate(caller, typed);
-      }
-      if (webAnswers && webSources.length && reply) {
-        await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
-      }
-      // Quick/Guest learning is opt-in and review-gated. One bounded, failure-isolated insert follows answer generation.
-      if (communityLearning && choice.tier === 'nasrinai') {
-        await communityLearning.capture({ caller, question: typed, answer: reply, eligible: !files.length && !codeFile && !codingChat && !webSources.length && !MAY_NEED_TOOLS.test(typed) && !GITHUB_ASK.test(typed) });
-      }
       const responseTimestamp = new Date(now()).toISOString();
       const hasProviderUsage = responseUsage
         && Number.isFinite(responseUsage.inputTokens)
         && Number.isFinite(responseUsage.outputTokens);
-      // Prefer authoritative provider usage. If the provider omits usage, show a
-      // clearly marked word-token estimate rather than displaying "Not reported".
+      // Prefer authoritative provider usage. If the provider omits usage, retain
+      // an explicitly marked estimate; never label it as provider-reported.
       const usageMetadata = hasProviderUsage
         ? {
             input_tokens: Math.max(0, Math.round(responseUsage.inputTokens)),
@@ -394,11 +380,21 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         usage: usageMetadata,
         ...(mapResults.length ? { maps: mapResults } : {})
       };
-      try {
-        assistant = await conversations.setResponseMetadata(assistant, responseMetadata);
-      } catch (err) {
-        logger.warn('reply usage metadata persistence failed', { error: String(err?.message || 'error').slice(0, 120) });
-        assistant = { ...assistant, responseMetadata };
+      // Save the answer and its metadata in the same INSERT. This avoids a
+      // second write that could fail and leave every restored reply without usage.
+      const assistant = await conversations.add(conv, 'assistant', reply, responseMetadata);
+      // Memory is updated after the exchange is durably saved. Only the user's
+      // own message is considered; assistant output, retrieved history, and tools
+      // can never plant personal memories. The feature is opt-in and failure-isolated.
+      if (!regenerate && editId === null && memory?.consolidate) {
+        await memory.consolidate(caller, typed);
+      }
+      if (webAnswers && webSources.length && reply) {
+        await webAnswers.save({ caller, question: typed, answer: reply, sources: webSources });
+      }
+      // Quick/Guest learning is opt-in and review-gated. One bounded, failure-isolated insert follows answer generation.
+      if (communityLearning && choice.tier === 'nasrinai') {
+        await communityLearning.capture({ caller, question: typed, answer: reply, eligible: !files.length && !codeFile && !codingChat && !webSources.length && !MAY_NEED_TOOLS.test(typed) && !GITHUB_ASK.test(typed) });
       }
       return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: responseMetadata, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };

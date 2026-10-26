@@ -122,6 +122,10 @@ test('Supabase telemetry writer stores only summaries and never disrupts callers
   assert.equal(captured.payload.request_summary.message_count, 1);
   assert.equal(captured.init.headers.Authorization, 'Bearer server-secret');
 
+  await write({ requestId: 'cost-source-test', totalCostUsd: 0.0004 });
+  assert.equal(captured.payload.total_cost_usd, 0.0004);
+  assert.equal(captured.payload.provider_cost_source, 'openrouter_logs.total_cost_usd');
+
   const failing = createOpenRouterTelemetry({
     url: 'https://project.supabase.co',
     secretKey: 'server-secret',

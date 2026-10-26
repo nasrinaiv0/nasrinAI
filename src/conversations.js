@@ -158,8 +158,8 @@ export function createConversations({ store, config, logger, now = () => Date.no
         return { text: '\n\nMemory is on, but the saved chats could not be read just now. Say that plainly and offer to try again; do not claim to have no access to chat history.', titles: [] };
       }
     },
-    add(conv, role, content) {
-      return store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role, content });
+    add(conv, role, content, responseMetadata = null) {
+      return store.addMessage({ conversationId: conv.id, tenantId: conv.tenantId, role, content, responseMetadata });
     },
 
     async setResponseMetadata(message, responseMetadata) {

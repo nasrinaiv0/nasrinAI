@@ -323,10 +323,10 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       await request('DELETE', `conversations?id=eq.${id}`, { prefer: 'return=minimal' });
     },
 
-    async addMessage({ conversationId, tenantId, role, content }) {
+    async addMessage({ conversationId, tenantId, role, content, responseMetadata = null }) {
       const rows = await request('POST', `messages?select=${MESSAGE_COLUMNS}`, {
         prefer: 'return=representation',
-        body: { conversation_id: conversationId, tenant_id: tenantId, role, content }
+        body: { conversation_id: conversationId, tenant_id: tenantId, role, content, response_metadata: responseMetadata && typeof responseMetadata === 'object' ? responseMetadata : null }
       });
       return mapMessage(rows[0]);
     },

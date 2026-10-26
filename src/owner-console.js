@@ -933,11 +933,12 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const generationCost = generationCostValue === null || generationCostValue === undefined || generationCostValue === ''
             ? null : Number(generationCostValue);
           const hasGenerationCost = generationCost !== null && Number.isFinite(generationCost) && generationCost >= 0;
-          const hasVerifiedLogCost = row.provider_cost_source === 'openrouter_generation_api' &&
-            row.total_cost_usd !== null && row.total_cost_usd !== undefined && row.total_cost_usd !== '' &&
+          const hasVerifiedLogCost = row.total_cost_usd !== null && row.total_cost_usd !== undefined && row.total_cost_usd !== '' &&
             Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0;
           const providerCost = hasGenerationCost ? generationCost : hasVerifiedLogCost ? Number(row.total_cost_usd) : null;
-          const providerCostSource = providerCost !== null ? 'openrouter_generation_api' : null;
+          const providerCostSource = providerCost === null ? null
+            : hasGenerationCost ? 'openrouter_generation_api'
+              : row.provider_cost_source || 'openrouter_logs.total_cost_usd';
           const generationMs = generation?.generation_time_ms === null || generation?.generation_time_ms === undefined
             ? null : Number(generation.generation_time_ms);
           rows.push({
@@ -1091,7 +1092,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           item.output_tokens += Math.max(0, Number(row.output_tokens ?? row.completion_tokens) || 0);
           // Only generation-reconciled OpenRouter cost is verified provider spend.
           // usage_events.cost_usd is an application-side estimate without provenance.
-          const cost = source === 'usage_events' && row.cost_source === 'provider_reported' ? row.cost_usd : source === 'openrouter_logs' && row.provider_cost_source === 'openrouter_generation_api' ? row.total_cost_usd : null;
+          const cost = source === 'usage_events' && row.cost_source === 'provider_reported' ? row.cost_usd : source === 'openrouter_logs' && ['openrouter_generation_api', 'openrouter_logs.total_cost_usd'].includes(row.provider_cost_source) ? row.total_cost_usd : null;
           if (cost !== null && cost !== undefined && Number.isFinite(Number(cost)) && Number(cost) >= 0) {
             item.cost_usd += Number(cost); item.cost_known = true; item.cost_sources.add(source === 'usage_events' ? 'usage_events.provider_reported' : 'openrouter_generation_api');
           }

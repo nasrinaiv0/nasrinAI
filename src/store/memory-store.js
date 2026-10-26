@@ -210,10 +210,10 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       for (let i = messages.length - 1; i >= 0; i--) if (messages[i].conversation_id === id) messages.splice(i, 1);
     },
 
-    async addMessage({ conversationId, tenantId, role, content }) {
+    async addMessage({ conversationId, tenantId, role, content, responseMetadata = null }) {
       const c = conversations.get(conversationId);
       if (!c || c.tenant_id !== tenantId) throw new Error('foreign key violation');
-      const row = { id: randomUUID(), conversation_id: conversationId, tenant_id: tenantId, role, content, created_at: iso(), response_metadata: null, seq: messages.length };
+      const row = { id: randomUUID(), conversation_id: conversationId, tenant_id: tenantId, role, content, created_at: iso(), response_metadata: responseMetadata && typeof responseMetadata === 'object' ? structuredClone(responseMetadata) : null, seq: messages.length };
       messages.push(row);
       c.updated_at = row.created_at;
       return mapMessage(row);
