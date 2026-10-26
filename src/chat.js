@@ -140,13 +140,16 @@ const safeModelErrorCode = (kind) => ({
 export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
-    const estimate = estimateProviderRequestCost({
+    const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
+      && Number.isFinite(Number(safe.outputTokens)) && safe.outputTokens !== undefined;
+    const billableOutcome = ['ok', 'success', 'succeeded', 'complete', 'completed', 'rejected_output'].includes(String(safe.outcome || '').toLowerCase());
+    const estimate = hasTokenCounts && billableOutcome ? estimateProviderRequestCost({
       provider: safe.provider,
       model: safe.model,
       inputTokens: safe.inputTokens,
       cachedTokens: safe.cachedTokens,
       outputTokens: safe.outputTokens
-    });
+    }) : null;
     if (estimate !== null) {
       safe.estimatedCostUsd = estimate;
       safe.estimatedCostSource = 'pricing_registry_v1_standard_list_price';
@@ -724,7 +727,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                   onFailure: (f) => recordUsage(caller, {
                     provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
                     inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
-                    outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd,
+                    outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd, costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null,
                     costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null,
                     reservationId: f.reservationId, spendReservationId: f.spendReservationId
                   })
@@ -871,7 +874,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
         inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
         latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output',
-        task: plan.task, level: run.level, costUsd: run.costUsd, escalated: run.escalated,
+        task: plan.task, level: run.level, costUsd: run.costUsd, costSource: Number.isFinite(run.costUsd) ? 'provider_reported' : null, escalated: run.escalated,
         endpoint: '/v1/chat', httpMethod: 'POST', httpStatus: 200,
         providerRequestId: run.result.providerRequestId, finishReason: run.result.finishReason,
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
