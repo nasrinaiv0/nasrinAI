@@ -205,7 +205,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             const ai = paidQuickCostOrder.indexOf(a.model); const bi = paidQuickCostOrder.indexOf(b.model);
             return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
           });
-          const ordered = r.quickNemotronOnly && freeQuick
+          const ordered = strictQuickFree
             ? [
                 ...openRouterFreeCandidates,
                 ...directFreeCandidates
@@ -214,7 +214,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               ? paidQuickCandidates
               : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = r.quickNemotronOnly && freeQuick
+          const otherCandidates = strictQuickFree
             ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
             : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
@@ -222,7 +222,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // this point. Within that permitted level, configured OpenRouter models
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
-          if (r.quickNemotronOnly && freeQuick) {
+          if (strictQuickFree) {
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
             candidates.push(...otherCandidates);
             if (heavyQuickTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
