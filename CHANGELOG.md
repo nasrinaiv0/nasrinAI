@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
+- Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
+
 - Persist sanitized reply timing and token-usage metadata on assistant messages in Supabase; conversation history and the reply details panel now use saved metadata instead of estimating historical token counts from text. Replies without stored metadata show "Not reported".
 
 ## Quick free/paid routing correction — 2026-10-26
