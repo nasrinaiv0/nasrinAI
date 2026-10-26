@@ -2385,6 +2385,12 @@
   let projectsOn = false;  // the server offers Projects (signed-in people)
   let chatProject = null;  // { id, name }: the project the open chat belongs to (or a new chat will)
   let imageMode = false;
+  // Short-lived, in-memory location consent for one subsequent user turn only.
+  // Never write these coordinates to browser storage or the visible message.
+  let pendingDeviceLocation = null;
+  let locationExpiryTimer = null;
+
+
 
   function closePlus() {
     if (plusMenu.hidden) return;
@@ -2398,6 +2404,58 @@
     attachBtn.setAttribute('aria-expanded', 'true');
     $('pickFiles').focus();
   });
+  const locationBtn = $('locationBtn');
+  locationBtn?.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      notice.textContent = 'This browser does not support device location. You can still type a city, address, or landmark.';
+      return;
+    }
+    if (!window.isSecureContext) {
+      notice.textContent = 'Device location requires HTTPS. You can still type a city, address, or landmark.';
+      return;
+    }
+    locationBtn.disabled = true;
+    notice.textContent = 'Requesting your device location. Your browser may ask for permission.';
+    // Call directly from this click handler so iOS Safari can present its permission prompt.
+    navigator.geolocation.getCurrentPosition((position) => {
+      if (locationExpiryTimer !== null) clearTimeout(locationExpiryTimer);
+      pendingDeviceLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+        expiresAt: Date.now() + 5 * 60 * 1000
+      };
+      locationBtn.disabled = false;
+      locationBtn.setAttribute('aria-pressed', 'true');
+      locationBtn.title = 'Location ready for your next message';
+      notice.textContent = 'Location ready for your next message. It will be used once and is not saved to your chat.';
+      locationExpiryTimer = setTimeout(() => {
+        pendingDeviceLocation = null;
+        locationBtn?.setAttribute('aria-pressed', 'false');
+        if (locationBtn) locationBtn.title = 'Use device location';
+        locationExpiryTimer = null;
+      }, 5 * 60 * 1000);
+    }, (error) => {
+      locationBtn.disabled = false;
+      notice.textContent = error.code === 1
+        ? 'Location permission was denied. Allow location in your browser settings, or enter a city, address, or landmark.'
+        : error.code === 3
+          ? 'Location took too long. Try again, or enter a city, address, or landmark.'
+          : 'Could not determine your device location. Check your device settings or enter a location manually.';
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  });
+  $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
+  $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
+  $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
+  document.addEventListener('pointerdown', (e) => { if (!plusMenu.hidden && !$('plusWrap').contains(e.target)) closePlus(); });
+  plusMenu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closePlus(); attachBtn.focus(); } });
+
+  $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
+  $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
+  $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
+  document.addEventListener('pointerdown', (e) => { if (!plusMenu.hidden && !$('plusWrap').contains(e.target)) closePlus(); });
+  plusMenu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closePlus(); attachBtn.focus(); } });
+
   $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
   $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
   $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
@@ -3392,6 +3450,20 @@
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
   async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+    if (pendingDeviceLocation) {
+      if (pendingDeviceLocation.expiresAt > Date.now() && !regenerate && !files.length) {
+        locationContext = {
+          latitude: pendingDeviceLocation.latitude,
+          longitude: pendingDeviceLocation.longitude,
+          accuracy: pendingDeviceLocation.accuracy
+        };
+      }
+      pendingDeviceLocation = null;
+      if (locationExpiryTimer !== null) clearTimeout(locationExpiryTimer);
+      locationExpiryTimer = null;
+      locationBtn?.setAttribute('aria-pressed', 'false');
+      if (locationBtn) locationBtn.title = 'Use device location';
+    }
     const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
     if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
       // Lock the composer before awaiting consent so a second submit cannot
