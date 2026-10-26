@@ -134,7 +134,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
   assert.equal(a.gemini.calls.length, 0);
 
   const heavyMessage = 'Analyze the architecture and debug this complex production failure';
-  const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
+  const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key', GEMINI_API_KEY: 'gemini-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: heavyMessage }), req(heavyMessage)), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
   assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'OpenRouter candidates remain free-only except the authorized heavy-task Luna fallback');
@@ -145,6 +145,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
   const overridden = setup({
     env: {
       OPENROUTER_API_KEY: 'or-test-key',
+      GEMINI_API_KEY: 'gemini-test-key',
       ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-pro,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:openai/gpt-6-luna,openrouter:deepseek/deepseek-v4.1-flash'
     },
     reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); }
