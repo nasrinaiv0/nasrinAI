@@ -360,3 +360,15 @@ test('browser TTS supports multilingual language selection and matching installe
   assert.match(src, /window\.speechSynthesis\.getVoices\(\)/);
   assert.doesNotMatch(src, /return mine\.concat\(english\).*slice\(0, 6\)/);
 });
+
+test('chat map reply cards use a compact two-column layout and rectangular responsive canvas', async () => {
+  const fs = await import('node:fs/promises');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  const block = css.slice(css.lastIndexOf('/* Compact premium map cards inside chat replies. */'));
+  assert.match(block, /grid-template-columns: minmax\(112px, 34%\) minmax\(0, 1fr\)/);
+  assert.match(block, /grid-template-columns: 104px minmax\(0, 1fr\)/);
+  assert.match(block, /height: 184px/);
+  assert.match(block, /height: 168px/);
+  assert.match(block, /border-radius: 0/);
+  assert.match(block, /overflow-wrap: anywhere/);
+});
