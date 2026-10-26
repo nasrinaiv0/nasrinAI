@@ -1,3 +1,47 @@
+## Unreleased
+
+- Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
+- Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
+
+- Route Quick Free image generation through the paid, low-cost OpenRouter image lane (`openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` fallback) when OpenRouter is configured, without changing Quick Free text-chat eligibility. Add regression coverage and document route overrides.
+
+- Enforce Quick Free's free-model-only policy independently of provider-presence flags, and prevent paid Quick from falling back to free OpenRouter models. Add regression coverage for the legacy flag-off case.
+
+- Persist sanitized reply timing and token-usage metadata on assistant messages in Supabase; conversation history and the reply details panel now use saved metadata instead of estimating historical token counts from text. Replies without stored metadata show "Not reported".
+
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
+- Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
+## OpenRouter generation ID and cost reconciliation fix — 2026-10-26
+
+- Capture the `gen-*` generation ID from OpenRouter response JSON independently of the HTTP request ID, and persist it to `openrouter_logs.openrouter_generation_id`.
+- Discover sync candidates from paginated Supabase request logs, including valid legacy `gen-*` IDs, instead of depending on Analytics generation-ID discovery.
+- Fetch authoritative per-generation cost, token counts, finish reason, latency, and generation time with the NasrinAI inference key; upsert only selected metadata and never store prompts or completions.
+- Add regression tests covering request-ID separation, log persistence, log-based discovery, provider metric mapping, and authorization errors.
+
+## OpenRouter generation discovery sync — 2026-10-26
+
+- Add a protected Vercel cron that discovers generation IDs via OpenRouter Analytics using the Management key, fetches generation metadata with the separate inference key, and idempotently upserts selected fields into private Supabase storage.
+- Add migration 072 for provider-discovered generation records with RLS enabled and no public/anon/authenticated access. Do not store raw provider responses, prompts, or completions.
+- Include imported generation records in Owner AI Logs without duplicating generations already represented by local request telemetry; preserve provider-reported cost provenance.
+- Add regression coverage for credential separation, sync persistence, and Owner AI Logs rendering.
+
+## Owner Command Center model inventory refresh — 2026-10-26
+
+- Replace inferred model membership with explicit OpenRouter and direct OpenAI, Google, and Anthropic inventories supplied for the Owner Command Center.
+- Preserve exact IDs, including the 51 supplied OpenRouter entries (49 unique IDs because two entries were repeated) and 14 direct-provider entries.
+- Classify recorded telemetry against the appropriate provider inventory only; unknown providers/aliases remain unknown. Catalog membership does not imply model readiness or fabricate activity/costs.
+- Add regression coverage for inventory counts and direct-provider AI Logs classification.
+
+## Rich reply rendering polish — 2026-10-26
+
+- Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
+- Render Markdown task lists as accessible, non-interactive completion indicators.
+- Refine long-answer paragraph rhythm and mobile table/code-block spacing while preserving safe DOM-only rendering.
+
 ## OpenRouter generation-log reconciliation correction — 2026-10-26
 
 - Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; require same-origin JSON requests and retain the owner session, email/IP allowlist, rate-limit and explicit confirmation controls.

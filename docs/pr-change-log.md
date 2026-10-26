@@ -1,3 +1,51 @@
+## Owner cost and reply usage telemetry follow-up — 2026-10-26
+
+- Use valid stored `openrouter_logs.total_cost_usd` values for Owner AI Logs and Finance even when legacy rows have no provenance marker; new telemetry writes identify this source and migration 074 backfills existing populated rows.
+- Persist response metadata in the same insert as the assistant message so saved conversation history receives token usage/timing metadata atomically.
+- Keep estimates explicitly labeled; never misrepresent estimated token counts as provider-reported usage.
+
+## PR #639 — Persist real token usage for reply details (2026-10-26)
+
+- Store sanitized response metadata, including provider-reported input/output tokens and request duration, on the exact assistant message in Supabase.
+- Return saved metadata in conversation history so the reply details panel remains accurate after refresh.
+- Remove text-length token estimates for historical replies; missing persisted metadata displays "Not reported" rather than a guessed value.
+- Add migration 073 and regression coverage for persisted metadata.
+
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
+- Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
+## OpenRouter generation ID and cost reconciliation fix — 2026-10-26
+
+- Keep OpenRouter's HTTP `x-request-id` separate from the response body's `gen-*` generation ID and persist both to their respective telemetry columns.
+- Discover generation IDs from paginated Supabase request logs and use the NasrinAI inference key to retrieve authoritative per-generation cost, tokens, finish reason, latency, and generation time.
+- Upsert only selected provider metadata; never persist raw prompts or completions.
+- Add regression tests for request-ID separation, generation-ID persistence, log-based sync, metrics mapping, and authorization failure handling.
+- **Validation:** GitHub Actions CI is running. No merge or production deployment has been performed.
+
+## OpenRouter generation discovery sync — 2026-10-26
+
+- Port the supplied sync template into a protected 15-minute Vercel cron: Management API analytics discovers generation IDs; the separate inference key retrieves per-generation details; Supabase upserts records idempotently by generation ID.
+- Persist selected provider-reported fields in a dedicated RLS-protected `openrouter_generations` table, not synthetic request rows. Do not store raw provider payloads, prompts, completions, or uploaded content.
+- Include discovered generation records in Owner AI Logs only when no corresponding local OpenRouter request row is present, with explicit telemetry-source labeling and provider-reported cost provenance.
+- Add regression tests for key separation, generation-ID deduplication, private metadata persistence, and Owner AI Logs inclusion.
+- **Validation:** CI is required; migration 072 must be applied and server-only Vercel secrets verified before live data can be confirmed.
+
+## Owner Command Center provider-specific model inventory — 2026-10-26
+
+- Replace model-membership inference with explicit inventories for the 51 supplied OpenRouter entries (49 unique IDs; two IDs were repeated in the source list) and the 14 direct-provider models across OpenAI, Google, and Anthropic.
+- Classify OpenRouter request logs against the OpenRouter inventory and direct-provider usage events against the corresponding provider inventory. Unknown provider aliases remain unknown.
+- Keep catalog membership separate from runtime readiness; do not synthesize activity records or estimate provider costs.
+- Add regression tests for the inventory counts and direct-provider AI Logs classification. Validation remains pending until CI completes.
+
+## Rich reply rendering polish — 2026-10-26
+
+- Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
+- Render Markdown task lists as accessible, non-interactive completion indicators.
+- Refine long-answer paragraph rhythm and mobile table/code-block spacing while preserving safe DOM-only rendering.
+
 ## OpenRouter generation-log reconciliation correction — 2026-10-26
 
 - Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; require same-origin JSON requests and retain the owner session, email/IP allowlist, rate-limit and explicit confirmation controls.
@@ -2649,3 +2697,21 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added `docs/audits/merged-pr-reliability-audit-1-630-2026-10-26.md` to document the audit scope, baseline, preliminary historical failures, follow-up PRs, acceptance criteria, and required verification workflow.
 - Initial investigation targets include session validation (#620/#622), structured UI rendering (#584/#585), image routing (#559/#560), OpenRouter discovery (#570), Owner Console review queue (#563), Video Studio (#468), chat sources (#379), site-wide interactions (#375), and recent provider/telemetry changes (#627/#629/#630).
 - This is a preliminary audit record, not a claim that all PRs #1–#630 have been reviewed or that listed functionality has been verified. Each target must be checked against current main; corrective changes require regression tests and focused PRs.
+## PR #641 — Fix Quick Free and Paid model routing — 2026-10-26
+
+- Enforce free Quick's model allowlist independently of the legacy provider-presence flag: only explicitly free OpenRouter models, configured free-provider models, and the authorized GPT-6 Luna fallback for heavy tasks are eligible.
+- Ensure paid Quick only attempts non-free OpenRouter models and never routes to free endpoints or the special free-tier fallback.
+- Add regression coverage for the legacy flag-off case. CI must pass before merge; production behavior remains unverified until both modes are exercised against the deployed service.
+
+
+## PR #641 follow-up — Quick Free paid image generation — 2026-10-26
+
+- Keep Quick Free text chat on the existing free-model-only policy.
+- When OpenRouter is configured, route tier-1 image generation to the paid OpenRouter Images API using `openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` as the paid fallback.
+- Preserve existing tier ceilings, per-user/image quotas, provider cost telemetry and explicit per-tier environment overrides. When OpenRouter is not configured, retain the existing configured image-provider behavior.
+- Add a regression test for the tier-1 route and fallback. CI must pass before merge; live provider generation still requires production verification.
+
+## PR #642 follow-up — Guest and Quick Free catalog routing — 2026-10-26
+- Restrict Guest and Quick Free OpenRouter chat eligibility to the configured NasrinAI catalog of chat-capable free models.
+- Add configured Nemotron and Gemma free chat candidates to Quick Free defaults while keeping paid Quick and higher tiers separate.
+- Correct policy module import ordering so test modules can load; CI must confirm the fix.

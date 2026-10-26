@@ -489,7 +489,7 @@
             cell(tr,item.latency_ms===null || item.latency_ms===undefined ? '—' : num(item.latency_ms)+' ms');
             cell(tr,cost);
             cell(tr,discoveryRequest ? notApplicable : item.finish_reason || finish);
-            cell(tr,discoveryRequest ? notApplicable : item.provider_cost_source === 'openrouter_generation_api' && item.total_cost_usd != null ? 'OpenRouter generation API' : item.provider_cost_source === 'usage_events.provider_reported' && item.total_cost_usd != null ? 'Provider-reported usage' : 'Unavailable');
+            cell(tr,discoveryRequest ? notApplicable : item.provider_cost_source === 'openrouter_generation_api' && item.total_cost_usd != null ? 'OpenRouter generation API' : item.provider_cost_source === 'openrouter_logs.total_cost_usd' && item.total_cost_usd != null ? 'Supabase total_cost_usd' : item.provider_cost_source === 'usage_events.provider_reported' && item.total_cost_usd != null ? 'Provider-reported usage' : 'Unavailable');
             const requestId=String(item.provider_request_id || item.openrouter_generation_id || item.request_id || item.id || '—');
             const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
             tbody.append(tr);

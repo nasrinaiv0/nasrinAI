@@ -16,12 +16,13 @@ test('runs in Singapore', () => {
   assert.deepEqual(config.regions, ['sin1']);
 });
 
-test('retention stays hourly, the web crawler runs every five minutes, and render jobs are polled every minute', () => {
+test('retention, crawler, render, owner-alert, and OpenRouter generation sync cron schedules are preserved', () => {
   assert.deepEqual(config.crons, [
     { path: '/v1/internal/retention', schedule: '0 * * * *' },
     { path: '/v1/internal/web-crawl', schedule: '*/5 * * * *' },
     { path: '/v1/internal/video-studio-render', schedule: '* * * * *' },
-    { path: '/v1/internal/owner-alerts', schedule: '*/5 * * * *' }
+    { path: '/v1/internal/owner-alerts', schedule: '*/5 * * * *' },
+    { path: '/v1/internal/openrouter-generation-sync', schedule: '*/15 * * * *' }
   ]);
 });
 
@@ -48,6 +49,14 @@ test('Studio root redirects only on the Studio hostname', () => {
   assert.equal(studioRedirect.permanent, false, 'use a temporary redirect while validating routing');
   assert.equal(config.redirects.some((r) => r.source === '/' && r.destination === 'https://nasrinai.com/video-studio.html' && !r.has), false,
     'do not redirect the main site root to Video Studio');
+});
+
+test('OpenRouter generation cron is rewritten to its protected server handler before the generic v1 rewrite', () => {
+  const specific = config.rewrites.findIndex((item) => item.source === '/v1/internal/openrouter-generation-sync');
+  const generic = config.rewrites.findIndex((item) => item.source === '/v1/:path*');
+  assert.ok(specific >= 0 && specific < generic);
+  assert.equal(config.rewrites[specific].destination, '/api/internal-openrouter-generation-sync');
+  assert.equal(config.functions['api/internal-openrouter-generation-sync.js'].maxDuration, 120);
 });
 
 test('API and protected owner paths are sent to the function, with the original path passed along', () => {
