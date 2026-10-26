@@ -1,3 +1,11 @@
+## Cerebras and Cloudflare cost reporting — 2026-10-26
+
+- Add versioned per-request list-price estimates for selected Cerebras Developer-tier and Cloudflare Workers AI models; unknown model IDs remain unavailable.
+- Extend the owner-only provider billing report with Cloudflare's Billable Usage API using `ContractedCost` and `BillingCurrency` from the account-level response.
+- Add server-only `CLOUDFLARE_BILLING_API_TOKEN` configuration and expose Cloudflare account spend in OCC Finance. Cloudflare billing is daily, account-level, and not attributed to individual AI requests.
+- Report Cerebras actual billing as unavailable rather than estimating an invoice; Cerebras request-level estimates remain separate.
+- Add regression tests and setup documentation. No database migration is required.
+
 ## Direct-provider cost reconciliation and estimates — 2026-10-26
 
 - Add owner-only OpenAI and Anthropic organization billing reports with explicit aggregate reconciliation boundaries and bounded pagination.
