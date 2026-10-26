@@ -87,3 +87,8 @@ The iart video/ad/kinetic packs refer to scripts under each repository's root `s
 ### Initial pilot narrowed
 
 To avoid unbounded review scope, the **proposed initial pilot** is limited to five provider-independent, instruction-only packages from Generative Media Skills: storyboard-previsualization, explainer-video-production, social-short-production, editing-montage, and media-provenance-rights. This is still a proposal, not owner approval. Generated-media-qa and ffmpeg-media-finishing remain conditional for a later phase because their helper tests were not run. Higgsfield, Comfy Cloud, Remotion-based iart packs, talking-head/voice, and other provider-dependent tools are not part of the initial pilot.
+
+
+## Initial-pilot content boundary confirmation
+
+GitHub code search at the pinned Generative Media Skills revision returned only each candidate's `SKILL.md`, `EVAL.md`, and the shared `SKILL_INDEX.md` for the five initial candidates. No per-candidate `scripts/`, `references/`, or `assets/` paths surfaced for these exact five folders in the inspected search results. This is a scoped search result, not a guarantee against unindexed files; verify the exact recursive tree again when staging files. Do not copy `EVAL.md`; it contains scoring rubrics/critical failures and is explicitly repository-only.
