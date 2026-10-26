@@ -2763,3 +2763,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep those direct providers out of generic automatic failover and paid-tier model candidates; retain OpenRouter's separate free-model pool.
 - Add regression coverage proving the exact allowlist and isolation from paid tiers.
 - CI and production verification are required before merge/deployment; provider credentials and current free-tier eligibility must be configured and verified separately.
+
+
+## PR #654 — Premium responsive map widget layout — 2026-10-27
+- Fix embedded Google Maps cards that render unevenly in chat by enforcing a full-width card/header and a bounded, responsive iframe canvas.
+- Polish mobile spacing, rounded corners, action-button states, and keyboard-visible focus styling without changing map URL construction or provider behavior.
+- Add a regression test for full-width layout, iframe positioning, the mobile breakpoint, and focus styling. CI must pass before merge.
