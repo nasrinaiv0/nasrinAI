@@ -2691,3 +2691,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Enforce free Quick's model allowlist independently of the legacy provider-presence flag: only explicitly free OpenRouter models, configured free-provider models, and the authorized GPT-6 Luna fallback for heavy tasks are eligible.
 - Ensure paid Quick only attempts non-free OpenRouter models and never routes to free endpoints or the special free-tier fallback.
 - Add regression coverage for the legacy flag-off case. CI must pass before merge; production behavior remains unverified until both modes are exercised against the deployed service.
+
+
+## PR #641 follow-up — Quick Free paid image generation — 2026-10-26
+
+- Keep Quick Free text chat on the existing free-model-only policy.
+- When OpenRouter is configured, route tier-1 image generation to the paid OpenRouter Images API using `openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` as the paid fallback.
+- Preserve existing tier ceilings, per-user/image quotas, provider cost telemetry and explicit per-tier environment overrides. When OpenRouter is not configured, retain the existing configured image-provider behavior.
+- Add a regression test for the tier-1 route and fallback. CI must pass before merge; live provider generation still requires production verification.
