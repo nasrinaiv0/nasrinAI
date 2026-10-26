@@ -444,7 +444,7 @@
         loading=true; refresh.disabled=true; previous.disabled=offset===0; next.disabled=true;
         statusLine.textContent='Loading request history…';
         try {
-          const params=new URLSearchParams({window:windowSelect.value,provider:providerSelect.value,scope:'listed',limit:'50',offset:String(offset)});
+          const params=new URLSearchParams({window:windowSelect.value,provider:providerSelect.value,scope:'all',limit:'50',offset:String(offset)});
           if (statusSelect.value) params.set('status',statusSelect.value);
           if (modelInput.value.trim()) params.set('model',modelInput.value.trim());
           if (endpointSelect.value) params.set('endpoint',endpointSelect.value);
