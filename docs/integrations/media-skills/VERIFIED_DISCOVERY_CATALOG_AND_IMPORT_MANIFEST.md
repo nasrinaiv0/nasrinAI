@@ -164,3 +164,338 @@ Inspected each `SKILL.md` at source commit `f83af0bc1d937c8119099a11f8ebbf5e6fb9
 - Keep this pack's skills separate from the NasrinAI provider adapter. A skill may express intent/workflow, but NasrinAI's server-side router must independently enforce authentication, plan limits, consent, cost ceiling, safety, allowed model/provider, timeout and audit logging.
 - The source version above reports skill version `0.13.0` in frontmatter. Re-check the pinned source before importing and preserve attribution/license files.
 
+
+
+## 10. Complete inventory: Generative Media Skills (tree-enumerated)
+
+**Inventory snapshot:** 153 `SKILL.md` entrypoints enumerated from the recursive Git tree at `main` on 2026-10-27. The upstream index also reports 153 integrated skill packages. Tree listing is complete (`truncated=false`). This is an entrypoint inventory, not a full security review of each skill's supporting files.
+
+Source: https://github.com/calesthio/generative-media-skills  
+Index: https://github.com/calesthio/generative-media-skills/blob/main/SKILL_INDEX.md
+
+### production/3d-craft (2)
+
+- `3d-asset-production`
+- `neural-reality-capture`
+
+### production/audio-craft (7)
+
+- `audio-mixing-mastering`
+- `captions-media-accessibility`
+- `dialogue-editing-adr`
+- `localization-dubbing-production`
+- `music-supervision-scoring`
+- `sound-design-foley`
+- `video-to-audio-foley`
+
+### production/content-formats (23)
+
+- `anime-animation-production`
+- `audiobook-production`
+- `avatar-spokesperson-production`
+- `brand-launch-film-production`
+- `cinematic-trailer-production`
+- `documentary-montage-production`
+- `ecommerce-product-imagery`
+- `educational-animation-production`
+- `explainer-video-production`
+- `fashion-campaign-production`
+- `food-beverage-content-production`
+- `game-trailer-production`
+- `immersive-spatial-video-production`
+- `livestream-event-production`
+- `music-video-production`
+- `podcast-production`
+- `product-ad-production`
+- `real-estate-content-production`
+- `saas-product-demo-production`
+- `screen-demo-production`
+- `social-short-production`
+- `talking-head-podcast-recut`
+- `ugc-ad-production`
+
+### production/creative-direction (9)
+
+- `2d-character-rig-animation`
+- `character-design-continuity`
+- `cinematic-shot-direction`
+- `lighting-direction`
+- `performance-direction`
+- `precise-video-description`
+- `production-design-direction`
+- `storyboard-previsualization`
+- `visual-style-direction`
+
+### production/governance-delivery (6)
+
+- `asset-continuity-management`
+- `generated-media-qa`
+- `media-provenance-rights`
+- `media-qc-delivery`
+- `reference-media-analysis`
+- `video-description-oversight`
+
+### production/post-production (6)
+
+- `color-grading-finishing`
+- `editing-montage`
+- `motion-graphics-direction`
+- `still-image-retouching-finishing`
+- `title-kinetic-typography`
+- `vfx-compositing`
+
+### production/runtime-assembly (12)
+
+- `audio-reactive-video-composition`
+- `comfyui-media-workflows`
+- `d3-animated-data-visualization`
+- `ffmpeg-media-finishing`
+- `gsap-animation-composition`
+- `hyperframes-video-composition`
+- `lottie-animation-delivery`
+- `manim-explainer-animation`
+- `procedural-canvas-animation`
+- `remotion-video-composition`
+- `threejs-scene-composition`
+- `virtual-production-icvfx`
+
+### providers/3d-generation (3)
+
+- `meshy-3d`
+- `tencent-hunyuan3d`
+- `tripo-3d`
+
+### providers/audio-enhancement (1)
+
+- `nvidia-maxine-audio-effects`
+
+### providers/avatar-video (5)
+
+- `d-id-avatar-video`
+- `hedra-character-video`
+- `heygen-avatar-video`
+- `synthesia-avatar-video`
+- `tavus-replica-video`
+
+### providers/image-generation (18)
+
+- `adobe-firefly-image`
+- `alibaba-image-models`
+- `amazon-nova-canvas`
+- `black-forest-labs-flux`
+- `bria-fibo-image`
+- `bytedance-seedream`
+- `google-gemini-image`
+- `ideogram-image`
+- `image-generation-gateways`
+- `kling-kolors-image`
+- `leonardo-image`
+- `luma-photon`
+- `midjourney-image`
+- `openai-gpt-image`
+- `recraft-image-design`
+- `runway-image`
+- `stability-ai-image`
+- `xai-grok-imagine-image`
+
+### providers/image-understanding (2)
+
+- `amazon-rekognition`
+- `google-cloud-vision`
+
+### providers/lip-sync (2)
+
+- `kling-advanced-lip-sync`
+- `sync-labs-lipsync`
+
+### providers/motion-capture (2)
+
+- `deepmotion-animate-3d`
+- `move-ai-motion-capture`
+
+### providers/music-generation (5)
+
+- `ace-step`
+- `elevenlabs-music`
+- `google-lyria`
+- `minimax-music`
+- `suno-music`
+
+### providers/sound-generation (2)
+
+- `elevenlabs-sound-effects`
+- `stable-audio`
+
+### providers/source-separation (1)
+
+- `audioshake-stem-separation`
+
+### providers/speech-and-voice (6)
+
+- `azure-speech`
+- `deepgram-speech`
+- `elevenlabs-dubbing-voice-conversion`
+- `google-cloud-speech`
+- `nvidia-speech-nim`
+- `openai-audio`
+
+### providers/speech-to-text (3)
+
+- `amazon-transcribe`
+- `assemblyai-transcription`
+- `elevenlabs-scribe`
+
+### providers/text-to-speech (11)
+
+- `amazon-polly`
+- `byteplus-seed-speech-tts`
+- `cartesia-sonic`
+- `elevenlabs-tts`
+- `fish-audio-tts`
+- `hume-octave`
+- `kokoro-tts`
+- `minimax-speech`
+- `qwen3-tts`
+- `resemble-chatterbox`
+- `volcengine-doubao-speech-tts`
+
+### providers/video-enhancement (1)
+
+- `topaz-video-enhancement`
+
+### providers/video-generation (19)
+
+- `alibaba-wan-video`
+- `amazon-nova-reel`
+- `google-gemini-omni-video`
+- `google-veo`
+- `higgsfield-video`
+- `kling-video`
+- `ltx-2-video`
+- `luma-ray-video`
+- `midjourney-video`
+- `minimax-hailuo-video`
+- `moonvalley-marey`
+- `nvidia-cosmos-video`
+- `pika-video`
+- `runway-video`
+- `seedance-2-0`
+- `tencent-hunyuanvideo`
+- `video-generation-gateways`
+- `vidu-video`
+- `xai-grok-imagine-video`
+
+### providers/video-understanding (1)
+
+- `twelvelabs-video-understanding`
+
+### providers/voice-agents (4)
+
+- `elevenlabs-agents`
+- `gemini-live-audio`
+- `hume-evi`
+- `openai-realtime-voice`
+
+### providers/world-models (2)
+
+- `odyssey-interactive-video`
+- `world-labs-marble`
+
+### First-pass priority audit set
+
+Start with provider-independent capabilities and video workflow skills that can benefit multiple NasrinAI plans, then audit provider-specific skills separately:
+
+**Production workflow and QA**
+- `production/content-formats/explainer-video-production`
+- `production/content-formats/social-short-production`
+- `production/content-formats/talking-head-podcast-recut`
+- `production/content-formats/ugc-ad-production`
+- `production/content-formats/brand-launch-film-production`
+- `production/content-formats/documentary-montage-production`
+- `production/creative-direction/storyboard-previsualization`
+- `production/creative-direction/character-design-continuity`
+- `production/creative-direction/cinematic-shot-direction`
+- `production/creative-direction/precise-video-description`
+- `production/post-production/editing-montage`
+- `production/post-production/color-grading-finishing`
+- `production/post-production/motion-graphics-direction`
+- `production/post-production/title-kinetic-typography`
+- `production/governance-delivery/generated-media-qa`
+- `production/governance-delivery/media-provenance-rights`
+- `production/governance-delivery/media-qc-delivery`
+- `production/governance-delivery/asset-continuity-management`
+- `production/runtime-assembly/ffmpeg-media-finishing`
+- `production/runtime-assembly/remotion-video-composition`
+- `production/runtime-assembly/comfyui-media-workflows`
+- `production/runtime-assembly/hyperframes-video-composition`
+
+**Video generation provider skills (separate cost/legal/API review required)**
+- `providers/video-generation/higgsfield-video`
+- `providers/video-generation/google-veo`
+- `providers/video-generation/seedance-2-0`
+- `providers/video-generation/runway-video`
+- `providers/video-generation/kling-video`
+- `providers/video-generation/ltx-2-video`
+- `providers/video-generation/alibaba-wan-video`
+- `providers/video-generation/tencent-hunyuanvideo`
+- `providers/video-generation/video-generation-gateways`
+
+**Audio, captions and narration**
+- `production/audio-craft/captions-media-accessibility`
+- `production/audio-craft/dialogue-editing-adr`
+- `production/audio-craft/localization-dubbing-production`
+- `production/audio-craft/sound-design-foley`
+- `providers/speech-to-text/assemblyai-transcription`
+- `providers/text-to-speech/elevenlabs-tts`
+- `providers/text-to-speech/kokoro-tts`
+- `providers/music-generation/elevenlabs-music`
+- `providers/sound-generation/elevenlabs-sound-effects`
+
+**Review criteria per skill:** source evidence and last-verified date; claims/pricing freshness; external provider and account requirements; free-tier vs paid classification; scripts and transitive dependencies; outbound endpoints and permissions; sensitive data/consent; output rights; overlap with existing NasrinAI capabilities; testable acceptance criteria. No skill is approved for import based on its name alone.
+
+## 11. Motion Skills collection — complete pack inventory
+
+The inspected `iart-ai/motion-skills` README currently advertises **55 skills across 18 installable packs** and MIT licensing. This repository is an index/installer surface; its root tree contains a `tools/` directory but no root-level `SKILL.md` entries, because the packs are separate repositories. Therefore, per-skill source SHAs and file-level license/security review must be done against each selected pack repository before importing.
+
+Source: https://github.com/iart-ai/motion-skills
+
+| Pack | Advertised skills | Recommended review priority |
+|---|---:|---|
+| `tiktok-video-skills` | 4 | High |
+| `text-message-video-skills` | 1 | Medium |
+| `youtube-video-skills` | 2 | High |
+| `ecommerce-video-skills` | 3 | High |
+| `ad-video-skills` | 3 | High |
+| `data-animation-skills` | 3 | Medium |
+| `explainer-video-skills` | 5 | High |
+| `map-animation-skills` | 1 | Low |
+| `web-animation-skills` | 9 | Low for Video Studio; useful for web UI |
+| `motion-design-skills` | 9 | High |
+| `kinetic-typography-skills` | 1 | High |
+| `freelance-motion-skills` | 5 | Medium |
+| `webgl-animation-skills` | 3 | Low/advanced |
+| `manim-skills` | 1 | Medium/education |
+| `generative-illustration-skills` | 1 | Medium |
+| `javascript-animation-skills` | 2 | Medium |
+| `lower-thirds-skills` | 1 | High |
+| `b-roll-skills` | 1 | High |
+
+Recommended order: short-form, explainers, motion design, kinetic typography, e-commerce/ad video, lower thirds and B-roll first; advanced WebGL/Manim/web animation later. Do not infer the contents of a pack solely from its name; inspect each pack's actual tree and license.
+
+## 12. Comfy Skills — current tree inventory
+
+Source: https://github.com/Comfy-Org/comfy-skills  
+Root license: MIT (verified in the previous pass). Recursive tree snapshot lists one entrypoint: `openclaw/comfy/SKILL.md`. This is a small, integration-oriented collection rather than a broad standalone catalog. Review its MCP/cloud auth requirements, network requests, workflow execution boundaries and current Comfy Cloud pricing before adopting it.
+
+## 13. Inventory completion status
+
+- [x] Enumerated all 153 `SKILL.md` entrypoints in Generative Media Skills from a non-truncated recursive tree.
+- [x] Grouped all 153 by source category and recorded exact source paths in this document.
+- [x] Recorded a priority audit shortlist spanning production, QA, assembly, video generation and audio.
+- [x] Recorded the 18-pack Motion Skills catalog and advertised skill counts.
+- [x] Confirmed the Comfy Skills repository currently exposes one `SKILL.md` entrypoint in the inspected recursive tree.
+- [ ] Inspect every candidate skill's full content, optional scripts, references, assets, dependencies and endpoints.
+- [ ] Verify each selected Motion Skills pack's repository URL, current commit, exact license and skill contents.
+- [ ] Finish provider pricing/free-tier verification and output-rights review.
+- [ ] Obtain explicit approval of the final import set before any third-party files are copied.
+
