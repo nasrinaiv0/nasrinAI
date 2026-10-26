@@ -28,6 +28,7 @@ test('capture requires current explicit consent and auto-approves screened examp
   assert.equal(store.improvementExamples[0].reviewerId, 'automated_safety_screen');
   assert.ok(store.improvementExamples[0].reviewedAt);
   assert.equal(store.improvementExamples[0].consentVersion, COMMUNITY_LEARNING_CONSENT_VERSION);
+  assert.equal(store.improvementExamples[0].expiresAt, null, 'authorized improvement examples have no routine expiry');
   assert.equal(await learning.capture({ caller: caller('guest', 'guest-session-2'), ...sample }), false);
 });
 
