@@ -596,3 +596,22 @@ The source and test files were inspected through the GitHub connector, but the e
 - Provider-specific skills remain guidance only until their facts and APIs are refreshed against official documentation and actual costs are verified.
 - No source files have been copied into NasrinAI; no production integration or database/configuration changes have been made.
 
+
+
+## 17. Documentation package status — 2026-10-27
+
+Added review documents on the same draft branch:
+- `SKILL_BY_SKILL_AUDIT.md` — candidate decisions and evidence requirements.
+- `LICENSE_AND_ATTRIBUTION.md` — source license register and per-file review standard.
+- `SECURITY_REVIEW.md` — threat model and required execution boundaries.
+- `FREE_VS_PAID_PROVIDER_MATRIX.md` — current official pricing/entitlement evidence and limitations.
+- `INTEGRATION_ARCHITECTURE.md` — proposed orchestrator/registry/worker/provider boundaries.
+- `DEPENDENCIES_AND_RUNTIME.md` — dependency inventory and sandbox baseline.
+- `PRIVACY_AND_CONTENT_HANDLING.md` — consent, retention, deletion and provenance requirements.
+- `TEST_PLAN_AND_ACCEPTANCE_CRITERIA.md` — candidate acceptance tests and release gates.
+- `COST_AND_QUOTA_CONTROLS.md` — budget, idempotency and cost reconciliation requirements.
+- `ROLLBACK_AND_MAINTENANCE.md` — disable, rollback and maintenance runbook.
+- `IMPLEMENTATION_AND_RELEASE_CHECKLIST.md` — evidence-based gate checklist.
+- `IMPORT_MANIFEST.json` — machine-readable proposed subset and per-candidate blockers.
+
+This documentation update does not resolve outstanding source review or test execution. Candidate source files, dependency trees and assets still need complete review; the upstream QA/FFmpeg tests have not been executed. The import manifest remains proposed, destinations remain pending, and owner approval is still required. No implementation, SQL, provider integration, secret, dependency, or deployment change is included.
