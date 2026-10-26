@@ -2771,3 +2771,5 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a regression test for full-width layout, iframe positioning, the mobile breakpoint, and focus styling. CI must pass before merge.
 
 - **PR #657 — Multilingual browser TTS:** Browser speech synthesis now sets a best-effort language from the text's writing system, selects a matching installed device voice in automatic mode, and lists all installed voices matching the preferred language. Latin-script speech follows the language preference or device language; no speech text is sent to an external service for browser TTS.
+
+- **Mobile polish — premium map and composer controls:** Constrain mobile toolbar buttons to consistent 44px controls, compact the composer, and make interactive map canvases full-width, responsive, and resistant to inherited layout styles.
