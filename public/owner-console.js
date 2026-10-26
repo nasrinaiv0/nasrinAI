@@ -475,7 +475,7 @@
       const tableWrap = el('div', 'provider-log-table-wrap');
       const table = el('table', 'provider-log-table');
       const thead = el('thead'), headerRow = el('tr');
-      ['Date','Model','Provider','Upstream provider','Endpoint','Status','Input tokens','Cached tokens','Output tokens','Speed (tok/s)','Routing overhead*','Time to finish','Total latency','Actual cost (USD)','Finish reason','Cost source','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
+      ['Date','Model','Provider','Upstream provider','Endpoint','Status','Input tokens','Cached tokens','Output tokens','Speed (tok/s)','Routing overhead*','Time to finish','Total latency','Cost (USD)','Finish reason','Cost source','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
       thead.append(headerRow);
       const tbody = el('tbody');
       table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
@@ -518,7 +518,10 @@
             const statusText=String(item.status || 'unknown').toUpperCase() + (item.http_status ? ' · HTTP '+item.http_status : '');
             const resp=item.response_summary && typeof item.response_summary==='object' ? item.response_summary : {};
             const finish=resp.finish_reason || resp.finishReason || resp.native_finish_reason || '—';
-            const cost=discoveryRequest ? 'N/A · catalog request' : item.cost_kind !== 'provider_reported' || item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
+            const cost=discoveryRequest ? 'N/A · catalog request'
+              : item.total_cost_usd===null || item.total_cost_usd===undefined || !Number.isFinite(Number(item.total_cost_usd)) ? 'Unknown'
+                : item.cost_kind === 'provider_reported' ? Number(item.total_cost_usd).toFixed(6)
+                  : item.cost_kind === 'estimated' ? '~' + Number(item.total_cost_usd).toFixed(6) + ' (est.)' : 'Unknown';
             const generationSeconds = item.generation_time_seconds===null || item.generation_time_seconds===undefined ? null : Number(item.generation_time_seconds);
             const outputTokens = item.completion_tokens===null || item.completion_tokens===undefined ? null : Number(item.completion_tokens);
             const speed = generationSeconds > 0 && Number.isFinite(outputTokens) ? (outputTokens / generationSeconds).toFixed(2) : '—';
@@ -541,7 +544,12 @@
             cell(tr,item.latency_ms===null || item.latency_ms===undefined ? '—' : num(item.latency_ms)+' ms');
             cell(tr,cost);
             cell(tr,discoveryRequest ? notApplicable : item.finish_reason || finish);
-            cell(tr,discoveryRequest ? notApplicable : item.provider_cost_source === 'openrouter_generation_api' && item.total_cost_usd != null ? 'OpenRouter generation API' : item.provider_cost_source === 'openrouter_logs.total_cost_usd' && item.total_cost_usd != null ? 'Supabase total_cost_usd' : item.provider_cost_source === 'usage_events.provider_reported' && item.total_cost_usd != null ? 'Provider-reported usage' : 'Unavailable');
+            cell(tr,discoveryRequest ? notApplicable
+              : item.cost_kind === 'estimated' && item.estimated_cost_source === 'pricing_registry_v1_standard_list_price'
+                ? 'Estimated list price · ' + String(item.pricing_version || 'pricing registry')
+                : item.provider_cost_source === 'openrouter_generation_api' && item.total_cost_usd != null ? 'OpenRouter generation API'
+                  : item.provider_cost_source === 'openrouter_logs.total_cost_usd' && item.total_cost_usd != null ? 'Supabase total_cost_usd'
+                    : item.provider_cost_source === 'usage_events.provider_reported' && item.total_cost_usd != null ? 'Provider-reported usage' : 'Unavailable');
             const requestId=String(item.provider_request_id || item.openrouter_generation_id || item.request_id || item.id || '—');
             const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
             tbody.append(tr);
