@@ -64,3 +64,18 @@ test('rejects timeline moves that overlap another clip', () => {
   const p = importEditorProject(raw);
   assert.throws(() => applyTimelineOperation(p, { type: 'move_clip', clipId: 'c1', targetStart: 2_500_000 }, { dryRun: false }), /Overlapping clips/);
 });
+
+test('supports split, speed, track visibility and volume changes without overlapping clips', () => {
+  let p = importEditorProject(openCut());
+  p = applyTimelineOperation(p, { type: 'split_clip', clipId: 'c1', at: 2_000_000 }, { dryRun: false }).project;
+  assert.equal(p.tracks[0].clips.length, 2);
+  assert.equal(p.tracks[0].clips[0].targetEnd, 2_000_000);
+  assert.equal(p.tracks[0].clips[1].targetStart, 2_000_000);
+  p = applyTimelineOperation(p, { type: 'set_clip_speed', clipId: 'c1', speed: 2 }, { dryRun: false }).project;
+  assert.equal(p.tracks[0].clips.find(c => c.id === 'c1').speed, 2);
+  p = applyTimelineOperation(p, { type: 'set_track_volume', trackId: 't1', volume: 0.5 }, { dryRun: false }).project;
+  p = applyTimelineOperation(p, { type: 'set_track_visibility', trackId: 't1', visible: false }, { dryRun: false }).project;
+  assert.equal(p.tracks[0].volume, 0.5);
+  assert.equal(p.tracks[0].visible, false);
+  assert.throws(() => applyTimelineOperation(p, { type: 'set_clip_speed', clipId: 'c1', speed: 20 }, { dryRun: false }), /between 0.25x and 4x/);
+});
