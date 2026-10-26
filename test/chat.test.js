@@ -350,3 +350,19 @@ test('system prompt enforces platform-wide intent understanding and action routi
     assert.match(system, /Action and safety discipline/i);
   });
 });
+
+
+test('composer location control requests device permission explicitly and keeps location transient', async () => {
+  const fs = await import('node:fs/promises');
+  const html = await fs.readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  const app = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="locationBtn"/);
+  assert.match(html, /Share my device location for my next message/);
+  assert.match(app, /locationBtn\?\.addEventListener\('click'/);
+  assert.match(app, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(app, /pendingDeviceLocation = \{/);
+  assert.match(app, /expiresAt: Date\.now\(\) \+ 5 \* 60 \* 1000/);
+  assert.match(app, /Location ready for your next message/);
+  assert.match(app, /pendingDeviceLocation = null/);
+  assert.doesNotMatch(app, /localStorage\.setItem\([^\n]*(?:latitude|longitude)/i);
+});
