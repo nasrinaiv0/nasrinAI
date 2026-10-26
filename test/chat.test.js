@@ -351,7 +351,6 @@ test('system prompt enforces platform-wide intent understanding and action routi
   });
 });
 
-
 test('composer location control requests device permission explicitly and keeps location transient', async () => {
   const fs = await import('node:fs/promises');
   const html = await fs.readFile(new URL('../public/index.html', import.meta.url), 'utf8');
