@@ -160,7 +160,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
 });
 test('Quick Free and paid Quick route file extraction and interpretation through GPT-6 Luna', async () => {
   const attachment = { kind: 'file', name: 'contract.txt', mimeType: 'text/plain', text: 'sample document text' };
-  const free = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
+  const free = setup({ env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key' } });
   const freeReq = { ...req('Extract and interpret the attached document'), attachments: [attachment] };
   const freePlan = free.policy.plan({ tier: 'nasrinai', message: freeReq.messages[0].content, attachments: freeReq.attachments });
   const freeRun = await free.policy.run(freePlan, freeReq);
@@ -168,7 +168,7 @@ test('Quick Free and paid Quick route file extraction and interpretation through
   assert.equal(freeRun.spec.model, 'openai/gpt-6-luna-decisions', 'Quick Free file tasks select Luna as a first-class route');
   assert.equal(free.openrouter.calls[0].model, 'openai/gpt-6-luna-decisions');
 
-  const paid = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
+  const paid = setup({ env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key' } });
   const paidReq = { ...req('Interpret the attached document'), attachments: [attachment] };
   const paidPlan = paid.policy.plan({ tier: 'nasrinai', paidQuick: true, message: paidReq.messages[0].content, attachments: paidReq.attachments });
   const paidRun = await paid.policy.run(paidPlan, paidReq);
