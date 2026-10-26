@@ -134,7 +134,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
   assert.equal(a.gemini.calls.length, 0);
 
   const heavyMessage = 'Analyze the architecture and debug this complex production failure';
-  const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key', GEMINI_API_KEY: 'gemini-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
+  const down = setup({ env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key', GEMINI_API_KEY: 'gemini-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: heavyMessage }), req(heavyMessage)), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
   assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna-decisions'), 'OpenRouter candidates remain free-only except the authorized heavy-task Luna fallback');
@@ -144,6 +144,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
 
   const overridden = setup({
     env: {
+      AI_PROVIDER: 'auto',
       OPENROUTER_API_KEY: 'or-test-key',
       GEMINI_API_KEY: 'gemini-test-key',
       ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna-decisions,openrouter:xiaomi/mimo-v2.6-pro,openrouter:nvidia/nemotron-3.5-lightning:free,openrouter:deepseek/deepseek-v4.1-flash'
@@ -153,7 +154,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
   await assert.rejects(overridden.policy.run(overridden.policy.plan({ tier: 'nasrinai', message: heavyMessage }), req(heavyMessage)), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(overridden.openrouter.calls.length > 0);
   assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna-decisions'), 'custom routes cannot bypass free-first/Luna-only eligibility');
-  assert.equal(overridden.openrouter.calls.at(-1).model, 'openai/gpt-6-luna');
+  assert.equal(overridden.openrouter.calls.at(-1).model, 'openai/gpt-6-luna-decisions');
   assert.equal(overridden.openai.calls.length, 0);
   assert.ok(overridden.gemini.calls.length > 0, 'custom paid OpenRouter routes cannot block the approved direct Gemini fallback');
 });
@@ -164,15 +165,15 @@ test('Quick Free and paid Quick route file extraction and interpretation through
   const freePlan = free.policy.plan({ tier: 'nasrinai', message: freeReq.messages[0].content, attachments: freeReq.attachments });
   const freeRun = await free.policy.run(freePlan, freeReq);
   assert.equal(freeRun.spec.provider, 'openrouter');
-  assert.equal(freeRun.spec.model, 'openai/gpt-6-luna', 'Quick Free file tasks select Luna as a first-class route');
-  assert.equal(free.openrouter.calls[0].model, 'openai/gpt-6-luna');
+  assert.equal(freeRun.spec.model, 'openai/gpt-6-luna-decisions', 'Quick Free file tasks select Luna as a first-class route');
+  assert.equal(free.openrouter.calls[0].model, 'openai/gpt-6-luna-decisions');
 
   const paid = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const paidReq = { ...req('Interpret the attached document'), attachments: [attachment] };
   const paidPlan = paid.policy.plan({ tier: 'nasrinai', paidQuick: true, message: paidReq.messages[0].content, attachments: paidReq.attachments });
   const paidRun = await paid.policy.run(paidPlan, paidReq);
   assert.equal(paidRun.spec.provider, 'openrouter');
-  assert.equal(paidRun.spec.model, 'openai/gpt-6-luna', 'paid Quick includes Luna in file interpretation routing');
+  assert.equal(paidRun.spec.model, 'openai/gpt-6-luna-decisions', 'paid Quick includes Luna in file interpretation routing');
 });
 
 test('Free Quick prefers OpenRouter free models before direct free-provider fallback', async () => {
