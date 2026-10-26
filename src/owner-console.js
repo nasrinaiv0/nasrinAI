@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
 import { ownerCatalogStatus } from './ai/owner-model-catalog.js';
+import { fetchDirectProviderBilling } from './ai/provider-cost-reconciliation.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
@@ -1135,6 +1136,29 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       } catch {
         logger?.warn?.('Cross-provider model telemetry unavailable', { source: 'model_telemetry' });
         sendJson(res, 503, { error: { code: 'model_telemetry_unavailable', message: 'Model telemetry could not be loaded. Verify owner database access and provider usage logging.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/provider-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const owner = config?.ownerConsole || {};
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      if (!['7d', '30d', '90d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const report = await fetchDirectProviderBilling({
+          openaiAdminKey: owner.openaiAdminKey,
+          anthropicAdminKey: owner.anthropicAdminKey,
+          window: windowName,
+          now,
+          fetchImpl
+        });
+        sendJson(res, 200, report);
+      } catch {
+        logger?.warn?.('direct provider billing reconciliation unavailable', { source: 'provider_billing' });
+        sendJson(res, 503, { error: { code: 'provider_billing_unavailable', message: 'Direct-provider billing data could not be loaded.' } });
       }
       return true;
     }
