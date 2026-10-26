@@ -66,3 +66,12 @@ Use explicit job states, bounded retries, backoff for transient failures, no ret
 ## Non-goals for first pilot
 
 No autonomous publishing, social account access, face/voice identity training, arbitrary third-party MCP execution, remote-shell installation, or bulk import of the catalog. Those require separate threat models and approvals.
+
+
+## Existing NasrinAI integration alignment — 2026-10-27
+
+- `docs/NASRINAI_SKILLS.md` and `knowledge/nasrinai_skills_kb.json` already define a descriptive capability catalog and status lifecycle. Do not create a parallel public skill catalog or mark a capability `implemented_verified` just because a markdown package has been added. Any new KB entry must remain `planned` or `needs_verification` until the live code path and tests prove it.
+- Video Studio already has a render-worker path in `src/video-studio-render-worker.js` and uses a sandboxed render architecture documented in `docs/ai-video-studio-architecture.md`. Reuse the existing authenticated job/storage/cost/ownership flow where appropriate; do not create a duplicate render queue or bypass the existing sandbox.
+- The current renderer and provider-backed generation path are not equivalent to an arbitrary skill runtime. First import provider-independent skill instructions as **planning guidance only**. Any script execution or external API integration must be a separate, explicit adapter with its own tool schema, sandbox, budget gate, test coverage and rollout approval.
+- Proposed source staging path for the five instruction-only candidates: `docs/integrations/media-skills/proposed-imports/<skill-id>/SKILL.md` in the documentation/review branch, or an agreed runtime path only after the existing loader is identified. Do not silently choose a production runtime destination before verifying how current orchestration loads skill instructions.
+- Keep `EVAL.md` out of any production agent context. Use it only to derive NasrinAI-owned evaluation cases, then write tests into the appropriate existing test structure.
