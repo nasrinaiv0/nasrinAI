@@ -164,12 +164,17 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // must never consume OpenRouter's free endpoints, even for simple chat.
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
           const paidQuick = plan.tier === 'nasrinai' && plan.paidQuick === true;
+          // Enforce the OpenRouter free-only pool whenever an OpenRouter route is
+          // configured for this level, even if the legacy quickNemotronOnly flag
+          // is stale/false. Environments without OpenRouter retain their configured
+          // provider routing rather than being forced into an empty allowlist.
+          const strictQuickFree = freeQuick && (
+            r.quickNemotronOnly
+            || expandedTierCandidates.some((candidate) => candidate.provider === 'openrouter')
+          );
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
-            if (candidate.provider !== 'openrouter') return !freeQuick
-              || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)
-              || (candidate.provider === 'gemini'
-                && config.ai.routing.geminiFreeTier === true
-                && candidate.model === 'gemini-3.1-flash-lite');
+            if (candidate.provider !== 'openrouter') return !strictQuickFree
+              || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
@@ -180,7 +185,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               task: plan.task,
               verifiedIds: liveOpenRouterModels
             }) && (
-              (freeQuick && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+              (strictQuickFree && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+              || (freeQuick && !strictQuickFree)
               || (paidQuick && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna')
               || (!freeQuick && !paidQuick)
             );
@@ -192,17 +198,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             : eligibleCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, routableCandidates);
           const directFreeCandidates = prioritized.filter((candidate) => candidate.provider !== 'openrouter'
-            && ((r.freeModels?.[candidate.provider] || []).includes(candidate.model)
-              || (candidate.provider === 'gemini'
-                && config.ai.routing.geminiFreeTier === true
-                && candidate.model === 'gemini-3.1-flash-lite')));
+            && (r.freeModels?.[candidate.provider] || []).includes(candidate.model));
           const openRouterFreeCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model));
           const paidQuickCostOrder = ['deepseek/deepseek-v4.1-flash', 'deepseek/deepseek-v4.1-flash-1017', 'deepseek/deepseek-v4-flash-0731', 'z-ai/glm-5.3-flash', 'xiaomi/mimo-v2.6-flash', 'qwen/qwen3.8-flash', 'inclusionai/ling-3.1-flash', 'qwen/qwen3.8-27b', 'anthropic/claude-haiku-5.5', 'xiaomi/mimo-v2.6-pro'];
           const paidQuickCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna').sort((a, b) => {
             const ai = paidQuickCostOrder.indexOf(a.model); const bi = paidQuickCostOrder.indexOf(b.model);
             return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
           });
-          const ordered = freeQuick
+          const ordered = r.quickNemotronOnly && freeQuick
             ? [
                 ...openRouterFreeCandidates,
                 ...directFreeCandidates
@@ -211,19 +214,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               ? paidQuickCandidates
               : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = freeQuick
-            ? ordered.filter((candidate) => candidate.provider !== 'openrouter'
-              && ((r.freeModels?.[candidate.provider] || []).includes(candidate.model)
-                || (candidate.provider === 'gemini'
-                  && config.ai.routing.geminiFreeTier === true
-                  && candidate.model === 'gemini-3.1-flash-lite')))
+          const otherCandidates = r.quickNemotronOnly && freeQuick
+            ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
             : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
           // Intent is classified and the tier's level ceiling is applied before
           // this point. Within that permitted level, configured OpenRouter models
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
-          if (freeQuick) {
+          if (r.quickNemotronOnly && freeQuick) {
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
             candidates.push(...otherCandidates);
             if (heavyQuickTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
@@ -246,7 +245,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // tier-model fallback if all configured level candidates were filtered
           // out. Do not use this escape hatch for free Quick with OpenRouter,
           // where the free-model allowlist must remain authoritative.
-          if (!candidates.length && !freeQuick && !r.quickNemotronOnly) {
+          if (!candidates.length && !r.quickNemotronOnly) {
             const fallbackTier = config.ai.tiers?.[plan.tier] || config.ai.tiers?.nasrinai;
             if (fallbackTier) candidates.push(fallbackTier);
           }
