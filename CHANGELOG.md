@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- Mic button: dictation now detects the spoken language automatically (including mixed languages) through server transcription, with the browser's voice typing as fallback.
+
 - Quick Free uses GPT-6 Luna as a main model for heavy, scraping, web and file requests (free models first for simple chat); Quick Paid never uses free models; optional paid web-search model for paid plans.
 - Route Quick Free and paid Quick file extraction and document interpretation through GPT-6 Luna as a first-class task-specific model route, with regression coverage.
 

@@ -1,3 +1,12 @@
+## feat/stt-multilanguage (2026-10-27)
+
+- The composer mic now records the audio and sends it to the server transcription (`/v1/transcriptions`), which detects the spoken language by itself, including mixed languages in one sentence. A language chosen in Settings is sent as a hint; Auto sends none. The browser's built-in voice typing listened in one fixed language only.
+- Falls back to the browser's voice typing when the server cannot transcribe (status says unavailable or a 503). The mic now also works in browsers without built-in voice typing when server transcription is on.
+- Bounded: recordings stop at 150 s (stays under the 4 MB upload limit), the microphone is released on stop, the existing hourly transcription limit applies. `/v1/status` gains `transcription: { available, auto_language }`.
+- Trade-off: words appear after you tap Stop (Transcribing…) instead of live while speaking.
+- Privacy notice updated (voice typing section) and `LEGAL_PRIVACY_VERSION` default bumped to 2026-10-27 (signed-in users are asked to acknowledge it).
+- Privacy: the audio goes to the configured speech-to-text provider exactly like the existing audio transcription feature, and is not stored by NasrinAI. Not verified: the provider's own retention (see the providers section of the privacy notice).
+
 ## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
 
 - Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).

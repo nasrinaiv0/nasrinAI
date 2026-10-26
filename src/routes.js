@@ -2109,6 +2109,8 @@ return { body: { sites: await connect.list(caller) } }; }
           research: Boolean(research),
           uploads: uploads ? { direct: true, max_mb: Math.round(uploads.maxBytes / 1048576) } : { direct: false },
           images: images && images.available ? { available: true, per_guest: config.images.perGuest, per_user_day: config.images.perUserDay } : { available: false },
+          // Server speech-to-text detects the spoken language by itself (the mic uses it).
+          transcription: transcription?.available ? { available: true, auto_language: true } : { available: false },
           videos: videos && videos.available ? { available: true, ultra_only: true, max_seconds: config.video.maxSeconds } : { available: false },
           sign_in: { email: Boolean(auth) && config.auth.email, google: Boolean(auth) && config.auth.google },
           turnstile: { site_key: config.turnstile?.siteKey || null },

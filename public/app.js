@@ -6445,6 +6445,9 @@
 
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognizer = null;
+  let serverStt = false;                // /v1/status: the server can transcribe audio and detect the language
+  let serverDictation = null;           // { recorder, stream, chunks, timer, ctx, prefix, stopped }
+  let transcribingDictation = false;
   let listeningRequested = false;
   let recognitionFailures = 0;          // errors in a row with no words heard in between
   let recognitionLangFallback = false;  // the chosen language was refused: use the phone's
@@ -6475,9 +6478,10 @@
     else if (Nasrin.current === 'listening') Nasrin.mood('idle');
   }
 
-  function stopDictation() {
+  function stopDictation({ discard = false } = {}) {
     listeningRequested = false;
     recognitionRun++;
+    if (serverDictation) endServerDictation(discard);
     if (recognitionRestartTimer) {
       clearTimeout(recognitionRestartTimer);
       recognitionRestartTimer = null;
@@ -6487,6 +6491,120 @@
     setListening(false);
     if (activeRecognizer) {
       try { activeRecognizer.stop(); } catch { /* already stopped */ }
+    }
+  }
+
+
+  // ---- Dictation through the server: any language, even mixed ----
+  // The browser's own voice typing listens in ONE language at a time. Recording
+  // the audio and sending it to /v1/transcriptions lets the server detect the
+  // spoken language by itself (including code-switching). A language picked in
+  // Settings is sent as a hint; "Auto" sends none. Falls back to the browser's
+  // voice typing when the server cannot transcribe.
+  const SERVER_DICTATION_MAX_MS = 150000;   // keeps the upload under the 4 MB limit
+  const dictationSupported = () => Boolean(Recognition || (serverStt && window.MediaRecorder && navigator.mediaDevices?.getUserMedia));
+  const useServerDictation = () => Boolean(serverStt && window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
+
+  function recorderType() {
+    for (const type of ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus']) {
+      try { if (MediaRecorder.isTypeSupported(type)) return type; } catch { /* ignore */ }
+    }
+    return '';
+  }
+
+  async function startServerDictation(run) {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    } catch (err) {
+      stopDictation({ discard: true });
+      notice.textContent = err?.name === 'NotAllowedError' || err?.name === 'SecurityError'
+        ? 'Microphone access is blocked. Allow it in your browser settings to talk to Nasrin.'
+        : 'The microphone is busy or unavailable. Close other apps using it, then tap the mic to try again.';
+      return;
+    }
+    if (!listeningRequested || run !== recognitionRun) { stream.getTracks().forEach((track) => track.stop()); return; }
+    const type = recorderType();
+    let recorder;
+    try { recorder = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), audioBitsPerSecond: 32000 }); }
+    catch { stream.getTracks().forEach((track) => track.stop()); stopDictation({ discard: true }); notice.textContent = 'Voice typing could not start in this browser.'; return; }
+    const state = { recorder, stream, chunks: [], timer: null, ctx: null, raf: 0, prefix: input.value.trim(), mime: recorder.mimeType || type || 'audio/webm', stopped: false, discard: false };
+    serverDictation = state;
+    recorder.ondataavailable = (event) => { if (event.data && event.data.size) state.chunks.push(event.data); };
+    recorder.onstop = () => finishServerDictation(state);
+    // The wave follows the real sound level of the microphone.
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx && composerWave) {
+        state.ctx = new AudioCtx();
+        const analyser = state.ctx.createAnalyser();
+        analyser.fftSize = 512;
+        state.ctx.createMediaStreamSource(stream).connect(analyser);
+        const data = new Uint8Array(analyser.fftSize);
+        let speaking = false;
+        const tick = () => {
+          if (state.stopped) return;
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (const v of data) { const d = (v - 128) / 128; sum += d * d; }
+          const level = Math.min(1, Math.sqrt(sum / data.length) * 5);
+          composerWave.hear(level);
+          const now = level > 0.12;
+          if (now !== speaking) { speaking = now; composerWave.speechOn(now); }
+          state.raf = requestAnimationFrame(tick);
+        };
+        tick();
+      }
+    } catch { /* the wave is decoration only */ }
+    recorder.start(1000);
+    state.timer = setTimeout(() => {
+      notice.textContent = 'That was a long recording, so I stopped to transcribe it. Tap the mic to keep going.';
+      stopDictation();
+    }, SERVER_DICTATION_MAX_MS);
+  }
+
+  function endServerDictation(discard) {
+    const state = serverDictation;
+    if (!state || state.stopped) return;
+    state.stopped = true;
+    state.discard = discard === true;
+    clearTimeout(state.timer);
+    cancelAnimationFrame(state.raf);
+    try { state.ctx?.close(); } catch { /* already closed */ }
+    try { if (state.recorder.state !== 'inactive') state.recorder.stop(); else finishServerDictation(state); } catch { finishServerDictation(state); }
+  }
+
+  async function finishServerDictation(state) {
+    state.stream.getTracks().forEach((track) => track.stop());   // release the microphone
+    if (serverDictation === state) serverDictation = null;
+    if (state.done) return;
+    state.done = true;
+    const blob = new Blob(state.chunks, { type: state.mime });
+    if (state.discard || blob.size < 1200) { if (!state.discard) notice.textContent = 'I did not hear anything. Tap the mic and try again.'; return; }
+    transcribingDictation = true;
+    notice.textContent = 'Transcribing…';
+    refreshSendButton();
+    try {
+      const ext = /mp4/.test(state.mime) ? 'm4a' : /ogg/.test(state.mime) ? 'ogg' : 'webm';
+      const picked = saved.get(KEYS.language);
+      const hint = picked && picked !== 'auto' && /^[a-z]{2}$/.test(picked) ? picked : '';
+      const response = await net('/v1/transcriptions?name=' + encodeURIComponent('dictation.' + ext) + (hint ? '&language=' + encodeURIComponent(hint) : ''), {
+        method: 'POST', headers: { Authorization: 'Bearer ' + (await credential()), 'Content-Type': state.mime.split(';')[0] }, body: blob
+      });
+      if (!response.ok) throw await errorFrom(response);
+      const result = await response.json();
+      const text = typeof result?.text === 'string' ? result.text.trim() : '';
+      if (!text) throw new Error('I did not catch any words. Tap the mic and try again.');
+      input.value = [state.prefix, text].filter(Boolean).join(' ');
+      autosize();
+      input.focus();
+      notice.textContent = '';
+    } catch (err) {
+      if (err?.code === 'transcription_unavailable' || err?.status === 503) serverStt = false;   // use the browser's voice typing next time
+      notice.textContent = err?.message || 'Voice typing could not finish. Tap the mic to try again.';
+    } finally {
+      transcribingDictation = false;
+      refreshSendButton();
     }
   }
 
@@ -6563,33 +6681,32 @@
     }
   }
 
-  if (!Recognition) {
-    // The combined composer remains the Send button; speech recognition is unavailable in this browser.
-  } else {
-    $('voiceBtn').hidden = false;
-    $('voiceBtn').addEventListener('click', openVoice);
-    micBtn.addEventListener('click', (event) => {
-      // While dictation is active, this control always stops it—even after text appears.
-      if (listeningRequested) {
-        event.preventDefault();
-        stopDictation();
-        return;
-      }
-      // Preserve the existing send behavior when dictation is not active.
-      if (input.value.trim() || pending.length || turn) return;
+  if (Recognition) { $('voiceBtn').hidden = false; $('voiceBtn').addEventListener('click', openVoice); }
+  // The mic is always wired; it does nothing special when neither dictation path exists.
+  micBtn.addEventListener('click', (event) => {
+    // While dictation is active, this control always stops it, even after text appears.
+    if (listeningRequested) {
       event.preventDefault();
-      stopSpeaking();
-      notice.textContent = '';
-      try { recognizer?.abort(); } catch { /* already stopped */ }   // never start on top of an old session
-      recognizer = null;
-      recognitionFailures = 0;
-      recognitionLangFallback = false;
-      listeningRequested = true;
-      recognitionRun++;
-      setListening(true);
-      startRecognition(recognitionRun, input.value.trim());
-    });
-  }
+      stopDictation();
+      return;
+    }
+    if (transcribingDictation) { event.preventDefault(); return; }
+    // Preserve the existing send behavior when dictation is not active.
+    if (input.value.trim() || pending.length || turn) return;
+    if (!dictationSupported()) return;
+    event.preventDefault();
+    stopSpeaking();
+    notice.textContent = '';
+    try { recognizer?.abort(); } catch { /* already stopped */ }   // never start on top of an old session
+    recognizer = null;
+    recognitionFailures = 0;
+    recognitionLangFallback = false;
+    listeningRequested = true;
+    recognitionRun++;
+    setListening(true);
+    if (useServerDictation()) startServerDictation(recognitionRun);
+    else startRecognition(recognitionRun, input.value.trim());
+  });
 
 
   // ---------- talking with Nasrin: a hands-free voice conversation ----------
@@ -10107,6 +10224,7 @@
       renderSpaceMenu();
       directUploads = s.uploads && s.uploads.direct === true && Number(s.uploads.max_mb) > 0 ? { maxBytes: Number(s.uploads.max_mb) * 1048576 } : null;
       imagesOn = Boolean(s.images && s.images.available);
+      serverStt = Boolean(s.transcription && s.transcription.available === true);
       $('pickImage').hidden = !imagesOn;
       imageLimits = imagesOn ? { perGuest: Number(s.images.per_guest) || 0, perUserDay: Number(s.images.per_user_day) || 0 } : null;
       renderImageHint();
