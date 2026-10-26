@@ -7,6 +7,8 @@ test('OpenAI organization cost parser totals valid USD line items and ignores ma
     { start_time: 1792800000, end_time: 1792886400, results: [
       { amount: { value: 1.25, currency: 'usd' }, line_item: 'Text generation', project_id: 'proj_1' },
       { amount: { value: '0.75', currency: 'usd' }, line_item: 'Cached input' },
+      { amount: { value: null, currency: 'usd' }, line_item: 'Missing amount' },
+      { amount: { value: 9, currency: 'eur' }, line_item: 'Unexpected currency' },
       { amount: { value: -5, currency: 'usd' } }
     ] }
   ] });
