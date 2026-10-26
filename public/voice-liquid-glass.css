@@ -64,7 +64,8 @@ body.voice-open { overflow: hidden; }
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   gap: 0.25rem; padding-bottom: clamp(0.75rem, 3vh, 2rem);
 }
-.voice-orb { display: none !important; }
+ .voice-orb { display: none !important; }
+.voice-screen-capture { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .voice-orb {
   position: relative; display: block; flex: none;
   width: min(92vw, 44dvh, 26rem); aspect-ratio: 1;
