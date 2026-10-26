@@ -11,8 +11,8 @@
       "source_repo": "calesthio/generative-media-skills",
       "source_path": "skills/production/creative-direction/storyboard-previsualization",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
-      "decision": "candidate",
-      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "decision": "proposed_initial_pilot",
+      "review_status": "entrypoint_and_eval_sha_verified; root_license_sha_verified; no supporting resource paths surfaced in scoped search; acceptance_tests_and_owner_approval_pending",
       "destination": "pending",
       "required_gates": [
         "supporting_file_review",
@@ -27,8 +27,8 @@
       "source_repo": "calesthio/generative-media-skills",
       "source_path": "skills/production/content-formats/explainer-video-production",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
-      "decision": "candidate",
-      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "decision": "proposed_initial_pilot",
+      "review_status": "entrypoint_and_eval_sha_verified; root_license_sha_verified; no supporting resource paths surfaced in scoped search; acceptance_tests_and_owner_approval_pending",
       "destination": "pending",
       "required_gates": [
         "supporting_file_review",
@@ -43,8 +43,8 @@
       "source_repo": "calesthio/generative-media-skills",
       "source_path": "skills/production/content-formats/social-short-production",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
-      "decision": "candidate",
-      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "decision": "proposed_initial_pilot",
+      "review_status": "entrypoint_and_eval_sha_verified; root_license_sha_verified; no supporting resource paths surfaced in scoped search; acceptance_tests_and_owner_approval_pending",
       "destination": "pending",
       "required_gates": [
         "supporting_file_review",
@@ -59,8 +59,8 @@
       "source_repo": "calesthio/generative-media-skills",
       "source_path": "skills/production/post-production/editing-montage",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
-      "decision": "candidate",
-      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "decision": "proposed_initial_pilot",
+      "review_status": "entrypoint_and_eval_sha_verified; root_license_sha_verified; no supporting resource paths surfaced in scoped search; acceptance_tests_and_owner_approval_pending",
       "destination": "pending",
       "required_gates": [
         "supporting_file_review",
@@ -76,7 +76,7 @@
       "source_path": "skills/production/governance-delivery/generated-media-qa",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
       "decision": "conditional_candidate",
-      "review_status": "static_review_only_tests_not_run",
+      "review_status": "helper_static_reviewed; upstream_tests_not_executed; sandbox_and_path_tests_pending",
       "destination": "pending",
       "required_gates": [
         "execute_upstream_tests_in_sandbox",
@@ -90,8 +90,8 @@
       "source_repo": "calesthio/generative-media-skills",
       "source_path": "skills/production/governance-delivery/media-provenance-rights",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
-      "decision": "candidate",
-      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "decision": "proposed_initial_pilot",
+      "review_status": "entrypoint_and_eval_sha_verified; root_license_sha_verified; no supporting resource paths surfaced in scoped search; acceptance_tests_and_owner_approval_pending",
       "destination": "pending",
       "required_gates": [
         "supporting_file_review",
@@ -107,7 +107,7 @@
       "source_path": "skills/production/runtime-assembly/ffmpeg-media-finishing",
       "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
       "decision": "conditional_candidate",
-      "review_status": "static_review_only_tests_not_run",
+      "review_status": "helper_static_reviewed; upstream_tests_not_executed; executable_allowlist_and_sandbox_tests_pending",
       "destination": "pending",
       "required_gates": [
         "execute_upstream_tests_in_sandbox",
@@ -198,8 +198,8 @@
       "source_repo": "iart-ai/talking-head-skills",
       "source_path": "skills",
       "source_commit": "a315032ccffa94cda56a82fa306237250d3dd1bf",
-      "decision": "defer",
-      "review_status": "pack_not_fully_inspected",
+      "decision": "defer_sensitive",
+      "review_status": "talking-head_entrypoint_and_supporting_files_reviewed; full_pack_review_pending; external_upload_and_voice_consent_risks",
       "destination": "pending",
       "required_gates": [
         "full_file_review",
@@ -214,8 +214,8 @@
       "source_repo": "iart-ai/youtube-video-skills",
       "source_path": "skills",
       "source_commit": "f3df381d65abe5078f5ed410bbc3ed72e7cb92bd",
-      "decision": "discovered_not_audited",
-      "review_status": "metadata_only",
+      "decision": "defer_second_wave",
+      "review_status": "audiogram_entrypoint_and_selected_references_helpers_reviewed; other_pack_skills_not_audited",
       "destination": "pending",
       "required_gates": [
         "pin_each_file",
@@ -246,8 +246,8 @@
       "source_repo": "iart-ai/ad-video-skills",
       "source_path": "skills",
       "source_commit": "0de0f2a1c1f42a98103fc0ec436509276428372c",
-      "decision": "discovered_not_audited",
-      "review_status": "metadata_only",
+      "decision": "defer_second_wave",
+      "review_status": "ad-creative-video_entrypoint_and_selected_references_helpers_reviewed; other_pack_skills_not_audited",
       "destination": "pending",
       "required_gates": [
         "pin_each_file",
@@ -262,8 +262,8 @@
       "source_repo": "iart-ai/kinetic-typography-skills",
       "source_path": "skills",
       "source_commit": "fccc94bd325d824235ee9e715e65abde57b6513a",
-      "decision": "discovered_not_audited",
-      "review_status": "metadata_only",
+      "decision": "defer_second_wave",
+      "review_status": "kinetic-typography_entrypoint_and_selected_references_helpers_reviewed; other_pack_skills_not_audited",
       "destination": "pending",
       "required_gates": [
         "pin_each_file",
@@ -455,5 +455,11 @@
     }
   ],
   "documentation_status": "review_package_expanded; initial pilot proposed; not implementation-ready; upstream helper tests not executed; owner approval pending",
-  "initial_pilot_scope_note": "Five provider-independent instruction-only packages are proposed for initial review. No files copied yet. Runtime destination and loader integration are pending repository architecture review. EVAL.md hashes are provenance only and must never ship in runtime context."
+  "initial_pilot_scope_note": "Five provider-independent instruction-only packages are proposed for initial review. No files copied yet. Runtime destination and loader integration are pending repository architecture review. EVAL.md hashes are provenance only and must never ship in runtime context.",
+  "last_audit_update": "2026-10-27",
+  "test_execution_status": {
+    "generative_media_qa": "not_run",
+    "ffmpeg_media_probe": "not_run",
+    "reason": "Exact pinned source and tests were inspected through GitHub, but the isolated execution runtime could not access connector-fetched file bytes. Do not claim tests pass; run before importing helpers."
+  }
 }
