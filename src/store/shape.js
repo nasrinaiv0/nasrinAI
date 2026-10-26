@@ -25,7 +25,9 @@ export const mapMessage = (r) => ({
   id: r.id,
   role: r.role,
   content: r.content,
-  createdAt: r.created_at
+  createdAt: r.created_at,
+  ...(r.response_metadata && typeof r.response_metadata === 'object' && !Array.isArray(r.response_metadata)
+    ? { responseMetadata: r.response_metadata } : {})
 });
 
 export const mapTenant = (r) => ({

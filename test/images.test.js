@@ -139,6 +139,24 @@ test('picture backup settings require a valid model and provider key, not a loca
   assert.ok(testConfig({ GEMINI_API_KEY: 'g'.repeat(39), IMAGE_FALLBACK_MODEL: 'gpt-image-x' }).warnings.some((w) => /needs OPENAI_API_KEY/.test(w)));
 });
 
+test('Quick image generation uses low-cost paid OpenRouter models without changing Quick chat policy', () => {
+  const c = testConfig({
+    GEMINI_API_KEY: 'g'.repeat(39),
+    OPENROUTER_API_KEY: 'or-test-' + 'r'.repeat(30)
+  });
+  assert.deepEqual(
+    { provider: c.images.tiers[1].primary.provider, model: c.images.tiers[1].primary.model },
+    { provider: 'openrouter', model: 'openai/gpt-image-2' }
+  );
+  assert.deepEqual(
+    { provider: c.images.tiers[1].fallback.provider, model: c.images.tiers[1].fallback.model },
+    { provider: 'openrouter', model: 'openai/gpt-image-2.5-flare' }
+  );
+  assert.equal(c.ai.routing.quickNemotronOnly, true, 'Quick chat remains on its existing free-model policy');
+  const withoutOpenRouter = testConfig({ GEMINI_API_KEY: 'g'.repeat(39) });
+  assert.equal(withoutOpenRouter.images.tiers[1].primary.provider, 'gemini', 'retain Gemini when OpenRouter is not configured');
+});
+
 test('image provider overrides use a model ID belonging to the selected provider', () => {
   const env = {
     OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30),

@@ -10078,38 +10078,14 @@
       const data = await api(`/v1/conversations/${encodeURIComponent(conversationId)}/messages`);
       setChatProject(data.project && typeof data.project.id === 'string' ? data.project : null);
       const messages = Array.isArray(data.messages) ? data.messages : [];
-      // Historical messages may not include provider usage. Estimate from the
-      // saved user/assistant text so the panel remains useful after a refresh.
-      // This is explicitly marked estimated and never presented as provider usage.
-      const estimateHistoricalTokens = (value) => Math.max(1, Math.ceil(String(value || '').length / 4));
-      const historicalResponseMetadata = (message, index) => {
+      // Use only metadata persisted with this assistant message in Supabase.
+      // Historical replies without a saved usage record must not be assigned
+      // guessed token counts or matched to an unrelated usage_events row.
+      const historicalResponseMetadata = (message) => {
         const supplied = message.response_metadata || message.responseMetadata;
-        if (supplied || message.role !== 'assistant') return supplied || null;
-        let precedingUser = '';
-        let precedingUserMessage = null;
-        for (let j = index - 1; j >= 0; j -= 1) {
-          if (messages[j]?.role === 'user') {
-            precedingUserMessage = messages[j];
-            precedingUser = messages[j].content || '';
-            break;
-          }
-        }
-        const assistantCreatedAt = Date.parse(message.created_at || message.createdAt || '');
-        const userCreatedAt = Date.parse(precedingUserMessage?.created_at || precedingUserMessage?.createdAt || '');
-        const elapsedMs = Number.isFinite(assistantCreatedAt) && Number.isFinite(userCreatedAt) && assistantCreatedAt >= userCreatedAt
-          ? assistantCreatedAt - userCreatedAt : null;
-        return {
-          timestamp: message.created_at || message.createdAt || null,
-          duration_ms: elapsedMs,
-          duration_estimated: elapsedMs !== null,
-          usage: {
-            input_tokens: estimateHistoricalTokens(precedingUser),
-            output_tokens: estimateHistoricalTokens(message.content),
-            estimated: true
-          }
-        };
+        return supplied && typeof supplied === 'object' ? supplied : null;
       };
-      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: historicalResponseMetadata(m, i) }));
+      data.messages.forEach((m, i) => show(m.role === 'user' ? 'user' : 'assistant', m.content, { animate: false, id: m.id, asks: i === data.messages.length - 1, responseMetadata: historicalResponseMetadata(m) }));
       if (messages.length) {
         startChat();
         refreshTurnControls();

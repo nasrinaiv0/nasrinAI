@@ -312,9 +312,14 @@ export function loadConfig(env = process.env) {
   // free-provider allowlists, and keeps GPT-6 Luna as the final emergency fallback.
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
+    // Keep Guest/Quick Free on the configured NasrinAI chat-capable free catalog.
     'openrouter:nvidia/nemotron-3.5-lightning:free',
+    'openrouter:nvidia/nemotron-3.5-super-vl:free',
     'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
-    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
+    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free',
+    'openrouter:nvidia/nemotron-3.5-content-safety:free',
+    'openrouter:google/gemma-4-26b-a4b-it:free',
+    'openrouter:google/gemma-4-31b-it:free'
   ] : [];
   // Operators may add any OpenRouter model currently marked explicitly free
   // in the provider catalog without code changes. Ignore non-free IDs so this
@@ -609,9 +614,19 @@ export function loadConfig(env = process.env) {
         ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' }
         : {};
   for (const n of [1, 2, 3, 4]) {
-    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, defaultImageRoute);
+    // Quick's image lane is intentionally paid even when Quick text chat is
+    // free-only. Prefer OpenRouter's low-cost GPT Image 2 for tier 1, with
+    // Flare as a same-modality, speed-oriented paid fallback. This is isolated
+    // to tier 1 so higher-quality tiers retain their own route configuration.
+    const tierDefaultImageRoute = n === 1 && openrouterApiKey
+      ? { provider: 'openrouter', model: 'openai/gpt-image-2' }
+      : defaultImageRoute;
+    const tierDefaultImageFallback = n === 1 && openrouterApiKey
+      ? { provider: 'openrouter', model: 'openai/gpt-image-2.5-flare' }
+      : defaultImageFallback;
+    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, tierDefaultImageRoute);
     const legacy = n === 1 && env.IMAGE_FALLBACK_MODEL
-      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : defaultImageFallback;
+      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : tierDefaultImageFallback;
     const fallback = imageSlot(`IMAGE_TIER_${n}_FALLBACK`, legacy);
     if (primary) imageTiers[n] = Object.freeze({ primary, fallback });
     else if (fallback) warnings.push(`IMAGE_TIER_${n}_FALLBACK is set without a primary. Tier ${n} pictures are off.`);
