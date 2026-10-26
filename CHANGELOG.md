@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Route Quick Free image generation through the paid, low-cost OpenRouter image lane (`openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` fallback) when OpenRouter is configured, without changing Quick Free text-chat eligibility. Add regression coverage and document route overrides.
+
 - Enforce Quick Free's free-model-only policy independently of provider-presence flags, and prevent paid Quick from falling back to free OpenRouter models. Add regression coverage for the legacy flag-off case.
 
 - Persist sanitized reply timing and token-usage metadata on assistant messages in Supabase; conversation history and the reply details panel now use saved metadata instead of estimating historical token counts from text. Replies without stored metadata show "Not reported".
