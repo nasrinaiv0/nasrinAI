@@ -2699,3 +2699,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - When OpenRouter is configured, route tier-1 image generation to the paid OpenRouter Images API using `openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` as the paid fallback.
 - Preserve existing tier ceilings, per-user/image quotas, provider cost telemetry and explicit per-tier environment overrides. When OpenRouter is not configured, retain the existing configured image-provider behavior.
 - Add a regression test for the tier-1 route and fallback. CI must pass before merge; live provider generation still requires production verification.
+
+## PR #642 follow-up — Guest and Quick Free catalog routing — 2026-10-26
+- Restrict Guest and Quick Free OpenRouter chat eligibility to the configured NasrinAI catalog of chat-capable free models.
+- Add configured Nemotron and Gemma free chat candidates to Quick Free defaults while keeping paid Quick and higher tiers separate.
+- Correct policy module import ordering so test modules can load; CI must confirm the fix.
