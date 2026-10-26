@@ -59,11 +59,6 @@
       "input": 0.75,
       "cached_input": 0.075,
       "output": 3.75
-    },
-    "gemini-3.8-flash-lite": {
-      "input": 0.5,
-      "cached_input": 0.05,
-      "output": 3
     }
   },
   "local": {
