@@ -12,6 +12,7 @@ export const isReasoningModel = (model) => /^o\d/.test(model) || (/^gpt-[56]/.te
 async function readStream(resp, { onText, signal, useModel }) {
   let text = '';
   let finishReason = 'unknown';
+  let providerRequestId = resp.headers?.get?.('x-request-id') || null;
   let usage = null;
   let buffer = '';
   const decoder = new TextDecoder();
@@ -21,6 +22,7 @@ async function readStream(resp, { onText, signal, useModel }) {
     if (!payload || payload === '[DONE]') return;
     let data;
     try { data = JSON.parse(payload); } catch { return; }
+    if (typeof data.id === 'string' && data.id) providerRequestId = data.id.slice(0, 200);
     if (data.usage) usage = data.usage;
     const choice = data.choices?.[0];
     if (!choice) return;
@@ -47,6 +49,7 @@ async function readStream(resp, { onText, signal, useModel }) {
     cachedTokens: Number(usage?.prompt_tokens_details?.cached_tokens) || 0,
     outputTokens: Number(usage?.completion_tokens) || Math.ceil(text.length / 4),
     finishReason,
+    providerRequestId,
     model: useModel
   };
 }
@@ -134,6 +137,7 @@ export function createOpenAIProvider({
         cachedTokens: Number(data?.usage?.prompt_tokens_details?.cached_tokens) || 0,
         outputTokens: Number(data?.usage?.completion_tokens) || 0,
         finishReason: choice?.finish_reason || 'unknown',
+        providerRequestId: (typeof data?.id === 'string' && data.id ? data.id : resp.headers?.get?.('x-request-id')) || null,
         model: useModel
       };
     },
