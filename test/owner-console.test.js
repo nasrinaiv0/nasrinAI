@@ -775,7 +775,7 @@ test('Owner Command Center model inventory matches the requested OpenRouter and 
 test('direct-provider AI Logs classify models against their provider-specific inventory', async () => {
   const timestamp = new Date(1_800_000_000_000).toISOString();
   const usageRows = [
-    { provider: 'openai', model: 'openai/gpt-6-luna', created_at: timestamp, outcome: 'success', input_tokens: 10, output_tokens: 5 },
+    { provider: 'openai', model: 'openai/gpt-6-luna', created_at: timestamp, outcome: 'success', input_tokens: 10, output_tokens: 5, request_id: '11111111-1111-4111-8111-111111111111', endpoint: '/v1/chat', http_method: 'POST', http_status: 200, provider_request_id: 'chatcmpl-test-123', finish_reason: 'stop' },
     { provider: 'gemini', model: 'google/gemini-3.8-flash-lite-tts', created_at: timestamp, outcome: 'success', input_tokens: 20, output_tokens: 8 },
     { provider: 'claude', model: 'anthropic/claude-opus-5.5', created_at: timestamp, outcome: 'success', input_tokens: 30, output_tokens: 12 },
     { provider: 'openai', model: 'openai/not-in-owner-catalog', created_at: timestamp, outcome: 'success', input_tokens: 1, output_tokens: 1 }
@@ -794,7 +794,14 @@ test('direct-provider AI Logs classify models against their provider-specific in
   await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
   assert.equal(out.res.statusCode, 200);
   const rows = JSON.parse(out.res.body).rows;
-  assert.equal(rows.find(row => row.provider === 'openai' && row.model === 'gpt-6-luna').catalog_status, 'listed');
+  const openaiRow = rows.find(row => row.provider === 'openai' && row.model === 'gpt-6-luna');
+  assert.equal(openaiRow.catalog_status, 'listed');
+  assert.equal(openaiRow.request_id, '11111111-1111-4111-8111-111111111111');
+  assert.equal(openaiRow.endpoint, '/v1/chat');
+  assert.equal(openaiRow.http_method, 'POST');
+  assert.equal(openaiRow.http_status, 200);
+  assert.equal(openaiRow.provider_request_id, 'chatcmpl-test-123');
+  assert.equal(openaiRow.finish_reason, 'stop');
   assert.equal(rows.find(row => row.provider === 'google' && row.model === 'gemini-3.8-flash-lite-tts').catalog_status, 'listed');
   assert.equal(rows.find(row => row.provider === 'anthropic' && row.model === 'claude-opus-5.5').catalog_status, 'listed');
   assert.equal(rows.find(row => row.model === 'not-in-owner-catalog').catalog_status, 'not_listed');
