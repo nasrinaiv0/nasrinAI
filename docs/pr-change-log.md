@@ -1,3 +1,10 @@
+## PR #649 — Show all direct AI providers in Owner Finance — 2026-10-27
+
+- Update `public/owner-console.js` so the Direct-provider billing reconciliation UI keeps OpenAI, Anthropic, Google Gemini, Groq, Cloudflare Workers AI, Cerebras, Mistral, and NVIDIA NIM visible even when the server returns no row for a provider.
+- Represent absent integrations as `not_available` / “Not integrated” rather than silently omitting providers or fabricating costs. This is a UI inventory change only; it does not claim provider billing APIs are implemented.
+- Commit `47c4b4293417821c1094e8b4cdc0723b7d6d8f4a` added the UI update; this follow-up commit records that change to satisfy the mandatory PR changelog gate.
+- **Validation:** CI passed on the initial PR head. Documentation Gate failed because `docs/pr-change-log.md` was not updated; rerun checks on this changelog-updated head. No merge or deployment is claimed.
+
 ## Cerebras and Cloudflare cost reporting — 2026-10-26
 
 - Add versioned per-request list-price estimates for selected Cerebras Developer-tier and Cloudflare Workers AI models; unknown model IDs remain unavailable.
