@@ -566,8 +566,8 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Improvement consent is independent of Terms and personal Memory.
-      // This endpoint records explicit consent for limited, redacted Quick-tier learning examples.
+      // Improvement authorization is independent of personal Memory.
+      // Guest acknowledgement is versioned at first use; signed-in users retain an account preference.
       method: 'GET',
       path: '/v1/improvement-consent',
       scope: 'chat',
