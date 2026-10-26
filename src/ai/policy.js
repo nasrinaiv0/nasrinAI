@@ -16,7 +16,7 @@ const QUICK_FREE_OPENROUTER_CHAT_IDS = new Set(OPENROUTER_MODEL_ROUTING
     && entry.endpoint === 'chat'
     && ['text', 'safety'].includes(entry.category)
     && /:free$/i.test(entry.id))
-  .map((entry) => entry.id);
+  .map((entry) => entry.id));
 
 // The routing policy (Phase 4.1), between chat and the router:
 //
