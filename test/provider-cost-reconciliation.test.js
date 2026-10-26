@@ -105,9 +105,9 @@ test('Cloudflare Billable Usage API reconciles only explicit USD cost rows', asy
       return {
         ok: true, status: 200,
         json: async () => ({ success: true, result: [
-          { ServiceName: 'Workers AI', ServiceFamilyName: 'Workers AI', ChargePeriodStart: '2026-10-20T00:00:00Z', ChargePeriodEnd: '2026-10-21T00:00:00Z', Cost: 1.25, Currency: 'USD' },
-          { ServiceName: 'R2', Cost: 0.5, Currency: 'USD' },
-          { ServiceName: 'Other currency', Cost: 99, Currency: 'EUR' },
+          { ServiceName: 'Workers AI', ServiceFamilyName: 'Workers AI', ChargePeriodStart: '2026-10-20T00:00:00Z', ChargePeriodEnd: '2026-10-21T00:00:00Z', ContractedCost: 1.25, BillingCurrency: 'USD' },
+          { ServiceName: 'R2', ContractedCost: 0.5, BillingCurrency: 'USD' },
+          { ServiceName: 'Other currency', ContractedCost: 99, BillingCurrency: 'EUR' },
           { ServiceName: 'Neuron usage without USD cost', PricingQuantity: 5000, ConsumedUnit: 'neurons' }
         ] })
       };
