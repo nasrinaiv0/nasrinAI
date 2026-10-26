@@ -139,3 +139,28 @@ Each approved skill/tool entry should include:
 - License presence does not prove that every included asset, dependency, model weight, brand, or sample is covered by that license.
 - Prices, free tiers, hosted model availability and provider terms change; verify immediately before implementation.
 - This file does not install anything, change application code, add secrets, configure production providers, or authorize merging.
+
+
+## 9. Per-skill import manifest: official Higgsfield pack
+
+Inspected each `SKILL.md` at source commit `f83af0bc1d937c8119099a11f8ebbf5e6fb99819` (Higgsfield repository `main`, MIT root license). These are candidate decisions only; none has been copied into NasrinAI.
+
+| Skill ID | Source path | Blob SHA of inspected SKILL.md | Scope | NasrinAI decision |
+|---|---|---|---|---|
+| `higgsfield-generate` | `higgsfield-generate/SKILL.md` | `67189d84a99432c6429ecfa8b9c02b8571a90624` | General image/video/3D/audio generation, Marketing Studio ads and Virality Predictor | **Priority candidate** for Video Studio. Requires Higgsfield CLI/auth and external generation services; bootstrap currently instructs `curl ... | sh`, which must be replaced by reviewed/pinned installation or omitted. |
+| `higgsfield-soul-id` | `higgsfield-soul-id/SKILL.md` | `34d5604c5e17dfc1200211b13ec4424023b80340` | Train reusable identity/face model for consistent generations | **Defer / sensitive capability**. Require explicit consent, data retention/deletion disclosure, provider terms review, and no identity training without user intent. Same CLI install/auth concern. |
+| `higgsfield-product-photoshoot` | `higgsfield-product-photoshoot/SKILL.md` | `95d2f3f8456078a338399b81eaa792fb5c0bc653` | Product photography, lifestyle scenes, ad creatives and catalog images | **Candidate** for image/product workflows, not a core video skill. API/backend enhancement and paid image-generation costs likely; verify current pricing and asset rights. |
+| `higgsfield-brandkit` | `higgsfield-brandkit/SKILL.md` | `489c80420126656d773cffa99786a14f75d48683` | Brand systems, palettes, logo marks, mockups, social graphics, packaging and editable brandbooks | **Candidate after filesystem review**. Writes durable local project files and generates editable deliverables; sandbox writes and output path boundaries are required. |
+| `higgsfield-marketplace-cards` | `higgsfield-marketplace-cards/SKILL.md` | `e0e44beaa984cb7350f4bde4b706573cd1653e4c` | Marketplace listing cards, product infographics and A+ modules | **Optional candidate** if NasrinAI supports commerce creators. Provider backend enforces marketplace templates; do not promise platform compliance without validating final output. |
+| `higgsfield-websites` | `higgsfield-websites/SKILL.md` | `e464679d62ee130bfe79c67dc39fd6287bc41f2c` | Build/deploy full-stack websites/apps/games via Higgsfield CLI | **Exclude from the media-skills initial set**. It is a broad website/game deployment workflow, outside the initial video skill scope, with filesystem, Git, package manager and cloud deployment side effects. |
+| `higgsfield-video-explainer` | `higgsfield-video-explainer/SKILL.md` | `8f50a15dda4a9c8a448d4ccbd1cdc1267ed65b2b` | Narrated explainer/story videos assembled from ordered blocks | **High-priority candidate** for text/document-to-video. Requires multiple generation steps, provider/model calls, server-side assembly, subtitles handling, and a cost/latency budget. |
+| `higgsfield-youtube-thumbnail` | `higgsfield-youtube-thumbnail/SKILL.md` | `fca52c8eee762fdd2fa53d9708480a2098c91670` | YouTube thumbnails and vertical video covers | **Optional companion skill**. Include only if thumbnail generation belongs in Video Studio; enforce truthful topic representation and protect referenced faces/logos. |
+
+### Higgsfield-specific security and runtime findings
+
+- The official skill files use `allowed-tools: Bash` and several instruct the agent to install the Higgsfield CLI using a remote shell script piped directly into `sh`. Do **not** run that bootstrap as-is inside a NasrinAI server or user environment. Inspect and pin the installer, or make CLI installation a separate opt-in deployment step.
+- These are instructions for an agent operating a CLI, not a self-contained free model. The MIT license covers the repository's licensed code/instructions; it does not make the Higgsfield service, models, credits, generated assets or API access free.
+- Provider API keys and auth must remain server-side. Never let a generated prompt, downloaded reference, skill text, or model response change allowed endpoints, read arbitrary files, or execute unrestricted shell commands.
+- Keep this pack's skills separate from the NasrinAI provider adapter. A skill may express intent/workflow, but NasrinAI's server-side router must independently enforce authentication, plan limits, consent, cost ceiling, safety, allowed model/provider, timeout and audit logging.
+- The source version above reports skill version `0.13.0` in frontmatter. Re-check the pinned source before importing and preserve attribution/license files.
+
