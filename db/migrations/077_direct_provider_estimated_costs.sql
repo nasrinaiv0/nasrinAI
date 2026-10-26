@@ -1,3 +1,5 @@
+begin;
+
 -- Direct-provider request estimates are separate from provider-reported actual costs.
 -- Never store estimates in usage_events.cost_usd/cost_source: migration 062 reserves
 -- those columns for authoritative provider-reported billing only.
@@ -92,3 +94,5 @@ revoke execute on function public.owner_console_estimated_cost_summary(timestamp
   from public, anon, authenticated, service_role;
 grant execute on function public.owner_console_estimated_cost_summary(timestamptz)
   to service_role;
+
+commit;
