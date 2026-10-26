@@ -4656,3 +4656,7 @@ html[data-theme="dark"] #pageSpace .space-connect-logo--dark { display: block; }
   html:not([data-theme="light"]) #pageSpace .space-connect-logo--light { display: none; }
   html:not([data-theme="light"]) #pageSpace .space-connect-logo--dark { display: block; }
 }
+
+/* First-use Guest data notice: readable, accessible, and consistent with the settings sheet. */
+.guest-privacy-notice{margin:12px 0 16px;padding:14px 16px;border:1px solid var(--line,rgba(120,130,140,.28));border-radius:16px;background:var(--surface-2,rgba(127,127,127,.07));font-size:.94rem;line-height:1.55;color:var(--text,inherit)}
+.guest-privacy-notice[hidden]{display:none}
