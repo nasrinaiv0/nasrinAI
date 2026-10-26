@@ -442,7 +442,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
                 // These configured, non-OpenRouter lanes are intentionally tried
                 // after the approved free pool; they must fit inside the retry budget.
                 + (config.ai.providerKeys?.includes('gemini') ? 1 : 0)
-                + ((heavyQuickTask || quickFileTask) && config.ai.providerKeys?.includes('openrouter') ? 1 : 0))
+                + ((heavyQuickTask || quickFileTask) && config.ai.providerKeys?.includes('openrouter') ? 1 : 0)
+                + 10)
             : r.maxRetries;
           if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).
