@@ -372,3 +372,17 @@ test('chat map reply cards use a compact two-column layout and rectangular respo
   assert.match(block, /border-radius: 0/);
   assert.match(block, /overflow-wrap: anywhere/);
 });
+
+test('map replies request Google Places and render rich nearby business cards', async () => {
+  const fs = await import('node:fs/promises');
+  const js = await fs.readFile(new URL('../public/chat-map.js', import.meta.url), 'utf8');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /libraries=places/);
+  assert.match(js, /nearbySearch\(/);
+  assert.match(js, /renderBusinessCards/);
+  assert.match(js, /place\.photos\?\.\[0\]/);
+  assert.match(js, /user_ratings_total/);
+  assert.match(js, /opening_hours\.open_now/);
+  assert.match(css, /\.nasrin-chat-business-photo/);
+  assert.match(css, /\.nasrin-chat-business-details/);
+});
