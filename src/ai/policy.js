@@ -188,7 +188,10 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             : eligibleCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, routableCandidates);
           const directFreeCandidates = prioritized.filter((candidate) => candidate.provider !== 'openrouter'
-            && (r.freeModels?.[candidate.provider] || []).includes(candidate.model));
+            && ((r.freeModels?.[candidate.provider] || []).includes(candidate.model)
+              || (candidate.provider === 'gemini'
+                && config.ai.routing.geminiFreeTier === true
+                && candidate.model === 'gemini-3.1-flash-lite')));
           const openRouterFreeCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model));
           const paidQuickCostOrder = ['deepseek/deepseek-v4.1-flash', 'deepseek/deepseek-v4.1-flash-1017', 'deepseek/deepseek-v4-flash-0731', 'z-ai/glm-5.3-flash', 'xiaomi/mimo-v2.6-flash', 'qwen/qwen3.8-flash', 'inclusionai/ling-3.1-flash', 'qwen/qwen3.8-27b', 'anthropic/claude-haiku-5.5', 'xiaomi/mimo-v2.6-pro'];
           const paidQuickCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna').sort((a, b) => {
@@ -204,8 +207,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               ? paidQuickCandidates
               : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
-          const otherCandidates = r.quickNemotronOnly && freeQuick
-            ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
+          const otherCandidates = freeQuick
+            ? ordered.filter((candidate) => candidate.provider !== 'openrouter'
+              && ((r.freeModels?.[candidate.provider] || []).includes(candidate.model)
+                || (candidate.provider === 'gemini'
+                  && config.ai.routing.geminiFreeTier === true
+                  && candidate.model === 'gemini-3.1-flash-lite')))
             : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
           // Intent is classified and the tier's level ceiling is applied before
@@ -235,7 +242,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // tier-model fallback if all configured level candidates were filtered
           // out. Do not use this escape hatch for free Quick with OpenRouter,
           // where the free-model allowlist must remain authoritative.
-          if (!candidates.length && !r.quickNemotronOnly) {
+          if (!candidates.length && !freeQuick && !r.quickNemotronOnly) {
             const fallbackTier = config.ai.tiers?.[plan.tier] || config.ai.tiers?.nasrinai;
             if (fallbackTier) candidates.push(fallbackTier);
           }
