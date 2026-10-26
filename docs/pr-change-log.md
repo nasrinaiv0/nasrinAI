@@ -2709,3 +2709,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added direct Gemini Flash Lite as an approved Guest/Quick Free fallback outside OpenRouter when Gemini credentials are configured.
 - Preserved OpenRouter catalog free-model priority, paid-model restrictions, and the authorized heavy-task Luna escape hatch ordering.
 - Kept scraping/web research and orchestration tool access in the shared tool layer; provider fallback changes do not remove task/tool capabilities. Regression tests cover the direct Gemini fallback.
+
+## PR #643 follow-up — GPT-6 Luna file routing for Quick — 2026-10-26
+- Added GPT-6 Luna as a first-class route for file extraction, document interpretation, and attachment-based tasks for both Quick Free and paid Quick, rather than limiting it to a generic heavy-task fallback.
+- Quick Free still tries Luna only for file/document tasks as an explicit exception; ordinary chat remains on approved free OpenRouter models and direct Gemini fallback. Paid Quick keeps its paid-model routing policy.
+- Added regression coverage for both Quick Free and paid Quick attachment routing. CI and production verification remain required.
