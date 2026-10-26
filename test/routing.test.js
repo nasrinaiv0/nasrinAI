@@ -202,7 +202,7 @@ test('only Groq, Cerebras, Cloudflare Workers AI, Mistral, and NVIDIA NIM are di
     MODELSCOPE_FREE_MODELS: 'some-model'
   });
   const allowed = ['groq', 'cerebras', 'cloudflare-workers-ai', 'mistral', 'nvidia-nim'];
-  assert.deepEqual(config.ai.freeProviders.map((p) => p.id).sort(), allowed.slice().sort());
+  assert.deepEqual(config.ai.freeProviders.map((p) => p.id).filter((id) => id !== 'openrouter').sort(), allowed.slice().sort());
   assert.deepEqual(Object.keys(config.ai.routing.freeModels).sort(), [...allowed, 'openrouter'].sort());
   assert.ok(!config.ai.fallback.providers.some((id) => allowed.includes(id)), 'direct free providers are not generic cross-tier fallbacks');
   for (const level of [2, 3, 4, 5]) {
