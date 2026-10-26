@@ -71,3 +71,31 @@ The audio context is also resumed from iOS's `interrupted` state, not only
 - OpenRouter TTS uses the Google Gemini voice catalog (30 voice IDs), not the OpenAI voice catalog. Settings IDs are namespaced as `openrouter:Charon`, etc., to ensure the selected voice is routed to the correct engine.
 - The existing server-side voice endpoint continues to enforce ownership, rate limits, daily usage, spend reservations, short-lived audio cache, and usage logging. No API key is sent to the browser.
 - Current validation covers configuration and model/provider pinning. Authenticated live speech generation and audio-format compatibility must be smoke-tested in Vercel Preview before enabling production traffic.
+
+
+## Realtime screen sharing
+
+The voice control row includes a centered **Share screen** pill. It is enabled
+only while a Gemini Live or OpenAI Realtime voice session is active. The browser
+shows its native screen/window/tab picker; after permission is granted, the app
+samples a downscaled JPEG frame approximately once every 1.3 seconds. Frames are
+sent over the active realtime session as visual context, not saved to NasrinAI
+storage. Users can stop sharing from the pill or the browser's native sharing
+indicator. Ending voice also stops capture.
+
+Screen capture depends on browser support for `getDisplayMedia()`; unsupported
+browsers report a clear message rather than pretending to share. iOS browser
+support must be verified on the target iPhone/Safari version. Frame delivery is
+best-effort and never blocks microphone/audio transport.
+
+
+## OpenRouter vision fallback
+
+When no direct realtime image transport is active, shared-screen frames can be sent
+to the authenticated `/v1/realtime/screen-analyze` endpoint. The endpoint uses
+the existing server-side OpenRouter client, applies message/budget checks, accepts
+only bounded JPEG base64 frames, and never stores screenshots. Set
+`OPENROUTER_VOICE_VISION_MODEL` to a vision-capable OpenRouter model ID; the
+default is `google/gemini-3-flash-preview`. This is screenshot analysis only,
+not a realtime audio or continuous video transport. Fallback calls are throttled
+to at most one every five seconds in the browser.
