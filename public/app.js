@@ -5432,10 +5432,12 @@
       improvementConsentVersion = result.version;
       improvementConsentValue = result.enabled === true;
       control.checked = improvementConsentValue;
-      control.disabled = false;
-      status.textContent = improvementConsentValue
-        ? 'Your optional preference is on. No chat content is currently collected for improvement.'
-        : 'Off by default. No chat content is currently collected for improvement.';
+      control.disabled = !account;
+      status.textContent = !account
+        ? 'Guest access requires this setting. Eligible prompts and replies may be screened and retained without a routine expiry to improve NasrinAI; applicable privacy rights still apply.'
+        : improvementConsentValue
+          ? 'Your improvement preference is on. Only eligible, screened examples are collected; this does not automatically train model weights.'
+          : 'Off. No signed-in conversation content is collected for improvement.';
     } catch (err) {
       improvementConsentVersion = null;
       improvementConsentValue = false;
