@@ -84,7 +84,7 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   // Production always puts the router in front of the providers; so do tests.
   // The one test provider stands in for every provider key.
   const raw = provider;
-  provider = raw ? createRouter({ providers: { openai: raw, gemini: raw, local: raw, fake: raw }, config, logger }) : null;
+  provider = raw ? createRouter({ providers: { openai: raw, local: raw, fake: raw }, config, logger }) : null;
   const models = createModelCatalog({ provider, config, logger });
   const legal = createLegal({ store, config, logger, deleteAuthUser: async (id) => { deletedUsers.push(id); } });
   const policy = provider && config.ai.routing.mode === 'smart'
