@@ -104,6 +104,8 @@ export async function fetchDirectProviderBilling({
       let page = '';
       let pages = 0;
       let bucketCount = 0;
+      let totalUsd = 0;
+      let sawCost = false;
       do {
         const query = new URLSearchParams({ starting_at: startIso, ending_at: endIso, 'group_by[]': 'description', bucket_width: '1d', limit: '31' });
         if (page) query.set('page', page);
@@ -117,14 +119,14 @@ export async function fetchDirectProviderBilling({
         const payload = await response.json();
         const parsed = parseAnthropicCosts(payload);
         rows.push(...parsed.rows);
+        if (parsed.total_usd !== null) { totalUsd += parsed.total_usd; sawCost = true; }
         bucketCount += parsed.bucket_count;
         page = payload?.has_more === true && typeof payload?.next_page === 'string' ? payload.next_page : '';
         pages++;
         if (payload?.has_more === true && !page) throw new Error('provider_pagination_invalid');
         if (pages >= 4 && page) throw new Error('provider_pagination_limit');
       } while (page);
-      const total = rows.reduce((sum, row) => sum + row.amount_usd, 0);
-      results.anthropic = { status: 'available', source: 'anthropic_organization_cost_report_api', total_usd: rows.length ? Number(total.toFixed(8)) : null, rows: rows.slice(0, 1000), bucket_count: bucketCount, pages_fetched: pages };
+      results.anthropic = { status: 'available', source: 'anthropic_organization_cost_report_api', total_usd: sawCost ? Number(totalUsd.toFixed(8)) : null, rows: rows.slice(0, 1000), bucket_count: bucketCount, pages_fetched: pages };
     } catch (error) {
       results.anthropic = { status: 'unavailable', source: 'anthropic_organization_cost_report_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\d+$/)?.[0] || (error?.message === 'provider_pagination_limit' ? 'provider_pagination_limit' : error?.message === 'provider_pagination_invalid' ? 'provider_pagination_invalid' : error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
     }
