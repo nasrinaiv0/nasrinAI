@@ -5271,12 +5271,17 @@
     $('termsCheck').focus();
   }
 
-  // A guest's first visit: the same sheet, once per browser (nothing is sent
-  // to the server; signed-in users' acceptance is recorded there).
+  // Guest first visit: disclose improvement collection before chat and record
+  // an explicit, versioned acknowledgement against this server-issued guest session.
   function showFirstVisitNotice() {
-    if (account || saved.get(KEYS.notice)) return;
+    const guestSession = saved.get(KEYS.session);
+    if (account || !guestSession?.token || saved.get(KEYS.notice) === guestSession.token) return;
     termsMethod = 'first_visit';
-    openTerms('Please read how NasrinAI works.', { canSignOut: false });
+    $('guestPrivacyNotice').hidden = false;
+    $('termsCheckCopy').textContent = 'I understand the Guest data notice and agree to the ';
+    $('termsGuestConsentCopy').hidden = true;
+    $('termsLater').textContent = 'Log in to manage privacy';
+    openTerms('Before you continue as a Guest', { canSignOut: false });
   }
 
   async function checkTerms(method = 'update_prompt') {
@@ -5296,10 +5301,23 @@
   $('termsAccept').addEventListener('click', async () => {
     $('termsAccept').disabled = true;
     if (termsMethod === 'first_visit') {
-      saved.set(KEYS.notice, true);
-      termsSheet.hidden = true;
-      scrim.hidden = true;
-      Nasrin.flash('happy', 1200);
+      try {
+        const current = await api('/v1/improvement-consent');
+        await api('/v1/improvement-consent', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true, version: current.version })
+        });
+        const guestSession = saved.get(KEYS.session);
+        if (guestSession?.token) saved.set(KEYS.notice, guestSession.token);
+        $('guestPrivacyNotice').hidden = true;
+        termsSheet.hidden = true;
+        scrim.hidden = true;
+        Nasrin.flash('happy', 1200);
+      } catch (err) {
+        $('termsStatus').textContent = err.message || 'We could not save the Guest privacy acknowledgement. Please retry or sign in.';
+        $('termsAccept').disabled = false;
+      }
       return;
     }
     try {
@@ -5315,9 +5333,18 @@
     }
   });
   $('termsLater').addEventListener('click', async () => {
+    const wasFirstVisit = termsMethod === 'first_visit';
     termsSheet.hidden = true;
     scrim.hidden = true;
-    try { await fetch('/v1/auth/sign-out', { method: 'POST', headers: { Authorization: 'Bearer ' + account.token } }); } catch { /* offline */ }
+    $('guestPrivacyNotice').hidden = true;
+    if (wasFirstVisit) {
+      $('termsCheckCopy').textContent = 'I agree to the ';
+      $('termsGuestConsentCopy').hidden = true;
+      $('termsLater').textContent = 'Sign out instead';
+      await openSignIn('Sign in to access your account privacy controls.');
+      return;
+    }
+    try { if (account) await fetch('/v1/auth/sign-out', { method: 'POST', headers: { Authorization: 'Bearer ' + account.token } }); } catch { /* offline */ }
     signedOut();
     switchIdentity();
   });
