@@ -445,7 +445,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !['user', 'guest'].includes(subjectType) || !OWNER_ID.test(String(subjectId))
           || !/^[A-Za-z0-9._-]{1,40}$/.test(String(consentVersion)) || consentVersion === '2026-10-10-preference-only'
           || typeof exampleText !== 'string' || !exampleText.trim() || exampleText.length > 12000
-          || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()) throw new Error('invalid improvement example');
+          || (expiresAt !== null && (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()))) throw new Error('invalid improvement example');
       const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
       const rows = await request('POST', 'improvement_examples?select=id', {
@@ -459,7 +459,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !Array.isArray(terms)) return [];
       const wanted = [...new Set(terms.map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
       if (!wanted.length) return [];
-      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=example_text,created_at&order=created_at.desc&limit=100`);
+      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&or=(expires_at.is.null,expires_at.gt.${encodeURIComponent(new Date().toISOString())})&select=example_text,created_at&order=created_at.desc&limit=100`);
       return (rows || []).map((row) => {
         const text = String(row.example_text || '');
         const lower = text.toLowerCase();
