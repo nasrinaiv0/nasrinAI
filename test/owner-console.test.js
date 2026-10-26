@@ -432,6 +432,43 @@ test('OpenRouter Analytics 403 is reported safely as a Management API permission
   assert.equal(out.res.body.includes(secretSentinel), false);
 });
 
+test('direct-provider billing endpoint is owner-session protected and never returns admin credentials', async () => {
+  const calls = [];
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, openaiAdminKey: 'openai-admin-secret-test', anthropicAdminKey: 'anthropic-admin-secret-test' };
+  const { consoleHandler } = setup({
+    ownerConsole,
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), options });
+      if (String(url).startsWith('https://api.openai.com/')) return {
+        ok: true, status: 200, json: async () => ({ data: [{ results: [{ amount: { value: 1.25, currency: 'usd' } }] }] })
+      };
+      return {
+        ok: true, status: 200, json: async () => ({ data: [{ results: [{ amount: '275', description: 'Claude messages' }] }], has_more: false })
+      };
+    }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/provider-billing?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/provider-billing');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.providers.openai.total_usd, 1.25);
+  assert.equal(payload.providers.anthropic.total_usd, 2.75);
+  assert.equal(out.res.body.includes('admin-secret-test'), false);
+  assert.equal(calls.length, 2);
+  assert.equal(calls.find((call) => call.url.includes('api.openai.com')).options.headers.Authorization, 'Bearer openai-admin-secret-test');
+  assert.equal(calls.find((call) => call.url.includes('api.anthropic.com')).options.headers['x-api-key'], 'anthropic-admin-secret-test');
+
+  const invalid = request('GET', '/owner/api/provider-billing?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/provider-billing');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/provider-billing?window=7d', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/provider-billing');
+  assert.equal(denied.res.statusCode, 404);
+});
+
 test('estimated request-cost summary is owner-only, bounded, aggregate-only, and explicitly estimated', async () => {
   let called = false;
   const store = {
