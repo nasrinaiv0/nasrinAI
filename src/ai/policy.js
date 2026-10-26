@@ -115,8 +115,13 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       let calls = 0;   // model calls made so far that failed, counting any failover the router made itself
       const tried = new Set();
       let quickLunaFallback = null;
-      const heavyQuickTask = plan.tier === 'nasrinai' && plan.paidQuick !== true
-        && (plan.wanted >= 3 || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(plan.task));
+      const quickTier = plan.tier === 'nasrinai';
+      const quickFileTask = quickTier && (
+        attachments.length > 0
+        || ['file_extraction', 'document_interpretation', 'document_analysis', 'extraction'].includes(plan.task)
+      );
+      const heavyQuickTask = quickTier && plan.paidQuick !== true
+        && (quickFileTask || plan.wanted >= 3 || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(plan.task));
       let lastFailed = null;   // { spec, level } of a retryable failure, for one same-model retry
       let sameRetried = false;
       // Live catalog candidates extend paid-tier routing without changing the
@@ -175,7 +180,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               ]
             : [];
           const expandedTierCandidates = [...dynamicOpenRouterCandidates, ...tierCandidates, ...configuredFreeProviderCandidates,
-            ...(heavyQuickTask ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
+            ...((heavyQuickTask || (quickFileTask && (plan.paidQuick === true || plan.paidQuick !== true))) ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
           // Enforce plan eligibility before ranking or trying any candidate.
           // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
           // Luna is the sole paid-model escape hatch and is attempted only after
@@ -207,15 +212,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               task: plan.task,
               verifiedIds: liveOpenRouterModels
             }) && (
-              (strictQuickFree && (QUICK_FREE_OPENROUTER_CHAT_IDS.has(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+              (strictQuickFree && (QUICK_FREE_OPENROUTER_CHAT_IDS.has(candidate.model) || (candidate.model === 'openai/gpt-6-luna' && quickFileTask)))
               || (freeQuick && !strictQuickFree)
-              || (paidQuick && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna')
+              || (paidQuick && !/:free$/i.test(candidate.model) && (candidate.model !== 'openai/gpt-6-luna' || quickFileTask))
               || (!freeQuick && !paidQuick)
             );
           });
-          const lunaCandidate = heavyQuickTask ? eligibleCandidates.find((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna') : null;
+          const lunaCandidate = (heavyQuickTask || quickFileTask) ? eligibleCandidates.find((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna') : null;
           if (lunaCandidate && !quickLunaFallback) quickLunaFallback = { spec: lunaCandidate, level: l };
-          const routableCandidates = heavyQuickTask
+          const routableCandidates = (heavyQuickTask || quickFileTask)
             ? eligibleCandidates.filter((candidate) => !(candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna'))
             : eligibleCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, routableCandidates);
@@ -223,17 +228,21 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             && (r.freeModels?.[candidate.provider] || []).includes(candidate.model));
           const openRouterFreeCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model));
           const paidQuickCostOrder = ['deepseek/deepseek-v4.1-flash', 'deepseek/deepseek-v4.1-flash-1017', 'deepseek/deepseek-v4-flash-0731', 'z-ai/glm-5.3-flash', 'xiaomi/mimo-v2.6-flash', 'qwen/qwen3.8-flash', 'inclusionai/ling-3.1-flash', 'qwen/qwen3.8-27b', 'anthropic/claude-haiku-5.5', 'xiaomi/mimo-v2.6-pro'];
-          const paidQuickCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna').sort((a, b) => {
+          const paidQuickCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && !/:free$/i.test(candidate.model) && (candidate.model !== 'openai/gpt-6-luna' || quickFileTask)).sort((a, b) => {
             const ai = paidQuickCostOrder.indexOf(a.model); const bi = paidQuickCostOrder.indexOf(b.model);
             return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
           });
           const ordered = strictQuickFree
             ? [
+                ...(quickFileTask ? prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna') : []),
                 ...openRouterFreeCandidates,
                 ...directFreeCandidates
               ]
             : paidQuick
-              ? paidQuickCandidates
+              ? [
+                  ...(quickFileTask ? prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna') : []),
+                  ...paidQuickCandidates
+                ]
               : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = strictQuickFree
@@ -249,11 +258,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
           if (strictQuickFree) {
+            if (quickFileTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
             candidates.push(...otherCandidates);
-            if (heavyQuickTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
+            if (heavyQuickTask && !quickFileTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
           } else if (paidQuick) {
-            candidates.push(...openRouterCandidates.filter((candidate) => !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna'));
+            candidates.push(...openRouterCandidates.filter((candidate) => !/:free$/i.test(candidate.model) && (candidate.model !== 'openai/gpt-6-luna' || quickFileTask)));
           } else {
             candidates.push(...openRouterCandidates);
           }
