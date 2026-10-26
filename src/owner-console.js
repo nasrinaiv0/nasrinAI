@@ -1173,6 +1173,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const report = await fetchDirectProviderBilling({
           openaiAdminKey: owner.openaiAdminKey,
           anthropicAdminKey: owner.anthropicAdminKey,
+          cloudflareBillingApiToken: owner.cloudflareBillingApiToken,
+          cloudflareAccountId: owner.cloudflareAccountId,
           window: windowName,
           now,
           fetchImpl
@@ -1219,7 +1221,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
               pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null
             }))
           },
-          note: 'These are application estimates using a versioned public list-price registry, not provider-billed actual costs. Gemini estimates use paid Standard list prices because free-quota eligibility is not confirmed per request. OpenRouter is excluded to prevent double-counting.'
+          note: 'These are application estimates using a versioned public list-price registry, not provider-billed actual costs. Gemini estimates use paid Standard list prices because free-quota eligibility is not confirmed per request. Cerebras and Cloudflare Workers AI estimates use published token rates; Cloudflare free neuron allocation and account billing adjustments are not allocated per request. OpenRouter is excluded to prevent double-counting.'
         });
       } catch {
         logger?.warn?.('owner estimated-cost summary unavailable', { source: 'usage_events_estimated_cost' });

@@ -36,6 +36,37 @@ function parseOpenAICosts(payload) {
   }
   return { total_usd: seen ? Number(total.toFixed(8)) : null, rows: rows.slice(0, 1000), bucket_count: buckets.length };
 }
+function parseCloudflareBillableUsage(payload) {
+  // Cloudflare's Billable Usage API is account-level and updates daily. Accept
+  // only rows with an explicit numeric USD cost; never infer dollars from neurons.
+  const rowsIn = Array.isArray(payload?.result) ? payload.result
+    : Array.isArray(payload?.result?.data) ? payload.result.data
+      : Array.isArray(payload?.data) ? payload.data : [];
+  let total = 0, seen = false;
+  const rows = [];
+  for (const row of rowsIn) {
+    if (!row || typeof row !== 'object') continue;
+    const currency = String(row.BillingCurrency || row.billing_currency || row.Currency || row.currency || 'USD').toUpperCase();
+    if (currency !== 'USD') continue;
+    const raw = row.ContractedCost ?? row.contracted_cost ?? row.CostUSD ?? row.cost_usd ?? row.Cost ?? row.cost ?? row.TotalCost ?? row.total_cost;
+    const amount = finiteMoney(raw);
+    if (amount === null) continue;
+    const service = row.ServiceName ?? row.service_name ?? row.ProductName ?? row.product_name ?? row.Service ?? row.service;
+    const start = row.ChargePeriodStart ?? row.charge_period_start ?? row.start_time ?? row.from;
+    const end = row.ChargePeriodEnd ?? row.charge_period_end ?? row.end_time ?? row.to;
+    total += amount; seen = true;
+    rows.push({
+      start_time: isoDate(start),
+      end_time: isoDate(end),
+      amount_usd: amount,
+      service: typeof service === 'string' ? service.slice(0, 120) : null,
+      family: typeof (row.ServiceFamilyName ?? row.service_family_name) === 'string'
+        ? String(row.ServiceFamilyName ?? row.service_family_name).slice(0, 120) : null
+    });
+  }
+  return { total_usd: seen ? Number(total.toFixed(8)) : null, rows: rows.slice(0, 1000), row_count: rowsIn.length };
+}
+
 function parseAnthropicCosts(payload) {
   const buckets = Array.isArray(payload?.data) ? payload.data : [];
   let total = 0, seen = false;
@@ -66,6 +97,8 @@ function parseAnthropicCosts(payload) {
 export async function fetchDirectProviderBilling({
   openaiAdminKey = '',
   anthropicAdminKey = '',
+  cloudflareBillingApiToken = '',
+  cloudflareAccountId = '',
   window = '7d',
   now = Date.now,
   fetchImpl = fetch
@@ -134,10 +167,39 @@ export async function fetchDirectProviderBilling({
       results.anthropic = { status: 'unavailable', source: 'anthropic_organization_cost_report_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\d+$/)?.[0] || (error?.message === 'provider_pagination_limit' ? 'provider_pagination_limit' : error?.message === 'provider_pagination_invalid' ? 'provider_pagination_invalid' : error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
     }
   })());
+  if (String(cloudflareBillingApiToken).trim() && String(cloudflareAccountId).trim()) requests.push((async () => {
+    try {
+      const from = new Date(start).toISOString().slice(0, 10);
+      const to = new Date(end).toISOString().slice(0, 10);
+      const query = new URLSearchParams({ from, to });
+      const response = await fetchImpl('https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(String(cloudflareAccountId).trim()) + '/billable-usage?' + query, {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + String(cloudflareBillingApiToken).trim(), Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+        redirect: 'error'
+      });
+      if (!response.ok) throw new Error('provider_http_' + response.status);
+      const payload = await response.json();
+      if (payload?.success === false) throw new Error('provider_response_invalid');
+      const parsed = parseCloudflareBillableUsage(payload);
+      if (!parsed.row_count && !Array.isArray(payload?.result)) throw new Error('provider_response_invalid');
+      results.cloudflare = {
+        status: parsed.total_usd === null ? 'unavailable' : 'available',
+        source: 'cloudflare_billable_usage_api',
+        total_usd: parsed.total_usd,
+        rows: parsed.rows,
+        row_count: parsed.row_count,
+        data_freshness: 'daily'
+      };
+    } catch (error) {
+      results.cloudflare = { status: 'unavailable', source: 'cloudflare_billable_usage_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\d+$/)?.[0] || (error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
+    }
+  })());
   await Promise.all(requests);
-  for (const provider of ['openai', 'anthropic']) {
-    if (!results[provider]) results[provider] = { status: 'not_configured', source: provider === 'openai' ? 'openai_organization_costs_api' : 'anthropic_organization_cost_report_api', total_usd: null, rows: [] };
+  for (const provider of ['openai', 'anthropic', 'cloudflare']) {
+    if (!results[provider]) results[provider] = { status: 'not_configured', source: provider === 'openai' ? 'openai_organization_costs_api' : provider === 'anthropic' ? 'anthropic_organization_cost_report_api' : 'cloudflare_billable_usage_api', total_usd: null, rows: [] };
   }
+  results.cerebras = { status: 'not_available', source: 'cerebras_billing_dashboard', total_usd: null, rows: [], note: 'Cerebras public account billing is not exposed through a verified organization billing API in this integration; use the provider dashboard for actual spend.' };
   return {
     generated_at: new Date(now()).toISOString(),
     window: selectedWindow,
@@ -148,4 +210,4 @@ export async function fetchDirectProviderBilling({
   };
 }
 
-export const providerBillingInternals = Object.freeze({ parseOpenAICosts, parseAnthropicCosts, validWindow });
+export const providerBillingInternals = Object.freeze({ parseOpenAICosts, parseAnthropicCosts, parseCloudflareBillableUsage, validWindow });
