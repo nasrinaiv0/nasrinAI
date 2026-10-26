@@ -24,7 +24,7 @@ test('Anthropic Haiku uses its higher rate when total prompt exceeds 100K tokens
     provider: 'anthropic', model: 'claude-haiku-5-5',
     inputTokens: 100_001, cachedTokens: 0, outputTokens: 1_000
   });
-  assert.equal(amount, 0.0525005);
+  assert.equal(amount, 0.0505005);
 });
 
 test('Gemini direct estimates use the configured paid Standard list price, not a false actual-cost claim', () => {
@@ -32,7 +32,7 @@ test('Gemini direct estimates use the configured paid Standard list price, not a
     provider: 'google', model: 'google/gemini-3.1-flash-lite',
     inputTokens: 1_000_000, cachedTokens: 100_000, outputTokens: 1_000_000
   });
-  assert.equal(amount, 1.725);
+  assert.equal(amount, 1.7275);
 });
 
 test('unknown providers, unpriced models, and invalid token counts remain unknown', () => {
