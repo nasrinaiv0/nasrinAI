@@ -40,6 +40,16 @@ test('malformed entries or a short session secret disable the owner console with
 });
 
 
+test('provider billing admin keys are optional and remain disabled when owner access is disabled', () => {
+  const disabled = loadConfig({ NODE_ENV: 'test', OPENAI_ADMIN_KEY: 'openai-admin-test-key', ANTHROPIC_ADMIN_KEY: 'anthropic-admin-test-key' });
+  assert.equal(disabled.ownerConsole.openaiAdminKey, '');
+  assert.equal(disabled.ownerConsole.anthropicAdminKey, '');
+  const base = { NODE_ENV: 'test', OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: '203.0.113.7', OWNER_SESSION_SECRET: 's'.repeat(40) };
+  const enabled = loadConfig({ ...base, OPENAI_ADMIN_KEY: 'openai-admin-test-key', ANTHROPIC_ADMIN_KEY: 'anthropic-admin-test-key' });
+  assert.equal(enabled.ownerConsole.openaiAdminKey, 'openai-admin-test-key');
+  assert.equal(enabled.ownerConsole.anthropicAdminKey, 'anthropic-admin-test-key');
+});
+
 test('optional Vercel deployment telemetry requires a token and exact project/team identifiers', () => {
   const base = { NODE_ENV: 'test', OWNER_ALLOWED_EMAILS: 'owner@example.com', OWNER_ALLOWED_IPS: '203.0.113.7', OWNER_SESSION_SECRET: 's'.repeat(40) };
   const disabled = loadConfig({ ...base });
