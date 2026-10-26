@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
+- Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
+
 - Route Quick Free image generation through the paid, low-cost OpenRouter image lane (`openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` fallback) when OpenRouter is configured, without changing Quick Free text-chat eligibility. Add regression coverage and document route overrides.
 
 - Enforce Quick Free's free-model-only policy independently of provider-presence flags, and prevent paid Quick from falling back to free OpenRouter models. Add regression coverage for the legacy flag-off case.
