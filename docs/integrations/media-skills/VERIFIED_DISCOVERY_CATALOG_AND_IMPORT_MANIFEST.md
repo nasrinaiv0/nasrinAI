@@ -455,7 +455,7 @@ Start with provider-independent capabilities and video workflow skills that can 
 
 ## 11. Motion Skills collection — complete pack inventory
 
-The inspected `iart-ai/motion-skills` README currently advertises **55 skills across 18 installable packs** and MIT licensing. This repository is an index/installer surface; its root tree contains a `tools/` directory but no root-level `SKILL.md` entries, because the packs are separate repositories. Therefore, per-skill source SHAs and file-level license/security review must be done against each selected pack repository before importing.
+The inspected `iart-ai/motion-skills` README currently advertises **56 skills across 19 installable packs** and MIT licensing. This repository is an index/installer surface; its root tree contains a `tools/` directory but no root-level `SKILL.md` entries, because the packs are separate repositories. Therefore, per-skill source SHAs and file-level license/security review must be done against each selected pack repository before importing.
 
 Source: https://github.com/iart-ai/motion-skills
 
@@ -479,6 +479,7 @@ Source: https://github.com/iart-ai/motion-skills
 | `javascript-animation-skills` | 2 | Medium |
 | `lower-thirds-skills` | 1 | High |
 | `b-roll-skills` | 1 | High |
+| `talking-head-skills` | 1 | High, but review likeness/voice consent and provider costs |
 
 Recommended order: short-form, explainers, motion design, kinetic typography, e-commerce/ad video, lower thirds and B-roll first; advanced WebGL/Manim/web animation later. Do not infer the contents of a pack solely from its name; inspect each pack's actual tree and license.
 
@@ -492,10 +493,82 @@ Root license: MIT (verified in the previous pass). Recursive tree snapshot lists
 - [x] Enumerated all 153 `SKILL.md` entrypoints in Generative Media Skills from a non-truncated recursive tree.
 - [x] Grouped all 153 by source category and recorded exact source paths in this document.
 - [x] Recorded a priority audit shortlist spanning production, QA, assembly, video generation and audio.
-- [x] Recorded the 18-pack Motion Skills catalog and advertised skill counts.
+- [x] Recorded the 19-pack Motion Skills catalog and advertised skill counts.
 - [x] Confirmed the Comfy Skills repository currently exposes one `SKILL.md` entrypoint in the inspected recursive tree.
 - [ ] Inspect every candidate skill's full content, optional scripts, references, assets, dependencies and endpoints.
 - [ ] Verify each selected Motion Skills pack's repository URL, current commit, exact license and skill contents.
 - [ ] Finish provider pricing/free-tier verification and output-rights review.
 - [ ] Obtain explicit approval of the final import set before any third-party files are copied.
+
+
+
+## 14. Focused content and execution review — priority candidates
+
+Review date: 2026-10-27. This is a focused review of selected skill entrypoints and scripts, not a complete line-by-line audit of all 153 skills.
+
+### Findings from Generative Media Skills
+
+The upstream `AGENTS.md` and `METHODOLOGY.md` were inspected first, as the project requires. Its package contract separates production-facing `SKILL.md` plus optional `scripts/`, `references/`, and `assets/` from repository-only `EVAL.md` and `tests/`. This is a good pattern for NasrinAI: evaluations and answer keys must never be exposed to production agents.
+
+Selected skill files inspected at source commit `8c85352d5d75d4dcbe58480bd138e37b9742bab1`:
+
+| Skill | Inspected entrypoint SHA | Useful characteristics | Risk / follow-up |
+|---|---|---|---|
+| `explainer-video-production` | `6967d8ac332c43a736ac91fc0b097ceaf4d26b49` | Provider-independent brief-to-explainer workflow, claim log, accessibility and QA | Good high-priority candidate; review references and evaluation tasks before import. |
+| `social-short-production` | `7f80fa118347c7048a369e5b2413c33f17f8bf29` | Short-form narrative, captions, platform-aware delivery; explicitly separates evidence from heuristics | Avoid turning retention heuristics into universal rules; recheck platform facts. |
+| `storyboard-previsualization` | `0e77a28d2c10bab3bd17b3ec98121e25506f550e` | Shot-by-shot boards and previs before expensive generation | Good low-cost planning candidate. |
+| `generated-media-qa` | `6c2f58f73b4c55ae2ccc8f1b47ae417462fe53b6` | Acceptance frame, measured defects and reproducible QA reporting | Contains a Python script and tests; inspect/test script in isolation before bundling. |
+| `media-provenance-rights` | `b715bac2d35d4357fac56c808c9ca755f872488a` | Consent, rights, disclosure and provenance governance | Good policy-support candidate; must remain guidance, not automated legal clearance. |
+| `editing-montage` | `eaaa3ffd5409d9ee2c2e37f4b57063f3d62fcf89` | Editing structure, pacing, continuity and revision workflow | Good provider-independent workflow candidate. |
+| `ffmpeg-media-finishing` | `3162c7f4134b5898b3559feac9c82a84482d9992` | Probe-first deterministic finishing, export variants, checksums and delivery records | Contains a Python media-probe script and tests; subprocess/tool invocation must be constrained in NasrinAI's executor. |
+| `remotion-video-composition` | `f7b95a594d229ac3ee0845f5ae961e05064d5799` | React/Remotion composition, rendering and reproducible media package | Verify current Remotion licensing, dependency versions, and server-render resource limits. |
+| `higgsfield-video` | `f1941027c80012a4ce17d2210b6132e12dd05da3` | Provider-specific model selection and aggregator-level workflows | Provider terms/pricing are volatile; source content has July 2026 verification dates and must be refreshed before production. |
+| `google-veo` | `f6b4a48d767f13d6593940bde0ffab2714c1d1e1` | Route/model selection, async tasks, input modes and troubleshooting | Recheck model lifecycle, pricing, quota, region, and terms; source claims are dated July 2026. |
+| `seedance-2-0` | `81f29e932f80f1dc38cf409c4eb9fec1c53538dd` | Direct model/gateway selection, reference input and native audio workflows | Gateway IDs and schemas vary; must be validated against current official docs and a non-production preflight. |
+| `runway-video` | `0ad6143f5d0eb2b5c0dbb7756629c9d806ee6c1d` | Explicit paid-call approval, duplicate-create protection, async tasks and secure media transfer | Long provider-specific guide; refresh July 2026 claims and review all API calls before using it as an execution contract. |
+
+The tree confirms each selected skill has a required `EVAL.md`; the QA and FFmpeg skills additionally contain executable helper scripts and corresponding tests. Do not bundle the evaluation files or tests into production-facing skill packages. The script presence is not proof that the script has been executed or passed in NasrinAI.
+
+### Findings from selected iart.ai Motion Skills packs
+
+The upstream index README was updated after the earlier snapshot. Corrected count: **56 skills across 19 packs**, including `talking-head-skills`. The individual pack repos expose skill folders but, for the inspected packs, no `EVAL.md` files were found in their recursive trees. This does not automatically disqualify them, but NasrinAI should author its own acceptance/evaluation tests before adoption.
+
+| Pack | Pinned branch-head SHA | License metadata | Inspected skill/file | Key finding |
+|---|---|---|---|---|
+| `tiktok-video-skills` | `2a775336b5a638cbf8a61dbd785f9a1b649be016` | MIT | `skills/short-form-video/SKILL.md` SHA `7bc689429479a7f3364670770429840ba945bc3e` | Strong short-form workflow candidate. Some rhetoric frames retention in absolute terms; NasrinAI should label retention suggestions as hypotheses and avoid algorithmic guarantees. |
+| `explainer-video-skills` | `3e2d411b725d9a72939cf8e5eb81579e751373e7` | MIT | `skills/explainer-video/SKILL.md` SHA `5855ace8f27c74e4d55201bc764552767e7fea6b` | Useful script → storyboard → scene → narration/caption sync workflow. Overlaps with Generative Media Skills; compare before selecting one or merging concepts. |
+| `motion-design-skills` | `3c129f769d90a1328c209c386492333c9ac62312` | MIT | `skills/remotion-video/SKILL.md` SHA `a88f52ad273a0f39d8f65a378e3742ca2a82c259` | Useful programmatic video recipe. Pack includes After Effects JSX scripts; any scripting workflow must be explicitly scoped to a user-authorized local project and not run in a server by default. |
+| `lower-thirds-skills` | `aa8ef7ed9fa59d0a79fc57701e493cfd8197b5d8` | MIT | `skills/lower-thirds/scripts/render.mjs` SHA `38c94f5649c5f283b097401fe18475aa7d98eaaa` | Requires Node 18+, Playwright/Chromium and FFmpeg; launches browser/render processes and writes outputs to working paths. Run only in a bounded worker with explicit input/output directories, time/memory limits, and safe path validation. |
+| `b-roll-skills` | `a51e34b0a8def533759373733bde1869c21075fb` | MIT | `skills/talking-head-b-roll/scripts/transcribe.mjs` SHA `07f3ef0623a57f40296a5f21aa9abf7decac86df` | Can use local Whisper or ElevenLabs API. It reads local media, invokes `ffprobe`, may send audio to an external transcription provider, and writes transcript output; require clear disclosure/consent, server-side key handling, and explicit local-vs-cloud choice. |
+| `talking-head-skills` | `a315032ccffa94cda56a82fa306237250d3dd1bf` | MIT | Pack added to index; not yet fully inspected file-by-file | Keep in high-priority follow-up, but require likeness/voice consent, provider-cost disclosure, and a deeper script/endpoint review before import. |
+
+Additional high-priority packs have verified repository metadata showing MIT: `youtube-video-skills` at `f3df381d65abe5078f5ed410bbc3ed72e7cb92bd`, `ecommerce-video-skills` at `2bd0dd19c9b2df5230f5d8f7453861b9681e49b4`, `ad-video-skills` at `0de0f2a1c1f42a98103fc0ec436509276428372c`, and `kinetic-typography-skills` at `fccc94bd325d824235ee9e715e65abde57b6513a`. Their complete file-level review remains pending.
+
+### Revised candidate ranking
+
+**Tier A — best initial skill-only candidates**
+1. `storyboard-previsualization`
+2. `explainer-video-production`
+3. `social-short-production`
+4. `editing-montage`
+5. `generated-media-qa` (after script/test review)
+6. `media-provenance-rights`
+7. `ffmpeg-media-finishing` (after script/test review)
+8. `short-form-video` (after rewriting absolute retention claims as testable heuristics)
+9. `explainer-video` (compare with provider-independent candidate before selecting)
+10. `remotion-video-composition` / `remotion-video` (select one baseline after overlap and license review)
+
+**Tier B — provider integrations, not “free skills”**
+- Higgsfield, Veo, Seedance, Runway and other model/provider skills. Their instructions may be MIT-licensed, but generation calls can be paid and require credentials. Confirm current API availability, actual plan cost, output rights, retention, and privacy before enabling.
+
+**Tier C — tool/worker integrations**
+- ComfyUI MCP, lower-third renderers, B-roll transcription scripts, After Effects JSX. These execute tools, access files, spawn processes, or send media to providers. Keep them out of the core agent runtime until sandboxing and explicit user consent are implemented.
+
+## 15. Current blockers and safe next action
+
+1. The 153-skill inventory is complete at the entrypoint/path level, but only the focused subset above has had full entrypoint content inspected.
+2. Provider-specific claims were often verified in July 2026; as of 2026-10-27, pricing, model availability, quotas, endpoint schemas and commercial terms must be refreshed before a real call.
+3. Several motion packs contain executable scripts but lack repository-visible `EVAL.md` files. Create NasrinAI-owned tests rather than assuming upstream instructions are reliable.
+4. No third-party source has been copied into the NasrinAI runtime, and no skill is approved for production yet.
+5. Next, finish file-by-file review of Tier A's supporting resources and test the small QA/FFmpeg scripts in an isolated sandbox. Then submit a proposed import manifest for approval before creating a separate implementation PR.
 
