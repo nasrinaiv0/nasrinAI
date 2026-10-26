@@ -402,7 +402,7 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       if (!wanted.length) return [];
       const score = (row) => wanted.reduce((n, term) => n + (row.exampleText.toLowerCase().includes(term) ? 1 : 0), 0);
       return improvementExamples.filter((row) => row.tenantId === tenantId && row.status === 'approved'
-          && Date.parse(row.expiresAt) > now())
+          && (row.expiresAt === null || Date.parse(row.expiresAt) > now()))
         .map((row) => ({ exampleText: row.exampleText, rank: score(row), createdAt: row.createdAt }))
         .filter((row) => row.rank >= 2)
         .sort((a, b) => b.rank - a.rank || b.createdAt.localeCompare(a.createdAt))
