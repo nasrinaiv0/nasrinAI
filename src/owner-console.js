@@ -1184,6 +1184,49 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       }
       return true;
     }
+    if (pathname === '/owner/api/estimated-costs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'estimated_costs_unavailable', message: 'Request estimate telemetry is not connected.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      const windowDays = { '7d': 7, '30d': 30, '90d': 90 }[windowName];
+      if (!windowDays) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const summaryValue = await store.request('POST', 'rpc/owner_console_estimated_cost_summary', {
+          body: { p_since: new Date(now() - windowDays * 86400_000).toISOString() }
+        });
+        const summary = Array.isArray(summaryValue) ? summaryValue[0] : summaryValue;
+        if (!summary || typeof summary !== 'object' || !Array.isArray(summary.rows)) throw new Error('invalid estimate summary');
+        sendJson(res, 200, {
+          source: 'supabase.owner_console_estimated_cost_summary',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          summary: {
+            request_count: Math.max(0, Number(summary.request_count) || 0),
+            estimated_total_usd: Number.isFinite(Number(summary.estimated_total_usd)) ? Math.max(0, Number(summary.estimated_total_usd)) : null,
+            pricing_versions: Array.isArray(summary.pricing_versions) ? summary.pricing_versions.filter((value) => typeof value === 'string').slice(0, 10) : [],
+            rows: summary.rows.slice(0, 200).map((row) => ({
+              provider: typeof row.provider === 'string' ? row.provider.slice(0, 40) : 'unknown',
+              model: typeof row.model === 'string' ? row.model.slice(0, 160) : 'unknown',
+              request_count: Math.max(0, Number(row.request_count) || 0),
+              estimated_cost_usd: Number.isFinite(Number(row.estimated_cost_usd)) ? Math.max(0, Number(row.estimated_cost_usd)) : null,
+              latest_at: typeof row.latest_at === 'string' ? row.latest_at : null,
+              pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null
+            }))
+          },
+          note: 'These are application estimates using a versioned public list-price registry, not provider-billed actual costs. Gemini estimates use paid Standard list prices because free-quota eligibility is not confirmed per request. OpenRouter is excluded to prevent double-counting.'
+        });
+      } catch {
+        logger?.warn?.('owner estimated-cost summary unavailable', { source: 'usage_events_estimated_cost' });
+        sendJson(res, 503, { error: { code: 'estimated_costs_unavailable', message: 'Estimated request costs could not be loaded. Confirm migration 077 is applied.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner/api/openrouter-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
       if (!openrouterManagementKey || typeof fetchImpl !== 'function') {
         sendJson(res, 503, { error: { code: 'openrouter_billing_not_configured', message: 'OpenRouter billing analytics is not configured on the server.' } });
