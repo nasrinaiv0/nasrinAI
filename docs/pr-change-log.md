@@ -2795,3 +2795,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Upstream generated-media-QA and FFmpeg helper tests were inspected but not executed. Those helper-based candidates are excluded from the proposed initial pilot.
 - The five proposed initial-pilot skills remain unapproved; behavior-level acceptance tests, runtime destination verification, and explicit owner approval are still required.
 - No production changes, provider calls, migrations, or deployments were made.
+
+
+### Validation follow-up — 2026-10-27
+
+- GitHub Actions CI run `40375828185` (run #7467) completed with **success**. Observed jobs: `test`, `database`, and `dependency-audit` all completed successfully. This is the repository's existing CI suite; it does not execute the upstream third-party QA/FFmpeg helper tests.
+- Documentation Gate run `40375869291` (run #1709) completed with **success** after adding the required changelog entry. An earlier gate run `40375828185` name collision is avoided here by run ID: the CI run ID above is the test/database/dependency workflow, and the Documentation Gate is run ID `40375869291`.
+- The five proposed instruction-only skills remain a proposal. No third-party helper tests were run; those script-based candidates remain deferred.
+- No production deployment, database migration, provider call, or third-party code import occurred.
