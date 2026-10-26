@@ -2717,3 +2717,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Restrict Guest and Quick Free OpenRouter chat eligibility to the configured NasrinAI catalog of chat-capable free models.
 - Add configured Nemotron and Gemma free chat candidates to Quick Free defaults while keeping paid Quick and higher tiers separate.
 - Correct policy module import ordering so test modules can load; CI must confirm the fix.
+
+
+## PR #646 — Quick Free direct-provider allowlist — 2026-10-26
+
+- Reserve direct Groq, Cerebras, Cloudflare Workers AI, Mistral, and NVIDIA NIM APIs for Quick Free only, and only use configured models explicitly included in each provider's free-model allowlist.
+- Keep those direct providers out of generic automatic failover and paid-tier model candidates; retain OpenRouter's separate free-model pool.
+- Add regression coverage proving the exact allowlist and isolation from paid tiers.
+- CI and production verification are required before merge/deployment; provider credentials and current free-tier eligibility must be configured and verified separately.
