@@ -4661,3 +4661,111 @@ html[data-theme="dark"] #pageSpace .space-connect-logo--dark { display: block; }
 .guest-privacy-notice{margin:12px 0 16px;padding:14px 16px;border:1px solid var(--line,rgba(120,130,140,.28));border-radius:16px;background:var(--surface-2,rgba(127,127,127,.07));font-size:.94rem;line-height:1.55;color:var(--text,inherit)}
 .guest-privacy-notice[hidden]{display:none}
 
+
+
+/* Premium mobile chat controls: compact, consistent, and thumb-friendly. */
+@media (max-width: 600px) {
+  .composer {
+    padding: 0.55rem 0.6rem 0.6rem;
+    gap: 0.2rem;
+    border-radius: 24px;
+  }
+  .composer #input {
+    min-height: 3.35rem;
+    max-height: 8rem;
+    padding: 0.35rem 0.35rem 0.25rem;
+    font-size: 1rem;
+  }
+  .composer .tools {
+    gap: clamp(0.3rem, 1.6vw, 0.55rem);
+    min-width: 0;
+  }
+  .composer .tools .tool,
+  .composer .tools .mic,
+  .composer .tools .send {
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: 50%;
+  }
+  .composer .tools .pro-btn {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: 8.5rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .composer .pro-btn .pro-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .composer .tools .spacer { flex: 1 1 0; min-width: 0; }
+  .composer .tools svg { width: 1.2rem; height: 1.2rem; }
+  .composer .tools .send { box-shadow: none; }
+}
+
+/* Maps should fill their own card, never inherit chat-message shapes or columns. */
+.nasrin-chat-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  margin: 1rem 0 0.4rem;
+  overflow: hidden;
+  border: 1px solid var(--line, rgba(128,128,128,.22));
+  border-radius: 20px;
+  background: var(--surface, #f7f8fa);
+  box-shadow: 0 8px 24px -18px rgba(20, 30, 50, .28);
+}
+.nasrin-chat-map-title {
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.nasrin-chat-map-canvas {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: clamp(220px, 42vw, 340px);
+  min-height: 220px;
+  max-height: 340px;
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--paper, #f3f4f6);
+}
+.nasrin-chat-map-canvas > div,
+.nasrin-chat-map-canvas iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+.nasrin-chat-map-status {
+  padding: 0.7rem 1rem 0.2rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.nasrin-chat-map > a {
+  display: inline-flex;
+  align-self: start;
+  justify-self: start;
+  margin: 0.45rem 1rem 1rem;
+  padding: 0.35rem 0;
+  font-size: 0.86rem;
+  font-weight: 550;
+}
+@media (max-width: 600px) {
+  .nasrin-chat-map { border-radius: 18px; }
+  .nasrin-chat-map-canvas { height: 250px; min-height: 220px; }
+}
