@@ -36,6 +36,7 @@ function setup({ env = {}, openaiFail = null, geminiFail = null, openrouterFail 
     'xiaomi/mimo-v2.6-flash',
     'xiaomi/mimo-v2.6-pro',
     'openai/gpt-6-luna',
+    'openai/gpt-6-luna-decisions',
     'openai/gpt-6-luna-pro',
     'anthropic/claude-haiku-5.5',
     'qwen/qwen3.8-flash',
