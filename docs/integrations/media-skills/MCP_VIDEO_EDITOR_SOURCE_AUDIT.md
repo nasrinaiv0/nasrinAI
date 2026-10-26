@@ -77,7 +77,7 @@ The hashes below are Git blob SHAs from the pinned tree, not hashes inferred fro
 | `configs/kilo-kilo.jsonc` | `e0d2f8e232b829fa8c74369a975e408086b27bf3` | Example client config |
 | `configs/opencode.json` | `ad9180be05a3570f945ca2de2829d7bad6e3036f` | Example client config |
 
-The audited tree contained 31 files: 22 TypeScript source files and 9 supporting/documentation/configuration/manifest files listed above, plus 6 client configuration examples and 2 installer scripts as broken out in the table (the categories overlap the 31 total). No test directory or standalone `LICENSE` file was present in this snapshot.
+The audited tree contained 39 files: 22 TypeScript source files and 17 supporting files (including six client configuration examples, four documentation files, two installer scripts, package/lock files, compiler config, README and `.gitignore`). No test directory or standalone `LICENSE` file was present in this snapshot.
 
 ## 5. Tool inventory (50 total)
 
