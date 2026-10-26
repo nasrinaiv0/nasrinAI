@@ -238,9 +238,20 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           });
           const ordered = strictQuickFree
             ? [
-                ...(quickFileTask ? prioritized.filter((candidate) => candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna-decisions') : []),
+                // File interpretation explicitly routes through Luna first; this is
+                // a task-specific paid route, not a generic Quick chat fallback.
+                ...(quickFileTask && config.ai.providerKeys?.includes('openrouter')
+                  ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna-decisions', effort: null }]
+                  : []),
                 ...openRouterFreeCandidates,
-                ...directFreeCandidates
+                // Keep direct Gemini available after the OpenRouter free pool. It
+                // must be in the candidate queue even when prioritization excludes
+                // non-OpenRouter candidates from its ranked result.
+                ...directFreeCandidates,
+                ...(config.ai.providerKeys?.includes('gemini')
+                  && !directFreeCandidates.some((candidate) => candidate.provider === 'gemini' && candidate.model === 'gemini-3.1-flash-lite')
+                  ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }]
+                  : [])
               ]
             : paidQuick
               ? [
