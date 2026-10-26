@@ -1,0 +1,318 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-27",
+  "repository": "nasrinaiv0/nasrinAI",
+  "status": "proposed_review_only",
+  "approval_required": true,
+  "no_third_party_files_imported": true,
+  "candidates": [
+    {
+      "id": "storyboard-previsualization",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/creative-direction/storyboard-previsualization",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "candidate",
+      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "destination": "pending",
+      "required_gates": [
+        "supporting_file_review",
+        "license_and_attribution",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "explainer-video-production",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/content-formats/explainer-video-production",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "candidate",
+      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "destination": "pending",
+      "required_gates": [
+        "supporting_file_review",
+        "license_and_attribution",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "social-short-production",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/content-formats/social-short-production",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "candidate",
+      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "destination": "pending",
+      "required_gates": [
+        "supporting_file_review",
+        "license_and_attribution",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "editing-montage",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/post-production/editing-montage",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "candidate",
+      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "destination": "pending",
+      "required_gates": [
+        "supporting_file_review",
+        "license_and_attribution",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "generated-media-qa",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/governance-delivery/generated-media-qa",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "conditional_candidate",
+      "review_status": "static_review_only_tests_not_run",
+      "destination": "pending",
+      "required_gates": [
+        "execute_upstream_tests_in_sandbox",
+        "path_and_overwrite_tests",
+        "security_review",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "media-provenance-rights",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/governance-delivery/media-provenance-rights",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "candidate",
+      "review_status": "entrypoint_sha_recorded_supporting_files_pending",
+      "destination": "pending",
+      "required_gates": [
+        "supporting_file_review",
+        "license_and_attribution",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "ffmpeg-media-finishing",
+      "source_repo": "calesthio/generative-media-skills",
+      "source_path": "skills/production/runtime-assembly/ffmpeg-media-finishing",
+      "source_commit": "8c85352d5d75d4dcbe58480bd138e37b9742bab1",
+      "decision": "conditional_candidate",
+      "review_status": "static_review_only_tests_not_run",
+      "destination": "pending",
+      "required_gates": [
+        "execute_upstream_tests_in_sandbox",
+        "ffprobe_allowlist",
+        "path_and_resource_limits",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "higgsfield-generate",
+      "source_repo": "higgsfield-ai/skills",
+      "source_path": "higgsfield-generate",
+      "source_commit": "f83af0bc1d937c8119099a11f8ebbf5e6fb99819",
+      "decision": "provider_specific_candidate",
+      "review_status": "all_8_entrypoints_inspected_bootstrap_risk",
+      "destination": "pending",
+      "required_gates": [
+        "remove_remote_shell_bootstrap",
+        "verify_api_entitlement_and_price",
+        "privacy_and_output_rights",
+        "adapter_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "short-form-video",
+      "source_repo": "iart-ai/tiktok-video-skills",
+      "source_path": "skills/short-form-video",
+      "source_commit": "2a775336b5a638cbf8a61dbd785f9a1b649be016",
+      "decision": "candidate_after_editorial_review",
+      "review_status": "entrypoint_reviewed",
+      "destination": "pending",
+      "required_gates": [
+        "rewrite_unsubstantiated_retention_claims",
+        "supporting_file_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "explainer-video",
+      "source_repo": "iart-ai/explainer-video-skills",
+      "source_path": "skills/explainer-video",
+      "source_commit": "3e2d411b725d9a72939cf8e5eb81579e751373e7",
+      "decision": "deduplicate_before_selection",
+      "review_status": "entrypoint_reviewed",
+      "destination": "pending",
+      "required_gates": [
+        "compare_with_provider_independent_candidate",
+        "supporting_file_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "remotion-video",
+      "source_repo": "iart-ai/motion-design-skills",
+      "source_path": "skills/remotion-video",
+      "source_commit": "3c129f769d90a1328c209c386492333c9ac62312",
+      "decision": "defer",
+      "review_status": "entrypoint_reviewed_pack_has_AE_JSX",
+      "destination": "pending",
+      "required_gates": [
+        "review_all_scripts",
+        "verify_remotion_license",
+        "compare_overlapping_skills",
+        "sandbox_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "talking-head-b-roll",
+      "source_repo": "iart-ai/b-roll-skills",
+      "source_path": "skills/talking-head-b-roll",
+      "source_commit": "a51e34b0a8def533759373733bde1869c21075fb",
+      "decision": "defer",
+      "review_status": "transcription_script_static_review_pending_execution",
+      "destination": "pending",
+      "required_gates": [
+        "inspect_endpoint_and_dependencies",
+        "audio_consent_and_retention",
+        "sandbox_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "talking-head-skills",
+      "source_repo": "iart-ai/talking-head-skills",
+      "source_path": "skills",
+      "source_commit": "a315032ccffa94cda56a82fa306237250d3dd1bf",
+      "decision": "defer",
+      "review_status": "pack_not_fully_inspected",
+      "destination": "pending",
+      "required_gates": [
+        "full_file_review",
+        "identity_and_voice_consent",
+        "provider_cost_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "youtube-video-skills",
+      "source_repo": "iart-ai/youtube-video-skills",
+      "source_path": "skills",
+      "source_commit": "f3df381d65abe5078f5ed410bbc3ed72e7cb92bd",
+      "decision": "discovered_not_audited",
+      "review_status": "metadata_only",
+      "destination": "pending",
+      "required_gates": [
+        "pin_each_file",
+        "license_review",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "ecommerce-video-skills",
+      "source_repo": "iart-ai/ecommerce-video-skills",
+      "source_path": "skills",
+      "source_commit": "2bd0dd19c9b2df5230f5d8f7453861b9681e49b4",
+      "decision": "discovered_not_audited",
+      "review_status": "metadata_only",
+      "destination": "pending",
+      "required_gates": [
+        "pin_each_file",
+        "product_rights_and_claims_review",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "ad-video-skills",
+      "source_repo": "iart-ai/ad-video-skills",
+      "source_path": "skills",
+      "source_commit": "0de0f2a1c1f42a98103fc0ec436509276428372c",
+      "decision": "discovered_not_audited",
+      "review_status": "metadata_only",
+      "destination": "pending",
+      "required_gates": [
+        "pin_each_file",
+        "advertising_claims_and_disclosures_review",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "kinetic-typography-skills",
+      "source_repo": "iart-ai/kinetic-typography-skills",
+      "source_path": "skills",
+      "source_commit": "fccc94bd325d824235ee9e715e65abde57b6513a",
+      "decision": "discovered_not_audited",
+      "review_status": "metadata_only",
+      "destination": "pending",
+      "required_gates": [
+        "pin_each_file",
+        "runtime_and_script_review",
+        "security_review",
+        "acceptance_tests",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "comfy-skills",
+      "source_repo": "Comfy-Org/comfy-skills",
+      "source_path": "openclaw/comfy/SKILL.md",
+      "source_commit": "b0fc74c0fc83709c5538df578615f876d4ed52d6",
+      "decision": "adapter_candidate",
+      "review_status": "single_entrypoint_identified",
+      "destination": "pending",
+      "required_gates": [
+        "cloud_vs_local_review",
+        "oauth_and_cost_review",
+        "workflow_execution_sandbox",
+        "owner_approval"
+      ]
+    },
+    {
+      "id": "openmontage",
+      "source_repo": "calesthio/OpenMontage",
+      "source_path": "repository",
+      "source_commit": "e01dbf433f46eeb91d39bf905e194162921019a3",
+      "decision": "legal_review_required",
+      "review_status": "AGPL_3_0",
+      "destination": "none",
+      "required_gates": [
+        "qualified_legal_review_before_any_code_reuse"
+      ]
+    },
+    {
+      "id": "mersiv-media-hermes",
+      "source_repo": "Mersiv",
+      "source_path": "skills",
+      "source_commit": "08166d4f500799468f7db10589dba91766ea3a7e",
+      "decision": "reference_only_blocked",
+      "review_status": "no_root_license_found_at_inspected_path",
+      "destination": "none",
+      "required_gates": [
+        "written_license_or_permission",
+        "full_content_review"
+      ]
+    }
+  ],
+  "approval_policy": "Owner must approve exact manifest revision before source files are copied, code is committed, provider integrations are implemented, migrations are applied, or deployments are changed."
+}
