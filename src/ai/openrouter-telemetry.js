@@ -48,6 +48,7 @@ export function createOpenRouterTelemetry({ url, secretKey, fetchImpl = fetch, l
       completion_tokens: safeCount(event.completionTokens),
       total_tokens: safeCount(event.totalTokens),
       total_cost_usd: safeCost(event.totalCostUsd),
+      provider_cost_source: safeCost(event.totalCostUsd) !== null ? 'openrouter_logs.total_cost_usd' : null,
       request_summary: summary(event.requestSummary),
       response_summary: summary(event.responseSummary),
       status: event.status === 'success' ? 'success' : 'error',
@@ -55,7 +56,10 @@ export function createOpenRouterTelemetry({ url, secretKey, fetchImpl = fetch, l
       error_code: typeof event.errorCode === 'string' ? event.errorCode.slice(0, 100) : null,
       latency_ms: Math.max(0, Math.floor(Number(event.latencyMs) || 0)),
       provider_request_id: typeof event.providerRequestId === 'string'
-        ? event.providerRequestId.slice(0, 200) : null
+        ? event.providerRequestId.slice(0, 200) : null,
+      openrouter_generation_id: typeof event.openrouterGenerationId === 'string' &&
+        /^gen-[0-9A-Za-z-]{1,120}$/.test(event.openrouterGenerationId)
+        ? event.openrouterGenerationId : null
     };
 
     try {
