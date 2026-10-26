@@ -279,11 +279,13 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               candidates.push({ provider: 'openrouter', model: 'openai/gpt-6-luna-decisions', effort: null });
             }
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
-            candidates.push(...otherCandidates);
-            // Direct Gemini is an independent configured provider, not an OpenRouter model.
+            // Ensure the configured direct provider is queued immediately after the
+            // free OpenRouter pool, rather than being lost behind duplicate entries
+            // or unrelated fallbacks in the ranked non-OpenRouter list.
             if (config.ai.providerKeys?.includes('gemini')) {
               candidates.push({ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null });
             }
+            candidates.push(...otherCandidates.filter((candidate) => !(candidate.provider === 'gemini' && candidate.model === 'gemini-3.1-flash-lite')));
             if (heavyQuickTask && !quickFileTask && config.ai.providerKeys?.includes('openrouter')) {
               candidates.push({ provider: 'openrouter', model: 'openai/gpt-6-luna-decisions', effort: null });
             }
