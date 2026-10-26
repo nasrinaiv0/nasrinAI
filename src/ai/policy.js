@@ -437,7 +437,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Keep this bounded to candidates configured at the active level; other
           // tiers retain the normal retry cap.
           const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai' && plan.paidQuick !== true
-            ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter' || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)).length)
+            ? Math.max(1,
+                (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter' || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)).length
+                // These configured, non-OpenRouter lanes are intentionally tried
+                // after the approved free pool; they must fit inside the retry budget.
+                + (config.ai.providerKeys?.includes('gemini') ? 1 : 0)
+                + ((heavyQuickTask || quickFileTask) && config.ai.providerKeys?.includes('openrouter') ? 1 : 0))
             : r.maxRetries;
           if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).
