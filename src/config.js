@@ -817,6 +817,8 @@ export function loadConfig(env = process.env) {
     // Organization-level billing keys are optional, read-only, and never sent to the browser.
     openaiAdminKey: ownerConsoleEnabled ? String(env.OPENAI_ADMIN_KEY || '').trim() : '',
     anthropicAdminKey: ownerConsoleEnabled ? String(env.ANTHROPIC_ADMIN_KEY || '').trim() : '',
+    cloudflareBillingApiToken: ownerConsoleEnabled ? String(env.CLOUDFLARE_BILLING_API_TOKEN || '').trim() : '',
+    cloudflareAccountId: ownerConsoleEnabled ? String(env.CLOUDFLARE_ACCOUNT_ID || '').trim() : '',
     githubActions: Object.freeze({
       enabled: ownerConsoleEnabled && String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim().length >= 20,
       token: ownerConsoleEnabled ? String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim() : ''
