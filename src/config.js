@@ -929,7 +929,7 @@ export function loadConfig(env = process.env) {
       geminiApiKey: geminiKey,
       anthropicApiKey: anthropicKey,
       freeProviders: Object.freeze(freeProviderSettings
-        .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id))
+        .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
         .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
