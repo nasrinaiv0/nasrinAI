@@ -893,7 +893,16 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       };
       try {
         const [usageRows, routerRows] = await Promise.all([
-          store.request('GET', 'usage_events?select=request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
+          (async () => {
+            const cutoffFilter = 'created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000';
+            try {
+              return await store.request('GET', 'usage_events?select=request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&' + cutoffFilter);
+            } catch (error) {
+              // Keep logs readable during a rolling deploy before migration 076 is applied.
+              if (!/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason/i.test(String(error?.message || error)) || !/PGRST204|column|schema cache/i.test(String(error?.message || error))) throw error;
+              return store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&' + cutoffFilter);
+            }
+          })(),
           store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
         ]);
         if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
