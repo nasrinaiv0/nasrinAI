@@ -2765,6 +2765,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - CI and production verification are required before merge/deployment; provider credentials and current free-tier eligibility must be configured and verified separately.
 
 
+## PR #654 — Premium responsive map widget layout — 2026-10-27
+- Fix embedded Google Maps cards that render unevenly in chat by enforcing a full-width card/header and a bounded, responsive iframe canvas.
+- Polish mobile spacing, rounded corners, action-button states, and keyboard-visible focus styling without changing map URL construction or provider behavior.
+- Add a regression test for full-width layout, iframe positioning, the mobile breakpoint, and focus styling. CI must pass before merge.
+
+
 ## PR — Explicit composer device location — 2026-10-27
 - Add a visible, accessible location control to the chat composer so users can share device location without waiting for a location-related assistant reply.
 - Request browser GPS only after the user taps the control. Keep coordinates in memory for at most five minutes and attach them to one subsequent text turn only; never put coordinates in the visible message or browser storage.
