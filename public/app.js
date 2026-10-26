@@ -5273,9 +5273,11 @@
 
   // Guest first visit: disclose improvement collection before chat and record
   // an explicit, versioned acknowledgement against this server-issued guest session.
-  function showFirstVisitNotice() {
+  async function showFirstVisitNotice() {
+    if (account) return;
+    try { await credential(); } catch { return; }
     const guestSession = saved.get(KEYS.session);
-    if (account || !guestSession?.token || saved.get(KEYS.notice) === guestSession.token) return;
+    if (!guestSession?.token || saved.get(KEYS.notice) === guestSession.token) return;
     termsMethod = 'first_visit';
     $('guestPrivacyNotice').hidden = false;
     $('termsCheckCopy').textContent = 'I understand the Guest data notice and agree to the ';
@@ -10178,8 +10180,8 @@
     .then(restoreAccount)
     // A failure restoring the sign-in must not skip the tier catalog below.
     .catch((err) => { console.error('NasrinAI start-up: restoring sign-in failed', err); })
-    .then(() => {
-      showFirstVisitNotice();
+    .then(async () => {
+      await showFirstVisitNotice();
       // A repeated Google answer can report a failure after the sign-in worked: only show it when signed out.
       if (signinResult === 'failed' && !account) openSignIn('Google sign-in did not finish. Please try again.');
       // Load both catalogs before revealing the toolbar so its controls do not
