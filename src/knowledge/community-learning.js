@@ -3,10 +3,10 @@ import { redactForProvider } from '../ai/redact.js';
 import { looksSecret } from './secrets.js';
 import { searchTerms } from './index.js';
 
-export const COMMUNITY_LEARNING_CONSENT_VERSION = '2026-10-23-community-learning-v1';
+export const COMMUNITY_LEARNING_CONSENT_VERSION = '2026-10-26-guest-notice-v1';
 const MAX_QUESTION_CHARS = 2400;
 const MAX_ANSWER_CHARS = 6000;
-const EXAMPLE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const EXAMPLE_TTL_MS = null;
 const BLOCKED = /\b(password|passcode|one.time.password|otp|api[ _-]?key|secret key|private key|access token|refresh token|credit card|debit card|bank account|social security|passport|diagnosis|medical record|prescription|therapy|mental health|sexual|religion|political affiliation)\b/i;
 const CONTACT = /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:\+?\d[\d ().-]{7,}\d))/i;
 
@@ -40,7 +40,7 @@ export function createCommunityLearning({ store, logger, now = () => Date.now() 
         if (!consent || consent.version !== COMMUNITY_LEARNING_CONSENT_VERSION || consent.decision !== 'granted') return false;
         await store.addImprovementExample({
           ...identity, consentVersion: COMMUNITY_LEARNING_CONSENT_VERSION, exampleText,
-          expiresAt: new Date(now() + EXAMPLE_TTL_MS).toISOString()
+          expiresAt: EXAMPLE_TTL_MS === null ? null : new Date(now() + EXAMPLE_TTL_MS).toISOString()
         });
         return true;
       } catch (err) {
