@@ -358,7 +358,7 @@ test('pricing: from the price file; unknown models are never assumed free', () =
 
 test('end to end: logic answers without a model; smart routing records telemetry', async () => {
   const provider = createFakeProvider({ models: ['gpt-5.4-nano'] });
-  const built = buildTestApp({ provider, env: { ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30) } });
+  const built = buildTestApp({ provider, env: { ROUTING: 'smart', GEMINI_API_KEY: 'gemini-test-key', ROUTE_LEVEL_1: 'gemini:gemini-3.1-flash-lite' } });
   const srv = await serve(built.app);
   try {
     const m = await (await postJson(srv.url + '/v1/chat', { message: 'what is 15% of 80?' }, bearer(USER_TOKEN))).json();
@@ -368,7 +368,7 @@ test('end to end: logic answers without a model; smart routing records telemetry
 
     await postJson(srv.url + '/v1/chat', { message: 'Tell me a fun fact about the sea' }, bearer(USER_TOKEN));
     const e = built.store.usage.at(-1);
-    assert.deepEqual([e.model, e.level, e.task, e.outcome], ['gpt-5.4-nano', 1, 'chat', 'ok']);
+    assert.deepEqual([e.provider, e.model, e.level, e.task, e.outcome], ['gemini', 'gemini-3.1-flash-lite', 1, 'chat', 'ok']);
     assert.equal(provider.calls.at(-1).maxTokens, 700, 'level 1 reply allowance');
     assert.equal(e.costUsd, null, 'provider cost is unknown for this adapter response');
 
