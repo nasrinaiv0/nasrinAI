@@ -1,3 +1,11 @@
+## Direct-provider cost reconciliation and estimates — 2026-10-26
+
+- Add owner-only OpenAI and Anthropic organization billing reports with explicit aggregate reconciliation boundaries and bounded pagination.
+- Add a versioned list-price estimator for supported direct text models and persist estimates in dedicated columns, never in migration 062's provider-reported cost fields.
+- OCC AI Logs shows estimates with a `~` prefix and source/version labels when actual provider cost is unavailable; verified actual cost remains preferred.
+- OCC Finance shows organization-level provider billing and aggregate request estimates separately. Gemini estimate uses paid Standard list pricing; Google Cloud billed-spend reconciliation is not claimed.
+- Unknown model prices and unsupported billing dimensions remain unavailable rather than guessed.
+
 ## Direct-provider Owner Command Center activity — 2026-10-26
 
 - Add migration 076 for safe per-event request UUIDs and optional endpoint, HTTP method/status, sanitized error code, provider request ID, and finish reason on `usage_events`.

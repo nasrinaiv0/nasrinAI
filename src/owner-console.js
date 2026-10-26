@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
 import { ownerCatalogStatus } from './ai/owner-model-catalog.js';
+import { fetchDirectProviderBilling } from './ai/provider-cost-reconciliation.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
@@ -895,12 +896,24 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const [usageRows, routerRows] = await Promise.all([
           (async () => {
             const cutoffFilter = 'created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000';
+            const columns = 'request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,cached_tokens,output_tokens,latency_ms,cost_usd,cost_source,estimated_cost_usd,estimated_cost_source,pricing_version,estimated_cost_at';
+            const baseColumns = 'request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,cached_tokens,output_tokens,latency_ms,cost_usd,cost_source';
+            const legacyColumns = 'provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source';
             try {
-              return await store.request('GET', 'usage_events?select=request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&' + cutoffFilter);
+              return await store.request('GET', 'usage_events?select=' + columns + '&' + cutoffFilter);
             } catch (error) {
-              // Keep logs readable during a rolling deploy before migration 076 is applied.
-              if (!/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason/i.test(String(error?.message || error)) || !/PGRST204|column|schema cache/i.test(String(error?.message || error))) throw error;
-              return store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&' + cutoffFilter);
+              if (!/PGRST204|column|schema cache/i.test(String(error?.message || error))) throw error;
+              if (/estimated_cost_usd|estimated_cost_source|pricing_version|estimated_cost_at/i.test(String(error?.message || error))) {
+                try { return await store.request('GET', 'usage_events?select=' + baseColumns + '&' + cutoffFilter); }
+                catch (baseError) {
+                  if (!/PGRST204|column|schema cache/i.test(String(baseError?.message || baseError)) || !/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason|cached_tokens/i.test(String(baseError?.message || baseError))) throw baseError;
+                  return store.request('GET', 'usage_events?select=' + legacyColumns + '&' + cutoffFilter);
+                }
+              }
+              if (/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason|cached_tokens/i.test(String(error?.message || error))) {
+                return store.request('GET', 'usage_events?select=' + legacyColumns + '&' + cutoffFilter);
+              }
+              throw error;
             }
           })(),
           store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
@@ -1021,13 +1034,23 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             upstream_provider: null, endpoint: row.endpoint || null, http_method: row.http_method || null, requested_model: model, model,
             status, http_status: row.http_status ?? null, error_code: row.error_code || null, prompt_tokens: row.input_tokens, cached_tokens: row.cached_tokens ?? null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
-            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? Number(row.cost_usd) : null,
-            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null, provider_request_id: row.provider_request_id || null, openrouter_generation_id: null,
+            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0
+              ? Number(row.cost_usd)
+              : row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' && row.estimated_cost_usd != null && Number.isFinite(Number(row.estimated_cost_usd)) && Number(row.estimated_cost_usd) >= 0
+                ? Number(row.estimated_cost_usd) : null,
+            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null,
+            estimated_cost_source: row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' ? row.estimated_cost_source : null,
+            pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null,
+            provider_request_id: row.provider_request_id || null, openrouter_generation_id: null,
             finish_reason: row.finish_reason || null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
             catalog_status: ownerCatalogStatus(model, catalogProvider),
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
-            telemetry_source: 'usage_events', cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? 'provider_reported' : 'unknown'
+            telemetry_source: 'usage_events',
+            cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0
+              ? 'provider_reported'
+              : row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' && row.estimated_cost_usd != null && Number.isFinite(Number(row.estimated_cost_usd)) && Number(row.estimated_cost_usd) >= 0
+                ? 'estimated' : 'unknown'
           });
         }
         const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
@@ -1135,6 +1158,72 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       } catch {
         logger?.warn?.('Cross-provider model telemetry unavailable', { source: 'model_telemetry' });
         sendJson(res, 503, { error: { code: 'model_telemetry_unavailable', message: 'Model telemetry could not be loaded. Verify owner database access and provider usage logging.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/provider-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const owner = config?.ownerConsole || {};
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      if (!['7d', '30d', '90d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const report = await fetchDirectProviderBilling({
+          openaiAdminKey: owner.openaiAdminKey,
+          anthropicAdminKey: owner.anthropicAdminKey,
+          window: windowName,
+          now,
+          fetchImpl
+        });
+        sendJson(res, 200, report);
+      } catch {
+        logger?.warn?.('direct provider billing reconciliation unavailable', { source: 'provider_billing' });
+        sendJson(res, 503, { error: { code: 'provider_billing_unavailable', message: 'Direct-provider billing data could not be loaded.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/estimated-costs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'estimated_costs_unavailable', message: 'Request estimate telemetry is not connected.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      const windowDays = { '7d': 7, '30d': 30, '90d': 90 }[windowName];
+      if (!windowDays) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const summaryValue = await store.request('POST', 'rpc/owner_console_estimated_cost_summary', {
+          body: { p_since: new Date(now() - windowDays * 86400_000).toISOString() }
+        });
+        const summary = Array.isArray(summaryValue) ? summaryValue[0] : summaryValue;
+        if (!summary || typeof summary !== 'object' || !Array.isArray(summary.rows)) throw new Error('invalid estimate summary');
+        sendJson(res, 200, {
+          source: 'supabase.owner_console_estimated_cost_summary',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          summary: {
+            request_count: Math.max(0, Number(summary.request_count) || 0),
+            estimated_total_usd: Number.isFinite(Number(summary.estimated_total_usd)) ? Math.max(0, Number(summary.estimated_total_usd)) : null,
+            pricing_versions: Array.isArray(summary.pricing_versions) ? summary.pricing_versions.filter((value) => typeof value === 'string').slice(0, 10) : [],
+            rows: summary.rows.slice(0, 200).map((row) => ({
+              provider: typeof row.provider === 'string' ? row.provider.slice(0, 40) : 'unknown',
+              model: typeof row.model === 'string' ? row.model.slice(0, 160) : 'unknown',
+              request_count: Math.max(0, Number(row.request_count) || 0),
+              estimated_cost_usd: Number.isFinite(Number(row.estimated_cost_usd)) ? Math.max(0, Number(row.estimated_cost_usd)) : null,
+              latest_at: typeof row.latest_at === 'string' ? row.latest_at : null,
+              pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null
+            }))
+          },
+          note: 'These are application estimates using a versioned public list-price registry, not provider-billed actual costs. Gemini estimates use paid Standard list prices because free-quota eligibility is not confirmed per request. OpenRouter is excluded to prevent double-counting.'
+        });
+      } catch {
+        logger?.warn?.('owner estimated-cost summary unavailable', { source: 'usage_events_estimated_cost' });
+        sendJson(res, 503, { error: { code: 'estimated_costs_unavailable', message: 'Estimated request costs could not be loaded. Confirm migration 077 is applied.' } });
       }
       return true;
     }

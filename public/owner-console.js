@@ -383,6 +383,98 @@
       loadBilling();
     }
 
+    if (key === 'finance') {
+      const panel = el('section', 'panel');
+      panel.classList.add('module-extra');
+      panel.append(el('h3', '', 'Direct-provider billing reconciliation'));
+      panel.append(el('p', 'panel-copy', 'Organization-level billed spend from provider admin APIs. These totals are not assigned to individual requests and must not be added to request-level costs.'));
+      const controls = el('div', 'toolbar');
+      const windowSelect = el('select', 'input');
+      windowSelect.setAttribute('aria-label', 'Direct-provider billing window');
+      [['7d','Last 7 days'],['30d','Last 30 days'],['90d','Last 90 days']].forEach(([value,label]) => {
+        const option = el('option','',label); option.value = value; windowSelect.append(option);
+      });
+      const refresh = el('button', 'quiet-button', 'Refresh direct-provider billing'); refresh.type = 'button';
+      controls.append(windowSelect, refresh);
+      const result = el('div');
+      result.append(notice('Loading provider billing', 'Checking optional organization billing APIs.'));
+      panel.append(controls, result); c.append(panel);
+
+      const estimatePanel = el('section', 'panel');
+      estimatePanel.classList.add('module-extra');
+      estimatePanel.append(el('h3', '', 'Estimated direct-provider request spend'));
+      estimatePanel.append(el('p', 'panel-copy', 'Summed from request-level token usage and the versioned list-price registry. This is an estimate, not an invoice total; free Gemini quota and provider-specific discounts are not assumed.'));
+      const estimateResult = el('div');
+      estimateResult.append(notice('Loading estimates', 'Reading aggregated estimates from recorded request usage.'));
+      estimatePanel.append(estimateResult);
+      c.append(estimatePanel);
+      const loadEstimates = async () => {
+        estimateResult.replaceChildren(notice('Loading estimates', 'Fetching aggregate request estimates for ' + windowSelect.value + '.'));
+        try {
+          const response = await fetch('/owner/api/estimated-costs?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Estimated request costs unavailable.');
+          const summary = payload.summary || {};
+          estimateResult.replaceChildren();
+          estimateResult.append(el('p', 'panel-copy', 'Updated ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · ' + numberText(summary.request_count || 0) + ' priced requests.'));
+          const grid = el('div', 'grid');
+          grid.append(metric('Estimated request spend', 'USD', moneyText(summary.estimated_total_usd), 'Versioned list-price estimate · not actual provider billing'));
+          grid.append(metric('Priced requests', 'Σ', numberText(summary.request_count || 0), (Array.isArray(summary.pricing_versions) ? summary.pricing_versions.join(', ') : 'Pricing version unavailable')));
+          estimateResult.append(grid);
+          const list = el('div', 'source-list');
+          (Array.isArray(summary.rows) ? summary.rows : []).forEach((item) => {
+            const row = el('div', 'source-row'), left = el('div');
+            left.append(el('div', 'source-name', String(item.provider || 'unknown') + ' · ' + String(item.model || 'unknown model')),
+              el('div', 'source-detail', numberText(item.request_count || 0) + ' requests · latest ' + (item.latest_at ? new Date(item.latest_at).toLocaleString() : 'unknown')));
+            row.append(left, el('div', 'source-name', moneyText(item.estimated_cost_usd)));
+            list.append(row);
+          });
+          if (!summary.rows?.length) list.append(el('p', 'panel-copy', 'No priced direct-provider request estimates found in this window.'));
+          estimateResult.append(list);
+          estimateResult.append(notice('Estimate boundary', payload.note || 'Estimates are separate from provider-reported actual costs.'));
+        } catch (error) {
+          estimateResult.replaceChildren(notice('Estimated request costs unavailable', String(error?.message || 'Confirm migration 077 is applied and retry.')));
+        }
+      };
+      windowSelect.addEventListener('change', loadEstimates);
+      loadEstimates();
+
+      const load = async () => {
+        refresh.disabled = true;
+        result.replaceChildren(notice('Loading provider billing', 'Fetching read-only organization-level billing reports.'));
+        try {
+          const response = await fetch('/owner/api/provider-billing?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Direct-provider billing is unavailable.');
+          result.replaceChildren();
+          result.append(el('p','panel-copy','Fetched ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · USD totals where reported.'));
+          const grid = el('div','grid');
+          const providers = payload.providers || {};
+          for (const [id, label] of [['openai','OpenAI organization spend'],['anthropic','Anthropic organization spend']]) {
+            const item = providers[id] || {};
+            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate' : item.status === 'not_configured' ? 'Admin API key not configured' : 'Unavailable';
+            grid.append(metric(label, 'USD', moneyText(item.total_usd), statusLabel));
+          }
+          result.append(grid);
+          const list = el('div','source-list');
+          for (const [id, label] of [['openai','OpenAI'],['anthropic','Anthropic']]) {
+            const item = providers[id] || {};
+            const row = el('div','source-row'), left = el('div');
+            left.append(el('div','source-name',label),el('div','source-detail',String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items'));
+            row.append(left,state(item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : 'Unavailable',item.status === 'available' ? 'available' : 'unavailable'));
+            list.append(row);
+          }
+          result.append(list);
+          result.append(notice('Reconciliation boundary',payload.note || 'Aggregate provider spend is not allocated to individual calls.'));
+        } catch (error) {
+          result.replaceChildren(notice('Direct-provider billing unavailable',String(error?.message || 'Check the optional provider admin keys and retry.')));
+        } finally { refresh.disabled = false; }
+      };
+      refresh.addEventListener('click', load);
+      windowSelect.addEventListener('change', load);
+      load();
+    }
+
     if (key === 'logs') {
       const panel = el('section', 'panel');
       panel.classList.add('module-extra', 'provider-logs-panel');
@@ -423,7 +515,7 @@
       const tableWrap = el('div', 'provider-log-table-wrap');
       const table = el('table', 'provider-log-table');
       const thead = el('thead'), headerRow = el('tr');
-      ['Date','Model','Provider','Upstream provider','Endpoint','Status','Input tokens','Cached tokens','Output tokens','Speed (tok/s)','Routing overhead*','Time to finish','Total latency','Actual cost (USD)','Finish reason','Cost source','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
+      ['Date','Model','Provider','Upstream provider','Endpoint','Status','Input tokens','Cached tokens','Output tokens','Speed (tok/s)','Routing overhead*','Time to finish','Total latency','Cost (USD)','Finish reason','Cost source','Request ID'].forEach((label) => headerRow.append(el('th','',label)));
       thead.append(headerRow);
       const tbody = el('tbody');
       table.append(thead,tbody); tableWrap.append(table); panel.append(tableWrap);
@@ -466,7 +558,10 @@
             const statusText=String(item.status || 'unknown').toUpperCase() + (item.http_status ? ' · HTTP '+item.http_status : '');
             const resp=item.response_summary && typeof item.response_summary==='object' ? item.response_summary : {};
             const finish=resp.finish_reason || resp.finishReason || resp.native_finish_reason || '—';
-            const cost=discoveryRequest ? 'N/A · catalog request' : item.cost_kind !== 'provider_reported' || item.total_cost_usd===null || item.total_cost_usd===undefined ? 'Unknown' : Number(item.total_cost_usd).toFixed(6);
+            const cost=discoveryRequest ? 'N/A · catalog request'
+              : item.total_cost_usd===null || item.total_cost_usd===undefined || !Number.isFinite(Number(item.total_cost_usd)) ? 'Unknown'
+                : item.cost_kind === 'provider_reported' ? Number(item.total_cost_usd).toFixed(6)
+                  : item.cost_kind === 'estimated' ? '~' + Number(item.total_cost_usd).toFixed(6) + ' (est.)' : 'Unknown';
             const generationSeconds = item.generation_time_seconds===null || item.generation_time_seconds===undefined ? null : Number(item.generation_time_seconds);
             const outputTokens = item.completion_tokens===null || item.completion_tokens===undefined ? null : Number(item.completion_tokens);
             const speed = generationSeconds > 0 && Number.isFinite(outputTokens) ? (outputTokens / generationSeconds).toFixed(2) : '—';
@@ -489,7 +584,12 @@
             cell(tr,item.latency_ms===null || item.latency_ms===undefined ? '—' : num(item.latency_ms)+' ms');
             cell(tr,cost);
             cell(tr,discoveryRequest ? notApplicable : item.finish_reason || finish);
-            cell(tr,discoveryRequest ? notApplicable : item.provider_cost_source === 'openrouter_generation_api' && item.total_cost_usd != null ? 'OpenRouter generation API' : item.provider_cost_source === 'openrouter_logs.total_cost_usd' && item.total_cost_usd != null ? 'Supabase total_cost_usd' : item.provider_cost_source === 'usage_events.provider_reported' && item.total_cost_usd != null ? 'Provider-reported usage' : 'Unavailable');
+            cell(tr,discoveryRequest ? notApplicable
+              : item.cost_kind === 'estimated' && item.estimated_cost_source === 'pricing_registry_v1_standard_list_price'
+                ? 'Estimated list price · ' + String(item.pricing_version || 'pricing registry')
+                : item.provider_cost_source === 'openrouter_generation_api' && item.total_cost_usd != null ? 'OpenRouter generation API'
+                  : item.provider_cost_source === 'openrouter_logs.total_cost_usd' && item.total_cost_usd != null ? 'Supabase total_cost_usd'
+                    : item.provider_cost_source === 'usage_events.provider_reported' && item.total_cost_usd != null ? 'Provider-reported usage' : 'Unavailable');
             const requestId=String(item.provider_request_id || item.openrouter_generation_id || item.request_id || item.id || '—');
             const idCell=el('td','provider-log-id',requestId); tr.append(idCell);
             tbody.append(tr);

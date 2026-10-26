@@ -814,6 +814,9 @@ export function loadConfig(env = process.env) {
     emails: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerEmails)] : []),
     ips: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerIps)] : []),
     sessionSecret: ownerConsoleEnabled ? ownerSessionSecret : '',
+    // Organization-level billing keys are optional, read-only, and never sent to the browser.
+    openaiAdminKey: ownerConsoleEnabled ? String(env.OPENAI_ADMIN_KEY || '').trim() : '',
+    anthropicAdminKey: ownerConsoleEnabled ? String(env.ANTHROPIC_ADMIN_KEY || '').trim() : '',
     githubActions: Object.freeze({
       enabled: ownerConsoleEnabled && String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim().length >= 20,
       token: ownerConsoleEnabled ? String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim() : ''

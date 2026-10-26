@@ -30,12 +30,22 @@
       "input": 1.25,
       "cached_input": 0.125,
       "output": 10
+    },
+    "gpt-6-luna": {
+      "input": 0.1,
+      "cached_input": 0.01,
+      "output": 0.5
+    },
+    "gpt-6.1-sol": {
+      "input": 2,
+      "cached_input": 0.1,
+      "output": 10
     }
   },
   "gemini": {
     "gemini-3.1-flash-lite": {
       "input": 0.25,
-      "cached_input": 0.25,
+      "cached_input": 0.025,
       "output": 1.5,
       "free_tier": true
     },
@@ -44,6 +54,11 @@
       "cached_input": 0.3,
       "output": 2.5,
       "free_tier": true
+    },
+    "gemini-3.8-flash": {
+      "input": 0.75,
+      "cached_input": 0.075,
+      "output": 3.75
     }
   },
   "local": {
@@ -70,10 +85,30 @@
   "anthropic": {
     "claude-sonnet-5-5": {
       "input": 2,
-      "cached_input": 0.2,
+      "cached_input": 0.1,
       "output": 10
     },
     "claude-opus-5-5": {
+      "input": 4,
+      "cached_input": 0.2,
+      "output": 20
+    },
+    "claude-haiku-5.5": {
+      "input": 0.1,
+      "cached_input": 0.01,
+      "output": 0.5
+    },
+    "claude-haiku-5-5": {
+      "input": 0.1,
+      "cached_input": 0.01,
+      "output": 0.5
+    },
+    "claude-sonnet-5.5": {
+      "input": 2,
+      "cached_input": 0.1,
+      "output": 10
+    },
+    "claude-opus-5.5": {
       "input": 4,
       "cached_input": 0.2,
       "output": 20
@@ -153,5 +188,7 @@
     "veo-3.1-fast-generate-preview": {
       "720p": 0.125
     }
-  }
+  },
+  "_pricing_version": "2026-10-26-v1",
+  "_pricing_notes": "Provider list-price snapshots for estimates only. These are not provider-billed actual costs. Gemini estimates use paid Standard list rates because runtime credentials do not prove free-quota usage. Verify rates before changing this registry."
 }

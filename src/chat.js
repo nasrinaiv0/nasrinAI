@@ -22,6 +22,7 @@ import { documentFiles } from './ai/file-types.js';
 import { looksSecret } from './knowledge/secrets.js';
 import { runPlanningCouncil } from './ai/planning-council.js';
 import { estimateTextTokenCount } from './ai/text-image.js';
+import { estimateProviderRequestCost, PROVIDER_PRICING_VERSION } from './ai/provider-cost-estimate.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
@@ -137,6 +138,26 @@ const safeModelErrorCode = (kind) => ({
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
 export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+  const recordUsage = async (caller, event) => {
+    const safe = { ...event };
+    const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
+      && Number.isFinite(Number(safe.outputTokens)) && safe.outputTokens !== undefined;
+    const billableOutcome = ['ok', 'success', 'succeeded', 'complete', 'completed', 'rejected_output'].includes(String(safe.outcome || '').toLowerCase());
+    const estimate = hasTokenCounts && billableOutcome ? estimateProviderRequestCost({
+      provider: safe.provider,
+      model: safe.model,
+      inputTokens: safe.inputTokens,
+      cachedTokens: safe.cachedTokens,
+      outputTokens: safe.outputTokens
+    }) : null;
+    if (estimate !== null) {
+      safe.estimatedCostUsd = estimate;
+      safe.estimatedCostSource = 'pricing_registry_v1_standard_list_price';
+      safe.pricingVersion = PROVIDER_PRICING_VERSION;
+      safe.estimatedCostAt = new Date(now()).toISOString();
+    }
+    return usageLog.record(caller, safe);
+  };
   const smart = Boolean(policy) && config.ai.routing.mode === 'smart';
   // opts.confirm === false: the channel cannot show a Confirm card (Messenger),
   // so write/money tools are refused instead of proposed.
@@ -309,7 +330,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const providerId = err?.provider || provider.id;
       const modelId = err?.model || provider.model || 'unknown';
       const costUsd = Number.isFinite(err?.actualCostUsd) && err.actualCostUsd >= 0 ? err.actualCostUsd : null;
-      stopUsagePromise = usageLog.record(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, costSource: Number.isFinite(costUsd) ? 'provider_reported' : null, reservationId: err?.reservationId, spendReservationId: null });
+      stopUsagePromise = recordUsage(caller, { provider: providerId, model: modelId, inputTokens, outputTokens, latencyMs: now() - startedAt, outcome: 'ok', task: plan?.task, level: err?.level ?? plan?.level, costUsd, costSource: Number.isFinite(costUsd) ? 'provider_reported' : null, reservationId: err?.reservationId, spendReservationId: null });
       return stopUsagePromise;
     }
     opts.signal?.addEventListener('abort', () => {
@@ -402,7 +423,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Requests for private system details are refused in code, before any model call.
     const productRefusal = productKnowledge?.refusal(caller, typed, PLATFORM_TENANT_ID);
     if (productRefusal) {
-      await usageLog.record(caller, { provider: 'local-policy', model: 'product-safety', outcome: 'ok', task: 'product_security', level: 0, costUsd: 0 });
+      await recordUsage(caller, { provider: 'local-policy', model: 'product-safety', outcome: 'ok', task: 'product_security', level: 0, costUsd: 0 });
       return finish(productRefusal);
     }
 
@@ -410,7 +431,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (smart && !files.length && !only) {
       const logic = answerWithLogic(typed);
       if (logic) {
-        await usageLog.record(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: logic.kind, level: 0, costUsd: 0 });
+        await recordUsage(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: logic.kind, level: 0, costUsd: 0 });
         return finish(logic.text);
       }
     }
@@ -513,7 +534,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         : /^(ok(ay)?|cool|great|nice)/i.test(typed.trim())
           ? 'Got it! What would you like to do next?'
           : 'Hi! What can I help you with?';
-      await usageLog.record(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: 'small_talk', level: 0, costUsd: 0 });
+      await recordUsage(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: 'small_talk', level: 0, costUsd: 0 });
       return finish(greeting);
     }
 
@@ -564,7 +585,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         const costUsd = Number.isFinite(found.actualCostUsd) && found.actualCostUsd >= 0 ? found.actualCostUsd : null;
         if (!Array.isArray(found.citations) || !found.citations.length) {
           live?.reset();
-          await usageLog.record(caller, {
+          await recordUsage(caller, {
             provider: found.provider || 'openrouter', model: found.model || webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
             latencyMs: now() - started, outcome: 'rejected_output', task: 'web', level: plan.level, costUsd,
             reservationId: webReservation.id
@@ -577,7 +598,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         }).join('\\n');
         const reply = clean(keepIdentity(found.text) + sources);
         webSources = found.citations.map((c) => ({ url: c.url, title: c.title || '' }));
-        await usageLog.record(caller, {
+        await recordUsage(caller, {
           provider: found.provider || 'openrouter', model: found.model || webSearch.model, inputTokens: found.inputTokens, outputTokens: found.outputTokens, cachedTokens: found.cachedTokens,
           latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', task: 'web', level: plan.level, costUsd,
           reservationId: webReservation.id
@@ -585,7 +606,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         if (reply) return reply;
       } catch (err) {
         if (webReservation) await limiter.settleTokens(webReservation, webProviderStarted ? webReservation.reservedTokens : 0);
-        await usageLog.record(caller, { provider: 'openrouter', model: webSearch.model, latencyMs: now() - started,
+        await recordUsage(caller, { provider: 'openrouter', model: webSearch.model, latencyMs: now() - started,
           outcome: err?.kind === 'timeout' ? 'timeout' : 'provider_error', task: 'web', level: plan.level, costUsd: null,
           reservationId: webReservation?.id });
         (err?.kind === 'config' ? logger.error : logger.warn)('web search failed; answering without it', { kind: err?.kind, status: err?.status, model: webSearch.model });
@@ -622,7 +643,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const key = cacheable ? policy.cacheKey(plan, { history: fullHistory, attachments: files, message: typed, tenantId: caller.tenantId, variant }) : null;
       const hit = policy.cached(key);
       if (hit) {
-        await usageLog.record(caller, { provider: hit.provider, model: hit.model, outcome: 'ok', task: plan.task, level: plan.level, costUsd: 0, cacheHit: true });
+        await recordUsage(caller, { provider: hit.provider, model: hit.model, outcome: 'ok', task: plan.task, level: plan.level, costUsd: 0, cacheHit: true });
         return finish(hit.text);
       }
 
@@ -642,7 +663,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           semanticEntry = await semanticCache.lookup(typed, semanticScope);
           if (semanticEntry.hit) {
             await semanticCache.touch(semanticEntry.hit.id).catch(() => {});
-            await usageLog.record(caller, {
+            await recordUsage(caller, {
               provider: 'semantic_cache', model: 'hnsw-cosine', outcome: 'ok',
               task: plan.task, level: plan.level, costUsd: 0, cacheHit: true
             });
@@ -661,7 +682,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       }
       let started = now();
       let run;
-      const onFailure = (f) => { live?.reset(); return usageLog.record(caller, {
+      const onFailure = (f) => { live?.reset(); return recordUsage(caller, {
         provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
         inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null, escalated: f.escalated,
@@ -703,16 +724,16 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                   caller,
                   reserveTokens: async ({ inputTokens, maxTokens: outputTokens }) => limiter.reserveTokens(caller, Math.ceil((inputTokens * 2 + outputTokens) * 2)),
                   settleTokens: (reservation, actualTokens) => limiter.settleTokens(reservation, actualTokens),
-                  onFailure: (f) => usageLog.record(caller, {
+                  onFailure: (f) => recordUsage(caller, {
                     provider: f.result?.provider || f.error?.provider || f.spec.provider, model: f.spec.model,
                     inputTokens: f.result?.inputTokens, outputTokens: f.result?.outputTokens, latencyMs: f.latencyMs,
-                    outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd,
+                    outcome: f.outcome, task: `council_${role}`, level: f.level, costUsd: f.costUsd, costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null,
                     costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null,
                     reservationId: f.reservationId, spendReservationId: f.spendReservationId
                   })
                 });
               } catch (err) {
-                await usageLog.record(caller, {
+                await recordUsage(caller, {
                   provider: err?.provider || 'router', model: err?.model || 'unknown',
                   outcome: err?.code === 'budget_reached' ? 'budget_blocked' : 'provider_error',
                   task: `council_${role}`, level: councilPlan.level, costUsd: null
@@ -720,7 +741,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                 throw err;
               }
               usedCouncilModels.add(`${specialist.spec.provider}:${specialist.spec.model}`);
-              await usageLog.record(caller, {
+              await recordUsage(caller, {
                 provider: specialist.result.provider || specialist.spec.provider,
                 model: specialist.result.model || specialist.spec.model,
                 inputTokens: specialist.result.inputTokens, outputTokens: specialist.result.outputTokens,
@@ -765,7 +786,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         // MAX_TOOL_ROUNDS, and the last round must answer in words.
         for (let round = 1; run.result.toolCalls?.length && round <= MAX_TOOL_ROUNDS; round++) {
           usedTools = true;
-          await usageLog.record(caller, {
+          await recordUsage(caller, {
             provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
             inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
             latencyMs: now() - started, outcome: 'ok', task: plan.task, level: run.level, costUsd: run.costUsd, costSource: Number.isFinite(run.costUsd) ? 'provider_reported' : null, escalated: run.escalated,
@@ -831,11 +852,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       } catch (err) {
         if (err?.kind === 'stopped' || opts.signal?.aborted) return stopped(err, req, started, plan);
         if (err instanceof HttpError) {
-          await usageLog.record(caller, { provider: 'router', model: 'none', outcome: err.code === 'budget_reached' ? 'budget_blocked' : 'rejected_output', task: plan.task, level: plan.level, costUsd: null });
+          await recordUsage(caller, { provider: 'router', model: 'none', outcome: err.code === 'budget_reached' ? 'budget_blocked' : 'rejected_output', task: plan.task, level: plan.level, costUsd: null });
           throw err;
         }
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
-        await usageLog.record(caller, {
+        await recordUsage(caller, {
           provider: err?.provider || 'router', model: err?.model || 'unknown', latencyMs: now() - started,
           outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: plan.task, level: err?.level ?? plan.level, costUsd: null,
           endpoint: '/v1/chat', httpMethod: 'POST', errorCode: safeModelErrorCode(kind)
@@ -849,11 +870,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       // Pull request chips (Diff +/-, merged or not) come only from GitHub's
       // answer above; lines the model wrote that look like one are dropped.
       const reply = clean(keepIdentity(run.result.text)).replace(PR_CHIP_LINES, '').trim();
-      await usageLog.record(caller, {
+      await recordUsage(caller, {
         provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
         inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
         latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output',
-        task: plan.task, level: run.level, costUsd: run.costUsd, escalated: run.escalated,
+        task: plan.task, level: run.level, costUsd: run.costUsd, costSource: Number.isFinite(run.costUsd) ? 'provider_reported' : null, escalated: run.escalated,
         endpoint: '/v1/chat', httpMethod: 'POST', httpStatus: 200,
         providerRequestId: run.result.providerRequestId, finishReason: run.result.finishReason,
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
@@ -910,7 +931,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     } catch (err) {
       await limiter.settleTokens(reservation, err?.providerNotCalled ? 0 : reservation.reservedTokens);
       if (err instanceof HttpError && err.code === 'budget_reached') {
-        await usageLog.record(caller, { provider: 'router', model: 'none', outcome: 'budget_blocked', task: 'chat', costUsd: 0 });
+        await recordUsage(caller, { provider: 'router', model: 'none', outcome: 'budget_blocked', task: 'chat', costUsd: 0 });
         throw err;
       }
       if (err?.kind === 'stopped' || opts.signal?.aborted) {
@@ -918,7 +939,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         return stopped(err, { system: buildSystemPrompt({ now: new Date(started) }), messages: history }, started, null);
       }
       const kind = err instanceof ProviderError ? err.kind : 'unexpected';
-      await usageLog.record(caller, {
+      await recordUsage(caller, {
         provider: err?.provider || provider.id, model: err?.model || model, latencyMs: now() - started,
         outcome: kind === 'timeout' ? 'timeout' : 'provider_error', reservationId: reservation.id, spendReservationId: err?.spendReservationId,
         endpoint: '/v1/chat', httpMethod: 'POST', errorCode: safeModelErrorCode(kind)
@@ -948,9 +969,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       : reservation.reservedTokens;
     await limiter.settleTokens(reservation, actualTokens);
     // The provider and model that really answered (the router may have used the fallback).
-    await usageLog.record(caller, {
+    await recordUsage(caller, {
       provider: result.provider || provider.id, model: result.model || model,
-      inputTokens: result.inputTokens, outputTokens: result.outputTokens,
+      inputTokens: result.inputTokens, cachedTokens: result.cachedTokens, outputTokens: result.outputTokens,
       latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', reservationId: reservation.id,
       costUsd: result.costUsd, costSource: Number.isFinite(result.costUsd) ? 'provider_reported' : null,
       endpoint: '/v1/chat', httpMethod: 'POST', httpStatus: reply ? 200 : null,

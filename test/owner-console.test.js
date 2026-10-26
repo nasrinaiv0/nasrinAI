@@ -432,6 +432,84 @@ test('OpenRouter Analytics 403 is reported safely as a Management API permission
   assert.equal(out.res.body.includes(secretSentinel), false);
 });
 
+test('direct-provider billing endpoint is owner-session protected and never returns admin credentials', async () => {
+  const calls = [];
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, openaiAdminKey: 'openai-admin-secret-test', anthropicAdminKey: 'anthropic-admin-secret-test' };
+  const { consoleHandler } = setup({
+    ownerConsole,
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), options });
+      if (String(url).startsWith('https://api.openai.com/')) return {
+        ok: true, status: 200, json: async () => ({ data: [{ results: [{ amount: { value: 1.25, currency: 'usd' } }] }] })
+      };
+      return {
+        ok: true, status: 200, json: async () => ({ data: [{ results: [{ amount: '275', description: 'Claude messages' }] }], has_more: false })
+      };
+    }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/provider-billing?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/provider-billing');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.providers.openai.total_usd, 1.25);
+  assert.equal(payload.providers.anthropic.total_usd, 2.75);
+  assert.equal(out.res.body.includes('admin-secret-test'), false);
+  assert.equal(calls.length, 2);
+  assert.equal(calls.find((call) => call.url.includes('api.openai.com')).options.headers.Authorization, 'Bearer openai-admin-secret-test');
+  assert.equal(calls.find((call) => call.url.includes('api.anthropic.com')).options.headers['x-api-key'], 'anthropic-admin-secret-test');
+
+  const invalid = request('GET', '/owner/api/provider-billing?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/provider-billing');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/provider-billing?window=7d', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/provider-billing');
+  assert.equal(denied.res.statusCode, 404);
+});
+
+test('estimated request-cost summary is owner-only, bounded, aggregate-only, and explicitly estimated', async () => {
+  let called = false;
+  const store = {
+    kind: 'supabase',
+    request: async (method, path, options = {}) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      assert.equal(method, 'POST');
+      assert.equal(path, 'rpc/owner_console_estimated_cost_summary');
+      assert.ok(options.body.p_since);
+      called = true;
+      return {
+        request_count: 3,
+        estimated_total_usd: 0.0125,
+        pricing_versions: ['2026-10-26-v1'],
+        rows: [{ provider: 'google', model: 'gemini-3.1-flash-lite', request_count: 3, estimated_cost_usd: 0.0125, latest_at: '2026-10-26T01:00:00Z', pricing_version: '2026-10-26-v1' }]
+      };
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/estimated-costs?window=30d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/estimated-costs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.summary.estimated_total_usd, 0.0125);
+  assert.equal(payload.summary.request_count, 3);
+  assert.equal(payload.summary.rows[0].provider, 'google');
+  assert.match(payload.note, /not provider-billed actual costs/i);
+  assert.equal(out.res.body.includes('actor_id'), false);
+  assert.equal(called, true);
+
+  const invalid = request('GET', '/owner/api/estimated-costs?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/estimated-costs');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/estimated-costs?window=30d', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/estimated-costs');
+  assert.equal(denied.res.statusCode, 404);
+});
+
 test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {
   let queriedPath = '';
   const store = {
@@ -775,7 +853,7 @@ test('Owner Command Center model inventory matches the requested OpenRouter and 
 test('direct-provider AI Logs classify models against their provider-specific inventory', async () => {
   const timestamp = new Date(1_800_000_000_000).toISOString();
   const usageRows = [
-    { provider: 'openai', model: 'openai/gpt-6-luna', created_at: timestamp, outcome: 'success', input_tokens: 10, output_tokens: 5, request_id: '11111111-1111-4111-8111-111111111111', endpoint: '/v1/chat', http_method: 'POST', http_status: 200, provider_request_id: 'chatcmpl-test-123', finish_reason: 'stop' },
+    { provider: 'openai', model: 'openai/gpt-6-luna', created_at: timestamp, outcome: 'success', input_tokens: 10, output_tokens: 5, request_id: '11111111-1111-4111-8111-111111111111', endpoint: '/v1/chat', http_method: 'POST', http_status: 200, provider_request_id: 'chatcmpl-test-123', finish_reason: 'stop', estimated_cost_usd: 0.0000035, estimated_cost_source: 'pricing_registry_v1_standard_list_price', pricing_version: '2026-10-26-v1' },
     { provider: 'gemini', model: 'google/gemini-3.8-flash-lite-tts', created_at: timestamp, outcome: 'success', input_tokens: 20, output_tokens: 8 },
     { provider: 'claude', model: 'anthropic/claude-opus-5.5', created_at: timestamp, outcome: 'success', input_tokens: 30, output_tokens: 12 },
     { provider: 'openai', model: 'openai/not-in-owner-catalog', created_at: timestamp, outcome: 'success', input_tokens: 1, output_tokens: 1 }
@@ -802,6 +880,11 @@ test('direct-provider AI Logs classify models against their provider-specific in
   assert.equal(openaiRow.http_status, 200);
   assert.equal(openaiRow.provider_request_id, 'chatcmpl-test-123');
   assert.equal(openaiRow.finish_reason, 'stop');
+  assert.equal(openaiRow.total_cost_usd, 0.0000035);
+  assert.equal(openaiRow.cost_kind, 'estimated');
+  assert.equal(openaiRow.provider_cost_source, null, 'estimates must never be labeled provider-reported');
+  assert.equal(openaiRow.estimated_cost_source, 'pricing_registry_v1_standard_list_price');
+  assert.equal(openaiRow.pricing_version, '2026-10-26-v1');
   assert.equal(rows.find(row => row.provider === 'google' && row.model === 'gemini-3.8-flash-lite-tts').catalog_status, 'listed');
   assert.equal(rows.find(row => row.provider === 'anthropic' && row.model === 'claude-opus-5.5').catalog_status, 'listed');
   assert.equal(rows.find(row => row.model === 'not-in-owner-catalog').catalog_status, 'not_listed');
