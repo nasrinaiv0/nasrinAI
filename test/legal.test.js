@@ -63,6 +63,10 @@ test('improvement consent is separate, identity-scoped, versioned, and withdrawa
     a.store.improvementExamples.push({ id: 'example-legal-withdrawal', tenantId: PLATFORM, subjectType: 'user', subjectId: 'user-1', consentVersion: 'example-v1', exampleText: 'redacted sample', createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
     const guestBefore = await (await fetch(url, { headers: bearer(guestToken) })).json();
     assert.equal(guestBefore.enabled, false, 'signed-in consent cannot authorize a guest session');
+    const guestGranted = await put(guestToken, { enabled: true, version: guestBefore.version });
+    assert.equal(guestGranted.status, 200, 'Guest notice acknowledgement grants this guest session');
+    const guestDisabled = await put(guestToken, { enabled: false, version: guestBefore.version });
+    assert.equal(guestDisabled.status, 403, 'Guest cannot turn off improvement collection through settings');
     const withdrawn = await put(USER_TOKEN, { enabled: false, version: empty.version });
     assert.equal(withdrawn.status, 200);
     assert.equal((await withdrawn.json()).enabled, false);
