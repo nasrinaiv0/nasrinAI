@@ -6680,8 +6680,13 @@
     vc.state = state;
     voiceEl.dataset.state = state;
     voiceStatus.textContent = label;
-    // The orb stops Nasrin while she talks or thinks.
     voiceSkip.disabled = !(state === 'speaking' || state === 'thinking');
+    const share = $('voiceShareScreen');
+    if (share) {
+      share.disabled = !(vc.on && vc.realtime && (vc.realtimeProvider === 'gemini' || vc.realtimeProvider === 'openai'));
+      if (share.disabled && share.getAttribute('aria-pressed') !== 'true') share.title = 'Start realtime voice to share your screen';
+      else if (share.getAttribute('aria-pressed') !== 'true') share.title = 'Share screen';
+    }
     Nasrin.mood(MOODS[state] || 'idle');
   }
 
@@ -7198,6 +7203,7 @@
 
   function closeVoice(message) {
     if (!vc.on) return;
+    window.dispatchEvent(new CustomEvent('nasrinai:voice-ended'));
     vc.on = false;
     clearTimeout(vc.realtimeReconnectTimer);
     vc.realtimeReconnectTimer = null;
@@ -7223,6 +7229,39 @@
   }
 
   $('voiceEnd').addEventListener('click', () => closeVoice());
+  // Shared frames are transient and sent only to the active realtime provider.
+  window.addEventListener('nasrinai:voice-screen-frame', (event) => {
+    const frame = event.detail;
+    if (!vc.on || !vc.realtime || !frame?.data || frame.mimeType !== 'image/jpeg') return;
+    try {
+      if (vc.realtimeProvider === 'gemini') {
+        const ws = vc.geminiState?.ws;
+        if (ws?.readyState === WebSocket.OPEN && vc.geminiState?.ready) {
+          ws.send(JSON.stringify({ realtimeInput: { video: { mimeType: frame.mimeType, data: frame.data } } }));
+        }
+      } else if (vc.realtimeProvider === 'openai') {
+        const channel = vc.realtimeEvents;
+        if (channel?.readyState === 'open') {
+          channel.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: { type: 'message', role: 'user', content: [{ type: 'input_image', image_url: 'data:' + frame.mimeType + ';base64,' + frame.data }] }
+          }));
+        }
+      }
+    } catch { /* a transient frame failure must not interrupt voice audio */ }
+  });
+  window.addEventListener('nasrinai:voice-share-status', (event) => {
+    const { active, message } = event.detail || {};
+    const button = $('voiceShareScreen');
+    const label = $('voiceShareScreenLabel');
+    if (button) {
+      button.setAttribute('aria-pressed', String(Boolean(active)));
+      button.setAttribute('aria-label', active ? 'Stop sharing screen' : 'Share screen with NasrinAI');
+      button.title = active ? 'Stop sharing screen' : 'Share screen';
+    }
+    if (label) label.textContent = active ? 'Stop sharing' : 'Share screen';
+    if (vc.on && message) voiceStatus.textContent = message;
+  });
   voiceSkip.addEventListener('click', interruptVoice);
   voiceMute.addEventListener('click', () => {
     muteVoice(!vc.muted);
