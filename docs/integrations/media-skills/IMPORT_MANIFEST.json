@@ -326,7 +326,8 @@
       "artifact_type": "instruction_only",
       "proposed_destination": "pending_existing_loader_review",
       "decision": "proposed_initial_pilot",
-      "status": "entrypoint_and_eval_inspected; tests_and_owner_approval_pending"
+      "status": "entrypoint_and_eval_inspected; tests_and_owner_approval_pending",
+      "root_license_sha": "9b4e374d126c3c22fabdcfad32e9dbc2d38bbd84"
     },
     {
       "id": "explainer-video-production",
@@ -338,7 +339,8 @@
       "artifact_type": "instruction_only",
       "proposed_destination": "pending_existing_loader_review",
       "decision": "proposed_initial_pilot",
-      "status": "entrypoint_and_eval_inspected; tests_and_owner_approval_pending"
+      "status": "entrypoint_and_eval_inspected; tests_and_owner_approval_pending",
+      "root_license_sha": "9b4e374d126c3c22fabdcfad32e9dbc2d38bbd84"
     },
     {
       "id": "social-short-production",
@@ -350,7 +352,8 @@
       "artifact_type": "instruction_only",
       "proposed_destination": "pending_existing_loader_review",
       "decision": "proposed_initial_pilot",
-      "status": "entrypoint_and_eval_inspected; platform claims require refresh; tests and owner approval pending"
+      "status": "entrypoint_and_eval_inspected; platform claims require refresh; tests and owner approval pending",
+      "root_license_sha": "9b4e374d126c3c22fabdcfad32e9dbc2d38bbd84"
     },
     {
       "id": "editing-montage",
@@ -362,7 +365,8 @@
       "artifact_type": "instruction_only",
       "proposed_destination": "pending_existing_loader_review",
       "decision": "proposed_initial_pilot",
-      "status": "entrypoint_and_eval_inspected; dated platform claims require refresh; tests and owner approval pending"
+      "status": "entrypoint_and_eval_inspected; dated platform claims require refresh; tests and owner approval pending",
+      "root_license_sha": "9b4e374d126c3c22fabdcfad32e9dbc2d38bbd84"
     },
     {
       "id": "media-provenance-rights",
@@ -374,7 +378,8 @@
       "artifact_type": "instruction_only",
       "proposed_destination": "pending_existing_loader_review",
       "decision": "proposed_initial_pilot",
-      "status": "entrypoint_and_eval_inspected; rights guidance must not be represented as legal advice; tests and owner approval pending"
+      "status": "entrypoint_and_eval_inspected; rights guidance must not be represented as legal advice; tests and owner approval pending",
+      "root_license_sha": "9b4e374d126c3c22fabdcfad32e9dbc2d38bbd84"
     }
   ],
   "secondary_review": [
@@ -389,7 +394,8 @@
         "scripts/probe-mp4.sh:5e9d0b3ea4ed5cf8d3471ea2f9c6159276a09273"
       ],
       "decision": "defer_second_wave",
-      "reason": "Remotion dependencies; root-level helpers; overwrite/path/runtime controls required"
+      "reason": "Remotion dependencies; root-level helpers; overwrite/path/runtime controls required",
+      "root_license_sha": "a61b911146037f2ef312f67e9b45de6c99b7f870"
     },
     {
       "id": "ad-creative-video",
@@ -402,7 +408,8 @@
         "scripts/contact-sheet.sh:d0032c4d920b8e3369898bb754f96c8ed8afe0d9"
       ],
       "decision": "defer_second_wave",
-      "reason": "CSV-to-file output, render batching, claim/disclosure and dated platform spec review"
+      "reason": "CSV-to-file output, render batching, claim/disclosure and dated platform spec review",
+      "root_license_sha": "a61b911146037f2ef312f67e9b45de6c99b7f870"
     },
     {
       "id": "kinetic-typography",
@@ -415,7 +422,8 @@
         "scripts/contact-sheet.sh:d0032c4d920b8e3369898bb754f96c8ed8afe0d9"
       ],
       "decision": "defer_second_wave",
-      "reason": "npx Playwright runtime download and shared root helper dependencies"
+      "reason": "npx Playwright runtime download and shared root helper dependencies",
+      "root_license_sha": "a61b911146037f2ef312f67e9b45de6c99b7f870"
     },
     {
       "id": "talking-head",
@@ -432,7 +440,8 @@
         "scripts/prepare-person.mjs:ac20c242ea8cba8a6acc0037c5244bcbd4257574"
       ],
       "decision": "defer_sensitive",
-      "reason": "Uploads face/voice/audio to fal and ElevenLabs; paid APIs, identity consent, worker/process/path/download validation required"
+      "reason": "Uploads face/voice/audio to fal and ElevenLabs; paid APIs, identity consent, worker/process/path/download validation required",
+      "root_license_sha": "a61b911146037f2ef312f67e9b45de6c99b7f870"
     },
     {
       "id": "comfy-cloud",
@@ -441,8 +450,10 @@
       "entrypoint_path": "openclaw/comfy/SKILL.md",
       "entrypoint_sha": "82d3cd77874ff4aa6de33e7ab5a8c0ff6f9a6a6a",
       "decision": "adapter_candidate_not_skill_import",
-      "reason": "Hosted MCP/OAuth or API-key service; price/permissions and typed adapter required"
+      "reason": "Hosted MCP/OAuth or API-key service; price/permissions and typed adapter required",
+      "root_license_sha": "2683d0a50997bea5b625a2ac608a7f78b3f11553"
     }
   ],
-  "documentation_status": "review_package_expanded; initial pilot proposed; not implementation-ready; upstream helper tests not executed; owner approval pending"
+  "documentation_status": "review_package_expanded; initial pilot proposed; not implementation-ready; upstream helper tests not executed; owner approval pending",
+  "initial_pilot_scope_note": "Five provider-independent instruction-only packages are proposed for initial review. No files copied yet. Runtime destination and loader integration are pending repository architecture review. EVAL.md hashes are provenance only and must never ship in runtime context."
 }
