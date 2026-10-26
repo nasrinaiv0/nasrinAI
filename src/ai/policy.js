@@ -205,13 +205,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
-            return isOpenRouterChatCandidateEligible({
+            const lunaFileRoute = quickFileTask && candidate.model === 'openai/gpt-6-luna';
+            return (lunaFileRoute || isOpenRouterChatCandidateEligible({
               modelId: candidate.model,
               tier: plan.tier,
               paidQuick: plan.paidQuick,
               task: plan.task,
               verifiedIds: liveOpenRouterModels
-            }) && (
+            })) && (
               (strictQuickFree && (QUICK_FREE_OPENROUTER_CHAT_IDS.has(candidate.model) || (candidate.model === 'openai/gpt-6-luna' && quickFileTask)))
               || (freeQuick && !strictQuickFree)
               || (paidQuick && !/:free$/i.test(candidate.model) && (candidate.model !== 'openai/gpt-6-luna' || quickFileTask))
