@@ -2684,3 +2684,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Distinguish model-state provenance from catalog membership: provider-returned model IDs are marked observed, unresolved requested aliases are marked inferred, and missing model metadata is marked unavailable. Catalog listed/not-listed/unknown remains a separate field and is not treated as proof of execution or availability.
 - Include internal usage-event cost estimates separately from provider-reported cost; unknown costs remain unknown rather than zero. Show source, latest request status, model state, catalog status, request status breakdown, and last activity per provider/model summary.
 - Add regression coverage proving an OpenRouter request with a nonterminal running status and unresolved openrouter/auto alias remains visible in the all-states view.
+
+
+## PR #641 — Fix Quick Free and Paid model routing — 2026-10-26
+
+- Enforce free Quick's model allowlist independently of the legacy provider-presence flag: only explicitly free OpenRouter models, configured free-provider models, and the authorized GPT-6 Luna fallback for heavy tasks are eligible.
+- Ensure paid Quick only attempts non-free OpenRouter models and never routes to free endpoints or the special free-tier fallback.
+- Add regression coverage for the legacy flag-off case. CI must pass before merge; production behavior remains unverified until both modes are exercised against the deployed service.
