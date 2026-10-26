@@ -450,18 +450,37 @@
           result.append(el('p','panel-copy','Fetched ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · USD totals where reported.'));
           const grid = el('div','grid');
           const providers = payload.providers || {};
-          for (const [id, label] of [['openai','OpenAI organization spend'],['anthropic','Anthropic organization spend'],['cloudflare','Cloudflare account spend'],['cerebras','Cerebras account spend']]) {
-            const item = providers[id] || {};
-            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate' : item.status === 'not_configured' ? 'Admin API key not configured' : item.status === 'not_available' ? 'No verified billing API integration' : 'Unavailable';
+          const billingProviders = [
+            ['openai','OpenAI organization spend'],
+            ['anthropic','Anthropic organization spend'],
+            ['google','Google Gemini account spend'],
+            ['groq','Groq account spend'],
+            ['cloudflare','Cloudflare Workers AI / account spend'],
+            ['cerebras','Cerebras account spend'],
+            ['mistral','Mistral account spend'],
+            ['nvidia_nim','NVIDIA NIM account spend']
+          ];
+          for (const [id, label] of billingProviders) {
+            const item = providers[id] || { status: 'not_available', source: 'billing_api_not_integrated', total_usd: null, rows: [] };
+            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate'
+              : item.status === 'not_configured' ? 'Billing credentials not configured'
+              : item.status === 'not_available' ? 'No verified billing API integration'
+              : 'Unavailable · check provider credentials or API';
             grid.append(metric(label, 'USD', moneyText(item.total_usd), statusLabel));
           }
           result.append(grid);
           const list = el('div','source-list');
-          for (const [id, label] of [['openai','OpenAI'],['anthropic','Anthropic'],['cloudflare','Cloudflare Workers AI / account usage'],['cerebras','Cerebras']]) {
-            const item = providers[id] || {};
+          for (const [id, label] of billingProviders) {
+            const item = providers[id] || { status: 'not_available', source: 'billing_api_not_integrated', total_usd: null, rows: [] };
             const row = el('div','source-row'), left = el('div');
-            left.append(el('div','source-name',label),el('div','source-detail',String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items'));
-            row.append(left,state(item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : item.status === 'not_available' ? 'Dashboard only' : 'Unavailable',item.status === 'available' ? 'available' : 'unavailable'));
+            const detail = item.status === 'not_available'
+              ? 'No verified organization billing API integrated'
+              : item.status === 'not_configured'
+                ? 'Provider billing API credentials are not configured'
+                : String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items';
+            left.append(el('div','source-name',label.replace(' organization spend','').replace(' account spend','')),el('div','source-detail',detail));
+            const stateLabel = item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : item.status === 'not_available' ? 'Not integrated' : 'Unavailable';
+            row.append(left,state(stateLabel,item.status === 'available' ? 'available' : 'unavailable'));
             list.append(row);
           }
           result.append(list);
