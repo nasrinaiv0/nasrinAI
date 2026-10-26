@@ -11,7 +11,7 @@ function canonicalProvider(value) {
 }
 function canonicalModel(provider, value) {
   let model = String(value || '').trim().toLowerCase();
-  const prefixes = provider === 'gemini' ? ['gemini/', 'google/', 'google:'] : provider === 'anthropic' ? ['anthropic/', 'claude/', 'anthropic:'] : ['openai/', 'openai:'];
+  const prefixes = provider === 'gemini' ? ['gemini/', 'google/', 'google:'] : provider === 'anthropic' ? ['anthropic/', 'claude/', 'anthropic:'] : provider === 'cloudflare-workers-ai' ? ['cloudflare-workers-ai/', 'cloudflare-workers-ai:', 'cloudflare/'] : provider === 'cerebras' ? ['cerebras/', 'cerebras:'] : ['openai/', 'openai:'];
   for (const prefix of prefixes) if (model.startsWith(prefix)) { model = model.slice(prefix.length); break; }
   if (provider === 'anthropic') {
     model = model.replace(/claude-(haiku|sonnet|opus)-5-5/g, 'claude-$1-5.5');
@@ -27,7 +27,7 @@ function canonicalModel(provider, value) {
  */
 export function estimateProviderRequestCost({ provider, model, inputTokens = 0, cachedTokens = 0, outputTokens = 0 } = {}) {
   const vendor = canonicalProvider(provider);
-  if (!['openai', 'anthropic', 'gemini'].includes(vendor)) return null;
+  if (!['openai', 'anthropic', 'gemini', 'cerebras', 'cloudflare-workers-ai'].includes(vendor)) return null;
   const modelId = canonicalModel(vendor, model);
   const counts = [inputTokens, cachedTokens, outputTokens].map(Number);
   if (counts.some((n) => !Number.isFinite(n) || n < 0 || n > 1e9)) return null;
