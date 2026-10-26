@@ -87,3 +87,15 @@ Screen capture depends on browser support for `getDisplayMedia()`; unsupported
 browsers report a clear message rather than pretending to share. iOS browser
 support must be verified on the target iPhone/Safari version. Frame delivery is
 best-effort and never blocks microphone/audio transport.
+
+
+## OpenRouter vision fallback
+
+When no direct realtime image transport is active, shared-screen frames can be sent
+to the authenticated `/v1/realtime/screen-analyze` endpoint. The endpoint uses
+the existing server-side OpenRouter client, applies message/budget checks, accepts
+only bounded JPEG base64 frames, and never stores screenshots. Set
+`OPENROUTER_VOICE_VISION_MODEL` to a vision-capable OpenRouter model ID; the
+default is `google/gemini-3-flash-preview`. This is screenshot analysis only,
+not a realtime audio or continuous video transport. Fallback calls are throttled
+to at most one every five seconds in the browser.
