@@ -240,6 +240,48 @@ export function applyTimelineOperation(projectInput, operation, { dryRun = true 
     found.clip.sourceIn = sourceIn; found.clip.sourceOut = sourceOut; found.clip.targetEnd = found.clip.targetStart + targetDuration;
     if (operation.keepEnd === true) found.clip.targetStart = Math.max(0, found.clip.targetEnd - targetDuration);
     result = { clipId: found.clip.id, previousDuration: oldDuration, duration: targetDuration };
+  } else if (type === 'split_clip') {
+    const found = findClip(next, operation.clipId);
+    const at = Number(operation.at);
+    assert(finite(at) && at > found.clip.targetStart && at < found.clip.targetEnd, 'Split point must be inside the clip.');
+    const offset = at - found.clip.targetStart;
+    const sourceSplit = found.clip.sourceIn + offset * (finite(found.clip.speed) && found.clip.speed > 0 ? found.clip.speed : 1);
+    const right = {
+      ...clone(found.clip), id: text(operation.newClipId || id('clip'), 200),
+      sourceIn: sourceSplit, targetStart: at, raw: undefined
+    };
+    assert(!next.tracks.flatMap(t => t.clips).some(c => c.id === right.id), 'New clip id already exists.');
+    found.clip.sourceOut = sourceSplit;
+    found.clip.targetEnd = at;
+    found.track.clips.push(right);
+    found.track.clips.sort((a, b) => a.targetStart - b.targetStart);
+    result = { leftClipId: found.clip.id, rightClipId: right.id, at };
+  } else if (type === 'set_clip_speed') {
+    const found = findClip(next, operation.clipId);
+    const speed = Number(operation.speed);
+    assert(finite(speed) && speed >= 0.25 && speed <= 4, 'Clip speed must be between 0.25x and 4x.');
+    const sourceDuration = found.clip.sourceOut - found.clip.sourceIn;
+    const timelineDuration = sourceDuration / speed;
+    found.clip.speed = speed;
+    found.clip.targetEnd = found.clip.targetStart + timelineDuration;
+    found.track.clips.sort((a, b) => a.targetStart - b.targetStart);
+    result = { clipId: found.clip.id, speed };
+  } else if (type === 'set_track_volume') {
+    const track = next.tracks.find(t => t.id === operation.trackId);
+    assert(track, 'Target track was not found.', 'track_not_found');
+    const volume = Number(operation.volume);
+    assert(finite(volume) && volume >= 0 && volume <= 1, 'Track volume must be between 0 and 1.');
+    track.volume = volume; result = { trackId: track.id, volume };
+  } else if (type === 'set_track_visibility') {
+    const track = next.tracks.find(t => t.id === operation.trackId);
+    assert(track, 'Target track was not found.', 'track_not_found');
+    assert(typeof operation.visible === 'boolean', 'Track visibility must be true or false.');
+    track.visible = operation.visible; result = { trackId: track.id, visible: track.visible };
+  } else if (type === 'remove_track') {
+    const track = next.tracks.find(t => t.id === operation.trackId);
+    assert(track, 'Target track was not found.', 'track_not_found');
+    next.tracks = next.tracks.filter(t => t.id !== track.id);
+    result = { trackId: track.id, removedClips: track.clips.length };
   } else if (type === 'remove_clip') {
     const found = findClip(next, operation.clipId);
     found.track.clips = found.track.clips.filter(c => c.id !== found.clip.id);
