@@ -60,6 +60,30 @@ test('OpenAI and Anthropic billing calls use their respective admin endpoints an
   assert.equal(calls.find((call) => call.url.includes('api.openai.com')).options.headers.Authorization, 'Bearer openai-admin-secret-test');
 });
 
+test('Anthropic billing follows bounded pagination for 90-day reports and sums complete page totals', async () => {
+  const pages = [];
+  const result = await fetchDirectProviderBilling({
+    anthropicAdminKey: 'anthropic-admin-test-key',
+    window: '90d',
+    now: () => Date.parse('2026-10-26T00:00:00Z'),
+    fetchImpl: async (url) => {
+      const parsed = new URL(url);
+      pages.push(parsed.searchParams.get('page') || 'first');
+      if (!parsed.searchParams.has('page')) return {
+        ok: true, status: 200,
+        json: async () => ({ data: [{ results: [{ amount: '100', description: 'first page' }] }], has_more: true, next_page: 'cursor-2' })
+      };
+      return {
+        ok: true, status: 200,
+        json: async () => ({ data: [{ results: [{ amount: '250', description: 'second page' }] }], has_more: false, next_page: null })
+      };
+    }
+  });
+  assert.deepEqual(pages, ['first', 'cursor-2']);
+  assert.equal(result.providers.anthropic.total_usd, 3.5);
+  assert.equal(result.providers.anthropic.pages_fetched, 2);
+});
+
 test('invalid billing windows are rejected before any network request', async () => {
   let called = false;
   await assert.rejects(() => fetchDirectProviderBilling({ window: '365d', fetchImpl: async () => { called = true; } }), /window must be/);
