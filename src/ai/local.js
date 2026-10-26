@@ -111,6 +111,7 @@ export function createLocalProvider({
         cachedTokens: Number(data?.usage?.prompt_tokens_details?.cached_tokens) || 0,
         outputTokens: Number(data?.usage?.completion_tokens) || 0,
         finishReason: choice?.finish_reason || 'unknown',
+        providerRequestId: (typeof data?.id === 'string' && data.id ? data.id : (resp.headers?.get?.('x-request-id') || resp.headers?.get?.('request-id'))) || null,
         model: useModel
       };
     },
