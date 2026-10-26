@@ -1,3 +1,9 @@
+## fix/video-weekly-allowance (2026-10-26)
+
+- Enforce the weekly video allowance (`VIDEO_PRO/MAX/ULTRA_WEEKLY_SECONDS`), which was parsed but never applied: video seconds started in the last 7 days must fit the plan's allowance, otherwise `429 video_allowance_reached` before any paid job starts. Failed jobs give their seconds back. A value of 0 (not configured) keeps the old behavior.
+- Refused requests do not use the hourly limit. New store method `sumVideoSecondsSince` (memory + Supabase). No migration.
+- Known limit: two requests at the same instant could both pass the check; the hourly limit bounds that.
+
 ## PR #639 — Persist real token usage for reply details (2026-10-26)
 
 - Store sanitized response metadata, including provider-reported input/output tokens and request duration, on the exact assistant message in Supabase.

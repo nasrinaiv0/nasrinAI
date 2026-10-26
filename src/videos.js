@@ -112,7 +112,7 @@ export function createVideos({ store, plans, provider, conversations = null, lim
 
   async function create(caller, body) {
     const b = body && typeof body === 'object' ? body : {};
-    const { selected } = await requireVideoPlan(caller, b.tier ?? b.model);
+    const { account, selected } = await requireVideoPlan(caller, b.tier ?? b.model);
     const routeProvider = provider && typeof provider.create !== 'function' ? provider[selected] : provider;
     if (!routeProvider) throw new HttpError(503, 'video_tier_unavailable', 'Video generation is not configured for the selected tier.');
     const requestedSeconds = Number(b.seconds);
@@ -219,6 +219,21 @@ export function createVideos({ store, plans, provider, conversations = null, lim
         logger.info('marketing video cache hit', { id: existing.id, targetSeconds, provider: routeProvider.id });
         const chatId = await remember(caller, { videoId: existing.id, conversationId: b.conversation_id || null, prompt, seconds: existing.targetSeconds, cached: true });
         return { video_id: existing.id, status: 'completed', progress: 100, target_seconds: existing.targetSeconds, cache_hit: true, ...(chatId ? { conversation_id: chatId } : {}) };
+      }
+    }
+    // Weekly allowance: video seconds started in the last 7 days (failed jobs
+    // give theirs back) plus this clip must fit the plan's allowance. Checked
+    // before anything is paid for and before the hourly limit is used.
+    const weeklyLimit = Number(config.video?.weeklySeconds?.[account.plan]) || 0;
+    if (weeklyLimit > 0 && typeof store.sumVideoSecondsSince === 'function') {
+      const used = await store.sumVideoSecondsSince({
+        tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id,
+        since: new Date(now() - 7 * 86400_000)
+      });
+      if (used + targetSeconds > weeklyLimit) {
+        const left = Math.max(0, weeklyLimit - used);
+        throw new HttpError(429, 'video_allowance_reached',
+          'You have used your weekly video allowance (' + left + ' of ' + weeklyLimit + ' seconds left, counted over the last 7 days). Try a shorter clip, or try again later.');
       }
     }
     // Count the hourly limit only now: requests refused for plan, length or

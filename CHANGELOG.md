@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Fix: the weekly video allowance is now enforced per plan (rolling 7 days, failed jobs refunded).
+
 - Persist sanitized reply timing and token-usage metadata on assistant messages in Supabase; conversation history and the reply details panel now use saved metadata instead of estimating historical token counts from text. Replies without stored metadata show "Not reported".
 
 ## Quick free/paid routing correction — 2026-10-26

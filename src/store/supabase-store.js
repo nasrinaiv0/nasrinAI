@@ -1039,6 +1039,14 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       return { ...video, bytes };
     },
 
+    // Video seconds started since a moment, not counting failed jobs (weekly allowance).
+    async sumVideoSecondsSince({ tenantId, ownerType, ownerId, since }) {
+      assertOwner(ownerType, ownerId);
+      if (!UUID.test(String(tenantId))) return 0;
+      const rows = await request('GET', `generated_videos?tenant_id=eq.${tenantId}&owner_type=eq.${encodeURIComponent(ownerType)}&owner_id=eq.${encodeURIComponent(ownerId)}&status=neq.failed&created_at=gte.${encodeURIComponent(since.toISOString())}&select=target_seconds&limit=1000`);
+      return (rows || []).reduce((sum, r) => sum + (Number(r.target_seconds) || 0), 0);
+    },
+
     async updateVideo(id, patch) {
       if (!UUID.test(String(id))) return false;
       const body = {};

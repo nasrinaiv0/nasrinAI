@@ -687,6 +687,16 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       return { ...r, bytes: Buffer.from(bytes) };
     },
 
+    async sumVideoSecondsSince({ tenantId, ownerType, ownerId, since }) {
+      let total = 0;
+      for (const r of videos.values()) {
+        if (r.tenantId !== tenantId || r.ownerType !== ownerType || r.ownerId !== ownerId) continue;
+        if (r.status === 'failed' || Date.parse(r.createdAt) < since.getTime()) continue;
+        total += Number(r.targetSeconds) || 0;
+      }
+      return total;
+    },
+
     async updateVideo(id, patch) {
       const r = videos.get(id);
       if (!r) return false;
