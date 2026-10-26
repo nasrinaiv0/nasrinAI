@@ -46,9 +46,9 @@ function parseCloudflareBillableUsage(payload) {
   const rows = [];
   for (const row of rowsIn) {
     if (!row || typeof row !== 'object') continue;
-    const currency = String(row.Currency || row.currency || 'USD').toUpperCase();
+    const currency = String(row.BillingCurrency || row.billing_currency || row.Currency || row.currency || 'USD').toUpperCase();
     if (currency !== 'USD') continue;
-    const raw = row.CostUSD ?? row.cost_usd ?? row.Cost ?? row.cost ?? row.TotalCost ?? row.total_cost;
+    const raw = row.ContractedCost ?? row.contracted_cost ?? row.CostUSD ?? row.cost_usd ?? row.Cost ?? row.cost ?? row.TotalCost ?? row.total_cost;
     const amount = finiteMoney(raw);
     if (amount === null) continue;
     const service = row.ServiceName ?? row.service_name ?? row.ProductName ?? row.product_name ?? row.Service ?? row.service;
