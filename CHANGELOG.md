@@ -3,7 +3,8 @@
 - Add optional, owner-only OpenAI organization Costs API and Anthropic Cost Report API integrations for aggregate billed-spend reconciliation.
 - Keep provider billing totals separate from per-request telemetry; do not allocate aggregate costs to individual requests or double-count OpenRouter spend.
 - Add Finance panel status, refresh, bounded date windows, and regression tests for amount parsing, key isolation, and unavailable states.
-- Request-level estimates and Gemini/other direct-provider billing sources remain a separate follow-up; no estimates are presented as actual provider cost.
+- Add a versioned request-level list-price estimator for supported direct text models, separate estimate columns, an aggregate-only OCC Finance summary, and AI Logs labels that distinguish estimates from provider-reported actual costs.
+- Gemini requests with a verified model price are estimated at paid Standard list rates; unknown models and unverified provider costs remain unavailable. Google Cloud billed-spend reconciliation is not claimed.
 
 ## Unreleased
 
