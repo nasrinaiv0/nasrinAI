@@ -2700,3 +2700,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep the existing Google Maps loading, route, and fallback behavior unchanged. Regression tests cover the compact grid and rectangular responsive canvas.
 
 - **Nearby business cards in map replies:** Replace the oversized map/link panel with a responsive map followed by up to five nearby business cards. Use Google Places results for business names, photos, ratings, categories, addresses, and open/closed status when Google returns those fields. Cards link to the individual business in Google Maps; no results are fabricated. Requires Places library/API enabled and billing configured for the browser key.
+
+
+## PR #663 — Fix Gemini Live voice session setup (2026-10-27)
+
+- Align the ephemeral-token session constraints with the browser's Gemini Live setup, including audio response modality, bounded output tokens, and the selected prebuilt voice.
+- Normalize model names before setup and surface sanitized provider error/close codes so session failures are diagnosable without exposing credentials, audio, or transcripts.
+- **Validation:** GitHub Actions CI passed on the implementation head. Documentation Gate initially failed because the required changelog entry was missing; rerun both checks on this changelog-updated head before merge. No merge or deployment is claimed.
