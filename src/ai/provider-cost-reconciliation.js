@@ -210,4 +210,4 @@ export async function fetchDirectProviderBilling({
   };
 }
 
-export const providerBillingInternals = Object.freeze({ parseOpenAICosts, parseAnthropicCosts, validWindow });
+export const providerBillingInternals = Object.freeze({ parseOpenAICosts, parseAnthropicCosts, parseCloudflareBillableUsage, validWindow });
