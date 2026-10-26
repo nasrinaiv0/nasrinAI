@@ -86,7 +86,7 @@ test('realtime voice screen share button and transport are wired safely', async 
   assert.match(app, /nasrinai:voice-ended/);
   assert.match(share, /getDisplayMedia/);
   assert.match(share, /image\/jpeg/);
-  assert.match(share, /track\\.onended/);
+  assert.match(share, /track\.onended/);
   assert.match(share, /nasrinai:voice-share-status/);
   assert.match(share, /nasrinai:voice-ended/);
 });
