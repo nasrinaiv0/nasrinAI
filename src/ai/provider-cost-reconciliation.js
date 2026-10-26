@@ -192,7 +192,7 @@ export async function fetchDirectProviderBilling({
         data_freshness: 'daily'
       };
     } catch (error) {
-      results.cloudflare = { status: 'unavailable', source: 'cloudflare_billable_usage_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\\d+$/)?.[0] || (error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
+      results.cloudflare = { status: 'unavailable', source: 'cloudflare_billable_usage_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\d+$/)?.[0] || (error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
     }
   })());
   await Promise.all(requests);
