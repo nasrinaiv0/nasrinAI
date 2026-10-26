@@ -971,7 +971,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // The provider and model that really answered (the router may have used the fallback).
     await recordUsage(caller, {
       provider: result.provider || provider.id, model: result.model || model,
-      inputTokens: result.inputTokens, outputTokens: result.outputTokens,
+      inputTokens: result.inputTokens, cachedTokens: result.cachedTokens, outputTokens: result.outputTokens,
       latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', reservationId: reservation.id,
       costUsd: result.costUsd, costSource: Number.isFinite(result.costUsd) ? 'provider_reported' : null,
       endpoint: '/v1/chat', httpMethod: 'POST', httpStatus: reply ? 200 : null,
