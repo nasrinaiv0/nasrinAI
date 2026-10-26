@@ -8,6 +8,7 @@ function isoDate(value) {
   return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 function finiteMoney(value) {
+  if (value === null || value === undefined || value === '') return null;
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) && n >= 0 && n <= 1e12 ? n : null;
 }
@@ -18,6 +19,8 @@ function parseOpenAICosts(payload) {
   for (const bucket of buckets) {
     const results = Array.isArray(bucket?.results) ? bucket.results : [];
     for (const result of results) {
+      const currency = typeof result?.amount?.currency === 'string' ? result.amount.currency.toLowerCase() : 'usd';
+      if (currency !== 'usd') continue;
       const amount = finiteMoney(result?.amount?.value);
       if (amount === null) continue;
       total += amount; seen = true;
@@ -27,7 +30,7 @@ function parseOpenAICosts(payload) {
         amount_usd: amount,
         line_item: typeof result.line_item === 'string' ? result.line_item.slice(0, 120) : null,
         project_id: typeof result.project_id === 'string' ? result.project_id.slice(0, 120) : null,
-        currency: typeof result.amount?.currency === 'string' ? result.amount.currency.slice(0, 8) : 'usd'
+        currency
       });
     }
   }
