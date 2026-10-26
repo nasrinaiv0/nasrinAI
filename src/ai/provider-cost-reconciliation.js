@@ -199,6 +199,7 @@ export async function fetchDirectProviderBilling({
   for (const provider of ['openai', 'anthropic', 'cloudflare']) {
     if (!results[provider]) results[provider] = { status: 'not_configured', source: provider === 'openai' ? 'openai_organization_costs_api' : provider === 'anthropic' ? 'anthropic_organization_cost_report_api' : 'cloudflare_billable_usage_api', total_usd: null, rows: [] };
   }
+  results.cerebras = { status: 'not_available', source: 'cerebras_billing_dashboard', total_usd: null, rows: [], note: 'Cerebras public account billing is not exposed through a verified organization billing API in this integration; use the provider dashboard for actual spend.' };
   return {
     generated_at: new Date(now()).toISOString(),
     window: selectedWindow,
