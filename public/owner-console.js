@@ -383,6 +383,58 @@
       loadBilling();
     }
 
+    if (key === 'finance') {
+      const panel = el('section', 'panel');
+      panel.classList.add('module-extra');
+      panel.append(el('h3', '', 'Direct-provider billing reconciliation'));
+      panel.append(el('p', 'panel-copy', 'Organization-level billed spend from provider admin APIs. These totals are not assigned to individual requests and must not be added to request-level costs.'));
+      const controls = el('div', 'toolbar');
+      const windowSelect = el('select', 'input');
+      windowSelect.setAttribute('aria-label', 'Direct-provider billing window');
+      [['7d','Last 7 days'],['30d','Last 30 days'],['90d','Last 90 days']].forEach(([value,label]) => {
+        const option = el('option','',label); option.value = value; windowSelect.append(option);
+      });
+      const refresh = el('button', 'quiet-button', 'Refresh direct-provider billing'); refresh.type = 'button';
+      controls.append(windowSelect, refresh);
+      const result = el('div');
+      result.append(notice('Loading provider billing', 'Checking optional organization billing APIs.'));
+      panel.append(controls, result); c.append(panel);
+      const load = async () => {
+        refresh.disabled = true;
+        result.replaceChildren(notice('Loading provider billing', 'Fetching read-only organization-level billing reports.'));
+        try {
+          const response = await fetch('/owner/api/provider-billing?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error?.message || 'Direct-provider billing is unavailable.');
+          result.replaceChildren();
+          result.append(el('p','panel-copy','Fetched ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · USD totals where reported.'));
+          const grid = el('div','grid');
+          const providers = payload.providers || {};
+          for (const [id, label] of [['openai','OpenAI organization spend'],['anthropic','Anthropic organization spend']]) {
+            const item = providers[id] || {};
+            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate' : item.status === 'not_configured' ? 'Admin API key not configured' : 'Unavailable';
+            grid.append(metric(label, 'USD', moneyText(item.total_usd), statusLabel));
+          }
+          result.append(grid);
+          const list = el('div','source-list');
+          for (const [id, label] of [['openai','OpenAI'],['anthropic','Anthropic']]) {
+            const item = providers[id] || {};
+            const row = el('div','source-row'), left = el('div');
+            left.append(el('div','source-name',label),el('div','source-detail',String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items'));
+            row.append(left,state(item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : 'Unavailable',item.status === 'available' ? 'available' : 'unavailable'));
+            list.append(row);
+          }
+          result.append(list);
+          result.append(notice('Reconciliation boundary',payload.note || 'Aggregate provider spend is not allocated to individual calls.'));
+        } catch (error) {
+          result.replaceChildren(notice('Direct-provider billing unavailable',String(error?.message || 'Check the optional provider admin keys and retry.')));
+        } finally { refresh.disabled = false; }
+      };
+      refresh.addEventListener('click', load);
+      windowSelect.addEventListener('change', load);
+      load();
+    }
+
     if (key === 'logs') {
       const panel = el('section', 'panel');
       panel.classList.add('module-extra', 'provider-logs-panel');
