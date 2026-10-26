@@ -609,6 +609,13 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
         total_cost_usd: null, provider_cost_source: null,
         provider_request_id: 'gen-1', latency_ms: 250, generation_time_seconds: 0.1
       }, {
+        id: 'log-cost-no-source', request_id: 'req-cost-no-source', created_at: timestamp, provider: 'openrouter',
+        requested_model: 'openrouter/auto', model: null, upstream_provider: 'OpenRouter',
+        endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
+        prompt_tokens: 18, cached_tokens: null, completion_tokens: 5, total_tokens: 23,
+        total_cost_usd: 0.012, provider_cost_source: null, provider_request_id: null,
+        latency_ms: 180, generation_time_seconds: 0.1
+      }, {
         id: 'log-inferred', request_id: 'req-inferred', created_at: timestamp, provider: 'openrouter',
         requested_model: 'openrouter/auto', model: null, upstream_provider: 'OpenRouter',
         endpoint: '/chat/completions', http_method: 'POST', status: 'running', http_status: null,
@@ -648,7 +655,11 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
   await consoleHandler.handle(allStates.req, allStates.res, '/owner/api/ai-logs');
   assert.equal(allStates.res.statusCode, 200);
   const allStatesPayload = JSON.parse(allStates.res.body);
-  assert.equal(allStatesPayload.rows.length, 2);
+  assert.equal(allStatesPayload.rows.length, 3);
+  const untaggedCost = allStatesPayload.rows.find((row) => row.id === 'log-cost-no-source');
+  assert.equal(untaggedCost.cost_kind, 'provider_reported');
+  assert.equal(untaggedCost.total_cost_usd, 0.012);
+  assert.equal(untaggedCost.provider_cost_source, 'openrouter_logs.total_cost_usd');
   const inferred = allStatesPayload.rows.find((row) => row.id === 'log-inferred');
   assert.equal(inferred.status, 'running');
   assert.equal(inferred.model_status, 'inferred');
