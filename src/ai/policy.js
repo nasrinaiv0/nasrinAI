@@ -165,7 +165,11 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           const freeQuick = plan.tier === 'nasrinai' && plan.paidQuick !== true;
           const paidQuick = plan.tier === 'nasrinai' && plan.paidQuick === true;
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
-            if (candidate.provider !== 'openrouter') return !freeQuick || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
+            if (candidate.provider !== 'openrouter') return !freeQuick
+              || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)
+              || (candidate.provider === 'gemini'
+                && config.ai.routing.geminiFreeTier === true
+                && candidate.model === 'gemini-3.1-flash-lite');
             // Preserve the existing legacy/dynamic chat route policy, while
             // enforcing the approved registry for any model ID it recognizes.
             // Specialized endpoints and inferred IDs never enter chat completion.
