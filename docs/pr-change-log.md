@@ -1,3 +1,11 @@
+## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
+
+- Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).
+- Free Quick/guests: simple chat starts with a free model; heavy work, pages to scrape/extract, current-web questions and attached files start with GPT-6 Luna, with the free models behind it. If every free model fails, Luna is the backup for any task. Without OpenRouter configured, direct providers are unchanged.
+- Paid Quick: unchanged rule, never a `:free` model and never the free-tier Luna route (tested).
+- Optional `OPENROUTER_WEB_SEARCH_PAID_MODEL` (never a `:free` id): paid plans search the internet through it instead of the free default; blank keeps current behavior.
+- No migration; no new model IDs invented (registry IDs only).
+
 ## Owner cost and reply usage telemetry follow-up — 2026-10-26
 
 - Use valid stored `openrouter_logs.total_cost_usd` values for Owner AI Logs and Finance even when legacy rows have no provenance marker; new telemetry writes identify this source and migration 074 backfills existing populated rows.
