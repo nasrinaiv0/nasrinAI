@@ -262,11 +262,24 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // are always attempted first. The dedicated Max/Ultra coding lane is a
           // fallback after OpenRouter, but before generic non-OpenRouter candidates.
           if (strictQuickFree) {
-            if (quickFileTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
+            // Explicit task route: Luna is first-class for Quick file/document work,
+            // even if an operator's ROUTE_LEVEL_n omitted it from the general catalog.
+            if (quickFileTask && config.ai.providerKeys?.includes('openrouter')) {
+              candidates.push({ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null });
+            }
             candidates.push(...openRouterCandidates.filter((candidate) => /:free$/i.test(candidate.model)));
             candidates.push(...otherCandidates);
-            if (heavyQuickTask && !quickFileTask) candidates.push(...openRouterCandidates.filter((candidate) => candidate.model === 'openai/gpt-6-luna'));
+            // Direct Gemini is an independent configured provider, not an OpenRouter model.
+            if (config.ai.providerKeys?.includes('gemini')) {
+              candidates.push({ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null });
+            }
+            if (heavyQuickTask && !quickFileTask && config.ai.providerKeys?.includes('openrouter')) {
+              candidates.push({ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null });
+            }
           } else if (paidQuick) {
+            if (quickFileTask && config.ai.providerKeys?.includes('openrouter')) {
+              candidates.push({ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null });
+            }
             candidates.push(...openRouterCandidates.filter((candidate) => !/:free$/i.test(candidate.model) && (candidate.model !== 'openai/gpt-6-luna' || quickFileTask)));
           } else {
             candidates.push(...openRouterCandidates);
