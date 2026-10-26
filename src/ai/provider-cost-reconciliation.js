@@ -100,18 +100,33 @@ export async function fetchDirectProviderBilling({
   })());
   if (String(anthropicAdminKey).trim()) requests.push((async () => {
     try {
-      const query = new URLSearchParams({ starting_at: startIso, ending_at: endIso, 'group_by[]': 'description', bucket_width: '1d' });
-      const response = await fetchImpl('https://api.anthropic.com/v1/organizations/cost_report?' + query, {
-        method: 'GET',
-        headers: { 'x-api-key': String(anthropicAdminKey).trim(), 'anthropic-version': '2023-06-01', Accept: 'application/json' },
-        signal: AbortSignal.timeout(8000),
-        redirect: 'error'
-      });
-      if (!response.ok) throw new Error('provider_http_' + response.status);
-      const parsed = parseAnthropicCosts(await response.json());
-      results.anthropic = { status: 'available', source: 'anthropic_organization_cost_report_api', ...parsed };
+      const rows = [];
+      let page = '';
+      let pages = 0;
+      let bucketCount = 0;
+      do {
+        const query = new URLSearchParams({ starting_at: startIso, ending_at: endIso, 'group_by[]': 'description', bucket_width: '1d', limit: '31' });
+        if (page) query.set('page', page);
+        const response = await fetchImpl('https://api.anthropic.com/v1/organizations/cost_report?' + query, {
+          method: 'GET',
+          headers: { 'x-api-key': String(anthropicAdminKey).trim(), 'anthropic-version': '2023-06-01', Accept: 'application/json' },
+          signal: AbortSignal.timeout(8000),
+          redirect: 'error'
+        });
+        if (!response.ok) throw new Error('provider_http_' + response.status);
+        const payload = await response.json();
+        const parsed = parseAnthropicCosts(payload);
+        rows.push(...parsed.rows);
+        bucketCount += parsed.bucket_count;
+        page = payload?.has_more === true && typeof payload?.next_page === 'string' ? payload.next_page : '';
+        pages++;
+        if (payload?.has_more === true && !page) throw new Error('provider_pagination_invalid');
+        if (pages >= 4 && page) throw new Error('provider_pagination_limit');
+      } while (page);
+      const total = rows.reduce((sum, row) => sum + row.amount_usd, 0);
+      results.anthropic = { status: 'available', source: 'anthropic_organization_cost_report_api', total_usd: rows.length ? Number(total.toFixed(8)) : null, rows: rows.slice(0, 1000), bucket_count: bucketCount, pages_fetched: pages };
     } catch (error) {
-      results.anthropic = { status: 'unavailable', source: 'anthropic_organization_cost_report_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\d+$/)?.[0] || (error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
+      results.anthropic = { status: 'unavailable', source: 'anthropic_organization_cost_report_api', total_usd: null, rows: [], error_code: String(error?.message || '').match(/^provider_http_\d+$/)?.[0] || (error?.message === 'provider_pagination_limit' ? 'provider_pagination_limit' : error?.message === 'provider_pagination_invalid' ? 'provider_pagination_invalid' : error?.name === 'TimeoutError' ? 'provider_timeout' : 'provider_request_failed') };
     }
   })());
   await Promise.all(requests);
