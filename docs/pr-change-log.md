@@ -1,3 +1,10 @@
+## PR #653 — Preserve paid tier on weekly usage lookup failure — 2026-10-27
+
+- Update `src/plans.js` so a transient weekly token-usage lookup error does not downgrade a verified active Pro, Max, or Ultra subscription to Quick. Subscription verification itself remains fail-closed.
+- Add a regression test in `test/plans.test.js` for a temporary usage-read failure.
+- Implementation commits: `c35ef51fb4e94ca640a2ed45e39c509ecff4fb3e` (tier behavior), `b00032fe6f91ef06f6245999ad33750e4631718d` (regression test), and this changelog update records both prior commits.
+- **Validation:** CI passed on the implementation/test commit; Documentation Gate failed because this file was not updated. Rerun checks after this documentation fix. Full local test suite and production behavior remain unverified; no production env or database changes.
+
 ## PR #649 — Show all direct AI providers in Owner Finance — 2026-10-27
 
 - Update `public/owner-console.js` so the Direct-provider billing reconciliation UI keeps OpenAI, Anthropic, Google Gemini, Groq, Cloudflare Workers AI, Cerebras, Mistral, and NVIDIA NIM visible even when the server returns no row for a provider.
