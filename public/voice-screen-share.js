@@ -99,11 +99,7 @@
     video.muted = true;
     video.playsInline = true;
     video.setAttribute('aria-hidden', 'true');
-    video.style.position = 'fixed';
-    video.style.width = '1px';
-    video.style.height = '1px';
-    video.style.opacity = '0';
-    video.style.pointerEvents = 'none';
+    video.className = 'voice-screen-capture';
     video.srcObject = captured;
     document.body.appendChild(video);
     canvas = document.createElement('canvas');
