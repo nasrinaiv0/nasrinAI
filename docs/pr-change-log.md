@@ -2749,3 +2749,49 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep those direct providers out of generic automatic failover and paid-tier model candidates; retain OpenRouter's separate free-model pool.
 - Add regression coverage proving the exact allowlist and isolation from paid tiers.
 - CI and production verification are required before merge/deployment; provider credentials and current free-tier eligibility must be configured and verified separately.
+
+
+## PR #650 — Media skills discovery, audit and implementation-gate documentation — 2026-10-27
+
+**Scope:** Documentation-only discovery/audit package for external AI media skills. No application code, provider adapters, dependencies, database migrations, secrets, or deployment configuration changed. No third-party skills were copied into the runtime. The PR remains draft and must not be treated as implementation approval.
+
+### Commit-by-commit record for PR #650
+
+- `c9f6ce89fa68c75cdaa56f0d51ac262c5225bee4` — added the initial AI media skills discovery and implementation plan.
+- `dbb05fb65df46c0bcf36245a8dc90d9a694a1934` — added the verified source catalog and proposed import manifest.
+- `ec0247398b81d2b8cebbc0f696fc7d05e795c9f3` — recorded per-skill Higgsfield import findings.
+- `bcb7d4e314853b609962f6b5f23ea22743fe01c7` — enumerated media skill entrypoints and prioritized the audit queue.
+- `be75d0c89a9b21fa10976bdc17423b61f526669d` — documented focused skill-content and execution-risk review.
+- `da9fc686276ebfc7d36e0e3af2359588aac717b8` — recorded static helper-script review and explicitly noted upstream tests were not executed.
+- `7439f69b1f893e9890cedff4ec65dd2075f5e6f8` — added candidate-by-candidate audit decisions and selection gates.
+- `bbfa0031bc82bfcd534ac1cf013de77ee7b2ef36` — added license and attribution requirements.
+- `f14e8f841ce8a7f96df84bd1b3e92ab83be465cd` — added media-skill security threat model and runtime controls.
+- `eb00385684e159cccb16774ac3ac7ec09d41706f` — added provider free-versus-paid matrix and official verification sources.
+- `1fad86f52533998443f58f85a476cb2a5dd3aeaf` — specified the proposed skill integration architecture.
+- `04eb53c372066609a877d650bfea24061dc20c35` — documented runtime and dependency inventory requirements.
+- `53b6e339598ea735586f177c84a4f339d0e7d16f` — specified privacy, consent, retention and deletion requirements.
+- `9934e7941fbcf086f99307bdca48298adec9eb9d` — defined test layers and acceptance criteria.
+- `40bf0f763f501897c9d9d564363ded1ffeb71052` — defined cost, quota, idempotency and spend controls.
+- `f32a4b5e8590e17bc33e8e9549c1b089ba4003d8` — documented disable, rollback and maintenance procedures.
+- `bbeb8f492f5615c89682b9916b2efdf46e71bbfc` — added implementation and release gate checklist.
+- `24cc6c1ce379bfde8107126f993e1304d5c9b9c1` — added machine-readable proposed import manifest.
+- `957023e3b624a3fc555cd93aec4ae240a9f03cce` — reconciled the catalog with the expanded documentation package.
+- `8956f7a635c8bb0b0ff1cae2a2bcd9559a8ff84f` — updated the implementation plan with remaining blockers and approval gates.
+- `070d825f9a788d9af858d5bce68d230aa9e7eaba` — added deeper review of selected iart source files and narrowed the proposed pilot.
+- `f9d6edc9fb93fae2b4df598f67c8394fece2c0e2` — aligned architecture with the existing NasrinAI skill knowledge base and Video Studio worker.
+- `d6b01dcaf1cf3d03ae95af41578919076d8787ba` — refined the proposed five-skill initial pilot and deferred candidates.
+- `a42b8c49ecfc54d3fa0d28c9f20fa530698579c7` — pinned root license evidence for audited sources.
+- `e34fbb141b4806d9817e85c2559250b2c8f4b53c` — clarified the initial-pilot file boundary and excluded evaluation answer keys from runtime.
+- `dab998ca845ecda8e4c8aa02db36b8def4e375bf` — added pinned root license hashes to the machine-readable manifest.
+- `78a28c30972a708943bd9cfa960eb433725d9649` — reconciled candidate decisions and test-status fields.
+- `5659a74d139b7f80c795f9d7d8e684e879ec0bd1` — pinned current NasrinAI architecture/knowledge-base references and documented the existing render-worker boundary.
+
+### Validation and limitations
+
+- The machine-readable `IMPORT_MANIFEST.json` was parsed successfully after updates.
+- All 14 documentation files were fetched back from the branch and checked for presence.
+- GitHub Actions Documentation Gate initially failed because this required changelog entry was missing; this entry is the remediation. A rerun is required to confirm the gate passes.
+- GitHub Actions CI was still in progress at the time of this entry. Do not claim CI passed until the completed run is observed.
+- Upstream generated-media-QA and FFmpeg helper tests were inspected but not executed. Those helper-based candidates are excluded from the proposed initial pilot.
+- The five proposed initial-pilot skills remain unapproved; behavior-level acceptance tests, runtime destination verification, and explicit owner approval are still required.
+- No production changes, provider calls, migrations, or deployments were made.
