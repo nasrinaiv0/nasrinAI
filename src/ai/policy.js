@@ -5,6 +5,17 @@ import { estimateTokens } from './token-estimate.js';
 import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
+import { OPENROUTER_MODEL_ROUTING } from './openrouter-tier-routing.js';
+
+// Quick Free/Guest OpenRouter chat is restricted to the maintained NasrinAI
+// routing catalog. Live discovery may verify availability, but must never expand
+// entitlements by injecting arbitrary newly-listed :free models.
+const QUICK_FREE_OPENROUTER_CHAT_IDS = new Set(OPENROUTER_MODEL_ROUTING
+  .filter((entry) => entry.tiers.some((tier) => tier === 'guest' || tier === 'quick-free')
+    && entry.endpoint === 'chat'
+    && ['text', 'safety'].includes(entry.category)
+    && /:free$/i.test(entry.id))
+  .map((entry) => entry.id);
 import { isOpenRouterChatCandidateEligible } from './openrouter-runtime-eligibility.js';
 
 // The routing policy (Phase 4.1), between chat and the router:
@@ -185,7 +196,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               task: plan.task,
               verifiedIds: liveOpenRouterModels
             }) && (
-              (strictQuickFree && (/:free$/i.test(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
+              (strictQuickFree && (QUICK_FREE_OPENROUTER_CHAT_IDS.has(candidate.model) || candidate.model === 'openai/gpt-6-luna'))
               || (freeQuick && !strictQuickFree)
               || (paidQuick && !/:free$/i.test(candidate.model) && candidate.model !== 'openai/gpt-6-luna')
               || (!freeQuick && !paidQuick)
