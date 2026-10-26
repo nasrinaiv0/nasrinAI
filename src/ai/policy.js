@@ -6,6 +6,7 @@ import { redactForProvider } from './redact.js';
 import { HttpError } from '../http/errors.js';
 import { prioritizeOpenRouterCandidates } from './openrouter-catalog.js';
 import { OPENROUTER_MODEL_ROUTING } from './openrouter-tier-routing.js';
+import { isOpenRouterChatCandidateEligible } from './openrouter-runtime-eligibility.js';
 
 // Quick Free/Guest OpenRouter chat is restricted to the maintained NasrinAI
 // routing catalog. Live discovery may verify availability, but must never expand
@@ -16,7 +17,6 @@ const QUICK_FREE_OPENROUTER_CHAT_IDS = new Set(OPENROUTER_MODEL_ROUTING
     && ['text', 'safety'].includes(entry.category)
     && /:free$/i.test(entry.id))
   .map((entry) => entry.id);
-import { isOpenRouterChatCandidateEligible } from './openrouter-runtime-eligibility.js';
 
 // The routing policy (Phase 4.1), between chat and the router:
 //
