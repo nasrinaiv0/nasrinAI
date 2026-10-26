@@ -11,6 +11,7 @@ async function load() {
   const sources = [];
   const bufferRates = [];
   let socket = null;
+  let socketAtMicRequest = 'not-requested';
   class FakeWS {
     static OPEN = 1;
     constructor(url) { this.url = url; this.readyState = 1; this.sent = []; socket = this; }
@@ -33,10 +34,10 @@ async function load() {
   const ctx = vm.createContext({
     window, WebSocket: FakeWS, AudioContext: FakeCtx, TextDecoder, atob, btoa, Uint8Array, Int16Array, Float32Array, DataView, JSON, Math, String,
     setTimeout, clearTimeout,   // the setup handshake has a timeout
-    navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } }
+    navigator: { mediaDevices: { getUserMedia: async () => { socketAtMicRequest = socket; return { getTracks: () => [] }; } } }
   });
   vm.runInContext(code, ctx);
-  return { api: window.NasrinGeminiRealtime, started, sources, bufferRates, socket: () => socket, FakeCtx };
+  return { api: window.NasrinGeminiRealtime, started, sources, bufferRates, socket: () => socket, socketAtMicRequest: () => socketAtMicRequest, FakeCtx };
 }
 
 test('binary Gemini frames are read: audio plays and words show', async () => {
@@ -88,4 +89,18 @@ test('iPhone: the reply plays through the <audio> element made during the tap, n
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(app, /audioElement: vc\.audioEl,/);
   assert.match(app, /if \(!vc\.on && navigator\.audioSession/, 'a tap during a call does not switch the iPhone to playback only');
+});
+
+
+test('WebSocket is created after microphone permission resolves so iOS cannot lose the initial open event', async () => {
+  const { api, socket, socketAtMicRequest } = await load();
+  const state = await api.start({ value: 'tok', model: 'gemini-3.8-live' }, {
+    state() {}, active: () => true, muted: () => false, open() {}, input() {}, output() {},
+    interrupted() {}, complete() {}, error() {}, close() {}
+  });
+  assert.equal(socketAtMicRequest(), null, 'no socket exists while the browser permission prompt is pending');
+  const ws = socket();
+  assert.ok(ws, 'socket is created after microphone permission resolves');
+  assert.equal(typeof ws.onopen, 'function', 'open handler is registered synchronously before start returns');
+  assert.equal(state.ws, ws);
 });
