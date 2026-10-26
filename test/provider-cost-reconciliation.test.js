@@ -91,3 +91,46 @@ test('invalid billing windows are rejected before any network request', async ()
   await assert.rejects(() => fetchDirectProviderBilling({ window: '365d', fetchImpl: async () => { called = true; } }), /window must be/);
   assert.equal(called, false);
 });
+
+
+test('Cloudflare Billable Usage API reconciles only explicit USD cost rows', async () => {
+  const calls = [];
+  const result = await fetchDirectProviderBilling({
+    cloudflareBillingApiToken: 'cf-billing-test-secret',
+    cloudflareAccountId: 'cf-account-test',
+    window: '7d',
+    now: () => Date.parse('2026-10-26T00:00:00Z'),
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return {
+        ok: true, status: 200,
+        json: async () => ({ success: true, result: [
+          { ServiceName: 'Workers AI', ServiceFamilyName: 'Workers AI', ChargePeriodStart: '2026-10-20T00:00:00Z', ChargePeriodEnd: '2026-10-21T00:00:00Z', Cost: 1.25, Currency: 'USD' },
+          { ServiceName: 'R2', Cost: 0.5, Currency: 'USD' },
+          { ServiceName: 'Other currency', Cost: 99, Currency: 'EUR' },
+          { ServiceName: 'Neuron usage without USD cost', PricingQuantity: 5000, ConsumedUnit: 'neurons' }
+        ] })
+      };
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /^https:\/\/api\.cloudflare\.com\/client\/v4\/accounts\/cf-account-test\/billable-usage\?/);
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer cf-billing-test-secret');
+  assert.equal(result.providers.cloudflare.status, 'available');
+  assert.equal(result.providers.cloudflare.total_usd, 1.75);
+  assert.equal(result.providers.cloudflare.rows.length, 2);
+  assert.equal(result.providers.cloudflare.data_freshness, 'daily');
+  assert.equal(result.providers.cerebras.status, 'not_available');
+  assert.equal(JSON.stringify(result).includes('cf-billing-test-secret'), false);
+});
+
+test('Cloudflare missing token or account ID never calls external billing API', async () => {
+  let called = false;
+  const result = await fetchDirectProviderBilling({
+    cloudflareBillingApiToken: 'token-only',
+    window: '7d',
+    fetchImpl: async () => { called = true; throw new Error('must not call'); }
+  });
+  assert.equal(called, false);
+  assert.equal(result.providers.cloudflare.status, 'not_configured');
+});
