@@ -4,7 +4,7 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
-    logs: ['AI Logs', 'Listed models in NasrinAI’s configured catalog.', '≋'],
+    logs: ['AI Logs', 'OpenRouter and direct-provider activity, tokens, verified costs, latency, and request metadata.', '≋'],
     'openrouter-unlisted': ['Unlisted Models', 'Logged models missing from NasrinAI’s configured catalog.', '⌕'],
     'other-unlisted': ['AI Models Activities', 'All logged models: listed and unlisted.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
@@ -444,7 +444,7 @@
         loading=true; refresh.disabled=true; previous.disabled=offset===0; next.disabled=true;
         statusLine.textContent='Loading request history…';
         try {
-          const params=new URLSearchParams({window:windowSelect.value,provider:providerSelect.value,scope:'listed',limit:'50',offset:String(offset)});
+          const params=new URLSearchParams({window:windowSelect.value,provider:providerSelect.value,scope:'all',limit:'50',offset:String(offset)});
           if (statusSelect.value) params.set('status',statusSelect.value);
           if (modelInput.value.trim()) params.set('model',modelInput.value.trim());
           if (endpointSelect.value) params.set('endpoint',endpointSelect.value);

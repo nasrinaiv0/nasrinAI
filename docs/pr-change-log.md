@@ -1,3 +1,11 @@
+## Direct-provider Owner Command Center activity — 2026-10-26
+
+- Add migration 076 for safe per-event request UUIDs and optional endpoint, HTTP method/status, sanitized error code, provider request ID, and finish reason on `usage_events`.
+- Capture provider request IDs/finish reasons from OpenAI, Anthropic, and OpenAI-compatible providers such as Gemini, and include them in the owner-only AI Logs view.
+- Default AI Logs to all catalog states so observed models are not hidden by configured-catalog classification; preserve the distinction between listed, unlisted, and unknown.
+- Keep prompts, completions, credentials, and raw provider errors out of telemetry. Provider cost remains unavailable unless explicit provider-reported provenance is present.
+- Preserve compatibility during rollout by falling back to legacy usage-event columns when migration 076 is not yet applied.
+
 ## Guest improvement notice and consent-aware retention — 2026-10-26
 
 - Add a first-use Guest disclosure before chat. Continuing requires an explicit acknowledgement, records the current version against the server-issued guest session, and offers a sign-in path to account privacy controls.

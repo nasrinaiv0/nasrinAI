@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Direct-provider activity in Owner Command Center now carries a stable per-event request ID and safe optional request/response metadata (endpoint, method, HTTP status, error code, provider request ID, finish reason) alongside existing usage/token/latency telemetry. No prompt or completion text is stored; provider costs remain unknown unless explicitly provider-reported.
+
 - Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
 - Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
 

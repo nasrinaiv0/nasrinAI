@@ -837,7 +837,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
         await usageLog.record(caller, {
           provider: err?.provider || 'router', model: err?.model || 'unknown', latencyMs: now() - started,
-          outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: plan.task, level: err?.level ?? plan.level, costUsd: null
+          outcome: kind === 'timeout' ? 'timeout' : 'provider_error', task: plan.task, level: err?.level ?? plan.level, costUsd: null,
+          endpoint: '/v1/chat', httpMethod: 'POST', errorCode: safeModelErrorCode(kind)
         });
         if (kind === 'config' && err.status === 400 && media.length) {
           throw new HttpError(400, 'attachment_unsupported', 'NasrinAI could not read that file. Try another file, or remove it.');
@@ -853,6 +854,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
         latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output',
         task: plan.task, level: run.level, costUsd: run.costUsd, escalated: run.escalated,
+        endpoint: '/v1/chat', httpMethod: 'POST', httpStatus: 200,
+        providerRequestId: run.result.providerRequestId, finishReason: run.result.finishReason,
         reservationId: run.reservationId, spendReservationId: run.spendReservationId
       });
       if (!reply) throw unavailable();
@@ -917,7 +920,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       const kind = err instanceof ProviderError ? err.kind : 'unexpected';
       await usageLog.record(caller, {
         provider: err?.provider || provider.id, model: err?.model || model, latencyMs: now() - started,
-        outcome: kind === 'timeout' ? 'timeout' : 'provider_error', reservationId: reservation.id, spendReservationId: err?.spendReservationId
+        outcome: kind === 'timeout' ? 'timeout' : 'provider_error', reservationId: reservation.id, spendReservationId: err?.spendReservationId,
+        endpoint: '/v1/chat', httpMethod: 'POST', errorCode: safeModelErrorCode(kind)
       });
       // With files attached, a refusal is most likely about the files.
       if (kind === 'config' && err.status === 400 && media.length) {
@@ -948,7 +952,9 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       provider: result.provider || provider.id, model: result.model || model,
       inputTokens: result.inputTokens, outputTokens: result.outputTokens,
       latencyMs: now() - started, outcome: reply ? 'ok' : 'rejected_output', reservationId: reservation.id,
-      costUsd: result.costUsd, costSource: Number.isFinite(result.costUsd) ? 'provider_reported' : null, spendReservationId: result.spendReservationId
+      costUsd: result.costUsd, costSource: Number.isFinite(result.costUsd) ? 'provider_reported' : null,
+      endpoint: '/v1/chat', httpMethod: 'POST', httpStatus: reply ? 200 : null,
+      providerRequestId: result.providerRequestId, finishReason: result.finishReason, spendReservationId: result.spendReservationId
     });
     if (!reply) throw unavailable();
 
