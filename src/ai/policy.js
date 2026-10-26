@@ -226,7 +226,10 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             : eligibleCandidates;
           const prioritized = prioritizeOpenRouterCandidates(plan.task, routableCandidates);
           const directFreeCandidates = prioritized.filter((candidate) => candidate.provider !== 'openrouter'
-            && (r.freeModels?.[candidate.provider] || []).includes(candidate.model));
+            && ((r.freeModels?.[candidate.provider] || []).includes(candidate.model)
+              || (strictQuickFree && candidate.provider === 'gemini'
+                && candidate.model === 'gemini-3.1-flash-lite'
+                && config.ai.providerKeys?.includes('gemini'))));
           const openRouterFreeCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && /:free$/i.test(candidate.model));
           const paidQuickCostOrder = ['deepseek/deepseek-v4.1-flash', 'deepseek/deepseek-v4.1-flash-1017', 'deepseek/deepseek-v4-flash-0731', 'z-ai/glm-5.3-flash', 'xiaomi/mimo-v2.6-flash', 'qwen/qwen3.8-flash', 'inclusionai/ling-3.1-flash', 'qwen/qwen3.8-27b', 'anthropic/claude-haiku-5.5', 'xiaomi/mimo-v2.6-pro'];
           const paidQuickCandidates = prioritized.filter((candidate) => candidate.provider === 'openrouter' && !/:free$/i.test(candidate.model) && (candidate.model !== 'openai/gpt-6-luna' || quickFileTask)).sort((a, b) => {
