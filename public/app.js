@@ -2390,6 +2390,7 @@
   let pendingDeviceLocation = null;
   let locationExpiryTimer = null;
 
+
   function closePlus() {
     if (plusMenu.hidden) return;
     plusMenu.hidden = true;
@@ -2442,6 +2443,12 @@
           : 'Could not determine your device location. Check your device settings or enter a location manually.';
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
   });
+  $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
+  $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
+  $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
+  document.addEventListener('pointerdown', (e) => { if (!plusMenu.hidden && !$('plusWrap').contains(e.target)) closePlus(); });
+  plusMenu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closePlus(); attachBtn.focus(); } });
+
   $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
   $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
   $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
