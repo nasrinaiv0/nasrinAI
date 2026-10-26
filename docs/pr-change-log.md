@@ -2803,3 +2803,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Documentation Gate run `40375869291` (run #1709) completed with **success** after adding the required changelog entry. A second Documentation Gate run `40375828335` (run #1708) also completed with **success**.
 - The five proposed instruction-only skills remain a proposal. No third-party helper tests were run; those script-based candidates remain deferred.
 - No production deployment, database migration, provider call, or third-party code import occurred.
+
+
+### Changelog/validation follow-up commit coverage — 2026-10-27
+
+- `1c5132392a3f1727ea346fcdb269ff994b7604c7` — added the PR #650 commit-by-commit changelog record and remediated the initial Documentation Gate failure.
+- `b49d87bb81ad3c7b11e9176c76d11f9160f20362` — recorded observed successful CI and Documentation Gate results.
+- `cdf5143e9be1c42043785cbccb489486c20f6d2c` — corrected the exact CI/Documentation Gate run references in the validation record.
+- This final changelog reconciliation documents the three follow-up commits above and the documentation/validation record itself. The PR remains draft; no production implementation was performed.
