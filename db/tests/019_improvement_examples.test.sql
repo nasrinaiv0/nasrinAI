@@ -12,7 +12,7 @@ insert into public.improvement_examples
   (tenant_id, subject_type, subject_id, consent_version, example_text, status, created_at, expires_at) values
   ('00000000-0000-0000-0000-000000000001', 'user', 'u-019-live', 'example-v1', 'redacted test example', 'pending_review', now() - interval '1 hour', now() + interval '1 day'),
   ('00000000-0000-0000-0000-000000000001', 'user', 'u-019-withdrawn', 'example-v1', 'withdrawn test example', 'pending_review', now() - interval '1 hour', now() + interval '1 day'),
-  ('00000000-0000-0000-0000-000000000001', 'guest', 'g-019-expired', 'example-v1', 'expired guest example', 'pending_review', now() - interval '25 hours', now() + interval '1 day'),
+  ('00000000-0000-0000-0000-000000000001', 'guest', 'g-019-expired', 'example-v1', 'long-lived guest improvement example', 'pending_review', now() - interval '25 hours', null),
   ('00000000-0000-0000-0000-000000000001', 'user', 'u-019-timeout', 'example-v1', 'expired retention example', 'pending_review', now() - interval '2 days', now() - interval '1 second');
 
 do $$
@@ -56,8 +56,11 @@ begin
   if not exists (select 1 from public.improvement_examples where subject_id = 'u-019-live') then
     raise exception 'valid, unexpired example with active consent was deleted';
   end if;
-  if exists (select 1 from public.improvement_examples where subject_id in ('u-019-withdrawn', 'g-019-expired', 'u-019-timeout')) then
-    raise exception 'withdrawn, expired guest, or expired example was retained';
+  if exists (select 1 from public.improvement_examples where subject_id in ('u-019-withdrawn', 'u-019-timeout')) then
+    raise exception 'withdrawn or explicitly expired example was retained';
+  end if;
+  if not exists (select 1 from public.improvement_examples where subject_id = 'g-019-expired' and expires_at is null) then
+    raise exception 'authorized Guest improvement example was deleted because the chat/session expired';
   end if;
 end $$;
 
