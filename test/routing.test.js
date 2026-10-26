@@ -158,7 +158,7 @@ test('Guest and free Quick exhaust approved OpenRouter models before direct Gemi
   assert.ok(overridden.gemini.calls.length > 0, 'custom paid OpenRouter routes cannot block the approved direct Gemini fallback');
 });
 test('Quick Free and paid Quick route file extraction and interpretation through GPT-6 Luna', async () => {
-  const attachment = { kind: 'pdf', name: 'contract.pdf', mimeType: 'application/pdf', text: 'sample document text' };
+  const attachment = { kind: 'file', name: 'contract.txt', mimeType: 'text/plain', text: 'sample document text' };
   const free = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const freeReq = { ...req('Extract and interpret the attached document'), attachments: [attachment] };
   const freePlan = free.policy.plan({ tier: 'nasrinai', message: freeReq.messages[0].content, attachments: freeReq.attachments });
