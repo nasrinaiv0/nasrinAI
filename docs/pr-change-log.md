@@ -1,3 +1,11 @@
+## PR #662 — Add realtime voice screen sharing — 2026-10-27
+
+- Add a centered Share screen pill to Realtime Voice with the native browser screen picker, user-controlled start/stop, and automatic cleanup when voice ends or the browser stops the capture track.
+- Downscale screen frames in memory and send visual context to the active Gemini Live or OpenAI Realtime session; frames are not persisted to app storage.
+- Match the requested UI: no visible center orb, borderless 10%-opacity frosted-glass controls, and a subtle dotted background spanning the full screen and fading upward in light and dark modes.
+- Add screen-share regression assertions and document browser compatibility/privacy behavior. Real-device iPhone/Safari validation remains required.
+- **Validation:** GitHub Actions CI is still running; do not merge until the full test suite and required checks pass.
+
 ## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
 
 - Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).
