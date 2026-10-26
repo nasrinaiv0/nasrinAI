@@ -360,3 +360,13 @@ test('browser TTS supports multilingual language selection and matching installe
   assert.match(src, /window\.speechSynthesis\.getVoices\(\)/);
   assert.doesNotMatch(src, /return mine\.concat\(english\).*slice\(0, 6\)/);
 });
+
+test('premium mobile composer and map layout overrides stay responsive', async () => {
+  const fs = await import('node:fs/promises');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /Premium mobile chat controls/);
+  assert.match(css, /flex: 0 0 2\.75rem/);
+  assert.match(css, /Maps should fill their own card/);
+  assert.match(css, /\.nasrin-chat-map-canvas\s*\{[^}]*width: 100%/s);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
+});
