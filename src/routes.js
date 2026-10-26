@@ -590,6 +590,9 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!body || typeof body.enabled !== 'boolean' || body.version !== IMPROVEMENT_CONSENT_VERSION) {
           throw new HttpError(400, 'invalid_consent', 'Refresh the privacy settings and choose again.');
         }
+        if (caller.actor.type === 'guest' && body.enabled !== true) {
+          throw new HttpError(403, 'guest_improvement_required', 'Guest access does not provide an improvement opt-out switch. You can still exercise applicable privacy rights or sign in to use account controls.');
+        }
         const identity = { tenantId: caller.tenantId, subjectType: caller.actor.type, subjectId: caller.actor.id };
         const current = await store.getImprovementConsent(identity);
         const decision = body.enabled ? 'granted'
