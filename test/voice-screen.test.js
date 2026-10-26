@@ -83,7 +83,9 @@ test('realtime voice screen share button and transport are wired safely', async 
   assert.match(css, /linear-gradient\(to top/);
   assert.match(app, /nasrinai:voice-screen-frame/);
   assert.match(app, /realtimeInput:\s*\{\s*video:/);
-  assert.match(app, /type:\s*'input_image'/);\n  assert.match(app, /v1\\/realtime\\/screen-analyze/);\n  assert.match(app, /__nasrinScreenVisionPending/);
+  assert.match(app, /type:\s*'input_image'/);
+  assert.match(app, /v1\/realtime\/screen-analyze/);
+  assert.match(app, /__nasrinScreenVisionPending/);
   assert.match(app, /nasrinai:voice-ended/);
   assert.match(share, /getDisplayMedia/);
   assert.match(share, /image\/jpeg/);
