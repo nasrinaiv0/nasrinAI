@@ -25,6 +25,7 @@
     if (video) {
       try { video.pause(); } catch {}
       video.srcObject = null;
+      video.remove();
     }
     video = null;
     canvas = null;
