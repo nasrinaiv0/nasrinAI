@@ -172,8 +172,10 @@ test('usage records hold numbers, not text; a failed write is logged, not thrown
   await log.record(user(), { provider: 'fake', model: 'm', inputTokens: 12.4, outputTokens: 3, latencyMs: 40, outcome: 'ok', costUsd: 0.002, costSource: 'provider_reported', text: 'secret question' });
   assert.deepEqual(Object.keys(store.usage[0]).sort(),
     ['actorId', 'actorType', 'at', 'inputTokens', 'latencyMs', 'model', 'outcome', 'outputTokens', 'provider', 'tenantId',
-      'task', 'level', 'costUsd', 'costSource', 'cachedTokens', 'escalated', 'cacheHit', 'reservationId', 'spendReservationId'].sort());
+      'task', 'level', 'costUsd', 'costSource', 'cachedTokens', 'escalated', 'cacheHit', 'reservationId', 'spendReservationId', 'requestId', 'endpoint', 'httpMethod', 'httpStatus', 'errorCode', 'providerRequestId', 'finishReason'].sort());
   assert.equal(store.usage[0].inputTokens, 12);
+  assert.match(store.usage[0].requestId, /^[0-9a-f-]{36}$/i);
+  assert.equal(store.usage[0].endpoint, null);
   assert.equal(store.usage[0].costSource, 'provider_reported');
   assert.equal(store.usage[0].costUsd, 0.002);
   assert.ok(!JSON.stringify(logger.lines).includes('secret question'));
