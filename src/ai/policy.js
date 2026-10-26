@@ -237,7 +237,11 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
               : prioritized;
           const openRouterCandidates = ordered.filter((candidate) => candidate.provider === 'openrouter');
           const otherCandidates = strictQuickFree
-            ? ordered.filter((candidate) => candidate.provider !== 'openrouter' && (r.freeModels?.[candidate.provider] || []).includes(candidate.model))
+            ? ordered.filter((candidate) => candidate.provider !== 'openrouter'
+              && ((r.freeModels?.[candidate.provider] || []).includes(candidate.model)
+                || (candidate.provider === 'gemini'
+                  && candidate.model === 'gemini-3.1-flash-lite'
+                  && config.ai.providerKeys?.includes('gemini'))))
             : ordered.filter((candidate) => candidate.provider !== 'openrouter');
 
           // Intent is classified and the tier's level ceiling is applied before
