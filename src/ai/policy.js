@@ -78,7 +78,11 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         || /https?:\/\/|\b(?:scrap|crawl|extract)\w*/i.test(String(message || ''))
         || needsWeb(message));
       return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, lunaPrimary, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
-        historyChars: r.historyChars[level], maxTokens: r.maxTokens[level] };
+        // Heavy, scraping, web and file answers on free Quick get the roomier
+        // level-3 reply and history budget, so a long answer is not cut at the
+        // Quick chat size. Allowances and reservations still apply as usual.
+        historyChars: lunaPrimary ? Math.max(r.historyChars[level], r.historyChars[3]) : r.historyChars[level],
+        maxTokens: lunaPrimary ? Math.max(r.maxTokens[level], r.maxTokens[3]) : r.maxTokens[level] };
     },
 
     // Safe to reuse an earlier answer? Only a first, public, simple question,
@@ -332,7 +336,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         if (at < level) logger.info('downgraded to a compatible configured route', { from: level, to: at });
 
         const started = now();
-        const normalMaxTokens = Math.max(r.maxTokens[at], minTokens);
+        const normalMaxTokens = Math.max(r.maxTokens[at], plan.lunaPrimary ? plan.maxTokens : 0, minTokens);
         const boundedMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens >= 64
           ? Math.min(normalMaxTokens, requestedMaxTokens) : normalMaxTokens;
         const callMaxTokens = boundedMaxTokens;

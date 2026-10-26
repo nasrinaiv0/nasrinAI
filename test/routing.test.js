@@ -782,3 +782,16 @@ test('paid Quick never uses a free model or the free tier fallback, even when ev
   assert.ok(a.openrouter.calls.length > 0, 'paid models were tried');
   assert.ok(a.openrouter.calls.every((call) => !/:free$/i.test(call.model) && call.model !== 'openai/gpt-6-luna'), 'no free model and no free-tier Luna for paid Quick');
 });
+
+test('free Quick gives heavy, scraping and file answers a bigger reply and history budget than simple chat', async () => {
+  const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
+  const simple = a.policy.plan({ tier: 'nasrinai', message: 'hello there' });
+  const heavy = a.policy.plan({ tier: 'nasrinai', message: 'Scrape https://example.com/pricing and compare every plan in detail' });
+  assert.ok(heavy.maxTokens > simple.maxTokens, 'longer answers for heavy work');
+  assert.ok(heavy.historyChars > simple.historyChars, 'more conversation kept for heavy work');
+  const paid = a.policy.plan({ tier: 'nasrinai', paidQuick: true, message: 'Scrape https://example.com/pricing and compare every plan in detail' });
+  assert.ok(!paid.lunaPrimary, 'paid Quick never takes the free-tier Luna route');
+  const run = await a.policy.run(heavy, req('Scrape https://example.com/pricing and compare every plan in detail'));
+  assert.equal(a.openrouter.calls[0].maxTokens, heavy.maxTokens, 'the model is allowed to write that much');
+  assert.ok(run.spec);
+});

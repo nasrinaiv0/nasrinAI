@@ -4,6 +4,7 @@
 - Free Quick/guests: simple chat starts with a free model; heavy work, pages to scrape/extract, current-web questions and attached files start with GPT-6 Luna, with the free models behind it. If every free model fails, Luna is the backup for any task. Without OpenRouter configured, direct providers are unchanged.
 - Paid Quick: unchanged rule, never a `:free` model and never the free-tier Luna route (tested).
 - Optional `OPENROUTER_WEB_SEARCH_PAID_MODEL` (never a `:free` id): paid plans search the internet through it instead of the free default; blank keeps current behavior.
+- Free Quick answers that use the heavy/scrape/web/file route get the roomier level-3 reply (1600 tokens) and history (16000 characters) budget instead of the 700–1000 token Quick chat size, so long answers are not cut off; token allowances and reservations still apply. Simple chat is unchanged.
 - No migration; no new model IDs invented (registry IDs only).
 ## PR #653 — Preserve paid tier on weekly usage lookup failure — 2026-10-27
 
