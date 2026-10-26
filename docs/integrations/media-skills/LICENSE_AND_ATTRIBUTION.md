@@ -42,3 +42,17 @@ For every imported skill, include source name, source URL, pinned revision, copy
 ## Current review limits
 
 This pass established repository-level evidence for selected sources, not a full legal review of every file or dependency. No legal conclusion is made about OpenMontage's deployment implications; obtain qualified counsel before any reuse. Provider subscription terms do not replace source-code licenses, and source-code licenses do not entitle NasrinAI to provider APIs or model weights.
+
+
+## Pinned license evidence from deeper candidate review
+
+| Repository | Pinned source commit | Root LICENSE blob SHA | Observed notice |
+|---|---|---|---|
+| `calesthio/generative-media-skills` | `8c85352d5d75d4dcbe58480bd138e37b9742bab1` | `9b4e374d126c3c22fabdcfad32e9dbc2d38bbd84` | MIT; copyright 2026 generative-media-skills contributors |
+| `iart-ai/youtube-video-skills` | `f3df381d65abe5078f5ed410bbc3ed72e7cb92bd` | `a61b911146037f2ef312f67e9b45de6c99b7f870` | MIT; copyright 2026 iart.ai |
+| `iart-ai/ad-video-skills` | `0de0f2a1c1f42a98103fc0ec436509276428372c` | `a61b911146037f2ef312f67e9b45de6c99b7f870` | MIT; copyright 2026 iart.ai |
+| `iart-ai/kinetic-typography-skills` | `fccc94bd325d824235ee9e715e65abde57b6513a` | `a61b911146037f2ef312f67e9b45de6c99b7f870` | MIT; copyright 2026 iart.ai |
+| `iart-ai/talking-head-skills` | `a315032ccffa94cda56a82fa306237250d3dd1bf` | `a61b911146037f2ef312f67e9b45de6c99b7f870` | MIT; copyright 2026 iart.ai |
+| `Comfy-Org/comfy-skills` | `b0fc74c0fc83709c5538df578615f876d4ed52d6` | `2683d0a50997bea5b625a2ac608a7f78b3f11553` | MIT; copyright 2026 Comfy-Org |
+
+These are root-license file hashes at the stated revisions. They do not prove that every referenced code snippet, model, font, media asset, API or third-party dependency is covered by that license. The five proposed initial-pilot packages are from Generative Media Skills and have their own `SKILL.md` and repository-only `EVAL.md`; only `SKILL.md` is considered for production context. The `EVAL.md` hashes are recorded in `IMPORT_MANIFEST.json` for audit/provenance but must not be bundled into runtime prompts.
