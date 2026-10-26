@@ -331,3 +331,10 @@ This document records the scope and proposed process. The full audit is not comp
 **Next deliverable:** a verified, deduplicated DISCOVERY_CATALOG.md and exact IMPORT_MANIFEST.md with source paths, revisions, license findings, dependencies, security, cost/auth requirements, and decisions.
 
 **No skill packages or provider integrations should be added until the owner reviews and approves that manifest.**
+
+
+## 12. Documentation completion gate — 2026-10-27
+
+The review package has been expanded with per-skill audit, licensing/attribution, security, free-versus-paid provider matrix, integration architecture, dependency/runtime, privacy/content handling, test/acceptance criteria, cost/quota controls, rollback/maintenance, release checklist, and machine-readable import manifest. These documents are requirements and current evidence—not a claim that all upstream candidate files have passed review.
+
+**Still blocked before implementation:** complete source/supporting-file review for every proposed candidate; resolve per-file and dependency licensing; fetch and execute the exact pinned helper tests in an isolated environment; add NasrinAI-specific acceptance/security tests; refresh provider terms for each provider actually selected; finalize exact import paths/destinations; and obtain explicit owner approval of that manifest revision. Do not merge as implementation approval or copy/execute third-party files while these gates remain open.
