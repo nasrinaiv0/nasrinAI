@@ -13,7 +13,7 @@ create or replace function public.review_improvement_example(
 returns void
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = pg_catalog, public, pg_temp
 as $function$
 declare
   v_count integer;
@@ -74,7 +74,7 @@ create or replace function public.purge_improvement_consent()
 returns void
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = pg_catalog, public, pg_temp
 as $function$
 begin
   delete from public.improvement_consent_events
@@ -89,7 +89,7 @@ create or replace function public.purge_improvement_examples()
 returns void
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = pg_catalog, public, pg_temp
 as $function$
 declare
   r record;
