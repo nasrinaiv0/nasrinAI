@@ -572,3 +572,27 @@ Additional high-priority packs have verified repository metadata showing MIT: `y
 4. No third-party source has been copied into the NasrinAI runtime, and no skill is approved for production yet.
 5. Next, finish file-by-file review of Tier A's supporting resources and test the small QA/FFmpeg scripts in an isolated sandbox. Then submit a proposed import manifest for approval before creating a separate implementation PR.
 
+
+
+## 16. Static review of helper scripts and test coverage
+
+Pinned source: `8c85352d5d75d4dcbe58480bd138e37b9742bab1`.
+
+| File | Source SHA | Static review result | Status |
+|---|---|---|---|
+| `generated-media-qa/scripts/normalize_qa_report.py` | `fd67b2549502e39736d8e54915eb3831b7f6115f` | Python 3.11+ standard library only; reads a JSON report and optional policy; can write a normalized report to a caller-selected path; no network or subprocess imports detected in the inspected imports. Path authorization and overwrite policy still need to be imposed by the NasrinAI worker. | Static review only; tests not executed here. |
+| `generated-media-qa/tests/test_normalize_qa_report.py` | `d9f807ed5f8256aa88f6ad06a8dafed693ceaf3b` | Standard-library `unittest`; imports the helper directly. | Present; not run. |
+| `ffmpeg-media-finishing/scripts/media_probe.py` | `2ec1c7a0eca02759c3bb3ddd8f0fddbc8ac41b55` | Uses `subprocess.run` to invoke `ffprobe`, captures output and sets a timeout. It accepts an executable path/name and a media path; the NasrinAI wrapper must not allow user-controlled arbitrary executable paths. Run only in a restricted worker with allowlisted `ffprobe`, file-size caps, timeouts, and sandboxed paths. | Static review only; tests not executed here. |
+| `ffmpeg-media-finishing/tests/test_media_probe.py` | `07445e98d01411a278596f4f4aaeb7fb364e31af` | Standard-library `unittest`; uses mocks for subprocess behavior and temporary files, and includes probe-result/timeout/malformed-output cases. | Present; not run. |
+
+### Test execution limitation
+
+The source and test files were inspected through the GitHub connector, but the external files could not be retrieved into the isolated runtime for execution in this pass. Therefore, **no claim is made that these upstream tests pass**, and no tests were run in the NasrinAI repository. Before adoption, fetch the exact pinned files into an isolated disposable environment, verify their checksums, inspect them, then run the upstream tests and add NasrinAI-specific tests. Do not execute third-party scripts directly on production infrastructure.
+
+### Current gate decision
+
+- The provider-independent text-only production skills remain the safest initial candidates because they avoid provider calls and executable dependencies.
+- The QA and FFmpeg helpers are **conditional candidates** pending sandbox tests and filesystem/process controls.
+- Provider-specific skills remain guidance only until their facts and APIs are refreshed against official documentation and actual costs are verified.
+- No source files have been copied into NasrinAI; no production integration or database/configuration changes have been made.
+
