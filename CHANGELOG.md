@@ -1,3 +1,10 @@
+## Direct-provider cost reconciliation — 2026-10-26
+
+- Add optional, owner-only OpenAI organization Costs API and Anthropic Cost Report API integrations for aggregate billed-spend reconciliation.
+- Keep provider billing totals separate from per-request telemetry; do not allocate aggregate costs to individual requests or double-count OpenRouter spend.
+- Add Finance panel status, refresh, bounded date windows, and regression tests for amount parsing, key isolation, and unavailable states.
+- Request-level estimates and Gemini/other direct-provider billing sources remain a separate follow-up; no estimates are presented as actual provider cost.
+
 ## Unreleased
 
 - Direct-provider activity in Owner Command Center now carries a stable per-event request ID and safe optional request/response metadata (endpoint, method, HTTP status, error code, provider request ID, finish reason) alongside existing usage/token/latency telemetry. No prompt or completion text is stored; provider costs remain unknown unless explicitly provider-reported.
