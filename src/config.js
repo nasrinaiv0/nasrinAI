@@ -268,19 +268,21 @@ export function loadConfig(env = process.env) {
   if (!['auto', 'free', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, free, openai, gemini, claude, anthropic or none');
   }
-  // Prefer independent free inference capacity first; keep OpenRouter as
-  // the aggregator safety net, after direct providers. Remaining catalogued
-  // providers follow in stable catalog order.
-  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'openrouter'];
+  // These direct APIs are reserved for Quick Free text routing only. They must
+  // not become generic failover providers for paid tiers.
+  const QUICK_FREE_DIRECT_PROVIDER_IDS = new Set([
+    'groq', 'cerebras', 'cloudflare-workers-ai', 'mistral', 'nvidia-nim'
+  ]);
+  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'mistral', 'nvidia-nim', 'openrouter'];
   const eligibleFreeProviderIds = freeProviderSettings
-    .filter((p) => p.freeModels.includes(p.model))
+    .filter((p) => (QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter') && p.freeModels.includes(p.model))
     .map((p) => p.id);
   const freeFallbackProviders = [
     ...freeFallbackPriority.filter((id) => eligibleFreeProviderIds.includes(id)),
     ...eligibleFreeProviderIds.filter((id) => !freeFallbackPriority.includes(id))
   ];
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter'),
+    ? ['gemini', 'openai', 'anthropic',
       ...(providerKeys.includes('openrouter') && providerKeys.some((p) => ['openai', 'gemini'].includes(p)) ? ['openrouter'] : [])]
       .filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
     : fallbackMode === 'free'
@@ -436,7 +438,9 @@ export function loadConfig(env = process.env) {
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
-    freeModels: Object.freeze(Object.fromEntries(freeProviderSettings.map((p) => [p.id, p.freeModels]))),
+    freeModels: Object.freeze(Object.fromEntries(freeProviderSettings
+      .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
+      .map((p) => [p.id, p.freeModels]))),
     coding,
     safeFallbacks,
     tierRange: Object.freeze({
@@ -810,6 +814,11 @@ export function loadConfig(env = process.env) {
     emails: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerEmails)] : []),
     ips: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerIps)] : []),
     sessionSecret: ownerConsoleEnabled ? ownerSessionSecret : '',
+    // Organization-level billing keys are optional, read-only, and never sent to the browser.
+    openaiAdminKey: ownerConsoleEnabled ? String(env.OPENAI_ADMIN_KEY || '').trim() : '',
+    anthropicAdminKey: ownerConsoleEnabled ? String(env.ANTHROPIC_ADMIN_KEY || '').trim() : '',
+    cloudflareBillingApiToken: ownerConsoleEnabled ? String(env.CLOUDFLARE_BILLING_API_TOKEN || '').trim() : '',
+    cloudflareAccountId: ownerConsoleEnabled ? String(env.CLOUDFLARE_ACCOUNT_ID || '').trim() : '',
     githubActions: Object.freeze({
       enabled: ownerConsoleEnabled && String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim().length >= 20,
       token: ownerConsoleEnabled ? String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim() : ''
@@ -926,7 +935,9 @@ export function loadConfig(env = process.env) {
       fallback,
       geminiApiKey: geminiKey,
       anthropicApiKey: anthropicKey,
-      freeProviders: Object.freeze(freeProviderSettings.map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
+      freeProviders: Object.freeze(freeProviderSettings
+        .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
+        .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
       maxReplyTokens: toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 800, 50, 8000),

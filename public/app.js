@@ -2386,6 +2386,8 @@
   let chatProject = null;  // { id, name }: the project the open chat belongs to (or a new chat will)
   let imageMode = false;
 
+
+
   function closePlus() {
     if (plusMenu.hidden) return;
     plusMenu.hidden = true;
@@ -2398,11 +2400,6 @@
     attachBtn.setAttribute('aria-expanded', 'true');
     $('pickFiles').focus();
   });
-  $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
-  $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
-  $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
-  document.addEventListener('pointerdown', (e) => { if (!plusMenu.hidden && !$('plusWrap').contains(e.target)) closePlus(); });
-  plusMenu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closePlus(); attachBtn.focus(); } });
 
   function setImageMode(on) {
     imageMode = on;
@@ -5271,12 +5268,19 @@
     $('termsCheck').focus();
   }
 
-  // A guest's first visit: the same sheet, once per browser (nothing is sent
-  // to the server; signed-in users' acceptance is recorded there).
-  function showFirstVisitNotice() {
-    if (account || saved.get(KEYS.notice)) return;
+  // Guest first visit: disclose improvement collection before chat and record
+  // an explicit, versioned acknowledgement against this server-issued guest session.
+  async function showFirstVisitNotice() {
+    if (account) return;
+    try { await credential(); } catch { return; }
+    const guestSession = saved.get(KEYS.session);
+    if (!guestSession?.token || saved.get(KEYS.notice) === guestSession.token) return;
     termsMethod = 'first_visit';
-    openTerms('Please read how NasrinAI works.', { canSignOut: false });
+    $('guestPrivacyNotice').hidden = false;
+    $('termsCheckCopy').textContent = 'I understand the Guest data notice and agree to the ';
+    $('termsGuestConsentCopy').hidden = true;
+    $('termsLater').textContent = 'Log in to manage privacy';
+    openTerms('Before you continue as a Guest', { canSignOut: true });
   }
 
   async function checkTerms(method = 'update_prompt') {
@@ -5296,10 +5300,23 @@
   $('termsAccept').addEventListener('click', async () => {
     $('termsAccept').disabled = true;
     if (termsMethod === 'first_visit') {
-      saved.set(KEYS.notice, true);
-      termsSheet.hidden = true;
-      scrim.hidden = true;
-      Nasrin.flash('happy', 1200);
+      try {
+        const current = await api('/v1/improvement-consent');
+        await api('/v1/improvement-consent', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true, version: current.version })
+        });
+        const guestSession = saved.get(KEYS.session);
+        if (guestSession?.token) saved.set(KEYS.notice, guestSession.token);
+        $('guestPrivacyNotice').hidden = true;
+        termsSheet.hidden = true;
+        scrim.hidden = true;
+        Nasrin.flash('happy', 1200);
+      } catch (err) {
+        $('termsStatus').textContent = err.message || 'We could not save the Guest privacy acknowledgement. Please retry or sign in.';
+        $('termsAccept').disabled = false;
+      }
       return;
     }
     try {
@@ -5315,9 +5332,18 @@
     }
   });
   $('termsLater').addEventListener('click', async () => {
+    const wasFirstVisit = termsMethod === 'first_visit';
     termsSheet.hidden = true;
     scrim.hidden = true;
-    try { await fetch('/v1/auth/sign-out', { method: 'POST', headers: { Authorization: 'Bearer ' + account.token } }); } catch { /* offline */ }
+    $('guestPrivacyNotice').hidden = true;
+    if (wasFirstVisit) {
+      $('termsCheckCopy').textContent = 'I agree to the ';
+      $('termsGuestConsentCopy').hidden = true;
+      $('termsLater').textContent = 'Sign out instead';
+      await openSignIn('Sign in to access your account privacy controls.');
+      return;
+    }
+    try { if (account) await fetch('/v1/auth/sign-out', { method: 'POST', headers: { Authorization: 'Bearer ' + account.token } }); } catch { /* offline */ }
     signedOut();
     switchIdentity();
   });
@@ -5405,10 +5431,12 @@
       improvementConsentVersion = result.version;
       improvementConsentValue = result.enabled === true;
       control.checked = improvementConsentValue;
-      control.disabled = false;
-      status.textContent = improvementConsentValue
-        ? 'Your optional preference is on. No chat content is currently collected for improvement.'
-        : 'Off by default. No chat content is currently collected for improvement.';
+      control.disabled = !account;
+      status.textContent = !account
+        ? 'Guest access requires this setting. Eligible prompts and replies may be screened and retained without a routine expiry to improve NasrinAI; applicable privacy rights still apply.'
+        : improvementConsentValue
+          ? 'Your improvement preference is on. Only eligible, screened examples are collected; this does not automatically train model weights.'
+          : 'Off. No signed-in conversation content is collected for improvement.';
     } catch (err) {
       improvementConsentVersion = null;
       improvementConsentValue = false;
@@ -10149,8 +10177,8 @@
     .then(restoreAccount)
     // A failure restoring the sign-in must not skip the tier catalog below.
     .catch((err) => { console.error('NasrinAI start-up: restoring sign-in failed', err); })
-    .then(() => {
-      showFirstVisitNotice();
+    .then(async () => {
+      await showFirstVisitNotice();
       // A repeated Google answer can report a failure after the sign-in worked: only show it when signed out.
       if (signinResult === 'failed' && !account) openSignIn('Google sign-in did not finish. Please try again.');
       // Load both catalogs before revealing the toolbar so its controls do not

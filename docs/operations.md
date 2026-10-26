@@ -55,7 +55,7 @@ The repository currently has no `package-lock.json` or `npm-shrinkwrap.json`, so
 
 ## Scheduled retention
 
-Vercel Cron calls `/v1/internal/retention` hourly. The endpoint requires the `CRON_SECRET` bearer token and invokes the idempotent `purge_retention()` Supabase function. It also invokes `purge_improvement_consent()` to remove guest choice records after 24 hours and signed-in choice records after 10 years. It also runs `purge_improvement_examples()` to delete expired examples and any examples whose matching consent is no longer the latest active grant. Set `CRON_SECRET` as a Vercel Sensitive environment variable before production deployment. The job covers inactive signed-in users, guest expiry, and old operational rate-limit counters.
+Vercel Cron calls `/v1/internal/retention` hourly. The endpoint requires the `CRON_SECRET` bearer token and invokes the idempotent `purge_retention()` Supabase function. It also invokes `purge_improvement_consent()` to remove old Guest choice records only when no retained improvement examples depend on them, and signed-in choice records after 10 years only when no retained examples depend on them. It also runs `purge_improvement_examples()` to delete explicitly expiring examples and examples whose matching consent is no longer the latest active grant. Authorized improvement examples have no routine expiry; raw Guest chat history keeps its separate 24-hour expiry. Set `CRON_SECRET` as a Vercel Sensitive environment variable before production deployment. The job covers inactive signed-in users, guest chat expiry, and old operational rate-limit counters.
 
 ## Watching
 

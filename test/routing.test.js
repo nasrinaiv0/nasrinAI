@@ -179,6 +179,40 @@ test('Free Quick prefers OpenRouter free models before direct free-provider fall
   assert.equal(a.gemini.calls.length, 0, 'Quick never falls back to an unapproved provider route');
 });
 
+test('only Groq, Cerebras, Cloudflare Workers AI, Mistral, and NVIDIA NIM are direct Quick Free providers', () => {
+  const config = loadConfig({
+    AI_PROVIDER: 'auto',
+    OPENROUTER_API_KEY: 'or-test-key',
+    GROQ_API_KEY: 'groq-test-key',
+    GROQ_MODEL: 'openai/gpt-oss-20b',
+    GROQ_FREE_MODELS: 'openai/gpt-oss-20b',
+    CEREBRAS_API_KEY: 'cerebras-test-key',
+    CEREBRAS_MODEL: 'gpt-oss-120b',
+    CEREBRAS_FREE_MODELS: 'gpt-oss-120b',
+    CLOUDFLARE_WORKERS_AI_API_KEY: 'cf-test-key',
+    CLOUDFLARE_WORKERS_AI_MODEL: '@cf/meta/llama-3.1-8b-instruct',
+    CLOUDFLARE_WORKERS_AI_FREE_MODELS: '@cf/meta/llama-3.1-8b-instruct',
+    CLOUDFLARE_ACCOUNT_ID: 'cf-account-test',
+    MISTRAL_API_KEY: 'mistral-test-key',
+    MISTRAL_MODEL: 'mistral-small-latest',
+    MISTRAL_FREE_MODELS: 'mistral-small-latest',
+    NVIDIA_NIM_API_KEY: 'nim-test-key',
+    NVIDIA_NIM_MODEL: 'meta/llama-3.1-8b-instruct',
+    NVIDIA_NIM_FREE_MODELS: 'meta/llama-3.1-8b-instruct',
+    MODELSCOPE_API_KEY: 'other-test-key',
+    MODELSCOPE_MODEL: 'some-model',
+    MODELSCOPE_FREE_MODELS: 'some-model'
+  });
+  const allowed = ['groq', 'cerebras', 'cloudflare-workers-ai', 'mistral', 'nvidia-nim'];
+  assert.deepEqual(config.ai.freeProviders.map((p) => p.id).filter((id) => id !== 'openrouter').sort(), allowed.slice().sort());
+  assert.deepEqual(Object.keys(config.ai.routing.freeModels).sort(), [...allowed, 'openrouter'].sort());
+  assert.ok(!config.ai.fallback.providers.some((id) => allowed.includes(id)), 'direct free providers are not generic cross-tier fallbacks');
+  for (const level of [2, 3, 4, 5]) {
+    assert.ok(!config.ai.routing.levels[level].some((candidate) => allowed.includes(candidate.provider)),
+      'direct free providers must not be configured in paid level ' + level);
+  }
+});
+
 test('paid Quick skips free OpenRouter models and uses a verified paid-Quick model', async () => {
   const paidQuickModel = 'google/gemini-2.5-flash-lite';
   const a = setup({

@@ -28,6 +28,14 @@ test('capture requires current explicit consent and auto-approves screened examp
   assert.equal(store.improvementExamples[0].reviewerId, 'automated_safety_screen');
   assert.ok(store.improvementExamples[0].reviewedAt);
   assert.equal(store.improvementExamples[0].consentVersion, COMMUNITY_LEARNING_CONSENT_VERSION);
+  assert.equal(store.improvementExamples[0].expiresAt, null, 'authorized improvement examples have no routine expiry');
+  const createdAt = store.improvementExamples[0].createdAt;
+  store.improvementExamples[0].createdAt = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  await store.purgeImprovementExamples();
+  assert.equal(store.improvementExamples.length, 1, 'Guest improvement example survives ordinary Guest chat expiry');
+  await store.purgeImprovementConsent();
+  assert.equal((await store.getImprovementConsent({ tenantId: PLATFORM_TENANT_ID, subjectType: 'guest', subjectId: 'guest-session-1' })).decision, 'granted');
+  store.improvementExamples[0].createdAt = createdAt;
   assert.equal(await learning.capture({ caller: caller('guest', 'guest-session-2'), ...sample }), false);
 });
 

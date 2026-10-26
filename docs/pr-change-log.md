@@ -5,6 +5,50 @@
 - Paid Quick: unchanged rule, never a `:free` model and never the free-tier Luna route (tested).
 - Optional `OPENROUTER_WEB_SEARCH_PAID_MODEL` (never a `:free` id): paid plans search the internet through it instead of the free default; blank keeps current behavior.
 - No migration; no new model IDs invented (registry IDs only).
+## PR #653 — Preserve paid tier on weekly usage lookup failure — 2026-10-27
+
+- Update `src/plans.js` so a transient weekly token-usage lookup error does not downgrade a verified active Pro, Max, or Ultra subscription to Quick. Subscription verification itself remains fail-closed.
+- Add a regression test in `test/plans.test.js` for a temporary usage-read failure.
+- Implementation commits: `c35ef51fb4e94ca640a2ed45e39c509ecff4fb3e` (tier behavior), `b00032fe6f91ef06f6245999ad33750e4631718d` (regression test), and this changelog update records both prior commits.
+- **Validation:** CI passed on the implementation/test commit; Documentation Gate failed because this file was not updated. Rerun checks after this documentation fix. Full local test suite and production behavior remain unverified; no production env or database changes.
+
+## PR #649 — Show all direct AI providers in Owner Finance — 2026-10-27
+
+- Update `public/owner-console.js` so the Direct-provider billing reconciliation UI keeps OpenAI, Anthropic, Google Gemini, Groq, Cloudflare Workers AI, Cerebras, Mistral, and NVIDIA NIM visible even when the server returns no row for a provider.
+- Represent absent integrations as `not_available` / “Not integrated” rather than silently omitting providers or fabricating costs. This is a UI inventory change only; it does not claim provider billing APIs are implemented.
+- Commit `47c4b4293417821c1094e8b4cdc0723b7d6d8f4a` added the UI update; this follow-up commit records that change to satisfy the mandatory PR changelog gate.
+- **Validation:** CI passed on the initial PR head. Documentation Gate failed because `docs/pr-change-log.md` was not updated; rerun checks on this changelog-updated head. No merge or deployment is claimed.
+
+## Cerebras and Cloudflare cost reporting — 2026-10-26
+
+- Add versioned per-request list-price estimates for selected Cerebras Developer-tier and Cloudflare Workers AI models; unknown model IDs remain unavailable.
+- Extend the owner-only provider billing report with Cloudflare's Billable Usage API using `ContractedCost` and `BillingCurrency` from the account-level response.
+- Add server-only `CLOUDFLARE_BILLING_API_TOKEN` configuration and expose Cloudflare account spend in OCC Finance. Cloudflare billing is daily, account-level, and not attributed to individual AI requests.
+- Report Cerebras actual billing as unavailable rather than estimating an invoice; Cerebras request-level estimates remain separate.
+- Add regression tests and setup documentation. No database migration is required.
+
+## Direct-provider cost reconciliation and estimates — 2026-10-26
+
+- Add owner-only OpenAI and Anthropic organization billing reports with explicit aggregate reconciliation boundaries and bounded pagination.
+- Add a versioned list-price estimator for supported direct text models and persist estimates in dedicated columns, never in migration 062's provider-reported cost fields.
+- OCC AI Logs shows estimates with a `~` prefix and source/version labels when actual provider cost is unavailable; verified actual cost remains preferred.
+- OCC Finance shows organization-level provider billing and aggregate request estimates separately. Gemini estimate uses paid Standard list pricing; Google Cloud billed-spend reconciliation is not claimed.
+- Unknown model prices and unsupported billing dimensions remain unavailable rather than guessed.
+
+## Direct-provider Owner Command Center activity — 2026-10-26
+
+- Add migration 076 for safe per-event request UUIDs and optional endpoint, HTTP method/status, sanitized error code, provider request ID, and finish reason on `usage_events`.
+- Capture provider request IDs/finish reasons from OpenAI, Anthropic, and OpenAI-compatible providers such as Gemini, and include them in the owner-only AI Logs view.
+- Default AI Logs to all catalog states so observed models are not hidden by configured-catalog classification; preserve the distinction between listed, unlisted, and unknown.
+- Keep prompts, completions, credentials, and raw provider errors out of telemetry. Provider cost remains unavailable unless explicit provider-reported provenance is present.
+- Preserve compatibility during rollout by falling back to legacy usage-event columns when migration 076 is not yet applied.
+
+## Guest improvement notice and consent-aware retention — 2026-10-26
+
+- Add a first-use Guest disclosure before chat. Continuing requires an explicit acknowledgement, records the current version against the server-issued guest session, and offers a sign-in path to account privacy controls.
+- Keep raw Guest chat history on its existing 24-hour expiry. Eligible, screened improvement examples are stored separately without routine time-based expiry; consent withdrawal, deletion requests, security requirements, and applicable law remain enforceable.
+- Update improvement-store expiry handling and the Privacy Notice so database retention is not misrepresented as automatic model training. Signed-in improvement preferences remain separate.
+- **Validation:** CI and database migration tests must pass on the PR head. No production migration, merge, or deployment is performed by this change.
 
 ## Owner cost and reply usage telemetry follow-up — 2026-10-26
 
@@ -2728,3 +2772,16 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added GPT-6 Luna as a first-class route for file extraction, document interpretation, and attachment-based tasks for both Quick Free and paid Quick, rather than limiting it to a generic heavy-task fallback.
 - Quick Free still tries Luna only for file/document tasks as an explicit exception; ordinary chat remains on approved free OpenRouter models and direct Gemini fallback. Paid Quick keeps its paid-model routing policy.
 - Added regression coverage for both Quick Free and paid Quick attachment routing. CI and production verification remain required.
+
+## PR #646 — Quick Free direct-provider allowlist — 2026-10-26
+
+- Reserve direct Groq, Cerebras, Cloudflare Workers AI, Mistral, and NVIDIA NIM APIs for Quick Free only, and only use configured models explicitly included in each provider's free-model allowlist.
+- Keep those direct providers out of generic automatic failover and paid-tier model candidates; retain OpenRouter's separate free-model pool.
+- Add regression coverage proving the exact allowlist and isolation from paid tiers.
+- CI and production verification are required before merge/deployment; provider credentials and current free-tier eligibility must be configured and verified separately.
+
+
+## PR #654 — Premium responsive map widget layout — 2026-10-27
+- Fix embedded Google Maps cards that render unevenly in chat by enforcing a full-width card/header and a bounded, responsive iframe canvas.
+- Polish mobile spacing, rounded corners, action-button states, and keyboard-visible focus styling without changing map URL construction or provider behavior.
+- Add a regression test for full-width layout, iframe positioning, the mobile breakpoint, and focus styling. CI must pass before merge.

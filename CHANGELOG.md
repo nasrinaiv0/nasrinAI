@@ -1,8 +1,19 @@
+## Direct-provider cost reconciliation — 2026-10-26
+
+- Add optional, owner-only OpenAI organization Costs API and Anthropic Cost Report API integrations for aggregate billed-spend reconciliation.
+- Keep provider billing totals separate from per-request telemetry; do not allocate aggregate costs to individual requests or double-count OpenRouter spend.
+- Add Finance panel status, refresh, bounded date windows, and regression tests for amount parsing, key isolation, and unavailable states.
+- Add a versioned request-level list-price estimator for supported direct text models, separate estimate columns, an aggregate-only OCC Finance summary, and AI Logs labels that distinguish estimates from provider-reported actual costs.
+- Gemini requests with a verified model price are estimated at paid Standard list rates; unknown models and unverified provider costs remain unavailable. Google Cloud billed-spend reconciliation is not claimed.
+
 ## Unreleased
 
 - Quick Free uses GPT-6 Luna as a main model for heavy, scraping, web and file requests (free models first for simple chat); Quick Paid never uses free models; optional paid web-search model for paid plans.
 - Route Quick Free and paid Quick file extraction and document interpretation through GPT-6 Luna as a first-class task-specific model route, with regression coverage.
 
+- Add versioned request-level estimates for Cerebras Developer-tier and selected Cloudflare Workers AI models. Add owner-only Cloudflare Billable Usage API reporting using USD `ContractedCost` values, plus explicit Cerebras actual-billing unavailability until a verified billing API is available. Add owner Finance coverage, tests, and setup documentation.
+
+- Direct-provider activity in Owner Command Center now carries a stable per-event request ID and safe optional request/response metadata (endpoint, method, HTTP status, error code, provider request ID, finish reason) alongside existing usage/token/latency telemetry. No prompt or completion text is stored; provider costs remain unknown unless explicitly provider-reported.
 
 - Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
 - Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.

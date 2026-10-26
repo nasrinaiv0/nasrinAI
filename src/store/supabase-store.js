@@ -388,22 +388,54 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         tenant_id: e.tenantId, actor_type: e.actorType, actor_id: e.actorId,
         provider: e.provider, model: e.model,
         input_tokens: e.inputTokens, output_tokens: e.outputTokens,
-        latency_ms: e.latencyMs, outcome: e.outcome
+        latency_ms: e.latencyMs, outcome: e.outcome,
+        request_id: e.requestId,
+        endpoint: e.endpoint ?? null,
+        http_method: e.httpMethod ?? null,
+        http_status: e.httpStatus ?? null,
+        error_code: e.errorCode ?? null,
+        provider_request_id: e.providerRequestId ?? null,
+        finish_reason: e.finishReason ?? null
       };
       const reservation = e.reservationId ? { reservation_id: e.reservationId } : {};
       const spendReservation = e.spendReservationId ? { spend_reservation_id: e.spendReservationId } : {};
       const routing = {
         task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null, cost_source: e.costSource ?? null,
+        estimated_cost_usd: e.estimatedCostUsd ?? null, estimated_cost_source: e.estimatedCostSource ?? null,
+        pricing_version: e.pricingVersion ?? null, estimated_cost_at: e.estimatedCostAt ?? null,
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
         await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...routing } });
       } catch (err) {
+        // Estimates are optional telemetry and have a dedicated migration. If
+        // the app rolls out first, retry without estimates while retaining actual
+        // provider cost provenance and request activity where the schema permits.
+        if (/estimated_cost_usd|estimated_cost_source|pricing_version|estimated_cost_at/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { estimated_cost_usd, estimated_cost_source, pricing_version, estimated_cost_at, ...withoutEstimates } = routing;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...withoutEstimates } });
+          return;
+        }
+        // App deployment can precede migration 076. Retry without the new
+        // request metadata columns so telemetry still records on an older schema.
+        if (/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { request_id, endpoint, http_method, http_status, error_code, provider_request_id, finish_reason, ...legacyBody } = body;
+          try {
+            await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...legacyBody, ...reservation, ...spendReservation, ...routing } });
+            return;
+          } catch (retryError) {
+            if (!/cost_source/i.test(retryError.message) || !/PGRST204|column|schema cache/i.test(retryError.message)) throw retryError;
+            const { cost_source, ...legacyRouting } = routing;
+            await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...legacyBody, ...reservation, ...spendReservation, ...legacyRouting } });
+            return;
+          }
+        }
         // Deploy can precede migration 062. Preserve routing telemetry when only
         // the new provenance column is missing; old rows remain cost-unknown.
         if (/cost_source/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
           const { cost_source, ...legacyRouting } = routing;
-          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...legacyRouting } });
+          const { request_id, endpoint, http_method, http_status, error_code, provider_request_id, finish_reason, ...legacyBody } = body;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...legacyBody, ...reservation, ...spendReservation, ...legacyRouting } });
           return;
         }
         // Before migration 003 the routing columns do not exist: keep the basic record.
@@ -445,7 +477,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !['user', 'guest'].includes(subjectType) || !OWNER_ID.test(String(subjectId))
           || !/^[A-Za-z0-9._-]{1,40}$/.test(String(consentVersion)) || consentVersion === '2026-10-10-preference-only'
           || typeof exampleText !== 'string' || !exampleText.trim() || exampleText.length > 12000
-          || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()) throw new Error('invalid improvement example');
+          || (expiresAt !== null && (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()))) throw new Error('invalid improvement example');
       const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
       const rows = await request('POST', 'improvement_examples?select=id', {
@@ -459,7 +491,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !Array.isArray(terms)) return [];
       const wanted = [...new Set(terms.map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
       if (!wanted.length) return [];
-      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=example_text,created_at&order=created_at.desc&limit=100`);
+      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&or=(expires_at.is.null,expires_at.gt.${encodeURIComponent(new Date().toISOString())})&select=example_text,created_at&order=created_at.desc&limit=100`);
       return (rows || []).map((row) => {
         const text = String(row.example_text || '');
         const lower = text.toLowerCase();
