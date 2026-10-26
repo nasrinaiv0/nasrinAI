@@ -124,7 +124,7 @@ test('paid routing discovers newly listed OpenRouter models as bounded fallback 
   assert.ok(a.openrouter.calls.some((call) => call.model === dynamicModel), 'tries live-discovered model after configured candidate fails');
 });
 
-test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, without cross-provider fallback', async () => {
+test('Guest and free Quick exhaust approved OpenRouter models before direct Gemini fallback and GPT-6 Luna', async () => {
   const a = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' } });
   const plan = a.policy.plan({ tier: 'nasrinai', message: 'hello' });
   const run = await a.policy.run(plan, req('hello'));
@@ -137,10 +137,10 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   const down = setup({ env: { OPENROUTER_API_KEY: 'or-test-key' }, reply: async () => { throw new ProviderError('unavailable', 'model unavailable'); } });
   await assert.rejects(down.policy.run(down.policy.plan({ tier: 'nasrinai', message: heavyMessage }), req(heavyMessage)), (e) => e instanceof HttpError || e instanceof ProviderError);
   assert.ok(down.openrouter.calls.length > 0, 'tries configured OpenRouter models');
-  assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'only free models and the authorized Luna fallback are eligible');
-  assert.equal(down.openrouter.calls.at(-1).model, 'openai/gpt-6-luna', 'Luna is attempted only after free models fail');
+  assert.ok(down.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'OpenRouter candidates remain free-only except the authorized heavy-task Luna fallback');
+  assert.ok(down.gemini.calls.length > 0, 'direct Gemini Flash Lite is available after approved OpenRouter free models fail');
   assert.equal(down.openai.calls.length, 0, 'no paid OpenAI fallback for Guest/Quick');
-  assert.equal(down.gemini.calls.length, 0, 'no cross-provider fallback for Guest/Quick');
+  assert.equal(down.gemini.calls.at(-1).model, 'gemini-3.1-flash-lite', 'direct Gemini uses the configured Quick Free fallback model');
 
   const overridden = setup({
     env: {
@@ -154,7 +154,7 @@ test('Guest and free Quick exhaust free OpenRouter models before GPT-6 Luna, wit
   assert.ok(overridden.openrouter.calls.every((call) => /:free$/i.test(call.model) || call.model === 'openai/gpt-6-luna'), 'custom routes cannot bypass free-first/Luna-only eligibility');
   assert.equal(overridden.openrouter.calls.at(-1).model, 'openai/gpt-6-luna');
   assert.equal(overridden.openai.calls.length, 0);
-  assert.equal(overridden.gemini.calls.length, 0);
+  assert.ok(overridden.gemini.calls.length > 0, 'custom paid OpenRouter routes cannot block the approved direct Gemini fallback');
 });
 test('Free Quick prefers OpenRouter free models before direct free-provider fallback', async () => {
   const a = setup({
