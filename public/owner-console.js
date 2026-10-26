@@ -403,7 +403,7 @@
       const estimatePanel = el('section', 'panel');
       estimatePanel.classList.add('module-extra');
       estimatePanel.append(el('h3', '', 'Estimated direct-provider request spend'));
-      estimatePanel.append(el('p', 'panel-copy', 'Summed from request-level token usage and the versioned list-price registry. This is an estimate, not an invoice total; free Gemini quota and provider-specific discounts are not assumed.'));
+      estimatePanel.append(el('p', 'panel-copy', 'Summed from request-level token usage and the versioned list-price registry. This is an estimate, not an invoice total; free Gemini quota, Cloudflare neuron allocations, and provider-specific discounts are not allocated per request.'));
       const estimateResult = el('div');
       estimateResult.append(notice('Loading estimates', 'Reading aggregated estimates from recorded request usage.'));
       estimatePanel.append(estimateResult);
@@ -450,18 +450,18 @@
           result.append(el('p','panel-copy','Fetched ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · USD totals where reported.'));
           const grid = el('div','grid');
           const providers = payload.providers || {};
-          for (const [id, label] of [['openai','OpenAI organization spend'],['anthropic','Anthropic organization spend']]) {
+          for (const [id, label] of [['openai','OpenAI organization spend'],['anthropic','Anthropic organization spend'],['cloudflare','Cloudflare account spend'],['cerebras','Cerebras account spend']]) {
             const item = providers[id] || {};
-            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate' : item.status === 'not_configured' ? 'Admin API key not configured' : 'Unavailable';
+            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate' : item.status === 'not_configured' ? 'Admin API key not configured' : item.status === 'not_available' ? 'No verified billing API integration' : 'Unavailable';
             grid.append(metric(label, 'USD', moneyText(item.total_usd), statusLabel));
           }
           result.append(grid);
           const list = el('div','source-list');
-          for (const [id, label] of [['openai','OpenAI'],['anthropic','Anthropic']]) {
+          for (const [id, label] of [['openai','OpenAI'],['anthropic','Anthropic'],['cloudflare','Cloudflare Workers AI / account usage'],['cerebras','Cerebras']]) {
             const item = providers[id] || {};
             const row = el('div','source-row'), left = el('div');
             left.append(el('div','source-name',label),el('div','source-detail',String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items'));
-            row.append(left,state(item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : 'Unavailable',item.status === 'available' ? 'available' : 'unavailable'));
+            row.append(left,state(item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : item.status === 'not_available' ? 'Dashboard only' : 'Unavailable',item.status === 'available' ? 'available' : 'unavailable'));
             list.append(row);
           }
           result.append(list);
