@@ -4,7 +4,7 @@
   const names = {
     overview: ['Good to have you back.', 'A clear view of platform health, AI operations, and business signals.', '◫'],
     ai: ['AI Operations', 'Provider performance, routing, latency, and token usage from verified telemetry.', '✳'],
-    logs: ['AI Logs', 'Listed models in NasrinAI’s configured catalog.', '≋'],
+    logs: ['AI Logs', 'OpenRouter and direct-provider activity, tokens, verified costs, latency, and request metadata.', '≋'],
     'openrouter-unlisted': ['Unlisted Models', 'Logged models missing from NasrinAI’s configured catalog.', '⌕'],
     'other-unlisted': ['AI Models Activities', 'All logged models: listed and unlisted.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
