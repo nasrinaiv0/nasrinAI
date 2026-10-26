@@ -5283,7 +5283,7 @@
     $('termsCheckCopy').textContent = 'I understand the Guest data notice and agree to the ';
     $('termsGuestConsentCopy').hidden = true;
     $('termsLater').textContent = 'Log in to manage privacy';
-    openTerms('Before you continue as a Guest', { canSignOut: false });
+    openTerms('Before you continue as a Guest', { canSignOut: true });
   }
 
   async function checkTerms(method = 'update_prompt') {
