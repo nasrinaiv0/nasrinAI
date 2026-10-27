@@ -1,3 +1,10 @@
+## PR #665 — Reliable default voice with STT/TTS fallback (2026-10-27)
+
+- Replace the default persistent realtime voice startup with browser speech recognition → NasrinAI chat orchestration → authenticated /v1/speech output, addressing the production reconnect loop.
+- Keep screen sharing user-initiated, send only bounded transient frames to the existing authenticated vision endpoint, and report unsupported browser APIs clearly.
+- Update voice regression assertions for the turn-based default path.
+- **Validation:** CI passed on implementation commit; Documentation Gate failed because this required changelog file was not included. This entry fixes the gate requirement; rerun all checks on the updated PR head before merge. iPhone Safari screen sharing and production voice still need device smoke verification.
+
 ## PR #662 — Add realtime voice screen sharing — 2026-10-27
 
 - Add a centered Share screen pill to Realtime Voice with the native browser screen picker, user-controlled start/stop, and automatic cleanup when voice ends or the browser stops the capture track.
