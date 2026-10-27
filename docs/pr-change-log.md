@@ -1,3 +1,9 @@
+## Fix: voice could not read the shared screen — 2026-10-27
+
+- In compatibility voice the shared screen frame was never tied to the spoken question, so Nasrin said it could not see the screen. Each question now sends the newest in-memory frame (under 30 s old) with the question to `/v1/realtime/screen-analyze`; the description is passed as a transient, never-saved `screen_context` for that turn (`src/chat.js`, `public/app.js`). The unprompted timed description now runs only in realtime mode.
+- Privacy notice gets a screen-sharing line; `LEGAL_PRIVACY_VERSION` default is now 2026-10-28 (people see it again). Test: `test/voice-screen-context.test.js`.
+- A screen question in voice now uses two message allowances (describe + answer). Not verified live: needs `OPENROUTER_VOICE_VISION_MODEL` or the default vision model on the deployed site.
+
 ## Fix: realtime voice could not start (CSP) — 2026-10-27
 
 - The page policy's `connect-src` did not allow the browser to reach the realtime voice providers, so "Voice could not start. Retrying the connection…" looped. Added `https://api.openai.com` (WebRTC call) and `wss://generativelanguage.googleapis.com` (Gemini Live) to `PAGE_CSP` in `src/http/headers.js` and the matching header in `vercel.json`. No wildcard added.
