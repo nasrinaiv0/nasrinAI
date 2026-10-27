@@ -6,8 +6,9 @@ export const PAGE_CSP = [
   "script-src 'self' https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com",
   "style-src 'self'",
   "img-src 'self' data: blob: https://i.ytimg.com https://upload.wikimedia.org https://maps.gstatic.com https://*.googleapis.com",
+  // api.openai.com + wss generativelanguage: the browser connects straight to the realtime voice provider with a short-lived token (docs/realtime*).
   // *.supabase.co: direct uploads to the project's private bucket (docs/uploads.md).
-  "connect-src 'self' https://owner.nasrinai.com https://challenges.cloudflare.com https://*.supabase.co https://maps.googleapis.com https://maps.gstatic.com",
+  "connect-src 'self' https://owner.nasrinai.com https://challenges.cloudflare.com https://*.supabase.co https://maps.googleapis.com https://maps.gstatic.com https://api.openai.com wss://generativelanguage.googleapis.com",
   "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://www.tiktok.com https://www.facebook.com https://www.instagram.com https://player.vimeo.com https://www.dailymotion.com https://maps.google.com https://www.google.com",
   "media-src 'self' blob:",
   "object-src 'none'",

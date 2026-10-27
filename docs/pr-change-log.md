@@ -4,6 +4,12 @@
 - Test in `test/skill-routing.test.js`. No migration, env or legal change.
 - Separate owner step: Google sign-in `redirect_uri_mismatch` needs `https://nasrinai.com/v1/google/callback` added in Google Cloud. Not verified live.
 
+## Fix: realtime voice could not start (CSP) — 2026-10-27
+
+- The page policy's `connect-src` did not allow the browser to reach the realtime voice providers, so "Voice could not start. Retrying the connection…" looped. Added `https://api.openai.com` (WebRTC call) and `wss://generativelanguage.googleapis.com` (Gemini Live) to `PAGE_CSP` in `src/http/headers.js` and the matching header in `vercel.json`. No wildcard added.
+- Test: `test/realtime-voice-csp.test.js`. No migration, env or legal change.
+- Not verified live: a real voice session needs the owner's provider keys on the deployed site.
+
 ## PR #665 — Reliable default voice with STT/TTS fallback (2026-10-27)
 
 - Replace the default persistent realtime voice startup with browser speech recognition → NasrinAI chat orchestration → authenticated /v1/speech output, addressing the production reconnect loop.
