@@ -1,6 +1,23 @@
+## Direct-provider cost reconciliation — 2026-10-26
+
+- Add optional, owner-only OpenAI organization Costs API and Anthropic Cost Report API integrations for aggregate billed-spend reconciliation.
+- Keep provider billing totals separate from per-request telemetry; do not allocate aggregate costs to individual requests or double-count OpenRouter spend.
+- Add Finance panel status, refresh, bounded date windows, and regression tests for amount parsing, key isolation, and unavailable states.
+- Add a versioned request-level list-price estimator for supported direct text models, separate estimate columns, an aggregate-only OCC Finance summary, and AI Logs labels that distinguish estimates from provider-reported actual costs.
+- Gemini requests with a verified model price are estimated at paid Standard list rates; unknown models and unverified provider costs remain unavailable. Google Cloud billed-spend reconciliation is not claimed.
+
 ## Unreleased
 
 - Fix: the link reader can no longer be stalled by a crafted page (linear-time HTML cleaning); pages in other character sets are now read correctly.
+
+- Add user-approved screen sharing to Realtime Voice with transient, downscaled visual frames, stop-sharing cleanup, and borderless frosted-glass controls over a subtle full-screen dotted background.
+
+- Quick Free uses GPT-6 Luna as a main model for heavy, scraping, web and file requests (free models first for simple chat); Quick Paid never uses free models; optional paid web-search model for paid plans.
+- Route Quick Free and paid Quick file extraction and document interpretation through GPT-6 Luna as a first-class task-specific model route, with regression coverage.
+
+- Add versioned request-level estimates for Cerebras Developer-tier and selected Cloudflare Workers AI models. Add owner-only Cloudflare Billable Usage API reporting using USD `ContractedCost` values, plus explicit Cerebras actual-billing unavailability until a verified billing API is available. Add owner Finance coverage, tests, and setup documentation.
+
+- Direct-provider activity in Owner Command Center now carries a stable per-event request ID and safe optional request/response metadata (endpoint, method, HTTP status, error code, provider request ID, finish reason) alongside existing usage/token/latency telemetry. No prompt or completion text is stored; provider costs remain unknown unless explicitly provider-reported.
 
 - Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
 - Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
@@ -55,6 +72,7 @@
 ## Auto provider default and OpenRouter fallback — 2026-10-26
 
 - Restore the agreed production routing contract: `AI_PROVIDER=auto` is the documented production default and is also selected automatically for production when provider credentials exist but the variable is omitted. Unconfigured local/test environments remain safely disabled.
+- Quick routing policy: free Quick prioritizes OpenRouter `:free` models, reserves GPT-6 Luna for heavy tasks after free candidates, and uses allowlisted direct free providers as fallback; paid Quick uses only non-free OpenRouter candidates.
 - In Auto mode, prefer configured direct providers instead of injecting OpenRouter ahead of every route. Keep OpenRouter available as an additional fallback when independent direct providers are configured.
 - Fix Quick fallback ordering so explicitly allowlisted direct free-provider candidates are actually appended and tried before OpenRouter free models; retain the approved Luna emergency route and all tier/privacy/capability restrictions.
 - Add regression coverage and update routing/deployment documentation. No production environment variables, merge, or deployment are changed by this PR.

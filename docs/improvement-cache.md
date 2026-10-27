@@ -1,6 +1,6 @@
 # Consented improvement cache: implementation contract
 
-Status: the isolated private example table, versioned consent, service-role-only review decisions, and content-free deletion lineage are in place. The Community Learning System now adds a limited, opt-in Quick-tier capture path for redacted, eligible examples, stores them as `pending_review`, and retrieves only approved examples. It does not fine-tune foundation models. The reviewer workflow remains an operational gate: do not approve examples until the reviewer identity/access path, audit trail, and review UI or controlled owner workflow have been verified. Keep ingestion disabled for anyone who has not explicitly granted the current consent version. The preference-only consent version is rejected by the example table.
+Status: the private example store, versioned improvement authorization, service-role-only review decisions, and content-free deletion lineage are in place. Guest first-use acknowledgement authorizes capture of eligible, screened examples for NasrinAI improvement; signed-in users retain their account preference. Eligible examples have no routine expiry, but must remain removable for withdrawal, privacy requests, legal obligations, and security requirements. The cache is not model training: stored examples can support evaluation and curated training preparation, but model-weight training is a separate release-gated process. Keep ingestion fail-closed if consent, redaction, eligibility, or storage checks fail.
 
 ## Goal
 
@@ -11,15 +11,11 @@ merely because it exists in a database.
 
 ## Non-negotiable defaults
 
-- Guest conversations continue to expire after 24 hours. No guest content is copied
-  into an improvement dataset by default.
+- Raw guest chat history expires after 24 hours. After the first-use disclosure and acknowledgement, eligible, privacy-screened examples may be copied to the improvement store and have no routine expiry.
 - Signed-in Memory remains separate. Memory is a personal feature, not permission
   to use a person's content for product improvement.
-- No training/improvement opt-in is inferred from account creation, Terms acceptance,
-  use of the service, or Memory being enabled.
-- No ingestion until the user has seen a clear, separate explanation and affirmatively
-  opted in. Decline, missing choice, malformed consent, and unavailable consent state
-  all mean do not collect.
+- Guest improvement authorization is recorded only after the first-use notice is shown and the user explicitly continues; signed-in account preferences remain separate.
+- No ingestion occurs if the notice acknowledgement, consent lookup, redaction, eligibility, or storage check fails.
 - Consent is purpose-specific and versioned. Withdrawal stops future collection
   immediately; existing contributed examples must be findable and removable.
 - Do not copy whole conversations wholesale. Select only an explicitly submitted
@@ -45,8 +41,7 @@ merely because it exists in a database.
    identifiers, sensitive personal data, and content unsuitable for a general-purpose
    dataset. Encrypt at rest using platform-managed database/storage controls; use
    service-role-only access, least privilege, and audit access.
-5. **Expire and delete.** Use an explicit bounded retention period with server-side
-   expiry and a scheduled purge. Migration 020 adds a service-role-only subject deletion
+5. **Retain and delete.** Improvement examples have no routine expiry; a scheduled purge removes only rows with an explicit expiry that has passed and rows whose authorization is no longer active. Migration 020 adds a service-role-only subject deletion
    function for consent withdrawal, account deletion, and privacy requests, plus
    content-free deletion lineage containing request IDs, opaque example IDs, reason codes,
    counts, and timestamps. The caller must derive the subject from a verified server-side

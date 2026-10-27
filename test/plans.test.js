@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { createMemoryStore } from '../src/store/memory-store.js';
 import { loadConfig } from '../src/config.js';
+import { createPlans } from '../src/plans.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN, SECRET_KEY } from './helpers.js';
 
 const PLATFORM = '00000000-0000-0000-0000-000000000001';
@@ -112,4 +113,17 @@ test('if plans cannot be read, the user is Free and chat still works', async () 
     assert.deepEqual(list.models.filter((m) => !m.locked).map((m) => m.id), ['nasrinai']);
     assert.equal((await postJson(srv.url + '/v1/chat', { message: 'hi' }, bearer(USER_TOKEN))).status, 200);
   } finally { await srv.close(); }
+});
+
+
+test('a temporary weekly-usage read failure does not downgrade a verified paid tier', async () => {
+  const config = loadConfig({ PRO_WEEKLY_TOKEN_LIMIT: '1000' });
+  const store = {
+    activePlans: async () => [{ plan: 'pro', endsAt: '2026-12-01T00:00:00.000Z' }],
+    tokensSince: async () => { throw new Error('temporary database read failure'); }
+  };
+  const plans = createPlans({ store, config, now: () => Date.parse('2026-10-27T00:00:00.000Z') });
+  const caller = { tenantId: PLATFORM, actor: { type: 'user', id: 'user-1' } };
+  assert.equal(await plans.current(caller).then((p) => p.plan), 'pro');
+  assert.equal(await plans.planFor(caller), 'pro');
 });

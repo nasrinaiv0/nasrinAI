@@ -38,6 +38,15 @@ The owner-only `/owner/api/openrouter-logs` endpoint supports `24h`, `7d`, `30d`
 Cached token counts are captured from provider usage metadata when available. Actual cost is sourced from OpenRouter response usage or the authoritative generation reconciliation API; the UI labels the source. Output tokens per second is derived from output tokens divided by provider generation time. Routing overhead is a rough estimate (total latency minus generation time) and is explicitly labelled as estimated, not a provider-measured metric. Catalog/discovery rows explicitly mark inference-only metrics as not applicable instead of suggesting telemetry is broken. Upstream provider and generation timing fields are only filled by reconciliation against the OpenRouter generation endpoint. Missing values mean unavailable or not yet reconciled; they must not be interpreted as zero or free usage. This view is owner-only and read-only. It does not expose browser access to the underlying telemetry table.
 
 
+## Direct-provider activity in Owner Command Center
+
+The AI Logs view combines detailed OpenRouter request/generation records with sanitized `usage_events` for direct providers such as OpenAI, Google Gemini, and Anthropic. Migration 076 adds a per-event UUID and optional endpoint, HTTP method/status, sanitized error code, provider request ID, and finish reason to usage records. Existing provider/model, task/outcome, token counts, latency, and cost-provenance fields remain the source for activity and cost summaries.
+
+- Direct-provider request IDs come from provider response IDs/headers when available; the local event UUID is always available after migration 076.
+- The UI defaults to all catalog states so newly observed direct-provider models are not silently hidden. Listed/unlisted classification still uses NasrinAI's configured catalog, not a live provider catalog.
+- Raw prompts, completions, auth headers, and provider error bodies are never stored in these fields. Costs remain **Unavailable** unless the record has verified provider-reported provenance.
+- During a rolling deployment, the writer and Owner Command Center read path fall back to the legacy usage schema if migration 076 has not yet been applied; detailed request metadata appears after the migration is applied.
+
 ## Cross-provider unlisted model inventory
 
 The Owner Command Center exposes a separate read-only **Unlisted / Guardrail Models** category aggregating sanitized model/provider metadata from `usage_events` and `openrouter_logs`. `openrouter/auto` is a requested alias, not an actual model, and is excluded as a model identity unless OpenRouter returns an actual model ID. OpenRouter catalog status is checked against its current public model catalog when available. Other provider records are included, but their catalog status remains `unknown` until a verified provider-specific catalog/guardrail adapter is available; catalog fetch failures never imply a model is unlisted. Prompts, completions, raw request summaries, and credentials are not returned.

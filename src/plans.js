@@ -60,8 +60,11 @@ export function createPlans({ store, config, logger = null, now = () => Date.now
         const used = await store.tokensSince({ since: weekStart, tenantId: caller.tenantId, actorType: 'user', actorId: caller.actor.id });
         return used >= allowance ? 'free' : active.plan;
       } catch (err) {
-        if (logger) logger.warn('weekly plan usage unavailable, routing to Quick', { error: err.message });
-        return 'free';
+        // Subscription entitlement and usage accounting are separate concerns.
+        // A transient usage-read failure must not silently downgrade a verified
+        // paid subscriber. Request-level spend/usage guards still enforce limits.
+        if (logger) logger.warn('weekly plan usage unavailable; preserving verified subscription tier', { error: err.message });
+        return active.plan;
       }
     },
     forget(caller) { cache.delete(caller.tenantId + ':' + caller.actor.id); },

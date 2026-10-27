@@ -350,3 +350,38 @@ test('system prompt enforces platform-wide intent understanding and action routi
     assert.match(system, /Action and safety discipline/i);
   });
 });
+
+test('browser TTS supports multilingual language selection and matching installed voices', async () => {
+  const fs = await import('node:fs/promises');
+  const src = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(src, /function speechLanguageForText\(text\)/);
+  assert.match(src, /const detectedLang = speechLanguageForText\(text\)/);
+  assert.match(src, /u\.lang = detectedLang/);
+  assert.match(src, /window\.speechSynthesis\.getVoices\(\)/);
+  assert.doesNotMatch(src, /return mine\.concat\(english\).*slice\(0, 6\)/);
+});
+
+test('chat map reply cards use a compact map with nearby business details', async () => {
+  const fs = await import('node:fs/promises');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.nasrin-chat-map-canvas[^}]*height: 220px/s);
+  assert.match(css, /\.nasrin-chat-map-businesses/);
+  assert.match(css, /\.nasrin-chat-business-photo/);
+  assert.match(css, /\.nasrin-chat-business-details/);
+  assert.match(css, /\.nasrin-chat-business-open/);
+  assert.match(css, /@media \(max-width: 420px\)/);
+});
+
+test('map replies request Google Places and render rich nearby business cards', async () => {
+  const fs = await import('node:fs/promises');
+  const js = await fs.readFile(new URL('../public/chat-map.js', import.meta.url), 'utf8');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /libraries=places/);
+  assert.match(js, /nearbySearch\(/);
+  assert.match(js, /renderBusinessCards/);
+  assert.match(js, /place\.photos\?\.\[0\]/);
+  assert.match(js, /user_ratings_total/);
+  assert.match(js, /opening_hours\.open_now/);
+  assert.match(css, /\.nasrin-chat-business-photo/);
+  assert.match(css, /\.nasrin-chat-business-details/);
+});

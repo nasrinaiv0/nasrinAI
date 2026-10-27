@@ -60,6 +60,7 @@ export function createAnthropicProvider({ apiKey, model = 'claude-haiku-5-5', ti
         cachedTokens: Number(data?.usage?.cache_read_input_tokens) || 0,
         outputTokens: Number(data?.usage?.output_tokens) || 0,
         finishReason: data?.stop_reason || 'unknown',
+        ...((typeof data?.id === 'string' && data.id) || resp.headers?.get?.('request-id') ? { providerRequestId: (typeof data?.id === 'string' && data.id ? data.id : resp.headers.get('request-id')) } : {}),
         model: useModel
       };
     },

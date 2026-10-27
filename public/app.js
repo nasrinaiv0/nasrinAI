@@ -2386,6 +2386,8 @@
   let chatProject = null;  // { id, name }: the project the open chat belongs to (or a new chat will)
   let imageMode = false;
 
+
+
   function closePlus() {
     if (plusMenu.hidden) return;
     plusMenu.hidden = true;
@@ -2398,11 +2400,13 @@
     attachBtn.setAttribute('aria-expanded', 'true');
     $('pickFiles').focus();
   });
-  $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
-  $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
-  $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
-  document.addEventListener('pointerdown', (e) => { if (!plusMenu.hidden && !$('plusWrap').contains(e.target)) closePlus(); });
-  plusMenu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closePlus(); attachBtn.focus(); } });
+
+  // The Photos & files menu item must invoke the native picker directly in the
+  // click gesture; this is required by iOS Safari and avoids a dead + menu item.
+  $('pickFiles').addEventListener('click', () => {
+    closePlus();
+    fileInput.click();
+  });
 
   function setImageMode(on) {
     imageMode = on;
@@ -4000,6 +4004,37 @@
     };
   }
 
+  // Best-effort script detection happens on-device; no speech text is sent elsewhere.
+  // Latin-script languages use the selected preference or the browser's language.
+  function speechLanguageForText(text) {
+    const value = String(text || '');
+    const has = (re) => re.test(value);
+    if (has(/[\u3040-\u30ff]/)) return 'ja-JP';
+    if (has(/[\uac00-\ud7af]/)) return 'ko-KR';
+    if (has(/[\u0e00-\u0e7f]/)) return 'th-TH';
+    if (has(/[\u0e80-\u0eff]/)) return 'lo-LA';
+    if (has(/[\u1780-\u17ff]/)) return 'km-KH';
+    if (has(/[\u1000-\u109f]/)) return 'my-MM';
+    if (has(/[\u0d00-\u0d7f]/)) return 'ml-IN';
+    if (has(/[\u0c80-\u0cff]/)) return 'kn-IN';
+    if (has(/[\u0c00-\u0c7f]/)) return 'te-IN';
+    if (has(/[\u0b80-\u0bff]/)) return 'ta-IN';
+    if (has(/[\u0a80-\u0aff]/)) return 'gu-IN';
+    if (has(/[\u0a00-\u0a7f]/)) return 'pa-IN';
+    if (has(/[\u0980-\u09ff]/)) return 'bn-BD';
+    if (has(/[\u0900-\u097f]/)) return 'hi-IN';
+    if (has(/[\u0600-\u06ff]/)) return 'ar';
+    if (has(/[\u0590-\u05ff]/)) return 'he';
+    if (has(/[\u0400-\u04ff]/)) return 'ru';
+    if (has(/[\u0370-\u03ff]/)) return 'el';
+    if (has(/[\u0530-\u058f]/)) return 'hy';
+    if (has(/[\u10a0-\u10ff]/)) return 'ka';
+    if (has(/[\u4e00-\u9fff]/)) return 'zh';
+    const preferred = saved.get(KEYS.language);
+    if (preferred && preferred !== 'auto') return preferred;
+    return String(navigator.language || 'en');
+  }
+
   // The phone's own voice. Read sentence by sentence: some browsers stop long
   // utterances part-way, and the first words start sooner.
   function playDevice(text, voiceId, button) {
@@ -4007,7 +4042,17 @@
       const synth = window.speechSynthesis;
       synth.cancel();
       const uri = voiceId.slice('device:'.length);
-      const voiceObj = uri !== 'default' ? synth.getVoices().find((x) => x.voiceURI === uri) : null;
+      const voices = synth.getVoices();
+      const detectedLang = speechLanguageForText(text);
+      const langBase = detectedLang.toLowerCase().split('-')[0];
+      const preferredBase = languageBase();
+      const voiceObj = uri !== 'default'
+        ? voices.find((x) => x.voiceURI === uri)
+        : voices.find((x) => String(x.lang || '').toLowerCase() === detectedLang.toLowerCase()) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === langBase) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === preferredBase) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === String(navigator.language || 'en').toLowerCase().split('-')[0]) ||
+          null;
       const chunks = (window.NasrinFormat.plain(text).slice(0, 4000).match(/[^.!?\n]+[.!?]*\s*/g) || [text])
         .reduce((acc, s) => { if (acc.length && (acc[acc.length - 1] + s).length < 220) acc[acc.length - 1] += s; else acc.push(s); return acc; }, [])
         .map((c) => c.trim()).filter(Boolean);
@@ -4024,7 +4069,12 @@
       Nasrin.mood('speaking');
       chunks.forEach((c, i) => {
         const u = new SpeechSynthesisUtterance(c);
-        if (voiceObj) { u.voice = voiceObj; u.lang = voiceObj.lang; }
+        // Set the requested language even if this browser lacks a matching installed voice.
+        u.lang = detectedLang;
+        if (voiceObj) {
+          u.voice = voiceObj;
+          if (uri !== 'default') u.lang = voiceObj.lang || detectedLang;
+        }
         u.rate = speechRate;
         if (i === chunks.length - 1) { u.onend = finish; }
         u.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled') finish(); };
@@ -4838,14 +4888,16 @@
   });
 
   const PREVIEW = 'Hi, I’m Nasrin. This is how I sound.';
+  // The browser supplies installed voices and performs speech synthesis locally.
+  // Keep all matching voices available; devices can have many language packs.
   function deviceVoices() {
     if (!canDevice) return [];
     const lang = languageBase();
     const all = window.speechSynthesis.getVoices();
-    const mine = all.filter((v) => v.lang.toLowerCase().startsWith(lang));
-    const english = lang === 'en' ? [] : all.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const mine = all.filter((v) => String(v.lang || '').toLowerCase().startsWith(lang));
+    const english = lang === 'en' ? [] : all.filter((v) => String(v.lang || '').toLowerCase().startsWith('en'));
     const seen = new Set();
-    return mine.concat(english).filter((v) => !seen.has(v.voiceURI) && seen.add(v.voiceURI)).slice(0, 6);
+    return mine.concat(english).filter((v) => v.voiceURI && !seen.has(v.voiceURI) && seen.add(v.voiceURI));
   }
 
   function voiceRow(value, name, preview, { disabled = false, provider = '' } = {}) {
@@ -5271,12 +5323,19 @@
     $('termsCheck').focus();
   }
 
-  // A guest's first visit: the same sheet, once per browser (nothing is sent
-  // to the server; signed-in users' acceptance is recorded there).
-  function showFirstVisitNotice() {
-    if (account || saved.get(KEYS.notice)) return;
+  // Guest first visit: disclose improvement collection before chat and record
+  // an explicit, versioned acknowledgement against this server-issued guest session.
+  async function showFirstVisitNotice() {
+    if (account) return;
+    try { await credential(); } catch { return; }
+    const guestSession = saved.get(KEYS.session);
+    if (!guestSession?.token || saved.get(KEYS.notice) === guestSession.token) return;
     termsMethod = 'first_visit';
-    openTerms('Please read how NasrinAI works.', { canSignOut: false });
+    $('guestPrivacyNotice').hidden = false;
+    $('termsCheckCopy').textContent = 'I understand the Guest data notice and agree to the ';
+    $('termsGuestConsentCopy').hidden = true;
+    $('termsLater').textContent = 'Log in to manage privacy';
+    openTerms('Before you continue as a Guest', { canSignOut: true });
   }
 
   async function checkTerms(method = 'update_prompt') {
@@ -5296,10 +5355,23 @@
   $('termsAccept').addEventListener('click', async () => {
     $('termsAccept').disabled = true;
     if (termsMethod === 'first_visit') {
-      saved.set(KEYS.notice, true);
-      termsSheet.hidden = true;
-      scrim.hidden = true;
-      Nasrin.flash('happy', 1200);
+      try {
+        const current = await api('/v1/improvement-consent');
+        await api('/v1/improvement-consent', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true, version: current.version })
+        });
+        const guestSession = saved.get(KEYS.session);
+        if (guestSession?.token) saved.set(KEYS.notice, guestSession.token);
+        $('guestPrivacyNotice').hidden = true;
+        termsSheet.hidden = true;
+        scrim.hidden = true;
+        Nasrin.flash('happy', 1200);
+      } catch (err) {
+        $('termsStatus').textContent = err.message || 'We could not save the Guest privacy acknowledgement. Please retry or sign in.';
+        $('termsAccept').disabled = false;
+      }
       return;
     }
     try {
@@ -5315,9 +5387,18 @@
     }
   });
   $('termsLater').addEventListener('click', async () => {
+    const wasFirstVisit = termsMethod === 'first_visit';
     termsSheet.hidden = true;
     scrim.hidden = true;
-    try { await fetch('/v1/auth/sign-out', { method: 'POST', headers: { Authorization: 'Bearer ' + account.token } }); } catch { /* offline */ }
+    $('guestPrivacyNotice').hidden = true;
+    if (wasFirstVisit) {
+      $('termsCheckCopy').textContent = 'I agree to the ';
+      $('termsGuestConsentCopy').hidden = true;
+      $('termsLater').textContent = 'Sign out instead';
+      await openSignIn('Sign in to access your account privacy controls.');
+      return;
+    }
+    try { if (account) await fetch('/v1/auth/sign-out', { method: 'POST', headers: { Authorization: 'Bearer ' + account.token } }); } catch { /* offline */ }
     signedOut();
     switchIdentity();
   });
@@ -5405,10 +5486,12 @@
       improvementConsentVersion = result.version;
       improvementConsentValue = result.enabled === true;
       control.checked = improvementConsentValue;
-      control.disabled = false;
-      status.textContent = improvementConsentValue
-        ? 'Your optional preference is on. No chat content is currently collected for improvement.'
-        : 'Off by default. No chat content is currently collected for improvement.';
+      control.disabled = !account;
+      status.textContent = !account
+        ? 'Guest access requires this setting. Eligible prompts and replies may be screened and retained without a routine expiry to improve NasrinAI; applicable privacy rights still apply.'
+        : improvementConsentValue
+          ? 'Your improvement preference is on. Only eligible, screened examples are collected; this does not automatically train model weights.'
+          : 'Off. No signed-in conversation content is collected for improvement.';
     } catch (err) {
       improvementConsentVersion = null;
       improvementConsentValue = false;
@@ -6604,8 +6687,13 @@
     vc.state = state;
     voiceEl.dataset.state = state;
     voiceStatus.textContent = label;
-    // The orb stops Nasrin while she talks or thinks.
     voiceSkip.disabled = !(state === 'speaking' || state === 'thinking');
+    const share = $('voiceShareScreen');
+    if (share) {
+      share.disabled = !vc.on;
+      if (share.disabled && share.getAttribute('aria-pressed') !== 'true') share.title = 'Start realtime voice to share your screen';
+      else if (share.getAttribute('aria-pressed') !== 'true') share.title = 'Share screen';
+    }
     Nasrin.mood(MOODS[state] || 'idle');
   }
 
@@ -7101,27 +7189,18 @@
     document.body.classList.add('voice-open');
     keepAwake();
     $('voiceEnd').focus();
-    const realtime = await startRealtimeVoice();
-    if (!vc.on) return;
-    // Say which mode is on only once it is known.
-    if (realtime) voiceSay('hint', 'Realtime voice is on. Just talk naturally — you can interrupt Nasrin at any time.');
-    if (!realtime) {
-      // When an AI realtime voice is selected, fail clearly rather than
-      // silently switching to a separate STT/TTS cascade.
-      if (currentVoice().startsWith('ai:')) {
-        // Initial connection failures must use the same bounded retry path as
-        // dropped sessions; do not close the voice UI after the first failure.
-        scheduleRealtimeReconnect('Voice could not start. Retrying the connection…');
-        return;
-      }
-      voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
-      if (Recognition) listenVoice();
-      else closeVoice('Realtime voice could not start, and this browser has no voice fallback.');
-    }
+    // Use turn-based STT → NasrinAI orchestrator → TTS for the standard voice
+    // experience. This avoids keeping a provider-specific realtime socket open,
+    // which has repeatedly failed on iPhone Safari in production. The realtime
+    // transport remains in the code for a future opt-in after separate validation.
+    voiceSay('hint', 'Voice is ready. Talk naturally; Nasrin will answer aloud. Screen sharing is available where your browser supports it.');
+    if (Recognition) listenVoice();
+    else closeVoice('Speech recognition is not supported in this browser. Try a supported browser or use chat.');
   }
 
   function closeVoice(message) {
     if (!vc.on) return;
+    window.dispatchEvent(new CustomEvent('nasrinai:voice-ended'));
     vc.on = false;
     clearTimeout(vc.realtimeReconnectTimer);
     vc.realtimeReconnectTimer = null;
@@ -7147,6 +7226,57 @@
   }
 
   $('voiceEnd').addEventListener('click', () => closeVoice());
+  // Shared frames are transient and sent only to the active realtime provider.
+  window.addEventListener('nasrinai:voice-screen-frame', (event) => {
+    const frame = event.detail;
+    if (!vc.on || !frame?.data || frame.mimeType !== 'image/jpeg') return;
+    let delivered = false;
+    try {
+      if (vc.realtimeProvider === 'gemini') {
+        const ws = vc.geminiState?.ws;
+        if (ws?.readyState === WebSocket.OPEN && vc.geminiState?.ready) {
+          ws.send(JSON.stringify({ realtimeInput: { video: { mimeType: frame.mimeType, data: frame.data } } }));
+          delivered = true;
+        }
+      } else if (vc.realtimeProvider === 'openai') {
+        const channel = vc.realtimeEvents;
+        if (channel?.readyState === 'open') {
+          channel.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: { type: 'message', role: 'user', content: [{ type: 'input_image', image_url: 'data:' + frame.mimeType + ';base64,' + frame.data }] }
+          }));
+          delivered = true;
+        }
+      }
+    } catch { /* a transient frame failure must not interrupt voice audio */ }
+    if (!delivered && vc.on && !window.__nasrinScreenVisionPending && Date.now() - (window.__nasrinScreenVisionLast || 0) > 5000) {
+      window.__nasrinScreenVisionPending = true;
+      window.__nasrinScreenVisionLast = Date.now();
+      api('/v1/realtime/screen-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mimeType: frame.mimeType, data: frame.data })
+      }).then((result) => {
+        if (!vc.on || !result?.answer) return;
+        voiceSay('assistant', result.answer);
+        voiceStatus.textContent = 'Screen analyzed with OpenRouter vision.';
+      }).catch(() => {
+        /* Fallback is best-effort; keep voice available and avoid repeated error banners. */
+      }).finally(() => { window.__nasrinScreenVisionPending = false; });
+    }
+  });
+  window.addEventListener('nasrinai:voice-share-status', (event) => {
+    const { active, message } = event.detail || {};
+    const button = $('voiceShareScreen');
+    const label = $('voiceShareScreenLabel');
+    if (button) {
+      button.setAttribute('aria-pressed', String(Boolean(active)));
+      button.setAttribute('aria-label', active ? 'Stop sharing screen' : 'Share screen with NasrinAI');
+      button.title = active ? 'Stop sharing screen' : 'Share screen';
+    }
+    if (label) label.textContent = active ? 'Stop sharing' : 'Share screen';
+    if (vc.on && message) voiceStatus.textContent = message;
+  });
   voiceSkip.addEventListener('click', interruptVoice);
   voiceMute.addEventListener('click', () => {
     muteVoice(!vc.muted);
@@ -10149,8 +10279,8 @@
     .then(restoreAccount)
     // A failure restoring the sign-in must not skip the tier catalog below.
     .catch((err) => { console.error('NasrinAI start-up: restoring sign-in failed', err); })
-    .then(() => {
-      showFirstVisitNotice();
+    .then(async () => {
+      await showFirstVisitNotice();
       // A repeated Google answer can report a failure after the sign-in worked: only show it when signed out.
       if (signinResult === 'failed' && !account) openSignIn('Google sign-in did not finish. Please try again.');
       // Load both catalogs before revealing the toolbar so its controls do not

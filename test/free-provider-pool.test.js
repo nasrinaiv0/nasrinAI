@@ -24,7 +24,7 @@ test('free provider pool enables only keyed providers with pinned models', () =>
   assert.equal(config.ai.freeProviders.length, 1);
   assert.equal(config.ai.freeProviders[0].id, 'groq');
   assert.ok(!Object.values(config.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'), 'free-tier providers stay out of normal routing levels');
-  assert.ok(config.ai.fallback.providers.includes('groq'));
+  assert.ok(!config.ai.fallback.providers.includes('groq'), 'direct free providers are not generic cross-tier fallbacks');
   assert.ok(providerFromConfig(config, { logger: quiet }).providerIds.includes('groq'));
 });
 
