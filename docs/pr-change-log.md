@@ -1,3 +1,9 @@
+## Fix: realtime voice could not start (CSP) — 2026-10-27
+
+- The page policy's `connect-src` did not allow the browser to reach the realtime voice providers, so "Voice could not start. Retrying the connection…" looped. Added `https://api.openai.com` (WebRTC call) and `wss://generativelanguage.googleapis.com` (Gemini Live) to `PAGE_CSP` in `src/http/headers.js` and the matching header in `vercel.json`. No wildcard added.
+- Test: `test/realtime-voice-csp.test.js`. No migration, env or legal change.
+- Not verified live: a real voice session needs the owner's provider keys on the deployed site.
+
 ## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
 
 - Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).
