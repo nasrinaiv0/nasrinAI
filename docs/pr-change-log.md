@@ -1,3 +1,9 @@
+## Fix: Google plugins never reached the chat model — 2026-10-27
+
+- Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
+- Test in `test/skill-routing.test.js`. No migration, env or legal change.
+- Separate owner step: Google sign-in `redirect_uri_mismatch` needs `https://nasrinai.com/v1/google/callback` added in Google Cloud. Not verified live.
+
 ## Fix: realtime voice could not start (CSP) — 2026-10-27
 
 - The page policy's `connect-src` did not allow the browser to reach the realtime voice providers, so "Voice could not start. Retrying the connection…" looped. Added `https://api.openai.com` (WebRTC call) and `wss://generativelanguage.googleapis.com` (Gemini Live) to `PAGE_CSP` in `src/http/headers.js` and the matching header in `vercel.json`. No wildcard added.

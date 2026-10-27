@@ -28,6 +28,9 @@ import { estimateProviderRequestCost, PROVIDER_PRICING_VERSION } from './ai/prov
 // (numbers, units, time or date words), so most messages cost nothing extra.
 // GitHub repositories (src/github): read with tools, not the web search.
 const GITHUB_ASK = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|\b(github|repo|repository|repositories)\b/i;
+// Google apps (src/google): Gmail, Calendar, Drive, Meet, Keep. Without this the message never offers the Google tools,
+// and the model wrongly says it has no access even when the account is connected.
+export const GOOGLE_ASK = /\b(gmail|inbox|(my|your|unread|new|latest|recent|the)\s+e-?mails?|(send|write|draft|reply\s+to|forward)\s+(an?\s+|the\s+)?e-?mails?|e-?mails?\s+(from|to|about)|calendar|google\s*(mail|calendar|drive|docs?|sheets?|meet|keep|account)|meetings?|my\s+(drive|events?|schedule|notes?)|meet\s+(link|call)|meeting\s+(link|space)|keep\s+notes?)\b/i;
 export const MAY_NEED_TOOLS = /\d|\b(time|date|today|tomorrow|yesterday|day|week|month|convert|unit|extract|extraction|crop|cropping|segment|segmentation|remove background|transparent background|background removal|resize|rotate|compress|compression|transcribe|transcription|speech to text|ocr|optical character recognition|scan|scanned|video frame|extract frames|audio|video|image|picture|logo|logos|edit image|edit photo|file format|legacy format|\.doc\b|\.xls\b|\.ppt\b|convert file|inspect file|read file|unpack|decompress|archive|celsius|fahrenheit|kelvin|kg|kilos?|lbs?|pounds?|ounces?|km|miles?|feet|foot|inch(es)?|meters?|litres?|liters?|gallons?|cups?|calculate|compute|check|verify|find|search|look up|lookup|availability|status|order|booking|book|schedule|appointment|track|shipping|delivery|price|quote|inventory|weather|forecast|remember|recall|forget|tandaan|alalahanin|oras|petsa|ngayon|bukas|kahapon|araw|semana|presyo|reserba)\b/i;
 export const MAX_TOOL_ROUNDS = 4;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
@@ -415,7 +418,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       }
       // Guest learning follows the first-use acknowledgement; signed-in learning remains preference-gated. Capture stays filtered, bounded, and failure-isolated.
       if (communityLearning && choice.tier === 'nasrinai') {
-        await communityLearning.capture({ caller, question: typed, answer: reply, eligible: !files.length && !codeFile && !codingChat && !webSources.length && !MAY_NEED_TOOLS.test(typed) && !GITHUB_ASK.test(typed) });
+        await communityLearning.capture({ caller, question: typed, answer: reply, eligible: !files.length && !codeFile && !codingChat && !webSources.length && !MAY_NEED_TOOLS.test(typed) && !GITHUB_ASK.test(typed) && !GOOGLE_ASK.test(typed) });
       }
       return { conversation_id: conv.id, user_message_id: userMessage.id, model: choice.tier, message: publicMessage(assistant), response_metadata: responseMetadata, ...(codeFile ? { code_file: { id: codeFile.id, title: codeFile.title, hidden_lines: codeFile.masked } } : {}), professionals: pro ? pro.active : [], ...(fromLibrary.length ? { library: fromLibrary } : {}), ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(pending ? { pending_action: pending } : {}) };
     };
@@ -615,7 +618,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       }
       return null;
     }
-    if (webAllowed() && needsWeb(typed) && !(tools && GITHUB_ASK.test(typed))) {
+    if (webAllowed() && needsWeb(typed) && !(tools && (GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed)))) {
       const found = await webAnswer();
       if (found) return finish(found);
     }
@@ -623,7 +626,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (smart) {
       // The tools this caller may use, when the message may need one.
       // `tools` is a registry, or a toolbox giving each business its own (connectors).
-      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || codingChat) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
+      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || codingChat) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
       const toolSpecs = reg ? reg.specsFor(caller) : [];
       // A first, public, simple question asked before may be answered from
       // cache (never when tools are offered: their answers change, like time).
