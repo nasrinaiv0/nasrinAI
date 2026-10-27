@@ -105,6 +105,7 @@ export function createGoogleSearchAnalytics({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           dateRanges: [{ startDate, endDate }],
+          metricAggregations: ['TOTAL'],
           dimensions: [{ name: 'pagePath' }],
           metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'newUsers' }, { name: 'screenPageViews' }, { name: 'engagementRate' }],
           orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
