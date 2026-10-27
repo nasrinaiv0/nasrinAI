@@ -99,3 +99,21 @@ only bounded JPEG base64 frames, and never stores screenshots. Set
 default is `google/gemini-3-flash-preview`. This is screenshot analysis only,
 not a realtime audio or continuous video transport. Fallback calls are throttled
 to at most one every five seconds in the browser.
+
+
+## Turn-based STT + TTS voice mode (2026-10-27)
+
+The default voice screen now uses browser speech recognition for STT, the existing
+NasrinAI chat orchestrator for responses, and the existing authenticated
+`/v1/speech` pipeline for spoken output. It no longer opens Gemini Live or
+OpenAI Realtime when the user starts a standard voice conversation, avoiding
+the persistent realtime session that was repeatedly reconnecting in production.
+Realtime transport code remains available for a future opt-in, but is not the
+default path.
+
+Screen sharing remains user-initiated through the browser's native
+`getDisplayMedia()` picker. Frames are downscaled and sent transiently to the
+existing authenticated vision endpoint at most once every five seconds when no
+realtime transport is active. Screenshots are not persisted. Browser support is
+required; iPhone Safari may not expose `getDisplayMedia()`, in which case the
+UI reports that screen sharing is unavailable instead of implying it is active.
