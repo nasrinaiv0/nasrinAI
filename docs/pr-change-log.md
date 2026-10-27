@@ -4,6 +4,12 @@
 - Page (`public/app.js`): if the start-up status check said the AI was unavailable, sending re-checks status first instead of refusing.
 - Tests in `test/routing.test.js` (both fail without the change). An unlucky request can now make up to 2 extra model calls. No migration, env or legal change. Not verified against live providers.
 
+## Fix: voice could not read the shared screen — 2026-10-27
+
+- In compatibility voice the shared screen frame was never tied to the spoken question, so Nasrin said it could not see the screen. Each question now sends the newest in-memory frame (under 30 s old) with the question to `/v1/realtime/screen-analyze`; the description is passed as a transient, never-saved `screen_context` for that turn (`src/chat.js`, `public/app.js`). The unprompted timed description now runs only in realtime mode.
+- Privacy notice gets a screen-sharing line; `LEGAL_PRIVACY_VERSION` default is now 2026-10-28 (people see it again). Test: `test/voice-screen-context.test.js`.
+- A screen question in voice now uses two message allowances (describe + answer). Not verified live: needs `OPENROUTER_VOICE_VISION_MODEL` or the default vision model on the deployed site.
+
 ## Fix: Google plugins never reached the chat model — 2026-10-27
 
 - Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
@@ -2747,3 +2753,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a server-only service-account JWT adapter using read-only Google Analytics Data API and Search Console API scopes. Missing configuration returns an explicit setup-required state; source errors are kept separate and no credentials/tokens are sent to the browser.
 - Add focused tests for missing configuration and supported date-window behavior, plus setup/permission documentation.
 - **Validation:** Pending GitHub Actions CI on this branch. Production configuration, Google property permissions, merge, and deployment have not been performed. The live panel will remain setup-required until the three documented server-only environment variables are configured and Google permissions are verified.
+
+
+## fix/video-preview-authenticated-mp4 — load chat video through the authenticated client (2026-10-27)
+
+- Root cause: the inline player assigned the owner-protected `/v1/videos/:id/content` route directly to native `<video>` and download links. Native media/navigation requests do not carry the app's JavaScript-managed Bearer token, so the endpoint could return an unauthenticated JSON response instead of MP4 bytes; Safari then showed a black preview.
+- Fetch the MP4 through the authenticated API client, including its one-time session refresh on HTTP 401, and use a Blob URL for inline playback and download. Keep server-side ownership checks intact; do not make video content public.
+- Add regression assertions for authenticated binary retrieval, 401 retry, Blob URL playback and avoiding direct protected URLs in the native player.
+- Validation boundary: CI must pass on this PR. A fresh production video and Safari/iPhone playback still need to be verified after deployment; OpenRouter's completed status alone does not prove client delivery.

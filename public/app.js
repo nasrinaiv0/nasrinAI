@@ -181,7 +181,7 @@
   let aiAvailable = true;
   let listening = false;
   // Hands-free voice conversation (see "talking with Nasrin" below).
-  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, realtimeReconnectTimer: null, realtimeRetryCount: 0, geminiState: null, audioCtx: null, audioEl: null };
+  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, realtimeReconnectTimer: null, realtimeRetryCount: 0, geminiState: null, audioCtx: null, audioEl: null, sharing: false, screenFrame: null };
 
   // ---------- the character ----------
 
@@ -859,6 +859,21 @@
     if (resp.status === 401 && !retried) return api(path, options, true);   // session ended: start a new one once
     if (!resp.ok) throw await errorFrom(resp);
     return resp.status === 204 ? null : resp.json();
+  }
+
+  // Native video requests cannot attach the app's JavaScript-managed Bearer token.
+  // Fetch protected media through the authenticated client, which can refresh
+  // an expired session, then use a same-page Blob URL for Safari playback.
+  async function apiBlob(path, retried = false) {
+    const token = await credential(retried);
+    const resp = await net(path, { headers: { Authorization: 'Bearer ' + token } });
+    if (resp.status === 401 && !retried) return apiBlob(path, true);
+    if (!resp.ok) throw await errorFrom(resp);
+    const blob = await resp.blob();
+    if (!blob.size) throw new Error('The generated video file was empty.');
+    const type = String(resp.headers.get('content-type') || blob.type || '').toLowerCase();
+    if (type && !type.includes('video/') && !type.includes('application/octet-stream')) throw new Error('The video endpoint did not return an MP4 file. Please refresh and try again.');
+    return blob;
   }
 
   // ---------- the conversation on screen ----------
@@ -3078,35 +3093,75 @@
           note.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
           const downloadLink = document.createElement('a');
           downloadLink.className = 'btn small';
-          downloadLink.href = state.download;
-          downloadLink.download = '';
+          downloadLink.download = 'nasrinai-video-' + id + '.mp4';
           downloadLink.textContent = 'Download MP4';
-          // Show the video itself in the chat, not just a link. The content
-          // endpoint checks ownership of the job.
+          downloadLink.setAttribute('aria-disabled', 'true');
+          downloadLink.style.opacity = '0.6';
+          downloadLink.style.pointerEvents = 'none';
+          box.appendChild(downloadLink);
+
+          // A native media element does not send our Bearer token. Fetch the
+          // owner-checked MP4 with session-refresh logic, then use a Blob URL for
+          // preview and download. This keeps protected video content private.
           if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
-            const preview = document.createElement('video');
-            preview.className = 'generated-video-preview';
-            preview.controls = true;
-            preview.playsInline = true;
-            preview.preload = 'metadata';
-            preview.setAttribute('aria-label', 'Generated video preview');
-            preview.style.display = 'block';
-            preview.style.width = '100%';
-            preview.style.maxWidth = '640px';
-            preview.style.maxHeight = '70vh';
-            preview.style.marginTop = '12px';
-            preview.style.borderRadius = '14px';
-            preview.style.background = '#000';
-            preview.src = state.download;
-            preview.addEventListener('error', () => {
+            try {
+              const blob = await apiBlob(state.download);
+              if (!box.isConnected) return;
+              const mediaUrl = URL.createObjectURL(blob);
+              const preview = document.createElement('video');
+              preview.className = 'generated-video-preview';
+              preview.controls = true;
+              preview.playsInline = true;
+              preview.preload = 'metadata';
+              preview.setAttribute('aria-label', 'Generated video preview');
+              preview.style.display = 'block';
+              preview.style.width = '100%';
+              preview.style.maxWidth = '640px';
+              preview.style.maxHeight = '70vh';
+              preview.style.marginTop = '12px';
+              preview.style.borderRadius = '14px';
+              preview.style.background = '#000';
+              preview.src = mediaUrl;
+              preview.addEventListener('error', () => {
+                const warning = document.createElement('p');
+                warning.className = 'msg-meta generated-video-preview-warning';
+                warning.textContent = 'The MP4 was retrieved, but this browser could not play its preview. Use Download MP4 to save it.';
+                if (box.isConnected && !box.querySelector('.generated-video-preview-warning')) box.insertBefore(warning, downloadLink);
+              }, { once: true });
+              downloadLink.href = mediaUrl;
+              downloadLink.removeAttribute('aria-disabled');
+              downloadLink.style.opacity = '';
+              downloadLink.style.pointerEvents = '';
+              box.insertBefore(preview, downloadLink);
+              box.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(mediaUrl), { once: true });
+            } catch (err) {
+              if (!box.isConnected) return;
               const warning = document.createElement('p');
               warning.className = 'msg-meta';
-              warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
+              warning.textContent = err?.message || 'The video is ready, but NasrinAI could not retrieve its MP4. Please sign in again and reopen this chat.';
               box.insertBefore(warning, downloadLink);
-            }, { once: true });
-            box.appendChild(preview);
+              downloadLink.textContent = 'Retry video download';
+              downloadLink.removeAttribute('aria-disabled');
+              downloadLink.style.opacity = '';
+              downloadLink.style.pointerEvents = '';
+              downloadLink.href = '#';
+              downloadLink.addEventListener('click', async (event) => {
+                event.preventDefault();
+                downloadLink.textContent = 'Retrieving MP4…';
+                try {
+                  const retryBlob = await apiBlob(state.download);
+                  const retryUrl = URL.createObjectURL(retryBlob);
+                  downloadLink.href = retryUrl;
+                  downloadLink.download = 'nasrinai-video-' + id + '.mp4';
+                  downloadLink.textContent = 'Download MP4';
+                  downloadLink.removeAttribute('aria-disabled');
+                  downloadLink.style.pointerEvents = '';
+                } catch (retryErr) {
+                  downloadLink.textContent = retryErr?.message || 'Could not retrieve MP4. Please sign in again.';
+                }
+              }, { once: true });
+            }
           }
-          box.appendChild(downloadLink);
           if (box.dataset.waited) deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
           scrollToEnd(box);
           return;
@@ -3397,7 +3452,7 @@
   // speakVoice: a natural voice id; the server then sends the reply as speech while it is written (onAudio).
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
-  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null, screenContext = null }) {
     const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
     if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
       // Lock the composer before awaiting consent so a second submit cannot
@@ -3454,6 +3509,7 @@
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
       ...(locationContext ? { location_context: locationContext } : {}),
+      ...(spoken && screenContext ? { screen_context: screenContext } : {}),
       ...(codingProject ? { coding: true, ...(saved.get(KEYS.coding + ':repo:' + codingProject.id) ? { repo: saved.get(KEYS.coding + ':repo:' + codingProject.id) } : {}) } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
@@ -6902,8 +6958,22 @@
     const voice = currentVoice();
     const natural = voice.startsWith('ai:') && speech.available && Boolean(AudioCtx);
     watchForInterrupt(run, () => raw);
+    // Sharing the screen: describe the newest picture for this one question (not stored).
+    let screenContext = null;
+    const frame = vc.sharing && vc.screenFrame && Date.now() - vc.screenFrame.at < 30000 ? vc.screenFrame : null;
+    if (frame) {
+      voiceState('thinking', 'Looking at your screen…');
+      try {
+        const seen = await api('/v1/realtime/screen-analyze', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mimeType: 'image/jpeg', data: frame.data, question: said.slice(0, 500) })
+        });
+        screenContext = typeof seen?.answer === 'string' ? seen.answer : null;
+      } catch { /* answer normally if the screen could not be read */ }
+      if (!vc.on || run !== vc.run) return;
+    }
     const result = await runTurn({
-      text: said, spoken: true,
+      text: said, spoken: true, screenContext,
       speakVoice: natural ? voice.slice(3) : null,
       onPiece: (piece) => {
         // Another model took over: what was said so far is dropped.
@@ -7204,6 +7274,7 @@
     if (!vc.on) return;
     window.dispatchEvent(new CustomEvent('nasrinai:voice-ended'));
     vc.on = false;
+    vc.sharing = false; vc.screenFrame = null;
     clearTimeout(vc.realtimeReconnectTimer);
     vc.realtimeReconnectTimer = null;
     vc.realtimeRetryCount = 0;
@@ -7232,6 +7303,8 @@
   window.addEventListener('nasrinai:voice-screen-frame', (event) => {
     const frame = event.detail;
     if (!vc.on || !frame?.data || frame.mimeType !== 'image/jpeg') return;
+    // Kept in memory only: the next spoken question is answered with a description of it.
+    vc.screenFrame = { data: frame.data, at: Date.now() };
     let delivered = false;
     try {
       if (vc.realtimeProvider === 'gemini') {
@@ -7251,7 +7324,7 @@
         }
       }
     } catch { /* a transient frame failure must not interrupt voice audio */ }
-    if (!delivered && vc.on && !window.__nasrinScreenVisionPending && Date.now() - (window.__nasrinScreenVisionLast || 0) > 5000) {
+    if (!delivered && vc.on && vc.realtime && !window.__nasrinScreenVisionPending && Date.now() - (window.__nasrinScreenVisionLast || 0) > 5000) {
       window.__nasrinScreenVisionPending = true;
       window.__nasrinScreenVisionLast = Date.now();
       api('/v1/realtime/screen-analyze', {
@@ -7269,6 +7342,8 @@
   });
   window.addEventListener('nasrinai:voice-share-status', (event) => {
     const { active, message } = event.detail || {};
+    vc.sharing = Boolean(active);
+    if (!active) vc.screenFrame = null;
     const button = $('voiceShareScreen');
     const label = $('voiceShareScreenLabel');
     if (button) {

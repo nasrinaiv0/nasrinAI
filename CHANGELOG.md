@@ -1,3 +1,6 @@
+## Fixed
+- Chat-generated MP4 preview/download now retrieves protected video bytes with the authenticated client and refreshes an expired session once before creating a browser Blob URL.
+
 ## Direct-provider cost reconciliation — 2026-10-26
 
 - Add optional, owner-only OpenAI organization Costs API and Anthropic Cost Report API integrations for aggregate billed-spend reconciliation.
