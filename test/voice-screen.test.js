@@ -45,7 +45,9 @@ test('voice script: no speed control, orb stops talking, realtime lines join up'
   assert.match(js, /x\.classList\.remove\('is-realtime','is-live'\)/);
   assert.match(js, /last\.classList\.remove\('is-realtime', 'is-live'\)/);
   // The "Realtime voice is on" line only appears once realtime has started.
-  assert.match(js, /if \(realtime\) voiceSay\('hint', 'Realtime voice is on/);
+  assert.match(js, /Use turn-based STT → NasrinAI orchestrator → TTS for the standard voice/);
+  assert.match(js, /if \(Recognition\) listenVoice\(\);/);
+  assert.doesNotMatch(js, /When an AI realtime voice is selected, fail clearly rather than/);
   // WebRTC must gather ICE candidates before posting SDP to the Realtime API.
   assert.match(js, /iceServers:\s*\[\{\s*urls:\s*'stun:stun\.l\.google\.com:19302'/);
   assert.match(js, /pc\.iceGatheringState !== 'complete'/);
