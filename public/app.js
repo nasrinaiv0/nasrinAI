@@ -2401,6 +2401,13 @@
     $('pickFiles').focus();
   });
 
+  // The Photos & files menu item must invoke the native picker directly in the
+  // click gesture; this is required by iOS Safari and avoids a dead + menu item.
+  $('pickFiles').addEventListener('click', () => {
+    closePlus();
+    fileInput.click();
+  });
+
   function setImageMode(on) {
     imageMode = on;
     modeChip.hidden = !on;
