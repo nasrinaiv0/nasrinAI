@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- Add user-approved screen sharing to Realtime Voice with transient, downscaled visual frames, stop-sharing cleanup, and borderless frosted-glass controls over a subtle full-screen dotted background.
+
 - Quick Free uses GPT-6 Luna as a main model for heavy, scraping, web and file requests (free models first for simple chat); Quick Paid never uses free models; optional paid web-search model for paid plans.
 - Route Quick Free and paid Quick file extraction and document interpretation through GPT-6 Luna as a first-class task-specific model route, with regression coverage.
 
@@ -68,6 +70,7 @@
 ## Auto provider default and OpenRouter fallback — 2026-10-26
 
 - Restore the agreed production routing contract: `AI_PROVIDER=auto` is the documented production default and is also selected automatically for production when provider credentials exist but the variable is omitted. Unconfigured local/test environments remain safely disabled.
+- Quick routing policy: free Quick prioritizes OpenRouter `:free` models, reserves GPT-6 Luna for heavy tasks after free candidates, and uses allowlisted direct free providers as fallback; paid Quick uses only non-free OpenRouter candidates.
 - In Auto mode, prefer configured direct providers instead of injecting OpenRouter ahead of every route. Keep OpenRouter available as an additional fallback when independent direct providers are configured.
 - Fix Quick fallback ordering so explicitly allowlisted direct free-provider candidates are actually appended and tried before OpenRouter free models; retain the approved Luna emergency route and all tier/privacy/capability restrictions.
 - Add regression coverage and update routing/deployment documentation. No production environment variables, merge, or deployment are changed by this PR.
