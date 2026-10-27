@@ -1,3 +1,10 @@
+## Fix: "latest video" answers were invented and the player showed an old video — 2026-10-28
+
+- `src/web/youtube.js`: a "<channel> latest/newest video" request now finds the channel, reads its uploads list newest-first (about 103 quota units, not a relevance search), and reports the real newest upload even if it cannot be embedded. Without a clear channel the search is ordered by date, not popularity. Short in-memory caches (5 min results, 24 h channels) protect the daily YouTube quota.
+- `src/chat.js`: such a question is answered straight from that data (title, link, date) with no model call; if the channel is not found it says so instead of guessing. `src/main.js` passes the same YouTube client to chat and the routes.
+- `public/app.js`: heading "Latest videos"; no older player is shown if the true newest video cannot be embedded.
+- Tests: `test/youtube-latest.test.js`. No migration, env or legal change. Needs `YOUTUBE_DATA_API_KEY`; not verified against the live YouTube API.
+
 ## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
 
 - Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.

@@ -4361,7 +4361,8 @@
   function youtubeResultsHeading(query) {
     const q = String(query || '');
     if (/\b(?:directions?|navigate|route|walking|driving|from here to|how to get to|how do i get to)\b/i.test(q)) return 'Related video guides';
-    if (/\b(?:trending|trends|viral|popular|top|latest)\b/i.test(q)) return 'Trending videos';
+    if (/\b(?:latest|newest|most recent|recent)\b/i.test(q)) return 'Latest videos';
+    if (/\b(?:trending|trends|viral|popular|top)\b/i.test(q)) return 'Trending videos';
     if (/\b(?:tutorial|walkthrough|step[- ]by[- ]step|show me how|teach me how|how (?:do i|to|do|does|can i|can you)|learn how to|demonstration)\b/i.test(q)) return 'Video tutorials';
     return 'Videos';
   }
@@ -4487,6 +4488,9 @@
           if (response.ok) {
             const data = await response.json();
             videos = Array.isArray(data.videos) ? data.videos.slice(0, 3) : [];
+            // "Latest": never show older videos as if they were the newest. If the real newest upload
+            // cannot be embedded, the answer links to it and no player is shown.
+            if (data.latest && data.newest && !videos.some((v) => v.id === data.newest.id)) videos = [];
           }
         }
       } catch {

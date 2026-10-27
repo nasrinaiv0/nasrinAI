@@ -7,6 +7,7 @@ import { publicMessage, isPastIntent, isConversationMeta } from './conversations
 import { attachmentNote } from './attachments.js';
 import { parseAttachmentsWithOfficeParser } from './ai/document-parser.js';
 import { answerWithLogic } from './ai/logic.js';
+import { youtubeIntent } from './web/youtube.js';
 import { readLink, linksIn, crawlSite } from './web/read-link.js';
 import { needsWeb, GAP } from './web/search.js';
 import { estimateTokens } from './ai/token-estimate.js';
@@ -140,7 +141,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, youtubeSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
     const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
@@ -443,6 +444,21 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       if (logic) {
         await recordUsage(caller, { provider: 'logic', model: 'rules', outcome: 'ok', task: logic.kind, level: 0, costUsd: 0 });
         return finish(logic.text);
+      }
+    }
+    // "<channel> latest video": answered from YouTube's own newest-upload data, never from the
+    // model's memory (it names old videos as "the latest" and invents links).
+    if (!regenerate && !files.length && !only && youtubeSearch?.available && typed && typed.length <= 160) {
+      const yt = youtubeIntent(typed);
+      if (yt.latest && yt.name) {
+        const found = await youtubeSearch.search(typed).catch(() => null);
+        const video = found?.newest || null;
+        const reply = video
+          ? 'The latest video on **' + String(video.channelTitle || found.channel || yt.name).replace(/[*_`\[\]<>]/g, '') + '** is [' + String(video.title).replace(/[\[\]<>]/g, '') + '](<' + video.watchUrl + '>)'
+            + (video.publishedAt ? ', published ' + new Date(video.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) + '.' : '.')
+          : 'I could not find a channel called "' + yt.name.replace(/[*_`\[\]<>]/g, '') + '" or load its newest video from YouTube right now, so I won’t guess. You can check directly: [YouTube search](<https://www.youtube.com/results?search_query=' + encodeURIComponent(yt.name + ' latest video') + '>)';
+        await recordUsage(caller, { provider: 'youtube', model: 'data-api', outcome: 'ok', task: 'video_lookup', level: 0, costUsd: 0 });
+        return finish(reply);
       }
     }
     // Asking for a file or a long document needs room: the reply may use more tokens than usual.
