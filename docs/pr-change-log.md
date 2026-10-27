@@ -1,3 +1,11 @@
+## Draft PR — Autonomous Development Engine lessons from The Door (2026-10-28)
+
+- **Request:** learn from `Zujiin01/mobile-server-connection` and document an independent NasrinAI development-engine proposal.
+- **Change:** added `docs/drafts/autonomous-development-engine-door-research.md` covering scoped tools, workspace confinement, risk plans, audit events, revocable credentials, bounded isolated jobs, test-enforced reporting, GitHub draft PR flow, Vercel verification, security tests, phased implementation, and acceptance criteria.
+- **Architecture alignment:** the proposal builds on `docs/nasrinai-autonomous-coding-engine-upgrade.md` and `docs/architecture/secure-workspace.md`; it recommends auditing/extending the existing isolated GitHub coding runner rather than introducing a duplicate shell service.
+- **License boundary:** the reference repository uses PolyForm Noncommercial 1.0.0. No source code was copied; commercial reuse requires written permission.
+- **Validation:** documentation-only change. No runtime tests were run for this documentation draft; no runtime code, secrets, environment variables, database, Vercel settings, production deployment, or merge changed. Required CI must run on this PR before it is considered ready.
+
 ## Fix: voice could not read the shared screen — 2026-10-27
 
 - In compatibility voice the shared screen frame was never tied to the spoken question, so Nasrin said it could not see the screen. Each question now sends the newest in-memory frame (under 30 s old) with the question to `/v1/realtime/screen-analyze`; the description is passed as a transient, never-saved `screen_context` for that turn (`src/chat.js`, `public/app.js`). The unprompted timed description now runs only in realtime mode.
