@@ -1,3 +1,9 @@
+## Fix: Google plugins never reached the chat model — 2026-10-27
+
+- Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
+- Test in `test/skill-routing.test.js`. No migration, env or legal change.
+- Separate owner step: Google sign-in `redirect_uri_mismatch` needs `https://nasrinai.com/v1/google/callback` added in Google Cloud. Not verified live.
+
 ## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
 
 - Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).
