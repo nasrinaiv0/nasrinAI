@@ -136,6 +136,9 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       const heavyQuickTask = plan.tier === 'nasrinai' && plan.paidQuick !== true;
       let lastFailed = null;   // { spec, level } of a retryable failure, for one same-model retry
       let sameRetried = false;
+      let ignoreCooldowns = false;   // set once when every candidate is cooling down: try them anyway rather than fail
+      let emptyFailovers = 0;        // empty or cut-off answers that moved on to another model
+      let lastEmpty = null;          // the last empty answer, returned only if no other model is left
       // Live catalog candidates extend paid-tier routing without changing the
       // Quick/guest allowlist. Failure to read the catalog must not block static
       // configured routes.
@@ -290,7 +293,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             const k = `${s.provider}:${s.model}:${s.effort}`;
             if (tried.has(k)) continue;
             const cooldownUntil = failureCooldowns.get(k) || 0;
-            if (cooldownUntil > now()) { why.push(`${s.provider}:${s.model} (temporarily cooling down after a provider outage)`); continue; }
+            if (cooldownUntil > now() && !ignoreCooldowns) { why.push(`${s.provider}:${s.model} (temporarily cooling down after a provider outage)`); continue; }
             if (cooldownUntil) failureCooldowns.delete(k);
             if (excluded.has(`${s.provider}:${s.model}`)) { why.push(`${s.provider}:${s.model} (already used in this planning council)`); continue; }
             const b = blocker(s, {
@@ -310,7 +313,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             minOut: minTokens, reqToolsCount: Array.isArray(req.tools) ? req.tools.length : 0,
             tier: plan.tier, task: plan.task
           });
-          if (!b && cooldownUntil <= now() && !excluded.has('openrouter:openai/gpt-6-luna')) {
+          if (!b && (cooldownUntil <= now() || ignoreCooldowns) && !excluded.has('openrouter:openai/gpt-6-luna')) {
             spec = candidate;
             at = quickLunaFallback.level;
           }
@@ -323,6 +326,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           logger.info('retrying the same model once', { provider: spec.provider, waitMs: retryWaitMs });
           await sleep(retryWaitMs);
         }
+        // Nothing is usable only because earlier failures put every model on cooldown:
+        // one brief outage must not lock people out for minutes, so try them anyway.
+        if (!spec && !ignoreCooldowns && why.some((w) => /cooling down/.test(w))) {
+          ignoreCooldowns = true;
+          logger.info('all candidates cooling down; trying them anyway');
+          continue;
+        }
+        if (!spec && lastEmpty) return lastEmpty;
         if (!spec) {
           logger.warn('no model can take this request', { level, reasons: why });
           if (why.length && why.every((w) => /cannot (read|see)/.test(w))) {
@@ -380,7 +391,20 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           if (valid) return { result, spec: actualSpec, level: at, escalated: escalations > 0, costUsd, cachedTokens, reservationId: reservation?.id || null, spendReservationId: result.spendReservationId || null };
           await onFailure({ spec: actualSpec, level: at, result, costUsd, latencyMs: now() - started, outcome: 'rejected_output', escalated: escalations > 0, reservationId: reservation?.id || null, spendReservationId: result.spendReservationId || null });
           // Escalate one level when the answer was empty or cut off.
-          if (escalations >= r.maxEscalations || at >= plan.ceiling || left.unknown) return { result, spec: actualSpec, level: at, escalated: escalations > 0, costUsd, cachedTokens, reservationId: reservation?.id || null };
+          if (escalations >= r.maxEscalations || at >= plan.ceiling || left.unknown) {
+            const giveUp = { result, spec: actualSpec, level: at, escalated: escalations > 0, costUsd, cachedTokens, reservationId: reservation?.id || null };
+            // An empty answer is usually a one-off from that model: ask the next one before giving up.
+            if (!left.unknown && emptyFailovers < 2) {
+              emptyFailovers += 1;
+              lastEmpty = giveUp;
+              tried.add(`${spec.provider}:${spec.model}:${spec.effort}`);
+              tried.add(`${actualSpec.provider}:${actualSpec.model}:${actualSpec.effort}`);
+              logger.info('empty answer; trying the next model', { provider: actualSpec.provider });
+              level = at;
+              continue;
+            }
+            return giveUp;
+          }
           escalations += 1;
           level = at + 1;
           left = { usd: Infinity, limitedBy: null, unknown: false };

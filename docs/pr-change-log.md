@@ -1,3 +1,9 @@
+## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
+
+- Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.
+- Page (`public/app.js`): if the start-up status check said the AI was unavailable, sending re-checks status first instead of refusing.
+- Tests in `test/routing.test.js` (both fail without the change). An unlucky request can now make up to 2 extra model calls. No migration, env or legal change. Not verified against live providers.
+
 ## Fix: voice could not read the shared screen — 2026-10-27
 
 - In compatibility voice the shared screen frame was never tied to the spoken question, so Nasrin said it could not see the screen. Each question now sends the newest in-memory frame (under 30 s old) with the question to `/v1/realtime/screen-analyze`; the description is passed as a transient, never-saved `screen_context` for that turn (`src/chat.js`, `public/app.js`). The unprompted timed description now runs only in realtime mode.

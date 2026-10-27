@@ -3340,6 +3340,8 @@
     if ((!text && !pending.length) || busy || preparing) return;
     // Keep the normal answer path for every query. The assistant renderer may
     // append verified, relevant video embeds after the answer when available.
+    // A single failed status check at start-up must not block every later message: ask again first.
+    if (!aiAvailable) await loadStatus();
     if (!aiAvailable) {
       show('user', text);
       problem('NasrinAI is temporarily unavailable for this message. Please try again shortly.');
