@@ -3,6 +3,7 @@ import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
 import { ownerCatalogStatus } from './ai/owner-model-catalog.js';
 import { fetchDirectProviderBilling } from './ai/provider-cost-reconciliation.js';
+import { createGoogleSearchAnalytics } from './owner-google-search-analytics.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
@@ -164,6 +165,7 @@ const dashboardHtml = `<!doctype html>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
+      <button class="nav-item" data-panel="google-analytics"><span>⌕</span>Google Search &amp; Traffic</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
       <button class="nav-item" data-panel="security"><span>◇</span>Security &amp; Audit</button>
       <button class="nav-item" data-panel="automation"><span>↗</span>Automation &amp; Jobs</button>
@@ -204,7 +206,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '', openrouterApiKey = '' }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '', openrouterApiKey = '', googleSearchAnalytics = createGoogleSearchAnalytics({ fetchImpl }) }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -457,6 +459,29 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     if (!(await rateAllowed(req))) { sendNotFound(res, req.method === 'HEAD'); return true; }
+
+    if (pathname === '/owner/api/google-search-analytics' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '28d';
+      if (!['7d', '28d', '90d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 28d, or 90d.' } });
+        return true;
+      }
+      try {
+        const report = await googleSearchAnalytics.getReport(windowName);
+        sendJson(res, 200, report);
+      } catch (error) {
+        logger?.warn?.('owner Google search analytics unavailable', {
+          source: 'google_search_analytics',
+          reason: ['google_token_unavailable', 'google_api_unavailable'].includes(error?.message) ? error.message : 'internal_error'
+        });
+        sendJson(res, 503, {
+          status: 'unavailable',
+          error: { code: 'google_analytics_unavailable', message: 'Google analytics data could not be retrieved. Check the server-side Google integration and property permissions.' }
+        });
+      }
+      return true;
+    }
 
     if (pathname === '/owner/api/session' && req.method === 'DELETE') {
       if (!trustedSameOrigin(req)) { sendNotFound(res); return true; }

@@ -1188,3 +1188,9 @@ All report views share:
 ## OpenRouter account generation records
 
 Owner AI Logs now has an additional server-synced source: provider-discovered OpenRouter generation records in `openrouter_generations`. The cron imports recent generation IDs from account analytics every 15 minutes and fetches authoritative per-generation metadata. Rows are explicitly labeled as `openrouter_generations` and only appear when no matching local request log exists, so they are not double-counted. This source requires migration 072 and the server-only Management/inference keys plus Supabase secret key.
+
+## Google Search & Traffic analytics — 2026-10-27
+
+A new protected panel is implemented in code at **Google Search & Traffic**. It reads GA4 reports and Google Search Console search analytics through server-side read-only APIs. It reports website sessions/users/page views separately from Google Search clicks/impressions; these are different measures and must not be added together. Supported windows are 7, 28, and 90 completed UTC days. The service account and property IDs are server-only environment configuration documented in [Google Search & Traffic setup](google-search-analytics.md).
+
+**Operational status:** code and tests are on the feature branch; CI and live-property verification are pending. It is not production-enabled until the PR is reviewed/merged, server-only Google credentials are configured, the service account is granted GA4 Viewer and Search Console property access, and a production-safe smoke test confirms real metrics.

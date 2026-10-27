@@ -10,6 +10,7 @@
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     regional: ['Regional Analytics', 'Approximate location trends for registered users and guests, derived from trusted edge metadata.', '◎'],
+    'google-analytics': ['Google Search & Traffic', 'Google Search Console clicks and impressions alongside GA4 visits and page engagement.', '⌕'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
     automation: ['Automation & Jobs', 'Workflow health, queue state, retries, and execution outcomes.', '↗'],
@@ -1264,6 +1265,81 @@
     await load();
   }
 
+
+  async function renderGoogleAnalytics() {
+    const c = $('content');
+    c.replaceChildren(head('Google Search & Traffic', 'Google Search Console + Google Analytics 4 · reporting uses completed days only.', 'Read-only'));
+    const controls = el('div', 'toolbar');
+    const windowSelect = el('select', 'input');
+    windowSelect.setAttribute('aria-label', 'Google analytics date range');
+    [['7d','Last 7 days'],['28d','Last 28 days'],['90d','Last 90 days']].forEach(([value,label]) => {
+      const option = el('option', '', label); option.value = value; windowSelect.append(option);
+    });
+    const refreshButton = el('button', 'quiet-button', 'Refresh Google data'); refreshButton.type = 'button';
+    controls.append(windowSelect, refreshButton); c.append(controls);
+    const result = el('div'); result.append(notice('Loading Google data', 'Requesting aggregate search and website traffic metrics from Google.'));
+    c.append(result);
+    const safeNumber = value => value === null || value === undefined ? 'Unavailable' : numberText(value);
+    const safePercent = value => value === null || value === undefined ? 'Unavailable' : (Number(value) * 100).toFixed(2) + '%';
+    const makeTable = (title, columns, rows, emptyText) => {
+      const panel = el('section', 'panel'); panel.classList.add('module-extra');
+      panel.append(el('h3', '', title));
+      const wrap = el('div', 'table-wrap'), table = el('table', 'data-table'), thead = el('thead'), tr = el('tr');
+      columns.forEach(label => tr.append(el('th', '', label)));
+      thead.append(tr); table.append(thead);
+      const tbody = el('tbody');
+      rows.forEach(row => { const line = el('tr'); row.forEach(value => line.append(el('td', '', String(value ?? '—')))); tbody.append(line); });
+      if (!rows.length) { const line = el('tr'), cell = el('td', '', emptyText); cell.colSpan = columns.length; line.append(cell); tbody.append(line); }
+      table.append(tbody); wrap.append(table); panel.append(wrap); return panel;
+    };
+    const load = async () => {
+      refreshButton.disabled = true; windowSelect.disabled = true;
+      result.replaceChildren(notice('Loading Google data', 'No metrics are cached in the browser; fetching a fresh server-side report.'));
+      try {
+        const response = await fetch('/owner/api/google-search-analytics?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error?.message || 'Google analytics request failed.');
+        result.replaceChildren();
+        if (payload.status === 'not_configured') {
+          result.append(notice('Google integration needs setup', payload.setup || 'Configure the server-side Google Analytics and Search Console credentials in Vercel.'));
+          refreshButton.disabled = false; windowSelect.disabled = false;
+          return;
+        }
+        const range = payload.date_range || {};
+        result.append(el('p', 'panel-copy', 'Reporting window: ' + (range.start || '—') + ' to ' + (range.end || '—') + '. Google Search Console data may be delayed; these metrics are not real-time.'));
+        const ga = payload.analytics || {}, sc = payload.search_console || {};
+        const grid = el('div', 'grid');
+        [
+          metric('Website sessions', '↗', safeNumber(ga.sessions), 'GA4 · ' + (ga.status || 'unavailable')),
+          metric('Website visitors', '♙', safeNumber(ga.total_users), 'GA4 total users'),
+          metric('New visitors', '＋', safeNumber(ga.new_users), 'GA4 new users'),
+          metric('Page views', '▤', safeNumber(ga.screen_page_views), 'GA4 screen/page views'),
+          metric('Google Search clicks', '⌕', safeNumber(sc.clicks), 'Clicks from Google Search'),
+          metric('Search impressions', '◎', safeNumber(sc.impressions), 'Appearances in Google Search'),
+          metric('Search CTR', '%', safePercent(sc.ctr), 'Clicks divided by impressions'),
+          metric('Average position', '↕', sc.average_position === null || sc.average_position === undefined ? 'Unavailable' : Number(sc.average_position).toFixed(1), 'Search Console reported average')
+        ].forEach(card => grid.append(card));
+        result.append(grid);
+        result.append(makeTable('Top website pages', ['Page path','Sessions','Users','Page views'],
+          (Array.isArray(ga.top_pages) ? ga.top_pages : []).map(row => [row.page, safeNumber(row.sessions), safeNumber(row.users), safeNumber(row.page_views)]),
+          'No GA4 page rows are available for this range.'));
+        result.append(makeTable('Top Google search queries', ['Search query','Clicks','Impressions','CTR','Avg. position'],
+          (Array.isArray(sc.top_queries) ? sc.top_queries : []).map(row => [row.query, safeNumber(row.clicks), safeNumber(row.impressions), safePercent(row.ctr), row.position === null || row.position === undefined ? 'Unavailable' : Number(row.position).toFixed(1)]),
+          'No query rows are available. Search Console may omit anonymized queries.'));
+        result.append(makeTable('Pages found in Google Search', ['Page','Clicks','Impressions','CTR','Avg. position'],
+          (Array.isArray(sc.top_pages) ? sc.top_pages : []).map(row => [row.page, safeNumber(row.clicks), safeNumber(row.impressions), safePercent(row.ctr), row.position === null || row.position === undefined ? 'Unavailable' : Number(row.position).toFixed(1)]),
+          'No Search Console page rows are available for this range.'));
+        if (ga.status !== 'available' || sc.status !== 'available') result.append(notice('Some metrics are unavailable', 'Check that the service account has GA4 Viewer access and Search Console property access. Each source can fail independently.'));
+      } catch (error) {
+        result.replaceChildren(notice('Google analytics unavailable', String(error?.message || 'Could not load Google analytics. Check server-side configuration and permissions.')));
+      } finally { refreshButton.disabled = false; windowSelect.disabled = false; }
+    };
+    refreshButton.addEventListener('click', load);
+    windowSelect.addEventListener('change', load);
+    await load();
+  }
+
   function show(key) {
     active = names[key] ? key : 'overview';
     const meta = names[active];
@@ -1280,6 +1356,7 @@
     else if (active === 'openrouter-unlisted') renderUnlistedModels();
     else if (active === 'other-unlisted') renderActivities();
     else if (active === 'regional') renderRegional();
+    else if (active === 'google-analytics') renderGoogleAnalytics();
     else renderModule(active);
   }
   async function refresh() {
