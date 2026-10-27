@@ -861,6 +861,21 @@
     return resp.status === 204 ? null : resp.json();
   }
 
+  // Native video requests cannot attach the app's JavaScript-managed Bearer token.
+  // Fetch protected media through the authenticated client, which can refresh
+  // an expired session, then use a same-page Blob URL for Safari playback.
+  async function apiBlob(path, retried = false) {
+    const token = await credential(retried);
+    const resp = await net(path, { headers: { Authorization: 'Bearer ' + token } });
+    if (resp.status === 401 && !retried) return apiBlob(path, true);
+    if (!resp.ok) throw await errorFrom(resp);
+    const blob = await resp.blob();
+    if (!blob.size) throw new Error('The generated video file was empty.');
+    const type = String(resp.headers.get('content-type') || blob.type || '').toLowerCase();
+    if (type && !type.includes('video/') && !type.includes('application/octet-stream')) throw new Error('The video endpoint did not return an MP4 file. Please refresh and try again.');
+    return blob;
+  }
+
   // ---------- the conversation on screen ----------
 
   // The chat follows new text only while the person is at the bottom. If they
@@ -3078,35 +3093,75 @@
           note.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
           const downloadLink = document.createElement('a');
           downloadLink.className = 'btn small';
-          downloadLink.href = state.download;
-          downloadLink.download = '';
+          downloadLink.download = 'nasrinai-video-' + id + '.mp4';
           downloadLink.textContent = 'Download MP4';
-          // Show the video itself in the chat, not just a link. The content
-          // endpoint checks ownership of the job.
+          downloadLink.setAttribute('aria-disabled', 'true');
+          downloadLink.style.opacity = '0.6';
+          downloadLink.style.pointerEvents = 'none';
+          box.appendChild(downloadLink);
+
+          // A native media element does not send our Bearer token. Fetch the
+          // owner-checked MP4 with session-refresh logic, then use a Blob URL for
+          // preview and download. This keeps protected video content private.
           if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
-            const preview = document.createElement('video');
-            preview.className = 'generated-video-preview';
-            preview.controls = true;
-            preview.playsInline = true;
-            preview.preload = 'metadata';
-            preview.setAttribute('aria-label', 'Generated video preview');
-            preview.style.display = 'block';
-            preview.style.width = '100%';
-            preview.style.maxWidth = '640px';
-            preview.style.maxHeight = '70vh';
-            preview.style.marginTop = '12px';
-            preview.style.borderRadius = '14px';
-            preview.style.background = '#000';
-            preview.src = state.download;
-            preview.addEventListener('error', () => {
+            try {
+              const blob = await apiBlob(state.download);
+              if (!box.isConnected) return;
+              const mediaUrl = URL.createObjectURL(blob);
+              const preview = document.createElement('video');
+              preview.className = 'generated-video-preview';
+              preview.controls = true;
+              preview.playsInline = true;
+              preview.preload = 'metadata';
+              preview.setAttribute('aria-label', 'Generated video preview');
+              preview.style.display = 'block';
+              preview.style.width = '100%';
+              preview.style.maxWidth = '640px';
+              preview.style.maxHeight = '70vh';
+              preview.style.marginTop = '12px';
+              preview.style.borderRadius = '14px';
+              preview.style.background = '#000';
+              preview.src = mediaUrl;
+              preview.addEventListener('error', () => {
+                const warning = document.createElement('p');
+                warning.className = 'msg-meta generated-video-preview-warning';
+                warning.textContent = 'The MP4 was retrieved, but this browser could not play its preview. Use Download MP4 to save it.';
+                if (box.isConnected && !box.querySelector('.generated-video-preview-warning')) box.insertBefore(warning, downloadLink);
+              }, { once: true });
+              downloadLink.href = mediaUrl;
+              downloadLink.removeAttribute('aria-disabled');
+              downloadLink.style.opacity = '';
+              downloadLink.style.pointerEvents = '';
+              box.insertBefore(preview, downloadLink);
+              box.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(mediaUrl), { once: true });
+            } catch (err) {
+              if (!box.isConnected) return;
               const warning = document.createElement('p');
               warning.className = 'msg-meta';
-              warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
+              warning.textContent = err?.message || 'The video is ready, but NasrinAI could not retrieve its MP4. Please sign in again and reopen this chat.';
               box.insertBefore(warning, downloadLink);
-            }, { once: true });
-            box.appendChild(preview);
+              downloadLink.textContent = 'Retry video download';
+              downloadLink.removeAttribute('aria-disabled');
+              downloadLink.style.opacity = '';
+              downloadLink.style.pointerEvents = '';
+              downloadLink.href = '#';
+              downloadLink.addEventListener('click', async (event) => {
+                event.preventDefault();
+                downloadLink.textContent = 'Retrieving MP4…';
+                try {
+                  const retryBlob = await apiBlob(state.download);
+                  const retryUrl = URL.createObjectURL(retryBlob);
+                  downloadLink.href = retryUrl;
+                  downloadLink.download = 'nasrinai-video-' + id + '.mp4';
+                  downloadLink.textContent = 'Download MP4';
+                  downloadLink.removeAttribute('aria-disabled');
+                  downloadLink.style.pointerEvents = '';
+                } catch (retryErr) {
+                  downloadLink.textContent = retryErr?.message || 'Could not retrieve MP4. Please sign in again.';
+                }
+              }, { once: true });
+            }
           }
-          box.appendChild(downloadLink);
           if (box.dataset.waited) deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
           scrollToEnd(box);
           return;
