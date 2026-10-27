@@ -7182,23 +7182,13 @@
     document.body.classList.add('voice-open');
     keepAwake();
     $('voiceEnd').focus();
-    const realtime = await startRealtimeVoice();
-    if (!vc.on) return;
-    // Say which mode is on only once it is known.
-    if (realtime) voiceSay('hint', 'Realtime voice is on. Just talk naturally — you can interrupt Nasrin at any time.');
-    if (!realtime) {
-      // When an AI realtime voice is selected, fail clearly rather than
-      // silently switching to a separate STT/TTS cascade.
-      if (currentVoice().startsWith('ai:')) {
-        // Initial connection failures must use the same bounded retry path as
-        // dropped sessions; do not close the voice UI after the first failure.
-        scheduleRealtimeReconnect('Voice could not start. Retrying the connection…');
-        return;
-      }
-      voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
-      if (Recognition) listenVoice();
-      else closeVoice('Realtime voice could not start, and this browser has no voice fallback.');
-    }
+    // Use turn-based STT → NasrinAI orchestrator → TTS for the standard voice
+    // experience. This avoids keeping a provider-specific realtime socket open,
+    // which has repeatedly failed on iPhone Safari in production. The realtime
+    // transport remains in the code for a future opt-in after separate validation.
+    voiceSay('hint', 'Voice is ready. Talk naturally; Nasrin will answer aloud. Screen sharing is available where your browser supports it.');
+    if (Recognition) listenVoice();
+    else closeVoice('Speech recognition is not supported in this browser. Try a supported browser or use chat.');
   }
 
   function closeVoice(message) {
