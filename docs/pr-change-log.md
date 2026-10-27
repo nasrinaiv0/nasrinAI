@@ -2747,3 +2747,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a server-only service-account JWT adapter using read-only Google Analytics Data API and Search Console API scopes. Missing configuration returns an explicit setup-required state; source errors are kept separate and no credentials/tokens are sent to the browser.
 - Add focused tests for missing configuration and supported date-window behavior, plus setup/permission documentation.
 - **Validation:** Pending GitHub Actions CI on this branch. Production configuration, Google property permissions, merge, and deployment have not been performed. The live panel will remain setup-required until the three documented server-only environment variables are configured and Google permissions are verified.
+
+
+## fix/video-preview-authenticated-mp4 — load chat video through the authenticated client (2026-10-27)
+
+- Root cause: the inline player assigned the owner-protected `/v1/videos/:id/content` route directly to native `<video>` and download links. Native media/navigation requests do not carry the app's JavaScript-managed Bearer token, so the endpoint could return an unauthenticated JSON response instead of MP4 bytes; Safari then showed a black preview.
+- Fetch the MP4 through the authenticated API client, including its one-time session refresh on HTTP 401, and use a Blob URL for inline playback and download. Keep server-side ownership checks intact; do not make video content public.
+- Add regression assertions for authenticated binary retrieval, 401 retry, Blob URL playback and avoiding direct protected URLs in the native player.
+- Validation boundary: CI must pass on this PR. A fresh production video and Safari/iPhone playback still need to be verified after deployment; OpenRouter's completed status alone does not prove client delivery.
