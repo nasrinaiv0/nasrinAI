@@ -4,6 +4,12 @@
 - Privacy notice gets a screen-sharing line; `LEGAL_PRIVACY_VERSION` default is now 2026-10-28 (people see it again). Test: `test/voice-screen-context.test.js`.
 - A screen question in voice now uses two message allowances (describe + answer). Not verified live: needs `OPENROUTER_VOICE_VISION_MODEL` or the default vision model on the deployed site.
 
+## Fix: Google plugins never reached the chat model — 2026-10-27
+
+- Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
+- Test in `test/skill-routing.test.js`. No migration, env or legal change.
+- Separate owner step: Google sign-in `redirect_uri_mismatch` needs `https://nasrinai.com/v1/google/callback` added in Google Cloud. Not verified live.
+
 ## Fix: realtime voice could not start (CSP) — 2026-10-27
 
 - The page policy's `connect-src` did not allow the browser to reach the realtime voice providers, so "Voice could not start. Retrying the connection…" looped. Added `https://api.openai.com` (WebRTC call) and `wss://generativelanguage.googleapis.com` (Gemini Live) to `PAGE_CSP` in `src/http/headers.js` and the matching header in `vercel.json`. No wildcard added.
@@ -2733,3 +2739,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fix an iOS/Safari startup race in `public/gemini-realtime.js`: microphone permission is awaited before opening the Gemini WebSocket, so a slow permission prompt cannot let the socket's `open` event fire before its handler is registered.
 - Add a browser regression test that verifies no socket is created during the microphone permission await and that the open handler is registered before startup returns.
 - **Validation:** CI and production voice smoke test are required; do not call the issue resolved until the deployed production voice session reaches `setupComplete` and audio works on iPhone Safari.
+
+
+## OCC Google Search & Traffic analytics — 2026-10-27
+
+- Add a protected Google Search & Traffic panel for GA4 sessions/users/page views and Search Console clicks, impressions, CTR, average position, top queries, and top pages across 7/28/90-day windows.
+- Add a server-only service-account JWT adapter using read-only Google Analytics Data API and Search Console API scopes. Missing configuration returns an explicit setup-required state; source errors are kept separate and no credentials/tokens are sent to the browser.
+- Add focused tests for missing configuration and supported date-window behavior, plus setup/permission documentation.
+- **Validation:** Pending GitHub Actions CI on this branch. Production configuration, Google property permissions, merge, and deployment have not been performed. The live panel will remain setup-required until the three documented server-only environment variables are configured and Google permissions are verified.
