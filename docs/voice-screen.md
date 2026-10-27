@@ -91,6 +91,8 @@ best-effort and never blocks microphone/audio transport.
 
 ## OpenRouter vision fallback
 
+In compatibility voice (no realtime provider), each spoken question made while sharing sends the newest in-memory frame (under 30 seconds old) with the question to `/v1/realtime/screen-analyze`. The returned description is passed to that chat turn as `screen_context`: a voice-only, transient system-prompt block (3000 characters, control characters removed, treated as untrusted data) that is never saved. The timed description during sharing now runs only in realtime mode.
+
 When no direct realtime image transport is active, shared-screen frames can be sent
 to the authenticated `/v1/realtime/screen-analyze` endpoint. The endpoint uses
 the existing server-side OpenRouter client, applies message/budget checks, accepts

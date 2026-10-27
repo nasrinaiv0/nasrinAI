@@ -1,3 +1,9 @@
+## Fix: voice could not read the shared screen — 2026-10-27
+
+- In compatibility voice the shared screen frame was never tied to the spoken question, so Nasrin said it could not see the screen. Each question now sends the newest in-memory frame (under 30 s old) with the question to `/v1/realtime/screen-analyze`; the description is passed as a transient, never-saved `screen_context` for that turn (`src/chat.js`, `public/app.js`). The unprompted timed description now runs only in realtime mode.
+- Privacy notice gets a screen-sharing line; `LEGAL_PRIVACY_VERSION` default is now 2026-10-28 (people see it again). Test: `test/voice-screen-context.test.js`.
+- A screen question in voice now uses two message allowances (describe + answer). Not verified live: needs `OPENROUTER_VOICE_VISION_MODEL` or the default vision model on the deployed site.
+
 ## Fix: Google plugins never reached the chat model — 2026-10-27
 
 - Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
