@@ -2733,3 +2733,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fix an iOS/Safari startup race in `public/gemini-realtime.js`: microphone permission is awaited before opening the Gemini WebSocket, so a slow permission prompt cannot let the socket's `open` event fire before its handler is registered.
 - Add a browser regression test that verifies no socket is created during the microphone permission await and that the open handler is registered before startup returns.
 - **Validation:** CI and production voice smoke test are required; do not call the issue resolved until the deployed production voice session reaches `setupComplete` and audio works on iPhone Safari.
+
+
+## OCC Google Search & Traffic analytics — 2026-10-27
+
+- Add a protected Google Search & Traffic panel for GA4 sessions/users/page views and Search Console clicks, impressions, CTR, average position, top queries, and top pages across 7/28/90-day windows.
+- Add a server-only service-account JWT adapter using read-only Google Analytics Data API and Search Console API scopes. Missing configuration returns an explicit setup-required state; source errors are kept separate and no credentials/tokens are sent to the browser.
+- Add focused tests for missing configuration and supported date-window behavior, plus setup/permission documentation.
+- **Validation:** Pending GitHub Actions CI on this branch. Production configuration, Google property permissions, merge, and deployment have not been performed. The live panel will remain setup-required until the three documented server-only environment variables are configured and Google permissions are verified.
