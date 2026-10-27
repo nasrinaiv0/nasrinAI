@@ -360,7 +360,7 @@ test('escalation is bounded; failover respects privacy', async () => {
 
   const always = setup({ env: { GEMINI_API_KEY: '', MAX_ESCALATION_DEPTH: '1' }, reply: async () => '' });
   const r2 = await always.policy.run(always.policy.plan({ tier: 'ultra', message: 'hello' }), req('hello'));
-  assert.equal(always.openai.calls.length, 2, 'one escalation, then stop');
+  assert.equal(always.openai.calls.length, 3, 'one escalation, one more model for the empty answer, then stop');
   assert.equal(r2.result.text, '');
 
   const down = setup({ geminiFail: 'unavailable' });
@@ -370,6 +370,24 @@ test('escalation is bounded; failover respects privacy', async () => {
   const both = setup({ geminiFail: 'unavailable', openaiFail: 'unavailable' });
   await assert.rejects(both.policy.run(both.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof ProviderError);
   assert.equal(both.gemini.calls.length + both.openai.calls.length, 2, 'retries are limited');
+});
+
+test('an empty answer at the top level is retried on another model instead of failing', async () => {
+  let n = 0;
+  const a = setup({ env: { MAX_ESCALATION_DEPTH: '0' }, reply: async () => (++n === 1 ? '' : 'Here is a full answer.') });
+  const run = await a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello'));
+  assert.equal(run.result.text, 'Here is a full answer.');
+  assert.equal(n, 2, 'a second model was asked');
+});
+
+test('one brief outage does not lock people out: models on cooldown are still tried when nothing else is left', async () => {
+  let down = true;
+  const fail = () => (down ? new ProviderError('unavailable', 'fake outage') : null);
+  const a = setup({ geminiFail: fail, openaiFail: fail });
+  await assert.rejects(a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello')), (e) => e instanceof ProviderError);
+  down = false;
+  const again = await a.policy.run(a.policy.plan({ tier: 'nasrinai', message: 'hello' }), req('hello'));
+  assert.ok(again.result.text.length > 0, 'answered although every model had just failed');
 });
 
 test('response cache: same first public question hits; different misses; private never cached', () => {

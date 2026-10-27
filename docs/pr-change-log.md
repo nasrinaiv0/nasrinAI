@@ -1,3 +1,9 @@
+## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
+
+- Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.
+- Page (`public/app.js`): if the start-up status check said the AI was unavailable, sending re-checks status first instead of refusing.
+- Tests in `test/routing.test.js` (both fail without the change). An unlucky request can now make up to 2 extra model calls. No migration, env or legal change. Not verified against live providers.
+
 ## Fix: Google plugins never reached the chat model — 2026-10-27
 
 - Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
