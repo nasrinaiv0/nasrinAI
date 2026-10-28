@@ -717,11 +717,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         return true;
       }
       try {
-        const [queueRows, pageRows] = await Promise.all([
+        const [queueRows, pageRows, runRows, semanticRows] = await Promise.all([
           store.request('GET', 'web_crawl_queue?select=status,source,attempts,next_crawl_at,last_crawled_at,last_error&order=created_at.desc&limit=500'),
-          store.request('GET', 'web_crawl_pages?select=url,title,fetched_at,content_hash&order=fetched_at.desc&limit=50')
+          store.request('GET', 'web_crawl_pages?select=url,title,fetched_at,content_hash&order=fetched_at.desc&limit=50'),
+          store.request('GET', 'knowledge_learning_runs?select=started_at,finished_at,status,seed_count,crawl_processed,indexed_pages,indexed_chunks,skipped_unchanged,embedding_failures,duration_ms,error_code&order=started_at.desc&limit=5'),
+          store.request('GET', 'public_technical_chunks?select=id&limit=1000')
         ]);
-        if (!Array.isArray(queueRows) || !Array.isArray(pageRows)) throw new Error('invalid crawler telemetry');
+        if (!Array.isArray(queueRows) || !Array.isArray(pageRows) || !Array.isArray(runRows) || !Array.isArray(semanticRows)) throw new Error('invalid crawler telemetry');
         const statusCounts = {}, sourceCounts = {};
         let attempts = 0;
         for (const row of queueRows) {
@@ -748,7 +750,21 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           coverage: { queue_rows_sampled: queueRows.length, queue_sample_limit: 500, page_rows_sampled: recentPages.length, page_sample_limit: 50, queue_sample_may_be_truncated: queueRows.length === 500 },
           queue: { status_counts: statusCounts, source_counts: sourceCounts, total_attempts_in_sample: attempts },
           recent_pages: recentPages,
-          retrieval: { mode: 'bounded_keyword_search', official_host_allowlist: true, source_citations: true, semantic_embeddings: 'not_implemented' },
+          learning_runs: {
+            recent: runRows.slice(0, 5).map((row) => ({
+              started_at: typeof row.started_at === 'string' ? row.started_at : null,
+              finished_at: typeof row.finished_at === 'string' ? row.finished_at : null,
+              status: ['running','succeeded','partial','failed'].includes(row.status) ? row.status : 'unknown',
+              seed_count: Number(row.seed_count) || 0, crawl_processed: Number(row.crawl_processed) || 0,
+              indexed_pages: Number(row.indexed_pages) || 0, indexed_chunks: Number(row.indexed_chunks) || 0,
+              skipped_unchanged: Number(row.skipped_unchanged) || 0, embedding_failures: Number(row.embedding_failures) || 0,
+              duration_ms: Number.isFinite(Number(row.duration_ms)) ? Number(row.duration_ms) : null,
+              error_code: /^[a-z0-9_]{1,64}$/.test(String(row.error_code || '')) ? row.error_code : null
+            })),
+            sample_limit: 5
+          },
+          semantic_index: { enabled: process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true', chunks_sampled: semanticRows.length, sample_limit: 1000, sample_may_be_truncated: semanticRows.length === 1000 },
+          retrieval: { mode: process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true' && semanticRows.length > 0 ? 'semantic_vector' : 'keyword_fallback', official_host_allowlist: true, source_citations: true, embedding_model: 'openai/text-embedding-3-small@384' },
           privacy: 'No page body text, user prompts, or raw crawler errors are exposed.'
         });
       } catch {
