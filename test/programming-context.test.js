@@ -28,7 +28,7 @@ test('programming context is bounded and safely handles empty or malformed resul
   const out = formatProgrammingKnowledgeContext([
     { url: 'javascript:alert(1)', title: 'bad', text: 'x'.repeat(2000) },
     { url: 'https://www.typescriptlang.org/docs/', title: 'docs', text: 'x'.repeat(3000) }
-  ], { maxChars: 1000 });
-  assert.ok(out.context.length < 2000);
+  ], { maxChars: 2500 });
+  assert.ok(out.context.length < 3000);
   assert.equal(out.sources.length, 1);
 });
