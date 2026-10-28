@@ -5,7 +5,7 @@ import { PROGRAMMING_DOC_HOSTS } from './programming-context.js';
 const TRUSTED_HOSTS = new Set(PROGRAMMING_DOC_HOSTS);
 const MAX_PAGE_CHARS = 20000;
 const MAX_BATCH = 10;
-const PAGE_CANDIDATE_LIMIT = 100;
+const PAGE_CANDIDATE_LIMIT = 500;
 
 function safePage(row) {
   let url;
