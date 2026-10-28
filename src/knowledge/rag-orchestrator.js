@@ -97,7 +97,7 @@ export function rerankHybridCandidates(candidates, queryAnalysis, { limit = 5, a
     url.hash = '';
     const key = url.href;
     const text = String(raw.text || raw.content || raw.text_content || '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim().slice(0, 5000);
-    if (text.length < 40) continue;
+    if (!text.length) continue;
     const candidate = {
       url: key, title: String(raw.title || url.hostname).replace(/[\u0000-\u001f\u007f<>]/g, ' ').trim().slice(0, 200),
       text, fetched_at: raw.fetched_at || raw.fetchedAt || null,

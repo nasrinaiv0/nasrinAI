@@ -231,7 +231,7 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
         .slice(0, 18);
       if (!tokens.length) return [];
       const or = [...new Set(tokens)].map((word) => 'text_content.ilike.*' + encodeURIComponent(word) + '*').join(',');
-      const fetchLimit = Math.max(20, Math.min(100, boundedLimit * 12));
+      const fetchLimit = Math.max(10, Math.min(100, boundedLimit * 10));
       const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + fetchLimit);
       const hosts = allowedHostList ? new Set(allowedHostList) : null;
       const candidates = [];
