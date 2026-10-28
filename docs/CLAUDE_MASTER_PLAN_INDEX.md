@@ -183,3 +183,11 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - Fail closed on missing Vercel configuration; never simulate successful calls or claim production readiness before end-to-end staging evidence.
 
 **Next step:** review and merge the documentation PRs through the normal process, then have Claude inspect the actual NCC code, Vercel project configuration contract, current provider capabilities, legal/privacy docs and open PRs before implementing the first approved phase. No provider is selected and no telephony credentials are assumed configured.
+
+
+## Continuous intelligence and hourly learning — added 2026-10-29
+
+- Detailed plan: [docs/nasrinai-continuous-intelligence-upgrade.md](nasrinai-continuous-intelligence-upgrade.md).
+- First implementation branch: `feat/continuous-intelligence-hourly-learning`.
+- Scope: official programming documentation seeds, protected hourly trigger, idempotent queue insertion, existing crawler/RAG reuse, quality evaluations, privacy/consent safeguards, and optional separately evaluated fine-tuning.
+- Status: implementation in progress; tests/CI and live scheduled execution must be verified before claiming deployed learning.
