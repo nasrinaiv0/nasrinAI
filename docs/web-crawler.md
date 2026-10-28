@@ -6,8 +6,9 @@ This is the **main NasrinAI research/retrieval crawler**, not NasrinAI Connect. 
 
 1. Review the live schema and migration history, then apply `db/migrations/044_core_web_crawler.sql` through the team's controlled production migration process. Do not assume the database's recorded migration history matches repository filenames.
 2. Deploy the branch/PR with the existing `CRON_SECRET` set (the existing secret is reused; do not create a second one).
-3. Vercel invokes `/v1/internal/web-crawl` hourly. Each invocation is bounded to a small batch.
-4. Research-discovered URLs seed the frontier. The crawler follows at most three discovery levels and limits links/media per page.
+3. Vercel invokes `/v1/internal/web-crawl` every five minutes; each invocation processes a bounded batch.
+4. Vercel invokes `/v1/internal/knowledge-learning` hourly to seed official programming documentation roots and process a small batch. It uses the same `CRON_SECRET` and idempotent queue insertion, so repeated seeds do not reset existing crawl scheduling.
+5. Research-discovered URLs and official programming-documentation seeds share the same frontier. The crawler follows at most three discovery levels and limits links/media per page.
 
 ## Scope and safeguards
 
