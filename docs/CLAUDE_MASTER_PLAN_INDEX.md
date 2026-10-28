@@ -185,11 +185,11 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 **Next step:** review and merge the documentation PRs through the normal process, then have Claude inspect the actual NCC code, Vercel project configuration contract, current provider capabilities, legal/privacy docs and open PRs before implementing the first approved phase. No provider is selected and no telephony credentials are assumed configured.
 
 
-## Continuous Intelligence and hourly learning (merged PR #674 — 2026-10-29)
+## Continuous Intelligence and hourly learning (deployed baseline; phase 2 open — 2026-10-29)
 
 - Detailed sources: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md), [hourly learning runbook](continuous-intelligence-runbook.md), and [core web crawler](web-crawler.md).
-- PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`; Vercel production deployment is READY.
-- Implementation includes official programming-documentation seeds, protected hourly queue seeding, idempotent inserts, same-host crawling for official seed descendants, bounded locally ranked keyword retrieval for platform coding questions, official HTTPS host allowlisting, secret-pattern exclusions, untrusted-context handling, source citations, and an owner-only OCC telemetry panel/API.
-- CI #7706 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity-sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1808 passed.
-- Production schedule is deployed, but the first post-deploy hourly invocation and live OCC/retrieval behavior remain to be observed. Live Supabase has the crawler tables/function with RLS deny policies for anon/authenticated; the migration history lacks a 044 record, so do not blindly reapply that migration.
-- This is knowledge acquisition and keyword retrieval, not model-weight training or semantic/vector RAG. Persistent per-run history, semantic embeddings/vector ranking, and a measured model coding/reasoning benchmark remain follow-up phases.
+- PR #674 is merged; Vercel production deployment is READY. CI #7706 passed 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, syntax checks, and secret scan. Documentation Gate #1808 passed.
+- Live Supabase shows 19 indexed `owner_seed` rows and 41 official-host pages; this proves crawl data exists but not the exact hourly cron invocation or authenticated OCC response.
+- Current implementation: official programming-doc seeds, protected hourly queue seeding, idempotent inserts, same-host crawling, bounded ranked keyword retrieval for platform coding questions, trusted HTTPS allowlist, secret-pattern exclusions, untrusted-context handling, citations, and owner-only bounded OCC telemetry.
+- Security blockers before semantic RAG: live DB has no enabled `vector` extension; existing knowledge tables require `tenant_id`; migration 044 is missing from migration history even though crawler tables/function exist. Do not mix public documentation into tenant-owned rows or blindly reapply migration 044.
+- Open gates: directly verify cron/OCC runtime behavior, reconcile migration history, design a separate public-doc security boundary, choose embedding provider/budget, implement semantic retrieval, persistent run history, and fixed coding/reasoning benchmark. This is knowledge acquisition and keyword retrieval, not model-weight training.
