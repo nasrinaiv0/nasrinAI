@@ -1,3 +1,9 @@
+## Full-text knowledge retrieval quality fix — 2026-10-29
+
+- Production verification showed the full-text search can return several chunks from one document among the top results. Added source-document deduplication before building platform knowledge context so the highest-ranked chunk per document is retained and context budget can cover more sources.
+- Added a regression test for duplicate chunks and empty input.
+- No schema, permission, or production database changes. CI #7774 and Documentation Gate #1824 passed for the PR head; rerun after this merge commit.
+
 ## PR #684 — Tighten benchmark scoring and record production rollout status — 2026-10-29
 
 - Tightened the reasoning evidence rubric so the substring "no" inside unrelated words cannot satisfy a required criterion.

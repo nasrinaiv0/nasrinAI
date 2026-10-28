@@ -18,6 +18,18 @@ const MIN_RANK = 0.05;
 const STOP = new Set(('the a an and or of to in on at for is are was be do does did what when where who how why which can could would i you we they it this that my your our me us with from about please '
   + 'ang ng mga sa si ni na ay at ko mo ka ako ikaw siya kami tayo kayo sila ba po ho naman lang din rin ito iyan iyon yung kung paano saan kailan sino ano bakit may meron wala').split(' '));
 
+export function dedupeKnowledgeHits(hits) {
+  const seen = new Set();
+  const unique = [];
+  for (const hit of Array.isArray(hits) ? hits : []) {
+    const key = String(hit?.docId || hit?.doc_id || hit?.sourceUrl || hit?.source_url || '');
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(hit);
+  }
+  return unique;
+}
+
 export function searchTerms(message) {
   const words = String(message).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
   return [...new Set(words.filter((w) => w.length >= 2 && !STOP.has(w)))].slice(0, 12);
@@ -69,7 +81,7 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
         if (!(await anyDocs(caller.tenantId))) return null;
         const terms = searchTerms(message);
         if (!terms.length) return null;
-        const hits = (await store.searchKnowledge({ tenantId: caller.tenantId, terms, audience: caller.actor.type, limit: 4 })).filter((h) => h.rank >= MIN_RANK);
+        const hits = dedupeKnowledgeHits((await store.searchKnowledge({ tenantId: caller.tenantId, terms, audience: caller.actor.type, limit: 8 })).filter((h) => h.rank >= MIN_RANK));
         if (!hits.length) return null;
         let size = 0;
         const parts = [];
