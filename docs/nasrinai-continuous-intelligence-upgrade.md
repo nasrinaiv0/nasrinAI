@@ -66,8 +66,9 @@ Expose last run, next run, queued/indexed/retried counts, source freshness, dedu
 
 ### Phase 1 — Seed and schedule (in progress)
 - [x] Add a curated official programming documentation source registry.
-- [ ] Add an idempotent hourly seed-and-crawl trigger using the existing crawler and `CRON_SECRET`.
-- [ ] Add tests for source allowlist, dedupe behavior, endpoint authorization, and cron schedule.
+- [x] Add an idempotent hourly seed-and-crawl trigger using the existing crawler and `CRON_SECRET`.
+- [x] Add tests for source allowlist, dedupe behavior, and cron schedule.
+- [ ] Add focused endpoint authorization tests and verify all CI checks pass.
 - [ ] Verify current main-branch schema and crawler wiring; do not apply a new migration until needed columns/functions are confirmed.
 
 ### Phase 2 — Retrieval quality
