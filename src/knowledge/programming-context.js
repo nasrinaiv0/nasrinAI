@@ -1,6 +1,7 @@
 import { PROGRAMMING_DOC_SOURCES } from './programming-sources.js';
 
-const TRUSTED_HOSTS = new Set(PROGRAMMING_DOC_SOURCES.map((raw) => new URL(raw).hostname.toLowerCase()));
+export const PROGRAMMING_DOC_HOSTS = Object.freeze([...new Set(PROGRAMMING_DOC_SOURCES.map((raw) => new URL(raw).hostname.toLowerCase()))]);
+const TRUSTED_HOSTS = new Set(PROGRAMMING_DOC_HOSTS);
 const TECHNICAL_INTENT = /\b(code|coding|program|programming|software|developer|debug|debugging|stack trace|compile|compiler|runtime|typescript|javascript|python|postgres(?:ql)?|sql|html|css|react|next\.js|node\.js|nodejs|golang|\bgo\b|rust|java|c#|c\+\+|swift|kotlin|bash|powershell|solidity|api|sdk|database|query|function|class|module|package|dependency|framework|library|algorithm|test|testing|error|exception|refactor|deploy|deployment|security vulnerability|vulnerability|regex|git|vercel|supabase)\b/i;
 const SECRET_OR_PRIVATE = /\b(password|passcode|one.time.password|otp|api[ _-]?key|secret key|private key|access token|refresh token|authorization:\s*bearer|credit card|debit card|bank account|passport|medical record)\b/i;
 const MAX_CONTEXT_CHARS = 6500;
