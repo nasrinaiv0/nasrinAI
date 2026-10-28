@@ -30,7 +30,7 @@ begin
 
   select pg_get_functiondef('public.upsert_platform_knowledge_doc(uuid,text,text,text,integer,text[])'::regprocedure) into v_def;
   if position('SECURITY DEFINER' in upper(v_def)) = 0
-     or position('search_path=pg_catalog,public,pg_temp' in replace(v_def, ' ', '')) = 0 then
+     or position('SET search_path TO ''pg_catalog'', ''public'', ''pg_temp''' in v_def) = 0 then
     raise exception 'index function must be SECURITY DEFINER with a fixed safe search_path';
   end if;
 
