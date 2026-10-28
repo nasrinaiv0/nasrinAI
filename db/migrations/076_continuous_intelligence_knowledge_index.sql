@@ -90,6 +90,12 @@ begin
     return jsonb_build_object('doc_id', v_doc_id, 'changed', false, 'action', 'unchanged', 'chunk_count', v_chunk_count);
   end if;
 
+  if v_doc_id is null and (
+    select count(*) from public.knowledge_docs d where d.tenant_id = p_tenant_id
+  ) >= 200 then
+    raise exception 'platform knowledge document cap reached' using errcode = '54000';
+  end if;
+
   if v_doc_id is null then
     insert into public.knowledge_docs (tenant_id, title, source_url, who, chars, source_content_hash)
     values (p_tenant_id, btrim(p_title), p_source_url, array['user','guest']::text[], p_chars, p_content_hash)
