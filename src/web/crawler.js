@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readLink, checkUrl } from './read-link.js';
 import { parseRobots } from '../connect/site-knowledge.js';
+import { PROGRAMMING_DOC_HOSTS } from '../knowledge/programming-context.js';
 
 const MAX_PAGE_CHARS = 20000;
 const MAX_LINKS = 40;
@@ -48,7 +49,7 @@ export function canonicalCrawlUrl(raw) {
 
 // Persistent, bounded public-web crawler. It indexes text and media metadata;
 // it does not download media binaries or execute page JavaScript.
-export function createWebCrawler({ store, readLinkImpl = readLink, logger = null, now = () => Date.now() }) {
+export function createWebCrawler({ store, readLinkImpl = readLink, logger = null, embedder = null, now = () => Date.now() }) {
   async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0, ignoreExisting = false } = {}) {
     const urls = [...new Set((Array.isArray(rawUrls) ? rawUrls : [rawUrls]).map(canonicalCrawlUrl).filter(Boolean))].slice(0, 100);
     if (!urls.length || !store?.request) return 0;
@@ -122,7 +123,80 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
     return { processed: results.length, results };
   }
 
+  async function indexSemanticPages({ limit = 5 } = {}) {
+    if (process.env.SEMANTIC_KNOWLEDGE_ENABLED !== 'true' || !embedder?.embed || !store?.request) {
+      return { enabled: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+    }
+    const pages = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,content_hash,fetched_at&order=fetched_at.desc&limit=' + Math.max(1, Math.min(5, Number(limit) || 5)));
+    const totals = { enabled: true, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+    const maxEmbeddings = Math.max(1, Math.min(10, Number(process.env.SEMANTIC_MAX_EMBEDDINGS_PER_RUN) || 10));
+    let embeddingCalls = 0;
+    for (const page of Array.isArray(pages) ? pages : []) {
+      if (embeddingCalls >= maxEmbeddings) break;
+      let url;
+      try { url = new URL(String(page.url || '')); } catch { continue; }
+      if (url.protocol !== 'https:' || url.username || url.password || !page.content_hash || !page.text_content) continue;
+      const host = url.hostname.toLowerCase();
+      // Only the fixed programming-source catalogue is eligible for global indexing.
+      if (!PROGRAMMING_DOC_HOSTS.includes(host)) continue;
+      const existing = await store.request('GET', 'public_technical_chunks?select=content_hash,embedding_model&source_url=eq.' + encodeURIComponent(url.href) + '&limit=1').catch(() => []);
+      if (Array.isArray(existing) && existing[0]?.content_hash === page.content_hash && existing[0]?.embedding_model === embedder.modelName) { totals.skipped_unchanged++; continue; }
+      const raw = String(page.text_content).replace(/\s+/g, ' ').trim();
+      const chunkSize = 1400, overlap = 180, maxChunks = 3;
+      const chunks = [];
+      for (let start = 0; start < raw.length && chunks.length < maxChunks; start += chunkSize - overlap) {
+        const chunk = raw.slice(start, start + chunkSize).trim();
+        if (chunk.length >= 80) chunks.push(chunk);
+      }
+      if (!chunks.length) continue;
+      // Avoid deleting a previous complete index unless this whole page fits in
+      // the remaining per-run embedding budget.
+      if (embeddingCalls + chunks.length > maxEmbeddings) break;
+      if (Array.isArray(existing) && existing.length) {
+        await store.request('DELETE', 'public_technical_chunks?source_url=eq.' + encodeURIComponent(url.href), { prefer: 'return=minimal' }).catch(() => {});
+      }
+      let wrote = false;
+      for (let i = 0; i < chunks.length && embeddingCalls < maxEmbeddings; i++) {
+        try {
+          embeddingCalls++;
+          const vector = await embedder.embed(String(page.title || '') + '\n' + chunks[i]);
+          const row = {
+            source_url: url.href, source_host: host, title: String(page.title || host).slice(0, 200),
+            chunk_index: i, content: chunks[i].slice(0, 5000), content_hash: page.content_hash,
+            embedding: '[' + vector.join(',') + ']', embedding_model: embedder.modelName,
+            fetched_at: page.fetched_at || nowIso(), indexed_at: nowIso()
+          };
+          await store.request('POST', 'public_technical_chunks?on_conflict=source_url,chunk_index', {
+            body: row, prefer: 'resolution=merge-duplicates,return=minimal'
+          });
+          totals.indexed_chunks++; wrote = true;
+        } catch (err) {
+          totals.embedding_failures++;
+          logger?.warn?.('semantic knowledge chunk indexing failed', { host, code: String(err?.status || err?.code || 'index_failed').slice(0, 40) });
+        }
+      }
+      if (wrote) totals.indexed_pages++;
+    }
+    return totals;
+  }
+
   async function search(query, { limit = 5, allowedHosts = null } = {}) {
+    const boundedLimit = Math.max(1, Math.min(5, Number(limit) || 5));
+    const allowedHostList = allowedHosts === null ? null : [...new Set([...allowedHosts].map((host) => String(host || '').toLowerCase()).filter((host) => /^[a-z0-9.-]{1,253}$/.test(host)))];
+    if (process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true' && embedder?.embed && allowedHostList?.length) {
+      try {
+        const embedding = await embedder.embed(String(query || '').slice(0, 2000));
+        const rows = await store.request('POST', 'rpc/match_public_technical_chunks', {
+          body: { query_embedding: '[' + embedding.join(',') + ']', allowed_hosts: allowedHostList, match_model: embedder.modelName, match_count: boundedLimit }
+        });
+        const trusted = (Array.isArray(rows) ? rows : []).filter((row) => {
+          try { const u = new URL(String(row.source_url || '')); return u.protocol === 'https:' && !u.username && !u.password && allowedHostList.includes(u.hostname.toLowerCase()) && String(row.embedding_model || '') === embedder.modelName; } catch { return false; }
+        }).slice(0, boundedLimit).map((row) => ({ url: row.source_url, title: row.title, text: row.content, fetched_at: row.fetched_at, similarity: Number(row.similarity) }));
+        if (trusted.length) return trusted;
+      } catch (err) {
+        logger?.warn?.('semantic knowledge retrieval fell back to keyword search', { code: String(err?.status || err?.code || 'semantic_unavailable').slice(0, 40) });
+      }
+    }
     const words = [...new Set(String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
       .filter((w) => w.length > 2 && w.length <= 48))].slice(0, 8);
     if (!words.length || !store?.request) return [];
@@ -154,5 +228,5 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
     return candidates.slice(0, Math.max(1, Math.min(10, Number(limit) || 5))).map(({ _score, ...row }) => row);
   }
 
-  return Object.freeze({ enqueue, processBatch, search });
+  return Object.freeze({ enqueue, processBatch, search, indexSemanticPages });
 }
