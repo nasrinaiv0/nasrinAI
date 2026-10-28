@@ -1,3 +1,12 @@
+## PR #681 — Secure semantic index, scheduled-run evidence, and coding/reasoning benchmark — 2026-10-29
+
+- Added a separately scoped public technical vector index and run-history table, with RLS enabled, no client policies, service-role-only grants, official HTTPS host filtering, exact embedding-model filtering, and bounded HNSW retrieval.
+- Extended the hourly learning route to perform bounded semantic indexing and persist sanitized run telemetry; expanded owner-only OCC telemetry with recent run status and semantic-index sample counts.
+- Added a six-case coding/reasoning benchmark and an OpenRouter baseline-vs-retrieval runner capped at 12 chat completions and six embeddings. A test suite passing does not claim answer quality improved; the benchmark must run against a populated semantic index.
+- Fixed the CI database service to use the pgvector-enabled PostgreSQL 16 image because the standard postgres:16 image lacks the vector extension required by migration 078.
+- Local validation against the current PR head: 1,195 passed, 0 failed, 1 skipped across 1,196 Node tests. Focused semantic/owner tests: 39 passed, 0 failed. CI initially identified the missing pgvector extension in the database test container and the missing changelog entry; both are addressed in this PR.
+- Production activation remains gated on applying and verifying migration 078, enabling SEMANTIC_KNOWLEDGE_ENABLED, observing a real scheduled invocation, and running the model-level benchmark with reviewed per-task outputs.
+
 ## Continuous Intelligence full-text index deployed — 2026-10-29
 
 - PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` reached READY.
