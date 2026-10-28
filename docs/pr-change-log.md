@@ -1,3 +1,9 @@
+## Full-text knowledge retrieval quality fix — 2026-10-29
+
+- Production verification showed the full-text search can return several chunks from one document among the top results. Added source-document deduplication before building platform knowledge context so the highest-ranked chunk per document is retained and context budget can cover more sources.
+- Added a regression test for duplicate chunks and empty input.
+- No schema, permission, or production database changes. CI #7771 and Documentation Gate rerun pending.
+
 ## Continuous Intelligence full-text index deployed — 2026-10-29
 
 - PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` reached READY.
