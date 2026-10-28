@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readLink, checkUrl } from './read-link.js';
 import { parseRobots } from '../connect/site-knowledge.js';
 import { PROGRAMMING_DOC_HOSTS } from '../knowledge/programming-context.js';
+import { analyzeRagQuery, rerankHybridCandidates } from '../knowledge/rag-orchestrator.js';
 
 const MAX_PAGE_CHARS = 20000;
 const MAX_LINKS = 40;
@@ -179,60 +180,88 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           totals.indexed_chunks++; wrote = true;
         } catch (err) {
           totals.embedding_failures++;
-          logger?.warn?.('semantic knowledge chunk indexing failed', { host, code: String(err?.status || err?.code || 'index_failed').slice(0, 40) });
-        }
-      }
-      if (wrote) totals.indexed_pages++;
-    }
-    return totals;
-  }
+          logger?.warn?.('semantic knowledge chunk indexing failed', { host, code: String(err?.status || err?.code || 'index_failed').slice(0, 40) }  async function search(query, { limit = 5, allowedHosts = null } = {}) {
+    const startedAt = now();
+    const analysis = analyzeRagQuery(query);
+    const boundedLimit = Math.max(1, Math.min(10, Number(limit) || 5));
+    const allowedHostList = allowedHosts === null ? null : [...new Set([...allowedHosts]
+      .map((host) => String(host || '').toLowerCase())
+      .filter((host) => /^[a-z0-9.-]{1,253}$/.test(host)))];
+    if (allowedHostList && !allowedHostList.length) return [];
 
-  async function search(query, { limit = 5, allowedHosts = null } = {}) {
-    const boundedLimit = Math.max(1, Math.min(5, Number(limit) || 5));
-    const allowedHostList = allowedHosts === null ? null : [...new Set([...allowedHosts].map((host) => String(host || '').toLowerCase()).filter((host) => /^[a-z0-9.-]{1,253}$/.test(host)))];
-    if (process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true' && embedder?.embed && allowedHostList?.length) {
+    const semanticSearch = async () => {
+      if (process.env.SEMANTIC_KNOWLEDGE_ENABLED !== 'true' || !embedder?.embed || !store?.request || !allowedHostList?.length) return [];
       try {
-        const embedding = await embedder.embed(String(query || '').slice(0, 2000));
+        const embedding = await embedder.embed(analysis.query.slice(0, 2000));
         const rows = await store.request('POST', 'rpc/match_public_technical_chunks', {
-          body: { query_embedding: '[' + embedding.join(',') + ']', allowed_hosts: allowedHostList, match_model: embedder.modelName, match_count: boundedLimit }
+          body: { query_embedding: '[' + embedding.join(',') + ']', allowed_hosts: allowedHostList, match_model: embedder.modelName, match_count: Math.min(10, boundedLimit * 2) }
         });
-        const trusted = (Array.isArray(rows) ? rows : []).filter((row) => {
-          try { const u = new URL(String(row.source_url || '')); return u.protocol === 'https:' && !u.username && !u.password && allowedHostList.includes(u.hostname.toLowerCase()) && String(row.embedding_model || '') === embedder.modelName; } catch { return false; }
-        }).slice(0, boundedLimit).map((row) => ({ url: row.source_url, title: row.title, text: row.content, fetched_at: row.fetched_at, similarity: Number(row.similarity) }));
-        if (trusted.length) return trusted;
+        return (Array.isArray(rows) ? rows : []).filter((row) => {
+          try {
+            const u = new URL(String(row.source_url || ''));
+            return u.protocol === 'https:' && !u.username && !u.password
+              && allowedHostList.includes(u.hostname.toLowerCase())
+              && String(row.embedding_model || '') === embedder.modelName;
+          } catch { return false; }
+        }).slice(0, boundedLimit * 2).map((row, index) => ({
+          url: row.source_url, title: row.title, text: row.content, fetched_at: row.fetched_at,
+          similarity: Number(row.similarity), _semanticRank: index
+        }));
       } catch (err) {
-        logger?.warn?.('semantic knowledge retrieval fell back to keyword search', { code: String(err?.status || err?.code || 'semantic_unavailable').slice(0, 40) });
+        logger?.warn?.('semantic knowledge retrieval fell back to hybrid keyword search', {
+          code: String(err?.status || err?.code || 'semantic_unavailable').slice(0, 40)
+        });
+        return [];
       }
-    }
-    const words = [...new Set(String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
-      .filter((w) => w.length > 2 && w.length <= 48))].slice(0, 8);
-    if (!words.length || !store?.request) return [];
-    const safeWords = words.map((w) => w.replace(/[%_*(),]/g, '')).filter(Boolean);
-    if (!safeWords.length) return [];
-    const or = safeWords.map((w) => 'text_content.ilike.*' + encodeURIComponent(w) + '*').join(',');
-    const hosts = allowedHosts === null ? null : new Set(
-      [...allowedHosts].map((host) => String(host || '').toLowerCase()).filter((host) => /^[a-z0-9.-]{1,253}$/.test(host))
-    );
-    if (hosts && !hosts.size) return [];
-    // Over-fetch a bounded candidate set, then filter trusted hosts and rank by
-    // term overlap locally so recent unrelated pages cannot crowd out evidence.
-    const fetchLimit = Math.max(10, Math.min(100, (Math.max(1, Math.min(10, Number(limit) || 5)) * 10)));
-    const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + fetchLimit);
-    const candidates = [];
-    for (const r of Array.isArray(rows) ? rows : []) {
-      let url;
-      try { url = new URL(String(r.url || '')); } catch { continue; }
-      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
-      if (hosts && (url.protocol !== 'https:' || !hosts.has(url.hostname.toLowerCase()))) continue;
-      const title = String(r.title || '').slice(0, 200);
-      const text = String(r.text_content || '').slice(0, 4000);
-      const searchable = (title + ' ' + text).toLowerCase();
-      const score = safeWords.reduce((sum, word) => sum + Math.min(3, searchable.split(word).length - 1), 0);
-      if (score <= 0) continue;
-      candidates.push({ url: url.href, title, text, media: Array.isArray(r.media) ? r.media : [], fetched_at: r.fetched_at, _score: score });
-    }
-    candidates.sort((a, b) => b._score - a._score || String(b.fetched_at || '').localeCompare(String(a.fetched_at || '')));
-    return candidates.slice(0, Math.max(1, Math.min(10, Number(limit) || 5))).map(({ _score, ...row }) => row);
+    };
+
+    const keywordSearch = async () => {
+      if (!store?.request) return [];
+      const tokens = analysis.terms
+        .map((word) => word.replace(/[%_*(),]/g, ''))
+        .filter((word) => /^[\p{L}\p{N}._+#-]{2,48}$/u.test(word))
+        .slice(0, 18);
+      if (!tokens.length) return [];
+      const or = [...new Set(tokens)].map((word) => 'text_content.ilike.*' + encodeURIComponent(word) + '*').join(',');
+      const fetchLimit = Math.max(20, Math.min(100, boundedLimit * 12));
+      const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + fetchLimit);
+      const hosts = allowedHostList ? new Set(allowedHostList) : null;
+      const candidates = [];
+      for (const row of Array.isArray(rows) ? rows : []) {
+        let url;
+        try { url = new URL(String(row.url || '')); } catch { continue; }
+        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+        if (hosts && (url.protocol !== 'https:' || !hosts.has(url.hostname.toLowerCase()))) continue;
+        const candidate = {
+          url: url.href, title: String(row.title || '').slice(0, 200),
+          text: String(row.text_content || '').slice(0, 5000), media: Array.isArray(row.media) ? row.media : [],
+          fetched_at: row.fetched_at
+        };
+        const searchable = (candidate.title + ' ' + candidate.text).toLowerCase();
+        const score = tokens.reduce((sum, word) => sum + Math.min(3, searchable.split(word).length - 1), 0);
+        if (score > 0) candidates.push({ ...candidate, _keywordRank: candidates.length });
+      }
+      return candidates;
+    };
+
+    const [semanticRows, keywordRows] = await Promise.all([
+      semanticSearch().catch(() => []),
+      keywordSearch().catch((err) => {
+        logger?.warn?.('keyword knowledge retrieval unavailable', { code: String(err?.status || err?.code || 'keyword_unavailable').slice(0, 40) });
+        return [];
+      })
+    ]);
+    const ranked = rerankHybridCandidates([...semanticRows, ...keywordRows], analysis, {
+      limit: boundedLimit, allowedHosts: allowedHostList, now
+    });
+    logger?.info?.('hybrid knowledge retrieval completed', {
+      intent: analysis.intent, expansion_count: analysis.expansions.length,
+      semantic_candidates: semanticRows.length, keyword_candidates: keywordRows.length,
+      returned: ranked.length, mode: semanticRows.length && keywordRows.length ? 'hybrid' : semanticRows.length ? 'semantic_fallback' : keywordRows.length ? 'keyword_fallback' : 'empty',
+      latency_ms: Math.max(0, now() - startedAt)
+    });
+    return ranked;
+  }lice(0, Math.max(1, Math.min(10, Number(limit) || 5))).map(({ _score, ...row }) => row);
   }
 
   return Object.freeze({ enqueue, processBatch, search, indexSemanticPages });

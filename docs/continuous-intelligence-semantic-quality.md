@@ -36,3 +36,11 @@ Only enable broader rollout if the candidate has the same task coverage, no rubr
 ## Scheduled-run telemetry
 
 knowledge_learning_runs stores only sanitized counters, timestamps, bounded duration, status, and a constrained error code. It deliberately excludes page bodies, prompts, raw exception messages, and credentials. The endpoint logs aggregate counts only. A succeeded run means the handler completed; quality improvement still requires the benchmark gate above.
+
+
+## Hybrid retrieval and orchestration
+
+- `src/knowledge/rag-orchestrator.js` classifies query intent (security, debugging, deployment, database, implementation, explanation, or general), normalizes common technical aliases, and produces at most three deterministic query variants without an extra model call.
+- `src/web/crawler.js` retrieves vector and keyword candidates concurrently, validates source protocol/host/model, merges duplicate URLs, and reranks with semantic similarity, lexical coverage/title evidence, and freshness.
+- Telemetry contains only bounded metadata (intent, expansion count, candidate counts, mode, result count, latency); raw prompts and retrieved text are deliberately excluded. Retrieval is best-effort and falls back to whichever search path is available.
+- Official documentation excerpts remain untrusted reference data and are formatted with their source URLs. Tenant-owned business documents and user memory remain in their existing permission-scoped retrieval paths and are not mixed into the global public index.

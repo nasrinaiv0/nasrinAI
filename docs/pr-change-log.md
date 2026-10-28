@@ -1,3 +1,10 @@
+## Hybrid RAG orchestration — 2026-10-29
+
+- Added bounded intent classification, technical query expansion, hybrid vector-plus-keyword candidate retrieval, and deterministic semantic/lexical/freshness reranking for trusted programming documentation.
+- Retrieval telemetry records intent, expansion count, candidate counts, result count, mode, and latency without logging raw queries or retrieved content.
+- Kept strict HTTPS/host/model validation and untrusted-source handling; vector or keyword failures degrade to the available retrieval path.
+- Added unit and crawler integration tests for aliases, ranking, source filtering, semantic/keyword merging, telemetry, and fallback behavior.
+
 ## Full-text knowledge retrieval quality fix — 2026-10-29
 
 - Production verification showed the full-text search can return several chunks from one document among the top results. Added source-document deduplication before building platform knowledge context so the highest-ranked chunk per document is retained and context budget can cover more sources.
