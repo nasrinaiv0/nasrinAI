@@ -41,7 +41,7 @@ export function analyzeRagQuery(input) {
   const matched = INTENT_RULES.find(([, pattern]) => pattern.test(query));
   const intent = matched?.[0] || 'general';
   const aliases = [...new Set(tokens.map((token) => ALIASES[token]).filter(Boolean))];
-  const terms = [...new Set([...tokens, ...aliases])].slice(0, 18);
+  const terms = [...new Set([...tokens, ...aliases, ...(matched?.[2] || [])])].slice(0, 18);
   const expansions = [];
   if (query) expansions.push(query);
   if (aliases.length) {

@@ -180,7 +180,15 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           totals.indexed_chunks++; wrote = true;
         } catch (err) {
           totals.embedding_failures++;
-          logger?.warn?.('semantic knowledge chunk indexing failed', { host, code: String(err?.status || err?.code || 'index_failed').slice(0, 40) }  async function search(query, { limit = 5, allowedHosts = null } = {}) {
+          logger?.warn?.('semantic knowledge chunk indexing failed', { host, code: String(err?.status || err?.code || 'index_failed').slice(0, 40) });
+        }
+      }
+      if (wrote) totals.indexed_pages++;
+    }
+    return totals;
+  }
+
+  async function search(query, { limit = 5, allowedHosts = null } = {}) {
     const startedAt = now();
     const analysis = analyzeRagQuery(query);
     const boundedLimit = Math.max(1, Math.min(10, Number(limit) || 5));
@@ -261,7 +269,6 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
       latency_ms: Math.max(0, now() - startedAt)
     });
     return ranked;
-  }lice(0, Math.max(1, Math.min(10, Number(limit) || 5))).map(({ _score, ...row }) => row);
   }
 
   return Object.freeze({ enqueue, processBatch, search, indexSemanticPages });
