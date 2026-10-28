@@ -4,7 +4,7 @@ import { PROGRAMMING_DOC_HOSTS } from './programming-context.js';
 
 const TRUSTED_HOSTS = new Set(PROGRAMMING_DOC_HOSTS);
 const MAX_PAGE_CHARS = 20000;
-const MAX_BATCH = 10;
+const MAX_BATCH = 10; // Hard ceiling prevents cron configuration from creating an unbounded write burst.
 const PAGE_CANDIDATE_LIMIT = 500;
 
 function safePage(row) {
