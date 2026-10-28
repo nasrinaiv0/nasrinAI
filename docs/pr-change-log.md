@@ -1,3 +1,11 @@
+## Continuous Intelligence full-text index deployed — 2026-10-29
+
+- PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` reached READY.
+- Migration 076 applied and verified: source hash column, unique partial index, SECURITY DEFINER function with fixed search_path, and service_role-only execution.
+- CI #7753 passed (1,191 passed, 0 failed, 1 skipped out of 1,192 Node tests); database tests, dependency audit, OpenRouter activity-sync tests, syntax check, and secret scan passed. Documentation Gate #1818 passed.
+- The indexer uses trusted HTTPS source hosts, existing chunking/full-text search, content-hash idempotency, and a five-document hourly cap.
+- The first post-deployment scheduled indexing run and live answer impact are not yet verified. Semantic embeddings, persistent run history, and model-level reasoning benchmarks remain follow-up work.
+
 ## Continuous Intelligence full-text knowledge indexing follow-up — 2026-10-29
 
 - Added migration 076 with managed-document content hashes, a unique partial index, and an idempotent SECURITY DEFINER upsert RPC restricted to service_role and the active platform tenant.

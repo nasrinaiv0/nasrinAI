@@ -182,3 +182,12 @@ Changes in this follow-up:
 - **Validation:** Migration/database regression tests and unit tests have been added; CI and Documentation Gate are pending on the follow-up PR.
 - **Rollout gate:** Do not merge or deploy until CI passes. Apply migration 076 to production only after CI; then verify RLS/grants, idempotent indexing, and actual search_knowledge retrieval. Existing migration-history mismatch for crawler migration 044 must not be “fixed” by blindly rerunning it.
 - **Remaining:** Semantic embeddings/vector ranking, persistent per-run history, a measured coding/reasoning benchmark, and optional fine-tuning remain separate phases.
+
+
+## Continuous Intelligence full-text indexing — deployed — 2026-10-29
+
+- **Status:** PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production Vercel deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` is READY.
+- **Migration 076:** Applied to production. Verified `source_content_hash`, the unique partial index, and the SECURITY DEFINER RPC with fixed search_path; execution is denied to anon/authenticated and granted to service_role.
+- **Implementation:** Trusted HTTPS crawl pages are hashed, chunked, and upserted into the existing platform knowledge store; changed pages refresh their chunks; legacy illustrative examples can be upgraded in place. Up to five changed docs are indexed per hourly run.
+- **Validation:** CI #7753 passed: 1,191 passed, 0 failed, 1 skipped out of 1,192 Node tests; database tests, dependency audit, OpenRouter activity-sync tests, syntax check, and secret scan passed. Documentation Gate #1818 passed.
+- **Still to verify:** The first post-deployment hourly run, real indexed-doc counts, and retrieval impact in live platform answers. Semantic embeddings/vector ranking, persistent per-run history, and a measured coding/reasoning benchmark remain follow-up phases.
