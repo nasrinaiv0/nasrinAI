@@ -23,6 +23,7 @@ import { looksSecret } from './knowledge/secrets.js';
 import { runPlanningCouncil } from './ai/planning-council.js';
 import { estimateTextTokenCount } from './ai/text-image.js';
 import { estimateProviderRequestCost, PROVIDER_PRICING_VERSION } from './ai/provider-cost-estimate.js';
+import { formatProgrammingKnowledgeContext, shouldRetrieveProgrammingKnowledge } from './knowledge/programming-context.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
@@ -140,7 +141,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
     const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
@@ -357,6 +358,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Pages read for this answer (links shared, or web search sources): the
     // answer is then also kept in the permanent web-answer table (webAnswers).
     let webSources = [];
+    let extraProgrammingContext = '';
     // What the person asked in this chat decides whether an .html file stays one.
     let askedText = typed;
     const ownChips = new Set();   // pull request chip lines the server made from GitHub's answers
@@ -512,8 +514,22 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       !fastGreeting && memory && typed && !only ? memory.context(caller, typed) : null,
       !fastGreeting && library && typed && !only ? library.context(caller, typed, { projectId: project ? project.id : null }) : null,
       !fastGreeting && typed && !only ? conversations.context(caller, typed, conv.id) : null,
-      !fastGreeting && typed && !only && communityLearning ? communityLearning.context({ tenantId: caller.tenantId, query: typed, limit: 3 }) : null
+      !fastGreeting && typed && !only && communityLearning ? communityLearning.context({ tenantId: caller.tenantId, query: typed, limit: 3 }) : null,
+      !fastGreeting && crawler?.search && shouldRetrieveProgrammingKnowledge({
+        tenantId: caller.tenantId, platformTenantId: PLATFORM_TENANT_ID, query: typed,
+        hasAttachments: files.length > 0, fastGreeting
+      }) ? crawler.search(typed, { limit: 5 }).catch((err) => {
+        logger?.warn?.('programming knowledge retrieval skipped', { error: String(err?.message || 'retrieval unavailable').slice(0, 120) });
+        return [];
+      }) : null
     ]);
+    const programmingContext = formatProgrammingKnowledgeContext(programmingRows);
+    if (programmingContext.context) {
+      extraProgrammingContext = programmingContext.context;
+      for (const source of programmingContext.sources) {
+        if (!webSources.some((existing) => existing.url === source.url)) webSources.push(source);
+      }
+    }
     if (only && knowledge && !known) {
       // A follow-up ("and the price?") is looked up with the person's previous
       // message too; a file sent for a quote, against the services and prices.
@@ -529,7 +545,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         : (caller.tenant.offTopicReply || KNOWLEDGE_ONLY_REPLIES.offTopic);
       return finish(reply);
     }
-    const extra = [known, founderText, productText, memoryText, pastChats?.text, communityText].filter(Boolean);
+    const extra = [known, founderText, productText, memoryText, pastChats?.text, communityText, extraProgrammingContext].filter(Boolean);
     if (shelf) { extra.push(shelf.text); fromLibrary = shelf.titles; stage('library'); }
     else if (pastChats?.text || memoryText) stage('memory');
     if (extra.length && history.length) {
