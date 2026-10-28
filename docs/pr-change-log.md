@@ -2,8 +2,9 @@
 
 - Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
 - Added `/v1/internal/knowledge-learning`, protected by the existing internal cron authorization, to enqueue seeds idempotently and process a bounded crawler batch. Added an hourly Vercel Cron schedule; existing five-minute crawler worker remains in place.
-- Added/expanded `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, `docs/web-crawler.md`, and the master plan index/summary with the full target loop: discovery, safe crawling, normalization, chunking, embeddings/indexing, inference-time retrieval, reasoning/tool verification, evaluations, privacy, cost controls, OCC metrics, rollback and optional fine-tuning gates.
-- **CI evidence:** Initial CI run failed one Node test: the queue-path regex in `test/crawler-seeding.test.js` incorrectly expected a literal backslash. Corrected the assertion in a follow-up commit. The rerun is required before claiming CI passes. The initial run had 1,179 tests: 1,177 passed, 1 failed, 1 skipped.
+- Added/expanded `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, `docs/web-crawler.md`, and the master plan index/summary with the full target loop: discovery, safe crawling, normalization/chunking, embeddings/indexing, inference-time retrieval, reasoning/tool verification, evaluations, privacy, cost controls, OCC metrics, rollback and optional fine-tuning gates.
+- **Test fix:** Corrected the queue-path regex in `test/crawler-seeding.test.js`; it was incorrectly expecting a literal backslash.
+- **Validation:** CI run #7633 passed. Node tests: 1,179 total, 1,178 passed, 0 failed, 1 skipped. Database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check and secret scan passed. Documentation Gate #1768 passed.
 - This is knowledge acquisition and a future RAG/evaluation loop, not model-weight training. Production schema, live cron execution, retrieval impact, and OCC telemetry remain unverified.
 
 ## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
