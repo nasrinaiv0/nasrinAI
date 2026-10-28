@@ -239,7 +239,7 @@ export function buildApp({ config, logger }) {
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
-  const crawler = config.supabaseUrl ? createWebCrawler({ store, logger }) : null;
+  const crawler = config.supabaseUrl ? createWebCrawler({ store, logger, embedder }) : null;
   const crawlerKnowledgeIndexer = config.supabaseUrl ? createCrawlerKnowledgeIndexer({ store, logger, platformTenantId: PLATFORM_TENANT_ID }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
   const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });

@@ -2,7 +2,32 @@
 
 - Production verification showed the full-text search can return several chunks from one document among the top results. Added source-document deduplication before building platform knowledge context so the highest-ranked chunk per document is retained and context budget can cover more sources.
 - Added a regression test for duplicate chunks and empty input.
-- No schema, permission, or production database changes. CI #7771 and Documentation Gate rerun pending.
+- No schema, permission, or production database changes. CI #7774 and Documentation Gate #1824 passed for the PR head; rerun after this merge commit.
+
+## PR #684 — Tighten benchmark scoring and record production rollout status — 2026-10-29
+
+- Tightened the reasoning evidence rubric so the substring "no" inside unrelated words cannot satisfy a required criterion.
+- Fixed the untrusted-content safety rubric so a correct warning not to reveal an API key does not trigger a forbidden-answer match.
+- Recorded the verified migration/RLS/deployment/flag state while explicitly leaving first scheduled invocation and model-quality improvement unproven until observed.
+
+## PR #683 — Fail visibly when semantic embeddings are unavailable — 2026-10-29
+
+- Changed the hourly indexer to report a bounded partial failure when semantic retrieval is enabled but the embedding adapter or service store is not configured, rather than incorrectly reporting a successful run with zero indexed chunks.
+- Added a sanitized error code to the scheduled-run telemetry and a regression test for missing embedding configuration.
+
+## PR #682 — Align benchmark credentials with production configuration — 2026-10-29
+
+- Corrected the model-quality benchmark runner to use the application's existing SUPABASE_SECRET_KEY variable instead of a nonexistent SUPABASE_SERVICE_ROLE_KEY alias.
+- This is a benchmark-tool compatibility fix only; it does not change the deployed runtime path or enable additional database privileges.
+
+## PR #681 — Secure semantic index, scheduled-run evidence, and coding/reasoning benchmark — 2026-10-29
+
+- Added a separately scoped public technical vector index and run-history table, with RLS enabled, no client policies, service-role-only grants, official HTTPS host filtering, exact embedding-model filtering, and bounded HNSW retrieval.
+- Extended the hourly learning route to perform bounded semantic indexing and persist sanitized run telemetry; expanded owner-only OCC telemetry with recent run status and semantic-index sample counts.
+- Added a six-case coding/reasoning benchmark and an OpenRouter baseline-vs-retrieval runner capped at 12 chat completions and six embeddings. A test suite passing does not claim answer quality improved; the benchmark must run against a populated semantic index.
+- Fixed the CI database service to use the pgvector-enabled PostgreSQL 16 image because the standard postgres:16 image lacks the vector extension required by migration 078; the migration fixes its search path across public/extensions schema layouts.
+- Local validation against the current PR head: 1,195 passed, 0 failed, 1 skipped across 1,196 Node tests. Focused semantic/owner tests: 39 passed, 0 failed. CI initially identified the missing pgvector extension in the database test container and the missing changelog entry; both are addressed in this PR.
+- Production activation remains gated on applying and verifying migration 078, enabling SEMANTIC_KNOWLEDGE_ENABLED, observing a real scheduled invocation, and running the model-level benchmark with reviewed per-task outputs.
 
 ## Continuous Intelligence full-text index deployed — 2026-10-29
 

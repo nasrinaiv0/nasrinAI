@@ -401,19 +401,55 @@ return { body: { sites: await connect.list(caller) } }; }
       handler: async ({ req }) => {
         if (!retentionAuthorized(req)) throw new HttpError(401, 'unauthorized', 'Unauthorized.');
         if (!crawler) throw new HttpError(503, 'crawler_unavailable', 'The core web crawler is not configured.');
-        const enqueued = await crawler.enqueue(PROGRAMMING_DOC_SOURCES, {
-          priority: 90, source: 'owner_seed', depth: 0, ignoreExisting: true
-        });
-        const result = await crawler.processBatch({ limit: 5 });
-        let knowledgeIndex = { enabled: false };
-        if (crawlerKnowledgeIndexer?.syncBatch) {
-          try { knowledgeIndex = await crawlerKnowledgeIndexer.syncBatch({ limit: 5 }); }
-          catch (err) {
-            logger?.warn?.('continuous intelligence indexing tick failed', { code: String(err?.code || 'index_tick_failed').slice(0, 64) });
-            knowledgeIndex = { enabled: true, failed: 1 };
+        const startedAt = Date.now();
+        let enqueued = 0;
+        try {
+          enqueued = await crawler.enqueue(PROGRAMMING_DOC_SOURCES, {
+            priority: 90, source: 'owner_seed', depth: 0, ignoreExisting: true
+          });
+          const result = await crawler.processBatch({ limit: 5 });
+          let knowledgeIndex = { enabled: false };
+          if (crawlerKnowledgeIndexer?.syncBatch) {
+            try { knowledgeIndex = await crawlerKnowledgeIndexer.syncBatch({ limit: 5 }); }
+            catch (err) {
+              logger?.warn?.('continuous intelligence indexing tick failed', { code: String(err?.code || 'index_tick_failed').slice(0, 64) });
+              knowledgeIndex = { enabled: true, failed: 1 };
+            }
           }
+          const semantic = typeof crawler.indexSemanticPages === 'function'
+            ? await crawler.indexSemanticPages({ limit: 5 })
+            : { enabled: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+          const failed = (result.results || []).some((item) => item.status === 'retry') ||
+            Number(knowledgeIndex.failed || 0) > 0 || Number(semantic.embedding_failures || 0) > 0;
+          const run = {
+            started_at: new Date(startedAt).toISOString(), finished_at: new Date().toISOString(),
+            status: failed ? 'partial' : 'succeeded', seed_count: PROGRAMMING_DOC_SOURCES.length,
+            crawl_processed: Math.max(0, Math.min(20, Number(result.processed) || 0)),
+            indexed_pages: Math.max(0, Math.min(20, Number(semantic.indexed_pages) || 0)),
+            indexed_chunks: Math.max(0, Math.min(100, Number(semantic.indexed_chunks) || 0)),
+            skipped_unchanged: Math.max(0, Math.min(100, Number(semantic.skipped_unchanged) || 0)),
+            embedding_failures: Math.max(0, Math.min(100, Number(semantic.embedding_failures) || 0)),
+            error_code: /^[a-z0-9_]{1,64}$/.test(String(semantic.error_code || '')) ? semantic.error_code : (Number(semantic.embedding_failures || 0) > 0 ? 'embedding_failed' : null),
+            duration_ms: Math.max(0, Math.min(3600000, Date.now() - startedAt))
+          };
+          try { await store?.request?.('POST', 'knowledge_learning_runs', { body: run, prefer: 'return=minimal' }); }
+          catch { logger?.warn?.('continuous intelligence run telemetry write failed', { code: 'run_telemetry_write_failed' }); }
+          logger?.info?.('continuous intelligence scheduled run finished', {
+            status: run.status, seed_count: run.seed_count, enqueued,
+            crawl_processed: run.crawl_processed, indexed_pages: run.indexed_pages,
+            indexed_chunks: run.indexed_chunks, embedding_failures: run.embedding_failures,
+            duration_ms: run.duration_ms
+          });
+          return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result, knowledge_index: knowledgeIndex, semantic } };
+        } catch (err) {
+          try { await store?.request?.('POST', 'knowledge_learning_runs', { body: {
+            started_at: new Date(startedAt).toISOString(), finished_at: new Date().toISOString(), status: 'failed',
+            seed_count: PROGRAMMING_DOC_SOURCES.length, error_code: 'scheduled_learning_failed',
+            duration_ms: Math.max(0, Math.min(3600000, Date.now() - startedAt))
+          }, prefer: 'return=minimal' }); } catch {}
+          logger?.warn?.('continuous intelligence scheduled run failed', { code: 'scheduled_learning_failed' });
+          throw err;
         }
-        return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result, knowledge_index: knowledgeIndex } };
       }
     },
     {
