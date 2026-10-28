@@ -163,13 +163,12 @@ Changes in this follow-up:
 - Status: in progress. Run CI and inspect the final diff; confirm the deployed cron and live Supabase schema before production claims.
 
 
-## Continuous Intelligence and hourly learning — PR #674 — 2026-10-29
+## Continuous Intelligence and hourly learning — merged PR #674 — 2026-10-29
 
-- **Status:** In development on `feat/continuous-intelligence-hourly-learning`; PR #674 is open, not merged or deployed.
+- **Status:** PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`. Vercel production deployment `dpl_EKiFeNBJfjaNoEZ11iU91cAnVkAG` is READY and aliases the NasrinAI production domains.
 - **Implementation:** Curated official programming-doc roots; hourly protected seed endpoint; idempotent queue insertion; same-host traversal for official learning seeds; bounded locally ranked keyword retrieval into platform coding answers with official HTTPS host filtering, secret-pattern exclusion, untrusted-context handling, and source citations.
 - **Owner Command Center:** Added a read-only Continuous Intelligence panel and owner-session-protected API for bounded queue/page metadata samples. It does not expose page bodies or raw crawler errors and labels sample limits and keyword-only retrieval.
-- **Security tests:** Constant-time cron authorization, no public OCC access, sensitive query exclusion, trusted host filtering, and same-host crawler traversal covered by regression tests.
-- **Docs:** Upgrade plan, runbook, crawler guide, master-plan index, summary, and PR changelog updated with architecture, safety boundaries, acceptance criteria, and remaining phases.
-- **CI evidence:** **CI #7696 passed**: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. **Documentation Gate #1801 passed.**
-- **Known gaps:** Keyword retrieval is not semantic/vector RAG and does not train model weights. No new production database migration has been applied. Production cron execution, live retrieval quality, persistent per-run history, embeddings/vector ranking, a measured model coding/reasoning benchmark, and production OCC behavior remain unverified.
-- **Next:** Verify migration 044 and cron execution in the actual production project, validate the owner-only OCC panel live, then implement semantic indexing and a versioned model evaluation benchmark only after confirming the existing provider/schema and cost controls. Do not claim production behavior is verified until there is live evidence.
+- **Security verification:** Constant-time cron authorization, no public OCC access, sensitive query exclusion, trusted host filtering, and same-host crawler traversal covered by regression tests. Live Supabase inspection confirmed crawler tables/function exist, RLS is enabled, anon/authenticated policies deny access, and function execution is granted only to service_role/postgres.
+- **CI evidence:** CI #7706 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity-sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1808 passed.
+- **Production verification boundary:** Production deployment is READY and the hourly cron schedule is present in production configuration, but the first post-deploy scheduled invocation and live OCC/retrieval behavior still require observation. Supabase migration history lacks a 044 record even though the existing tables/function are present; do not reapply the table-creation migration blindly.
+- **Known gaps:** Current retrieval is keyword-based, not semantic/vector RAG, and does not train model weights. Persistent per-run history, a measured model coding/reasoning benchmark, semantic embeddings/vector ranking, and optional fine-tuning remain follow-up phases. Fine-tuning requires permissioned data, held-out evaluation, and explicit owner approval.

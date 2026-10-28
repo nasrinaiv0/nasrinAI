@@ -1,3 +1,11 @@
+## Continuous Intelligence merge and production deployment — 2026-10-29
+
+- PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`; Vercel production deployment `dpl_EKiFeNBJfjaNoEZ11iU91cAnVkAG` reached READY.
+- Production configuration includes the hourly `/v1/internal/knowledge-learning` schedule (`0 * * * *`). Actual first post-deploy cron execution and live owner-console/retrieval behavior remain pending observation.
+- Live Supabase inspection verified `web_crawl_queue`, `web_crawl_pages`, and `claim_web_crawl_jobs` exist; RLS is enabled, anon/authenticated policies deny access, and function execution is limited to service_role/postgres. The migration list lacks a 044 record despite the objects existing; do not blindly reapply the migration.
+- Final tested code CI #7706 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1808 passed.
+- Scope boundary: current retrieval is bounded, locally ranked keyword search with official-host filtering and citations; it is not semantic/vector RAG and does not train model weights. Semantic embeddings, persistent run history, and a measured coding/reasoning benchmark remain follow-up work.
+
 ## Continuous Intelligence quality/security follow-up — 2026-10-29
 
 - Restricted official learning seed descendants to the same hostname at every crawl depth while preserving the owner_seed policy and idempotent queue insertion.
