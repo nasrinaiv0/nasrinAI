@@ -1,3 +1,10 @@
+## Continuous Intelligence — initial hourly programming knowledge pipeline — 2026-10-29
+
+- Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
+- Added `/v1/internal/knowledge-learning`, protected by the existing internal cron authorization, to enqueue seeds idempotently and process a bounded crawler batch. Added an hourly Vercel Cron schedule; existing five-minute crawler worker remains in place.
+- Added tests for source uniqueness/HTTPS and the hourly schedule. These changes do not fine-tune model weights and do not establish that knowledge retrieval/embeddings are already wired to the model. That is a later phase documented in `docs/nasrinai-continuous-intelligence-upgrade.md`.
+- **Validation:** Not yet run in this environment. Production schema, live cron execution, crawler source access, retrieval impact, and OCC telemetry remain unverified.
+
 ## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
 
 - Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.
