@@ -15,6 +15,7 @@ import { manilaDayStart, manilaWeekStart, userWeeklyTokenLimit } from './limits.
 import { publicCatalog } from './ai/professions.js';
 import { createNotices, WHENS } from './notices.js';
 import { COMMUNITY_LEARNING_CONSENT_VERSION } from './knowledge/community-learning.js';
+import { PROGRAMMING_DOC_SOURCES } from './knowledge/programming-sources.js';
 
 const IMPROVEMENT_CONSENT_VERSION = COMMUNITY_LEARNING_CONSENT_VERSION;
 
@@ -386,6 +387,21 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!crawler) throw new HttpError(503, 'crawler_unavailable', 'The core web crawler is not configured.');
         const result = await crawler.processBatch({ limit: 5 });
         return { body: { ok: true, ...result } };
+      }
+    },
+    {
+      // Hourly continuous-learning seed: enqueue official programming documentation idempotently.
+      method: 'GET',
+      path: '/v1/internal/knowledge-learning',
+      public: true,
+      handler: async ({ req }) => {
+        if (!retentionAuthorized(req)) throw new HttpError(401, 'unauthorized', 'Unauthorized.');
+        if (!crawler) throw new HttpError(503, 'crawler_unavailable', 'The core web crawler is not configured.');
+        const enqueued = await crawler.enqueue(PROGRAMMING_DOC_SOURCES, {
+          priority: 90, source: 'owner_seed', depth: 0, ignoreExisting: true
+        });
+        const result = await crawler.processBatch({ limit: 5 });
+        return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result } };
       }
     },
     {
