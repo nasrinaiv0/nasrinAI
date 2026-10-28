@@ -171,3 +171,14 @@ Changes in this follow-up:
 - **Deployed behavior:** Curated official programming seeds, protected hourly queue seeding, idempotent queue insertion, same-host traversal for owner-seeded sources, bounded locally ranked keyword retrieval for platform coding questions, official HTTPS host allowlisting, secret-pattern exclusions, untrusted-context handling, source citations, and an owner-only OCC panel/API with bounded metadata samples.
 - **Known gaps:** Current retrieval is keyword-based, not semantic/vector RAG, and does not train model weights. Production schema has no enabled `vector` extension; existing `knowledge_docs`/`knowledge_chunks` require tenant IDs, so global public docs must not be mixed into tenant-owned records. Semantic index requires a reviewed schema/permission boundary and embedding-provider cost controls. Direct cron-invocation/OCC runtime evidence, persistent per-run history, and a fixed coding/reasoning evaluation benchmark remain open.
 - **Next:** Confirm a successful hourly route invocation and authenticated OCC response from production logs; reconcile migration history; design a separate RLS-protected public-doc index or explicit public scope; select an embedding provider and budget; implement semantic retrieval and fixed benchmark only after security review.
+
+
+## Continuous Intelligence full-text indexing follow-up — in development — 2026-10-29
+
+- **Scope:** Add idempotent, content-hash-aware ingestion of trusted crawler pages into the existing platform knowledge search, rather than relying only on the crawler keyword fallback.
+- **Implementation:** Migration 076 adds managed-document content hashes and a service-role-only SECURITY DEFINER upsert RPC with fixed search_path, platform-tenant validation, HTTPS URL validation, chunk size/count limits, and a 200-document cap. The server indexer filters to the official host allowlist and processes up to five changed documents per hourly run.
+- **Retrieval:** Uses existing knowledge_docs/knowledge_chunks and search_knowledge full-text ranking. Public docs are labelled untrusted reference data. This is full-text RAG, not vector embeddings or model-weight training.
+- **OCC:** Extends owner-only telemetry with managed knowledge-document sample count and latest indexed timestamp, without returning page bodies or raw errors.
+- **Validation:** Migration/database regression tests and unit tests have been added; CI and Documentation Gate are pending on the follow-up PR.
+- **Rollout gate:** Do not merge or deploy until CI passes. Apply migration 076 to production only after CI; then verify RLS/grants, idempotent indexing, and actual search_knowledge retrieval. Existing migration-history mismatch for crawler migration 044 must not be “fixed” by blindly rerunning it.
+- **Remaining:** Semantic embeddings/vector ranking, persistent per-run history, a measured coding/reasoning benchmark, and optional fine-tuning remain separate phases.
