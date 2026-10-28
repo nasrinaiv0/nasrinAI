@@ -1,3 +1,8 @@
+## PR #683 — Fail visibly when semantic embeddings are unavailable — 2026-10-29
+
+- Changed the hourly indexer to report a bounded partial failure when semantic retrieval is enabled but the embedding adapter or service store is not configured, rather than incorrectly reporting a successful run with zero indexed chunks.
+- Added a sanitized error code to the scheduled-run telemetry and a regression test for missing embedding configuration.
+
 ## PR #682 — Align benchmark credentials with production configuration — 2026-10-29
 
 - Corrected the model-quality benchmark runner to use the application's existing SUPABASE_SECRET_KEY variable instead of a nonexistent SUPABASE_SERVICE_ROLE_KEY alias.
