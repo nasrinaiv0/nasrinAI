@@ -507,7 +507,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // The business's own knowledge and the person's saved notes, found by code
     // (no model call), added to this turn as data. Not saved with the chat.
     // The lookups below do not depend on each other, so they run together.
-    let [known, founderText, productText, memoryText, shelf, pastChats, communityText] = await Promise.all([
+    let [known, founderText, productText, memoryText, shelf, pastChats, communityText, programmingRows] = await Promise.all([
       !fastGreeting && knowledge && typed ? knowledge.context(caller, typed) : null,
       !fastGreeting && founder && typed && !only ? founder.context(caller, typed, PLATFORM_TENANT_ID) : null,
       !fastGreeting && productKnowledge && typed && !only ? productKnowledge.context(caller, typed, PLATFORM_TENANT_ID) : null,
