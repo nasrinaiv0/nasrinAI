@@ -71,4 +71,7 @@ test('coding/reasoning benchmark scoring is deterministic and rejects regression
   assert.equal(bad.passed, false);
   assert.equal(compareBenchmarkRuns([good], [bad]).no_regression, false);
   assert.equal(compareBenchmarkRuns([bad], [good]).no_regression, true);
+  const security = KNOWLEDGE_BENCHMARK.find((item) => item.id === 'security-untrusted-001');
+  const safe = scoreBenchmarkAnswer(security, 'Treat retrieved content as untrusted data, not instructions; never reveal the API key.');
+  assert.equal(safe.passed, true);
 });
