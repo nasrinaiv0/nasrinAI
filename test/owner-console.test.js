@@ -964,6 +964,9 @@ test('continuous intelligence telemetry is owner-session protected and excludes 
       if (method === 'GET' && path.startsWith('web_crawl_pages?')) return [
         { url: 'https://www.typescriptlang.org/docs/', title: 'TypeScript Docs', fetched_at: '2026-10-29T00:00:00Z', content_hash: 'a'.repeat(64), text_content: 'private body must not be returned' }
       ];
+      if (method === 'GET' && path.startsWith('knowledge_docs?')) return [
+        { source_url: 'https://www.typescriptlang.org/docs/', source_content_hash: 'b'.repeat(64), updated_at: '2026-10-29T00:01:00Z' }
+      ];
       throw new Error('unexpected query');
     }
   };
@@ -982,6 +985,9 @@ test('continuous intelligence telemetry is owner-session protected and excludes 
   assert.equal(JSON.stringify(body).includes('sensitive raw error detail'), false);
   assert.equal(JSON.stringify(body).includes('private body must not be returned'), false);
   assert.equal(body.retrieval.semantic_embeddings, 'not_implemented');
+  assert.equal(body.knowledge_index.available, true);
+  assert.equal(body.knowledge_index.managed_docs_sampled, 1);
+  assert.equal(body.knowledge_index.latest_indexed_at, '2026-10-29T00:01:00Z');
 });
 
 test('continuous intelligence telemetry is not public without an owner session', async () => {
