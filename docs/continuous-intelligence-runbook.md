@@ -12,7 +12,7 @@ The Vercel schedule `0 * * * *` invokes `/v1/internal/knowledge-learning` at the
 
 The existing `/v1/internal/web-crawl` worker remains scheduled every five minutes. Both workers use the shared queue; verify production locking, retry behavior, endpoint authorization, and overlapping-run behavior before treating the schedule as reliable.
 
-The branch now connects a bounded keyword search over `web_crawl_pages` to platform chat for relevant programming/software questions. Only HTTPS results on the curated official-host allowlist are included, excerpts are bounded and marked as untrusted reference data, and source URLs are added to answer citations. Customer tenants, greetings, attachment turns, and queries matching sensitive credential patterns are excluded from this extra lookup. This is **keyword retrieval, not semantic/vector RAG**; it does not yet establish measured answer-quality improvement. Embeddings, ranking evaluation, production cron verification, and OCC telemetry remain follow-up phases.
+The branch now connects a bounded keyword search over `web_crawl_pages` to platform chat for relevant programming/software questions. Only HTTPS results on the curated official-host allowlist are included, excerpts are bounded and marked as untrusted reference data, and source URLs are added to answer citations. Customer tenants, greetings, attachment turns, and queries matching sensitive credential patterns are excluded from this extra lookup. This is **keyword retrieval, not semantic/vector RAG**; it does not yet establish measured answer-quality improvement. Embeddings, ranking evaluation, persistent per-run history, and production cron verification remain follow-up phases. The owner-only OCC panel at `/owner/api/continuous-intelligence` reports a bounded sample of queue status/source counts and recent indexed-page metadata; it intentionally excludes page bodies and raw crawler errors.
 
 ## Target end-to-end data flow
 
@@ -26,7 +26,7 @@ The branch now connects a bounded keyword search over `web_crawl_pages` to platf
 8. **Reason and act:** Interpret the task and constraints, create a bounded plan, retrieve context, use authorized tools, run relevant checks, compare results with acceptance criteria, and report uncertainty honestly.
 9. **Evaluate:** Run a versioned benchmark for coding, debugging, reasoning, factual grounding, citations, security, and refusal behavior. Compare with a baseline before promoting any prompt, retrieval, or routing change.
 10. **Improve under review:** Store only sanitized, permissioned candidate examples. Deduplicate and score candidates; require review before promoting examples or training data.
-11. **Observe:** Publish sanitized run metrics to the owner-only OCC: last/next run, fetched/indexed/skipped/retried counts, source freshness, embedding failures, retrieval hit rate, evaluation scores, latency, estimated cost and last error code.
+11. **Observe:** The initial owner-only OCC panel exposes sampled queue status/source counts and recent indexed-page metadata, without page bodies or raw errors. Target telemetry still includes last/next run, fetched/indexed/skipped/retried counts, source freshness, embedding failures, retrieval hit rate, evaluation scores, latency, estimated cost and safe error categories; persistent run history is not yet implemented.
 12. **Rollback:** Version source catalogues, index batches, prompt/config changes and evaluation results. Provide a kill switch and a safe way to disable new ingestion or revert a bad index batch.
 
 ## Knowledge coverage
