@@ -1,4 +1,5 @@
 import { PROGRAMMING_DOC_SOURCES } from './programming-sources.js';
+import { looksSecret } from './secrets.js';
 
 export const PROGRAMMING_DOC_HOSTS = Object.freeze([...new Set(PROGRAMMING_DOC_SOURCES.map((raw) => new URL(raw).hostname.toLowerCase()))]);
 const TRUSTED_HOSTS = new Set(PROGRAMMING_DOC_HOSTS);
@@ -9,7 +10,7 @@ const MAX_CONTEXT_CHARS = 6500;
 export function shouldRetrieveProgrammingKnowledge({ tenantId, platformTenantId, query, hasAttachments = false, fastGreeting = false }) {
   if (tenantId !== platformTenantId || hasAttachments || fastGreeting || typeof query !== 'string') return false;
   const text = query.trim();
-  return text.length >= 8 && text.length <= 2400 && !SECRET_OR_PRIVATE.test(text) && TECHNICAL_INTENT.test(text);
+  return text.length >= 8 && text.length <= 2400 && !SECRET_OR_PRIVATE.test(text) && !looksSecret(text) && TECHNICAL_INTENT.test(text);
 }
 
 export function formatProgrammingKnowledgeContext(rows, { maxChars = MAX_CONTEXT_CHARS } = {}) {
