@@ -15,6 +15,7 @@ function safePage(row) {
   if (text.length < 80) return null;
   const title = String(row.title || url.hostname).replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) || url.hostname;
   const sourceUrl = url.href.slice(0, 2000);
+  // Bind title, canonical URL, and normalized text so metadata or body changes refresh the managed document.
   const contentHash = createHash('sha256').update(title + '\n' + sourceUrl + '\n' + text).digest('hex');
   const chunks = chunkText(text).filter((chunk) => chunk.trim()).slice(0, 100);
   if (!chunks.length) return null;
