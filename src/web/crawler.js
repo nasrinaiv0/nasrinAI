@@ -49,12 +49,12 @@ export function canonicalCrawlUrl(raw) {
 // Persistent, bounded public-web crawler. It indexes text and media metadata;
 // it does not download media binaries or execute page JavaScript.
 export function createWebCrawler({ store, readLinkImpl = readLink, logger = null, now = () => Date.now() }) {
-  async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0 } = {}) {
+  async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0, ignoreExisting = false } = {}) {
     const urls = [...new Set((Array.isArray(rawUrls) ? rawUrls : [rawUrls]).map(canonicalCrawlUrl).filter(Boolean))].slice(0, 100);
     if (!urls.length || !store?.request) return 0;
     const rows = urls.map((url) => ({ url, url_hash: hash(url), priority: Math.max(0, Math.min(100, Number(priority) || 0)), source, depth: Math.max(0, Math.min(8, Number(depth) || 0)), next_crawl_at: nowIso() }));
     try {
-      await store.request('POST', 'web_crawl_queue?on_conflict=url_hash', { body: rows, prefer: 'resolution=merge-duplicates,return=minimal' });
+      await store.request('POST', 'web_crawl_queue?on_conflict=url_hash', { body: rows, prefer: (ignoreExisting ? 'resolution=ignore-duplicates' : 'resolution=merge-duplicates') + ',return=minimal' });
       return urls.length;
     } catch (err) { logger?.warn?.('web crawl enqueue failed', { error: err?.message }); return 0; }
   }
@@ -95,7 +95,23 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           body: { status: 'indexed', last_crawled_at: nowIso(), next_crawl_at: next, last_error: null, depth: job.depth || 0 },
           prefer: 'return=minimal'
         });
-        if ((job.depth || 0) < 3) await enqueue(assets.links, { source: 'discovered', depth: (job.depth || 0) + 1 });
+        if ((job.depth || 0) < 3) {
+          // Official learning seeds may only expand within their own host. Keep
+          // the owner_seed label on descendants so the same boundary is enforced
+          // at every depth; ordinary research crawling keeps its existing policy.
+          const seedPage = job.source === 'owner_seed';
+          const discovered = seedPage
+            ? assets.links.filter((raw) => {
+                const next = canonicalCrawlUrl(raw);
+                return next && new URL(next).hostname.toLowerCase() === new URL(pageUrl).hostname.toLowerCase();
+              })
+            : assets.links;
+          await enqueue(discovered, {
+            source: seedPage ? 'owner_seed' : 'discovered',
+            depth: (job.depth || 0) + 1,
+            ignoreExisting: seedPage
+          });
+        }
         results.push({ url: doc.url, status: 'indexed', changed: previousHash !== contentHash, links_discovered: assets.links.length, media_indexed: assets.media.length });
       } catch (err) {
         logger?.warn?.('web crawl page failed', { url: String(job.url).slice(0, 500), error: err?.message });
@@ -106,12 +122,36 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
     return { processed: results.length, results };
   }
 
-  async function search(query, { limit = 5 } = {}) {
-    const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2).slice(0, 8);
-    if (!words.length) return [];
-    const or = words.map((w) => 'text_content.ilike.*' + encodeURIComponent(w.replace(/[%_*(),]/g, '')) + '*').join(',');
-    const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + Math.max(1, Math.min(10, limit)));
-    return (rows || []).map((r) => ({ url: r.url, title: r.title, text: String(r.text_content || '').slice(0, 4000), media: r.media || [], fetched_at: r.fetched_at }));
+  async function search(query, { limit = 5, allowedHosts = null } = {}) {
+    const words = [...new Set(String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length > 2 && w.length <= 48))].slice(0, 8);
+    if (!words.length || !store?.request) return [];
+    const safeWords = words.map((w) => w.replace(/[%_*(),]/g, '')).filter(Boolean);
+    if (!safeWords.length) return [];
+    const or = safeWords.map((w) => 'text_content.ilike.*' + encodeURIComponent(w) + '*').join(',');
+    const hosts = allowedHosts === null ? null : new Set(
+      [...allowedHosts].map((host) => String(host || '').toLowerCase()).filter((host) => /^[a-z0-9.-]{1,253}$/.test(host))
+    );
+    if (hosts && !hosts.size) return [];
+    // Over-fetch a bounded candidate set, then filter trusted hosts and rank by
+    // term overlap locally so recent unrelated pages cannot crowd out evidence.
+    const fetchLimit = Math.max(10, Math.min(100, (Math.max(1, Math.min(10, Number(limit) || 5)) * 10)));
+    const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + fetchLimit);
+    const candidates = [];
+    for (const r of Array.isArray(rows) ? rows : []) {
+      let url;
+      try { url = new URL(String(r.url || '')); } catch { continue; }
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+      if (hosts && (url.protocol !== 'https:' || !hosts.has(url.hostname.toLowerCase()))) continue;
+      const title = String(r.title || '').slice(0, 200);
+      const text = String(r.text_content || '').slice(0, 4000);
+      const searchable = (title + ' ' + text).toLowerCase();
+      const score = safeWords.reduce((sum, word) => sum + Math.min(3, searchable.split(word).length - 1), 0);
+      if (score <= 0) continue;
+      candidates.push({ url: url.href, title, text, media: Array.isArray(r.media) ? r.media : [], fetched_at: r.fetched_at, _score: score });
+    }
+    candidates.sort((a, b) => b._score - a._score || String(b.fetched_at || '').localeCompare(String(a.fetched_at || '')));
+    return candidates.slice(0, Math.max(1, Math.min(10, Number(limit) || 5))).map(({ _score, ...row }) => row);
   }
 
   return Object.freeze({ enqueue, processBatch, search });

@@ -183,3 +183,12 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - Fail closed on missing Vercel configuration; never simulate successful calls or claim production readiness before end-to-end staging evidence.
 
 **Next step:** review and merge the documentation PRs through the normal process, then have Claude inspect the actual NCC code, Vercel project configuration contract, current provider capabilities, legal/privacy docs and open PRs before implementing the first approved phase. No provider is selected and no telephony credentials are assumed configured.
+
+
+## Continuous Intelligence and hourly learning (PR #674 — in development)
+
+- Detailed sources: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md), [hourly learning runbook](continuous-intelligence-runbook.md), and [core web crawler](web-crawler.md).
+- Implementation includes official programming-documentation seeds, a protected hourly queue-seeding/crawl endpoint, idempotent inserts, same-host crawling for official seed descendants, bounded locally ranked keyword retrieval for platform coding questions, official HTTPS host allowlisting, secret-pattern exclusions, untrusted-context handling, source citations, and an owner-only OCC telemetry panel/API.
+- This is knowledge acquisition plus keyword retrieval, not model-weight training or semantic/vector RAG. The OCC shows bounded samples only and excludes page bodies/raw errors.
+- CI #7696 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1801 passed.
+- PR branch: `feat/continuous-intelligence-hourly-learning`; PR #674 remains open and unmerged. Production cron execution, live retrieval quality, production OCC behavior, persistent per-run history, semantic embeddings, and a measured model reasoning benchmark remain unverified/future phases.

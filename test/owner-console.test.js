@@ -951,3 +951,42 @@ test('OpenRouter generation reconciliation uses generation IDs and backfills unv
   await consoleHandler.handle(crossOrigin.req, crossOrigin.res, '/owner/api/openrouter-billing/reconcile');
   assert.equal(crossOrigin.res.statusCode, 404, 'cross-origin reconciliation requests must be rejected');
 });
+
+test('continuous intelligence telemetry is owner-session protected and excludes page bodies and raw errors', async () => {
+  const store = {
+    kind: 'supabase',
+    async request(method, path) {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      if (method === 'GET' && path.startsWith('web_crawl_queue?')) return [
+        { status: 'queued', source: 'owner_seed', attempts: 0, last_error: 'sensitive raw error detail', next_crawl_at: '2026-10-29T00:00:00Z' },
+        { status: 'retry', source: 'discovered', attempts: 2, last_error: 'another raw error' }
+      ];
+      if (method === 'GET' && path.startsWith('web_crawl_pages?')) return [
+        { url: 'https://www.typescriptlang.org/docs/', title: 'TypeScript Docs', fetched_at: '2026-10-29T00:00:00Z', content_hash: 'a'.repeat(64), text_content: 'private body must not be returned' }
+      ];
+      throw new Error('unexpected query');
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const pair = request('GET', '/owner/api/continuous-intelligence', { headers: { cookie, ...sameOrigin } });
+  await consoleHandler.handle(pair.req, pair.res, '/owner/api/continuous-intelligence');
+  assert.equal(pair.res.statusCode, 200);
+  const body = JSON.parse(pair.res.body);
+  assert.equal(body.queue.status_counts.queued, 1);
+  assert.equal(body.queue.status_counts.retry, 1);
+  assert.equal(body.queue.source_counts.owner_seed, 1);
+  assert.equal(body.recent_pages[0].title, 'TypeScript Docs');
+  assert.equal(body.recent_pages[0].content_hash, 'a'.repeat(64));
+  assert.equal(JSON.stringify(body).includes('sensitive raw error detail'), false);
+  assert.equal(JSON.stringify(body).includes('private body must not be returned'), false);
+  assert.equal(body.retrieval.semantic_embeddings, 'not_implemented');
+});
+
+test('continuous intelligence telemetry is not public without an owner session', async () => {
+  const { consoleHandler } = setup();
+  const pair = request('GET', '/owner/api/continuous-intelligence');
+  await consoleHandler.handle(pair.req, pair.res, '/owner/api/continuous-intelligence');
+  assert.equal(pair.res.statusCode, 404);
+});

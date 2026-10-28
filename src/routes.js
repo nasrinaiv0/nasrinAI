@@ -15,8 +15,19 @@ import { manilaDayStart, manilaWeekStart, userWeeklyTokenLimit } from './limits.
 import { publicCatalog } from './ai/professions.js';
 import { createNotices, WHENS } from './notices.js';
 import { COMMUNITY_LEARNING_CONSENT_VERSION } from './knowledge/community-learning.js';
+import { PROGRAMMING_DOC_SOURCES } from './knowledge/programming-sources.js';
 
 const IMPROVEMENT_CONSENT_VERSION = COMMUNITY_LEARNING_CONSENT_VERSION;
+
+// Constant-time comparison for server-only scheduled routes. Empty secrets and
+// malformed/oversized headers fail closed; never accept a query-string secret.
+export function isCronAuthorized(req, secret) {
+  const expected = String(secret || '');
+  const auth = String(req?.headers?.authorization || '');
+  const expectedHeader = 'Bearer ' + expected;
+  if (!expected || auth.length !== expectedHeader.length || auth.length > 512) return false;
+  return timingSafeEqual(Buffer.from(auth), Buffer.from(expectedHeader));
+}
 
 // The public API. Each route is either explicitly public or requires a caller.
 // The address of this NasrinAI app as the browser sees it (used to build the install code).
@@ -79,13 +90,7 @@ export function buildRoutes({ config, gateway, store = null, limiter, usageLog =
   // Files sent inside a request (base64) stay within this; larger ones are direct uploads.
   const inlineBytes = config.ai.attachments.maxInlineBytes ?? config.ai.attachments.maxTotalBytes;
   // Which moment the page asks about: ?when=open (default) or ?when=new_chat.
-  const retentionAuthorized = (req) => {
-    const expected = String(config.retentionCronSecret || '');
-    const auth = String(req.headers.authorization || '');
-    const expectedHeader = 'Bearer ' + expected;
-    if (!expected || auth.length !== expectedHeader.length || auth.length > 512) return false;
-    return timingSafeEqual(Buffer.from(auth), Buffer.from(expectedHeader));
-  };
+  const retentionAuthorized = (req) => isCronAuthorized(req, config.retentionCronSecret);
 
   const noticeWhen = (req) => {
     const w = new URL(req.url, 'http://local').searchParams.get('when') || 'open';
@@ -386,6 +391,21 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!crawler) throw new HttpError(503, 'crawler_unavailable', 'The core web crawler is not configured.');
         const result = await crawler.processBatch({ limit: 5 });
         return { body: { ok: true, ...result } };
+      }
+    },
+    {
+      // Hourly continuous-learning seed: enqueue official programming documentation idempotently.
+      method: 'GET',
+      path: '/v1/internal/knowledge-learning',
+      public: true,
+      handler: async ({ req }) => {
+        if (!retentionAuthorized(req)) throw new HttpError(401, 'unauthorized', 'Unauthorized.');
+        if (!crawler) throw new HttpError(503, 'crawler_unavailable', 'The core web crawler is not configured.');
+        const enqueued = await crawler.enqueue(PROGRAMMING_DOC_SOURCES, {
+          priority: 90, source: 'owner_seed', depth: 0, ignoreExisting: true
+        });
+        const result = await crawler.processBatch({ limit: 5 });
+        return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result } };
       }
     },
     {

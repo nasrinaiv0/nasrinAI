@@ -1,3 +1,22 @@
+## Continuous Intelligence quality/security follow-up — 2026-10-29
+
+- Restricted official learning seed descendants to the same hostname at every crawl depth while preserving the owner_seed policy and idempotent queue insertion.
+- Added a platform-chat retrieval hook that uses the existing crawler keyword index only for technical questions, excludes customer tenants/attachment turns/sensitive credential-pattern queries, filters results to official HTTPS documentation hosts, bounds excerpts, marks them as untrusted data, and adds source citations.
+- Added constant-time cron-secret authorization tests.
+- Added an owner-only Continuous Intelligence OCC panel/API with sampled queue status/source counts and recent page metadata. It does not return page bodies or raw crawler errors; it labels sample limits and explicitly reports that semantic embeddings are not implemented.
+- Added regression coverage for trusted-source filtering, sensitive-query exclusions, host boundaries, cron authorization, owner-only telemetry, and data minimization.
+- **Validation:** CI #7696 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1801 passed.
+- **Not production-verified:** production cron execution, schema presence in live Supabase, actual retrieval quality, semantic embeddings, persistent run history, and OCC live behavior still need deployment verification.
+
+## Continuous Intelligence — hourly programming knowledge pipeline — 2026-10-29
+
+- Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
+- Added `/v1/internal/knowledge-learning`, protected by the existing internal cron authorization, to enqueue seeds idempotently and process a bounded crawler batch. Added an hourly Vercel Cron schedule; existing five-minute crawler worker remains in place.
+- Added/expanded `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, `docs/web-crawler.md`, and the master plan index/summary with the full target loop: discovery, safe crawling, normalization/chunking, embeddings/indexing, inference-time retrieval, reasoning/tool verification, evaluations, privacy, cost controls, OCC metrics, rollback and optional fine-tuning gates.
+- **Test fix:** Corrected the queue-path regex in `test/crawler-seeding.test.js`; it was incorrectly expecting a literal backslash.
+- **Validation:** CI run #7633 passed. Node tests: 1,179 total, 1,178 passed, 0 failed, 1 skipped. Database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check and secret scan passed. Documentation Gate #1768 passed.
+- This is knowledge acquisition and a future RAG/evaluation loop, not model-weight training. Production schema, live cron execution, retrieval impact, and OCC telemetry remain unverified.
+
 ## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
 
 - Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.
