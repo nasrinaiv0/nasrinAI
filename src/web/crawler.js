@@ -122,12 +122,36 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
     return { processed: results.length, results };
   }
 
-  async function search(query, { limit = 5 } = {}) {
-    const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2).slice(0, 8);
-    if (!words.length) return [];
-    const or = words.map((w) => 'text_content.ilike.*' + encodeURIComponent(w.replace(/[%_*(),]/g, '')) + '*').join(',');
-    const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + Math.max(1, Math.min(10, limit)));
-    return (rows || []).map((r) => ({ url: r.url, title: r.title, text: String(r.text_content || '').slice(0, 4000), media: r.media || [], fetched_at: r.fetched_at }));
+  async function search(query, { limit = 5, allowedHosts = null } = {}) {
+    const words = [...new Set(String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length > 2 && w.length <= 48))].slice(0, 8);
+    if (!words.length || !store?.request) return [];
+    const safeWords = words.map((w) => w.replace(/[%_*(),]/g, '')).filter(Boolean);
+    if (!safeWords.length) return [];
+    const or = safeWords.map((w) => 'text_content.ilike.*' + encodeURIComponent(w) + '*').join(',');
+    const hosts = allowedHosts === null ? null : new Set(
+      [...allowedHosts].map((host) => String(host || '').toLowerCase()).filter((host) => /^[a-z0-9.-]{1,253}$/.test(host))
+    );
+    if (hosts && !hosts.size) return [];
+    // Over-fetch a bounded candidate set, then filter trusted hosts and rank by
+    // term overlap locally so recent unrelated pages cannot crowd out evidence.
+    const fetchLimit = Math.max(10, Math.min(100, (Math.max(1, Math.min(10, Number(limit) || 5)) * 10)));
+    const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + fetchLimit);
+    const candidates = [];
+    for (const r of Array.isArray(rows) ? rows : []) {
+      let url;
+      try { url = new URL(String(r.url || '')); } catch { continue; }
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+      if (hosts && (url.protocol !== 'https:' || !hosts.has(url.hostname.toLowerCase()))) continue;
+      const title = String(r.title || '').slice(0, 200);
+      const text = String(r.text_content || '').slice(0, 4000);
+      const searchable = (title + ' ' + text).toLowerCase();
+      const score = safeWords.reduce((sum, word) => sum + Math.min(3, searchable.split(word).length - 1), 0);
+      if (score <= 0) continue;
+      candidates.push({ url: url.href, title, text, media: Array.isArray(r.media) ? r.media : [], fetched_at: r.fetched_at, _score: score });
+    }
+    candidates.sort((a, b) => b._score - a._score || String(b.fetched_at || '').localeCompare(String(a.fetched_at || '')));
+    return candidates.slice(0, Math.max(1, Math.min(10, Number(limit) || 5))).map(({ _score, ...row }) => row);
   }
 
   return Object.freeze({ enqueue, processBatch, search });
