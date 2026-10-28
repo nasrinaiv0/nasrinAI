@@ -80,7 +80,13 @@ begin
     from public.knowledge_docs d
    where d.tenant_id = p_tenant_id
      and d.source_url = p_source_url
-     and d.source_content_hash is not null
+     and (
+       d.source_content_hash is not null
+       or d.title like 'Illustrative code example — %'
+       or d.title like 'Programming language catalog %'
+     )
+   order by (d.source_content_hash is not null) desc, d.updated_at desc
+   limit 1
    for update;
 
   if v_doc_id is not null and v_existing_hash = p_content_hash then
