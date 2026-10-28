@@ -161,3 +161,13 @@ Changes in this follow-up:
 - Initial implementation adds a curated official programming documentation source registry and a protected hourly route using the existing crawler. Queue insertion is intended to be idempotent so hourly seeding does not reset crawl scheduling.
 - Target behavior: retrieve trusted knowledge for relevant tasks, evaluate coding/reasoning outcomes, and promote only validated, privacy-safe improvements. Database ingestion alone is not model training; fine-tuning remains a separate later phase.
 - Status: in progress. Run CI and inspect the final diff; confirm the deployed cron and live Supabase schema before production claims.
+
+
+## Continuous Intelligence and hourly learning — PR #674 — 2026-10-29
+
+- **Status:** In development on `feat/continuous-intelligence-hourly-learning`; PR #674 is open. Not merged or deployed.
+- **Docs:** `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, and `docs/web-crawler.md` now describe the intended pipeline, safety boundaries, programming-source coverage, human-like task loop, retrieval/indexing, evaluation, OCC telemetry, fine-tuning gates, troubleshooting and acceptance criteria.
+- **Initial implementation:** Curated official documentation roots, protected hourly seed endpoint, bounded batch processing, idempotent queue seeding and hourly Vercel schedule.
+- **CI evidence:** The initial CI run had 1 failure among 1,179 Node tests (1,177 pass, 1 skipped). The failing test was `hourly knowledge seed can insert without resetting existing crawl scheduling`; its regex incorrectly expected an escaped backslash in the queue path. The assertion was corrected. A new CI run must confirm the fix; do not report the suite green yet.
+- **Known gaps:** No production schema change was applied. Semantic embedding/indexing and proof that new crawl content is used in chat remain unimplemented/unverified. Evaluation benchmark, OCC run telemetry, production cron verification and optional fine-tuning are later phases.
+- **Next:** Verify the rerun of CI, fix any additional failures, then continue with endpoint auth tests and retrieval-path integration. Do not merge or deploy without required checks and review.
