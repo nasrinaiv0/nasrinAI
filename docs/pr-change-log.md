@@ -1,3 +1,13 @@
+## Continuous Intelligence live-evidence and security-gate update — 2026-10-29
+
+- Corrected the upgrade plan and runbook to distinguish a READY deployment from proof of a specific hourly Cron invocation or authenticated OCC request.
+- Recorded production crawl evidence: 19 indexed `owner_seed` rows and 41 pages from official documentation hosts, with latest observed official fetch at 2026-10-28 22:35 UTC.
+- Recorded live schema/security findings: `web_crawl_queue`, `web_crawl_pages`, and `claim_web_crawl_jobs` exist; RLS is enabled and anon/authenticated policies deny access; claim function has a fixed search_path and execute grants restricted to service_role/postgres.
+- Recorded migration-history drift: live crawler objects exist, but migration 044 is missing from the Supabase migration list. Do not blindly reapply migration 044.
+- Recorded semantic-RAG prerequisites: no enabled `vector` extension is present, and existing `knowledge_docs`/`knowledge_chunks` require a tenant ID. A reviewed, separately scoped public-document index and embedding-provider cost controls are required before semantic indexing.
+- Validation baseline for merged runtime code: CI #7706 passed (1,189 Node tests: 1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, syntax checks, secret scan; Documentation Gate #1808 passed.
+- Remaining gates: capture an invocation-specific Cron log and authenticated OCC response, reconcile migration history, build semantic retrieval only after security/schema/provider review, add persistent run history, and create a fixed coding/reasoning benchmark.
+
 ## Continuous Intelligence merge and production deployment — 2026-10-29
 
 - PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`; Vercel production deployment `dpl_EKiFeNBJfjaNoEZ11iU91cAnVkAG` reached READY.
