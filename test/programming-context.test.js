@@ -9,6 +9,8 @@ test('programming retrieval is limited to platform coding questions without atta
   assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: 'customer-tenant', platformTenantId: platform, query: 'How do I fix this TypeScript error?' }), false);
   assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'How do I fix this TypeScript error?', hasAttachments: true }), false);
   assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'My API key is abc123; how do I configure TypeScript?' }), false);
+  const tokenLikeValue = ['sk', 'proj', 'a'.repeat(24)].join('-');
+  assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'Configure TypeScript with ' + tokenLikeValue }), false);
   assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'Hello there' }), false);
 });
 
