@@ -202,3 +202,12 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - The hourly endpoint will index up to five changed official documentation pages per run. Platform chat will use the existing full-text knowledge retrieval first and the bounded crawler keyword search as fallback.
 - Details: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md) and [runbook](continuous-intelligence-runbook.md).
 - CI and Documentation Gate are pending on the follow-up PR. Do not merge/deploy until checks pass and migration 076 is applied and verified. Semantic embeddings, persistent run history, and a measured model reasoning benchmark remain future phases.
+
+
+## Continuous Intelligence full-text indexing — deployed; runtime observation pending
+
+- PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment is READY.
+- Migration 076 is applied and verified: content hash column/index exist, RPC has fixed search_path, and browser roles cannot execute it.
+- The hourly indexer writes trusted official HTTPS documentation into the existing platform full-text knowledge search with content-hash idempotency and bounded chunks/batches. It does not train model weights and is not vector RAG.
+- CI #7753 and Documentation Gate #1818 passed.
+- Next check: observe the first post-deploy hourly run and confirm new docs are searchable and visible in owner-only OCC metrics.
