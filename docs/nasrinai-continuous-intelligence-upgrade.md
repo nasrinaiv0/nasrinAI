@@ -74,7 +74,8 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 - [x] Add an idempotent hourly seed-and-crawl trigger using the existing crawler and `CRON_SECRET`.
 - [x] Add tests for source allowlist, dedupe behavior, and cron schedule.
 - [x] Fix the failing test assertion for the queue URL path.
-- [ ] Add focused endpoint authorization tests and verify all CI checks pass.
+- [ ] Add focused endpoint authorization tests.
+- [x] Verify current CI checks pass on corrected PR head (CI run #7633 and Documentation Gate #1768); production behavior remains unverified.
 - [ ] Verify current main-branch schema and crawler wiring; do not apply a new migration until needed columns/functions are confirmed.
 - [ ] Verify the deployed Vercel cron invocation in production logs.
 
