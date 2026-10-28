@@ -7,6 +7,8 @@ declare
   v_same jsonb;
   v_update jsonb;
   v_doc_id uuid;
+  v_legacy_id uuid;
+  v_legacy jsonb;
   v_docs integer;
   v_chunks integer;
   v_search_count integer;
@@ -101,6 +103,36 @@ begin
      where id=v_doc_id and title='CI indexing test updated' and who=array['user','guest']::text[] and source_content_hash=v_hash_b
   ) then
     raise exception 'updated document metadata/audience/hash is incorrect';
+  end if;
+
+  insert into public.knowledge_docs (tenant_id, title, source_url, who, chars)
+  values (
+    '00000000-0000-0000-0000-000000000001',
+    'Illustrative code example — legacy test',
+    'https://www.typescriptlang.org/continuous-intelligence-legacy-test/',
+    array['user','guest']::text[],
+    10
+  ) returning id into v_legacy_id;
+  insert into public.knowledge_chunks (doc_id, tenant_id, idx, text)
+  values (v_legacy_id, '00000000-0000-0000-0000-000000000001', 0, 'Old illustrative example.');
+
+  v_legacy := public.upsert_platform_knowledge_doc(
+    '00000000-0000-0000-0000-000000000001',
+    'Full TypeScript documentation',
+    'https://www.typescriptlang.org/continuous-intelligence-legacy-test/',
+    md5('ci-legacy-a') || md5('ci-legacy-b'),
+    45,
+    array['Replacement full-text documentation chunk.']
+  );
+  if v_legacy->>'action' <> 'updated' or (v_legacy->>'doc_id')::uuid <> v_legacy_id then
+    raise exception 'legacy illustrative docs should be upgraded in place, not duplicated: %', v_legacy;
+  end if;
+  select count(*)::integer into v_docs
+    from public.knowledge_docs
+   where tenant_id='00000000-0000-0000-0000-000000000001'
+     and source_url='https://www.typescriptlang.org/continuous-intelligence-legacy-test/';
+  if v_docs <> 1 then
+    raise exception 'legacy source URL should not gain a duplicate knowledge document';
   end if;
 end;
 $$;
