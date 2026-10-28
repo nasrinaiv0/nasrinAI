@@ -49,12 +49,12 @@ export function canonicalCrawlUrl(raw) {
 // Persistent, bounded public-web crawler. It indexes text and media metadata;
 // it does not download media binaries or execute page JavaScript.
 export function createWebCrawler({ store, readLinkImpl = readLink, logger = null, now = () => Date.now() }) {
-  async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0 } = {}) {
+  async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0, ignoreExisting = false } = {}) {
     const urls = [...new Set((Array.isArray(rawUrls) ? rawUrls : [rawUrls]).map(canonicalCrawlUrl).filter(Boolean))].slice(0, 100);
     if (!urls.length || !store?.request) return 0;
     const rows = urls.map((url) => ({ url, url_hash: hash(url), priority: Math.max(0, Math.min(100, Number(priority) || 0)), source, depth: Math.max(0, Math.min(8, Number(depth) || 0)), next_crawl_at: nowIso() }));
     try {
-      await store.request('POST', 'web_crawl_queue?on_conflict=url_hash', { body: rows, prefer: 'resolution=merge-duplicates,return=minimal' });
+      await store.request('POST', 'web_crawl_queue?on_conflict=url_hash', { body: rows, prefer: (ignoreExisting ? 'resolution=ignore-duplicates' : 'resolution=merge-duplicates') + ',return=minimal' });
       return urls.length;
     } catch (err) { logger?.warn?.('web crawl enqueue failed', { error: err?.message }); return 0; }
   }
