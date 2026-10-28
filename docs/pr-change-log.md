@@ -1,9 +1,10 @@
-## Continuous Intelligence — initial hourly programming knowledge pipeline — 2026-10-29
+## Continuous Intelligence — hourly programming knowledge pipeline — 2026-10-29
 
 - Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
 - Added `/v1/internal/knowledge-learning`, protected by the existing internal cron authorization, to enqueue seeds idempotently and process a bounded crawler batch. Added an hourly Vercel Cron schedule; existing five-minute crawler worker remains in place.
-- Added tests for source uniqueness/HTTPS and the hourly schedule. These changes do not fine-tune model weights and do not establish that knowledge retrieval/embeddings are already wired to the model. That is a later phase documented in `docs/nasrinai-continuous-intelligence-upgrade.md`.
-- **Validation:** Not yet run in this environment. Production schema, live cron execution, crawler source access, retrieval impact, and OCC telemetry remain unverified.
+- Added/expanded `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, `docs/web-crawler.md`, and the master plan index/summary with the full target loop: discovery, safe crawling, normalization, chunking, embeddings/indexing, inference-time retrieval, reasoning/tool verification, evaluations, privacy, cost controls, OCC metrics, rollback and optional fine-tuning gates.
+- **CI evidence:** Initial CI run failed one Node test: the queue-path regex in `test/crawler-seeding.test.js` incorrectly expected a literal backslash. Corrected the assertion in a follow-up commit. The rerun is required before claiming CI passes. The initial run had 1,179 tests: 1,177 passed, 1 failed, 1 skipped.
+- This is knowledge acquisition and a future RAG/evaluation loop, not model-weight training. Production schema, live cron execution, retrieval impact, and OCC telemetry remain unverified.
 
 ## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
 
