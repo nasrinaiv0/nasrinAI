@@ -61,7 +61,7 @@ returns table (
 )
 language sql stable security invoker
 set search_path = pg_catalog, public, extensions
-as $
+as $fn$
   select c.source_url, c.title, c.content,
          (1 - (c.embedding <=> query_embedding))::double precision as similarity,
          c.fetched_at, c.embedding_model
@@ -71,7 +71,7 @@ as $
     and c.embedding_model = match_model
   order by c.embedding <=> query_embedding
   limit greatest(1, least(coalesce(match_count, 5), 5));
-$$;
+$fn$;
 revoke all on function public.match_public_technical_chunks(vector, text[], text, integer) from public, anon, authenticated;
 grant execute on function public.match_public_technical_chunks(vector, text[], text, integer) to service_role;
 commit;
