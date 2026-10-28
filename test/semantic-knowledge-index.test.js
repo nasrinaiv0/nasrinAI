@@ -13,6 +13,17 @@ test('semantic index is opt-in and disabled safely by default', async () => {
   if (oldFlag !== undefined) process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
 });
 
+test('enabled semantic indexing reports missing embedding configuration as a failure', async () => {
+  process.env.SEMANTIC_KNOWLEDGE_ENABLED = 'true';
+  const crawler = createWebCrawler({ store: { request: async () => [] } });
+  const result = await crawler.indexSemanticPages();
+  assert.equal(result.enabled, true);
+  assert.equal(result.configured, false);
+  assert.equal(result.embedding_failures, 1);
+  assert.equal(result.error_code, 'embedding_not_configured');
+  if (oldFlag === undefined) delete process.env.SEMANTIC_KNOWLEDGE_ENABLED; else process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
+});
+
 test('semantic indexing only writes curated HTTPS hosts and skips unchanged matching embeddings', async () => {
   process.env.SEMANTIC_KNOWLEDGE_ENABLED = 'true';
   const writes = [];
