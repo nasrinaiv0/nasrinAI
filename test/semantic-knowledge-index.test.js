@@ -9,7 +9,7 @@ const embedder = { modelName: 'openai/text-embedding-3-small@384', embed: async 
 test('semantic index is opt-in and disabled safely by default', async () => {
   delete process.env.SEMANTIC_KNOWLEDGE_ENABLED;
   const crawler = createWebCrawler({ store: { request: async () => [] }, embedder });
-  assert.deepEqual(await crawler.indexSemanticPages(), { enabled: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 });
+  assert.deepEqual(await crawler.indexSemanticPages(), { enabled: false, configured: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 });
   if (oldFlag !== undefined) process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
 });
 
