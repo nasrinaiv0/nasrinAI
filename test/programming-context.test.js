@@ -12,6 +12,7 @@ test('programming retrieval is limited to platform coding questions without atta
   const tokenLikeValue = ['sk', 'proj', 'a'.repeat(24)].join('-');
   assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'Configure TypeScript with ' + tokenLikeValue }), false);
   assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'Hello there' }), false);
+  assert.equal(shouldRetrieveProgrammingKnowledge({ tenantId: platform, platformTenantId: platform, query: 'I want to go out today with friends' }), false);
 });
 
 test('programming context only trusts official allowlisted HTTPS sources', () => {
