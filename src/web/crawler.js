@@ -95,7 +95,23 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           body: { status: 'indexed', last_crawled_at: nowIso(), next_crawl_at: next, last_error: null, depth: job.depth || 0 },
           prefer: 'return=minimal'
         });
-        if ((job.depth || 0) < 3) await enqueue(assets.links, { source: 'discovered', depth: (job.depth || 0) + 1 });
+        if ((job.depth || 0) < 3) {
+          // Official learning seeds may only expand within their own host. Keep
+          // the owner_seed label on descendants so the same boundary is enforced
+          // at every depth; ordinary research crawling keeps its existing policy.
+          const seedPage = job.source === 'owner_seed';
+          const discovered = seedPage
+            ? assets.links.filter((raw) => {
+                const next = canonicalCrawlUrl(raw);
+                return next && new URL(next).hostname.toLowerCase() === new URL(pageUrl).hostname.toLowerCase();
+              })
+            : assets.links;
+          await enqueue(discovered, {
+            source: seedPage ? 'owner_seed' : 'discovered',
+            depth: (job.depth || 0) + 1,
+            ignoreExisting: seedPage
+          });
+        }
         results.push({ url: doc.url, status: 'indexed', changed: previousHash !== contentHash, links_discovered: assets.links.length, media_indexed: assets.media.length });
       } catch (err) {
         logger?.warn?.('web crawl page failed', { url: String(job.url).slice(0, 500), error: err?.message });
