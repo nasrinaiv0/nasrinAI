@@ -152,3 +152,12 @@ Changes in this follow-up:
 - **Status (2026-10-19):** partly implemented. Done: 404 page, `robots.txt`, `sitemap.xml`, page descriptions, canonical and share tags (#405, see [seo.md](seo.md)); unstyled FAQ and registry pages fixed (#431); performance measured (#432, see [performance-baseline.md](performance-baseline.md)). Not done: route inventory, structured data, source-map and console review, live verification of the 404 page and the `www` redirect.
 - **Constraints:** audit before changing architecture; preserve behaviour and security; no hardcoded production configuration; use Vercel environment variables.
 - **Acceptance:** section 13 of the specification. Record evidence, tests, remaining risks and deployment verification before marking anything complete.
+
+
+## Continuous Intelligence / Hourly Learning — 2026-10-29
+
+- Detailed upgrade: [nasrinai-continuous-intelligence-upgrade.md](nasrinai-continuous-intelligence-upgrade.md).
+- Branch: `feat/continuous-intelligence-hourly-learning`.
+- Initial implementation adds a curated official programming documentation source registry and a protected hourly route using the existing crawler. Queue insertion is intended to be idempotent so hourly seeding does not reset crawl scheduling.
+- Target behavior: retrieve trusted knowledge for relevant tasks, evaluate coding/reasoning outcomes, and promote only validated, privacy-safe improvements. Database ingestion alone is not model training; fine-tuning remains a separate later phase.
+- Status: in progress. Run CI and inspect the final diff; confirm the deployed cron and live Supabase schema before production claims.
