@@ -1,3 +1,11 @@
+## Production rollout state — 2026-10-29
+
+- Migration 078 is applied to production. Both public technical tables have RLS enabled; anonymous and authenticated roles have no SELECT privilege; service_role access and the matching RPC grant were verified.
+- The production deployment for commit c9cb52ae72e1868a9622913dd8742cb5d8a3a37a is READY. SEMANTIC_KNOWLEDGE_ENABLED=true and SEMANTIC_MAX_EMBEDDINGS_PER_RUN=10 are configured for production.
+- An unauthenticated request to the learning endpoint returned HTTP 401, confirming the route is protected.
+- The first actual scheduled invocation has not yet been observed at the time of this update; the semantic table and run-history table are still empty. The next hourly tick must produce a run record and indexed chunks before the pipeline can be considered proven.
+- Model-quality improvement is not yet established. The six-case benchmark must run with a populated index, and its per-task baseline/candidate results must be reviewed before claiming a gain.
+
 # Continuous Intelligence: Semantic Index and Quality Gate
 
 ## Security model
