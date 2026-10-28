@@ -60,8 +60,8 @@ returns table (
   fetched_at timestamptz, embedding_model text
 )
 language sql stable security invoker
-set search_path = pg_catalog, public
-as $$
+set search_path = pg_catalog, public, extensions
+as $
   select c.source_url, c.title, c.content,
          (1 - (c.embedding <=> query_embedding))::double precision as similarity,
          c.fetched_at, c.embedding_model
