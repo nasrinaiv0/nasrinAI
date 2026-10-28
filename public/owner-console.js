@@ -1014,10 +1014,12 @@
           metric('Retrying', '↻', numberText(statuses.retry || 0), 'Rows in the sample'),
           metric('Indexed pages sampled', '▤', numberText(payload.coverage?.page_rows_sampled), 'Latest page metadata; limit 50'),
           metric('Official learning seeds', '✓', numberText(sources.owner_seed || 0), 'Seed and same-host descendants in queue sample'),
-          metric('Discovered research URLs', '⌕', numberText(sources.discovered || 0), 'Other discovered links in queue sample')
+          metric('Discovered research URLs', '⌕', numberText(sources.discovered || 0), 'Other discovered links in queue sample'),
+          metric('Managed knowledge docs', '▤', payload.knowledge_index?.available ? numberText(payload.knowledge_index.managed_docs_sampled) : 'Unavailable', 'Indexed into platform full-text knowledge'),
+          metric('Latest knowledge index', '◷', payload.knowledge_index?.latest_indexed_at ? new Date(payload.knowledge_index.latest_indexed_at).toLocaleString() : 'Not yet indexed', 'Most recent managed document update')
         );
         result.append(grid);
-        result.append(notice('Retrieval and training status', 'Current retrieval: bounded keyword search over indexed page text, filtered to official HTTPS documentation hosts and cited in relevant platform coding answers. Semantic embeddings/vector ranking and model fine-tuning are not implemented by this feature. Crawling knowledge does not retrain model weights.'));
+        result.append(notice('Retrieval and training status', 'Current retrieval: indexed official documentation uses the platform's full-text knowledge search; a bounded, locally ranked crawler keyword lookup is used as a fallback for relevant platform coding answers. Sources are restricted to official HTTPS hosts and cited. Semantic embeddings/vector ranking and model fine-tuning are not implemented. Knowledge ingestion does not retrain model weights.'));
         if (payload.coverage?.queue_sample_may_be_truncated) result.append(notice('Queue sample is capped', 'The queue sample reached 500 rows. Counts shown here are sampled and must not be interpreted as exact global totals.'));
         const tableWrap = el('div', 'table-wrap'), table = el('table', 'data-table');
         const thead = el('thead'), header = el('tr');
