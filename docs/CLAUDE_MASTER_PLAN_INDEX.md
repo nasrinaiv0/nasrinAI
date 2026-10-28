@@ -185,10 +185,11 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 **Next step:** review and merge the documentation PRs through the normal process, then have Claude inspect the actual NCC code, Vercel project configuration contract, current provider capabilities, legal/privacy docs and open PRs before implementing the first approved phase. No provider is selected and no telephony credentials are assumed configured.
 
 
-## Continuous Intelligence and hourly learning (PR #674 — in development)
+## Continuous Intelligence and hourly learning (merged PR #674 — 2026-10-29)
 
 - Detailed sources: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md), [hourly learning runbook](continuous-intelligence-runbook.md), and [core web crawler](web-crawler.md).
-- Implementation includes official programming-documentation seeds, a protected hourly queue-seeding/crawl endpoint, idempotent inserts, same-host crawling for official seed descendants, bounded locally ranked keyword retrieval for platform coding questions, official HTTPS host allowlisting, secret-pattern exclusions, untrusted-context handling, source citations, and an owner-only OCC telemetry panel/API.
-- This is knowledge acquisition plus keyword retrieval, not model-weight training or semantic/vector RAG. The OCC shows bounded samples only and excludes page bodies/raw errors.
-- CI #7696 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1801 passed.
-- PR branch: `feat/continuous-intelligence-hourly-learning`; PR #674 remains open and unmerged. Production cron execution, live retrieval quality, production OCC behavior, persistent per-run history, semantic embeddings, and a measured model reasoning benchmark remain unverified/future phases.
+- PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`; Vercel production deployment is READY.
+- Implementation includes official programming-documentation seeds, protected hourly queue seeding, idempotent inserts, same-host crawling for official seed descendants, bounded locally ranked keyword retrieval for platform coding questions, official HTTPS host allowlisting, secret-pattern exclusions, untrusted-context handling, source citations, and an owner-only OCC telemetry panel/API.
+- CI #7706 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity-sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1808 passed.
+- Production schedule is deployed, but the first post-deploy hourly invocation and live OCC/retrieval behavior remain to be observed. Live Supabase has the crawler tables/function with RLS deny policies for anon/authenticated; the migration history lacks a 044 record, so do not blindly reapply that migration.
+- This is knowledge acquisition and keyword retrieval, not model-weight training or semantic/vector RAG. Persistent per-run history, semantic embeddings/vector ranking, and a measured model coding/reasoning benchmark remain follow-up phases.
