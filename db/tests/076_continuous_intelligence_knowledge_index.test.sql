@@ -9,6 +9,7 @@ declare
   v_doc_id uuid;
   v_docs integer;
   v_chunks integer;
+  v_search_count integer;
   v_def text;
   v_hash_a text := md5('ci-index-test-a') || md5('ci-index-test-b');
   v_hash_b text := md5('ci-index-test-c') || md5('ci-index-test-d');
@@ -46,6 +47,18 @@ begin
     raise exception 'first upsert should insert a managed document: %', v_first;
   end if;
   v_doc_id := (v_first->>'doc_id')::uuid;
+
+  select count(*)::integer into v_search_count
+    from public.search_knowledge(
+      '00000000-0000-0000-0000-000000000001',
+      'typescript | strongly | typed',
+      'user',
+      4
+    ) h
+   where h.doc_id = v_doc_id;
+  if v_search_count <> 1 then
+    raise exception 'newly indexed official content must be searchable through the existing knowledge retrieval path';
+  end if;
 
   v_same := public.upsert_platform_knowledge_doc(
     '00000000-0000-0000-0000-000000000001',
