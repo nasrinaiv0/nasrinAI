@@ -27,3 +27,35 @@ test('normal crawler enqueue retains merge behavior for discovered URLs', async 
   await crawler.enqueue('https://docs.python.org/3/', { source: 'discovered' });
   assert.equal(options.prefer, 'resolution=merge-duplicates,return=minimal');
 });
+
+test('official learning seeds only follow same-host links and preserve the seed policy', async () => {
+  const calls = [];
+  const crawler = createWebCrawler({
+    store: {
+      async request(method, path, options = {}) {
+        calls.push({ method, path, options });
+        if (path === 'rpc/claim_web_crawl_jobs') return [{
+          id: 'job-1', url: 'https://www.typescriptlang.org/docs/', source: 'owner_seed', depth: 0, attempts: 0
+        }];
+        if (method === 'GET' && path.startsWith('web_crawl_pages?')) return [];
+        return [];
+      }
+    },
+    readLinkImpl: async (url) => {
+      if (url.endsWith('/robots.txt')) return { text: 'User-agent: *\\nAllow: /', url };
+      return {
+        url,
+        title: 'TypeScript Documentation',
+        text: 'TypeScript is a strongly typed programming language that builds on JavaScript.',
+        html: '<a href="https://www.typescriptlang.org/docs/handbook/">Handbook</a><a href="https://attacker.example/prompt">External</a>'
+      };
+    }
+  });
+  const result = await crawler.processBatch({ limit: 1 });
+  assert.equal(result.processed, 1);
+  const enqueueCall = calls.find((call) => call.method === 'POST' && call.path.startsWith('web_crawl_queue?'));
+  assert.ok(enqueueCall);
+  assert.deepEqual(enqueueCall.options.body.map((row) => row.url), ['https://www.typescriptlang.org/docs/handbook']);
+  assert.equal(enqueueCall.options.body[0].source, 'owner_seed');
+  assert.equal(enqueueCall.options.prefer, 'resolution=ignore-duplicates,return=minimal');
+});
