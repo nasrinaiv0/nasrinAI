@@ -2,7 +2,7 @@ import { createOpenAIEmbedder } from '../src/ai/embeddings.js';
 import { PROGRAMMING_DOC_HOSTS } from '../src/knowledge/programming-context.js';
 import { KNOWLEDGE_BENCHMARK, KNOWLEDGE_BENCHMARK_VERSION, scoreBenchmarkAnswer, compareBenchmarkRuns } from '../src/knowledge/quality-benchmark.js';
 
-const required = ['OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const required = ['OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'SUPABASE_URL', 'SUPABASE_SECRET_KEY'];
 const missing = required.filter((key) => !process.env[key]);
 if (missing.length) {
   console.error(JSON.stringify({ error: 'missing_required_environment', missing }));
@@ -10,7 +10,7 @@ if (missing.length) {
 }
 if (KNOWLEDGE_BENCHMARK.length * 2 > 12) throw new Error('Benchmark exceeds the 12-chat-call budget.');
 const base = process.env.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/';
-const headers = { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY, 'Content-Type': 'application/json' };
+const headers = { apikey: process.env.SUPABASE_SECRET_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' };
 const embedder = createOpenAIEmbedder({ apiKey: process.env.OPENAI_API_KEY, timeoutMs: 8000 });
 let chatCalls = 0, embeddingCalls = 0, reportedCost = 0;
 async function supabase(path, body) {

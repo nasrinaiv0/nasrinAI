@@ -21,7 +21,7 @@
 
 The versioned six-case set in src/knowledge/quality-benchmark.js covers TypeScript, SQL injection, JavaScript async behavior, deployment constraints, evidence-based claims, and untrusted retrieved content. The rubric is a screening gate, not a substitute for human review or a comprehensive benchmark.
 
-To compare baseline and retrieval-augmented responses with the same OpenRouter model, set OPENAI_API_KEY, OPENROUTER_API_KEY, OPENROUTER_MODEL, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY, then run npm run benchmark:knowledge. It makes at most 12 chat-completion calls and six embedding calls. Do not place secrets in source control or paste them into logs. The benchmark fails closed when it cannot retrieve semantic context and reports per-task scores, aggregate score/pass-rate delta, and model-reported cost when available.
+To compare baseline and retrieval-augmented responses with the same OpenRouter model, set OPENAI_API_KEY, OPENROUTER_API_KEY, OPENROUTER_MODEL, SUPABASE_URL, and SUPABASE_SECRET_KEY, then run npm run benchmark:knowledge. It makes at most 12 chat-completion calls and six embedding calls. Do not place secrets in source control or paste them into logs. The benchmark fails closed when it cannot retrieve semantic context and reports per-task scores, aggregate score/pass-rate delta, and model-reported cost when available.
 
 Only enable broader rollout if the candidate has the same task coverage, no rubric regressions, and manual review confirms that citations are relevant and retrieved content did not override system policy. A green unit-test suite validates implementation; it does not prove quality improvement. Save the benchmark output as a reviewed artifact for comparisons over time.
 

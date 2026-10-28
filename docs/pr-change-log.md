@@ -1,3 +1,8 @@
+## PR #682 — Align benchmark credentials with production configuration — 2026-10-29
+
+- Corrected the model-quality benchmark runner to use the application's existing SUPABASE_SECRET_KEY variable instead of a nonexistent SUPABASE_SERVICE_ROLE_KEY alias.
+- This is a benchmark-tool compatibility fix only; it does not change the deployed runtime path or enable additional database privileges.
+
 ## PR #681 — Secure semantic index, scheduled-run evidence, and coding/reasoning benchmark — 2026-10-29
 
 - Added a separately scoped public technical vector index and run-history table, with RLS enabled, no client policies, service-role-only grants, official HTTPS host filtering, exact embedding-model filtering, and bounded HNSW retrieval.
