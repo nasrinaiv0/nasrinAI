@@ -4,6 +4,7 @@ import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
 import { ownerCatalogStatus } from './ai/owner-model-catalog.js';
 import { fetchDirectProviderBilling } from './ai/provider-cost-reconciliation.js';
 import { createGoogleSearchAnalytics } from './owner-google-search-analytics.js';
+import { PLATFORM_TENANT_ID } from './tenants.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
@@ -722,6 +723,13 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           store.request('GET', 'web_crawl_pages?select=url,title,fetched_at,content_hash&order=fetched_at.desc&limit=50')
         ]);
         if (!Array.isArray(queueRows) || !Array.isArray(pageRows)) throw new Error('invalid crawler telemetry');
+        let managedKnowledgeRows = null;
+        try {
+          const rows = await store.request('GET', 'knowledge_docs?select=source_url,source_content_hash,updated_at&tenant_id=eq.' + PLATFORM_TENANT_ID + '&source_content_hash=not.is.null&order=updated_at.desc&limit=200');
+          if (Array.isArray(rows)) managedKnowledgeRows = rows;
+        } catch {
+          // Keep the crawl-health panel available while the additive knowledge-index migration is being rolled out.
+        }
         const statusCounts = {}, sourceCounts = {};
         let attempts = 0;
         for (const row of queueRows) {
@@ -748,7 +756,14 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           coverage: { queue_rows_sampled: queueRows.length, queue_sample_limit: 500, page_rows_sampled: recentPages.length, page_sample_limit: 50, queue_sample_may_be_truncated: queueRows.length === 500 },
           queue: { status_counts: statusCounts, source_counts: sourceCounts, total_attempts_in_sample: attempts },
           recent_pages: recentPages,
-          retrieval: { mode: 'bounded_keyword_search', official_host_allowlist: true, source_citations: true, semantic_embeddings: 'not_implemented' },
+          knowledge_index: {
+            available: Array.isArray(managedKnowledgeRows),
+            managed_docs_sampled: managedKnowledgeRows?.length ?? null,
+            sample_limit: 200,
+            sample_may_be_truncated: managedKnowledgeRows?.length === 200,
+            latest_indexed_at: managedKnowledgeRows?.[0]?.updated_at || null
+          },
+          retrieval: { mode: 'full_text_knowledge_search_with_keyword_fallback', official_host_allowlist: true, source_citations: true, semantic_embeddings: 'not_implemented' },
           privacy: 'No page body text, user prompts, or raw crawler errors are exposed.'
         });
       } catch {
