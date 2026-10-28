@@ -1,3 +1,9 @@
+## PR #684 — Tighten benchmark scoring and record production rollout status — 2026-10-29
+
+- Tightened the reasoning evidence rubric so the substring "no" inside unrelated words cannot satisfy a required criterion.
+- Fixed the untrusted-content safety rubric so a correct warning not to reveal an API key does not trigger a forbidden-answer match.
+- Recorded the verified migration/RLS/deployment/flag state while explicitly leaving first scheduled invocation and model-quality improvement unproven until observed.
+
 ## PR #683 — Fail visibly when semantic embeddings are unavailable — 2026-10-29
 
 - Changed the hourly indexer to report a bounded partial failure when semantic retrieval is enabled but the embedding adapter or service store is not configured, rather than incorrectly reporting a successful run with zero indexed chunks.
