@@ -12,17 +12,17 @@ The Vercel schedule `0 * * * *` invokes `/v1/internal/knowledge-learning` at the
 
 The existing `/v1/internal/web-crawl` worker remains scheduled every five minutes. Both workers use the shared queue; verify production locking, retry behavior, endpoint authorization, and overlapping-run behavior before treating the schedule as reliable.
 
-The current implementation does **not** by itself prove that crawled pages have been chunked, embedded, written into the active vector index, and used during model inference. The crawler's `web_crawl_pages` text index is not automatically equivalent to semantic RAG. Those are explicit follow-up phases.
+The branch now connects a bounded keyword search over `web_crawl_pages` to platform chat for relevant programming/software questions. Only HTTPS results on the curated official-host allowlist are included, excerpts are bounded and marked as untrusted reference data, and source URLs are added to answer citations. Customer tenants, greetings, attachment turns, and queries matching sensitive credential patterns are excluded from this extra lookup. This is **keyword retrieval, not semantic/vector RAG**; it does not yet establish measured answer-quality improvement. Embeddings, ranking evaluation, production cron verification, and OCC telemetry remain follow-up phases.
 
 ## Target end-to-end data flow
 
 1. **Discover:** Seed only trusted, reviewed documentation roots (official language, framework, database, standards, API and security docs). Add new hosts through code review.
 2. **Fetch safely:** Use the shared crawler, enforce public-URL/SSRF and redirect checks, obey robots.txt, use bounded page sizes/timeouts/retries, and record sanitized outcomes.
-3. **Normalize:** Extract readable text and metadata, canonicalize URLs, normalize whitespace, reject empty/low-quality pages, and calculate a content hash.
+3. **Normalize:** Extract readable text and metadata, canonicalize URLs, normalize whitespace, reject empty/low-quality pages, and calculate a content hash. Official `owner_seed` descendants are restricted to the same hostname at every depth.
 4. **Deduplicate:** Use canonical URL plus content hash so unchanged pages do not create duplicate knowledge records. Re-crawls should update freshness without resetting queue state.
 5. **Chunk:** Split content into bounded, overlapping chunks that preserve headings, code examples, and source boundaries. Avoid splitting code blocks when possible.
 6. **Embed and index:** Use only a configured provider, with per-run token/cost ceilings, retry caps and an explicit schema adapter. Confirm the existing knowledge/vector schema before writing; do not create a parallel knowledge store by default.
-7. **Retrieve:** At inference time, retrieve only relevant chunks, apply tenant and permission filters, include source/title/URL/fetch-time metadata, and cite sources when useful. Treat page text as untrusted evidence, never as agent instructions.
+7. **Retrieve:** The current branch performs bounded keyword retrieval for platform technical questions and filters results to HTTPS hosts in the official seed registry. It attaches source/title/URL provenance and treats page text as untrusted evidence, never as agent instructions. Next, validate semantic embeddings/vector ranking against a fixed benchmark before replacing or supplementing keyword retrieval.
 8. **Reason and act:** Interpret the task and constraints, create a bounded plan, retrieve context, use authorized tools, run relevant checks, compare results with acceptance criteria, and report uncertainty honestly.
 9. **Evaluate:** Run a versioned benchmark for coding, debugging, reasoning, factual grounding, citations, security, and refusal behavior. Compare with a baseline before promoting any prompt, retrieval, or routing change.
 10. **Improve under review:** Store only sanitized, permissioned candidate examples. Deduplicate and score candidates; require review before promoting examples or training data.
@@ -82,6 +82,7 @@ A phase is not done until:
 - **No runs:** Verify the production deployment, Cron Jobs dashboard, exact path, UTC schedule, and Vercel function logs. Preview deployments do not activate Vercel Cron Jobs.
 - **401/403:** Confirm the existing cron secret is configured and sent in the expected Authorization header. Never expose it in browser code or logs.
 - **Queue grows without indexing:** Inspect claim RPC permissions/schema, crawler logs, source availability, robots decisions and retry states.
+- **Knowledge is stored but not used:** Confirm a technical-intent query hits the crawler's keyword search, the result hostname is in `src/knowledge/programming-sources.js`, and the request is platform chat (not a customer tenant or attachment turn). Current retrieval is keyword-based, not vector/semantic.
 - **Pages are stored but answers do not improve:** Confirm chunking, embeddings, index writes, tenant filters and the inference-time retrieval hook. The crawler table alone does not guarantee RAG.
 - **Costs rise:** Reduce batch size, cap pages and text length, cache embeddings by content hash, use budget alerts, and pause ingestion with the kill switch.
 - **A source degrades quality:** Disable the host in the source catalogue, mark affected batches, rebuild/revert the affected index version, and rerun evaluations.
