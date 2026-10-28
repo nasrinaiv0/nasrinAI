@@ -240,7 +240,7 @@ export function buildApp({ config, logger }) {
   const coding = createCoding({ store, config: effective });
   const crawler = config.supabaseUrl ? createWebCrawler({ store, logger }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
