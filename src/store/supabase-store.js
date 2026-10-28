@@ -1096,12 +1096,22 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
     async addKnowledgeDoc({ tenantId, title, sourceUrl = null, who, chars, chunks, embeddings = null, embeddingModel = null }) {
       const rows = await request('POST', 'knowledge_docs?select=id', { prefer: 'return=representation', body: { tenant_id: tenantId, title, source_url: sourceUrl, who, chars } });
       const id = rows[0].id;
+      const hasVectors = Array.isArray(embeddings) && embeddings.length === chunks.length
+        && embeddings.every((vector) => Array.isArray(vector) && vector.length === 384 && vector.every(Number.isFinite));
+      const plainRows = chunks.map((text, idx) => ({ doc_id: id, tenant_id: tenantId, idx, text }));
+      const vectorRows = hasVectors ? chunks.map((text, idx) => ({
+        doc_id: id, tenant_id: tenantId, idx, text,
+        embedding: '[' + embeddings[idx].join(',') + ']', embedding_model: embeddingModel
+      })) : plainRows;
       try {
-        await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: chunks.map((text, idx) => ({
-          doc_id: id, tenant_id: tenantId, idx, text,
-          embedding: Array.isArray(embeddings?.[idx]) ? '[' + embeddings[idx].join(',') + ']' : null,
-          embedding_model: Array.isArray(embeddings?.[idx]) ? embeddingModel : null
-        })) });
+        try {
+          await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: vectorRows });
+        } catch (err) {
+          // Safe rolling deploy: before migration 079, preserve document writes
+          // using the old schema and let the caller's full-text fallback answer.
+          if (!hasVectors || !/(?:PGRST204|42703|schema cache|column .*embedding|embedding .*column|type .*vector.*does not exist)/i.test(String(err?.message || ''))) throw err;
+          await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: plainRows });
+        }
       } catch (err) {
         await request('DELETE', `knowledge_docs?id=eq.${id}`, { prefer: 'return=minimal' }).catch(() => {});
         throw err;

@@ -8,22 +8,24 @@ const vector = (value = 0.1) => Array(384).fill(value);
 const logger = { warn() {}, info() {} };
 
 test('OpenAI embedder batches embeddings and preserves input order', async () => {
+  const inputs = [];
   const embedder = createOpenAIEmbedder({
     apiKey: 'test-key',
     fetchImpl: async (_url, options) => {
       const body = JSON.parse(options.body);
-      assert.deepEqual(body.input, ['first document', 'second document']);
-      return { ok: true, json: async () => ({ data: [
-        { index: 1, embedding: vector(0.2) },
-        { index: 0, embedding: vector(0.1) }
-      ] }) };
+      inputs.push(body.input);
+      const rows = body.input.map((text, index) => ({
+        index, embedding: vector(text === 'first document' ? 0.1 : text === 'second document' ? 0.2 : 0.3)
+      })).reverse();
+      return { ok: true, json: async () => ({ data: rows }) };
     }
   });
   const vectors = await embedder.embedMany(['first document', 'second document']);
   assert.equal(vectors.length, 2);
   assert.equal(vectors[0][0], 0.1);
   assert.equal(vectors[1][0], 0.2);
-  assert.equal((await embedder.embed('one query'))[0], 0.1);
+  assert.equal((await embedder.embed('one query'))[0], 0.3);
+  assert.deepEqual(inputs, [['first document', 'second document'], ['one query']]);
 });
 
 test('tenant knowledge uses hybrid retrieval with tenant, audience, and model scope', async () => {
