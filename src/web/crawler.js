@@ -124,8 +124,15 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
   }
 
   async function indexSemanticPages({ limit = 5 } = {}) {
-    if (process.env.SEMANTIC_KNOWLEDGE_ENABLED !== 'true' || !embedder?.embed || !store?.request) {
-      return { enabled: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+    if (process.env.SEMANTIC_KNOWLEDGE_ENABLED !== 'true') {
+      return { enabled: false, configured: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+    }
+    if (!embedder?.embed || !store?.request) {
+      return {
+        enabled: true, configured: false, indexed_pages: 0, indexed_chunks: 0,
+        skipped_unchanged: 0, embedding_failures: 1,
+        error_code: !embedder?.embed ? 'embedding_not_configured' : 'store_not_configured'
+      };
     }
     const pages = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,content_hash,fetched_at&order=fetched_at.desc&limit=' + Math.max(1, Math.min(5, Number(limit) || 5)));
     const totals = { enabled: true, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };

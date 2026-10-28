@@ -9,8 +9,19 @@ const embedder = { modelName: 'openai/text-embedding-3-small@384', embed: async 
 test('semantic index is opt-in and disabled safely by default', async () => {
   delete process.env.SEMANTIC_KNOWLEDGE_ENABLED;
   const crawler = createWebCrawler({ store: { request: async () => [] }, embedder });
-  assert.deepEqual(await crawler.indexSemanticPages(), { enabled: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 });
+  assert.deepEqual(await crawler.indexSemanticPages(), { enabled: false, configured: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 });
   if (oldFlag !== undefined) process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
+});
+
+test('enabled semantic indexing reports missing embedding configuration as a failure', async () => {
+  process.env.SEMANTIC_KNOWLEDGE_ENABLED = 'true';
+  const crawler = createWebCrawler({ store: { request: async () => [] } });
+  const result = await crawler.indexSemanticPages();
+  assert.equal(result.enabled, true);
+  assert.equal(result.configured, false);
+  assert.equal(result.embedding_failures, 1);
+  assert.equal(result.error_code, 'embedding_not_configured');
+  if (oldFlag === undefined) delete process.env.SEMANTIC_KNOWLEDGE_ENABLED; else process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
 });
 
 test('semantic indexing only writes curated HTTPS hosts and skips unchanged matching embeddings', async () => {

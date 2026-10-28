@@ -429,6 +429,7 @@ return { body: { sites: await connect.list(caller) } }; }
             indexed_chunks: Math.max(0, Math.min(100, Number(semantic.indexed_chunks) || 0)),
             skipped_unchanged: Math.max(0, Math.min(100, Number(semantic.skipped_unchanged) || 0)),
             embedding_failures: Math.max(0, Math.min(100, Number(semantic.embedding_failures) || 0)),
+            error_code: /^[a-z0-9_]{1,64}$/.test(String(semantic.error_code || '')) ? semantic.error_code : (Number(semantic.embedding_failures || 0) > 0 ? 'embedding_failed' : null),
             duration_ms: Math.max(0, Math.min(3600000, Date.now() - startedAt))
           };
           try { await store?.request?.('POST', 'knowledge_learning_runs', { body: run, prefer: 'return=minimal' }); }
