@@ -1,6 +1,6 @@
 # NasrinAI Continuous Intelligence and Hourly Learning Upgrade
 
-**Status:** Implementation in progress. The branch now includes curated official documentation seeds, protected hourly queue seeding, a same-host crawl boundary for official learning sources, and a basic allowlisted keyword-retrieval hook for platform coding questions. This does not fine-tune model weights and does not prove production deployment. Operational detail and acceptance checks are in [the Continuous Intelligence Runbook](continuous-intelligence-runbook.md).
+**Status:** Follow-up implementation in progress. PR #674 deployed the protected hourly seed/crawl pipeline, same-host crawling, bounded trusted keyword retrieval, and owner-only telemetry. This branch adds idempotent indexing of trusted crawler pages into NasrinAI’s existing platform full-text knowledge search through additive migration 076. The migration has not yet been applied to production. This does not add vector embeddings or train model weights.
 
 ## Goal
 
@@ -29,7 +29,7 @@ Do not create parallel crawler, knowledge, or consent systems without proving th
 9. Promote reusable examples only under existing consent, redaction, retention, and review rules. Public documentation can be indexed without treating private conversations as training data.
 10. Prepare a versioned, reviewed fine-tuning dataset only after there is enough high-quality, permissioned data and a measured reason to fine-tune.
 
-**Current implementation boundary:** the PR seeds curated roots, invokes a bounded crawler batch, keeps descendants of `owner_seed` pages on the same host, and connects crawler keyword search to platform chat for relevant technical questions. Only HTTPS results from the curated official host allowlist are injected; context is bounded and explicitly treated as untrusted reference data, with source citations. This is a first retrieval connection, **not semantic/vector RAG**: embeddings, relevance-ranking evaluation, schema verification, a measured coding/reasoning benchmark, A read-only owner-only OCC panel now exposes bounded queue/page samples without page bodies or raw errors. Semantic embeddings, relevance-ranking evaluation, a measured coding/reasoning benchmark, and per-run persistent history remain follow-up work. Production execution and impact remain unverified.
+**Current implementation boundary:** The deployed phase collects curated official documentation, crawls same-host descendants, and uses a bounded, locally ranked keyword fallback for platform coding questions. This follow-up adds a content-hash-aware upsert RPC that chunks trusted HTTPS documentation into the existing `knowledge_docs`/`knowledge_chunks` tables, where the existing `search_knowledge` full-text ranker can retrieve it. Only platform tenant documents are created, with audience `user` and `guest`; business tenant data is never touched. The RPC is service-role-only, tenant-checked, bounded to 200 platform knowledge docs and 100 chunks per document, and idempotent for unchanged content. The OCC will report managed document count and latest index timestamp. This is **full-text RAG, not semantic/vector RAG**; embeddings, a measured model coding/reasoning benchmark, persistent per-run history, and production verification remain follow-up work.
 
 ## Programming coverage
 
@@ -70,16 +70,25 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 
 ## Implementation phases
 
-### Phase 1 — Seed and schedule (in progress)
+### Phase 1 — Seed, crawl, keyword fallback, and owner telemetry (deployed)
 - [x] Add a curated official programming documentation source registry.
 - [x] Add an idempotent hourly seed-and-crawl trigger using the existing crawler and `CRON_SECRET`.
 - [x] Add tests for source allowlist, dedupe behavior, and cron schedule.
 - [x] Fix the failing test assertion for the queue URL path.
 - [x] Add focused cron authorization tests for exact bearer secret, missing/empty/oversized credentials, and query-only secrets.
-- [ ] Re-run CI on the latest retrieval/security changes; earlier code head passed CI run #7633 and Documentation Gate #1768, but the latest commits need fresh validation.
-- [ ] Verify production behavior; cron invocation, database schema and live retrieval remain unverified.
-- [ ] Verify current main-branch schema and crawler wiring; do not apply a new migration until needed columns/functions are confirmed.
-- [ ] Verify the deployed Vercel cron invocation in production logs.
+- [x] CI #7706 passed for the deployed phase: 1,188 passed, 0 failed, 1 skipped out of 1,189 Node tests; database tests, dependency audit, syntax check, and secret scan passed.
+- [x] Verify production crawler tables and claim function exist and deny browser-role access; migration-history record 044 is missing and must not be blindly re-applied.
+- [ ] Observe the first post-deployment hourly invocation and verify live OCC/retrieval behavior.
+
+### Phase 2 — Existing full-text knowledge indexing (in progress on follow-up branch)
+- [x] Add additive migration 076 with a content hash on managed documents and a unique partial index for tenant/source idempotency.
+- [x] Add a SECURITY DEFINER upsert RPC restricted to service_role, fixed search_path, active platform tenant, HTTPS source URL, bounded chunks, and 200-document cap.
+- [x] Add a server-side indexer that accepts only HTTPS pages on the curated official host allowlist, hashes content, chunks at 1,200 characters, and indexes at most five documents per hourly run.
+- [x] Update platform knowledge context to label public documentation as untrusted reference data, not instructions.
+- [x] Add database tests for idempotency, content updates, role grants, fixed search_path, and retrieval through the existing full-text search function; add unit tests for host filtering and safe indexing.
+- [ ] Run CI and Documentation Gate on the follow-up branch.
+- [ ] Apply migration 076 to production only after CI passes, then merge/deploy and verify actual indexed docs appear in platform knowledge search.
+- [ ] Add semantic embeddings/vector ranking only after confirming provider support, schema, budgets, and evaluation baseline.
 
 ### Phase 2 — Retrieval quality
 - [x] Trace existing crawler index and chat context boundaries; reuse `web_crawl_pages` rather than adding a parallel store.
