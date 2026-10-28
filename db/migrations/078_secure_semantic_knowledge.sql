@@ -1,7 +1,10 @@
 -- Secure global index for curated public technical documentation.
 -- This deliberately does not reuse tenant-scoped knowledge_docs/chunks.
 begin;
-create extension if not exists vector;
+create schema if not exists extensions;
+create extension if not exists vector with schema extensions;
+-- Support Supabase installations that keep extensions in either public or extensions.
+set local search_path to public, extensions, pg_catalog;
 
 create table if not exists public.public_technical_chunks (
   id uuid primary key default gen_random_uuid(),
