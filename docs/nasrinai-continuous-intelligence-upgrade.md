@@ -83,7 +83,7 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 
 ### Phase 2 — Retrieval quality
 - [x] Trace existing crawler index and chat context boundaries; reuse `web_crawl_pages` rather than adding a parallel store.
-- [x] Connect bounded keyword retrieval from the crawler index to platform coding questions, with an official-host allowlist and source provenance.
+- [x] Connect bounded, term-ranked keyword retrieval from the crawler index to platform coding questions, with an official-host allowlist applied before result limiting and source provenance.
 - [x] Add regression tests for trusted-source filtering, tenant isolation, sensitive-query exclusion, bounded context, and source-host crawl boundaries.
 - [ ] Add semantic embeddings/vector ranking only after verifying the existing knowledge/vector schema and provider budget.
 - [ ] Add integration tests proving indexed technical references improve relevant coding responses against a fixed baseline.
