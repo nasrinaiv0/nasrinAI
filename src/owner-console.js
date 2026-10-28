@@ -163,6 +163,7 @@ const dashboardHtml = `<!doctype html>
       <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>Unlisted Models</button>
       <button class="nav-item" data-panel="other-unlisted"><span>◇</span>AI Models Activities</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
+      <button class="nav-item" data-panel="intelligence"><span>↻</span>Continuous Intelligence</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
       <button class="nav-item" data-panel="google-analytics"><span>⌕</span>Google Search &amp; Traffic</button>
@@ -193,6 +194,7 @@ const panels = {
   'openrouter-unlisted': { title: 'Unlisted Models', description: 'Logged models missing from NasrinAI’s configured catalog.' },
   'other-unlisted': { title: 'AI Models Activities', description: 'All logged models: listed and unlisted.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
+  intelligence: { title: 'Continuous Intelligence', description: 'Hourly crawl health, trusted source coverage, and recent indexed pages. Retrieval is keyword-based until semantic indexing is implemented.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
