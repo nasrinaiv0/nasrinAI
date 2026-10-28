@@ -23,7 +23,7 @@ import { looksSecret } from './knowledge/secrets.js';
 import { runPlanningCouncil } from './ai/planning-council.js';
 import { estimateTextTokenCount } from './ai/text-image.js';
 import { estimateProviderRequestCost, PROVIDER_PRICING_VERSION } from './ai/provider-cost-estimate.js';
-import { formatProgrammingKnowledgeContext, shouldRetrieveProgrammingKnowledge } from './knowledge/programming-context.js';
+import { formatProgrammingKnowledgeContext, shouldRetrieveProgrammingKnowledge, PROGRAMMING_DOC_HOSTS } from './knowledge/programming-context.js';
 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
@@ -518,7 +518,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       !fastGreeting && crawler?.search && shouldRetrieveProgrammingKnowledge({
         tenantId: caller.tenantId, platformTenantId: PLATFORM_TENANT_ID, query: typed,
         hasAttachments: files.length > 0, fastGreeting
-      }) ? crawler.search(typed, { limit: 5 }).catch((err) => {
+      }) ? crawler.search(typed, { limit: 5, allowedHosts: PROGRAMMING_DOC_HOSTS }).catch((err) => {
         logger?.warn?.('programming knowledge retrieval skipped', { error: String(err?.message || 'retrieval unavailable').slice(0, 120) });
         return [];
       }) : null
