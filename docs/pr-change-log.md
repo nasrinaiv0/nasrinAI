@@ -1,3 +1,13 @@
+## Continuous Intelligence quality/security follow-up — 2026-10-29
+
+- Restricted official learning seed descendants to the same hostname at every crawl depth while preserving the owner_seed policy and idempotent queue insertion.
+- Added a platform-chat retrieval hook that uses the existing crawler keyword index only for technical questions, excludes customer tenants/attachment turns/sensitive credential-pattern queries, filters results to official HTTPS documentation hosts, bounds excerpts, marks them as untrusted data, and adds source citations.
+- Added constant-time cron-secret authorization tests.
+- Added an owner-only Continuous Intelligence OCC panel/API with sampled queue status/source counts and recent page metadata. It does not return page bodies or raw crawler errors; it labels sample limits and explicitly reports that semantic embeddings are not implemented.
+- Added regression coverage for trusted-source filtering, sensitive-query exclusions, host boundaries, cron authorization, owner-only telemetry, and data minimization.
+- **Validation in progress:** CI run #7672 has completed npm test successfully and dependency audit successfully; database and remaining CI steps were still running at the last check. Do not call the full workflow green until all jobs conclude.
+- **Not production-verified:** production cron execution, schema presence in live Supabase, actual retrieval quality, semantic embeddings, persistent run history, and OCC live behavior still need deployment verification.
+
 ## Continuous Intelligence — hourly programming knowledge pipeline — 2026-10-29
 
 - Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
