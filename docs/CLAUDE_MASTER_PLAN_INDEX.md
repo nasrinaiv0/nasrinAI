@@ -193,3 +193,12 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - Current implementation: official programming-doc seeds, protected hourly queue seeding, idempotent inserts, same-host crawling, bounded ranked keyword retrieval for platform coding questions, trusted HTTPS allowlist, secret-pattern exclusions, untrusted-context handling, citations, and owner-only bounded OCC telemetry.
 - Security blockers before semantic RAG: live DB has no enabled `vector` extension; existing knowledge tables require `tenant_id`; migration 044 is missing from migration history even though crawler tables/function exist. Do not mix public documentation into tenant-owned rows or blindly reapply migration 044.
 - Open gates: directly verify cron/OCC runtime behavior, reconcile migration history, design a separate public-doc security boundary, choose embedding provider/budget, implement semantic retrieval, persistent run history, and fixed coding/reasoning benchmark. This is knowledge acquisition and keyword retrieval, not model-weight training.
+
+
+## Continuous Intelligence full-text indexing follow-up — in development
+
+- This follow-up adds an idempotent indexer that feeds trusted crawler pages into the existing platform full-text knowledge store; it does not create a parallel knowledge database.
+- Migration 076 adds a managed content hash and a service-role-only upsert RPC with fixed search_path, platform-tenant checks, HTTPS validation, bounded chunks, and a document cap.
+- The hourly endpoint will index up to five changed official documentation pages per run. Platform chat will use the existing full-text knowledge retrieval first and the bounded crawler keyword search as fallback.
+- Details: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md) and [runbook](continuous-intelligence-runbook.md).
+- CI and Documentation Gate are pending on the follow-up PR. Do not merge/deploy until checks pass and migration 076 is applied and verified. Semantic embeddings, persistent run history, and a measured model reasoning benchmark remain future phases.

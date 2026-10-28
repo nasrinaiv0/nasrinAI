@@ -77,7 +77,7 @@ function cleanVideoStudioDocument(raw) {
   return document;
 }
 
-export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, openRouterClient = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, videoStudioRenderWorker = null, budget = null, logger = null, now = () => Date.now() }) {
+export function buildRoutes({ config, gateway, store = null, limiter, usageLog = null, conversations, chat, provider = null, models, voice = null, realtime = null, geminiRealtime = null, auth = null, plans = null, payments = null, images = null, videos = null, legal = null, connectors = null, confirmations = null, facebook = null, hooks = [], knowledge = null, memory = null, settings = null, notices = null, library = null, projects = null, ncc = null, storage = null, uploads = null, videoStudioAssets = null, research = null, crawler = null, crawlerKnowledgeIndexer = null, cite = null, siteIcons = null, pagePreviews = null, youtubeSearch = null, imageSearch = null, connect = null, transcription = null, openRouterClient = null, pdfOcr = null, elevenlabs = null, videoStudioExporter = null, videoStudioRenderWorker = null, budget = null, logger = null, now = () => Date.now() }) {
   // Is anything able to answer? The router checks an own model at most every
   // 30 seconds, however often the page asks.
   async function modelReady() {
@@ -405,7 +405,15 @@ return { body: { sites: await connect.list(caller) } }; }
           priority: 90, source: 'owner_seed', depth: 0, ignoreExisting: true
         });
         const result = await crawler.processBatch({ limit: 5 });
-        return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result } };
+        let knowledgeIndex = { enabled: false };
+        if (crawlerKnowledgeIndexer?.syncBatch) {
+          try { knowledgeIndex = await crawlerKnowledgeIndexer.syncBatch({ limit: 5 }); }
+          catch (err) {
+            logger?.warn?.('continuous intelligence indexing tick failed', { code: String(err?.code || 'index_tick_failed').slice(0, 64) });
+            knowledgeIndex = { enabled: true, failed: 1 };
+          }
+        }
+        return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result, knowledge_index: knowledgeIndex } };
       }
     },
     {

@@ -1,3 +1,12 @@
+## Continuous Intelligence full-text knowledge indexing follow-up — 2026-10-29
+
+- Added migration 076 with managed-document content hashes, a unique partial index, and an idempotent SECURITY DEFINER upsert RPC restricted to service_role and the active platform tenant.
+- Added a server-side indexer that filters trusted HTTPS docs, chunks with the existing knowledge chunker, and indexes at most five changed pages per hourly run.
+- Platform context now labels public programming docs as untrusted reference data; full-text knowledge retrieval is preferred, with crawler keyword retrieval as fallback.
+- Owner-only OCC telemetry now includes managed knowledge-document count and latest index timestamp.
+- Added unit/database tests for trusted hosts, no-op/update behavior, tenant/RPC grants, fixed search_path, document/chunk bounds, and retrieval through search_knowledge.
+- **Validation pending:** CI and Documentation Gate must pass before applying migration 076 to production or merging. No production schema change has been applied for migration 076.
+
 ## Continuous Intelligence live-evidence and security-gate update — 2026-10-29
 
 - Corrected the upgrade plan and runbook to distinguish a READY deployment from proof of a specific hourly Cron invocation or authenticated OCC request.

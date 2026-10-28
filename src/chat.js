@@ -507,22 +507,25 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // The business's own knowledge and the person's saved notes, found by code
     // (no model call), added to this turn as data. Not saved with the chat.
     // The lookups below do not depend on each other, so they run together.
-    let [known, founderText, productText, memoryText, shelf, pastChats, communityText, programmingRows] = await Promise.all([
+    let [known, founderText, productText, memoryText, shelf, pastChats, communityText] = await Promise.all([
       !fastGreeting && knowledge && typed ? knowledge.context(caller, typed) : null,
       !fastGreeting && founder && typed && !only ? founder.context(caller, typed, PLATFORM_TENANT_ID) : null,
       !fastGreeting && productKnowledge && typed && !only ? productKnowledge.context(caller, typed, PLATFORM_TENANT_ID) : null,
       !fastGreeting && memory && typed && !only ? memory.context(caller, typed) : null,
       !fastGreeting && library && typed && !only ? library.context(caller, typed, { projectId: project ? project.id : null }) : null,
       !fastGreeting && typed && !only ? conversations.context(caller, typed, conv.id) : null,
-      !fastGreeting && typed && !only && communityLearning ? communityLearning.context({ tenantId: caller.tenantId, query: typed, limit: 3 }) : null,
-      !fastGreeting && crawler?.search && shouldRetrieveProgrammingKnowledge({
-        tenantId: caller.tenantId, platformTenantId: PLATFORM_TENANT_ID, query: typed,
-        hasAttachments: files.length > 0, fastGreeting
-      }) ? crawler.search(typed, { limit: 5, allowedHosts: PROGRAMMING_DOC_HOSTS }).catch((err) => {
-        logger?.warn?.('programming knowledge retrieval skipped', { error: String(err?.message || 'retrieval unavailable').slice(0, 120) });
-        return [];
-      }) : null
+      !fastGreeting && typed && !only && communityLearning ? communityLearning.context({ tenantId: caller.tenantId, query: typed, limit: 3 }) : null
     ]);
+    let programmingRows = [];
+    if (!known && !only && !fastGreeting && crawler?.search && shouldRetrieveProgrammingKnowledge({
+      tenantId: caller.tenantId, platformTenantId: PLATFORM_TENANT_ID, query: typed,
+      hasAttachments: files.length > 0, fastGreeting
+    })) {
+      try { programmingRows = await crawler.search(typed, { limit: 5, allowedHosts: PROGRAMMING_DOC_HOSTS }); }
+      catch (err) {
+        logger?.warn?.('programming knowledge retrieval skipped', { error: String(err?.message || 'retrieval unavailable').slice(0, 120) });
+      }
+    }
     const programmingContext = formatProgrammingKnowledgeContext(programmingRows);
     if (programmingContext.context) {
       extraProgrammingContext = programmingContext.context;
