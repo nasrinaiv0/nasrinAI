@@ -1,6 +1,6 @@
 # NasrinAI Continuous Intelligence and Hourly Learning Upgrade
 
-**Status:** Implementation in progress. The branch now includes curated official documentation seeds, protected hourly queue seeding, a same-host crawl boundary for official learning sources, and a basic allowlisted keyword-retrieval hook for platform coding questions. This does not fine-tune model weights and does not prove production deployment. Operational detail and acceptance checks are in [the Continuous Intelligence Runbook](continuous-intelligence-runbook.md).
+**Status (2026-10-29):** Phase 1 and the initial keyword-retrieval slice are merged in PR #674 and deployed to Vercel production. CI #7706 passed 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, syntax checks, and secret scanning; Documentation Gate #1808 passed. Live Supabase inspection confirms crawler tables/function exist and RLS denies direct anonymous/authenticated access. Production crawl data includes 19 indexed `owner_seed` rows and 41 pages on official documentation hosts as of 2026-10-28 22:35 UTC. This proves crawler data exists, but does not independently prove the exact hourly Cron invocation or live OCC route response. Current retrieval is keyword-based, not semantic/vector RAG, and does not train model weights. Operational detail and remaining acceptance gates are in [the Continuous Intelligence Runbook](continuous-intelligence-runbook.md).
 
 ## Goal
 
@@ -29,7 +29,7 @@ Do not create parallel crawler, knowledge, or consent systems without proving th
 9. Promote reusable examples only under existing consent, redaction, retention, and review rules. Public documentation can be indexed without treating private conversations as training data.
 10. Prepare a versioned, reviewed fine-tuning dataset only after there is enough high-quality, permissioned data and a measured reason to fine-tune.
 
-**Current implementation boundary:** the PR seeds curated roots, invokes a bounded crawler batch, keeps descendants of `owner_seed` pages on the same host, and connects crawler keyword search to platform chat for relevant technical questions. Only HTTPS results from the curated official host allowlist are injected; context is bounded and explicitly treated as untrusted reference data, with source citations. This is a first retrieval connection, **not semantic/vector RAG**: embeddings, relevance-ranking evaluation, schema verification, a measured coding/reasoning benchmark, A read-only owner-only OCC panel now exposes bounded queue/page samples without page bodies or raw errors. Semantic embeddings, relevance-ranking evaluation, a measured coding/reasoning benchmark, and per-run persistent history remain follow-up work. Production execution and impact remain unverified.
+**Current implementation boundary:** the deployed system seeds curated roots, invokes a bounded crawler batch, keeps descendants of `owner_seed` pages on the same hostname, and connects crawler keyword search to platform chat for relevant technical questions. Only HTTPS results from the curated official host allowlist are injected; context is bounded, treated as untrusted reference data, and accompanied by source citations. The owner-only OCC panel/API exposes bounded queue and page metadata samples without page bodies or raw crawler errors. This is a first retrieval connection, **not semantic/vector RAG**: embeddings, a measured coding/reasoning benchmark, persistent per-run history, and production validation of the OCC route remain follow-up work.
 
 ## Programming coverage
 
@@ -76,16 +76,17 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 - [x] Add tests for source allowlist, dedupe behavior, and cron schedule.
 - [x] Fix the failing test assertion for the queue URL path.
 - [x] Add focused cron authorization tests for exact bearer secret, missing/empty/oversized credentials, and query-only secrets.
-- [ ] Re-run CI on the latest retrieval/security changes; earlier code head passed CI run #7633 and Documentation Gate #1768, but the latest commits need fresh validation.
-- [ ] Verify production behavior; cron invocation, database schema and live retrieval remain unverified.
-- [ ] Verify current main-branch schema and crawler wiring; do not apply a new migration until needed columns/functions are confirmed.
-- [ ] Verify the deployed Vercel cron invocation in production logs.
+- [x] Run CI on the final runtime-code head: CI #7706 passed 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax checks, and secret scanning; Documentation Gate #1808 passed.
+- [x] Verify production Supabase crawler tables/function and security posture; RLS is enabled and anonymous/authenticated policies deny access.
+- [x] Verify production crawl data exists: 19 indexed `owner_seed` queue rows and 41 pages from official documentation hosts were present at 2026-10-28 22:35 UTC.
+- [ ] Capture a direct successful hourly Cron invocation and authenticated OCC API response from production logs/owner session; current evidence does not prove those exact runtime paths.
+- [ ] Reconcile migration-history drift: the live objects exist, but the Supabase migration list does not show migration 044. Do not reapply the table-creation migration blindly.
 
 ### Phase 2 — Retrieval quality
 - [x] Trace existing crawler index and chat context boundaries; reuse `web_crawl_pages` rather than adding a parallel store.
 - [x] Connect bounded, term-ranked keyword retrieval from the crawler index to platform coding questions, with an official-host allowlist applied before result limiting and source provenance.
 - [x] Add regression tests for trusted-source filtering, tenant isolation, sensitive-query exclusion, bounded context, and source-host crawl boundaries.
-- [ ] Add semantic embeddings/vector ranking only after verifying the existing knowledge/vector schema and provider budget.
+- [ ] Add semantic embeddings/vector ranking only after a reviewed migration design: production `knowledge_docs`/`knowledge_chunks` are tenant-scoped and require `tenant_id`, and the live database currently has no `vector` extension. Do not place global public documentation into tenant-owned rows or enable an extension without an explicit migration/review.
 - [ ] Add integration tests proving indexed technical references improve relevant coding responses against a fixed baseline.
 
 ### Phase 3 — Evaluation-driven improvement
@@ -104,6 +105,8 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 - [ ] Deploy only through explicit owner approval and rollback support.
 
 ## Definition of done
+
+The feature is not complete until the remaining production-runtime verification, migration-history reconciliation, semantic/vector retrieval decision, evaluation benchmark, and persistent run telemetry are closed. Keyword retrieval is the currently deployed baseline, not the final intelligence architecture.
 
 The feature is not complete until hourly execution is observed in production, crawl/index jobs are idempotent, retrieved knowledge is demonstrably used by relevant requests, quality evaluations show no regressions, costs are bounded, privacy/security tests pass, and the OCC reports real run evidence. A successful commit or CI run alone does not establish production behavior.
 
