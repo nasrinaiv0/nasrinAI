@@ -1,6 +1,6 @@
 # NasrinAI Continuous Intelligence and Hourly Learning Upgrade
 
-**Status:** Initial implementation in progress. This document defines the target and records the first implementation slice: curated official programming-documentation seeds and a protected hourly learning trigger. This does not fine-tune model weights and does not prove production deployment. Operational detail and acceptance checks are in [the Continuous Intelligence Runbook](continuous-intelligence-runbook.md).
+**Status:** Implementation in progress. The branch now includes curated official documentation seeds, protected hourly queue seeding, a same-host crawl boundary for official learning sources, and a basic allowlisted keyword-retrieval hook for platform coding questions. This does not fine-tune model weights and does not prove production deployment. Operational detail and acceptance checks are in [the Continuous Intelligence Runbook](continuous-intelligence-runbook.md).
 
 ## Goal
 
@@ -29,7 +29,7 @@ Do not create parallel crawler, knowledge, or consent systems without proving th
 9. Promote reusable examples only under existing consent, redaction, retention, and review rules. Public documentation can be indexed without treating private conversations as training data.
 10. Prepare a versioned, reviewed fine-tuning dataset only after there is enough high-quality, permissioned data and a measured reason to fine-tune.
 
-**Current implementation boundary:** the PR currently seeds curated roots and invokes a bounded crawler batch. A page in `web_crawl_pages` is not automatically a semantically indexed RAG chunk, and this PR does not yet prove that new pages influence answers. Retrieval wiring, embeddings/schema verification, evaluation, and OCC telemetry remain follow-up work.
+**Current implementation boundary:** the PR seeds curated roots, invokes a bounded crawler batch, keeps descendants of `owner_seed` pages on the same host, and connects crawler keyword search to platform chat for relevant technical questions. Only HTTPS results from the curated official host allowlist are injected; context is bounded and explicitly treated as untrusted reference data, with source citations. This is a first retrieval connection, **not semantic/vector RAG**: embeddings, relevance-ranking evaluation, schema verification, a measured coding/reasoning benchmark, and OCC run telemetry remain follow-up work. Production execution and impact remain unverified.
 
 ## Programming coverage
 
@@ -60,6 +60,7 @@ The system must distinguish facts, hypotheses, and unverified assumptions. Never
 - Respect robots.txt, rate limits, public URL protections, and source licensing/terms. No paywall/login/CAPTCHA bypass.
 - Never ingest API keys, credentials, private user content, or raw conversation logs as general training data.
 - Do not automatically deploy code, change production policies, or fine-tune model weights from crawler output.
+- For `owner_seed` jobs, follow only same-host links and preserve the seed policy on descendants; the platform chat retrieval layer separately enforces the official-host allowlist.
 - Use bounded batches, idempotency, deduplication, retry caps, concurrency controls, and cost limits to prevent runaway jobs.
 - Provide a kill switch through configuration and log sanitized counts/status rather than full private payloads.
 
@@ -74,16 +75,18 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 - [x] Add an idempotent hourly seed-and-crawl trigger using the existing crawler and `CRON_SECRET`.
 - [x] Add tests for source allowlist, dedupe behavior, and cron schedule.
 - [x] Fix the failing test assertion for the queue URL path.
-- [ ] Add focused endpoint authorization tests.
-- [x] Verify current CI checks pass on corrected PR head (CI run #7633 and Documentation Gate #1768); production behavior remains unverified.
+- [x] Add focused cron authorization tests for exact bearer secret, missing/empty/oversized credentials, and query-only secrets.
+- [ ] Re-run CI on the latest retrieval/security changes; earlier code head passed CI run #7633 and Documentation Gate #1768, but the latest commits need fresh validation.
+- [ ] Verify production behavior; cron invocation, database schema and live retrieval remain unverified.
 - [ ] Verify current main-branch schema and crawler wiring; do not apply a new migration until needed columns/functions are confirmed.
 - [ ] Verify the deployed Vercel cron invocation in production logs.
 
 ### Phase 2 — Retrieval quality
-- [ ] Trace existing `knowledge_docs`, `knowledge_chunks`, embeddings, and retrieval path.
-- [ ] Index crawler pages into the existing compatible knowledge path without duplicate stores.
-- [ ] Add source freshness, chunk deduplication, and citation/provenance checks.
-- [ ] Add regression tests proving retrieved technical references affect relevant coding responses.
+- [x] Trace existing crawler index and chat context boundaries; reuse `web_crawl_pages` rather than adding a parallel store.
+- [x] Connect bounded keyword retrieval from the crawler index to platform coding questions, with an official-host allowlist and source provenance.
+- [x] Add regression tests for trusted-source filtering, tenant isolation, sensitive-query exclusion, bounded context, and source-host crawl boundaries.
+- [ ] Add semantic embeddings/vector ranking only after verifying the existing knowledge/vector schema and provider budget.
+- [ ] Add integration tests proving indexed technical references improve relevant coding responses against a fixed baseline.
 
 ### Phase 3 — Evaluation-driven improvement
 - [ ] Build a versioned coding/reasoning benchmark with expected outcomes.
