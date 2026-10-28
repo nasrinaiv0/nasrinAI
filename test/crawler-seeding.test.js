@@ -14,7 +14,7 @@ test('hourly knowledge seed can insert without resetting existing crawl scheduli
   assert.equal(count, 1);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].method, 'POST');
-  assert.match(calls[0].path, /web_crawl_queue\\?on_conflict=url_hash/);
+  assert.match(calls[0].path, /web_crawl_queue\?on_conflict=url_hash/);
   assert.equal(calls[0].options.prefer, 'resolution=ignore-duplicates,return=minimal');
   assert.equal(calls[0].options.body[0].source, 'owner_seed');
 });
