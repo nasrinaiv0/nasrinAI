@@ -964,6 +964,10 @@ test('continuous intelligence telemetry is owner-session protected and excludes 
       if (method === 'GET' && path.startsWith('web_crawl_pages?')) return [
         { url: 'https://www.typescriptlang.org/docs/', title: 'TypeScript Docs', fetched_at: '2026-10-29T00:00:00Z', content_hash: 'a'.repeat(64), text_content: 'private body must not be returned' }
       ];
+      if (method === 'GET' && path.startsWith('knowledge_learning_runs?')) return [
+        { started_at: '2026-10-29T00:00:00Z', finished_at: '2026-10-29T00:00:03Z', status: 'partial', seed_count: 19, crawl_processed: 5, indexed_pages: 1, indexed_chunks: 2, skipped_unchanged: 1, embedding_failures: 0, duration_ms: 3000, error_code: null }
+      ];
+      if (method === 'GET' && path.startsWith('public_technical_chunks?')) return [{ id: 'safe-id-only' }];
       throw new Error('unexpected query');
     }
   };
@@ -981,7 +985,9 @@ test('continuous intelligence telemetry is owner-session protected and excludes 
   assert.equal(body.recent_pages[0].content_hash, 'a'.repeat(64));
   assert.equal(JSON.stringify(body).includes('sensitive raw error detail'), false);
   assert.equal(JSON.stringify(body).includes('private body must not be returned'), false);
-  assert.equal(body.retrieval.semantic_embeddings, 'not_implemented');
+  assert.equal(body.retrieval.mode, 'keyword_fallback');
+  assert.equal(body.learning_runs.recent[0].indexed_chunks, 2);
+  assert.equal(body.semantic_index.chunks_sampled, 1);
 });
 
 test('continuous intelligence telemetry is not public without an owner session', async () => {

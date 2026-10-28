@@ -6,7 +6,8 @@
     "start": "node server.js",
     "test": "node --test",
     "check:secrets": "node scripts/check-secrets.js",
-    "verify:openrouter": "node scripts/verify-openrouter-models.js"
+    "verify:openrouter": "node scripts/verify-openrouter-models.js",
+    "benchmark:knowledge": "node scripts/run-knowledge-benchmark.js"
   },
   "dependencies": {
     "@vercel/sandbox": "3.8.0",
