@@ -29,7 +29,7 @@ Do not create parallel crawler, knowledge, or consent systems without proving th
 9. Promote reusable examples only under existing consent, redaction, retention, and review rules. Public documentation can be indexed without treating private conversations as training data.
 10. Prepare a versioned, reviewed fine-tuning dataset only after there is enough high-quality, permissioned data and a measured reason to fine-tune.
 
-**Current implementation boundary:** the PR seeds curated roots, invokes a bounded crawler batch, keeps descendants of `owner_seed` pages on the same host, and connects crawler keyword search to platform chat for relevant technical questions. Only HTTPS results from the curated official host allowlist are injected; context is bounded and explicitly treated as untrusted reference data, with source citations. This is a first retrieval connection, **not semantic/vector RAG**: embeddings, relevance-ranking evaluation, schema verification, a measured coding/reasoning benchmark, and OCC run telemetry remain follow-up work. Production execution and impact remain unverified.
+**Current implementation boundary:** the PR seeds curated roots, invokes a bounded crawler batch, keeps descendants of `owner_seed` pages on the same host, and connects crawler keyword search to platform chat for relevant technical questions. Only HTTPS results from the curated official host allowlist are injected; context is bounded and explicitly treated as untrusted reference data, with source citations. This is a first retrieval connection, **not semantic/vector RAG**: embeddings, relevance-ranking evaluation, schema verification, a measured coding/reasoning benchmark, A read-only owner-only OCC panel now exposes bounded queue/page samples without page bodies or raw errors. Semantic embeddings, relevance-ranking evaluation, a measured coding/reasoning benchmark, and per-run persistent history remain follow-up work. Production execution and impact remain unverified.
 
 ## Programming coverage
 
@@ -94,7 +94,8 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 - [ ] Store sanitized candidate improvements with provenance and review status.
 - [ ] Reject low-confidence, duplicate, unsafe, or consent-ineligible examples.
 - [ ] Add regression and cost/latency gates before promoting improvements.
-- [ ] Add owner-only OCC run telemetry and a kill switch.
+- [x] Add an owner-only OCC panel for bounded crawl queue/page metadata; the panel explicitly labels sample limits and current keyword-only retrieval.
+- [ ] Add persistent per-run telemetry, a verified kill switch, and operational alerts.
 
 ### Phase 4 — Optional fine-tuning
 - [ ] Evaluate whether RAG and workflow improvements are insufficient.
