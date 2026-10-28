@@ -44,3 +44,11 @@ knowledge_learning_runs stores only sanitized counters, timestamps, bounded dura
 - `src/web/crawler.js` retrieves vector and keyword candidates concurrently, validates source protocol/host/model, merges duplicate URLs, and reranks with semantic similarity, lexical coverage/title evidence, and freshness.
 - Telemetry contains only bounded metadata (intent, expansion count, candidate counts, mode, result count, latency); raw prompts and retrieved text are deliberately excluded. Retrieval is best-effort and falls back to whichever search path is available.
 - Official documentation excerpts remain untrusted reference data and are formatted with their source URLs. Tenant-owned business documents and user memory remain in their existing permission-scoped retrieval paths and are not mixed into the global public index.
+
+
+## Tenant-owned business knowledge
+
+- Migration `079_tenant_hybrid_knowledge.sql` adds nullable 384-dimensional embeddings to `knowledge_chunks` and a tenant-scoped hybrid RPC. It preserves the existing `tenant_id` and `knowledge_docs.who` audience filters inside the SQL function, and grants execution only to `service_role`.
+- When the OpenAI embedding adapter is configured, document chunks are embedded in one bounded batch and stored beside their text with the exact embedding model ID. Queries embed only the current user question; retrieval ranks semantic and full-text evidence together.
+- If embedding configuration or a provider request fails, document ingestion and chat retrieval continue through the existing full-text path. Embeddings for tenant-owned documents are never copied to `public_technical_chunks`.
+- This migration is not applied automatically by the application. Apply it through the normal reviewed migration process before enabling tenant hybrid retrieval in production.

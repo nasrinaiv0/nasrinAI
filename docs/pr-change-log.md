@@ -1,3 +1,9 @@
+## Tenant-scoped hybrid knowledge retrieval — 2026-10-29
+
+- Added optional 384-dimensional embeddings to tenant-owned knowledge chunks, using bounded batch embedding and model-version filtering. Full-text search remains available when embeddings are missing or the provider is unavailable.
+- Added a hybrid search RPC that enforces tenant ID and document audience in SQL before returning results; it combines vector similarity with full-text rank and never uses the global public documentation table.
+- Added regression tests for batch embedding order, tenant/audience/model scoping, fallback behavior, and document ingestion.
+
 ## Hybrid RAG orchestration — 2026-10-29
 
 - Added bounded intent classification, technical query expansion, hybrid vector-plus-keyword candidate retrieval, and deterministic semantic/lexical/freshness reranking for trusted programming documentation.

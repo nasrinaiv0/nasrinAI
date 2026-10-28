@@ -1093,11 +1093,15 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const rows = await request('GET', `knowledge_docs?tenant_id=eq.${tenantId}&order=updated_at.desc&select=id,title,source_url,who,chars,updated_at`);
       return (rows || []).map((r) => ({ id: r.id, tenantId, title: r.title, sourceUrl: r.source_url, who: r.who, chars: r.chars, updatedAt: r.updated_at }));
     },
-    async addKnowledgeDoc({ tenantId, title, sourceUrl = null, who, chars, chunks }) {
+    async addKnowledgeDoc({ tenantId, title, sourceUrl = null, who, chars, chunks, embeddings = null, embeddingModel = null }) {
       const rows = await request('POST', 'knowledge_docs?select=id', { prefer: 'return=representation', body: { tenant_id: tenantId, title, source_url: sourceUrl, who, chars } });
       const id = rows[0].id;
       try {
-        await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: chunks.map((text, idx) => ({ doc_id: id, tenant_id: tenantId, idx, text })) });
+        await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: chunks.map((text, idx) => ({
+          doc_id: id, tenant_id: tenantId, idx, text,
+          embedding: Array.isArray(embeddings?.[idx]) ? '[' + embeddings[idx].join(',') + ']' : null,
+          embedding_model: Array.isArray(embeddings?.[idx]) ? embeddingModel : null
+        })) });
       } catch (err) {
         await request('DELETE', `knowledge_docs?id=eq.${id}`, { prefer: 'return=minimal' }).catch(() => {});
         throw err;
@@ -1113,6 +1117,21 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !terms.length) return [];
       const rows = await request('POST', 'rpc/search_knowledge', { body: { p_tenant: tenantId, p_terms: terms.join(' | '), p_audience: audience, p_limit: limit } });
       return (rows || []).map((r) => ({ docId: r.doc_id, title: r.title, sourceUrl: r.source_url, idx: r.idx, text: r.text, rank: Number(r.rank) || 0 }));
+    },
+    async searchKnowledgeHybrid({ tenantId, terms, embedding, embeddingModel, audience, limit = 8 }) {
+      if (!UUID.test(String(tenantId)) || !Array.isArray(terms) || !terms.length) return [];
+      const vector = Array.isArray(embedding) && embedding.length === 384 && embedding.every(Number.isFinite)
+        ? '[' + embedding.join(',') + ']' : null;
+      const rows = await request('POST', 'rpc/search_knowledge_hybrid', {
+        body: {
+          p_tenant: tenantId, p_terms: terms.join(' | '), p_query_embedding: vector,
+          p_embedding_model: String(embeddingModel || '').slice(0, 120), p_audience: audience, p_limit: limit
+        }
+      });
+      return (rows || []).map((r) => ({
+        docId: r.doc_id, title: r.title, sourceUrl: r.source_url, idx: r.idx, text: r.text,
+        rank: Number(r.rank) || 0, semanticSimilarity: r.semantic_similarity == null ? null : Number(r.semantic_similarity)
+      }));
     },
     // Memories (migration 009).
     async listMemories({ tenantId, userId }) {
