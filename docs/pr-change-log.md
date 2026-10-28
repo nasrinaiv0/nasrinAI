@@ -5,7 +5,7 @@
 - Added constant-time cron-secret authorization tests.
 - Added an owner-only Continuous Intelligence OCC panel/API with sampled queue status/source counts and recent page metadata. It does not return page bodies or raw crawler errors; it labels sample limits and explicitly reports that semantic embeddings are not implemented.
 - Added regression coverage for trusted-source filtering, sensitive-query exclusions, host boundaries, cron authorization, owner-only telemetry, and data minimization.
-- **Validation in progress:** CI run #7672 has completed npm test successfully and dependency audit successfully; database and remaining CI steps were still running at the last check. Do not call the full workflow green until all jobs conclude.
+- **Validation:** CI #7696 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1801 passed.
 - **Not production-verified:** production cron execution, schema presence in live Supabase, actual retrieval quality, semantic embeddings, persistent run history, and OCC live behavior still need deployment verification.
 
 ## Continuous Intelligence — hourly programming knowledge pipeline — 2026-10-29
