@@ -141,7 +141,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, mcp = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
     const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
@@ -652,7 +652,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (smart) {
       // The tools this caller may use, when the message may need one.
       // `tools` is a registry, or a toolbox giving each business its own (connectors).
-      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || codingChat) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
+      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || codingChat || Boolean(mcp?.mentions(typed))) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
       const toolSpecs = reg ? reg.specsFor(caller) : [];
       // A first, public, simple question asked before may be answered from
       // cache (never when tools are offered: their answers change, like time).

@@ -1,3 +1,10 @@
+## MCP connections — 2026-10-29
+
+- New `src/mcp/`: NasrinAI as an MCP client of owner-listed remote servers (`MCP_SERVERS`, tokens in separate `MCP_*` env vars). Streamable HTTP JSON-RPC with JSON/SSE responses and session renewal, over the SSRF-safe connector transport.
+- Chat tools `mcp_list_tools`, `mcp_read_tool` (read-only tools only) and `mcp_run_tool` (write; needs Confirm). Owner-only by default; `access: "users"` opens a server to signed-in users; never guests. Results capped and marked untrusted.
+- Privacy Notice 2026-10-29: connected tool servers. `.env.example`, `docs/mcp.md`, CLAUDE.md map.
+- Tests: JSON/SSE parsing, handshake/session/token headers, session renewal, access rules, read vs write enforcement, required inputs, config validation.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).

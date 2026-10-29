@@ -104,6 +104,7 @@ push and PR. Vercel builds a preview for every PR.
 - `public/cleaner.js` — messy-file cleaner: .xlsx/CSV cleaned in the browser by fixed rules, value check, dashboard, cleaned workbook (`docs/file-cleaner.md`).
 - `src/storage.js` — Library as storage: lists/deletes a person's chats, files, sent photos/files and pictures, keeps sent files, and applies their keep-time (`prefs.retention`; migration 014; `docs/library.md`).
 - `src/tools/` — tool engine (Phase 5): registry, argument checks, first tools (`docs/tools.md`).
+- `src/mcp/` — MCP client: owner-listed remote MCP servers (`MCP_SERVERS`) as chat tools; read-only runs directly, others need Confirm (`docs/mcp.md`).
 - `src/connectors/` — business REST/GraphQL connectors (Phase 6): definition checks, encrypted keys, SSRF-safe calls (`docs/connectors.md`).
 - `src/knowledge/` — business knowledge (full-text search, audience) and confirmed user memory (`docs/knowledge.md`).
 - `scripts/eval/` + `test/redteam.test.js` — Phase 9 live suites and attack tests (`docs/red-team.md`).
