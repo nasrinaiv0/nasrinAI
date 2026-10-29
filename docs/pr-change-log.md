@@ -2996,3 +2996,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Preserved server-only boundary: RLS enabled, explicit `server_only_deny_browser` policies, browser-role table grants revoked, `service_role` table access retained. Added composite tenant/owner consistency FK and fail-closed mismatch check. No workflow/run records inserted.
 - Verified production dashboard function now returns JSON; query reported 7 series days and 12 recent activity entries. Both tables currently contain zero rows, so automation history remains naturally empty until real runs occur.
 - Code/documentation branch: `fix/occ-automation-schema-085-2026-10-30`; source migration and detailed audit included. Hosted browser smoke test and deployment remain unverified; 080–082 registry parity remains a separate task.
+
+
+## OCC automation label correction — 2026-10-30
+
+- Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
+- Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
+- UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
