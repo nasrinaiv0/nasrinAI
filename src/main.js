@@ -133,7 +133,8 @@ export function buildApp({ config, logger }) {
   const regionalAnalytics = createRegionalAnalytics({ url: config.supabaseUrl, serviceKey: config.supabaseSecretKey, hashSecret: process.env.REGIONAL_ANALYTICS_HASH_SECRET || config.supabaseSecretKey, logger, platformTenantId: PLATFORM_TENANT_ID });
   const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry, dataCollection: config.ai.openrouterDataCollection }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
-  const integrations = createIntegrationStore({ store });
+  // Integration storage needs the Supabase database; the in-memory dev store has none.
+  const integrations = typeof store.request === 'function' ? createIntegrationStore({ store }) : null;
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
   const limiter = createLimiter({ store, limits: config.limits, plans });

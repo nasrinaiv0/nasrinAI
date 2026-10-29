@@ -1,3 +1,8 @@
+## Fix: local development start without a database — 2026-10-29
+
+- Since #409, `AI_PROVIDER=fake npm start` (in-memory store, no Supabase) crashed at startup because the integration store requires the database. Integrations are now created only when the Supabase store is present; their routes stay off otherwise. Production (Supabase) is unchanged.
+- Test: the app builds without a database.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).
