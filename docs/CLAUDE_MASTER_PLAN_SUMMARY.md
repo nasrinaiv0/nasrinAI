@@ -191,3 +191,12 @@ Changes in this follow-up:
 - **Implementation:** Trusted HTTPS crawl pages are hashed, chunked, and upserted into the existing platform knowledge store; changed pages refresh their chunks; legacy illustrative examples can be upgraded in place. Up to five changed docs are indexed per hourly run.
 - **Validation:** CI #7753 passed: 1,191 passed, 0 failed, 1 skipped out of 1,192 Node tests; database tests, dependency audit, OpenRouter activity-sync tests, syntax check, and secret scan passed. Documentation Gate #1818 passed.
 - **Still to verify:** The first post-deployment hourly run, real indexed-doc counts, and retrieval impact in live platform answers. Semantic embeddings/vector ranking, persistent per-run history, and a measured coding/reasoning benchmark remain follow-up phases.
+
+
+## Draft PR review — 2026-10-29
+
+- Closed as outdated/duplicate: #543 (superseded by main), #631 and #635 (duplicate PR audits), #626 (dated audit snapshot).
+- Kept as drafts: #409 (integration security; conflicts in `src/main.js`, `src/routes.js`, changelogs; decide whether its vault replaces the GitHub/connector encryption), #652 (video adapter; tests pass but nothing calls it yet), #673, #671, #651, #650, #599 (docs/plans; most conflict only in `docs/pr-change-log.md`).
+- PR statuses for #352, #363, #365, #366 above are historical; recheck GitHub before relying on them.
+- Docs aligned with code: `docs/community-learning.md` now matches migration 075 and the Privacy Notice (Guest notice grant, no routine expiry for screened examples); Privacy Notice header set to version 2026-10-28 to match `LEGAL_PRIVACY_VERSION`.
+- Repository moved to `nasrinaiv0/nasrinAI` (old `primusco20/nasrinAI` URLs redirect; `gh api repos/...` fails on the redirect, use the GitHub MCP tools).
