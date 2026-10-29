@@ -69,7 +69,7 @@ test('memory: saved only after the person confirms; used later; listed, exported
   const a = await app((req) => {
     const last = req.messages.at(-1);
     if (last.role === 'tool') return 'OK, I will remember once you confirm.';
-    if (/remember that/i.test(last.content)) return { toolCalls: [{ id: 'm', name: 'remember', arguments: '{"note":"Prefers vegetarian dishes"}' }] };
+    if (/^please remember that/i.test(last.content)) return { toolCalls: [{ id: 'm', name: 'remember', arguments: '{"note":"Prefers vegetarian dishes"}' }] };
     return 'SEEN ' + last.content;
   }, { ROUTING: 'smart', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30) });
   try {

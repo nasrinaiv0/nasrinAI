@@ -10,20 +10,50 @@
 - Validation: no application tests were run in this audit. The previous PR #700 head `e60fa42ed7af4ba3ec94dd3558c739ffa2a95c71` had CI #7865 and Documentation Gate #1879 passing; fresh checks are required for the updated head.
 - Rollback: revert only the documentation-only commit(s) on PR #700 if this audit update is inaccurate. No runtime rollback is required.
 
-## NasrinAI progress audit and canonical handoff refresh — 2026-10-30
+## MOVO-scoped financial context — 2026-10-30
 
-- Added docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md with evidence-based status for current main commit 3a2c705461ac5b9920191ef67e5b25213dff0222, recent merged PRs #688–#692 and #409, all in-scope open/draft PRs, exact changed paths, CI/Documentation Gate results, branch drift, production deployment evidence, migration/object mismatches, security advisor findings, rollback notes, and prioritized next actions.
-- Audit report commit SHA: 84c4f95a2991fb83d5da5c1ce4b4fe8055d612d8.
-- Summary commit SHA: b706e97b56affa47e3b8a9bdda65a7bfb4228ccf. The immediately preceding changelog-record commit was f19ad60950325300acc8570082f59fef5a697c88.
-- Updated docs/CLAUDE_MASTER_PLAN_SUMMARY.md: corrected the repository URL and date, added the current verified snapshot, and linked the detailed audit. Historical entries remain historical and are not silently rewritten as current facts.
-- Owner-console documentation commit SHA: 408b66fa22dd72a0d174699c4c4f86c365faad15. The preceding changelog follow-up commit was e8e37883d26c866f970b853e0f67e8a0f57b5688.
-- Updated docs/owner-command-center.md status header to distinguish merged/deployed code from unverified runtime and record the migration registry mismatch.
-- Critical findings: migration 068 is absent from the production registry and its integration tables are absent; migration 079 is absent from the registry; existing tenant_id scoping is present, but embedding/embedding_model columns, the HNSW index, and search_knowledge_hybrid RPC are absent; migrations 080/081 objects exist with service_role-only function grants but are missing registry entries; PRs #651, #652, and #673 have failed Documentation Gates because their current diffs omit docs/pr-change-log.md; PR #695's local no-database startup fix is still open.
-- Security: leaked-password protection remains disabled as an owner-deferred residual risk; RLS-enabled server-only tables have no policies but anon/authenticated SELECT/INSERT grants are absent and service_role grants are present. No secret values or personal data were recorded.
-- Validation: read-only GitHub/Vercel/Supabase checks only. No application tests were run by this audit. On initial audit PR head 6d0b8a19ba4f2992456bc4e9c9cefd31143132cf, CI run #7864 passed and Documentation Gate run #1878 passed. This follow-up changelog commit changes the PR head, so the latest head must pass both checks again before merge.
-- Deployment/migration status: the current Vercel production deployment is READY at commit 3a2c705461ac5b9920191ef67e5b25213dff0222; no production changes, migrations, merges, or deployments were performed by this audit.
-- Rollback: documentation-only revert of this PR; do not roll back application code or database objects as part of this audit. See the detailed report for exact evidence links and per-PR paths.
-- Validation follow-up commit records the prior checked head SHA 6d0b8a19ba4f2992456bc4e9c9cefd31143132cf and its successful CI/Documentation Gate results; this commit's own SHA and checks are visible in PR #700.
+- Adds server-only `context_scope: "movo"` for secret service-key chat requests, with strict validation of the stateless request and bounded financial JSON shape.
+- The current question stays separate from transient `accounts`, `recent_transactions`, and `budgets` context; context is added only to the in-memory provider request and is not saved in the upstream transcript.
+- Scoped turns skip platform/founder/product retrieval, personal memory, Library, prior-chat recall, community learning, programming retrieval, web search, tools, image recall, and exact/semantic caches. The response confirms `context_scope: "movo"` for the caller to verify.
+- Regression coverage checks platform portfolio retrieval is skipped, context is not persisted, and non-service or invalid requests fail closed. No schema migration or production data change is required.
+
+## Coding chat: automatic failure detection and repair — 2026-10-29
+
+- New `src/auto-repair.js`: classifies check-tool results; when the last check failed in a fixable way and the model tries to finish, the coding chat sends it back to fix and re-run (max 2 repair rounds per message, coding chat up to 8 tool rounds). Rate limits, missing GitHub connection or sign-in never trigger repair. Status line "A check failed — fixing it".
+- No automatic merge or deploy; pull requests still need Confirm.
+- Tests: classification, end-to-end repair (fail → send-back → fix → pass), bound on repair rounds, no repair for environment errors or outside the coding chat. `test/helpers.js` gains `extraTools` for test-only tools.
+
+## Routing: fail over until an eligible model answers — 2026-10-29
+
+- Requests no longer stop after 2 failed calls: failover continues across eligible models up to `ROUTE_MAX_FAILOVERS` (default 6) within `ROUTE_FAILOVER_BUDGET_MS` (default 60 s).
+- Refusals (`config`: 400/401/403/404, retired models, rejected keys) now fail over too, with a 10-minute cooldown and no same-model retry; adapter bugs/malformed responses are treated as unavailable; Stop is never retried.
+- When every model fails, the last real provider error is returned instead of a generic one.
+- Tests: five models failing in four different ways ends with an answer from the fifth, each tried once; the failover cap; no same-model retry after a refusal; Stop; config validation. Docs: `docs/routing.md`, `.env.example`.
+
+## Skill slash commands and the "/" menu — 2026-10-29
+
+- 700 unique slash commands: one per skill in `docs/NASRINAI_SKILLS.md` and `/as-<role>` per Professional AI role, generated into `config/skill-commands.json` by `scripts/build-skill-commands.js`; never shadow the 31 core commands.
+- Composer "/" menu (`public/slash-menu.js`, CSP-safe) with search and keyboard navigation; catalog served by public `GET /v1/commands`.
+- Server applies a skill command as a short system note; `/as-<role>` selects that professional. No new access or tools.
+- Tests: catalog up to date, uniqueness/format, resolution, chat wiring (system note, professional), menu script CSP rules.
+
+## Fix: local development start without a database — 2026-10-29
+
+- Since #409, `AI_PROVIDER=fake npm start` (in-memory store, no Supabase) crashed at startup because the integration store requires the database. Integrations are now created only when the Supabase store is present; their routes stay off otherwise. Production (Supabase) is unchanged.
+- Test: the app builds without a database.
+
+## MCP connections — 2026-10-29
+
+- New `src/mcp/`: NasrinAI as an MCP client of owner-listed remote servers (`MCP_SERVERS`, tokens in separate `MCP_*` env vars). Streamable HTTP JSON-RPC with JSON/SSE responses and session renewal, over the SSRF-safe connector transport.
+- Chat tools `mcp_list_tools`, `mcp_read_tool` (read-only tools only) and `mcp_run_tool` (write; needs Confirm). Owner-only by default; `access: "users"` opens a server to signed-in users; never guests. Results capped and marked untrusted.
+- Privacy Notice 2026-10-29: connected tool servers. `.env.example`, `docs/mcp.md`, CLAUDE.md map.
+- Tests: JSON/SSE parsing, handshake/session/token headers, session renewal, access rules, read vs write enforcement, required inputs, config validation.
+
+## Long-term recall across all saved chats — 2026-10-29
+
+- With Memory on, recall now searches every saved message of that user in the database (migration 082 `search_user_messages`: ranked full-text with a GIN index, one tenant + one user, expired chats skipped, max 12 excerpts), so chats from long ago are found, not only the latest 50. Falls back to the previous scan before the migration.
+- Privacy Notice 2026-10-29 now states that Memory also looks through the person's own past chats and sends matching parts with the message; `LEGAL_PRIVACY_VERSION` default bumped.
+- Tests: DB test (scope, expiry, window, exclusion, unsafe terms); recall finds a chat older than the 50 latest, never another user's, nothing with Memory off, safe fallback. The fake model in the memory test now triggers only on the user's own request, not on recalled context.
 
 ## Owner Command Center API keys — 2026-10-29
 
