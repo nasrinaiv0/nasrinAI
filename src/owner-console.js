@@ -419,6 +419,8 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
     const reconciliationWrite = req.method === 'POST' && pathname === '/owner/api/openrouter-billing/reconcile';
+    const apiKeyRevoke = /^\/owner\/api\/api-keys\/([0-9a-f]{12})\/revoke$/.exec(pathname);
+    const apiKeyWrite = req.method === 'POST' && (pathname === '/owner/api/api-keys' || Boolean(apiKeyRevoke));
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
 
     // In production the console UI/API exists only on the dedicated subdomain.
@@ -472,7 +474,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite && !reconciliationWrite) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite && !reconciliationWrite && !apiKeyWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -624,6 +626,61 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       } catch {
         logger?.warn?.('owner community learning history unavailable', { source: 'improvement_example_review_events' });
         sendJson(res, 503, { error: { code: 'learning_history_unavailable', message: 'Review history is unavailable.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/api-keys' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') { sendJson(res, 503, { error: { code: 'api_keys_unavailable', message: 'API key storage is unavailable.' } }); return true; }
+      try {
+        const value = await store.request('POST', 'rpc/owner_console_list_api_keys', { body: {} });
+        const rows = Array.isArray(value) ? value : [];
+        const keys = rows.filter((k) => k && /^[0-9a-f]{12}$/.test(k.id)).map((k) => ({
+          id: k.id, prefix: 'nss_' + k.id, label: String(k.label || '').slice(0, 80),
+          scopes: Array.isArray(k.scopes) ? k.scopes.filter((x) => typeof x === 'string') : [],
+          created_at: k.created_at || null, revoked_at: k.revoked_at || null
+        }));
+        sendJson(res, 200, { keys, active: keys.filter((k) => !k.revoked_at).length, limit: 20 });
+      } catch {
+        logger?.warn?.('owner API key list unavailable', { source: 'api_keys' });
+        sendJson(res, 503, { error: { code: 'api_keys_unavailable', message: 'API keys could not be loaded. Apply migration 081.' } });
+      }
+      return true;
+    }
+    if (apiKeyWrite) {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') { sendNotFound(res); return true; }
+      if (typeof store?.request !== 'function') { sendJson(res, 503, { error: { code: 'api_keys_unavailable', message: 'API key storage is unavailable.' } }); return true; }
+      let body;
+      try { body = await readOwnerJson(req, 2048); } catch { sendJson(res, 400, { error: { code: 'invalid_request', message: 'A valid JSON request is required.' } }); return true; }
+      if (body.confirm !== true) { sendJson(res, 400, { error: { code: 'confirmation_required', message: 'Confirm this action first.' } }); return true; }
+      let ip = '';
+      try { ip = normalizeIp(clientIp(req)); } catch {}
+      if (!ip) { sendNotFound(res); return true; }
+      const ipHash = createHash('sha256').update(ip).digest('hex');
+      if (apiKeyRevoke) {
+        try {
+          const value = await store.request('POST', 'rpc/owner_console_revoke_api_key', { body: { p_id: apiKeyRevoke[1], p_actor_id: session.sub, p_ip_hash: ipHash } });
+          const revoked = value === true || (Array.isArray(value) && value[0] === true);
+          sendJson(res, revoked ? 200 : 404, revoked ? { id: apiKeyRevoke[1], status: 'revoked' } : { error: { code: 'api_key_not_found', message: 'No active key with that ID.' } });
+        } catch {
+          logger?.warn?.('owner API key revoke failed', { source: 'api_keys' });
+          sendJson(res, 503, { error: { code: 'api_key_revoke_failed', message: 'The key could not be revoked. Try again.' } });
+        }
+        return true;
+      }
+      const label = typeof body.label === 'string' ? body.label.trim() : '';
+      if (label.length < 1 || label.length > 80 || /[\u0000-\u001f\u007f]/.test(label)) {
+        sendJson(res, 400, { error: { code: 'invalid_label', message: 'Give the key a name of 1 to 80 characters.' } }); return true;
+      }
+      try {
+        const value = await store.request('POST', 'rpc/owner_console_create_api_key', { body: { p_label: label, p_actor_id: session.sub, p_ip_hash: ipHash } });
+        const key = Array.isArray(value) ? value[0] : value;
+        if (typeof key !== 'string' || !/^nss_[0-9a-f]{12}_[0-9a-f]{48}$/.test(key)) throw new Error('unexpected key shape');
+        // The full key is shown once; the server never logs it and the database keeps only its hash.
+        sendJson(res, 201, { id: key.slice(4, 16), prefix: key.slice(0, 16), label, key, scopes: ['chat'] });
+      } catch (error) {
+        const limit = /active key limit/.test(String(error?.message));
+        logger?.warn?.('owner API key create failed', { source: 'api_keys', reason: limit ? 'limit' : 'error' });
+        sendJson(res, limit ? 409 : 503, { error: { code: limit ? 'api_key_limit' : 'api_key_create_failed', message: limit ? 'You have 20 active keys. Revoke one first.' : 'The key could not be created. Apply migration 081 and try again.' } });
       }
       return true;
     }
