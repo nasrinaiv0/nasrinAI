@@ -39,6 +39,7 @@ const FILE_WORDS = /\b(files?|docx?|pdf|xlsx?|excel|spreadsheet|csv|download|exp
 const FILE_TOKENS = 5500;
 const MAX_MOVO_CONTEXT_CHARS = 3800;
 const MOVO_CONTEXT_KEYS = Object.freeze(['accounts', 'recent_transactions', 'budgets']);
+const MOVO_REQUEST_KEYS = new Set(['message', 'context_scope', 'context']);
 
 function parseMovoContext(raw) {
   if (typeof raw !== 'string' || raw.length > MAX_MOVO_CONTEXT_CHARS) {
@@ -207,8 +208,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (movoScoped && caller.tenant?.knowledgeOnly === true) {
       throw new HttpError(403, 'forbidden', 'MOVO context scope is not available for knowledge-only tenants.');
     }
-    if (movoScoped && ['conversation_id', 'project_id', 'attachments', 'coding', 'professional', 'regenerate', 'edit_message_id', 'blocks', 'voice', 'location_context', 'screen_context', 'model'].some((key) => body[key] !== undefined)) {
-      throw new HttpError(400, 'invalid_context_scope', 'MOVO requests must be stateless and cannot include other context sources.');
+    if (movoScoped && Object.keys(body).some((key) => !MOVO_REQUEST_KEYS.has(key))) {
+      throw new HttpError(400, 'invalid_context_scope', 'MOVO requests may include only the current question and bounded MOVO financial context.');
     }
     if (!movoScoped && body.context !== undefined) {
       throw new HttpError(400, 'invalid_context_scope', 'Explicit context requires the MOVO server scope.');
