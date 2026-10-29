@@ -390,3 +390,19 @@ The NasrinAI [docs/pr-change-log.md](https://github.com/nasrinaiv0/nasrinAI/blob
 - **Not reverified this run:** current authoritative states/heads for NasrinAI PR #699 and MOVO PR #48; production Supabase migrations 080/081, RPC grants/RLS and leaked-password protection. Keep these open until separately checked.
 
 The detailed delta records per-commit behavior, changed files, evidence, security interpretation, test status, limitations and ordered follow-up. Historical entries above remain unchanged.
+
+
+---
+
+## Incremental review — 2026-10-30 05:29 Manila
+
+**Detailed delta:** [Cross-project progress and audit delta](updates/2026-10-30-0529-cross-project-progress.md)
+
+- **Verified production progress:** NasrinAI PRs #694–#698 are merged and each has a matching Vercel production deployment in READY state. Current production head: `531f56d6d5685730692372d64bd7780b974f5c69` (PR #698, automatic coding-check repair). Main CI run [#40957700465](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40957700465) passed.
+- **Verified upstream security progress:** NasrinAI PR #699 is now open and marked ready for review (not draft), with current head `a100cfb420314513c49fb6725b0c13f30570deb7`; current-head CI, dependency audit, database tests, secret checks, and documentation gates passed. It remains unmerged and has no verified production deployment. Its PR body has stale head/draft wording.
+- **Verified MOVO preview progress:** PR #48 head `6b4f0bb809151ffe7e3aa78494e7b651cdcbcba5` has a successful exact-head CI run and READY preview, but remains draft and target=null. MOVO production remains at PR #50 commit `94d089d35483558b320f751cf122aa68755ef0eb`; issue #47 remains open.
+- **New open feature PRs:** NasrinAI #701 (1,017 picture-edit slash commands) and #702 (richer DOM-only reply rendering) have successful CI and documentation gates, but are not merged/deployed. MOVO #51 adds an updated Claude handoff; #52 chart validation and #53 disclaimer filtering remain drafts with READY previews only.
+- **Documentation blocker:** NasrinAI PR #700 reports mergeable_state=dirty and is based on an older main SHA. It needs reconciliation before merge.
+- **Not verified:** production Supabase migrations/RLS/grants and leaked-password protection; live MCP server configuration; authenticated production context-isolation smoke test; live chart correctness; dependency audit refresh. These remain release gates, not assumed complete.
+
+The linked delta records per-PR timestamps, exact heads, changed paths, reported and verified test results, deployment IDs/targets, security implications, status drift, and prioritized next audit actions. No application code, PR state, production deployment, database, or production configuration was changed by this monitor.
