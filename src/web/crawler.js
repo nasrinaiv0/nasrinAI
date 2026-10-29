@@ -135,7 +135,10 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
         error_code: !embedder?.embed ? 'embedding_not_configured' : 'store_not_configured'
       };
     }
-    const pages = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,content_hash,fetched_at&order=fetched_at.desc&limit=' + Math.max(1, Math.min(5, Number(limit) || 5)));
+    // Filter trusted hosts in PostgREST before applying the limit. Otherwise unrelated
+    // recent crawler rows can starve official docs and make a run appear empty.
+    const officialHostFilter = PROGRAMMING_DOC_HOSTS.map((host) => 'url.ilike.*' + host + '*').join(',');
+    const pages = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,content_hash,fetched_at&or=(' + officialHostFilter + ')&order=fetched_at.desc&limit=' + Math.max(1, Math.min(50, Number(limit) || 5)));
     const totals = { enabled: true, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
     const maxEmbeddings = Math.max(1, Math.min(10, Number(process.env.SEMANTIC_MAX_EMBEDDINGS_PER_RUN) || 10));
     let embeddingCalls = 0;
@@ -160,10 +163,8 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
       // Avoid deleting a previous complete index unless this whole page fits in
       // the remaining per-run embedding budget.
       if (embeddingCalls + chunks.length > maxEmbeddings) break;
-      if (Array.isArray(existing) && existing.length) {
-        await store.request('DELETE', 'public_technical_chunks?source_url=eq.' + encodeURIComponent(url.href), { prefer: 'return=minimal' }).catch(() => {});
-      }
       let wrote = false;
+      let pageFailed = false;
       for (let i = 0; i < chunks.length && embeddingCalls < maxEmbeddings; i++) {
         try {
           embeddingCalls++;
@@ -180,10 +181,20 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           totals.indexed_chunks++; wrote = true;
         } catch (err) {
           totals.embedding_failures++;
-          logger?.warn?.('semantic knowledge chunk indexing failed', { host, code: String(err?.status || err?.code || 'index_failed').slice(0, 40) });
+          pageFailed = true;
+          logger?.warn?.('semantic knowledge chunk indexing failed', {
+            host,
+            code: String(err?.code || (err?.status ? 'embedding_http_' + err.status : 'index_failed')).slice(0, 40)
+          });
         }
       }
-      if (wrote) totals.indexed_pages++;
+      if (wrote && !pageFailed) {
+        // Remove stale trailing chunks only after the replacement page was fully embedded and written.
+        await store.request('DELETE', 'public_technical_chunks?source_url=eq.' + encodeURIComponent(url.href) + '&chunk_index=gte.' + chunks.length, { prefer: 'return=minimal' }).catch((err) => {
+          logger?.warn?.('semantic knowledge stale chunk cleanup failed', { host, code: String(err?.code || 'cleanup_failed').slice(0, 40) });
+        });
+        totals.indexed_pages++;
+      }
     }
     return totals;
   }
