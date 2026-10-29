@@ -2,8 +2,39 @@
 
 > Status audit 2026-10-18: this log is a running record. Entries that say "pending" describe the moment they were written; check the PR and CI before relying on them. See also [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
-Last updated: 2026-10-18
-Repository: https://github.com/primusco20/nasrinAI
+Last updated: 2026-10-30
+Repository: https://github.com/nasrinaiv0/nasrinAI
+
+## Current verified snapshot — 2026-10-30 05:30 Asia/Manila
+
+**Source of truth:** [Detailed progress audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md). Audited main SHA: [531f56d6d5685730692372d64bd7780b974f5c69](https://github.com/nasrinaiv0/nasrinAI/commit/531f56d6d5685730692372d64bd7780b974f5c69), merge of PR #698. The linked NasrinAI Vercel production deployment is READY at the same source SHA; no end-to-end smoke test was run in this audit.
+
+### Current implementation status
+- **Implemented:** PRs #694–#698 are merged; their recorded CI and Documentation Gate runs passed. This includes MCP tool connections, local no-database development startup, skill slash commands, routing failover, and bounded coding-chat automatic repair.
+- **Partially implemented:** PR #693 long-term recall code is merged, but production migration 082 and public.search_user_messages are absent; the documented recent-chat fallback may remain active.
+- **Blocked:** production migration 068 tables are absent while main code in src/integrations/store.js queries integration_connections.
+- **Blocked:** migration 079 embedding columns, HNSW index, and public.search_knowledge_hybrid are absent while src/store/supabase-store.js calls the RPC.
+- **Partially implemented:** migration 080/081 owner-console functions exist, but their migration-registry entries are absent. Do not replay these migrations until live definitions, grants, dependencies, and history are reconciled.
+- **Blocked:** Supabase leaked-password protection is disabled per the current Security Advisor.
+- **Partially implemented / review required:** three RLS-enabled tables have no policies; the read-only privilege check found no anon/authenticated table grants on those tables, but the server-only access model must be explicitly reviewed.
+- **Not verified:** production end-to-end behavior for MCP, provider failover, coding repair, rich reply rendering, image-edit commands, owner-console protected flows, hybrid retrieval, and long-term recall.
+
+### Open in-scope pull requests
+- [PR #700](https://github.com/nasrinaiv0/nasrinAI/pull/700) — documentation audit proposal. Open, not merged; GitHub metadata says it is not a draft. Its branch is 23 commits behind and 10 ahead of current main and its report names an older main/deployment. **Blocked as a reliable current handoff; do not merge as-is.**
+- [PR #701](https://github.com/nasrinaiv0/nasrinAI/pull/701) — image-edit slash commands. CI and Documentation Gate passed on its observed head; branch is 4 commits behind current main. **Partially implemented; not merged; production behavior not verified.**
+- [PR #702](https://github.com/nasrinaiv0/nasrinAI/pull/702) — rich reply rendering. CI and Documentation Gate passed on its observed head; branch is 4 commits behind current main. **Partially implemented; not merged; production behavior not verified.**
+
+### Production migration snapshot (read-only, 2026-10-30 approx. 05:29 Manila)
+- Registry latest numbered migration: 078_secure_semantic_knowledge.
+- Migration 068: registry entry, integration_connections, and integration_oauth_states absent.
+- Migration 079: registry entry, embedding/embedding_model columns, HNSW index, and hybrid-search RPC absent; tenant_id columns exist.
+- Migrations 080/081: registry entries absent; owner-console functions and supporting api_keys/owner_audit_events tables exist with checked function ACLs limited to postgres/service_role.
+- Migration 082: registry entry, messages_content_fts_idx, and public.search_user_messages absent.
+- No migration was applied. Any reconciliation must be separately reviewed; never blindly replay 080/081 because related functions already exist.
+
+### Audit discipline
+Use the detailed audit and current GitHub evidence before relying on historical entries. Passing CI or a READY deployment is not proof of end-to-end production correctness. Exact test counts are not inferred when the job summary does not expose them. Every feature must be labelled Implemented, Partially implemented, Not implemented, Blocked, or Not verified, with evidence and a clear next action.
+
 
 ## How to use this file
 Read this before making changes. Treat GitHub's current `main`, open PRs, workflow results, and Vercel deployment state as the source of truth. Do not assume an open PR is merged or that a successful deployment status means every test passed. Inspect the actual diff and run the applicable checks before changing code.
