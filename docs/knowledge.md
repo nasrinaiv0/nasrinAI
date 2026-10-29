@@ -96,3 +96,7 @@ Common words on their own ("plan a trip", "a JavaScript function", "make an imag
 - Notes can be edited: `PUT /v1/memories/<id>` `{ text }` (own notes only,
   checked like new notes).
 - Guests have no memory.
+
+## Long-term recall of past chats (migration 082)
+
+With Memory on, a signed-in person's message is also matched against **all** of their own saved chats, not only the latest 50. `search_user_messages` (service-role only) runs a ranked full-text search (`simple` config, prefix terms, light stemming in `src/conversations.js`) scoped to one tenant and one user, skips expired chats, honours recall windows ("last week") and returns at most 12 excerpts of 900 characters, added to the turn as data, not instructions. Before migration 082 is applied, recall falls back to the recent-chat scan. Memory off: nothing is searched. Privacy notice 2026-10-29 describes this.

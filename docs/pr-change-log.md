@@ -1,3 +1,9 @@
+## Long-term recall across all saved chats — 2026-10-29
+
+- With Memory on, recall now searches every saved message of that user in the database (migration 082 `search_user_messages`: ranked full-text with a GIN index, one tenant + one user, expired chats skipped, max 12 excerpts), so chats from long ago are found, not only the latest 50. Falls back to the previous scan before the migration.
+- Privacy Notice 2026-10-29 now states that Memory also looks through the person's own past chats and sends matching parts with the message; `LEGAL_PRIVACY_VERSION` default bumped.
+- Tests: DB test (scope, expiry, window, exclusion, unsafe terms); recall finds a chat older than the 50 latest, never another user's, nothing with Memory off, safe fallback. The fake model in the memory test now triggers only on the user's own request, not on recalled context.
+
 ## Owner Command Center API keys — 2026-10-29
 
 - Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.
