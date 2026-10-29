@@ -9,7 +9,7 @@ NasrinAI: a general, local-first AI assistant ("answers anything"), later
 connectable to businesses' own apps (POS, customer service, websites).
 NasrinAI is a standalone general-purpose AI assistant, not a food-ordering or delivery app.
 
-- Repo: `primusco20/nasrinAI`. Live: https://nasrinai.com (Vercel).
+- Repo: `nasrinaiv0/nasrinAI` (moved from `primusco20/nasrinAI`, which redirects). Live: https://nasrinai.com (Vercel).
 - Database: its own dedicated Supabase project.
 - The owner works mostly from a phone: keep changes small and reviewable,
   explain in plain words, give exact copy-paste steps for anything they must
@@ -49,6 +49,9 @@ NasrinAI is a standalone general-purpose AI assistant, not a food-ordering or de
    what changed, exact owner steps if any, what is needed. No summaries,
    tables or explanations unless asked. Put the effort into correct, tested
    code instead. Stop for approval before starting a new phase.
+   **Owner update (2026-10-29):** keep moving forward without re-asking; keep
+   replies and tool output short to stay within usage limits; never trade
+   quality or security for fewer tokens.
 9. **Legal docs follow every change** (owner's request): when a change affects
    what data is collected, kept, shared or for how long, or what users can do,
    update `public/legal/privacy.md` / `terms.md` in the same change and bump
