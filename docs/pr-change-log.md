@@ -2985,3 +2985,17 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Rollback:** documentation-only; revert this branch if findings are superseded. A future schema rollout must not drop credential tables or blindly replay later migrations; use a reviewed forward repair and preserve existing data/audit evidence.
 - **New plan:** `docs/audits/INTEGRATION_MIGRATION_068_REPAIR_PLAN_2026-10-30.md`, commit `4fb4d6e21b15680c9125c2e07106252bf3b700cc`. It defines non-production preflight, security assertions, validation gates, and explicit production approval separation.
 - **Change log entry commit:** this entry is included in the current documentation branch; exact commit SHA is recorded by the branch's resulting head/PR metadata after creation.
+
+
+## Follow-up remediation request — corrected migration registry and blocker matrix (2026-10-30)
+
+- **Scope:** NasrinAI only. No unrelated repositories/workstreams were inspected.
+- **Repository baseline:** `main` observed at `33f9283f35a0627c700efb43b3335bcfd8d52840`.
+- **Production migration registry:** read-only `list_migrations` shows `069_openrouter_cached_tokens` at version `20261025091119`; this is unrelated to integrations. Observed entries stop at `078_secure_semantic_knowledge` version `20261028230728`. No registry entries for 079–082 were returned. This corrects the earlier shorthand suggesting the recorded 069 was an integration migration.
+- **Exact changed paths in this follow-up:** `docs/audits/INTEGRATION_MIGRATION_068_REPAIR_PLAN_2026-10-30.md`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, `docs/pr-change-log.md`.
+- **Detailed statuses:** 068 **Blocked** (both integration tables absent); 079 **Blocked** for semantic retrieval (missing embedding columns/HNSW/RPC in previous catalog check); 080/081 **Partially implemented / Not verified** (registry absent, functions observed but parity not checked); 082 **Partially implemented / Not verified** (function/index observed, parity and opt-in runtime not checked); leaked-password protection **Blocked — owner approval required**; PR #702 and #703 **Blocked** pending branch reconciliation and rerun checks.
+- **Security/privacy:** no browser grants were broadened; no credentials, OAuth states, or personal data were read or written. Exact live function parity, grants, and search_path must be verified before repair.
+- **Tests:** no application or database tests run in this follow-up. No test pass is claimed.
+- **Deployment/migration:** no migration created or applied, no production setting/schema/data/grant/policy changed, no merge or deployment performed.
+- **Rollback:** documentation-only branch; revert the documentation commits if the evidence is superseded. No runtime rollback is required.
+- **Canonical detail:** `docs/audits/INTEGRATION_MIGRATION_068_REPAIR_PLAN_2026-10-30.md` now contains the migration 068 safe plan and the cross-migration/PR blocker matrix.
