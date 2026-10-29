@@ -7,6 +7,12 @@
 **Production deployment:** [Vercel deployment dpl_HSRE7hhvVxT18Cu4UAJLdywxGqJf](https://vercel.com/nasrin-ai/nasrinai/HSRE7hhvVxT18Cu4UAJLdywxGqJf), state READY, target production, source SHA matches audited main.  
 **Purpose:** Evidence-rich handoff for Claude. Start with this report and the canonical summary; inspect only files relevant to the finding being worked on.
 
+## Scope-boundary refresh — 2026-10-30 05:34 Asia/Manila
+
+At 05:32 Asia/Manila, the Git reference for main was observed at 79b7ce8360ec783b6eb6b56dff5e715c90bc073e. To honor the strict exclusion of out-of-scope product-specific changes, this audit did not fetch or inspect that commit's message, diff, PR description, or implementation. Its scope membership is therefore **Not verified**. The last fully audited code baseline in this report remains 531f56d6d5685730692372d64bd7780b974f5c69. Do not treat this report as an audit of main beyond that baseline.
+
+The documentation proposal branch is based on 531f56d... and is behind the current main ref. No rebase, merge, or PR merge was performed. The production deployment was last verified at 05:30 as READY from 531f56d...; deployment/source state after the main ref advanced is **Not verified**. Branch-drift counts below are relative to the 531f56d... baseline and may have increased.
+
 ## 1. Scope, method, and status rules
 
 This audit is limited to the NasrinAI repository, its in-scope NasrinAI pull requests, and read-only checks of the linked NasrinAI deployment and Supabase project. Other-product repositories, workstreams, and product-specific PRs are excluded from the audit inventory and implementation review, even if mentioned in a NasrinAI PR description. No conclusions are made about excluded work.
@@ -28,8 +34,8 @@ Status labels:
 
 ## 2. Executive snapshot
 
-- **Main:** latest observed SHA is 531f56d6d5685730692372d64bd7780b974f5c69, merged from PR #698 at 2026-10-29 21:25:33 UTC.
-- **Deployment:** Vercel reports READY for production at the same SHA. This proves deployment state, not end-to-end feature correctness. No live smoke test was run during this audit.
+- **Last fully audited main baseline:** 531f56d6d5685730692372d64bd7780b974f5c69, merged from PR #698 at 2026-10-29 21:25:33 UTC. Main was later observed at 79b7ce8360ec783b6eb6b56dff5e715c90bc073e, but that commit's content was not inspected to preserve the strict scope exclusion; current main beyond the audited baseline is **Not verified**.
+- **Last verified deployment:** Vercel reported READY for production from source SHA 531f56d... at 05:30. Deployment/source state after main advanced is **Not verified**. This proves deployment state at the time checked, not end-to-end feature correctness. No live smoke test was run.
 - **Recent merged PR gates:** CI and Documentation Gate passed for PRs #693–#698 on their recorded PR heads.
 - **In-scope open PRs:** #700, #701, and #702. All three are behind current main. Their observed CI and Documentation Gate runs pass, but branch drift and stale test descriptions require attention.
 - **Primary production blockers:** migration 068 integration tables are absent; migration 079 hybrid-search objects are absent; migration 082 long-term message-recall function/index are absent. Migration 080/081 owner-console functions exist but their registry entries are missing, so migration history and live definitions need reconciliation before any replay.
@@ -194,5 +200,5 @@ The linked NasrinAI Supabase project was queried read-only at 2026-10-30 approxi
 - **Runtime behavior change:** none.
 - **Security/privacy impact:** none to runtime. The report records findings without secrets, personal data, prompt content, or user records.
 - **Tests run by this audit:** none manually. Workflow outcomes are cited above.
-- **Deployment/migration status:** no deployment or migration performed. Production remains at the Vercel deployment whose source is main SHA 531f56d....
+- **Deployment/migration status:** no deployment or migration performed. The last verified production deployment was sourced from 531f56d...; deployment/source state after main ref advanced to 79b7ce8... is **Not verified**.
 - **Rollback:** revert the documentation-only commits or close the documentation PR if the report is inaccurate. No runtime rollback is required. Any future migration proposal must have its own reviewed rollback/reconciliation plan and must not be replayed blindly.
