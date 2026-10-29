@@ -90,8 +90,8 @@ Expose last run, next run, queued/fetched/indexed/retried/skipped counts, source
 - [ ] Add integration tests proving indexed technical references improve relevant coding responses against a fixed baseline.
 
 ### Phase 3 — Evaluation-driven improvement
-- [ ] Build a versioned coding/reasoning benchmark with expected outcomes.
-- [ ] Measure baseline before changing prompts/routing.
+- [x] Build a versioned coding/reasoning benchmark with expected outcomes (`scripts/eval/suites/coding.json`, version `2026-10-29-v1`; run it from Actions → Manual live evaluations → `coding`).
+- [ ] Measure baseline before changing prompts/routing (owner runs the `coding` suite once; the report is the baseline artifact).
 - [ ] Store sanitized candidate improvements with provenance and review status.
 - [ ] Reject low-confidence, duplicate, unsafe, or consent-ineligible examples.
 - [ ] Add regression and cost/latency gates before promoting improvements.

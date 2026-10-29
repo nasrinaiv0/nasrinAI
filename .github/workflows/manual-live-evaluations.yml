@@ -11,6 +11,7 @@ on:
         options:
           - quality
           - redteam
+          - coding
           - both
       confirm_live_evaluations:
         description: I understand this sends requests to production and may incur provider costs
@@ -65,6 +66,9 @@ jobs:
               ;;
             redteam)
               node scripts/eval/run.js --suite redteam --url https://www.nasrinai.com
+              ;;
+            coding)
+              node scripts/eval/run.js --suite coding --url https://www.nasrinai.com
               ;;
             both)
               node scripts/eval/run.js --suite quality --url https://www.nasrinai.com
