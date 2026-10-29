@@ -30,6 +30,8 @@ import { formatProgrammingKnowledgeContext, shouldRetrieveProgrammingKnowledge, 
 // Tools (Phase 5) are offered only when a message looks like it may need one
 // (numbers, units, time or date words), so most messages cost nothing extra.
 // GitHub repositories (src/github): read with tools, not the web search.
+// Agent tools (src/tools/agent.js): run a short program, read a web page, search.
+export const AGENT_ASK = /\b(run|execute|test|try)\s+(this|the|my|that|it|some|a|your)?\s*(code|script|snippet|program|function|algorithm)\b|\b(python|javascript|node\.?js|typescript)\b[^.?!\n]{0,80}\b(run|execute|output|prints?|result|works?)\b|\b(fetch|open|read|browse|visit|scrape)\b[^.?!\n]{0,40}\b(page|site|website|url|link|docs|documentation|article)\b|\bweb ?search\b|\bsearch (online|the web|google)\b/i;
 const GITHUB_ASK = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|\b(github|repo|repository|repositories)\b/i;
 // Google apps (src/google): Gmail, Calendar, Drive, Meet, Keep. Without this the message never offers the Google tools,
 // and the model wrongly says it has no access even when the account is connected.
@@ -661,7 +663,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
     if (smart) {
       // The tools this caller may use, when the message may need one.
       // `tools` is a registry, or a toolbox giving each business its own (connectors).
-      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || codingChat || Boolean(mcp?.mentions(typed))) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
+      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || AGENT_ASK.test(typed) || codingChat || Boolean(mcp?.mentions(typed))) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
       const toolSpecs = reg ? reg.specsFor(caller) : [];
       // A first, public, simple question asked before may be answered from
       // cache (never when tools are offered: their answers change, like time).

@@ -118,6 +118,24 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     return { path: p, size: data.size ?? buf.length, lines: lines.length, from_line: from, text, ...(i < lines.length ? { next_line: i + 1 } : {}) };
   }
 
+  // Files whose path matches a pattern (a RegExp), from the repository tree.
+  async function findFiles(token, repo, match, { ref = '', budget = 6000 } = {}) {
+    const name = checkRepo(repo);
+    const r = checkRef(ref) || (await repoInfo(token, name)).default_branch;
+    const data = await call('GET', `/repos/${name}/git/trees/${encodeURIComponent(r)}?recursive=1`, { token });
+    const all = (Array.isArray(data?.tree) ? data.tree : []).filter((e) => e.type === 'blob' && typeof e.path === 'string');
+    const hits = all.filter((e) => match.test(e.path));
+    const files = [];
+    let size = 0;
+    for (const e of hits) {
+      const item = { path: e.path, size: e.size ?? 0 };
+      size += JSON.stringify(item).length + 1;
+      if (size > budget) break;
+      files.push(item);
+    }
+    return { ref: r, files, total_matches: hits.length, ...(files.length < hits.length ? { more: true } : {}), ...(data?.truncated ? { tree_truncated: true } : {}) };
+  }
+
   async function recentCommits(token, repo, { ref = '', path = '', limit = 10 } = {}) {
     const q = new URLSearchParams({ per_page: String(Math.min(20, Math.max(1, limit))) });
     const r = checkRef(ref);
@@ -363,5 +381,5 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     return Buffer.concat(chunks,size);
   }
 
-  return { call, repoInfo, listFiles, readFile, recentCommits, myRepos, searchCode, prStatus, listPulls, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
+  return { call, repoInfo, listFiles, readFile, findFiles, recentCommits, myRepos, searchCode, prStatus, listPulls, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
 }

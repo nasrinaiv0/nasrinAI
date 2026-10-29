@@ -4,6 +4,7 @@ import { seal, open } from '../connectors/secret.js';
 import { createGithubApi, checkRepo, GithubError } from './api.js';
 import { createCodingRunner } from './runner.js';
 import { createBrowserTestRunner } from './browser-runner.js';
+import { globToRegExp } from '../tools/agent.js';
 
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
@@ -328,6 +329,17 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       risk: 'read', who: ['guest', 'user'], timeoutMs: 9000,
       parameters: { properties: { repo: repoParam, path: pathParam, ref: refParam, start_line: { type: 'integer', minimum: 1, maximum: 1_000_000 } }, required: ['repo', 'path'] },
       run: wrap((token, a) => api.readFile(token, checkRepo(a.repo), a.path, { ref: a.ref, startLine: a.start_line }))
+    },
+    {
+      name: 'github_find_files',
+      description: 'Finds files in a GitHub repository by name or path pattern, like a file search: "*.test.js", "src/**/*.ts", "package.json", "**/routes*". A pattern without "/" matches the file name in any folder. Returns matching paths and sizes; then read them with github_read_file.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000,
+      parameters: { properties: { repo: repoParam, pattern: { type: 'string', minLength: 1, maxLength: 120 }, ref: refParam }, required: ['repo', 'pattern'] },
+      run: wrap((token, a) => {
+        const match = globToRegExp(a.pattern);
+        if (!match) return { error: 'invalid', message: 'Give a file name or pattern.' };
+        return api.findFiles(token, checkRepo(a.repo), match, { ref: a.ref });
+      })
     },
     {
       name: 'github_my_repos',
