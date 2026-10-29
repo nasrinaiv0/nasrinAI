@@ -19,10 +19,23 @@ export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small',
         redirect: 'error'
       });
       if (!resp.ok) {
-        // Keep provider diagnostics actionable without logging provider response bodies or secrets.
-        const error = new Error(`embeddings answered ${resp.status}`);
+        // Classify structured provider errors internally; never log or expose the body.
+        let quotaExhausted = false;
+        if (resp.status === 429) {
+          try {
+            const payload = await resp.clone().json();
+            const providerError = payload?.error;
+            const code = String(providerError?.code || '').toLowerCase();
+            const type = String(providerError?.type || '').toLowerCase();
+            const message = String(providerError?.message || '').toLowerCase();
+            quotaExhausted = code === 'insufficient_quota' || type === 'insufficient_quota'
+              || /\\b(?:quota|billing|credit balance)\\b/.test(message);
+          } catch {}
+        }
+        const error = new Error('embeddings answered ' + resp.status);
         error.status = resp.status;
         error.code = resp.status === 401 || resp.status === 403 ? 'embedding_auth_rejected'
+          : resp.status === 429 && quotaExhausted ? 'embedding_quota_exhausted'
           : resp.status === 429 ? 'embedding_rate_limited'
           : resp.status >= 500 ? 'embedding_provider_unavailable'
           : 'embedding_provider_rejected';
