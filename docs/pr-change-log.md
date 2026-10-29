@@ -2859,3 +2859,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fetch the MP4 through the authenticated API client, including its one-time session refresh on HTTP 401, and use a Blob URL for inline playback and download. Keep server-side ownership checks intact; do not make video content public.
 - Add regression assertions for authenticated binary retrieval, 401 retry, Blob URL playback and avoiding direct protected URLs in the native player.
 - Validation boundary: CI must pass on this PR. A fresh production video and Safari/iPhone playback still need to be verified after deployment; OpenRouter's completed status alone does not prove client delivery.
+
+## PR #687 — Batch semantic embeddings and classify quota failures (2026-10-29)
+
+- Production evidence before this change: the 10:00 Manila scheduled run was partial with sanitized `embedding_rate_limited`, 0 indexed pages/chunks, and 8 embedding failures; the global semantic chunk table was empty. A prior zero-chunk run marked succeeded was not accepted as proof.
+- Batch each official page's bounded chunks through `embedMany`, validate all vectors, and bulk-upsert replacement chunks in one request. Preserve existing chunks on embedding/write failure and remove trailing stale chunks only after a complete replacement write.
+- Stop provider calls after a 429. Distinguish quota/billing exhaustion as `embedding_quota_exhausted` using structured fields only; never log or return raw provider response bodies.
+- Ensure any sanitized semantic indexing error marks the scheduled run partial, including chunk-write failures. Add regression tests for quota classification, batch writes, throttling stop behavior, and preserving existing chunks.
+- **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.

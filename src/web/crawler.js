@@ -163,39 +163,58 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
       // Avoid deleting a previous complete index unless this whole page fits in
       // the remaining per-run embedding budget.
       if (embeddingCalls + chunks.length > maxEmbeddings) break;
-      let wrote = false;
-      let pageFailed = false;
-      for (let i = 0; i < chunks.length && embeddingCalls < maxEmbeddings; i++) {
-        try {
-          embeddingCalls++;
-          const vector = await embedder.embed(String(page.title || '') + '\n' + chunks[i]);
-          const row = {
-            source_url: url.href, source_host: host, title: String(page.title || host).slice(0, 200),
-            chunk_index: i, content: chunks[i].slice(0, 5000), content_hash: page.content_hash,
-            embedding: '[' + vector.join(',') + ']', embedding_model: embedder.modelName,
-            fetched_at: page.fetched_at || nowIso(), indexed_at: nowIso()
-          };
-          await store.request('POST', 'public_technical_chunks?on_conflict=source_url,chunk_index', {
-            body: row, prefer: 'resolution=merge-duplicates,return=minimal'
-          });
-          totals.indexed_chunks++; wrote = true;
-        } catch (err) {
-          totals.embedding_failures++;
-          totals.error_code = String(err?.code || (err?.status ? 'embedding_http_' + err.status : 'index_failed')).replace(/[^a-z0-9_]/g, '_').slice(0, 64);
-          pageFailed = true;
-          logger?.warn?.('semantic knowledge chunk indexing failed', {
-            host,
-            code: String(err?.code || (err?.status ? 'embedding_http_' + err.status : 'index_failed')).slice(0, 40)
-          });
+      // Batch each page's bounded chunks into one provider request to reduce 429 pressure.
+      // Count input chunks (not HTTP calls) against the existing per-run embedding budget.
+      const inputTexts = chunks.map((chunk) => String(page.title || '') + '\n' + chunk);
+      let vectors;
+      try {
+        embeddingCalls += chunks.length;
+        if (typeof embedder.embedMany === 'function') {
+          vectors = await embedder.embedMany(inputTexts);
+        } else {
+          vectors = [];
+          for (const input of inputTexts) vectors.push(await embedder.embed(input));
         }
-      }
-      if (wrote && !pageFailed) {
-        // Remove stale trailing chunks only after the replacement page was fully embedded and written.
-        await store.request('DELETE', 'public_technical_chunks?source_url=eq.' + encodeURIComponent(url.href) + '&chunk_index=gte.' + chunks.length, { prefer: 'return=minimal' }).catch((err) => {
-          logger?.warn?.('semantic knowledge stale chunk cleanup failed', { host, code: String(err?.code || 'cleanup_failed').slice(0, 40) });
+        if (!Array.isArray(vectors) || vectors.length !== chunks.length ||
+          vectors.some((vector) => !Array.isArray(vector) || vector.length !== 384 || !vector.every(Number.isFinite))) {
+          throw new Error('embeddings returned an unexpected shape');
+        }
+      } catch (err) {
+        totals.embedding_failures += chunks.length;
+        totals.error_code = String(err?.code || (err?.status ? 'embedding_http_' + err.status : 'index_failed')).replace(/[^a-z0-9_]/g, '_').slice(0, 64);
+        logger?.warn?.('semantic knowledge chunk indexing failed', {
+          host,
+          code: totals.error_code
         });
-        totals.indexed_pages++;
+        // A provider throttle or exhausted quota applies to the whole run; stop
+        // rather than issuing more requests that are likely to fail as well.
+        if (err?.status === 429 || err?.code === 'embedding_rate_limited' || err?.code === 'embedding_quota_exhausted') break;
+        continue;
       }
+
+      const rows = chunks.map((chunk, i) => ({
+        source_url: url.href, source_host: host, title: String(page.title || host).slice(0, 200),
+        chunk_index: i, content: chunk.slice(0, 5000), content_hash: page.content_hash,
+        embedding: '[' + vectors[i].join(',') + ']', embedding_model: embedder.modelName,
+        fetched_at: page.fetched_at || nowIso(), indexed_at: nowIso()
+      }));
+      try {
+        // One bulk upsert keeps a page's replacement chunks together. Existing
+        // complete chunks are retained if embedding or this write fails.
+        await store.request('POST', 'public_technical_chunks?on_conflict=source_url,chunk_index', {
+          body: rows, prefer: 'resolution=merge-duplicates,return=minimal'
+        });
+      } catch (err) {
+        totals.error_code = String(err?.code || (err?.status ? 'index_http_' + err.status : 'index_write_failed')).replace(/[^a-z0-9_]/g, '_').slice(0, 64);
+        logger?.warn?.('semantic knowledge chunk batch write failed', { host, code: totals.error_code });
+        continue;
+      }
+      totals.indexed_chunks += rows.length;
+      // Remove stale trailing chunks only after the full replacement batch was written.
+      await store.request('DELETE', 'public_technical_chunks?source_url=eq.' + encodeURIComponent(url.href) + '&chunk_index=gte.' + chunks.length, { prefer: 'return=minimal' }).catch((err) => {
+        logger?.warn?.('semantic knowledge stale chunk cleanup failed', { host, code: String(err?.code || 'cleanup_failed').slice(0, 40) });
+      });
+      totals.indexed_pages++;
     }
     return totals;
   }
