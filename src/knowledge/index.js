@@ -56,7 +56,7 @@ export function chunkText(text) {
   return out.slice(0, 1000);
 }
 
-export function createKnowledge({ store, logger, readLinkImpl = readLink, now = () => Date.now(), cacheMs = 60_000, embedder = null }) {
+export function createKnowledge({ store, logger, readLinkImpl = readLink, now = () => Date.now(), cacheMs = 60_000, embedder = null, tenantEmbeddingsEnabled = process.env.TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED === 'true' }) {
   const has = new Map();   // tenantId -> { until, any }
 
   async function anyDocs(tenantId) {
@@ -82,7 +82,7 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
         const terms = searchTerms(message);
         if (!terms.length) return null;
         let found = null;
-        if (embedder?.embed && typeof store.searchKnowledgeHybrid === 'function') {
+        if (tenantEmbeddingsEnabled && embedder?.embed && typeof store.searchKnowledgeHybrid === 'function') {
           try {
             const embedding = await embedder.embed(message);
             found = await store.searchKnowledgeHybrid({
@@ -144,7 +144,7 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
         if ((await store.listKnowledgeDocs(caller.tenantId)).length >= MAX_DOCS) throw new HttpError(409, 'too_many_documents', `At most ${MAX_DOCS} documents.`);
         const chunks = chunkText(text);
         let embeddings = null;
-        if (embedder?.embedMany && typeof store.searchKnowledgeHybrid === 'function') {
+        if (tenantEmbeddingsEnabled && embedder?.embedMany && typeof store.searchKnowledgeHybrid === 'function') {
           try {
             embeddings = await embedder.embedMany(chunks.map((chunk) => title + '\n' + chunk));
             if (!Array.isArray(embeddings) || embeddings.length !== chunks.length) throw new Error('unexpected embedding count');

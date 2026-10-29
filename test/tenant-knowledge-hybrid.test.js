@@ -43,7 +43,7 @@ test('tenant knowledge uses hybrid retrieval with tenant, audience, and model sc
     async searchKnowledge() { throw new Error('full-text fallback should not be needed'); }
   };
   const embedder = { modelName: 'openai/test@384', async embed() { return vector(0.3); } };
-  const knowledge = createKnowledge({ store, logger, embedder });
+  const knowledge = createKnowledge({ store, logger, embedder, tenantEmbeddingsEnabled: true });
   const caller = { tenantId: TENANT, actor: { type: 'service' } };
   const context = await knowledge.context(caller, 'What is the delivery policy?');
   assert.equal(called.tenantId, TENANT);
@@ -68,7 +68,7 @@ test('tenant knowledge falls back to permission-scoped full-text search when emb
         text: 'The fallback policy explains customer delivery and order handling in detail.', rank: 0.8 }];
     }
   };
-  const knowledge = createKnowledge({ store, logger, embedder: { modelName: 'openai/test@384', async embed() { throw new Error('network'); } } });
+  const knowledge = createKnowledge({ store, logger, embedder: { modelName: 'openai/test@384', async embed() { throw new Error('network'); } }, tenantEmbeddingsEnabled: true });
   const context = await knowledge.context({ tenantId: TENANT, actor: { type: 'service' } }, 'Explain the delivery policy');
   assert.equal(fallbackCalled, true);
   assert.match(context, /Fallback FAQ/);
@@ -85,7 +85,7 @@ test('tenant knowledge batches document embeddings when vector retrieval is avai
     modelName: 'openai/test@384',
     async embedMany(texts) { return texts.map((_, index) => vector((index + 1) / 10)); }
   };
-  const knowledge = createKnowledge({ store, logger, embedder });
+  const knowledge = createKnowledge({ store, logger, embedder, tenantEmbeddingsEnabled: true });
   const result = await knowledge.manage.add(
     { tenantId: TENANT, actor: { type: 'service' } },
     { title: 'Delivery FAQ', text: 'Orders are delivered within two business days. Customers can contact support for delivery questions.' }
