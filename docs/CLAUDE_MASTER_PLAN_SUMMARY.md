@@ -18,7 +18,19 @@ Read this before making changes. Treat GitHub's current `main`, open PRs, workfl
 - Keep user-facing UI premium, restrained, consistent, accessible, responsive, and especially reliable on mobile Safari.
 - After each meaningful change, update this handoff with the PR, commit, test state, limitations, and next steps so Claude can resume without guessing.
 
-## Current verified state — 2026-10-30 04:26 Asia/Manila
+## Latest verified status — 2026-10-30 06:14 Asia/Manila
+
+- **Current main:** 33f9283f35a0627c700efb43b3335bcfd8d52840 (merge of PR #701).
+- **Current production:** Vercel deployment dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H is READY at that exact SHA. This verifies deployment state, not end-to-end feature behavior.
+- **Merged/deployed:** PR #699 server-enforced MOVO context scope (merge 4b61cae46279492aa6983b3974ecf726f8d7deff) and PR #701 with 1,017 picture-editing slash commands (merge 33f9283f35a0627c700efb43b3335bcfd8d52840).
+- **Open:** PR #702 rich reply rendering; PR #703 agent tools; PR #704 audit refresh. PR #704 is stale relative to current main and must not be merged as-is.
+- **PR #703 risk:** main → feat/agent-tools branch comparison is diverged, 2 commits ahead / 28 behind. PR body reports 1,258 passing tests and one local FFmpeg-only failure; exact current head SHA and current-head CI were not verified in this review. Reconcile and rerun gates before merge.
+- **PR #702:** PR body reports 1,254 passing tests and one local FFmpeg-only failure; exact current-head checks were not revalidated here.
+- **Production DB/security:** earlier audit notes about migration 068/079/080/081/082 drift and leaked-password protection remain carry-forward findings, not a fresh query at 06:14. Re-query before any database or Auth changes; never blindly replay migrations.
+- **No production smoke test:** no authenticated end-to-end test was run for the deployed MOVO scope endpoint or new image-edit commands in this review.
+- **Audit documents:** [Master Change Ledger](engineering/MASTER_CHANGE_LEDGER.md) and [06:14 Audit Delta](engineering/updates/2026-10-30-0614-audit-delta.md). These are on branch docs/change-ledger-refresh-2026-10-30-0614 and are not merged yet.
+
+## Historical snapshot — 2026-10-30 04:26 Asia/Manila (superseded by the latest status above)
 
 - **Main:** 3a2c705461ac5b9920191ef67e5b25213dff0222 (merge of PR #692).
 - **Production deployment:** Vercel reports deployment dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE as READY at the same commit. READY is not end-to-end functional verification.
