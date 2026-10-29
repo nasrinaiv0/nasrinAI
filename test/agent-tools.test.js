@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createAgentTools, globToRegExp } from '../src/tools/agent.js';
 import { createToolRegistry } from '../src/tools/registry.js';
 import { createGithubApi } from '../src/github/api.js';
-import { AGENT_ASK } from '../src/chat.js';
+import { AGENT_ASK, toolStageOf } from '../src/chat.js';
+import { readFile } from 'node:fs/promises';
 import { checkOutcome } from '../src/auto-repair.js';
 
 const user = { tenantId: 't1', actor: { type: 'user', id: 'u1' } };
@@ -151,4 +152,19 @@ test('findFiles lists matching paths from the repository tree', async () => {
 test('agent requests offer the tools; small talk does not', () => {
   for (const s of ['run this code', 'can you test the function', 'what does this python snippet print', 'open the docs page and summarize', 'do a web search for vite 7', 'read this article link']) assert.ok(AGENT_ASK.test(s), s);
   for (const s of ['hello there', 'write me a poem about rain', 'thanks!']) assert.ok(!AGENT_ASK.test(s), s);
+});
+
+test('tool runs show a live stage the page knows', async () => {
+  assert.equal(toolStageOf('run_code'), 'running');
+  assert.equal(toolStageOf('github_run_command'), 'running');
+  assert.equal(toolStageOf('fetch_url'), 'links');
+  assert.equal(toolStageOf('web_search'), 'web');
+  assert.equal(toolStageOf('github_find_files'), 'repo');
+  assert.equal(toolStageOf('calculate'), null);
+  const routes = await readFile(new URL('../src/routes.js', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  for (const s of ['running', 'repo', 'links', 'web', 'fixing']) {
+    assert.match(routes, new RegExp("const STAGES = new Set\\([^)]*'" + s + "'"), s);
+    assert.match(app, new RegExp('\\b' + s + ": '"), s);
+  }
 });

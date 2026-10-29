@@ -38,6 +38,14 @@ const GITHUB_ASK = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|\b(github|repo
 export const GOOGLE_ASK = /\b(gmail|inbox|(my|your|unread|new|latest|recent|the)\s+e-?mails?|(send|write|draft|reply\s+to|forward)\s+(an?\s+|the\s+)?e-?mails?|e-?mails?\s+(from|to|about)|calendar|google\s*(mail|calendar|drive|docs?|sheets?|meet|keep|account)|meetings?|my\s+(drive|events?|schedule|notes?)|meet\s+(link|call)|meeting\s+(link|space)|keep\s+notes?)\b/i;
 export const MAY_NEED_TOOLS = /\d|\b(time|date|today|tomorrow|yesterday|day|week|month|convert|unit|extract|extraction|crop|cropping|segment|segmentation|remove background|transparent background|background removal|resize|rotate|compress|compression|transcribe|transcription|speech to text|ocr|optical character recognition|scan|scanned|video frame|extract frames|audio|video|image|picture|logo|logos|edit image|edit photo|file format|legacy format|\.doc\b|\.xls\b|\.ppt\b|convert file|inspect file|read file|unpack|decompress|archive|celsius|fahrenheit|kelvin|kg|kilos?|lbs?|pounds?|ounces?|km|miles?|feet|foot|inch(es)?|meters?|litres?|liters?|gallons?|cups?|calculate|compute|check|verify|find|search|look up|lookup|availability|status|order|booking|book|schedule|appointment|track|shipping|delivery|price|quote|inventory|weather|forecast|remember|recall|forget|tandaan|alalahanin|oras|petsa|ngayon|bukas|kahapon|araw|semana|presyo|reserba)\b/i;
 export const MAX_TOOL_ROUNDS = 4;
+// What the page shows while a tool runs (routes.js STAGES, app.js STAGE_TEXT).
+export function toolStageOf(name) {
+  if (name === 'run_code' || name === 'github_run_command' || name === 'github_render_test_screenshot') return 'running';
+  if (name === 'fetch_url') return 'links';
+  if (name === 'web_search') return 'web';
+  if (/^github_/.test(name)) return 'repo';
+  return null;
+}
 // The coding chat runs check → fix → re-check loops, so it gets more rounds.
 export const CODING_TOOL_ROUNDS = 8;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
@@ -865,6 +873,8 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
           const results = [];
           for (const c of calls) {
             let content;
+            const toolStage = toolStageOf(c.name);
+            if (toolStage) stage(toolStage);
             try {
               const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id });
               if (reg.mediaOf) toolMedia.push(...reg.mediaOf(c.name, out));
