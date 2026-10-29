@@ -2867,3 +2867,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Stop provider calls after a 429. Distinguish quota/billing exhaustion as `embedding_quota_exhausted` using structured fields only; never log or return raw provider response bodies.
 - Ensure any sanitized semantic indexing error marks the scheduled run partial, including chunk-write failures. Add regression tests for quota classification, batch writes, throttling stop behavior, and preserving existing chunks.
 - **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.
+
+
+## Docs — align community learning and privacy version (`docs/align-learning-privacy`, 2026-10-29)
+
+- `docs/community-learning.md` matched to code/migration 075/Privacy Notice (Guest notice grant, no routine expiry for screened examples, signed-in opt-in default off).
+- `public/legal/privacy.md` header set to version 2026-10-28 (matches `LEGAL_PRIVACY_VERSION`; content last changed 2026-10-27).
+- `CLAUDE.md`: repo move and owner reply/token preference; master plan summary: draft PR review record. No runtime code changed.
