@@ -8,6 +8,7 @@
     'openrouter-unlisted': ['Unlisted Models', 'Logged models missing from NasrinAI’s configured catalog.', '⌕'],
     'other-unlisted': ['AI Models Activities', 'All logged models: listed and unlisted.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
+    intelligence: ['Continuous Intelligence', 'Hourly crawl health, trusted source coverage, and recent indexed pages. Retrieval is keyword-based until semantic indexing is implemented.', '↻'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     regional: ['Regional Analytics', 'Approximate location trends for registered users and guests, derived from trusted edge metadata.', '◎'],
     'google-analytics': ['Google Search & Traffic', 'Google Search Console clicks and impressions alongside GA4 visits and page engagement.', '⌕'],
@@ -981,6 +982,72 @@
       c.append(panel);
     }
   }
+  async function renderIntelligence() {
+    const c = $('content');
+    c.replaceChildren();
+    c.append(head('Continuous Intelligence', 'Crawl status and indexed source evidence. Counts are bounded samples, not global totals.', 'Read-only'));
+    const panel = el('section', 'panel');
+    const toolbar = el('div', 'toolbar');
+    const refreshButton = el('button', 'quiet-button', 'Refresh crawl status');
+    refreshButton.type = 'button';
+    toolbar.append(refreshButton);
+    panel.append(toolbar);
+    const result = el('div');
+    result.append(notice('Loading crawl telemetry', 'Fetching queue and indexed-page metadata from the server. No page bodies or raw errors are returned.'));
+    panel.append(result);
+    c.append(panel);
+    async function load() {
+      refreshButton.disabled = true;
+      result.replaceChildren(notice('Loading crawl telemetry', 'Fetching current queue and indexed-page metadata.'));
+      try {
+        const response = await fetch('/owner/api/continuous-intelligence', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error?.message || 'Crawler telemetry is unavailable.');
+        result.replaceChildren();
+        const queue = payload.queue || {}, statuses = queue.status_counts || {}, sources = queue.source_counts || {};
+        const pages = Array.isArray(payload.recent_pages) ? payload.recent_pages : [];
+        const grid = el('div', 'grid');
+        grid.append(
+          metric('Queue rows sampled', '≋', numberText(payload.coverage?.queue_rows_sampled), 'Latest queue rows; limit 500'),
+          metric('Queued', '◷', numberText(statuses.queued || 0), 'Rows in the sample'),
+          metric('Retrying', '↻', numberText(statuses.retry || 0), 'Rows in the sample'),
+          metric('Indexed pages sampled', '▤', numberText(payload.coverage?.page_rows_sampled), 'Latest page metadata; limit 50'),
+          metric('Official learning seeds', '✓', numberText(sources.owner_seed || 0), 'Seed and same-host descendants in queue sample'),
+          metric('Discovered research URLs', '⌕', numberText(sources.discovered || 0), 'Other discovered links in queue sample')
+        );
+        result.append(grid);
+        result.append(notice('Retrieval and training status', 'Current retrieval: bounded keyword search over indexed page text, filtered to official HTTPS documentation hosts and cited in relevant platform coding answers. Semantic embeddings/vector ranking and model fine-tuning are not implemented by this feature. Crawling knowledge does not retrain model weights.'));
+        if (payload.coverage?.queue_sample_may_be_truncated) result.append(notice('Queue sample is capped', 'The queue sample reached 500 rows. Counts shown here are sampled and must not be interpreted as exact global totals.'));
+        const tableWrap = el('div', 'table-wrap'), table = el('table', 'data-table');
+        const thead = el('thead'), header = el('tr');
+        ['Source title','Official documentation URL','Fetched at','Content hash'].forEach(label => header.append(el('th','',label)));
+        thead.append(header); table.append(thead);
+        const tbody = el('tbody');
+        for (const page of pages) {
+          const row = el('tr');
+          row.append(el('td','',page.title || 'Untitled'));
+          const linkCell = el('td'), link = el('a','',page.url || '');
+          link.href = page.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          linkCell.append(link);
+          row.append(linkCell, el('td','',page.fetched_at || 'Unavailable'), el('td','',page.content_hash ? page.content_hash.slice(0,16) + '…' : 'Unavailable'));
+          tbody.append(row);
+        }
+        if (!pages.length) {
+          const row = el('tr'), cell = el('td','', 'No indexed pages are available in the current sample.');
+          cell.colSpan = 4; row.append(cell); tbody.append(row);
+        }
+        table.append(tbody); tableWrap.append(table); result.append(tableWrap);
+        result.append(el('p','panel-copy','Last checked: ' + new Date(payload.generated_at).toLocaleString() + '. Queue counts reflect a sample of up to 500 rows; page history shows up to 50 records.'));
+      } catch (error) {
+        result.replaceChildren(notice('Continuous intelligence unavailable', String(error?.message || 'Check the owner session and server-side crawl tables.')));
+      } finally { refreshButton.disabled = false; }
+    }
+    refreshButton.addEventListener('click', load);
+    await load();
+  }
   async function renderLearning() {
     const c = $('content');
     c.replaceChildren();
@@ -1353,6 +1420,7 @@
     });
     if (active === 'overview') renderOverview();
     else if (active === 'learning') renderLearning();
+    else if (active === 'intelligence') renderIntelligence();
     else if (active === 'openrouter-unlisted') renderUnlistedModels();
     else if (active === 'other-unlisted') renderActivities();
     else if (active === 'regional') renderRegional();

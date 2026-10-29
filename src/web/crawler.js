@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readLink, checkUrl } from './read-link.js';
 import { parseRobots } from '../connect/site-knowledge.js';
+import { PROGRAMMING_DOC_HOSTS } from '../knowledge/programming-context.js';
+import { analyzeRagQuery, rerankHybridCandidates } from '../knowledge/rag-orchestrator.js';
 
 const MAX_PAGE_CHARS = 20000;
 const MAX_LINKS = 40;
@@ -48,13 +50,13 @@ export function canonicalCrawlUrl(raw) {
 
 // Persistent, bounded public-web crawler. It indexes text and media metadata;
 // it does not download media binaries or execute page JavaScript.
-export function createWebCrawler({ store, readLinkImpl = readLink, logger = null, now = () => Date.now() }) {
-  async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0 } = {}) {
+export function createWebCrawler({ store, readLinkImpl = readLink, logger = null, embedder = null, now = () => Date.now() }) {
+  async function enqueue(rawUrls, { priority = 0, source = 'research', depth = 0, ignoreExisting = false } = {}) {
     const urls = [...new Set((Array.isArray(rawUrls) ? rawUrls : [rawUrls]).map(canonicalCrawlUrl).filter(Boolean))].slice(0, 100);
     if (!urls.length || !store?.request) return 0;
     const rows = urls.map((url) => ({ url, url_hash: hash(url), priority: Math.max(0, Math.min(100, Number(priority) || 0)), source, depth: Math.max(0, Math.min(8, Number(depth) || 0)), next_crawl_at: nowIso() }));
     try {
-      await store.request('POST', 'web_crawl_queue?on_conflict=url_hash', { body: rows, prefer: 'resolution=merge-duplicates,return=minimal' });
+      await store.request('POST', 'web_crawl_queue?on_conflict=url_hash', { body: rows, prefer: (ignoreExisting ? 'resolution=ignore-duplicates' : 'resolution=merge-duplicates') + ',return=minimal' });
       return urls.length;
     } catch (err) { logger?.warn?.('web crawl enqueue failed', { error: err?.message }); return 0; }
   }
@@ -95,7 +97,23 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           body: { status: 'indexed', last_crawled_at: nowIso(), next_crawl_at: next, last_error: null, depth: job.depth || 0 },
           prefer: 'return=minimal'
         });
-        if ((job.depth || 0) < 3) await enqueue(assets.links, { source: 'discovered', depth: (job.depth || 0) + 1 });
+        if ((job.depth || 0) < 3) {
+          // Official learning seeds may only expand within their own host. Keep
+          // the owner_seed label on descendants so the same boundary is enforced
+          // at every depth; ordinary research crawling keeps its existing policy.
+          const seedPage = job.source === 'owner_seed';
+          const discovered = seedPage
+            ? assets.links.filter((raw) => {
+                const next = canonicalCrawlUrl(raw);
+                return next && new URL(next).hostname.toLowerCase() === new URL(pageUrl).hostname.toLowerCase();
+              })
+            : assets.links;
+          await enqueue(discovered, {
+            source: seedPage ? 'owner_seed' : 'discovered',
+            depth: (job.depth || 0) + 1,
+            ignoreExisting: seedPage
+          });
+        }
         results.push({ url: doc.url, status: 'indexed', changed: previousHash !== contentHash, links_discovered: assets.links.length, media_indexed: assets.media.length });
       } catch (err) {
         logger?.warn?.('web crawl page failed', { url: String(job.url).slice(0, 500), error: err?.message });
@@ -106,13 +124,183 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
     return { processed: results.length, results };
   }
 
-  async function search(query, { limit = 5 } = {}) {
-    const words = String(query || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2).slice(0, 8);
-    if (!words.length) return [];
-    const or = words.map((w) => 'text_content.ilike.*' + encodeURIComponent(w.replace(/[%_*(),]/g, '')) + '*').join(',');
-    const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + Math.max(1, Math.min(10, limit)));
-    return (rows || []).map((r) => ({ url: r.url, title: r.title, text: String(r.text_content || '').slice(0, 4000), media: r.media || [], fetched_at: r.fetched_at }));
+  async function indexSemanticPages({ limit = 5 } = {}) {
+    if (process.env.SEMANTIC_KNOWLEDGE_ENABLED !== 'true') {
+      return { enabled: false, configured: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+    }
+    if (!embedder?.embed || !store?.request) {
+      return {
+        enabled: true, configured: false, indexed_pages: 0, indexed_chunks: 0,
+        skipped_unchanged: 0, embedding_failures: 1,
+        error_code: !embedder?.embed ? 'embedding_not_configured' : 'store_not_configured'
+      };
+    }
+    // Filter trusted hosts in PostgREST before applying the limit. Otherwise unrelated
+    // recent crawler rows can starve official docs and make a run appear empty.
+    const officialHostFilter = PROGRAMMING_DOC_HOSTS.map((host) => 'url.ilike.*' + host + '*').join(',');
+    const pages = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,content_hash,fetched_at&or=(' + officialHostFilter + ')&order=fetched_at.desc&limit=' + Math.max(1, Math.min(50, Number(limit) || 5)));
+    const totals = { enabled: true, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+    const maxEmbeddings = Math.max(1, Math.min(10, Number(process.env.SEMANTIC_MAX_EMBEDDINGS_PER_RUN) || 10));
+    let embeddingCalls = 0;
+    for (const page of Array.isArray(pages) ? pages : []) {
+      if (embeddingCalls >= maxEmbeddings) break;
+      let url;
+      try { url = new URL(String(page.url || '')); } catch { continue; }
+      if (url.protocol !== 'https:' || url.username || url.password || !page.content_hash || !page.text_content) continue;
+      const host = url.hostname.toLowerCase();
+      // Only the fixed programming-source catalogue is eligible for global indexing.
+      if (!PROGRAMMING_DOC_HOSTS.includes(host)) continue;
+      const existing = await store.request('GET', 'public_technical_chunks?select=content_hash,embedding_model&source_url=eq.' + encodeURIComponent(url.href) + '&limit=1').catch(() => []);
+      if (Array.isArray(existing) && existing[0]?.content_hash === page.content_hash && existing[0]?.embedding_model === embedder.modelName) { totals.skipped_unchanged++; continue; }
+      const raw = String(page.text_content).replace(/\s+/g, ' ').trim();
+      const chunkSize = 1400, overlap = 180, maxChunks = 3;
+      const chunks = [];
+      for (let start = 0; start < raw.length && chunks.length < maxChunks; start += chunkSize - overlap) {
+        const chunk = raw.slice(start, start + chunkSize).trim();
+        if (chunk.length >= 80) chunks.push(chunk);
+      }
+      if (!chunks.length) continue;
+      // Avoid deleting a previous complete index unless this whole page fits in
+      // the remaining per-run embedding budget.
+      if (embeddingCalls + chunks.length > maxEmbeddings) break;
+      // Batch each page's bounded chunks into one provider request to reduce 429 pressure.
+      // Count input chunks (not HTTP calls) against the existing per-run embedding budget.
+      const inputTexts = chunks.map((chunk) => String(page.title || '') + '\n' + chunk);
+      let vectors;
+      try {
+        embeddingCalls += chunks.length;
+        if (typeof embedder.embedMany === 'function') {
+          vectors = await embedder.embedMany(inputTexts);
+        } else {
+          vectors = [];
+          for (const input of inputTexts) vectors.push(await embedder.embed(input));
+        }
+        if (!Array.isArray(vectors) || vectors.length !== chunks.length ||
+          vectors.some((vector) => !Array.isArray(vector) || vector.length !== 384 || !vector.every(Number.isFinite))) {
+          throw new Error('embeddings returned an unexpected shape');
+        }
+      } catch (err) {
+        totals.embedding_failures += chunks.length;
+        totals.error_code = String(err?.code || (err?.status ? 'embedding_http_' + err.status : 'index_failed')).replace(/[^a-z0-9_]/g, '_').slice(0, 64);
+        logger?.warn?.('semantic knowledge chunk indexing failed', {
+          host,
+          code: totals.error_code
+        });
+        // A provider throttle or exhausted quota applies to the whole run; stop
+        // rather than issuing more requests that are likely to fail as well.
+        if (err?.status === 429 || err?.code === 'embedding_rate_limited' || err?.code === 'embedding_quota_exhausted') break;
+        continue;
+      }
+
+      const rows = chunks.map((chunk, i) => ({
+        source_url: url.href, source_host: host, title: String(page.title || host).slice(0, 200),
+        chunk_index: i, content: chunk.slice(0, 5000), content_hash: page.content_hash,
+        embedding: '[' + vectors[i].join(',') + ']', embedding_model: embedder.modelName,
+        fetched_at: page.fetched_at || nowIso(), indexed_at: nowIso()
+      }));
+      try {
+        // One bulk upsert keeps a page's replacement chunks together. Existing
+        // complete chunks are retained if embedding or this write fails.
+        await store.request('POST', 'public_technical_chunks?on_conflict=source_url,chunk_index', {
+          body: rows, prefer: 'resolution=merge-duplicates,return=minimal'
+        });
+      } catch (err) {
+        totals.error_code = String(err?.code || (err?.status ? 'index_http_' + err.status : 'index_write_failed')).replace(/[^a-z0-9_]/g, '_').slice(0, 64);
+        logger?.warn?.('semantic knowledge chunk batch write failed', { host, code: totals.error_code });
+        continue;
+      }
+      totals.indexed_chunks += rows.length;
+      // Remove stale trailing chunks only after the full replacement batch was written.
+      await store.request('DELETE', 'public_technical_chunks?source_url=eq.' + encodeURIComponent(url.href) + '&chunk_index=gte.' + chunks.length, { prefer: 'return=minimal' }).catch((err) => {
+        logger?.warn?.('semantic knowledge stale chunk cleanup failed', { host, code: String(err?.code || 'cleanup_failed').slice(0, 40) });
+      });
+      totals.indexed_pages++;
+    }
+    return totals;
   }
 
-  return Object.freeze({ enqueue, processBatch, search });
+  async function search(query, { limit = 5, allowedHosts = null } = {}) {
+    const startedAt = now();
+    const analysis = analyzeRagQuery(query);
+    const boundedLimit = Math.max(1, Math.min(10, Number(limit) || 5));
+    const allowedHostList = allowedHosts === null ? null : [...new Set([...allowedHosts]
+      .map((host) => String(host || '').toLowerCase())
+      .filter((host) => /^[a-z0-9.-]{1,253}$/.test(host)))];
+    if (allowedHostList && !allowedHostList.length) return [];
+
+    const semanticSearch = async () => {
+      if (process.env.SEMANTIC_KNOWLEDGE_ENABLED !== 'true' || !embedder?.embed || !store?.request || !allowedHostList?.length) return [];
+      try {
+        const embedding = await embedder.embed(analysis.query.slice(0, 2000));
+        const rows = await store.request('POST', 'rpc/match_public_technical_chunks', {
+          body: { query_embedding: '[' + embedding.join(',') + ']', allowed_hosts: allowedHostList, match_model: embedder.modelName, match_count: Math.min(10, boundedLimit * 2) }
+        });
+        return (Array.isArray(rows) ? rows : []).filter((row) => {
+          try {
+            const u = new URL(String(row.source_url || ''));
+            return u.protocol === 'https:' && !u.username && !u.password
+              && allowedHostList.includes(u.hostname.toLowerCase())
+              && String(row.embedding_model || '') === embedder.modelName;
+          } catch { return false; }
+        }).slice(0, boundedLimit * 2).map((row, index) => ({
+          url: row.source_url, title: row.title, text: row.content, fetched_at: row.fetched_at,
+          similarity: Number(row.similarity), _semanticRank: index
+        }));
+      } catch (err) {
+        logger?.warn?.('semantic knowledge retrieval fell back to hybrid keyword search', {
+          code: String(err?.status || err?.code || 'semantic_unavailable').slice(0, 40)
+        });
+        return [];
+      }
+    };
+
+    const keywordSearch = async () => {
+      if (!store?.request) return [];
+      const tokens = analysis.terms
+        .map((word) => word.replace(/[%_*(),]/g, ''))
+        .filter((word) => /^[\p{L}\p{N}._+#-]{2,48}$/u.test(word))
+        .slice(0, 18);
+      if (!tokens.length) return [];
+      const or = [...new Set(tokens)].map((word) => 'text_content.ilike.*' + encodeURIComponent(word) + '*').join(',');
+      const fetchLimit = Math.max(10, Math.min(100, boundedLimit * 10));
+      const rows = await store.request('GET', 'web_crawl_pages?select=url,title,text_content,media,fetched_at&or=(' + or + ')&order=fetched_at.desc&limit=' + fetchLimit);
+      const hosts = allowedHostList ? new Set(allowedHostList) : null;
+      const candidates = [];
+      for (const row of Array.isArray(rows) ? rows : []) {
+        let url;
+        try { url = new URL(String(row.url || '')); } catch { continue; }
+        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+        if (hosts && (url.protocol !== 'https:' || !hosts.has(url.hostname.toLowerCase()))) continue;
+        const candidate = {
+          url: url.href, title: String(row.title || '').slice(0, 200),
+          text: String(row.text_content || '').slice(0, 5000), media: Array.isArray(row.media) ? row.media : [],
+          fetched_at: row.fetched_at
+        };
+        const searchable = (candidate.title + ' ' + candidate.text).toLowerCase();
+        const score = tokens.reduce((sum, word) => sum + Math.min(3, searchable.split(word).length - 1), 0);
+        if (score > 0) candidates.push({ ...candidate, _keywordRank: candidates.length });
+      }
+      return candidates;
+    };
+
+    const [semanticRows, keywordRows] = await Promise.all([
+      semanticSearch().catch(() => []),
+      keywordSearch().catch((err) => {
+        logger?.warn?.('keyword knowledge retrieval unavailable', { code: String(err?.status || err?.code || 'keyword_unavailable').slice(0, 40) });
+        return [];
+      })
+    ]);
+    const ranked = rerankHybridCandidates([...semanticRows, ...keywordRows], analysis, {
+      limit: boundedLimit, allowedHosts: allowedHostList, now
+    });
+    logger?.info?.('hybrid knowledge retrieval completed', {
+      intent: analysis.intent, expansion_count: analysis.expansions.length,
+      semantic_candidates: semanticRows.length, keyword_candidates: keywordRows.length,
+      returned: ranked.length, mode: semanticRows.length && keywordRows.length ? 'hybrid' : semanticRows.length ? 'semantic_fallback' : keywordRows.length ? 'keyword_fallback' : 'empty',
+      latency_ms: Math.max(0, now() - startedAt)
+    });
+    return ranked;
+  }
+
+  return Object.freeze({ enqueue, processBatch, search, indexSemanticPages });
 }

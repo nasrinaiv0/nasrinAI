@@ -163,6 +163,7 @@ const dashboardHtml = `<!doctype html>
       <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>Unlisted Models</button>
       <button class="nav-item" data-panel="other-unlisted"><span>◇</span>AI Models Activities</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
+      <button class="nav-item" data-panel="intelligence"><span>↻</span>Continuous Intelligence</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
       <button class="nav-item" data-panel="google-analytics"><span>⌕</span>Google Search &amp; Traffic</button>
@@ -193,6 +194,7 @@ const panels = {
   'openrouter-unlisted': { title: 'Unlisted Models', description: 'Logged models missing from NasrinAI’s configured catalog.' },
   'other-unlisted': { title: 'AI Models Activities', description: 'All logged models: listed and unlisted.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
+  intelligence: { title: 'Continuous Intelligence', description: 'Hourly crawl health, trusted source coverage, and recent indexed pages. Retrieval is keyword-based until semantic indexing is implemented.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
@@ -707,6 +709,68 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         incidents_24h: incidents24h,
         panels
       });
+      return true;
+    }
+    if (pathname === '/owner/api/continuous-intelligence' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (store?.kind !== 'supabase' || typeof store.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'continuous_intelligence_unavailable', message: 'Continuous intelligence telemetry is unavailable until the crawl tables are connected.' } });
+        return true;
+      }
+      try {
+        const [queueRows, pageRows, runRows, semanticRows] = await Promise.all([
+          store.request('GET', 'web_crawl_queue?select=status,source,attempts,next_crawl_at,last_crawled_at,last_error&order=created_at.desc&limit=500'),
+          store.request('GET', 'web_crawl_pages?select=url,title,fetched_at,content_hash&order=fetched_at.desc&limit=50'),
+          store.request('GET', 'knowledge_learning_runs?select=started_at,finished_at,status,seed_count,crawl_processed,indexed_pages,indexed_chunks,skipped_unchanged,embedding_failures,duration_ms,error_code&order=started_at.desc&limit=5'),
+          store.request('GET', 'public_technical_chunks?select=id&limit=1000')
+        ]);
+        if (!Array.isArray(queueRows) || !Array.isArray(pageRows) || !Array.isArray(runRows) || !Array.isArray(semanticRows)) throw new Error('invalid crawler telemetry');
+        const statusCounts = {}, sourceCounts = {};
+        let attempts = 0;
+        for (const row of queueRows) {
+          const status = ['queued','processing','indexed','retry','robots_denied'].includes(row.status) ? row.status : 'unknown';
+          const source = ['research','discovered','owner_seed'].includes(row.source) ? row.source : 'unknown';
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+          sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+          attempts += Number.isSafeInteger(Number(row.attempts)) && Number(row.attempts) > 0 ? Number(row.attempts) : 0;
+        }
+        const recentPages = pageRows.slice(0, 50).flatMap((row) => {
+          let url;
+          try { url = new URL(String(row.url || '')); } catch { return []; }
+          if (url.protocol !== 'https:' || url.username || url.password) return [];
+          return [{
+            url: url.href.slice(0, 2000),
+            title: String(row.title || url.hostname).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 160) || url.hostname,
+            fetched_at: typeof row.fetched_at === 'string' ? row.fetched_at.slice(0, 40) : null,
+            content_hash: /^[0-9a-f]{64}$/.test(String(row.content_hash || '')) ? row.content_hash : null
+          }];
+        });
+        sendJson(res, 200, {
+          source: 'supabase.web_crawl_queue+web_crawl_pages',
+          generated_at: new Date(now()).toISOString(),
+          coverage: { queue_rows_sampled: queueRows.length, queue_sample_limit: 500, page_rows_sampled: recentPages.length, page_sample_limit: 50, queue_sample_may_be_truncated: queueRows.length === 500 },
+          queue: { status_counts: statusCounts, source_counts: sourceCounts, total_attempts_in_sample: attempts },
+          recent_pages: recentPages,
+          learning_runs: {
+            recent: runRows.slice(0, 5).map((row) => ({
+              started_at: typeof row.started_at === 'string' ? row.started_at : null,
+              finished_at: typeof row.finished_at === 'string' ? row.finished_at : null,
+              status: ['running','succeeded','partial','failed'].includes(row.status) ? row.status : 'unknown',
+              seed_count: Number(row.seed_count) || 0, crawl_processed: Number(row.crawl_processed) || 0,
+              indexed_pages: Number(row.indexed_pages) || 0, indexed_chunks: Number(row.indexed_chunks) || 0,
+              skipped_unchanged: Number(row.skipped_unchanged) || 0, embedding_failures: Number(row.embedding_failures) || 0,
+              duration_ms: Number.isFinite(Number(row.duration_ms)) ? Number(row.duration_ms) : null,
+              error_code: /^[a-z0-9_]{1,64}$/.test(String(row.error_code || '')) ? row.error_code : null
+            })),
+            sample_limit: 5
+          },
+          semantic_index: { enabled: process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true', chunks_sampled: semanticRows.length, sample_limit: 1000, sample_may_be_truncated: semanticRows.length === 1000 },
+          retrieval: { mode: process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true' && semanticRows.length > 0 ? 'semantic_vector' : 'keyword_fallback', official_host_allowlist: true, source_citations: true, embedding_model: 'openai/text-embedding-3-small@384' },
+          privacy: 'No page body text, user prompts, or raw crawler errors are exposed.'
+        });
+      } catch {
+        logger?.warn?.('continuous intelligence owner telemetry unavailable', { source: 'web_crawl_queue,web_crawl_pages' });
+        sendJson(res, 503, { error: { code: 'continuous_intelligence_unavailable', message: 'Crawler telemetry could not be loaded. Verify migration 044 and server-side database access.' } });
+      }
       return true;
     }
     if (pathname === '/owner/api/regional-analytics' && (req.method === 'GET' || req.method === 'HEAD')) {

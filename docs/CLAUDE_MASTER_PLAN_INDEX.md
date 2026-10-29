@@ -183,3 +183,31 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - Fail closed on missing Vercel configuration; never simulate successful calls or claim production readiness before end-to-end staging evidence.
 
 **Next step:** review and merge the documentation PRs through the normal process, then have Claude inspect the actual NCC code, Vercel project configuration contract, current provider capabilities, legal/privacy docs and open PRs before implementing the first approved phase. No provider is selected and no telephony credentials are assumed configured.
+
+
+## Continuous Intelligence and hourly learning (deployed baseline; phase 2 open — 2026-10-29)
+
+- Detailed sources: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md), [hourly learning runbook](continuous-intelligence-runbook.md), and [core web crawler](web-crawler.md).
+- PR #674 is merged; Vercel production deployment is READY. CI #7706 passed 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, syntax checks, and secret scan. Documentation Gate #1808 passed.
+- Live Supabase shows 19 indexed `owner_seed` rows and 41 official-host pages; this proves crawl data exists but not the exact hourly cron invocation or authenticated OCC response.
+- Current implementation: official programming-doc seeds, protected hourly queue seeding, idempotent inserts, same-host crawling, bounded ranked keyword retrieval for platform coding questions, trusted HTTPS allowlist, secret-pattern exclusions, untrusted-context handling, citations, and owner-only bounded OCC telemetry.
+- Security blockers before semantic RAG: live DB has no enabled `vector` extension; existing knowledge tables require `tenant_id`; migration 044 is missing from migration history even though crawler tables/function exist. Do not mix public documentation into tenant-owned rows or blindly reapply migration 044.
+- Open gates: directly verify cron/OCC runtime behavior, reconcile migration history, design a separate public-doc security boundary, choose embedding provider/budget, implement semantic retrieval, persistent run history, and fixed coding/reasoning benchmark. This is knowledge acquisition and keyword retrieval, not model-weight training.
+
+
+## Continuous Intelligence full-text indexing follow-up — in development
+
+- This follow-up adds an idempotent indexer that feeds trusted crawler pages into the existing platform full-text knowledge store; it does not create a parallel knowledge database.
+- Migration 076 adds a managed content hash and a service-role-only upsert RPC with fixed search_path, platform-tenant checks, HTTPS validation, bounded chunks, and a document cap.
+- The hourly endpoint will index up to five changed official documentation pages per run. Platform chat will use the existing full-text knowledge retrieval first and the bounded crawler keyword search as fallback.
+- Details: [continuous intelligence upgrade](nasrinai-continuous-intelligence-upgrade.md) and [runbook](continuous-intelligence-runbook.md).
+- CI and Documentation Gate are pending on the follow-up PR. Do not merge/deploy until checks pass and migration 076 is applied and verified. Semantic embeddings, persistent run history, and a measured model reasoning benchmark remain future phases.
+
+
+## Continuous Intelligence full-text indexing — deployed; runtime observation pending
+
+- PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment is READY.
+- Migration 076 is applied and verified: content hash column/index exist, RPC has fixed search_path, and browser roles cannot execute it.
+- The hourly indexer writes trusted official HTTPS documentation into the existing platform full-text knowledge search with content-hash idempotency and bounded chunks/batches. It does not train model weights and is not vector RAG.
+- CI #7753 and Documentation Gate #1818 passed.
+- Next check: observe the first post-deploy hourly run and confirm new docs are searchable and visible in owner-only OCC metrics.

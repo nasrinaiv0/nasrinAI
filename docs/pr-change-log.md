@@ -5,6 +5,109 @@
 - **Architecture alignment:** the proposal builds on `docs/nasrinai-autonomous-coding-engine-upgrade.md` and `docs/architecture/secure-workspace.md`; it recommends auditing/extending the existing isolated GitHub coding runner rather than introducing a duplicate shell service.
 - **License boundary:** the reference repository uses PolyForm Noncommercial 1.0.0. No source code was copied; commercial reuse requires written permission.
 - **Validation:** documentation-only change. No runtime tests were run for this documentation draft; no runtime code, secrets, environment variables, database, Vercel settings, production deployment, or merge changed. Required CI must run on this PR before it is considered ready.
+## Tenant-scoped hybrid knowledge retrieval — 2026-10-29
+
+- Added optional 384-dimensional embeddings to tenant-owned knowledge chunks, using bounded batch embedding and model-version filtering. The new `TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED` switch is off by default; full-text search remains available when disabled, embeddings are missing, or the provider is unavailable.
+- Added a hybrid search RPC that enforces tenant ID and document audience in SQL before returning results; it combines vector similarity with full-text rank and never uses the global public documentation table.
+- Added regression tests for batch embedding order, tenant/audience/model scoping, fallback behavior, and document ingestion.
+
+## Hybrid RAG orchestration — 2026-10-29
+
+- Added bounded intent classification, technical query expansion, hybrid vector-plus-keyword candidate retrieval, and deterministic semantic/lexical/freshness reranking for trusted programming documentation.
+- Retrieval telemetry records intent, expansion count, candidate counts, result count, mode, and latency without logging raw queries or retrieved content.
+- Kept strict HTTPS/host/model validation and untrusted-source handling; vector or keyword failures degrade to the available retrieval path.
+- Added unit and crawler integration tests for aliases, ranking, source filtering, semantic/keyword merging, telemetry, and fallback behavior.
+
+## Full-text knowledge retrieval quality fix — 2026-10-29
+
+- Production verification showed the full-text search can return several chunks from one document among the top results. Added source-document deduplication before building platform knowledge context so the highest-ranked chunk per document is retained and context budget can cover more sources.
+- Added a regression test for duplicate chunks and empty input.
+- No schema, permission, or production database changes. CI #7774 and Documentation Gate #1824 passed for the PR head; rerun after this merge commit.
+
+## PR #684 — Tighten benchmark scoring and record production rollout status — 2026-10-29
+
+- Tightened the reasoning evidence rubric so the substring "no" inside unrelated words cannot satisfy a required criterion.
+- Fixed the untrusted-content safety rubric so a correct warning not to reveal an API key does not trigger a forbidden-answer match.
+- Recorded the verified migration/RLS/deployment/flag state while explicitly leaving first scheduled invocation and model-quality improvement unproven until observed.
+
+## PR #683 — Fail visibly when semantic embeddings are unavailable — 2026-10-29
+
+- Changed the hourly indexer to report a bounded partial failure when semantic retrieval is enabled but the embedding adapter or service store is not configured, rather than incorrectly reporting a successful run with zero indexed chunks.
+- Added a sanitized error code to the scheduled-run telemetry and a regression test for missing embedding configuration.
+
+## PR #682 — Align benchmark credentials with production configuration — 2026-10-29
+
+- Corrected the model-quality benchmark runner to use the application's existing SUPABASE_SECRET_KEY variable instead of a nonexistent SUPABASE_SERVICE_ROLE_KEY alias.
+- This is a benchmark-tool compatibility fix only; it does not change the deployed runtime path or enable additional database privileges.
+
+## PR #681 — Secure semantic index, scheduled-run evidence, and coding/reasoning benchmark — 2026-10-29
+
+- Added a separately scoped public technical vector index and run-history table, with RLS enabled, no client policies, service-role-only grants, official HTTPS host filtering, exact embedding-model filtering, and bounded HNSW retrieval.
+- Extended the hourly learning route to perform bounded semantic indexing and persist sanitized run telemetry; expanded owner-only OCC telemetry with recent run status and semantic-index sample counts.
+- Added a six-case coding/reasoning benchmark and an OpenRouter baseline-vs-retrieval runner capped at 12 chat completions and six embeddings. A test suite passing does not claim answer quality improved; the benchmark must run against a populated semantic index.
+- Fixed the CI database service to use the pgvector-enabled PostgreSQL 16 image because the standard postgres:16 image lacks the vector extension required by migration 078; the migration fixes its search path across public/extensions schema layouts.
+- Local validation against the current PR head: 1,195 passed, 0 failed, 1 skipped across 1,196 Node tests. Focused semantic/owner tests: 39 passed, 0 failed. CI initially identified the missing pgvector extension in the database test container and the missing changelog entry; both are addressed in this PR.
+- Production activation remains gated on applying and verifying migration 078, enabling SEMANTIC_KNOWLEDGE_ENABLED, observing a real scheduled invocation, and running the model-level benchmark with reviewed per-task outputs.
+
+## Continuous Intelligence full-text index deployed — 2026-10-29
+
+- PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` reached READY.
+- Migration 076 applied and verified: source hash column, unique partial index, SECURITY DEFINER function with fixed search_path, and service_role-only execution.
+- CI #7753 passed (1,191 passed, 0 failed, 1 skipped out of 1,192 Node tests); database tests, dependency audit, OpenRouter activity-sync tests, syntax check, and secret scan passed. Documentation Gate #1818 passed.
+- The indexer uses trusted HTTPS source hosts, existing chunking/full-text search, content-hash idempotency, and a five-document hourly cap.
+- The first post-deployment scheduled indexing run and live answer impact are not yet verified. Semantic embeddings, persistent run history, and model-level reasoning benchmarks remain follow-up work.
+
+## Continuous Intelligence full-text knowledge indexing follow-up — 2026-10-29
+
+- Added migration 076 with managed-document content hashes, a unique partial index, and an idempotent SECURITY DEFINER upsert RPC restricted to service_role and the active platform tenant.
+- Added a server-side indexer that filters trusted HTTPS docs, chunks with the existing knowledge chunker, and indexes at most five changed pages per hourly run.
+- Platform context now labels public programming docs as untrusted reference data; full-text knowledge retrieval is preferred, with crawler keyword retrieval as fallback.
+- Owner-only OCC telemetry now includes managed knowledge-document count and latest index timestamp.
+- Added unit/database tests for trusted hosts, no-op/update behavior, tenant/RPC grants, fixed search_path, document/chunk bounds, and retrieval through search_knowledge.
+- **Validation pending:** CI and Documentation Gate must pass before applying migration 076 to production or merging. No production schema change has been applied for migration 076.
+
+## Continuous Intelligence live-evidence and security-gate update — 2026-10-29
+
+- Corrected the upgrade plan and runbook to distinguish a READY deployment from proof of a specific hourly Cron invocation or authenticated OCC request.
+- Recorded production crawl evidence: 19 indexed `owner_seed` rows and 41 pages from official documentation hosts, with latest observed official fetch at 2026-10-28 22:35 UTC.
+- Recorded live schema/security findings: `web_crawl_queue`, `web_crawl_pages`, and `claim_web_crawl_jobs` exist; RLS is enabled and anon/authenticated policies deny access; claim function has a fixed search_path and execute grants restricted to service_role/postgres.
+- Recorded migration-history drift: live crawler objects exist, but migration 044 is missing from the Supabase migration list. Do not blindly reapply migration 044.
+- Recorded semantic-RAG prerequisites: no enabled `vector` extension is present, and existing `knowledge_docs`/`knowledge_chunks` require a tenant ID. A reviewed, separately scoped public-document index and embedding-provider cost controls are required before semantic indexing.
+- Validation baseline for merged runtime code: CI #7706 passed (1,189 Node tests: 1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, syntax checks, secret scan; Documentation Gate #1808 passed.
+- Remaining gates: capture an invocation-specific Cron log and authenticated OCC response, reconcile migration history, build semantic retrieval only after security/schema/provider review, add persistent run history, and create a fixed coding/reasoning benchmark.
+
+## Continuous Intelligence merge and production deployment — 2026-10-29
+
+- PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`; Vercel production deployment `dpl_EKiFeNBJfjaNoEZ11iU91cAnVkAG` reached READY.
+- Production configuration includes the hourly `/v1/internal/knowledge-learning` schedule (`0 * * * *`). Actual first post-deploy cron execution and live owner-console/retrieval behavior remain pending observation.
+- Live Supabase inspection verified `web_crawl_queue`, `web_crawl_pages`, and `claim_web_crawl_jobs` exist; RLS is enabled, anon/authenticated policies deny access, and function execution is limited to service_role/postgres. The migration list lacks a 044 record despite the objects existing; do not blindly reapply the migration.
+- Final tested code CI #7706 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1808 passed.
+- Scope boundary: current retrieval is bounded, locally ranked keyword search with official-host filtering and citations; it is not semantic/vector RAG and does not train model weights. Semantic embeddings, persistent run history, and a measured coding/reasoning benchmark remain follow-up work.
+
+## Continuous Intelligence quality/security follow-up — 2026-10-29
+
+- Restricted official learning seed descendants to the same hostname at every crawl depth while preserving the owner_seed policy and idempotent queue insertion.
+- Added a platform-chat retrieval hook that uses the existing crawler keyword index only for technical questions, excludes customer tenants/attachment turns/sensitive credential-pattern queries, filters results to official HTTPS documentation hosts, bounds excerpts, marks them as untrusted data, and adds source citations.
+- Added constant-time cron-secret authorization tests.
+- Added an owner-only Continuous Intelligence OCC panel/API with sampled queue status/source counts and recent page metadata. It does not return page bodies or raw crawler errors; it labels sample limits and explicitly reports that semantic embeddings are not implemented.
+- Added regression coverage for trusted-source filtering, sensitive-query exclusions, host boundaries, cron authorization, owner-only telemetry, and data minimization.
+- **Validation:** CI #7696 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1801 passed.
+- **Not production-verified:** production cron execution, schema presence in live Supabase, actual retrieval quality, semantic embeddings, persistent run history, and OCC live behavior still need deployment verification.
+
+## Continuous Intelligence — hourly programming knowledge pipeline — 2026-10-29
+
+- Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
+- Added `/v1/internal/knowledge-learning`, protected by the existing internal cron authorization, to enqueue seeds idempotently and process a bounded crawler batch. Added an hourly Vercel Cron schedule; existing five-minute crawler worker remains in place.
+- Added/expanded `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, `docs/web-crawler.md`, and the master plan index/summary with the full target loop: discovery, safe crawling, normalization/chunking, embeddings/indexing, inference-time retrieval, reasoning/tool verification, evaluations, privacy, cost controls, OCC metrics, rollback and optional fine-tuning gates.
+- **Test fix:** Corrected the queue-path regex in `test/crawler-seeding.test.js`; it was incorrectly expecting a literal backslash.
+- **Validation:** CI run #7633 passed. Node tests: 1,179 total, 1,178 passed, 0 failed, 1 skipped. Database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check and secret scan passed. Documentation Gate #1768 passed.
+- This is knowledge acquisition and a future RAG/evaluation loop, not model-weight training. Production schema, live cron execution, retrieval impact, and OCC telemetry remain unverified.
+
+## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
+
+- Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.
+- Page (`public/app.js`): if the start-up status check said the AI was unavailable, sending re-checks status first instead of refusing.
+- Tests in `test/routing.test.js` (both fail without the change). An unlucky request can now make up to 2 extra model calls. No migration, env or legal change. Not verified against live providers.
 
 ## Fix: voice could not read the shared screen — 2026-10-27
 
@@ -2763,3 +2866,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Fetch the MP4 through the authenticated API client, including its one-time session refresh on HTTP 401, and use a Blob URL for inline playback and download. Keep server-side ownership checks intact; do not make video content public.
 - Add regression assertions for authenticated binary retrieval, 401 retry, Blob URL playback and avoiding direct protected URLs in the native player.
 - Validation boundary: CI must pass on this PR. A fresh production video and Safari/iPhone playback still need to be verified after deployment; OpenRouter's completed status alone does not prove client delivery.
+
+## PR #687 — Batch semantic embeddings and classify quota failures (2026-10-29)
+
+- Production evidence before this change: the 10:00 Manila scheduled run was partial with sanitized `embedding_rate_limited`, 0 indexed pages/chunks, and 8 embedding failures; the global semantic chunk table was empty. A prior zero-chunk run marked succeeded was not accepted as proof.
+- Batch each official page's bounded chunks through `embedMany`, validate all vectors, and bulk-upsert replacement chunks in one request. Preserve existing chunks on embedding/write failure and remove trailing stale chunks only after a complete replacement write.
+- Stop provider calls after a 429. Distinguish quota/billing exhaustion as `embedding_quota_exhausted` using structured fields only; never log or return raw provider response bodies.
+- Ensure any sanitized semantic indexing error marks the scheduled run partial, including chunk-write failures. Add regression tests for quota classification, batch writes, throttling stop behavior, and preserving existing chunks.
+- **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.
