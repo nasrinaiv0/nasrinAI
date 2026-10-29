@@ -2,6 +2,7 @@ import { HttpError } from '../http/errors.js';
 import { cleanUserText } from '../ai/output.js';
 import { readLink } from '../web/read-link.js';
 import { PLATFORM_TENANT_ID } from '../tenants.js';
+import { analyzeRagQuery } from './rag-orchestrator.js';
 
 // Knowledge (Phase 7): a business's own documents, found by full-text search
 // in the database (no AI call), added to the turn as data with their titles,
@@ -79,7 +80,10 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
     async context(caller, message) {
       try {
         if (!(await anyDocs(caller.tenantId))) return null;
-        const terms = searchTerms(message);
+        const startedAt = now();
+        const analysis = analyzeRagQuery(message);
+        const expandedTerms = analysis.terms.flatMap((term) => term.toLowerCase().split(/[^\\p{L}\\p{N}_]+/u)).filter((term) => term.length >= 2);
+        const terms = [...new Set([...searchTerms(message), ...expandedTerms])].slice(0, 18);
         if (!terms.length) return null;
         let found = null;
         if (tenantEmbeddingsEnabled && embedder?.embed && typeof store.searchKnowledgeHybrid === 'function') {
@@ -99,6 +103,11 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
           tenantId: caller.tenantId, terms, audience: caller.actor.type, limit: 8
         });
         const hits = dedupeKnowledgeHits(found.filter((h) => h.rank >= MIN_RANK));
+        logger.info('tenant knowledge retrieval completed', {
+          intent: analysis.intent, expanded_terms: terms.length, candidate_count: hits.length,
+          semantic_candidates: hits.filter((hit) => Number.isFinite(hit.semanticSimilarity)).length,
+          latency_ms: Math.max(0, now() - startedAt)
+        });
         if (!hits.length) return null;
         let size = 0;
         const parts = [];

@@ -45,9 +45,10 @@ test('tenant knowledge uses hybrid retrieval with tenant, audience, and model sc
   const embedder = { modelName: 'openai/test@384', async embed() { return vector(0.3); } };
   const knowledge = createKnowledge({ store, logger, embedder, tenantEmbeddingsEnabled: true });
   const caller = { tenantId: TENANT, actor: { type: 'service' } };
-  const context = await knowledge.context(caller, 'What is the delivery policy?');
+  const context = await knowledge.context(caller, 'What is the TS delivery policy?');
   assert.equal(called.tenantId, TENANT);
   assert.equal(called.audience, 'service');
+  assert.ok(called.terms.includes('typescript'), 'technical aliases are included in the tenant keyword query');
   assert.equal(called.embeddingModel, embedder.modelName);
   assert.equal(called.embedding.length, 384);
   assert.match(context, /Private FAQ/);
@@ -64,6 +65,7 @@ test('tenant knowledge falls back to permission-scoped full-text search when emb
       fallbackCalled = true;
       assert.equal(args.tenantId, TENANT);
       assert.equal(args.audience, 'service');
+      assert.ok(args.terms.includes('typescript'), 'expanded aliases survive semantic fallback');
       return [{ docId: 'doc-1', title: 'Fallback FAQ', sourceUrl: null, idx: 0,
         text: 'The fallback policy explains customer delivery and order handling in detail.', rank: 0.8 }];
     }

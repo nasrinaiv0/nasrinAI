@@ -28,7 +28,7 @@ returns table (
 language sql
 stable
 security definer
-set search_path = public, extensions, pg_temp
+set search_path = pg_catalog, public, extensions
 as $fn$
   with q as (
     select to_tsquery('simple', coalesce(nullif(p_terms, ''), '')) as tsq
