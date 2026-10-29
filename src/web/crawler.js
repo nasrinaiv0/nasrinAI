@@ -181,6 +181,7 @@ export function createWebCrawler({ store, readLinkImpl = readLink, logger = null
           totals.indexed_chunks++; wrote = true;
         } catch (err) {
           totals.embedding_failures++;
+          totals.error_code = String(err?.code || (err?.status ? 'embedding_http_' + err.status : 'index_failed')).replace(/[^a-z0-9_]/g, '_').slice(0, 64);
           pageFailed = true;
           logger?.warn?.('semantic knowledge chunk indexing failed', {
             host,
