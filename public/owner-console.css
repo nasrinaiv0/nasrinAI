@@ -186,3 +186,22 @@ footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin
 small.sub{display:block;color:var(--muted);font-size:.82rem;white-space:normal}
 .kpi.small{padding:14px 14px;gap:10px}.kpi.small .tile{width:38px;height:38px;border-radius:10px}.kpi.small .tile .icon{width:20px;height:20px}.kpi.small .kpi-label,.kpi.small .kpi-delta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kpi.small .kpi-value{font-size:1.4rem}
 .card-head h2{flex:1 1 170px}
+
+/* Sidebar: no per-section colour coding — neutral icons, one accent for the active page */
+.nav-item,.nav-item[data-page]{--tone:var(--accent)}
+.nav-item .icon{color:var(--muted)}.nav-item:hover .icon{color:var(--text)}
+.nav-item.active{background:color-mix(in srgb,var(--accent) 16%,var(--surface-2))}.nav-item.active .icon{color:var(--accent)}
+/* A little more life, kept subtle */
+body{background:radial-gradient(1100px 520px at 85% -12%,color-mix(in srgb,var(--c5) 18%,transparent),transparent 62%),radial-gradient(900px 480px at 30% -18%,color-mix(in srgb,var(--c1) 16%,transparent),transparent 60%),var(--bg);background-attachment:fixed}
+.card,.panel{background:linear-gradient(180deg,color-mix(in srgb,var(--text) 2.5%,var(--surface)) 0%,var(--surface) 42%);border-color:color-mix(in srgb,var(--text) 7%,var(--line))}
+.kpi{overflow:hidden}.kpi::after{content:"";position:absolute;right:-60px;bottom:-70px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--glow,var(--c1)) 16%,transparent),transparent 68%);pointer-events:none}
+.kpi:nth-child(4n+2){--glow:var(--c2)}.kpi:nth-child(4n+3){--glow:var(--c3)}.kpi:nth-child(4n+4){--glow:var(--c4)}
+.kpi>*{position:relative;z-index:1}.kpi .spark{position:absolute;z-index:1}
+.tile{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tone) 22%,transparent)}
+.btn.primary,.subtab.active{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 70%,var(--c5)));border-color:transparent;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 28%,transparent)}
+.accent-text{background:linear-gradient(90deg,var(--c1),var(--c5));-webkit-background-clip:text;background-clip:text;color:transparent}
+.action:hover{box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 12%,transparent);transform:translateY(-1px)}.action{transition:border-color .15s,background .15s,transform .15s,box-shadow .15s}
+.card-head h2{letter-spacing:-.005em}
+.avatar{background:linear-gradient(135deg,var(--c1),var(--c5))}
+:root[data-theme=light] body,:root[data-theme=light]{--line:#e3e6ee}
+@media(max-width:1020px){body{background-attachment:scroll}}
