@@ -2361,7 +2361,7 @@
   function pageSettings(c) {
     const g = el('div', 'dash'), side = el('section', 'card span-3'), nav = el('nav', 'settings-nav'), main = el('div', 'span-9 dash');
     main.classList.add('settings-main');
-    const sections = [['general', 'General', 'settings'], ['appearance', 'Appearance', 'eye'], ['access', 'Access & Permissions', 'users'], ['security', 'Security', 'shield'], ['notifications', 'Notifications', 'bell'], ['integrations', 'Integrations', 'share'], ['data', 'Data Sources', 'database'], ['about', 'About', 'file']];
+    const sections = [['general', 'General', 'settings'], ['appearance', 'Appearance', 'eye'], ['api-keys', 'API Keys', 'key'], ['access', 'Access & Permissions', 'users'], ['security', 'Security', 'shield'], ['notifications', 'Notifications', 'bell'], ['integrations', 'Integrations', 'share'], ['data', 'Data Sources', 'database'], ['about', 'About', 'file']];
     sections.forEach(([k, t, ic]) => { const b = button(t, 'nav-btn' + (settingsSection === k ? ' active' : ''), () => { settingsSection = k; render(); }, ic); nav.append(b); });
     side.append(nav);
     const field = (label, value) => { const f = el('div', 'field'); f.append(el('span', '', label), el('div', 'value', value)); return f; };
@@ -2397,10 +2397,60 @@
     about.append(ab);
     const map = { general: [general, appearance], appearance: [appearance, general], access: [access, sec], security: [sec, access], notifications: [notif, ig], integrations: [ig, notif], about: [about, general] };
     if (settingsSection === 'data') { main.append(sourcesCard()); }
+    else if (settingsSection === 'api-keys') { main.append(apiKeysCard()); }
     else (map[settingsSection] || map.general).forEach((x) => main.append(x));
-    if (!['data'].includes(settingsSection)) [general, appearance, access, sec, notif, ig].filter((x) => !(map[settingsSection] || []).includes(x)).forEach((x) => main.append(x));
+    if (!['data', 'api-keys'].includes(settingsSection)) [general, appearance, access, sec, notif, ig].filter((x) => !(map[settingsSection] || []).includes(x)).forEach((x) => main.append(x));
     g.append(side, main);
     c.append(g);
+  }
+  async function sendJson(url, payload) {
+    const response = await fetch(url, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
+    if (response.status === 404 && !/revoke$/.test(url)) { window.location.href = 'https://www.nasrinai.com/'; throw new Error('session ended'); }
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error((body && body.error && body.error.message) || 'Request failed');
+    return body;
+  }
+  // API keys: created once (full key shown a single time), listed by prefix only, revoked with confirmation.
+  function apiKeysCard() {
+    const c2 = card('API Keys', { span: 12, sub: 'Secret keys for calling the NasrinAI API from your own servers (scope: chat). The full key is shown once; only its hash is stored. Never put a secret key in browser or app code.' });
+    const form = el('form', 'card-tools'), input = el('input', 'select'), reveal = el('div'), list = el('div');
+    input.type = 'text'; input.maxLength = 80; input.required = true; input.placeholder = 'Key name, e.g. POS server'; input.setAttribute('aria-label', 'Key name');
+    const create = button('Create key', 'btn primary', null, 'plus'); create.type = 'submit';
+    form.append(input, create);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const label = input.value.trim();
+      if (!label) return;
+      if (!window.confirm('Create a new API key named "' + label + '"? Anyone holding it can use NasrinAI as your service.')) return;
+      create.disabled = true;
+      try {
+        const out = await sendJson('/owner/api/api-keys', { label, confirm: true });
+        input.value = '';
+        const box = el('div', 'key-reveal'), code = el('code', '', out.key), copy = button('Copy', 'btn', async () => { try { await navigator.clipboard.writeText(out.key); toast('Key copied. Store it in your server settings now.'); } catch (_) { toast('Copy failed. Select the key and copy it manually.'); } }, 'file');
+        box.append(el('strong', '', 'Copy this key now — it will not be shown again.'), code, copy, el('small', 'sub', 'Use it as: Authorization: Bearer <key>  ·  POST https://www.nasrinai.com/v1/chat  {"message": "Hello"}'));
+        reveal.replaceChildren(box);
+        load();
+      } catch (err) { toast(err.message); } finally { create.disabled = false; }
+    });
+    async function load() {
+      list.replaceChildren(el('div', 'loading', 'Loading keys…'));
+      try {
+        const out = await getJson('/owner/api/api-keys');
+        const keys = out.keys || [];
+        list.replaceChildren(el('p', 'freshness', num(out.active) + ' of ' + num(out.limit) + ' active keys'));
+        if (!keys.length) { list.append(empty('No API keys yet', 'Create one above for a server that should call NasrinAI.')); return; }
+        list.append(table(['Name', 'Key', 'Scope', 'Created', 'Status', ''], keys.map((k) => {
+          const revokeBtn = k.revoked_at ? el('span', 'muted', '—') : button('Revoke', 'btn', async () => {
+            if (!window.confirm('Revoke "' + k.label + '" (' + k.prefix + '…)? Servers using it stop working immediately.')) return;
+            try { await sendJson('/owner/api/api-keys/' + k.id + '/revoke', { confirm: true }); toast('Key revoked.'); load(); } catch (err) { toast(err.message); }
+          }, 'x');
+          return [k.label, k.prefix + '_…', (k.scopes || []).join(', '), dateText(k.created_at), statusTag(k.revoked_at ? 'Revoked' : 'Active', k.revoked_at ? 'idle' : 'good'), revokeBtn];
+        })));
+      } catch (err) { list.replaceChildren(empty('API keys unavailable', err.message)); }
+    }
+    c2.append(form, reveal, list);
+    load();
+    return c2;
   }
   function sourcesCard() { const s = card('Data Sources', { span: 12, sub: 'A source is Available only when its server-side query succeeds.' }); s.append(sourceRows()); return s; }
 

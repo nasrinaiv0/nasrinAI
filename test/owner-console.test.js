@@ -1093,3 +1093,62 @@ test('Owner Command Center page has the eleven mockup sections and CSP-safe clie
     assert.match(js, new RegExp("'?" + key + "'?: \\{ title:"), key + ' page is registered');
   }
 });
+
+test('owner API keys: list, create once, revoke — session, same-origin JSON, confirmation and audit context required', async () => {
+  const calls = [];
+  const fullKey = 'nss_0123456789ab_' + 'c'.repeat(48);
+  const store = { kind: 'supabase', request: async (_method, path, options) => {
+    calls.push({ path, body: options?.body });
+    if (path === 'rpc/owner_console_record_audit') return null;
+    if (path === 'rpc/owner_console_list_api_keys') return [{ id: '0123456789ab', label: 'POS', scopes: ['chat'], created_at: '2026-10-29T00:00:00Z', revoked_at: null, secret_hash: 'f'.repeat(64) }];
+    if (path === 'rpc/owner_console_create_api_key') return fullKey;
+    if (path === 'rpc/owner_console_revoke_api_key') return options.body.p_id === '0123456789ab';
+    throw new Error('unavailable');
+  } };
+  const { consoleHandler } = setup({ store });
+  const anonymous = request('GET', '/owner/api/api-keys', { testIp: IP });
+  await consoleHandler.handle(anonymous.req, anonymous.res, '/owner/api/api-keys');
+  assert.equal(anonymous.res.statusCode, 404);
+
+  const cookie = (await bootstrap(consoleHandler)).res.headers['set-cookie'].split(';')[0];
+  const list = request('GET', '/owner/api/api-keys', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(list.req, list.res, '/owner/api/api-keys');
+  const listed = JSON.parse(list.res.body);
+  assert.equal(listed.keys[0].prefix, 'nss_0123456789ab');
+  assert.equal(list.res.body.includes('secret_hash'), false);
+
+  const post = async (path, body, headers = { ...sameOrigin, cookie, 'content-type': 'application/json' }) => {
+    const out = request('POST', path, { headers, testIp: IP });
+    out.req[Symbol.asyncIterator] = async function* () { yield Buffer.from(JSON.stringify(body)); };
+    await consoleHandler.handle(out.req, out.res, path);
+    return out;
+  };
+  assert.equal((await post('/owner/api/api-keys', { label: 'CI', confirm: true }, { cookie, 'content-type': 'application/json' })).res.statusCode, 404, 'cross-site write refused');
+  assert.equal((await post('/owner/api/api-keys', { label: 'CI' })).res.statusCode, 400, 'confirmation required');
+  assert.equal((await post('/owner/api/api-keys', { label: '', confirm: true })).res.statusCode, 400, 'label required');
+  const created = await post('/owner/api/api-keys', { label: 'CI server', confirm: true });
+  assert.equal(created.res.statusCode, 201);
+  assert.equal(JSON.parse(created.res.body).key, fullKey);
+  const createCall = calls.find((c) => c.path === 'rpc/owner_console_create_api_key');
+  assert.equal(createCall.body.p_label, 'CI server');
+  assert.equal(createCall.body.p_actor_id, 'user-1');
+  assert.match(createCall.body.p_ip_hash, /^[a-f0-9]{64}$/);
+  assert.equal(JSON.stringify(createCall.body).includes(IP), false, 'raw IP never sent to the database');
+
+  assert.equal((await post('/owner/api/api-keys/0123456789ab/revoke', { confirm: true })).res.statusCode, 200);
+  assert.equal((await post('/owner/api/api-keys/ffffffffffff/revoke', { confirm: true })).res.statusCode, 404);
+  assert.equal((await post('/owner/api/api-keys/not-a-key/revoke', { confirm: true })).res.statusCode, 404);
+});
+
+test('a key created by the owner console authenticates as a platform service caller and stops working once revoked', async () => {
+  const { createGateway } = await import('../src/gateway/index.js');
+  const { hashSecret } = await import('../src/auth/keys.js');
+  const secret = 'd'.repeat(48);
+  const row = { id: '0123456789ab', tenantId: '00000000-0000-0000-0000-000000000001', kind: 'secret', secretHash: hashSecret(secret), scopes: ['chat'], revoked: false };
+  const gateway = createGateway({ store: { getApiKey: async (id) => id === row.id ? row : null, getTenant: async () => ({ id: row.tenantId, kind: 'platform', status: 'active' }) }, guestSecret: 'g'.repeat(40) });
+  const req = { headers: { authorization: 'Bearer nss_0123456789ab_' + secret } };
+  const caller = await gateway.resolve(req, { scope: 'chat' });
+  assert.deepEqual(caller.actor, { type: 'service', id: '0123456789ab' });
+  row.revoked = true;
+  await assert.rejects(() => gateway.resolve(req, { scope: 'chat' }));
+});
