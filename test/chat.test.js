@@ -73,6 +73,7 @@ test('MOVO-scoped service requests use only explicit context and skip platform r
     assert.equal(response.status, 200);
     const result = await response.json();
     assert.equal(result.message.content, 'MOVO-scoped answer.');
+    assert.equal(result.context_scope, 'movo', 'the server explicitly confirms the enforced context scope');
     assert.equal(portfolioReads, 0, 'the platform founder portfolio must not be retrieved');
     assert.equal(provider.calls.length, 1);
     const call = provider.calls[0];
