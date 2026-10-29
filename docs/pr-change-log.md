@@ -4,6 +4,7 @@
 - Audit report commit SHA: 84c4f95a2991fb83d5da5c1ce4b4fe8055d612d8.
 - Summary commit SHA: b706e97b56affa47e3b8a9bdda65a7bfb4228ccf. The immediately preceding changelog-record commit was f19ad60950325300acc8570082f59fef5a697c88.
 - Updated docs/CLAUDE_MASTER_PLAN_SUMMARY.md: corrected the repository URL and date, added the current verified snapshot, and linked the detailed audit. Historical entries remain historical and are not silently rewritten as current facts.
+- Owner-console documentation commit SHA: 408b66fa22dd72a0d174699c4c4f86c365faad15. The preceding changelog follow-up commit was e8e37883d26c866f970b853e0f67e8a0f57b5688.
 - Updated docs/owner-command-center.md status header to distinguish merged/deployed code from unverified runtime and record the migration registry mismatch.
 - Critical findings: migration 068 is absent from the production registry and its integration tables are absent; migration 079 and its hybrid retrieval objects are absent; migrations 080/081 objects exist with service_role-only function grants but are missing registry entries; PRs #651, #652, and #673 have failed Documentation Gates because their current diffs omit docs/pr-change-log.md; PR #695's local no-database startup fix is still open.
 - Security: leaked-password protection remains disabled as an owner-deferred residual risk; RLS-enabled server-only tables have no policies but anon/authenticated SELECT/INSERT grants are absent and service_role grants are present. No secret values or personal data were recorded.
