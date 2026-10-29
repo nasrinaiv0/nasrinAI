@@ -887,30 +887,30 @@
 - **Runtime impact:** no application/runtime code, routes, database, secrets, environment variables, or deployment settings changed. This does not erase old Git history and does not by itself change Gridinsoft's verdict.
 - **Validation:** pending CI and review of the resulting diff.
 
-## Proposed PR — OCC Meta channels and outbox (`feature/occ-meta-channels`)
+## Proposed PR — NCC Meta channels and outbox (`feature/ncc-meta-channels`)
 
 - **Owner request (2026-10-13):** automations post and send through Facebook, Instagram, Threads and WhatsApp (Messenger later); nothing may lose users' data or cache.
-- **Change:** `src/occ-meta.js` (official Graph, Threads and WhatsApp Cloud APIs), sealed tokens, migration `041_occ_channels.sql` (`occ_channels`, `occ_outbox`; new tables only) + DB test, social steps with approval or per-step auto-send, Social screen (channels, post composer, approvals), WhatsApp from a contact; Privacy Notice 2026-10-13f (no re-acceptance).
-- **Data safety:** no existing table, cache or chat code is changed. Before 041 is run the CRM keeps working (Social says not ready); account deletion skips OCC tables that are not there yet and still fails loudly on any other database error.
+- **Change:** `src/ncc-meta.js` (official Graph, Threads and WhatsApp Cloud APIs), sealed tokens, migration `041_ncc_channels.sql` (`ncc_channels`, `ncc_outbox`; new tables only) + DB test, social steps with approval or per-step auto-send, Social screen (channels, post composer, approvals), WhatsApp from a contact; Privacy Notice 2026-10-13f (no re-acceptance).
+- **Data safety:** no existing table, cache or chat code is changed. Before 041 is run the CRM keeps working (Social says not ready); account deletion skips NCC tables that are not there yet and still fails loudly on any other database error.
 - **Validation:** `npm test` (fake Meta for every endpoint and the outbox), DB tests on Postgres 16, browser at 1440 px and 390 px.
 
-## Proposed PR — OCC: its own CRM app with automations (`feature/occ-contacts-pipeline`)
+## Proposed PR — NCC: its own CRM app with automations (`feature/ncc-contacts-pipeline`)
 
-- **Owner decisions (2026-10-13):** OCC on its own subdomain (occ.nasrinai.com), desktop and iPhone friendly, a full CRM with automation; team-enabled access; kept until the business deletes it; social channels later (Facebook, Instagram, Messenger, Threads, WhatsApp).
-- **Change:** migration `040_occ.sql` (contacts, deals, tasks, timelines, automations) + DB test; `src/occ.js`, `src/occ-automations.js`, `/v1/occ/*`; the caller's verified sign-in email for the access check; Google sign-in returns to the OCC address; `/occ/` app (`public/occ/`) with redirect from the subdomain root (`vercel.json`, `src/http/app.js`); Space tile links to it; account export and deletion include OCC; Privacy Notice 2026-10-13e (no re-acceptance); docs.
-- **Effect on the live site:** none until migration 040 is run, the domain is added and `OCC_ENABLED` / `OCC_ACCOUNTS` are set.
+- **Owner decisions (2026-10-13):** NCC on its own subdomain (ncc.nasrinai.com), desktop and iPhone friendly, a full CRM with automation; team-enabled access; kept until the business deletes it; social channels later (Facebook, Instagram, Messenger, Threads, WhatsApp).
+- **Change:** migration `040_ncc.sql` (contacts, deals, tasks, timelines, automations) + DB test; `src/ncc.js`, `src/ncc-automations.js`, `/v1/ncc/*`; the caller's verified sign-in email for the access check; Google sign-in returns to the NCC address; `/ncc/` app (`public/ncc/`) with redirect from the subdomain root (`vercel.json`, `src/http/app.js`); Space tile links to it; account export and deletion include NCC; Privacy Notice 2026-10-13e (no re-acceptance); docs.
+- **Effect on the live site:** none until migration 040 is run, the domain is added and `NCC_ENABLED` / `NCC_ACCOUNTS` are set.
 - **Validation:** `npm test`; DB tests on Postgres 16; browser at 1440 px and 390 px (touch): sign in, import, contact, deal drag-and-drop, tasks, automation from a template running on a new contact.
 
-## Proposed PR — OCC logo: B · Flow (`ui/occ-logo-flow`)
+## Proposed PR — NCC logo: B · Flow (`ui/ncc-logo-flow`)
 
-- **Owner choice (2026-10-13):** OCC logo option B, Flow (three triangles).
-- **Change:** the OCC tile in NasrinAI Space shows the Flow mark (inline SVG, follows light/dark); `public/space-logos/occ-logo-flow.svg` kept as the brand file; `docs/occ.md`.
+- **Owner choice (2026-10-13):** NCC logo option B, Flow (three triangles).
+- **Change:** the NCC tile in NasrinAI Space shows the Flow mark (inline SVG, follows light/dark); `public/space-logos/ncc-logo-flow.svg` kept as the brand file; `docs/ncc.md`.
 - **Validation:** `npm test`; browser at 390 px, light and dark.
 
-## Proposed PR — OCC is for enterprises: contact the team (`feature/occ-enterprise`)
+## Proposed PR — NCC is for enterprises: contact the team (`feature/ncc-enterprise`)
 
-- **Owner decision (2026-10-13):** OCC is separate from Connect and is for enterprises, who contact the team.
-- **Change:** the OCC tile says it is the CRM with automations for enterprises, separate from Connect, not live yet, with a "Contact the NasrinAI team" link (support@nasrinai.com, subject "OCC (Nasrin Client Connect) enterprise enquiry"). `docs/occ.md` records the decisions and the logo options.
+- **Owner decision (2026-10-13):** NCC is separate from Connect and is for enterprises, who contact the team.
+- **Change:** the NCC tile says it is the CRM with automations for enterprises, separate from Connect, not live yet, with a "Contact the NasrinAI team" link (support@nasrinai.com, subject "NCC (Nasrin Client Connect) enterprise enquiry"). `docs/ncc.md` records the decisions and the logo options.
 - **Validation:** `npm test`.
 
 ## Proposed PR — Real site logos for sources (`feature/site-logos`)
@@ -919,10 +919,10 @@
 - **Change:** `GET /v1/site-icon?host=…` (`src/web/site-icon.js`, `readBytes` in `src/web/read-link.js`): our server finds the site's declared icon or /favicon.ico with the SSRF-safe reader, passes on only real raster images (no SVG), safe headers, cached a day, per-IP limit on lookups. `public/app.js`: logos on the Sources badges and next to each source (letter until it loads, and if none), plus a credit line "Logos and names belong to their sites…". Privacy Notice 2026-10-13d (does not ask anyone to accept again). `docs/web.md`.
 - **Validation:** `npm test` (new `test/site-icon.test.js`: hosts, image kinds, icon order, caching, route headers, SVG refused); real lookup of github.com's icon from the sandbox; browser at 390 px with that icon and a letter fallback.
 
-## Proposed PR — OCC tile in NasrinAI Space, plan for approval (`feature/occ-space`)
+## Proposed PR — NCC tile in NasrinAI Space, plan for approval (`feature/ncc-space`)
 
-- **Owner request (2026-10-13):** add OCC (Nasrin Client Connect), a CRM with automation like n8n and GoHighLevel, to NasrinAI Space.
-- **Change:** Space tile "OCC" (people-and-steps glyph, Coming soon); tapping it says plainly it is being built and not live yet. `docs/occ.md`: what OCC would be, the rules it must follow (tenant-scoped, AI drafts only, Confirm for outward actions, processor duties), five phases, and the owner decisions needed before the first one. No data, routes or tables yet.
+- **Owner request (2026-10-13):** add NCC (Nasrin Client Connect), a CRM with automation like n8n and GoHighLevel, to NasrinAI Space.
+- **Change:** Space tile "NCC" (people-and-steps glyph, Coming soon); tapping it says plainly it is being built and not live yet. `docs/ncc.md`: what NCC would be, the rules it must follow (tenant-scoped, AI drafts only, Confirm for outward actions, processor duties), five phases, and the owner decisions needed before the first one. No data, routes or tables yet.
 - **Validation:** `npm test`.
 
 ## Proposed PR — Sources button with site badges (`ui/sources-faces`)
@@ -1873,7 +1873,7 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Current change:** documentation and read-only source audit only. No runtime code, schema, environment variables, DNS, or production behavior changed. No tests were executed by this audit.
 - **Next:** implement and regression-test the owner-session boundary first, then build all modules sequentially on this same branch. Verify real data sources before displaying metrics. No merge or deployment without explicit owner approval.
 
-- **Additional audit:** verified repository migration definitions for `usage_events`, `plan_periods`, automation runs, OCC outbox, and server-only RLS. Plan entitlement records alone are not a complete refunds/net-revenue ledger.
+- **Additional audit:** verified repository migration definitions for `usage_events`, `plan_periods`, automation runs, NCC outbox, and server-only RLS. Plan entitlement records alone are not a complete refunds/net-revenue ledger.
 - **Preview status:** the Vercel check for the audit commit is `BLOCKED` by deployment policy, not reported as an application build error. No Vercel protection/settings were changed. Owner or project-admin action is needed to enable an authorized preview validation path before the PR is ready.
 
 ## Proposed PR #361 — Free LLM pool continuity, accounting, and owner visibility (2026-10-15)
@@ -1985,7 +1985,7 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Commit:** `8ec576479be5c34f1281221854c1e9598fb46636` — `fix: redirect Studio host root to Video Studio`.
 - **Observed issue:** after PR #470 merged, `https://studio.nasrinai.com/` still served the standard NasrinAI chat homepage, even though `/video-studio.html` returned the Video Studio page with HTTP 200.
-- **Change:** replace the host-specific root rewrite with an explicit temporary redirect to `/video-studio.html` for `studio.nasrinai.com`; keep the rule host-scoped so the main `nasrinai.com` root is unchanged. OCC routing remains intact.
+- **Change:** replace the host-specific root rewrite with an explicit temporary redirect to `/video-studio.html` for `studio.nasrinai.com`; keep the rule host-scoped so the main `nasrinai.com` root is unchanged. NCC routing remains intact.
 - **Validation:** live pre-fix checks reproduced the issue; this branch change has not yet been deployed or tested in CI. Verify Vercel build/production routing and run the regression suite before considering complete.
 - **Security/data impact:** no database, auth, secret, storage, or API behavior changed.
 
@@ -2512,7 +2512,7 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 ## Phase 3 — Supabase foreign-key performance indexes (2026-10-23)
 
-- Add migration 061 with idempotent indexes for eight foreign-key columns reported by the live Supabase performance advisor: OCC activities/outbox/tasks and Video Studio audio/timeline relations.
+- Add migration 061 with idempotent indexes for eight foreign-key columns reported by the live Supabase performance advisor: NCC activities/outbox/tasks and Video Studio audio/timeline relations.
 - Add database regression checks that each column has a valid, ready, non-partial index with the foreign-key column first.
 - Keep the advisor's 24 unused-index candidates intact until query workload and maintenance paths are reviewed; an unused-index warning alone is not sufficient evidence for safe deletion.
 - **Validation:** migration 061 was approved, applied to production, and verified: all eight foreign-key index checks passed. The post-migration advisor no longer reports the eight missing foreign-key indexes; 32 unused-index informational findings remain under review.
@@ -2990,9 +2990,31 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Supabase migration runner returned success; confirm stored function configuration via read-only catalog query. No app test or endpoint/UI verification is claimed.
 
 
-## OCC Recent Activity production repair — 2026-10-30
+## OCC Recent Activity repair — PR #708 merged (2026-10-30)
 
-- Applied production migration `085_restore_owner_console_automation_schema` after confirming `owner_console_dashboard(integer)` failed because `public.automation_runs` was absent. Restored canonical `automation_workflows` and `automation_runs` schema using repository migrations 030/032/033 as source of truth.
-- Preserved server-only boundary: RLS enabled, explicit `server_only_deny_browser` policies, browser-role table grants revoked, `service_role` table access retained. Added composite tenant/owner consistency FK and fail-closed mismatch check. No workflow/run records inserted.
-- Verified production dashboard function now returns JSON; query reported 7 series days and 12 recent activity entries. Both tables currently contain zero rows, so automation history remains naturally empty until real runs occur.
-- Code/documentation branch: `fix/occ-automation-schema-085-2026-10-30`; source migration and detailed audit included. Hosted browser smoke test and deployment remain unverified; 080–082 registry parity remains a separate task.
+- **Status:** Implemented / merged. PR [#708](https://github.com/nasrinaiv0/nasrinAI/pull/708), head `6bf461687c440210d3d3d5f598ff23e7917e00f3`, merge/current-main SHA [`5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`](https://github.com/nasrinaiv0/nasrinAI/commit/5521bd0a4a019693d99ffd4e7a75e26a53c88ea4).
+- **Exact changed paths:** `db/migrations/085_restore_owner_console_automation_schema.sql`; `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`; `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`; `docs/pr-change-log.md`.
+- **Purpose/behavior:** restore the canonical server-only `automation_workflows` and `automation_runs` schema required by the existing OCC dashboard function. Enforce tenant/owner identity consistency, restore owner indexes, enable RLS, explicitly deny browser-role access, and retain `service_role` access. No automation runs or workflows were fabricated.
+- **CI run #40971199851:** Node suite **1,255 total / 1,254 passed / 0 failed / 0 cancelled / 1 skipped / 0 todo**; Python activity-sync suite **2 passed**; database regression script **passed**; JavaScript syntax **passed**; secret scan **passed**; `npm audit --audit-level=high` **passed with 0 vulnerabilities**.
+- **Documentation Gate #40971199886:** passed.
+- **Migration/deployment:** migration `085_restore_owner_console_automation_schema` is registered in production as version `20261029230728`. Vercel production deployment [`dpl_92MyPKc8FF6pQo6xFxjqu6hUsPZy`](https://vercel.com/nasrin-ai/nasrinai/92MyPKc8FF6pQo6xFxjqu6hUsPZy) is READY at the merge SHA. These production actions preceded this audit; this audit made no database or deployment changes.
+- **Read-only verification:** dashboard function returned JSON, 7 series days, 12 recent-activity entries; `automation_workflows` and `automation_runs` both currently have zero rows. RLS and explicit browser-deny policies are present; `anon` and `authenticated` have no SELECT privilege.
+- **Status boundary:** schema repair **Implemented**; hosted OCC browser/API behavior **Not verified**; migration history parity for 080–082 **Not verified**; leaked-password protection **Blocked**. No destructive rollback is recommended; preserve the automation tables and server-only controls.
+
+## NasrinAI progress audit — 2026-10-30 07:15 Asia/Manila
+
+- **Current main:** `5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`, merge of PR #708. Current production Vercel deployment is READY at the same SHA; readiness does not prove authenticated UI behavior.
+- **Recent merged PRs:** #700 (previous documentation audit; merge `79b7ce8360ec783b6eb6b56dff5e715c90bc073e`); #701 (image-edit slash commands; merge `33f9283f35a0627c700efb43b3335bcfd8d52840`); #707 (schema/security reconciliation; merge `52392234ce7583303d4d25880296c06d7ad529b1`); #708 (OCC automation schema; merge `5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`).
+- **Open PR inventory:** #702 and #703 remain open/non-draft and GitHub reports non-mergeable; #704 and #705 remain draft/non-mergeable with no current-head checks; #706 remains a draft with passing reported CI/docs checks but its plan is superseded by the applied schema changes. See [current progress audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md), Section 10, for head/base SHAs and exact path lists.
+- **Migration registry:** relevant entries 068, 079, 083, 084, 085 exist. Entries 080–082 remain absent despite related live objects; do not replay blindly.
+- **Security:** read-only Supabase Security Advisor currently returns the leaked-password-protection warning. Authorized owner action is required to enable it. Current dashboard function search path is `pg_catalog, pg_temp`; the user-message recall function's empty search path requires source/grant review but is not, by itself, a confirmed vulnerability.
+- **OCC:** database function returns a seven-day series and 12 recent activity items; automation tables are empty. Authenticated browser/API smoke test is **Not verified**.
+- **Audit boundary:** this was a read-only audit plus documentation-only corrections. No production write, migration, merge, deployment, Auth setting change, or destructive action was performed by this audit.
+
+## Documentation integrity correction — historical identifiers (2026-10-30)
+
+- **Finding:** PR #708's blanket case-insensitive NCC→OCC replacement changed literal historical identifiers in `docs/pr-change-log.md` and a historical summary line. Examples include `src/ncc-meta.js`, `041_ncc_channels.sql`, `ncc_channels`, `NCC_ENABLED`, and `ncc.nasrinai.com`.
+- **Evidence:** the production catalog resolves `public.ncc_automations` and does not resolve `public.occ_automations`; current Vercel deployment metadata still lists `ncc.nasrinai.com`. This audit does not infer that the legacy identifiers should be renamed.
+- **Correction proposed on the audit branch:** restore the changelog from pre-PR #708 commit `52392234ce7583303d4d25880296c06d7ad529b1`, then append accurate current OCC entries; restore the historical `NCC AI voice front desk` label; correct the audit's legacy table name. This is documentation-only and remains pending review/merge.
+- **Privacy/security/runtime impact:** no code, database object, environment variable, hostname, secret, or deployment setting is changed by the correction.
+- **Rollback:** revert the documentation-only PR if review finds a factual issue; no runtime rollback is required.
