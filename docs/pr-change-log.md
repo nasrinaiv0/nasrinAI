@@ -2996,3 +2996,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** no application tests run. Exact-head CI and Documentation Gate are required after this update; do not merge while either is pending or failing.
 - **Rollback:** revert only this documentation follow-up if the handoff text is inaccurate.
 
+## PR #705 exact-head validation snapshot — 2026-10-30 06:22 Asia/Manila
+
+- **Validated head:** `d114d9a5e1b5074669d2e1bf032bbcc64bce6587` (documentation-only PR #705 head immediately before this validation-log commit).
+- **CI:** run #40965690495 — **success**. Jobs: `database` #123769484115 success (`db/tests/run.sh` completed successfully); `test` #123769484521 success (`npm test`, Python OpenRouter activity-sync unit tests, JavaScript syntax check, and `npm run check:secrets` all completed successfully); `dependency-audit` #123769484615 success (`npm audit --audit-level=high` and lockfile check passed).
+- **Documentation Gate:** run #40965706231 — **success**; job #123769536403 step “Require changelog update in this PR” passed.
+- **Purpose:** record exact-head results after adding `docs/pr-change-log.md` to the audit PR.
+- **Scope/behavior:** documentation-only. No application code, production settings, database objects, grants, policies, Auth settings, deployments, or user data were changed.
+- **Important validation boundary:** this entry itself creates a new documentation commit/head. Recheck CI and Documentation Gate on the new PR #705 head before considering merge; the success above applies only to the exact validated head listed here.
+- **Rollback:** revert this documentation-only log entry if the recorded run IDs/results are found to be incorrect; no runtime rollback is required.
+
