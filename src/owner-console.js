@@ -7,6 +7,8 @@ import { createGoogleSearchAnalytics } from './owner-google-search-analytics.js'
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
+const GITHUB_REPO = 'nasrinaiv0/nasrinAI';
+const DASHBOARD_WINDOWS = Object.freeze({ '7d': 7, '14d': 14, '30d': 30 });
 const NOT_FOUND = 'Page not found.';
 
 function sendNotFound(res, head = false) {
@@ -103,6 +105,11 @@ function configuredAllowlist(config) {
   return { ...source, ips };
 }
 
+function maskEmail(email) {
+  const [local, domain] = String(email || '').split('@');
+  return local && domain ? local[0] + '***@' + domain : null;
+}
+
 function allowedRequest(req, config, clientIp) {
   const allowlist = configuredAllowlist(config);
   if (!allowlist) return null;
@@ -152,38 +159,51 @@ const dashboardHtml = `<!doctype html>
 <script defer src="/owner-console.js"></script>
 </head>
 <body>
+<a class="skip-link" href="#content">Skip to content</a>
 <div class="shell">
-  <aside class="sidebar" aria-label="Owner navigation">
-    <a class="brand" href="/owner" aria-label="NasrinAI Owner Command Center"><span class="brand-mark">N</span><span><strong>NasrinAI</strong><small>OWNER COMMAND CENTER</small></span></a>
-    <div class="nav-label">WORKSPACE</div>
+  <aside class="sidebar" id="sidebar" aria-label="Owner navigation">
+    <a class="brand" href="/owner" aria-label="NasrinAI Owner Command Center"><img class="brand-mark" src="/icon.svg" alt="" width="40" height="40"><span><strong>NasrinAI</strong><small>Owner Command Center</small></span></a>
     <nav id="navigation">
-      <button class="nav-item active" data-panel="overview"><span>◫</span>Overview</button>
-      <button class="nav-item" data-panel="ai"><span>✳</span>AI Operations</button>
-      <button class="nav-item" data-panel="logs"><span>≋</span>AI Logs</button>
-      <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>Unlisted Models</button>
-      <button class="nav-item" data-panel="other-unlisted"><span>◇</span>AI Models Activities</button>
-      <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
-      <button class="nav-item" data-panel="intelligence"><span>↻</span>Continuous Intelligence</button>
-      <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
-      <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
-      <button class="nav-item" data-panel="google-analytics"><span>⌕</span>Google Search &amp; Traffic</button>
-      <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
-      <button class="nav-item" data-panel="security"><span>◇</span>Security &amp; Audit</button>
-      <button class="nav-item" data-panel="automation"><span>↗</span>Automation &amp; Jobs</button>
-      <button class="nav-item" data-panel="finance"><span>▤</span>Finance &amp; Costs</button>
-      <button class="nav-item" data-panel="incidents"><span>◎</span>Incidents &amp; Alerts</button>
-      <button class="nav-item" data-panel="reports"><span>▥</span>Reports &amp; Exports</button>
-      <button class="nav-item" data-panel="settings"><span>⚙</span>Settings</button>
+      <button type="button" class="nav-item active" data-page="overview" data-tone="0"><span class="icon" data-icon="home"></span><span class="nav-text">Overview</span></button>
+      <button type="button" class="nav-item" data-page="ai-ops" data-tone="1"><span class="icon" data-icon="cpu"></span><span class="nav-text">AI Ops Center</span></button>
+      <button type="button" class="nav-item" data-page="users" data-tone="2"><span class="icon" data-icon="users"></span><span class="nav-text">Users &amp; CRM</span></button>
+      <button type="button" class="nav-item" data-page="content" data-tone="3"><span class="icon" data-icon="image"></span><span class="nav-text">Content &amp; Media</span></button>
+      <button type="button" class="nav-item" data-page="finance" data-tone="4"><span class="icon" data-icon="dollar"></span><span class="nav-text">Finance</span></button>
+      <button type="button" class="nav-item" data-page="infrastructure" data-tone="5"><span class="icon" data-icon="layers"></span><span class="nav-text">Infrastructure</span></button>
+      <button type="button" class="nav-item" data-page="security" data-tone="0"><span class="icon" data-icon="shield"></span><span class="nav-text">Security</span></button>
+      <button type="button" class="nav-item" data-page="automation" data-tone="1"><span class="icon" data-icon="share"></span><span class="nav-text">Automation (NCC)</span></button>
+      <button type="button" class="nav-item" data-page="release" data-tone="2"><span class="icon" data-icon="check-circle"></span><span class="nav-text">Release Guard</span></button>
+      <button type="button" class="nav-item" data-page="reports" data-tone="3"><span class="icon" data-icon="file"></span><span class="nav-text">Reports</span></button>
+      <button type="button" class="nav-item" data-page="settings" data-tone="4"><span class="icon" data-icon="settings"></span><span class="nav-text">Settings</span></button>
     </nav>
-    <div class="sidebar-bottom"><span class="status-dot"></span><span>Private owner workspace</span></div>
+    <div class="owner-card-wrap">
+      <button type="button" class="owner-card" id="owner-card" aria-haspopup="menu" aria-expanded="false"><span class="avatar">NA</span><span class="owner-meta"><strong>Nasrin Abubakar</strong><span class="role-badge">Owner</span></span><span class="icon" data-icon="chevron-right"></span></button>
+      <div class="owner-menu" id="owner-menu" role="menu" hidden>
+        <p class="owner-menu-note" id="owner-session">Private owner session</p>
+        <button type="button" role="menuitem" data-go="settings">Settings</button>
+        <button type="button" role="menuitem" id="theme-toggle">Switch theme</button>
+        <button type="button" role="menuitem" id="signout" class="danger-text">Sign out</button>
+      </div>
+    </div>
   </aside>
   <main class="main">
-    <header class="topbar"><div class="crumb">NasrinAI <span>/</span> <b id="crumb">Overview</b></div><div class="top-actions"><span class="live"><i></i>Private session</span><button id="signout" class="quiet-button">Sign out</button></div></header>
-    <section class="page-heading"><div><p class="eyebrow">OPERATIONS INTELLIGENCE</p><h1 id="page-title">Good to have you back.</h1><p id="page-description">A clear view of platform health, AI operations, and business signals.</p></div><div class="heading-meta"><span class="pill"><i></i>Read-only mode</span><span class="freshness" id="freshness">Checking data sources…</span></div></section>
+    <header class="topbar">
+      <button type="button" class="icon-button menu-toggle" id="menu-toggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><span class="icon" data-icon="menu"></span></button>
+      <div class="page-heading"><h1 id="page-title">Welcome back, <span class="accent-text">Nasrin</span></h1><p id="page-description">Here’s what’s happening with NasrinAI today.</p></div>
+      <div class="top-actions">
+        <label class="range-picker"><span class="icon" data-icon="calendar"></span><span class="sr-only">Date range</span><select id="range" aria-label="Date range"><option value="7d">Last 7 days</option><option value="14d">Last 14 days</option><option value="30d">Last 30 days</option></select><span class="range-dates" id="range-dates"></span></label>
+        <button type="button" class="status-pill" id="status-pill"><i></i><span id="status-text">Checking systems…</span></button>
+        <button type="button" class="icon-button bell" id="bell" aria-label="Notifications" aria-haspopup="dialog" aria-expanded="false"><span class="icon" data-icon="bell"></span><i class="bell-dot" id="bell-dot" hidden></i></button>
+        <div class="notify-panel" id="notify-panel" role="dialog" aria-label="Notifications" hidden><div class="notify-head"><strong>Notifications</strong><button type="button" class="link-button" id="notify-all">View all</button></div><div id="notify-list"></div></div>
+      </div>
+    </header>
+    <div class="subtabs" id="subtabs" role="tablist" aria-label="Page sections"></div>
+    <p class="freshness" id="freshness" aria-live="polite">Checking data sources…</p>
     <section id="content" aria-live="polite"><div class="loading"><span class="spinner"></span>Loading secure workspace…</div></section>
-    <footer><span>NASRINAI · OWNER CONSOLE</span><span>Least privilege by default <b>·</b> Sensitive actions disabled until reviewed</span></footer>
+    <footer><span>NasrinAI · Owner Command Center</span><span>Least privilege by default · Real data only · Sensitive actions confirm first</span></footer>
   </main>
 </div>
+<div class="toast" id="toast" role="status" hidden></div>
 </body>
 </html>`;
 
@@ -607,6 +627,71 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       }
       return true;
     }
+    if (pathname === '/owner/api/dashboard' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const windowName = new URL(req.url, 'http://local').searchParams.get('window') || '7d';
+      const days = DASHBOARD_WINDOWS[windowName];
+      if (!days) { sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 14d, or 30d.' } }); return true; }
+      const owner = { email_masked: maskEmail(session.email), session_expires_at: new Date(session.exp * 1000).toISOString() };
+      const integrations = {
+        supabase: store?.kind === 'supabase',
+        vercel: Boolean(config?.ownerConsole?.vercel?.enabled),
+        github_actions: Boolean(config?.ownerConsole?.githubActions?.enabled),
+        github_app: Boolean(config?.github),
+        paymongo: Boolean(config?.paymongo),
+        openrouter: Boolean(openrouterManagementKey || openrouterApiKey),
+        openai_billing: Boolean(config?.ownerConsole?.openaiAdminKey),
+        anthropic_billing: Boolean(config?.ownerConsole?.anthropicAdminKey),
+        cloudflare_billing: Boolean(config?.ownerConsole?.cloudflareBillingApiToken && config?.ownerConsole?.cloudflareAccountId)
+      };
+      const paymentMethods = Array.isArray(config?.paymongo?.methods) ? config.paymongo.methods.filter((m) => typeof m === 'string' && /^[a-z0-9_]{1,30}$/.test(m)).slice(0, 12) : [];
+      const access = { owner_emails: allowlist.emails.length, allowed_ips: allowlist.ips.length, session_minutes: SESSION_SECONDS / 60 };
+      let dashboard = null;
+      if (typeof store?.request === 'function') {
+        try {
+          const value = await store.request('POST', 'rpc/owner_console_dashboard', { body: { p_days: days * 2 } });
+          const result = Array.isArray(value) ? value[0] : value;
+          if (result && typeof result === 'object' && Array.isArray(result.series)) dashboard = result;
+        } catch {
+          logger?.warn?.('owner dashboard series unavailable', { source: 'owner_console_dashboard' });
+        }
+      }
+      sendJson(res, 200, { generated_at: new Date(now()).toISOString(), window: windowName, window_days: days, status: dashboard ? 'available' : 'unavailable', owner, access, integrations, payment_methods: paymentMethods, dashboard });
+      return true;
+    }
+    if (pathname === '/owner/api/release-guard' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const integration = config?.ownerConsole?.githubActions;
+      if (!integration?.enabled || typeof fetchImpl !== 'function') {
+        sendJson(res, 200, { status: 'not_configured', runs: [], pull_requests: [] });
+        return true;
+      }
+      const headers = { Authorization: 'Bearer ' + integration.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+      const safeUrl = (value) => typeof value === 'string' && value.startsWith('https://github.com/') ? value.slice(0, 300) : null;
+      const text = (value, max) => typeof value === 'string' ? value.slice(0, max) : null;
+      try {
+        const [runsResponse, pullsResponse] = await Promise.all([
+          fetchImpl('https://api.github.com/repos/' + GITHUB_REPO + '/actions/runs?per_page=20', { headers, signal: AbortSignal.timeout(6000) }),
+          fetchImpl('https://api.github.com/repos/' + GITHUB_REPO + '/pulls?state=open&per_page=20', { headers, signal: AbortSignal.timeout(6000) })
+        ]);
+        if (!runsResponse?.ok) throw new Error('runs unavailable');
+        const runsPayload = await runsResponse.json();
+        const pullsPayload = pullsResponse?.ok ? await pullsResponse.json() : [];
+        const runs = (Array.isArray(runsPayload?.workflow_runs) ? runsPayload.workflow_runs : []).slice(0, 20).map((run) => ({
+          name: text(run?.name, 120), branch: text(run?.head_branch, 120), event: text(run?.event, 40),
+          status: text(run?.status, 40), conclusion: text(run?.conclusion, 40),
+          commit: typeof run?.head_sha === 'string' && /^[a-f0-9]{7,40}$/i.test(run.head_sha) ? run.head_sha.slice(0, 7) : null,
+          created_at: text(run?.created_at, 40), updated_at: text(run?.updated_at, 40), url: safeUrl(run?.html_url)
+        }));
+        const pullRequests = (Array.isArray(pullsPayload) ? pullsPayload : []).slice(0, 20).map((pr) => ({
+          number: Number.isInteger(pr?.number) ? pr.number : null, title: text(pr?.title, 160), draft: pr?.draft === true,
+          branch: text(pr?.head?.ref, 120), updated_at: text(pr?.updated_at, 40), url: safeUrl(pr?.html_url)
+        }));
+        sendJson(res, 200, { status: 'available', generated_at: new Date(now()).toISOString(), runs, pull_requests: pullRequests });
+      } catch {
+        logger?.warn?.('owner release guard source unavailable', { source: 'github_actions' });
+        sendJson(res, 503, { status: 'unavailable', runs: [], pull_requests: [], error: { code: 'release_source_unavailable', message: 'GitHub Actions data could not be retrieved.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner' || pathname === '/owner/') {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -633,7 +718,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         return true;
       }
       try {
-        const response = await fetchImpl('https://api.github.com/repos/primusco20/nasrinAI/actions/workflows/verify-openrouter-models.yml/dispatches', {
+        const response = await fetchImpl('https://api.github.com/repos/' + GITHUB_REPO + '/actions/workflows/verify-openrouter-models.yml/dispatches', {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + integration.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
           body: JSON.stringify({ ref: 'main', inputs: { model, confirm_provider_costs: 'true' } }),
