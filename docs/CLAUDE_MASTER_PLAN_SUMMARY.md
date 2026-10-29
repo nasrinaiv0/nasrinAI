@@ -5,9 +5,13 @@
 Last updated: 2026-10-30
 Repository: https://github.com/nasrinaiv0/nasrinAI
 
-## Current verified snapshot — 2026-10-30 05:30 Asia/Manila
+## Scope-boundary update — 2026-10-30 05:34 Asia/Manila
 
-**Source of truth:** [Detailed progress audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md). Audited main SHA: [531f56d6d5685730692372d64bd7780b974f5c69](https://github.com/nasrinaiv0/nasrinAI/commit/531f56d6d5685730692372d64bd7780b974f5c69), merge of PR #698. The linked NasrinAI Vercel production deployment is READY at the same source SHA; no end-to-end smoke test was run in this audit.
+At 05:32, GitHub's main ref was observed at 79b7ce8360ec783b6eb6b56dff5e715c90bc073e. Its commit details and diff were intentionally not inspected to preserve the strict exclusion of out-of-scope product-specific work. Whether that commit belongs to the in-scope audit is **Not verified**. The last fully audited baseline remains 531f56d6d5685730692372d64bd7780b974f5c69; do not describe it as current main. The last verified production deployment was READY at source SHA 531f56d... at 05:30; production source state after main advanced is **Not verified**. The documentation proposal branch is behind the current main ref and must not be merged as-is.
+
+## Last fully audited snapshot — 2026-10-30 05:30 Asia/Manila
+
+**Last fully audited source baseline:** [Detailed progress audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md). Audited main SHA: [531f56d6d5685730692372d64bd7780b974f5c69](https://github.com/nasrinaiv0/nasrinAI/commit/531f56d6d5685730692372d64bd7780b974f5c69), merge of PR #698. The linked NasrinAI Vercel production deployment was last verified READY at the same source SHA at 05:30; no end-to-end smoke test was run in this audit. Current main/deployment state beyond the audited baseline is **Not verified**.
 
 ### Current implementation status
 - **Implemented:** PRs #694–#698 are merged; their recorded CI and Documentation Gate runs passed. This includes MCP tool connections, local no-database development startup, skill slash commands, routing failover, and bounded coding-chat automatic repair.
@@ -31,6 +35,8 @@ Repository: https://github.com/nasrinaiv0/nasrinAI
 - Migrations 080/081: registry entries absent; owner-console functions and supporting api_keys/owner_audit_events tables exist with checked function ACLs limited to postgres/service_role.
 - Migration 082: registry entry, messages_content_fts_idx, and public.search_user_messages absent.
 - No migration was applied. Any reconciliation must be separately reviewed; never blindly replay 080/081 because related functions already exist.
+
+- [PR #704](https://github.com/nasrinaiv0/nasrinAI/pull/704) — this documentation-only refresh. Draft and unmerged; branch based on the 531f56d... audited baseline, so it is behind the later main ref 79b7ce8... and must not be merged until the scope boundary is reviewed.
 
 ### Audit discipline
 Use the detailed audit and current GitHub evidence before relying on historical entries. Passing CI or a READY deployment is not proof of end-to-end production correctness. Exact test counts are not inferred when the job summary does not expose them. Every feature must be labelled Implemented, Partially implemented, Not implemented, Blocked, or Not verified, with evidence and a clear next action.
