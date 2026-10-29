@@ -1,16 +1,16 @@
 # NasrinAI Progress Audit — 2026-10-30
 
 **Audit timestamp:** 2026-10-30 03:33:18 Asia/Manila (UTC+08:00)  
-**Latest read-only refresh:** 2026-10-30 04:26 Asia/Manila (UTC+08:00)  
+**Latest read-only refresh:** 2026-10-30 07:15 Asia/Manila (UTC+08:00); see Section 10 for the authoritative current-main follow-up.  
 **Repository:** https://github.com/nasrinaiv0/nasrinAI  
 **Branch audited:** main  
-**Main commit observed:** [3a2c705461ac5b9920191ef67e5b25213dff0222](https://github.com/nasrinaiv0/nasrinAI/commit/3a2c705461ac5b9920191ef67e5b25213dff0222) — merge of PR #692  
-**Production deployment observed:** [Vercel deployment dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE](https://vercel.com/nasrin-ai/nasrinai/GkNLFAzWEnU2Sb8okP4X5an1iJSE), state READY, target production, source commit 3a2c705461ac5b9920191ef67e5b25213dff0222.  
+**Main commit observed:** [5521bd0a4a019693d99ffd4e7a75e26a53c88ea4](https://github.com/nasrinaiv0/nasrinAI/commit/5521bd0a4a019693d99ffd4e7a75e26a53c88ea4) — merge of PR #708  
+**Production deployment observed:** [Vercel deployment dpl_92MyPKc8FF6pQo6xFxjqu6hUsPZy](https://vercel.com/nasrin-ai/nasrinai/92MyPKc8FF6pQo6xFxjqu6hUsPZy), state READY, target production, source commit 5521bd0a4a019693d99ffd4e7a75e26a53c88ea4.  
 **Purpose:** A compact but evidence-rich handoff so Claude can begin from this report and inspect only files relevant to a finding.
 
 ## 1. Scope, method, and status rules
 
-This audit covers only the NasrinAI repository, its current main branch, NasrinAI pull requests, the connected NasrinAI Supabase project, and the NasrinAI Vercel deployment. MOVO/MOVI repositories and workstreams are explicitly excluded. PR #699 is excluded from the in-scope PR inventory because its stated purpose is MOVO-specific; its diff and implementation were not audited and no conclusion is made about it.
+This audit covers only the NasrinAI repository, its current main branch, NasrinAI pull requests, the connected NasrinAI Supabase project, and the NasrinAI Vercel deployment. MOVO/MOVI repositories and workstreams are explicitly excluded. Any PR, workstream, or change outside NasrinAI's own product scope is excluded from the in-scope inventory, even if mentioned in a NasrinAI PR description; no conclusions are made about excluded work.
 
 Evidence collected:
 - GitHub repository metadata, recent commit history, current open PR metadata, branch comparisons, commit file lists, CI workflow runs, and Documentation Gate runs.
@@ -445,3 +445,171 @@ The read-only Supabase migration list still has no registry entries for 068, 079
 - **Tests:** no application tests run in this refresh. The previous #700 head's CI and Documentation Gate passed; fresh checks are required on the updated head.
 - **Deployment/migrations:** no deployment or migration performed. Production remains on main SHA `3a2c705461ac5b9920191ef67e5b25213dff0222`.
 - **Rollback:** if the documentation update is incorrect, revert the documentation-only commit(s) on the #700 draft branch. No runtime rollback is required because no runtime artifacts changed.
+
+
+## 10. Follow-up audit — current main, PR gates, deployment, and migrations — 2026-10-30 07:15 Asia/Manila
+
+**Current status:** The OCC database repair is **Implemented** and its source is merged. The current production deployment is **READY**, but the hosted OCC owner-authenticated browser/API flow remains **Not verified**. This follow-up supersedes earlier snapshot values in Sections 2–9 wherever they conflict with the current evidence below; the earlier sections are retained as historical audit records.
+
+**Scope and method:** This audit covers only `nasrinaiv0/nasrinAI`, its own GitHub PRs and CI, its own Vercel deployment, and read-only metadata/catalog checks on its Supabase project. All other product repositories, workstreams, and product-specific changes are excluded, including anything mentioned incidentally in a NasrinAI PR description. No conclusions are made about excluded work. The audit did not write to production, apply migrations, change secrets/settings, merge PRs, trigger deployments, or perform destructive actions.
+
+### 10.1 Authoritative repository and deployment state
+
+- **Current main SHA:** [`5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`](https://github.com/nasrinaiv0/nasrinAI/commit/5521bd0a4a019693d99ffd4e7a75e26a53c88ea4), merge commit for PR [#708](https://github.com/nasrinaiv0/nasrinAI/pull/708).
+- **Latest production deployment:** [Vercel deployment `dpl_92MyPKc8FF6pQo6xFxjqu6hUsPZy`](https://vercel.com/nasrin-ai/nasrinai/92MyPKc8FF6pQo6xFxjqu6hUsPZy), state **READY**, target **production**, source SHA exactly `5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`. This deployment followed the PR merge; this audit did not trigger it.
+- **Functional boundary:** Vercel READY establishes deployment/build state, not successful end-to-end user behavior. The authenticated owner-console browser/API smoke test is still **Not verified**.
+- **Alias observation relevant to documentation accuracy:** the deployment metadata still lists `ncc.nasrinai.com` and `owner.nasrinai.com`. No hostname or DNS change was made or requested by this audit.
+
+### 10.2 Recent merged PRs and exact changed paths
+
+#### PR #708 — OCC Recent Activity automation-schema repair
+
+- **Status:** **Implemented**; merged at 2026-10-29 23:12 UTC / 2026-10-30 07:12 Asia/Manila.
+- **PR head:** `6bf461687c440210d3d3d5f598ff23e7917e00f3`.
+- **Merge/current-main commit:** [`5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`](https://github.com/nasrinaiv0/nasrinAI/commit/5521bd0a4a019693d99ffd4e7a75e26a53c88ea4).
+- **Exact changed paths:**
+  - `db/migrations/085_restore_owner_console_automation_schema.sql`
+  - `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`
+  - `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`
+  - `docs/pr-change-log.md`
+- **Purpose/behavior:** restore the canonical `automation_workflows` and `automation_runs` schema required by `public.owner_console_dashboard(integer)`; restore owner indexes and tenant/owner identity consistency; keep both tables server-only.
+- **Security/privacy impact:** RLS enabled; explicit `server_only_deny_browser` policies exist; `anon` and `authenticated` have no SELECT privilege on either table; `service_role` retains required table access. The migration does not create workflows or fabricate run history. No secrets or personal data were added.
+- **CI:** [CI run #40971199851](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199851) completed successfully:
+  - `npm test`: **1,255 tests total; 1,254 passed; 0 failed; 0 cancelled; 1 skipped; 0 todo**. The skipped test is the opt-in real Vercel Sandbox integration, which requires `RUN_SANDBOX_INTEGRATION=1`.
+  - Python OpenRouter activity-sync tests: **2 passed**.
+  - `db/tests/run.sh`: **passed**; logs include successful automation-workflow identity, catalog-wide RLS/server-only policy, SECURITY DEFINER search-path, and owner-console aggregate-metrics checks.
+  - JavaScript syntax check: **passed**.
+  - `npm run check:secrets`: **passed**.
+  - `npm audit --audit-level=high`: **passed; 0 vulnerabilities reported**.
+- **Documentation Gate:** [run #40971199886](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199886) passed the “Require changelog entry” job.
+- **Migration status:** migration `085_restore_owner_console_automation_schema` was already applied to production before this audit; the live migration registry contains version `20261029230728`. This audit did not apply or replay it.
+- **Runtime status:** the SQL function now returns an object with a seven-day series and 12 recent-activity entries. Both automation tables currently contain zero rows, so the backend result is not proof of real automation-run history. Hosted OCC browser/API behavior remains **Not verified**.
+
+#### PR #707 — production schema/security reconciliation
+
+- **Status:** **Implemented**; merged to main as [`52392234ce7583303d4d25880296c06d7ad529b1`](https://github.com/nasrinaiv0/nasrinAI/commit/52392234ce7583303d4d25880296c06d7ad529b1).
+- **Exact changed paths:**
+  - `db/migrations/083_explicit_deny_server_only_tables.sql`
+  - `db/migrations/084_harden_owner_dashboard_search_path.sql`
+  - `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`
+  - `docs/audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`
+  - `docs/pr-change-log.md`
+- **Purpose/behavior:** explicit browser-deny policies for server-only tables and a hardened `search_path=pg_catalog, pg_temp` for `owner_console_dashboard(integer)`; the same production repair record covers migrations 068 and 079.
+- **Validation:** CI and Documentation Gate runs observed for the PR head completed successfully (including CI run #40969812290 and Documentation Gate run #40970398301). The migration runner and read-only catalog checks were recorded as successful in the merged audit. Application-level integration, retrieval, and OCC UI behavior were not proven by those schema checks.
+- **Security blocker:** leaked-password protection remains disabled; see Section 10.6.
+
+#### PR #701 — picture-edit slash-command catalog
+
+- **Status:** **Implemented**; merged as [`33f9283f35a0627c700efb43b3335bcfd8d52840`](https://github.com/nasrinaiv0/nasrinAI/commit/33f9283f35a0627c700efb43b3335bcfd8d52840).
+- **Exact changed paths:**
+  - `config/image-edit-commands.json`
+  - `docs/features/universal-slash-commands.md`
+  - `docs/pr-change-log.md`
+  - `public/app.js`
+  - `public/creative-intent.js`
+  - `public/slash-menu.js`
+  - `scripts/build-image-edit-commands.js`
+  - `src/routes.js`
+  - `src/skill-commands.js`
+  - `test/image-edit-commands.test.js`
+  - `test/skill-commands.test.js`
+- **Purpose/behavior:** add a generated catalog of 1,017 picture-edit commands and expose them through the existing command route/menu; existing image endpoint plan limits, rate limits, and billing remain the stated enforcement path.
+- **Validation context:** the PR description recorded a local author-run FFmpeg export test failure because the local FFmpeg binary was unavailable. Later CI on the current main lineage (PR #708) reports 0 failures and one explicitly skipped Sandbox integration test. This does not substitute for a manual media-export smoke test.
+
+#### PR #700 — previous NasrinAI progress audit
+
+- **Status:** **Implemented**; merged as [`79b7ce8360ec783b6eb6b56dff5e715c90bc073e`](https://github.com/nasrinaiv0/nasrinAI/commit/79b7ce8360ec783b6eb6b56dff5e715c90bc073e).
+- **Exact changed paths:**
+  - `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`
+  - `docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md`
+  - `docs/owner-command-center.md`
+  - `docs/pr-change-log.md`
+- **Purpose:** documentation-only audit and handoff. Its recorded main/deployment baseline predates PRs #701, #707, and #708; the follow-up in this report supersedes that baseline.
+
+### 10.3 Current open/draft PR inventory — NasrinAI repository only
+
+| PR | Current state and head | CI / Documentation Gate evidence | Status and blocker |
+|---|---|---|---|
+| [#702 Richer reply rendering](https://github.com/nasrinaiv0/nasrinAI/pull/702) | Open, not draft; head `c9ddf310f48c0157b8267187c0da9e69735a3d09`; GitHub reports `mergeable=false`; base is behind current main | CI [#40957687555](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40957687555) and Documentation Gate [#40957687102](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40957687102) passed on that head. Its logged Node suite had 1,256 total, 1,255 passed, 0 failed, 1 skipped; Python activity-sync tests: 2 passed. | **Blocked** — reconcile/rebase, inspect conflict resolution and CSP/rendering changes, then rerun required gates on the new head. |
+| [#703 Agent tools](https://github.com/nasrinaiv0/nasrinAI/pull/703) | Open, not draft; head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`; GitHub reports `mergeable=false`; base `531f56d6d5685730692372d64bd7780b974f5c69) | No workflow runs or combined status checks were returned for this exact head during this audit. | **Blocked** — current CI/docs-gate result **Not verified**; reconcile branch and review SSRF, sandbox isolation, rate limits, and untrusted web/GitHub content before any merge. |
+| [#704 Progress-audit refresh](https://github.com/nasrinaiv0/nasrinAI/pull/704) | Open draft; head `187674e5e6f6465119a45885ff905ae299d18a1e`; base `79b7ce8360ec783b6eb6b56dff5e715c90bc073e`; `mergeable=false` | No workflow runs/statuses returned for its current head. | **Not verified** — the audit content reflects a 05:30 snapshot and an older main baseline. This follow-up supersedes its status; do not merge the stale branch without reconciliation. |
+| [#705 Master change ledger](https://github.com/nasrinaiv0/nasrinAI/pull/705) | Open draft; head `13aa1ea6661821d4a6cc94d88d8c2f8d0133940c`; base `33f9283f35a0627c700efb43b3335bcfd8d52840`; `mergeable=false` | No workflow runs/statuses returned for its current head. | **Not verified** — ledger snapshot predates PRs #707/#708 and still describes #708 as open. Reconcile its facts with this current report before reuse. |
+| [#706 Integration schema repair plan](https://github.com/nasrinaiv0/nasrinAI/pull/706) | Open draft; head `18df525028c14487283226cee1b375fb132cb5a5`; base `33f9283f35a0627c700efb43b3335bcfd8d52840`; GitHub reports `mergeable=true` | CI [#40968101975](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40968101975) and Documentation Gate runs [#40968101856](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40968101856) / [#40969839240](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40969839240) completed successfully on the reported head. | **Partially implemented / superseded** — it is a plan, not the current state. The 068/079/083/084/085 schema changes have since been applied and recorded; keep the PR draft clearly marked as historical until an owner decides whether to close or revise it. |
+
+The PR inventory above contains the five open PRs returned for this repository. PR #708 is merged and is therefore not an open-PR blocker. No PR was merged, rebased, closed, or otherwise changed during this audit.
+
+### 10.4 Production database and migration reconciliation
+
+**Read-only migration registry check:** the production registry contains the following relevant entries:
+
+| Migration | Registry version | Status |
+|---|---|---|
+| `068_user_owned_integrations` | `20261029225506` | **Implemented (schema only)** — integration tables exist; runtime OAuth/credential flows are not verified. |
+| `079_tenant_hybrid_knowledge` | `20261029225531` | **Implemented (schema only)** — embedding columns/index/hybrid-search function exist; ingestion and relevance are not verified. |
+| `083_explicit_deny_server_only_tables` | `20261029225602` | **Implemented** — explicit deny policies for the audited server-only tables. |
+| `084_harden_owner_dashboard_search_path` | `20261029225731` | **Implemented** — dashboard function configured with `search_path=pg_catalog, pg_temp`. |
+| `085_restore_owner_console_automation_schema` | `20261029230728` | **Implemented** — canonical automation tables restored and registered. |
+
+**Migration history remains unresolved:** entries `080_owner_console_dashboard`, `081_owner_console_api_keys`, and `082_user_message_recall` are absent from the registry even though related live functions/indexes exist. Missing registry entries do not prove the SQL was never applied; live objects do not prove exact parity with repository source. Do not blindly replay 080–082 or fabricate registry rows. Compare exact function definitions, indexes, grants, and caller behavior before a separately reviewed history-reconciliation action.
+
+**Current catalog results:**
+
+- `public.owner_console_dashboard(integer)`: SECURITY DEFINER; configured `search_path=pg_catalog, pg_temp`.
+- `public.owner_console_mask_email(text)`: not SECURITY DEFINER; configured `search_path=pg_catalog, pg_temp`.
+- `public.search_knowledge_hybrid(...)`: SECURITY DEFINER; configured `search_path=pg_catalog, public, extensions`.
+- `public.search_user_messages(...)`: SECURITY DEFINER with an empty configured search path. This is an inspection lead, **not a confirmed vulnerability**; review the exact body, object qualification, grants, and Memory opt-in call path.
+- `public.automation_workflows`, `public.automation_runs`, `public.integration_connections`, and `public.integration_oauth_states`: RLS enabled, explicit `server_only_deny_browser` policy present, and no `anon` or `authenticated` SELECT privilege.
+- A read-only dashboard invocation returned JSON, **7** daily series points, **12** recent-activity entries, **0** workflow rows, and **0** automation-run rows. These zero counts are real empty-state evidence; no sample records were inserted.
+- A read-only catalog lookup confirmed `public.ncc_automations` exists and `public.occ_automations` does not. This is relevant to preserving literal legacy identifiers in historical documentation; no table was renamed or modified.
+
+### 10.5 Documentation-integrity regression found during this audit
+
+PR #708's documentation branch applied a blanket case-insensitive `NCC` → `OCC` substitution to historical change-log and summary text. That changed literal historical paths, schema identifiers, environment names, and a hostname as though they had been renamed in code. Examples include `src/ncc-meta.js`, `041_ncc_channels.sql`, `ncc_channels`, `NCC_ENABLED`, and `ncc.nasrinai.com`. The live catalog and Vercel alias metadata contradict at least some of those substituted identifiers.
+
+**Proposed documentation correction on this audit branch — Partially implemented pending review/merge:**
+
+- Restore `docs/pr-change-log.md` from the pre-PR #708 version at commit `52392234ce7583303d4d25880296c06d7ad529b1`, then append accurate, dated current OCC/audit entries.
+- Restore the historical `NCC AI voice front desk` wording in `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` while retaining OCC terminology for the current Owner Command Center repair.
+- Correct the mistaken `public.occ_automations` reference in `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md` back to the verified legacy table name `public.ncc_automations`.
+- Keep the current OCC repair title, PR #708 status, and current Owner Command Center status as OCC. This is a documentation-only correction; it does not rename application paths, database objects, environment variables, or domains.
+
+### 10.6 Security, privacy, and outstanding blockers
+
+- **Blocked — leaked-password protection:** the current Supabase Security Advisor returns one warning, `auth_leaked_password_protection`. An authorized owner must enable the setting in Supabase Auth password-security settings, then re-run the advisor. This audit did not change Auth settings.
+- **Not verified — OCC UI/API:** production deployment is READY and the SQL function executes, but no authenticated browser smoke test verified the owner route, API authorization, Recent Activity rendering, or all dashboard cards.
+- **Not verified — 080–082 migration parity:** exact source/live definitions and registry history remain unresolved.
+- **Not verified — integration runtime:** schema exists, but OAuth state lifecycle, credential encryption at the application layer, tenant ownership, reconnect/disconnect, and provider calls have not been exercised end-to-end here.
+- **Not verified — hybrid knowledge runtime:** schema/function/index exist, but embedding population, semantic relevance, audience filtering, and tenant-isolation negative tests were not run in this audit.
+- **Blocked — PR #702/#703:** GitHub reports both non-mergeable; #703 has no checks returned for its current head. Do not merge without current-head CI, Documentation Gate, and focused security review.
+- **Not verified — documentation drafts #704/#705:** both are stale and non-mergeable, with no checks returned for their current heads. PR #706 has passing checks but its plan is superseded. No draft state was changed by this audit.
+
+### 10.7 Exact changes made by this audit branch
+
+This branch proposes documentation-only edits to these exact paths:
+
+1. `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` — add authoritative 07:15 snapshot; mark the 04:26 state historical; retain exact current-main, deployment, migration, CI, PR, and blocker facts.
+2. `docs/pr-change-log.md` — restore historical literal identifiers from the pre-#708 version and append current OCC repair, CI, deployment, migration, audit, and documentation-correction entries.
+3. `docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md` — refresh top metadata and append this current-main follow-up while retaining earlier snapshots as historical.
+4. `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md` — correct the legacy table identifier; mark PR #708 merged; record current CI/deployment and remaining UI/migration-history limitations.
+5. `docs/owner-command-center.md` — refresh the OCC status header so it no longer claims main is at the old 3a2 commit or that migration 068 tables are absent.
+
+**Runtime behavior:** none. No application code, API route, database object, grant, RLS policy, secret, environment variable, DNS record, or deployment setting is changed by this audit branch.
+
+**Tests performed by this audit:** no application tests were run locally. Evidence is from the cited GitHub Actions runs and read-only production queries above. The new documentation PR must pass its own fresh CI/Documentation Gate before it is considered review-ready.
+
+### 10.8 Prioritized next actions
+
+1. **Blocked / owner action:** enable leaked-password protection in Supabase Auth and verify the warning clears.
+2. **Not verified:** perform an authenticated OCC browser/API smoke test on the current READY deployment; confirm the migration warning is gone and all owner checks remain enforced.
+3. **Not verified:** reconcile 080–082 source/live definitions and migration history without blind replay or fabricated registry records.
+4. **Blocked:** rebase/reconcile PR #702 and #703, inspect the final diff, then rerun CI, dependency audit, secret scan, and Documentation Gate on each new head.
+5. **Not verified:** refresh or explicitly supersede stale draft documentation PRs #704/#705; decide whether #706 should remain a historical draft.
+6. **Not verified:** test integration/OAuth ownership and lifecycle, hybrid retrieval quality/tenant isolation, and the `search_user_messages` SECURITY DEFINER body/grants.
+7. Review and merge the documentation correction only after its own gates pass. No production migration, deployment, or destructive rollback is part of this audit.
+
+### 10.9 Rollback and safety notes
+
+- The audit branch is documentation-only. If a factual error is found, revert the documentation commit(s); no runtime rollback is required.
+- Do **not** drop `automation_workflows` or `automation_runs` as a rollback. They are canonical schema objects and may acquire real data. Preserve their RLS, explicit browser-deny policies, and service-role boundary.
+- Do not rename `ncc_automations`, historical paths, environment variables, or aliases as part of a documentation correction.
+- Any future production schema change requires a separate reviewed migration and explicit authorization. None was performed in this audit.
