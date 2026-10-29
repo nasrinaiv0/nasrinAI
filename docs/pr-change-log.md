@@ -1,3 +1,15 @@
+## NasrinAI progress audit and canonical handoff refresh — 2026-10-30
+
+- Added docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md with evidence-based status for current main commit 3a2c705461ac5b9920191ef67e5b25213dff0222, recent merged PRs #688–#692 and #409, all in-scope open/draft PRs, exact changed paths, CI/Documentation Gate results, branch drift, production deployment evidence, migration/object mismatches, security advisor findings, rollback notes, and prioritized next actions.
+- Audit report commit SHA: 84c4f95a2991fb83d5da5c1ce4b4fe8055d612d8.
+- Updated docs/CLAUDE_MASTER_PLAN_SUMMARY.md: corrected the repository URL and date, added the current verified snapshot, and linked the detailed audit. Historical entries remain historical and are not silently rewritten as current facts.
+- Updated docs/owner-command-center.md status header to distinguish merged/deployed code from unverified runtime and record the migration registry mismatch.
+- Critical findings: migration 068 is absent from the production registry and its integration tables are absent; migration 079 and its hybrid retrieval objects are absent; migrations 080/081 objects exist with service_role-only function grants but are missing registry entries; PRs #651, #652, and #673 have failed Documentation Gates because their current diffs omit docs/pr-change-log.md; PR #695's local no-database startup fix is still open.
+- Security: leaked-password protection remains disabled as an owner-deferred residual risk; RLS-enabled server-only tables have no policies but anon/authenticated SELECT/INSERT grants are absent and service_role grants are present. No secret values or personal data were recorded.
+- Validation: read-only GitHub/Vercel/Supabase checks only. No application tests were run by this audit. CI and Documentation Gate for this documentation-only branch are pending until GitHub runs them.
+- Deployment/migration status: the current Vercel production deployment is READY at commit 3a2c705461ac5b9920191ef67e5b25213dff0222; no production changes, migrations, merges, or deployments were performed by this audit.
+- Rollback: documentation-only revert of this PR; do not roll back application code or database objects as part of this audit. See the detailed report for exact evidence links and per-PR paths.
+
 ## Owner Command Center API keys — 2026-10-29
 
 - Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.
