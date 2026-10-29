@@ -18,18 +18,18 @@ Read this before making changes. Treat GitHub's current `main`, open PRs, workfl
 - Keep user-facing UI premium, restrained, consistent, accessible, responsive, and especially reliable on mobile Safari.
 - After each meaningful change, update this handoff with the PR, commit, test state, limitations, and next steps so Claude can resume without guessing.
 
-## Current verified state — 2026-10-30 03:33 Asia/Manila
+## Current verified state — 2026-10-30 04:26 Asia/Manila
 
 - **Main:** 3a2c705461ac5b9920191ef67e5b25213dff0222 (merge of PR #692).
 - **Production deployment:** Vercel reports deployment dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE as READY at the same commit. READY is not end-to-end functional verification.
 - **Critical DB blocker:** migration 068 is missing from the production registry, and public.integration_connections / public.integration_oauth_states are absent even though current main queries integration_connections. See [the detailed audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md).
-- **Migration drift:** migration 079 and its hybrid-knowledge objects are absent in production. Migrations 080/081 are absent from the registry even though their owner-console functions exist and have service_role-only execution grants. Do not blindly replay migrations.
+- **Migration drift:** migration 079 is absent from the registry; existing `knowledge_docs.tenant_id`, `knowledge_chunks.tenant_id`, and `knowledge_chunks_tenant_idx` are present, but `embedding`, `embedding_model`, `knowledge_chunks_embedding_hnsw`, and `search_knowledge_hybrid` are absent. Migrations 080/081 are absent from the registry even though their owner-console functions exist and have service_role-only execution grants. Do not blindly replay migrations.
 - **Open PRs:** #693–#698 have passing CI and Documentation Gate on the observed heads but are not merged; #695 addresses the no-database dev-start regression. Draft PRs #651, #652, and #673 have a failing Documentation Gate because docs/pr-change-log.md is absent from the current PR diff.
 - **Security:** Supabase still warns that leaked-password protection is disabled (documented as owner-deferred); three RLS-enabled server-only tables have no policies and no anon/authenticated SELECT/INSERT grants, with service_role grants present.
 - **Unverified:** owner-console/API-key live flows, universal integration persistence, tenant-hybrid retrieval, coding/reasoning benchmark baseline, hourly learning invocation, and live media/provider end-to-end behavior.
 - **Scope boundary:** this handoff and scheduled audit cover only NasrinAI. MOVO/MOVI workstreams and product-specific changes are excluded.
 
-Read [NASRINAI_PROGRESS_AUDIT_2026-10-30.md](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md) before acting on historical status entries.
+Read [NASRINAI_PROGRESS_AUDIT_2026-10-30.md](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md) before acting on historical status entries. The 04:26 refresh rechecked current PR heads/gates and live schema metadata (audit report commit de171326b2be76bf42ff1119226b0542dc37c1c6); the new documentation head must pass fresh CI and Documentation Gate checks before merge.
 
 ## Historical task snapshot — plugin settings mobile layout (2026-10-18)
 ### PR #383
