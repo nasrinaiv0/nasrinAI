@@ -96,7 +96,7 @@ When implementing, preserve keyboard/mobile accessibility, source attribution, a
 - PR #363: performance optimization handoff document; prior context said open and documentation-only. Baseline audit and measured optimization were still required; no Lighthouse/performance results should be assumed.
 - PR #365: documentation-only master summary; prior context said open and mergeability needed review.
 - PR #366: production-quality upgrade documentation; prior context said open, required checks pending.
-- PR #352: Vercel-only environment configuration and NCC AI voice front desk planning; prior context did not establish it was merged or deployed.
+- PR #352: Vercel-only environment configuration and OCC AI voice front desk planning; prior context did not establish it was merged or deployed.
 These statuses are historical snapshots and may have changed.
 
 ## Immediate next steps for Claude
@@ -236,3 +236,12 @@ Changes in this follow-up:
 - Applied migration `084_harden_owner_dashboard_search_path` (registry version `20261029225731`) to set `public.owner_console_dashboard(integer)` to `search_path=pg_catalog, pg_temp`, replacing the riskier `public, pg_temp` setting.
 - Source file: `db/migrations/084_harden_owner_dashboard_search_path.sql`; detailed record: `audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`.
 - Migration runner returned success. Read-only catalog verification confirmed `search_path=pg_catalog, pg_temp`. Owner dashboard auth, endpoint behavior and UI remain **Not verified**.
+
+
+## OCC Recent Activity repair — 2026-10-30
+
+- **Production repair implemented:** migration `085_restore_owner_console_automation_schema` restores the canonical server-only `automation_workflows` and `automation_runs` tables required by the existing owner dashboard function. Production registry version: `20261029230728`.
+- **Root cause:** `owner_console_dashboard(7)` failed with PostgreSQL `42P01` because `public.automation_runs` was missing. The dashboard had existed; blindly replaying migration 080 was not the fix.
+- **Verification:** dashboard SQL now executes and returns a JSON object with 7 daily series points and 12 recent-activity entries. Both automation tables have RLS enabled, explicit deny policies, and no `anon`/`authenticated` SELECT grants. Tables are empty; no fake activity was inserted.
+- **Source and evidence:** `db/migrations/085_restore_owner_console_automation_schema.sql`; `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`.
+- **Still not verified:** hosted owner-console browser/API smoke test and deployment. Migration history for 080–082 still needs exact source/live definition reconciliation. Do not fabricate registry records or blindly replay those migrations.
