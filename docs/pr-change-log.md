@@ -1,3 +1,11 @@
+## Owner Command Center redesign to the owner's mockup — 2026-10-29
+
+- Rebuilt the owner console shell and pages to match the owner's 11-page mockup (dark default, light/system themes, accents, compact sidebar, font size, date range, status pill, notifications, owner menu). All earlier modules remain as sub-tabs.
+- Added migration 080 (`owner_console_dashboard`, `owner_console_mask_email`): service-role-only daily series and short recent lists with masked emails; DB test included.
+- Added `/owner/api/dashboard` (session-protected, window-validated, integration booleans and allowlist counts only) and read-only `/owner/api/release-guard` (GitHub Actions runs and open PRs; only github.com links kept; token never returned). The workflow-dispatch URL now uses the moved repository name.
+- Charts are dependency-free SVG built with DOM APIs (strict CSP unchanged); every button navigates, calls an existing audited API, exports a CSV, prints, or opens the provider dashboard. Missing sources show empty states, never placeholder numbers.
+- Tests: dashboard/release-guard access, masking and token non-disclosure; page structure and CSP-safe client code.
+
 ## Tenant-scoped hybrid knowledge retrieval — 2026-10-29
 
 - Added optional 384-dimensional embeddings to tenant-owned knowledge chunks, using bounded batch embedding and model-version filtering. The new `TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED` switch is off by default; full-text search remains available when disabled, embeddings are missing, or the provider is unavailable.

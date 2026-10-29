@@ -114,7 +114,7 @@ push and PR. Vercel builds a preview for every PR.
   (`docs/plans.md`).
 - `src/legal.js` — terms acceptance, export, delete (`docs/compliance/`).
 - `src/settings.js` — privacy choices (memory) in Supabase user metadata; `/v1/usage`, `/v1/billing` in `src/routes.js` (Settings pages).
-- Owner Command Center blueprint: `docs/owner-command-center.md` (proposed owner-only analytics, AI operations, infrastructure/security monitoring, automation, finance, alerts and staged delivery; not implemented yet).
+- Owner Command Center: `src/owner-console.js` + `public/owner-console.{js,css}` at owner.nasrinai.com — 11 pages per the owner mockup, real data only (migrations 057, 080), masked emails; spec and status in `docs/owner-command-center.md`.
 - `src/store/` — memory store (tests) and Supabase store.
 - `db/migrations/00N_*.sql` + `db/tests/` — run in order in the Supabase SQL
   editor; every migration gets a DB test.
