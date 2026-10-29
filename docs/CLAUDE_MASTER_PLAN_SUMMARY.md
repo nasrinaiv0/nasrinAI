@@ -233,6 +233,6 @@ Changes in this follow-up:
 
 ### Follow-up — owner dashboard SECURITY DEFINER search path (2026-10-30)
 
-- Applied migration `084_harden_owner_dashboard_search_path` (registry version `20261029225619`) to set `public.owner_console_dashboard(integer)` to `search_path=pg_catalog, pg_temp`, replacing the riskier `public, pg_temp` setting.
+- Applied migration `084_harden_owner_dashboard_search_path` (registry version `20261029225731`) to set `public.owner_console_dashboard(integer)` to `search_path=pg_catalog, pg_temp`, replacing the riskier `public, pg_temp` setting.
 - Source file: `db/migrations/084_harden_owner_dashboard_search_path.sql`; detailed record: `audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`.
-- Migration runner returned success. Confirm catalog configuration after apply. Owner dashboard auth, endpoint behavior and UI remain **Not verified**.
+- Migration runner returned success. Read-only catalog verification confirmed `search_path=pg_catalog, pg_temp`. Owner dashboard auth, endpoint behavior and UI remain **Not verified**.
