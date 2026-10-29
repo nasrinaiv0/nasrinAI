@@ -1,3 +1,8 @@
+## Fix: local development start without a database — 2026-10-29
+
+- Since #409, `AI_PROVIDER=fake npm start` (in-memory store, no Supabase) crashed at startup because the integration store requires the database. Integrations are now created only when the Supabase store is present; their routes stay off otherwise. Production (Supabase) is unchanged.
+- Test: the app builds without a database.
+
 ## MCP connections — 2026-10-29
 
 - New `src/mcp/`: NasrinAI as an MCP client of owner-listed remote servers (`MCP_SERVERS`, tokens in separate `MCP_*` env vars). Streamable HTTP JSON-RPC with JSON/SSE responses and session renewal, over the SSRF-safe connector transport.
