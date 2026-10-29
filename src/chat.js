@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { HttpError } from './http/errors.js';
+import { checkOutcome, repairNote, MAX_REPAIR_ROUNDS } from './auto-repair.js';
 import { ProviderError } from './ai/provider.js';
 import { buildSystemPrompt, fitHistory, isComparison } from './ai/prompt.js';
 import { cleanReply, cleanUserText, keepIdentity, cleanPiece } from './ai/output.js';
@@ -34,6 +35,8 @@ const GITHUB_ASK = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|\b(github|repo
 export const GOOGLE_ASK = /\b(gmail|inbox|(my|your|unread|new|latest|recent|the)\s+e-?mails?|(send|write|draft|reply\s+to|forward)\s+(an?\s+|the\s+)?e-?mails?|e-?mails?\s+(from|to|about)|calendar|google\s*(mail|calendar|drive|docs?|sheets?|meet|keep|account)|meetings?|my\s+(drive|events?|schedule|notes?)|meet\s+(link|call)|meeting\s+(link|space)|keep\s+notes?)\b/i;
 export const MAY_NEED_TOOLS = /\d|\b(time|date|today|tomorrow|yesterday|day|week|month|convert|unit|extract|extraction|crop|cropping|segment|segmentation|remove background|transparent background|background removal|resize|rotate|compress|compression|transcribe|transcription|speech to text|ocr|optical character recognition|scan|scanned|video frame|extract frames|audio|video|image|picture|logo|logos|edit image|edit photo|file format|legacy format|\.doc\b|\.xls\b|\.ppt\b|convert file|inspect file|read file|unpack|decompress|archive|celsius|fahrenheit|kelvin|kg|kilos?|lbs?|pounds?|ounces?|km|miles?|feet|foot|inch(es)?|meters?|litres?|liters?|gallons?|cups?|calculate|compute|check|verify|find|search|look up|lookup|availability|status|order|booking|book|schedule|appointment|track|shipping|delivery|price|quote|inventory|weather|forecast|remember|recall|forget|tandaan|alalahanin|oras|petsa|ngayon|bukas|kahapon|araw|semana|presyo|reserba)\b/i;
 export const MAX_TOOL_ROUNDS = 4;
+// The coding chat runs check → fix → re-check loops, so it gets more rounds.
+export const CODING_TOOL_ROUNDS = 8;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
 const FILE_WORDS = /\b(files?|docx?|pdf|xlsx?|excel|spreadsheet|csv|download|export)\b|\b(write|draft|create|make|prepare|generate)\b[^.?!\n]{0,40}\b(report|essay|letter|resume|cv|proposal|contract|ebook|document|article|story)\b/i;
 const FILE_TOKENS = 5500;
@@ -815,7 +818,34 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         // The model asked for tools: code runs them (the registry decides what
         // is allowed), the results go back, and the model answers. Bounded:
         // MAX_TOOL_ROUNDS, and the last round must answer in words.
-        for (let round = 1; run.result.toolCalls?.length && round <= MAX_TOOL_ROUNDS; round++) {
+        const toolRounds = codingChat ? CODING_TOOL_ROUNDS : MAX_TOOL_ROUNDS;
+        let lastCheck = null;
+        let repairs = 0;
+        for (let round = 1; round <= toolRounds; round++) {
+          if (!run.result.toolCalls?.length) {
+            // Automatic failure detection: the model wants to finish while the
+            // last check it ran failed in a way code can fix. Send it back once
+            // more (bounded) instead of delivering an unverified answer.
+            if (!(codingChat && lastCheck?.fixable && repairs < MAX_REPAIR_ROUNDS && round < toolRounds)) break;
+            repairs += 1;
+            const failedCheck = lastCheck;
+            lastCheck = null;
+            await recordUsage(caller, {
+              provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
+              inputTokens: run.result.inputTokens, outputTokens: run.result.outputTokens, cachedTokens: run.cachedTokens,
+              latencyMs: now() - started, outcome: 'ok', task: plan.task, level: run.level, costUsd: run.costUsd, costSource: Number.isFinite(run.costUsd) ? 'provider_reported' : null, escalated: run.escalated,
+              reservationId: run.reservationId, spendReservationId: run.spendReservationId
+            });
+            req = { ...req, attachments: [], messages: [...req.messages, { role: 'assistant', content: run.result.text || '' }, { role: 'user', content: repairNote(failedCheck, repairs) }] };
+            activeReq = req;
+            stage('fixing');
+            started = now();
+            activeStartedAt = started;
+            run = await policy.run(plan, req, { onFailure, caller,
+              reserveTokens: async ({ inputTokens, maxTokens }) => limiter.reserveTokens(caller, Math.ceil((inputTokens * 2 + maxTokens) * 2)),
+              settleTokens: (reservation, actualTokens) => limiter.settleTokens(reservation, actualTokens) });
+            continue;
+          }
           usedTools = true;
           await recordUsage(caller, {
             provider: run.result.provider || run.spec.provider, model: run.result.model || run.spec.model,
@@ -843,6 +873,8 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
                   places: Array.isArray(out.places) ? out.places.slice(0, 8).map(p => ({ name: String(p.name || 'Place').slice(0, 120), address: String(p.address || '').slice(0, 220), location: p.location && Number.isFinite(p.location.lat) && Number.isFinite(p.location.lng) ? { lat: p.location.lat, lng: p.location.lng } : null, rating: Number.isFinite(p.rating) ? p.rating : null })) : []
                 });
               }
+              const check = checkOutcome(c.name, out);
+              if (check) lastCheck = check;
               const chip = prChipOf(c.name, out);
               if (chip) { prChips.set(chip.key, chip.line); ownChips.add(chip.line); }
               content = JSON.stringify(out);
@@ -859,7 +891,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
           }
           req = { ...req, attachments: [], messages: [...req.messages, { role: 'assistant', content: run.result.text || '', toolCalls: calls }, ...results] };
           activeReq = req;
-          if (round === MAX_TOOL_ROUNDS) req = { ...req, tools: undefined };
+          if (round === toolRounds) req = { ...req, tools: undefined };
           started = now();
           activeStartedAt = started;
           const runOpts = {

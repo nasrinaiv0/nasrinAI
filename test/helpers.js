@@ -70,7 +70,7 @@ export function seededStore() {
 }
 
 // The real app wiring, with in-memory storage and a fake sign-in check.
-export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = [], logger = memoryLogger(), env = {}, provider = null, speechEngine = null, realtime = null, geminiRealtime = null, openRouterClient = null, auth = null, payments = null, webSearch = null, readLinkImpl, imageProvider = null, imageBackup = null, videos = null, connectorCall = null, facebookFetch = null, settings = null, notices = null, storageFetch = null, semanticCache = null, researchReadLink = null, citeReadLink = null, citeFetch = null, iconReadLink = null, iconReadBytes = null, nccMeta = null, elevenlabs = null, videoStudioExporter = null } = {}) {
+export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = [], logger = memoryLogger(), env = {}, provider = null, speechEngine = null, realtime = null, geminiRealtime = null, openRouterClient = null, auth = null, payments = null, webSearch = null, readLinkImpl, imageProvider = null, imageBackup = null, videos = null, connectorCall = null, facebookFetch = null, settings = null, notices = null, storageFetch = null, semanticCache = null, researchReadLink = null, citeReadLink = null, citeFetch = null, iconReadLink = null, iconReadBytes = null, nccMeta = null, elevenlabs = null, videoStudioExporter = null, extraTools = [] } = {}) {
   const config = testConfig(env);
   const deletedUsers = [];
   const users = verifyUser ?? (async (t) => (t === USER_TOKEN ? { id: 'user-1' } : null));
@@ -100,7 +100,7 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   const uploads = config.uploads.enabled ? createUploads({ config, limiter, logger, ...(storageFetch ? { fetchImpl: storageFetch } : {}) }) : null;
   const founder = config.founderKnowledgeUrl ? createFounderKnowledge({ url: config.founderKnowledgeUrl, logger, ...(readLinkImpl ? { readLinkImpl } : {}) }) : null;
   const productKnowledge = createProductKnowledge();
-  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store })], usageLog, config, logger, ...(connectorCall ? { call: connectorCall } : {}) });
+  const connectors = createConnectors({ store, baseTools: [...basicTools, ...memoryTools({ store }), ...extraTools], usageLog, config, logger, ...(connectorCall ? { call: connectorCall } : {}) });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: config.guestSecret, store, tools, conversations, logger }) : null;
   const research = config.research.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, config, logger, ...(researchReadLink ? { readLinkImpl: researchReadLink } : {}) }) : null;

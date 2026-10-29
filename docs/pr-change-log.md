@@ -1,3 +1,9 @@
+## Coding chat: automatic failure detection and repair — 2026-10-29
+
+- New `src/auto-repair.js`: classifies check-tool results; when the last check failed in a fixable way and the model tries to finish, the coding chat sends it back to fix and re-run (max 2 repair rounds per message, coding chat up to 8 tool rounds). Rate limits, missing GitHub connection or sign-in never trigger repair. Status line "A check failed — fixing it".
+- No automatic merge or deploy; pull requests still need Confirm.
+- Tests: classification, end-to-end repair (fail → send-back → fix → pass), bound on repair rounds, no repair for environment errors or outside the coding chat. `test/helpers.js` gains `extraTools` for test-only tools.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).
