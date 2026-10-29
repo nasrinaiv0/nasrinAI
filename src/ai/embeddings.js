@@ -6,7 +6,7 @@ export const EMBEDDING_DIMENSIONS = 384;
 
 export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small', fetchImpl = fetch, timeoutMs = 4000, baseUrl = 'https://api.openai.com/v1' }) {
   return {
-    modelName: \`openai/\${model}@\${EMBEDDING_DIMENSIONS}\`,
+    modelName: `openai/${model}@${EMBEDDING_DIMENSIONS}`,
     async embedMany(texts) {
       if (!Array.isArray(texts) || texts.length > 1000) throw new Error('embeddings input count is outside the supported range');
       if (!texts.length) return [];
@@ -18,7 +18,7 @@ export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small',
         signal: AbortSignal.timeout(input.length > 1 ? Math.max(timeoutMs, 15000) : timeoutMs),
         redirect: 'error'
       });
-      if (!resp.ok) throw new Error(\`embeddings answered \${resp.status}\`);
+      if (!resp.ok) throw new Error(`embeddings answered ${resp.status}`);
       const data = await resp.json();
       if (!Array.isArray(data?.data) || data.data.length !== input.length) throw new Error('embeddings returned an unexpected item count');
       const ordered = new Array(input.length);
