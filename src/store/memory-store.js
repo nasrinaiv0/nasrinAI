@@ -189,6 +189,21 @@ export function createMemoryStore({ now = () => Date.now() } = {}) {
       return r ? mapConversation(r) : null;
     },
 
+    async searchUserMessages({ tenantId, ownerId, terms, since = null, excludeId = null, limit = 12 }) {
+      const owned = new Map([...conversations.values()].filter((c) => c.tenant_id === tenantId && c.owner_type === 'user' && c.owner_id === ownerId
+        && c.id !== excludeId && (!c.expires_at || Date.parse(c.expires_at) > Date.now())).map((c) => [c.id, c]));
+      const hits = [];
+      for (const m of messages) {
+        const c = owned.get(m.conversation_id);
+        if (!c || (since && m.created_at < since)) continue;
+        const words = String(m.content).toLowerCase().match(/[a-z0-9]+/g) || [];
+        const rank = terms.reduce((n, t) => n + (words.some((w) => w.startsWith(t)) ? 1 : 0), 0);
+        if (rank) hits.push({ rank, m, c });
+      }
+      hits.sort((x, y) => y.rank - x.rank || y.m.created_at.localeCompare(x.m.created_at));
+      return hits.slice(0, limit).map(({ m, c }) => ({ conversationId: c.id, title: c.title || '', role: m.role, content: String(m.content).slice(0, 900), createdAt: m.created_at }));
+    },
+
     async listConversations({ tenantId, ownerType, ownerId, limit = 20 }) {
       return [...conversations.values()]
         .filter((c) => c.tenant_id === tenantId && c.owner_type === ownerType && c.owner_id === ownerId)

@@ -455,6 +455,9 @@ export function loadConfig(env = process.env) {
     maxTokens: Object.freeze({ 1: 700, 2: 1000, 3: 1600, 4: 2400, 5: 3200 }),
     maxEscalations: toInt('MAX_ESCALATION_DEPTH', env.MAX_ESCALATION_DEPTH, 1, 0, 3),
     maxRetries: toInt('MAX_RETRIES', env.MAX_RETRIES, 1, 0, 3),
+    // Failover keeps trying other eligible models up to this many failed calls, within a time budget.
+    maxFailovers: toInt('ROUTE_MAX_FAILOVERS', env.ROUTE_MAX_FAILOVERS, 6, 0, 12),
+    failoverBudgetMs: toInt('ROUTE_FAILOVER_BUDGET_MS', env.ROUTE_FAILOVER_BUDGET_MS, 60000, 5000, 120000),
     cacheMinutes: toInt('RESPONSE_CACHE_MINUTES', env.RESPONSE_CACHE_MINUTES, 360, 0, 10080),
     // Coding answers (including Claude's Max/Ultra coding lane) are remembered too, per person.
     cacheCoding: String(env.CACHE_CODING ?? 'true').toLowerCase() !== 'false',
@@ -693,6 +696,31 @@ export function loadConfig(env = process.env) {
     founderUrl = '';
   }
 
+  // MCP connections (docs/mcp.md): remote MCP servers the owner lists in
+  // MCP_SERVERS (JSON array). Each server's bearer token, if any, lives in its
+  // own env var named by token_env. A bad entry is skipped with a warning.
+  const mcpServers = [];
+  if (String(env.MCP_SERVERS || '').trim()) {
+    let list = null;
+    try { list = JSON.parse(env.MCP_SERVERS); } catch { list = null; }
+    if (!Array.isArray(list)) warnings.push('MCP_SERVERS: a JSON array like [{"name":"docs","url":"https://example.com/mcp"}]. MCP is off.');
+    else for (const raw of list.slice(0, 10)) {
+      const name = String(raw?.name || '');
+      const url = String(raw?.url || '');
+      const tokenEnv = raw?.token_env === undefined ? '' : String(raw.token_env);
+      const access = raw?.access === undefined ? 'owner' : String(raw.access);
+      const readOnly = Array.isArray(raw?.read_only) ? raw.read_only.filter((t) => typeof t === 'string' && /^[A-Za-z0-9_.\-/]{1,64}$/.test(t)).slice(0, 100) : [];
+      const problem = !/^[a-z][a-z0-9_]{1,20}$/.test(name) ? 'name: 2-21 lowercase letters, digits or _'
+        : !/^https:\/\/[^\s/?#@]+(\/[^\s#]*)?$/.test(url) ? 'url: an https address'
+        : tokenEnv && !/^MCP_[A-Z0-9_]{1,40}$/.test(tokenEnv) ? 'token_env: an env var name starting with MCP_'
+        : tokenEnv && String(env[tokenEnv] || '').trim().length < 8 ? tokenEnv + ' is not set'
+        : !['owner', 'users'].includes(access) ? 'access: owner or users'
+        : mcpServers.some((x) => x.name === name) ? 'name is repeated' : '';
+      if (problem) { warnings.push('MCP_SERVERS (' + (name || 'unnamed') + '): ' + problem + '. That server is off.'); continue; }
+      mcpServers.push(Object.freeze({ name, url, token: tokenEnv ? String(env[tokenEnv]).trim() : '', access, readOnly: Object.freeze(readOnly) }));
+    }
+  }
+
   // Tools in chat (Phase 5): on by default; TOOLS_ENABLED=false turns them off.
   const toolsEnabled = softFlag('TOOLS_ENABLED', env.TOOLS_ENABLED, 'true');
   // Professional AI: on by default; PROFESSIONAL_AI=false turns it off (Universal AI only).
@@ -868,7 +896,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-28').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-29').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -904,6 +932,7 @@ export function loadConfig(env = process.env) {
     weather: Object.freeze({ googleApiKey: String(env.GOOGLE_WEATHER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim() }),
     maps: Object.freeze({ serverApiKey: String(env.GOOGLE_MAPS_SERVER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim(), browserApiKey: String(env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim() }),
     tools: Object.freeze({ enabled: toolsEnabled }),
+    mcp: Object.freeze({ servers: Object.freeze(mcpServers) }),
     professional: Object.freeze({ enabled: professionalEnabled }),
     library,
     storage,

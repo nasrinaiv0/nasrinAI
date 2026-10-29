@@ -30,7 +30,7 @@ export function callApi({ url, method, headers = {}, body = null, form = null, t
         if (size > MAX_BYTES) { res.destroy(); reject(Object.assign(new Error('response too large'), { code: 'ETOOBIG' })); return; }
         chunks.push(c);
       });
-      res.on('end', () => resolve({ status: res.statusCode, type: String(res.headers['content-type'] || ''), text: Buffer.concat(chunks).toString('utf8') }));
+      res.on('end', () => resolve({ status: res.statusCode, type: String(res.headers['content-type'] || ''), text: Buffer.concat(chunks).toString('utf8'), headers: res.headers || {} }));
       res.on('error', reject);
     });
     req.on('timeout', () => req.destroy(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' })));

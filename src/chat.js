@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { HttpError } from './http/errors.js';
 import { checkOutcome, repairNote, MAX_REPAIR_ROUNDS } from './auto-repair.js';
+import { resolveSkillCommand, skillCommandPrompt } from './skill-commands.js';
 import { ProviderError } from './ai/provider.js';
 import { buildSystemPrompt, fitHistory, isComparison } from './ai/prompt.js';
 import { cleanReply, cleanUserText, keepIdentity, cleanPiece } from './ai/output.js';
@@ -144,7 +145,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, mcp = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
     const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
@@ -228,6 +229,11 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     // Professional AI: checked before anything is spent. It shapes answers on
     // NasrinAI's own chat only; businesses' assistants keep their own behaviour.
     let selection = config.professional?.enabled === false ? null : readSelection(body.professional);
+    // Skill slash commands (/sql-query-optimization, /as-ceo …): a short system
+    // note, or the chosen professional when none was picked. Never extra access.
+    const skillCommand = typed ? resolveSkillCommand(typed) : null;
+    if (skillCommand?.kind === 'profession' && !selection && config.professional?.enabled !== false) selection = readSelection({ enabled: true, mode: 'single', ids: [skillCommand.id] });
+    const commandPrompt = skillCommandPrompt(skillCommand);
     let codeFile = null;
     if (body.code_lines !== undefined && body.code_file_id === undefined) throw new HttpError(400, 'invalid_code_lines', 'Choose a code file before selecting lines.');
     if (body.code_file_id !== undefined) {
@@ -599,7 +605,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
       let webReservation = null;
       let webProviderStarted = false;
       try {
-        const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + screenPrompt + imagePrompt;
+        const webSystem = buildSystemPrompt({ now: new Date(started), blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + screenPrompt + imagePrompt + commandPrompt;
         const webMessages = config.ai.redactExternal ? history.map((m) => ({ role: m.role, content: redactForProvider(m.content) })) : history;
         const webInputEstimate = estimateTokens(webSystem) + webMessages.reduce((n, m) => n + estimateTokens(m.content || ''), 0);
         webReservation = await limiter.reserveTokens(caller, Math.ceil((webInputEstimate * 2 + 1200) * 2));
@@ -655,7 +661,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
     if (smart) {
       // The tools this caller may use, when the message may need one.
       // `tools` is a registry, or a toolbox giving each business its own (connectors).
-      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || codingChat) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
+      const reg = tools && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || codingChat || Boolean(mcp?.mentions(typed))) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
       const toolSpecs = reg ? reg.specsFor(caller) : [];
       // A first, public, simple question asked before may be answered from
       // cache (never when tools are offered: their answers change, like time).
@@ -722,7 +728,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
         outcome: f.outcome, task: plan.task, level: f.level, costUsd: f.costUsd, costSource: Number.isFinite(f.costUsd) ? 'provider_reported' : null, escalated: f.escalated,
         reservationId: f.reservationId, spendReservationId: f.spendReservationId
       }); };
-      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + screenPrompt + imagePrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
+      let req = { ...(minTokens ? { minTokens } : {}), system: buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + screenPrompt + imagePrompt + commandPrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : ''), messages: history, attachments: media, ...(toolSpecs.length ? { tools: toolSpecs } : {}), ...streamReq, ...(opts.signal ? { signal: opts.signal } : {}) };
       activeReq = req;
       activeStartedAt = started;
       let usedTools = false;
@@ -970,7 +976,7 @@ export function createChat({ conversations, limiter, uploads = null, usageLog, p
 
     const started = now();
     let result;
-    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + screenPrompt + imagePrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
+    const legacySystem = buildSystemPrompt({ now: new Date(started), knowledgeOnly: only, professional, project: projectText, blocks, voice, memory: caller.actor.type === 'user' ? caller.prefs?.memory === true : null, web: Boolean(webSearch), asks: !codingChat, compare }) + locationPrompt + screenPrompt + imagePrompt + commandPrompt + (codeFile || codingChat ? '\n\n' + CODING_RULE : '') + (codingChat ? codingRules : '');
     const legacyMaxTokens = Math.max(config.ai.maxReplyTokens, minTokens);
     const legacyInputEstimate = estimateTokens(legacySystem)
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
