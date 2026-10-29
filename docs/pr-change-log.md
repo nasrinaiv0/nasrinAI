@@ -2988,3 +2988,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added and applied `084_harden_owner_dashboard_search_path.sql` to change `public.owner_console_dashboard(integer)` from `search_path=public, pg_temp` to `search_path=pg_catalog, pg_temp`.
 - The function body schema-qualifies application relations and helper functions, so the public schema is not required in the search path.
 - Supabase migration runner returned success; confirm stored function configuration via read-only catalog query. No app test or endpoint/UI verification is claimed.
+
+
+## NCC Recent Activity production repair — 2026-10-30
+
+- Applied production migration `085_restore_owner_console_automation_schema` after confirming `owner_console_dashboard(integer)` failed because `public.automation_runs` was absent. Restored canonical `automation_workflows` and `automation_runs` schema using repository migrations 030/032/033 as source of truth.
+- Preserved server-only boundary: RLS enabled, explicit `server_only_deny_browser` policies, browser-role table grants revoked, `service_role` table access retained. Added composite tenant/owner consistency FK and fail-closed mismatch check. No workflow/run records inserted.
+- Verified production dashboard function now returns JSON; query reported 7 series days and 12 recent activity entries. Both tables currently contain zero rows, so automation history remains naturally empty until real runs occur.
+- Code/documentation branch: `fix/ncc-automation-schema-085-2026-10-30`; source migration and detailed audit included. Hosted browser smoke test and deployment remain unverified; 080–082 registry parity remains a separate task.
