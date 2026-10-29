@@ -104,3 +104,32 @@ Only after the non-production evidence and migration review are complete should 
 ## Next action
 
 Have a maintainer review the migration runner/version conventions and run the preflight on an isolated NasrinAI development database. Until the table/constraint/RLS/privilege assertions pass there, and a separate production change is approved, the universal integration persistence path remains **Blocked**.
+
+
+## Follow-up audit correction — migration registry scope (2026-10-30)
+
+A subsequent full read of the Supabase migration registry returned the following relevant facts:
+
+- The registry includes `069_openrouter_cached_tokens` at version `20261025091119`; this is **not** an integration migration and does not establish that migration 068 was applied.
+- The registry's observed entries stop at `078_secure_semantic_knowledge` (version `20261028230728`). No registry entries were returned for migrations 079, 080, 081, or 082.
+- This corrects any earlier shorthand that described the recorded 069 entry simply as a later migration. The recorded 069 is an unrelated OpenRouter migration.
+- Production catalog evidence for migration 068 remains unchanged: both integration tables are absent.
+- The registry/catalog difference does **not** justify replaying historical files. Objects may have been created by other changes; compare live definitions and dependencies first.
+
+## Current cross-migration blocker summary
+
+| Area | Verified evidence | Status | Safe next step |
+|---|---|---|---|
+| 068 integration persistence | Both target tables absent; 068 migration file exists; no registry entry. | **Blocked** | Isolated database preflight and reviewed forward repair. |
+| 079 tenant hybrid knowledge | Migration file exists; previous catalog check found tenant columns/index but missing embedding columns, HNSW index, and RPC; no 079 registry entry. | **Blocked** for semantic retrieval | Recheck exact live definitions and feature flag read-only, then isolated repair plan. |
+| 080/081 owner console/API keys | Registry entries absent. Prior catalog check found expected functions, but exact function-definition parity has not been verified. | **Partially implemented / Not verified** | Compare live function definitions, owners, grants, search_path, dependencies, and associated tables against repository files. Do not replay. |
+| 082 user-message recall | Registry entry absent; prior catalog check found function and index. Exact definition parity and runtime opt-in behavior remain unverified. | **Partially implemented / Not verified** | Compare live function definition, grants, search_path, tenant/user filters, memory opt-in enforcement, and FTS index. Do not replay. |
+| Leaked-password protection | Earlier Supabase Auth audit reports setting disabled; no setting changed in this pass. | **Blocked — owner approval required** | Obtain explicit approval, then change through Auth settings and verify without exposing account data. |
+| PR #702 | Head `c9ddf310f48c0157b8267187c0da9e69735a3d09`; base SHA `ed6f0ad6d9bc8cf3b22862e89adbd67396ee7ab8`; GitHub reports not mergeable. | **Blocked** | Rebase/cherry-pick onto current main in a new branch, resolve conflicts, rerun checks; do not merge as part of this task. |
+| PR #703 | Head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`; base SHA `531f56d6d5685730692372d64bd7780b974f5c69`; GitHub reports not mergeable. | **Blocked** | Reconcile with current main in a new branch, review sandbox/SSRF/rate-limit/privacy behavior, rerun checks; do not merge as part of this task. |
+
+## Constraints and execution boundary
+
+The standing instruction for this audit forbids production changes, merges, deployments, migrations, and destructive operations. Therefore this follow-up can correct documentation and prepare repair specifications only. It cannot truthfully claim the live database or Auth setting has been fixed. Creating a paid Supabase development branch would also require cost review and explicit approval if the quoted cost is nonzero.
+
+No production changes, migrations, merges, deployments, or application tests were performed during this follow-up. This is a documentation correction, not remediation completion.
