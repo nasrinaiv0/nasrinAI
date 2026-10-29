@@ -5,6 +5,44 @@
 - Scoped turns skip platform/founder/product retrieval, personal memory, Library, prior-chat recall, community learning, programming retrieval, web search, tools, image recall, and exact/semantic caches. The response confirms `context_scope: "movo"` for the caller to verify.
 - Regression coverage checks platform portfolio retrieval is skipped, context is not persisted, and non-service or invalid requests fail closed. No schema migration or production data change is required.
 
+## Coding chat: automatic failure detection and repair — 2026-10-29
+
+- New `src/auto-repair.js`: classifies check-tool results; when the last check failed in a fixable way and the model tries to finish, the coding chat sends it back to fix and re-run (max 2 repair rounds per message, coding chat up to 8 tool rounds). Rate limits, missing GitHub connection or sign-in never trigger repair. Status line "A check failed — fixing it".
+- No automatic merge or deploy; pull requests still need Confirm.
+- Tests: classification, end-to-end repair (fail → send-back → fix → pass), bound on repair rounds, no repair for environment errors or outside the coding chat. `test/helpers.js` gains `extraTools` for test-only tools.
+
+## Routing: fail over until an eligible model answers — 2026-10-29
+
+- Requests no longer stop after 2 failed calls: failover continues across eligible models up to `ROUTE_MAX_FAILOVERS` (default 6) within `ROUTE_FAILOVER_BUDGET_MS` (default 60 s).
+- Refusals (`config`: 400/401/403/404, retired models, rejected keys) now fail over too, with a 10-minute cooldown and no same-model retry; adapter bugs/malformed responses are treated as unavailable; Stop is never retried.
+- When every model fails, the last real provider error is returned instead of a generic one.
+- Tests: five models failing in four different ways ends with an answer from the fifth, each tried once; the failover cap; no same-model retry after a refusal; Stop; config validation. Docs: `docs/routing.md`, `.env.example`.
+
+## Skill slash commands and the "/" menu — 2026-10-29
+
+- 700 unique slash commands: one per skill in `docs/NASRINAI_SKILLS.md` and `/as-<role>` per Professional AI role, generated into `config/skill-commands.json` by `scripts/build-skill-commands.js`; never shadow the 31 core commands.
+- Composer "/" menu (`public/slash-menu.js`, CSP-safe) with search and keyboard navigation; catalog served by public `GET /v1/commands`.
+- Server applies a skill command as a short system note; `/as-<role>` selects that professional. No new access or tools.
+- Tests: catalog up to date, uniqueness/format, resolution, chat wiring (system note, professional), menu script CSP rules.
+
+## Fix: local development start without a database — 2026-10-29
+
+- Since #409, `AI_PROVIDER=fake npm start` (in-memory store, no Supabase) crashed at startup because the integration store requires the database. Integrations are now created only when the Supabase store is present; their routes stay off otherwise. Production (Supabase) is unchanged.
+- Test: the app builds without a database.
+
+## MCP connections — 2026-10-29
+
+- New `src/mcp/`: NasrinAI as an MCP client of owner-listed remote servers (`MCP_SERVERS`, tokens in separate `MCP_*` env vars). Streamable HTTP JSON-RPC with JSON/SSE responses and session renewal, over the SSRF-safe connector transport.
+- Chat tools `mcp_list_tools`, `mcp_read_tool` (read-only tools only) and `mcp_run_tool` (write; needs Confirm). Owner-only by default; `access: "users"` opens a server to signed-in users; never guests. Results capped and marked untrusted.
+- Privacy Notice 2026-10-29: connected tool servers. `.env.example`, `docs/mcp.md`, CLAUDE.md map.
+- Tests: JSON/SSE parsing, handshake/session/token headers, session renewal, access rules, read vs write enforcement, required inputs, config validation.
+
+## Long-term recall across all saved chats — 2026-10-29
+
+- With Memory on, recall now searches every saved message of that user in the database (migration 082 `search_user_messages`: ranked full-text with a GIN index, one tenant + one user, expired chats skipped, max 12 excerpts), so chats from long ago are found, not only the latest 50. Falls back to the previous scan before the migration.
+- Privacy Notice 2026-10-29 now states that Memory also looks through the person's own past chats and sends matching parts with the message; `LEGAL_PRIVACY_VERSION` default bumped.
+- Tests: DB test (scope, expiry, window, exclusion, unsafe terms); recall finds a chat older than the 50 latest, never another user's, nothing with Memory off, safe fallback. The fake model in the memory test now triggers only on the user's own request, not on recalled context.
+
 ## Owner Command Center API keys — 2026-10-29
 
 - Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.

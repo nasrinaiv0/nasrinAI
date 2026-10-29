@@ -27,6 +27,11 @@ const QUICK_FREE_OPENROUTER_CHAT_IDS = new Set(OPENROUTER_MODEL_ROUTING
 // their billing and pricing; local price snapshots must never block model routing.
 
 const RETRYABLE = new Set(['unavailable', 'timeout', 'busy']);
+// A model that refused the request or its key ('config': 400/401/403/404, a
+// retired model, a provider without credits) is skipped for longer, and the
+// request moves on to the next eligible model instead of failing.
+const FAILOVER = new Set([...RETRYABLE, 'config']);
+const CONFIG_COOLDOWN_MS = 10 * 60_000;
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
 export function createPolicy({ config, provider, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
@@ -135,6 +140,11 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       // uses free models, and never this fallback.
       const heavyQuickTask = plan.tier === 'nasrinai' && plan.paidQuick !== true;
       let lastFailed = null;   // { spec, level } of a retryable failure, for one same-model retry
+      let lastError = null;    // the last provider failure, reported when no model is left
+      const runStarted = now();
+      // Keep failing over while eligible models remain, bounded by count and time.
+      const failoverLimit = Math.max(r.maxRetries, Number.isInteger(r.maxFailovers) ? r.maxFailovers : 6);
+      const failoverBudgetMs = Number.isFinite(r.failoverBudgetMs) ? r.failoverBudgetMs : 60_000;
       let sameRetried = false;
       let ignoreCooldowns = false;   // set once when every candidate is cooling down: try them anyway rather than fail
       let emptyFailovers = 0;        // empty or cut-off answers that moved on to another model
@@ -334,6 +344,8 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           continue;
         }
         if (!spec && lastEmpty) return lastEmpty;
+        // Every eligible model was tried: report the real provider failure, not a generic one.
+        if (!spec && lastError) throw Object.assign(lastError, { level });
         if (!spec) {
           logger.warn('no model can take this request', { level, reasons: why });
           if (why.length && why.every((w) => /cannot (read|see)/.test(w))) {
@@ -414,13 +426,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // unknown. Keep the full reservation charged rather than grant free retries.
           if (reservation && !result && settleTokens) await settleTokens(reservation, err?.providerNotCalled ? 0 : reservation.reservedTokens);
           if (reservation && err && typeof err === 'object') err.reservationId = reservation.id;
-          if (!(err instanceof ProviderError) || !RETRYABLE.has(err.kind)) throw Object.assign(err, { level: at });
+          if (!(err instanceof ProviderError) || !FAILOVER.has(err.kind)) throw Object.assign(err, { level: at });
+          lastError = err;
           // The router may have failed over to another provider before it gave
           // up. Those calls count against MAX_RETRIES too (1 call + MAX_RETRIES
           // more), and none of those models is tried again as a candidate.
           const attempts = err.attempts?.length ? err.attempts : [{ provider: spec.provider, model: spec.model, effort: spec.effort }];
           if (failureCooldownMs > 0) {
-            const until = now() + Math.min(300_000, Math.max(1_000, failureCooldownMs));
+            const until = now() + (err.kind === 'config' ? CONFIG_COOLDOWN_MS : Math.min(300_000, Math.max(1_000, failureCooldownMs)));
             for (const attempt of attempts) {
               const failedKey = `${attempt.provider}:${attempt.model}:${attempt.effort ?? spec.effort}`;
               failureCooldowns.set(failedKey, until);
@@ -433,13 +446,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // tiers retain the normal retry cap.
           const quickOpenRouterAttemptLimit = r.quickNemotronOnly && plan.tier === 'nasrinai' && plan.paidQuick !== true
             ? Math.max(1, (r.levels[at] || []).filter((candidate) => candidate.provider === 'openrouter' || (r.freeModels?.[candidate.provider] || []).includes(candidate.model)).length)
-            : r.maxRetries;
-          if (calls > quickOpenRouterAttemptLimit) throw Object.assign(err, { level: at });
+            : failoverLimit;
+          if (calls > quickOpenRouterAttemptLimit || now() - runStarted > failoverBudgetMs) throw Object.assign(err, { level: at });
           // Failover: same level, next candidate (privacy and budget rules still apply).
           tried.add(`${spec.provider}:${spec.model}:${spec.effort}`);
           for (const a of attempts) tried.add(`${a.provider}:${a.model}:${a.effort}`);
           // If the router already used another provider, do not retry the same routed request again.
-          lastFailed = attempts.every((a) => a.provider === spec.provider) ? { spec, level: at } : null;
+          // A refused request ('config') will not succeed on the same model: never retry it there.
+          lastFailed = err.kind !== 'config' && attempts.every((a) => a.provider === spec.provider) ? { spec, level: at } : null;
           await onFailure({ spec, level: at, error: err, latencyMs: now() - started, outcome: err.kind === 'timeout' ? 'timeout' : 'provider_error', reservationId: reservation?.id || null, spendReservationId: err.spendReservationId || null });
           logger.warn('model failed, trying the next one', { kind: err.kind, provider: spec.provider });
           level = at;

@@ -305,6 +305,16 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       return rows && rows[0] ? mapConversation(rows[0]) : null;
     },
 
+    // Ranked full-text search over one user's saved messages (migration 082).
+    async searchUserMessages({ tenantId, ownerId, terms, since = null, excludeId = null, limit = 12 }) {
+      if (!UUID.test(String(tenantId))) return [];
+      assertOwner('user', ownerId);
+      const rows = await request('POST', 'rpc/search_user_messages', {
+        body: { p_tenant: tenantId, p_owner_id: ownerId, p_terms: terms, p_since: since, p_exclude: excludeId && UUID.test(String(excludeId)) ? excludeId : null, p_limit: limit }
+      });
+      return (Array.isArray(rows) ? rows : []).map((r) => ({ conversationId: r.conversation_id, title: r.title || '', role: r.role, content: r.content, createdAt: r.created_at }));
+    },
+
     async listConversations({ tenantId, ownerType, ownerId, limit = 20 }) {
       if (!UUID.test(String(tenantId))) return [];
       assertOwner(ownerType, ownerId);

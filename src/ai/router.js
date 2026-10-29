@@ -74,6 +74,13 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
         catch (settleErr) { logger.error('failed provider spend reservation remains held', { provider: key, model: spec.model, error: settleErr.message }); }
         if (err && typeof err === 'object') err.spendReservationId = spendReservation.id;
       }
+      // An adapter bug or malformed response (not a ProviderError) must not end the
+      // whole request: treat it as this provider being unavailable so failover runs.
+      // The person pressing Stop is never retried.
+      if (!(err instanceof ProviderError) && !req.signal?.aborted && !(err && err.providerNotCalled)) {
+        logger.warn('provider adapter error treated as unavailable', { provider: key, model: spec.model, error: String(err?.message || err).slice(0, 160) });
+        err = new ProviderError('unavailable', 'the provider returned something unusable');
+      }
       if (err && typeof err === 'object') { err.provider = p.id; err.model = spec.model; }
       throw err;
     }
