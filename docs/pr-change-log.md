@@ -3006,3 +3006,14 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Important validation boundary:** this entry itself creates a new documentation commit/head. Recheck CI and Documentation Gate on the new PR #705 head before considering merge; the success above applies only to the exact validated head listed here.
 - **Rollback:** revert this documentation-only log entry if the recorded run IDs/results are found to be incorrect; no runtime rollback is required.
 
+
+
+## Production schema reconciliation and OCC automation recovery — 2026-10-30 07:11 Asia/Manila
+
+- PR #707 merged as `52392234ce7583303d4d25880296c06d7ad529b1`; production Vercel deployment `dpl_9Ta9xUconH4kxQMipobLbDaUNMJF` reports READY.
+- PR #707 exact-head CI [40969812290](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40969812290) and Documentation Gate [40970398301](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40970398301) passed.
+- PR #708 migration 085 remains open at `6bf461687c440210d3d3d5f598ff23e7917e00f3`; CI [40971199851](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199851) and Documentation Gate [40971199886](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199886) passed. Migration 085 was already applied directly to production; read-only SQL confirmed automation tables, server-only grants/policies, 7 dashboard series days, 12 recent-activity entries, and zero workflow/run rows. OCC browser/API smoke test remains unverified.
+- Migration registry includes 068, 079, 083, 084, 085; 080–082 remain absent. Supabase Security Advisor still warns that leaked-password protection is disabled. A read-only catalog check identified 16 SECURITY DEFINER functions with `search_path=public, pg_temp`; inspect definitions before deciding on additional hardening. Browser roles currently lack CREATE on public, so this is an audit lead rather than a confirmed exploit.
+- Detailed delta: `docs/engineering/updates/2026-10-30-0711-production-schema-and-occ.md` (commit 8c703534a15dd6886ee7831dea25fdc5f4d74546).
+- Master ledger update commit: fca8afbf64480c0dc8b924e60ea94da942484950.
+- Audit-only; no database writes, code changes, deployment, Auth changes, PR-state changes, or user-data changes.
