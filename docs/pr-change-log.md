@@ -1,3 +1,10 @@
+## Skill slash commands and the "/" menu — 2026-10-29
+
+- 700 unique slash commands: one per skill in `docs/NASRINAI_SKILLS.md` and `/as-<role>` per Professional AI role, generated into `config/skill-commands.json` by `scripts/build-skill-commands.js`; never shadow the 31 core commands.
+- Composer "/" menu (`public/slash-menu.js`, CSP-safe) with search and keyboard navigation; catalog served by public `GET /v1/commands`.
+- Server applies a skill command as a short system note; `/as-<role>` selects that professional. No new access or tools.
+- Tests: catalog up to date, uniqueness/format, resolution, chat wiring (system note, professional), menu script CSP rules.
+
 ## Fix: local development start without a database — 2026-10-29
 
 - Since #409, `AI_PROVIDER=fake npm start` (in-memory store, no Supabase) crashed at startup because the integration store requires the database. Integrations are now created only when the Supabase store is present; their routes stay off otherwise. Production (Supabase) is unchanged.
