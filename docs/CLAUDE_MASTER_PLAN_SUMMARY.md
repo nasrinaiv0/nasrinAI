@@ -1,5 +1,20 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
+
+## Current verified status — integration persistence blocker (2026-10-30 06:39 Asia/Manila)
+
+- **Audit scope:** NasrinAI repository and its NasrinAI Supabase project only. Do not inspect unrelated product repositories/workstreams or treat their changes as part of this audit.
+- **Main baseline:** `33f9283f35a0627c700efb43b3335bcfd8d52840` (observed repository main head during this check).
+- **Production schema evidence (read-only):** at 2026-10-30 06:39:56 +08:00, `to_regclass('public.integration_connections')` and `to_regclass('public.integration_oauth_states')` both returned NULL. `supabase_migrations.schema_migrations` exists. The migration list has no record for 068, while later 069 is recorded.
+- **Repository evidence:** `db/migrations/068_user_owned_integrations.sql` exists (blob `d405e25c611d539e901a2d1f133366aa6bee38e3`); `src/integrations/store.js` references `integration_connections` (blob `d09e449c5892ea56d36d01a8f053d4957824c21b`); `src/integrations/ownership.js` scopes verified identity and allowlists public response fields (blob `988449baf2c06bbb9adcb705a9d31234ed48be07`); `db/tests/068_user_owned_integrations.test.sql` exists (blob `94c88951fb5967006ca120355b2bdc58f2bccf53`).
+- **Status:** integration persistence is **Blocked** in production by missing schema. Migration 068 is **Implemented in repository** but **Not applied/recorded in the observed production registry**. End-to-end integration behavior is **Not verified**.
+- **Immediate safe action:** see [Integration Migration 068 Repair Plan](audits/INTEGRATION_MIGRATION_068_REPAIR_PLAN_2026-10-30.md). It provides a non-production preflight and verification plan. Do not manually insert registry history, expose tables to browser roles, or blindly replay migrations.
+- **Validation boundary:** read-only catalog/registry checks and repository file inspection only. No application tests were run manually; no schema, migration, data, grant, policy, Auth setting, deployment, or merge was changed.
+- **Rollback:** this is documentation-only work. Revert the documentation branch if its evidence is superseded; no runtime rollback is required.
+
+---
+
+
 > Original status audit 2026-10-18; this is a running record. The latest reconciled snapshot is 2026-10-30. Historical entries may be stale; always follow the current audit report, GitHub PR state, CI, deployment, and database evidence. See [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
 Last updated: 2026-10-30
