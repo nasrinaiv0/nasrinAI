@@ -16,6 +16,7 @@ import { publicCatalog } from './ai/professions.js';
 import { createNotices, WHENS } from './notices.js';
 import { COMMUNITY_LEARNING_CONSENT_VERSION } from './knowledge/community-learning.js';
 import { PROGRAMMING_DOC_SOURCES } from './knowledge/programming-sources.js';
+import { skillCatalog } from './skill-commands.js';
 
 const IMPROVEMENT_CONSENT_VERSION = COMMUNITY_LEARNING_CONSENT_VERSION;
 
@@ -1343,6 +1344,13 @@ return { body: { sites: await connect.list(caller) } }; }
         if (!library) throw new HttpError(404, 'not_found', 'Not found.');
         return { body: await library.remove(caller, params.id) };
       }
+    },
+    {
+      // Skill slash commands for the composer's "/" menu (config/skill-commands.json).
+      method: 'GET',
+      path: '/v1/commands',
+      public: true,
+      handler: async () => ({ body: skillCatalog() })
     },
     {
       // In-app notices for everyone (config/notices.json). Guests hide the
