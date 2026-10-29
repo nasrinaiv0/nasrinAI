@@ -430,6 +430,38 @@ body:not(.has-chat) #newChat { display: none; }
 .rich .code-copy { border: 0; background: transparent; color: var(--ink-2); font-size: 0.75rem; font-weight: 500; padding: 0.25rem 0.5rem; border-radius: 999px; }
 .rich .code-copy:hover { background: var(--surface); color: var(--ink); }
 .rich pre { margin: 0; padding: 0.75rem 0.85rem; overflow-x: auto; }
+.rich .code-block.is-long:not(.is-open) pre { max-height: 22rem; overflow-y: hidden; -webkit-mask-image: linear-gradient(#000 75%, transparent); mask-image: linear-gradient(#000 75%, transparent); }
+.rich .code-expand { display: block; width: 100%; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--ink-2); font-size: 0.78rem; font-weight: 500; padding: 0.5rem; }
+.rich .code-expand:hover { background: var(--surface); color: var(--ink); }
+/* Code colors stay soft so they read on light and dark backgrounds. */
+.rich { --tok-k: #8250df; --tok-s: #0a7f4f; --tok-n: #b35900; --tok-f: #0b62c4; --tok-t: #a3366b; --tok-add: #1a7f37; --tok-del: #cf222e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rich { --tok-k: #c8a2ff; --tok-s: #7ee2a8; --tok-n: #ffb86b; --tok-f: #79b8ff; --tok-t: #f497c3; --tok-add: #7ee2a8; --tok-del: #ff9492; } }
+:root[data-theme="dark"] .rich { --tok-k: #c8a2ff; --tok-s: #7ee2a8; --tok-n: #ffb86b; --tok-f: #79b8ff; --tok-t: #f497c3; --tok-add: #7ee2a8; --tok-del: #ff9492; }
+.rich .tok-k { color: var(--tok-k); }
+.rich .tok-s { color: var(--tok-s); }
+.rich .tok-c { color: var(--ink-3); font-style: italic; }
+.rich .tok-n { color: var(--tok-n); }
+.rich .tok-f, .rich .tok-p { color: var(--tok-f); }
+.rich .tok-t { color: var(--tok-t); }
+.rich .tok-line { display: inline-block; min-width: 100%; }
+.rich .tok-add { background: color-mix(in srgb, var(--tok-add) 14%, transparent); color: var(--tok-add); }
+.rich .tok-del { background: color-mix(in srgb, var(--tok-del) 14%, transparent); color: var(--tok-del); }
+.rich .tok-meta { color: var(--ink-3); }
+.rich .sub-list { margin: 0.3rem 0 0.2rem 1.1rem; }
+.rich .math-block { margin: 0.6rem 0; overflow-x: auto; text-align: center; }
+.rich math { font-size: 1.05em; }
+.rich .math-fallback { font-size: .9em; }
+.rich blockquote p + p { margin-top: .5rem; }
+.rich .callout { border: 1px solid var(--line); border-left-width: 3px; border-radius: .7rem; padding: .6rem .85rem; background: var(--surface); }
+.rich .callout > p { margin: 0; }
+.rich .callout > p + p { margin-top: .4rem; }
+.rich .callout-title { display: flex; align-items: center; gap: .45rem; font-weight: 600; }
+.rich .callout-title .st-ico { width: 1.05rem; height: 1.05rem; }
+.rich .callout-note { border-left-color: var(--tok-f); }
+.rich .callout-tip { border-left-color: var(--tok-add); }
+.rich .callout-important { border-left-color: var(--tok-k); }
+.rich .callout-warning { border-left-color: var(--tok-n); }
+.rich .callout-caution { border-left-color: var(--tok-del); }
 .rich pre code { padding: 0; border: 0; background: none; font-size: 0.84rem; white-space: pre; }
 
 /* The + menu and "Create image" mode */

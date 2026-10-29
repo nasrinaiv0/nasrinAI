@@ -109,6 +109,18 @@ The system prompt (`src/ai/prompt.js`) asks for:
 
 Tests: `test/reply-format.test.js` runs `format.js` against a small fake DOM that fails on any `innerHTML` use.
 
+**Richer replies (2026-10-29):** all still DOM-only and CSP-safe.
+
+- **Code highlighting:** a small tokenizer per language family (JS/TS, Python, shell, SQL, Go, Rust, C-like, CSS, JSON, YAML, HTML/XML) wraps keywords, strings, numbers, comments, function and type names in `tok-*` spans. Unknown languages and code over 30,000 characters stay plain. Unclosed strings or comments run to the end, so the patterns stay linear. Copy still copies the exact code.
+- **Diffs:** ```` ```diff ```` blocks color added, removed and `@@` lines.
+- **Long code:** more than 28 lines starts folded behind **Show all N lines** (handled in `app.js`).
+- **Math:** `$$…$$` or `\[…\]` on their own lines (display) and `$…$` or `\(…\)` inline become MathML, built by a bounded LaTeX subset (fractions, roots, powers, subscripts, Greek letters, common operators, `\text`). `$…$` counts as math only when it looks like math (contains `\`, `^`, `_` or `=`, or is one letter), so prices such as `$5 and $10` stay text. Anything outside the subset (for example `\begin{matrix}`) shows its source in a code span.
+- **Callouts:** `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]` and `[!CAUTION]` render as a titled box. Consecutive `>` lines form one quote.
+- **Nested lists:** an item indented two or more spaces nests under the item above (one level).
+- **Headings:** `#####` and `######` render like `####`.
+
+Tests: `test/reply-rendering-rich.test.js`.
+
 
 
 

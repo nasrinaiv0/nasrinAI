@@ -1,3 +1,10 @@
+## Richer reply rendering — 2026-10-29
+
+- `public/format.js`: syntax highlighting for code blocks (DOM spans, 13 language families), colored ```` ```diff ```` blocks, long code folded behind **Show all N lines**, LaTeX math to MathML (bounded subset, falls back to source text), `> [!NOTE]`-style callouts, multi-line quotes, nested lists, `#####`/`######` headings; `plain()` strips the new syntax.
+- `public/app.js`: Show all / Show less for folded code. `public/app.css`: token colors for light and dark, callouts, math.
+- `src/ai/prompt.js`: tells the model which extra formats render.
+- Docs: `docs/chat.md`. Tests: `test/reply-rendering-rich.test.js`.
+
 ## Routing: fail over until an eligible model answers — 2026-10-29
 
 - Requests no longer stop after 2 failed calls: failover continues across eligible models up to `ROUTE_MAX_FAILOVERS` (default 6) within `ROUTE_FAILOVER_BUDGET_MS` (default 60 s).
