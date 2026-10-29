@@ -1,3 +1,10 @@
+## Routing: fail over until an eligible model answers — 2026-10-29
+
+- Requests no longer stop after 2 failed calls: failover continues across eligible models up to `ROUTE_MAX_FAILOVERS` (default 6) within `ROUTE_FAILOVER_BUDGET_MS` (default 60 s).
+- Refusals (`config`: 400/401/403/404, retired models, rejected keys) now fail over too, with a 10-minute cooldown and no same-model retry; adapter bugs/malformed responses are treated as unavailable; Stop is never retried.
+- When every model fails, the last real provider error is returned instead of a generic one.
+- Tests: five models failing in four different ways ends with an answer from the fifth, each tried once; the failover cap; no same-model retry after a refusal; Stop; config validation. Docs: `docs/routing.md`, `.env.example`.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).

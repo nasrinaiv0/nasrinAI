@@ -455,6 +455,9 @@ export function loadConfig(env = process.env) {
     maxTokens: Object.freeze({ 1: 700, 2: 1000, 3: 1600, 4: 2400, 5: 3200 }),
     maxEscalations: toInt('MAX_ESCALATION_DEPTH', env.MAX_ESCALATION_DEPTH, 1, 0, 3),
     maxRetries: toInt('MAX_RETRIES', env.MAX_RETRIES, 1, 0, 3),
+    // Failover keeps trying other eligible models up to this many failed calls, within a time budget.
+    maxFailovers: toInt('ROUTE_MAX_FAILOVERS', env.ROUTE_MAX_FAILOVERS, 6, 0, 12),
+    failoverBudgetMs: toInt('ROUTE_FAILOVER_BUDGET_MS', env.ROUTE_FAILOVER_BUDGET_MS, 60000, 5000, 120000),
     cacheMinutes: toInt('RESPONSE_CACHE_MINUTES', env.RESPONSE_CACHE_MINUTES, 360, 0, 10080),
     // Coding answers (including Claude's Max/Ultra coding lane) are remembered too, per person.
     cacheCoding: String(env.CACHE_CODING ?? 'true').toLowerCase() !== 'false',

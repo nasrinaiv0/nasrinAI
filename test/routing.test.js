@@ -813,3 +813,49 @@ test('free Quick gives heavy, scraping and file answers a bigger reply and histo
   assert.equal(a.openrouter.calls[0].maxTokens, heavy.maxTokens, 'the model is allowed to write that much');
   assert.ok(run.spec);
 });
+
+test('failover keeps going while eligible models remain: outages, refusals (config) and adapter bugs all move on', async () => {
+  const models = ['deepseek/deepseek-v4.1-flash', 'z-ai/glm-5.3-flash', 'xiaomi/mimo-v2.6-flash', 'qwen/qwen3.8-flash', 'qwen/qwen3.8-27b'];
+  const failures = {
+    'deepseek/deepseek-v4.1-flash': () => new ProviderError('unavailable', 'down', 503),
+    'z-ai/glm-5.3-flash': () => new ProviderError('config', 'model retired', 404),
+    'xiaomi/mimo-v2.6-flash': () => new TypeError('Cannot read properties of undefined'),
+    'qwen/qwen3.8-flash': () => new ProviderError('busy', 'no credits on this route', 402)
+  };
+  const tried = [];
+  const s = setup({ env: { GEMINI_API_KEY: '', OPENROUTER_API_KEY: 'or-test-key', AI_FALLBACK: 'none', ROUTE_LEVEL_1: models.map((m) => 'openrouter:' + m).join(',') }, openrouterFail: (r) => { tried.push(r.model); return failures[r.model]?.() || null; } });
+  const plan = { task: 'chat', level: 1, floor: 1, ceiling: 1, sensitive: false };
+  const run = await s.policy.run(plan, req('hello'));
+  assert.equal(run.result.text, 'You said: hello', 'answered although four models failed in four different ways');
+  assert.deepEqual(tried, models, 'tried in order, each once');
+  assert.equal(run.spec.model, 'qwen/qwen3.8-27b');
+  assert.equal(new Set(tried).size, tried.length, 'no failed model is tried twice');
+});
+
+test('failover is bounded by ROUTE_MAX_FAILOVERS and never retries a refused (config) model', async () => {
+  const models = ['deepseek/deepseek-v4.1-flash', 'z-ai/glm-5.3-flash', 'xiaomi/mimo-v2.6-flash', 'qwen/qwen3.8-flash', 'openai/gpt-6-luna'];
+  let calls = 0;
+  const refuse = () => { calls++; return new ProviderError('config', 'refused', 400); };
+  const s = setup({ env: { GEMINI_API_KEY: '', OPENROUTER_API_KEY: 'or-test-key', ROUTE_MAX_FAILOVERS: '2', ROUTE_LEVEL_1: models.map((m) => 'openrouter:' + m).join(',') }, openrouterFail: refuse, openaiFail: refuse, groqFail: refuse });
+  await assert.rejects(s.policy.run({ task: 'chat', level: 1, floor: 1, ceiling: 1, sensitive: false }, req('hello')), { kind: 'config' });
+  assert.equal(calls, 3, '1 call + 2 failovers');
+
+  let single = 0;
+  const only = setup({ env: { GEMINI_API_KEY: '', ROUTE_LEVEL_1: 'openai:gpt-5.4-nano' }, openaiFail: () => { single++; return new ProviderError('config', 'refused', 400); } });
+  await assert.rejects(only.policy.run({ task: 'chat', level: 1, floor: 1, ceiling: 1, sensitive: false }, req('hello')), { kind: 'config' });
+  assert.equal(single, 1, 'a refused request is not repeated on the same model');
+});
+
+test('the person pressing Stop is never failed over', async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  const s = setup({ env: { GEMINI_API_KEY: '' }, openaiFail: () => { calls++; controller.abort(); return new ProviderError('stopped', 'stopped'); } });
+  await assert.rejects(s.policy.run({ task: 'chat', level: 1, floor: 1, ceiling: 3, sensitive: false }, { ...req('hello'), signal: controller.signal }), { kind: 'stopped' });
+  assert.equal(calls, 1);
+});
+
+test('routing failover settings are validated', () => {
+  assert.equal(loadConfig({ ...ENV }).ai.routing.maxFailovers, 6);
+  assert.equal(loadConfig({ ...ENV }).ai.routing.failoverBudgetMs, 60000);
+  assert.throws(() => loadConfig({ ...ENV, ROUTE_MAX_FAILOVERS: '50' }), /ROUTE_MAX_FAILOVERS/);
+});
