@@ -1,3 +1,10 @@
+## MCP connections — 2026-10-29
+
+- New `src/mcp/`: NasrinAI as an MCP client of owner-listed remote servers (`MCP_SERVERS`, tokens in separate `MCP_*` env vars). Streamable HTTP JSON-RPC with JSON/SSE responses and session renewal, over the SSRF-safe connector transport.
+- Chat tools `mcp_list_tools`, `mcp_read_tool` (read-only tools only) and `mcp_run_tool` (write; needs Confirm). Owner-only by default; `access: "users"` opens a server to signed-in users; never guests. Results capped and marked untrusted.
+- Privacy Notice 2026-10-29: connected tool servers. `.env.example`, `docs/mcp.md`, CLAUDE.md map.
+- Tests: JSON/SSE parsing, handshake/session/token headers, session renewal, access rules, read vs write enforcement, required inputs, config validation.
+
 ## Long-term recall across all saved chats — 2026-10-29
 
 - With Memory on, recall now searches every saved message of that user in the database (migration 082 `search_user_messages`: ranked full-text with a GIN index, one tenant + one user, expired chats skipped, max 12 excerpts), so chats from long ago are found, not only the latest 50. Falls back to the previous scan before the migration.
