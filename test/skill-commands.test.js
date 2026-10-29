@@ -45,7 +45,7 @@ test('chat applies a skill command as a system note and /as-<role> as the chosen
     assert.equal((await postJson(srv.url + '/v1/chat', { message: '/as-ceo should we open a second branch?' }, bearer(USER_TOKEN))).status, 200);
     assert.match(seen.at(-1), /\bCEO\b/);
     const list = await (await fetch(srv.url + '/v1/commands')).json();
-    assert.equal(list.commands.length, skillCommandCount(), 'the catalog is public for the composer menu');
+    assert.equal(list.commands.filter((c) => c.kind !== 'image-edit').length, skillCommandCount(), 'the catalog is public for the composer menu');
   } finally { await srv.close(); }
 });
 
