@@ -272,3 +272,25 @@ test('a bare continue request retrieves a concise digest of recent chats', async
     assert.match(continuation.text, /persistent memory and conversation continuity/);
   }
 });
+
+test('long-term recall finds a matching chat older than the 50 most recent, only for this user with Memory on', async () => {
+  const memory = createMemoryStore();
+  const convs = createConversations({ store: memory, config: testConfig(), logger: memoryLogger() });
+  const T = '00000000-0000-0000-0000-000000000001';
+  const me = { tenantId: T, actor: { type: 'user', id: 'recall-me' }, prefs: { memory: true } };
+  const other = { tenantId: T, actor: { type: 'user', id: 'recall-other' }, prefs: { memory: true } };
+  const old = await convs.create(me);
+  await memory.setConversationTitle(old.id, 'Bakery invoices');
+  await convs.add(old, 'user', 'Design my bakery invoice template with Supabase webhooks');
+  for (let i = 0; i < 55; i++) { const c = await convs.create(me); await convs.add(c, 'user', 'Unrelated topic number ' + i); }
+  const theirs = await convs.create(other);
+  await convs.add(theirs, 'user', 'Secret bakery invoice details of another person');
+
+  const found = await convs.context(me, 'Help me improve the invoices for my bakery');
+  assert.match(found.text, /Bakery invoices[\s\S]*bakery invoice template/);
+  assert.doesNotMatch(found.text, /another person/, 'other users are never searched');
+  assert.equal(await convs.context({ ...me, prefs: { memory: false } }, 'Help me improve the invoices for my bakery'), null, 'Memory off: no recall');
+
+  const fallback = createConversations({ store: { ...memory, searchUserMessages: async () => { throw new Error('function missing'); } }, config: testConfig(), logger: memoryLogger() });
+  assert.ok((await fallback.context(me, 'what did we discuss about bakery invoices')) !== undefined, 'missing migration falls back without throwing');
+});
