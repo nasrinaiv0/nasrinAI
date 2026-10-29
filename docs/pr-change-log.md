@@ -2,6 +2,7 @@
 
 - Added docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md with evidence-based status for current main commit 3a2c705461ac5b9920191ef67e5b25213dff0222, recent merged PRs #688–#692 and #409, all in-scope open/draft PRs, exact changed paths, CI/Documentation Gate results, branch drift, production deployment evidence, migration/object mismatches, security advisor findings, rollback notes, and prioritized next actions.
 - Audit report commit SHA: 84c4f95a2991fb83d5da5c1ce4b4fe8055d612d8.
+- Summary commit SHA: b706e97b56affa47e3b8a9bdda65a7bfb4228ccf. The immediately preceding changelog-record commit was f19ad60950325300acc8570082f59fef5a697c88.
 - Updated docs/CLAUDE_MASTER_PLAN_SUMMARY.md: corrected the repository URL and date, added the current verified snapshot, and linked the detailed audit. Historical entries remain historical and are not silently rewritten as current facts.
 - Updated docs/owner-command-center.md status header to distinguish merged/deployed code from unverified runtime and record the migration registry mismatch.
 - Critical findings: migration 068 is absent from the production registry and its integration tables are absent; migration 079 and its hybrid retrieval objects are absent; migrations 080/081 objects exist with service_role-only function grants but are missing registry entries; PRs #651, #652, and #673 have failed Documentation Gates because their current diffs omit docs/pr-change-log.md; PR #695's local no-database startup fix is still open.
