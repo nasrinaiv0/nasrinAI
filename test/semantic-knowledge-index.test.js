@@ -4,7 +4,7 @@ import { createWebCrawler } from '../src/web/crawler.js';
 import { KNOWLEDGE_BENCHMARK, compareBenchmarkRuns, scoreBenchmarkAnswer } from '../src/knowledge/quality-benchmark.js';
 
 const oldFlag = process.env.SEMANTIC_KNOWLEDGE_ENABLED;
-const embedder = { modelName: 'openai/text-embedding-3-small@384', embed: async () => Array(384).fill(0.01) };
+const embedder = { modelName: 'openai/text-embedding-3-small@384', embed: async () => Array(384).fill(0.01), embedMany: async (texts) => texts.map(() => Array(384).fill(0.01)) };
 
 test('semantic index is opt-in and disabled safely by default', async () => {
   delete process.env.SEMANTIC_KNOWLEDGE_ENABLED;
@@ -41,8 +41,49 @@ test('semantic indexing only writes curated HTTPS hosts and skips unchanged matc
   assert.equal(result.enabled, true);
   assert.equal(result.indexed_pages, 1);
   assert.ok(result.indexed_chunks > 0 && result.indexed_chunks <= 3);
-  assert.ok(writes.every((row) => row.source_host === 'www.typescriptlang.org' && row.source_url.startsWith('https://')));
-  assert.ok(writes.every((row) => row.embedding.startsWith('[') && row.embedding.endsWith(']')));
+  assert.equal(writes.length, 1, 'one bulk write per page');
+  const rows = writes.flat();
+  assert.ok(rows.every((row) => row.source_host === 'www.typescriptlang.org' && row.source_url.startsWith('https://')));
+  assert.ok(rows.every((row) => row.embedding.startsWith('[') && row.embedding.endsWith(']')));
+  if (oldFlag === undefined) delete process.env.SEMANTIC_KNOWLEDGE_ENABLED; else process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
+});
+
+test('semantic indexing stops after a provider 429 and never replaces a page with partial chunks', async () => {
+  process.env.SEMANTIC_KNOWLEDGE_ENABLED = 'true';
+  let batchCalls = 0;
+  const writes = [];
+  const deletes = [];
+  const pages = [
+    { url: 'https://www.typescriptlang.org/docs/', title: 'TypeScript', text_content: 'Documentation text. '.repeat(180), content_hash: 'c'.repeat(64), fetched_at: new Date().toISOString() },
+    { url: 'https://www.typescriptlang.org/handbook/', title: 'TypeScript Handbook', text_content: 'Handbook text. '.repeat(180), content_hash: 'd'.repeat(64), fetched_at: new Date().toISOString() }
+  ];
+  const store = { request: async (method, path, options = {}) => {
+    if (method === 'GET' && path.startsWith('web_crawl_pages')) return pages;
+    if (method === 'GET' && path.startsWith('public_technical_chunks')) return [{ content_hash: 'old-hash', embedding_model: 'old-model' }];
+    if (method === 'POST' && path.startsWith('public_technical_chunks')) writes.push(options.body);
+    if (method === 'DELETE' && path.startsWith('public_technical_chunks')) deletes.push(path);
+    return [];
+  } };
+  const limitedEmbedder = {
+    modelName: embedder.modelName,
+    embed: embedder.embed,
+    async embedMany() {
+      batchCalls++;
+      const error = new Error('embeddings answered 429');
+      error.status = 429;
+      error.code = 'embedding_rate_limited';
+      throw error;
+    }
+  };
+  const crawler = createWebCrawler({ store, embedder: limitedEmbedder });
+  const result = await crawler.indexSemanticPages({ limit: 5 });
+  assert.equal(batchCalls, 1, 'do not keep hammering a throttled provider');
+  assert.equal(result.embedding_failures, 3);
+  assert.equal(result.error_code, 'embedding_rate_limited');
+  assert.equal(result.indexed_pages, 0);
+  assert.equal(result.indexed_chunks, 0);
+  assert.equal(writes.length, 0, 'failed embeddings must not write partial replacement chunks');
+  assert.equal(deletes.length, 0, 'failed embeddings must not delete previously indexed chunks');
   if (oldFlag === undefined) delete process.env.SEMANTIC_KNOWLEDGE_ENABLED; else process.env.SEMANTIC_KNOWLEDGE_ENABLED = oldFlag;
 });
 
