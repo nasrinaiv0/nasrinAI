@@ -29,7 +29,7 @@ export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small',
             const type = String(providerError?.type || '').toLowerCase();
             const message = String(providerError?.message || '').toLowerCase();
             quotaExhausted = code === 'insufficient_quota' || type === 'insufficient_quota'
-              || /\\b(?:quota|billing|credit balance)\\b/.test(message);
+              || /\b(?:quota|billing|credit balance)\b/.test(message);
           } catch {}
         }
         const error = new Error('embeddings answered ' + resp.status);
