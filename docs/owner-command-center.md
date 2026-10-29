@@ -1,7 +1,7 @@
 # Owner Command Center — Implementation Specification
 
-Status: implementation in progress on `feature/owner-console-v2-current-main`; not production-enabled.
-Owner Console URL: https://owner.nasrinai.com (Vercel domain verified; production readiness and protected-flow validation remain pending).
+Status (reconciled 2026-10-30): PRs #691 and #692 are merged, and the current Vercel production deployment is READY at main commit 3a2c705461ac5b9920191ef67e5b25213dff0222. End-to-end protected owner flows remain NOT VERIFIED. Migration 080/081 functions exist in production but are absent from the migration registry; migration 068 integration tables are absent while main code references them. See [the current NasrinAI progress audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md).
+Owner Console URL: https://owner.nasrinai.com (domain is listed on the production project; live owner-authenticated flow validation remains pending).
 Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.

@@ -7,6 +7,25 @@
 - `src/config.js`: `RUN_CODE_ENABLED` (default on). Privacy Notice 2026-10-29.2 describes the tools (Google Custom Search, Vercel Sandbox).
 - Docs: `docs/tools.md`, `.env.example`. Tests: `test/agent-tools.test.js`.
 
+## Scheduled NasrinAI audit refresh — 2026-10-30 04:26 Asia/Manila
+
+- Scope: NasrinAI repository only. No other-product repository or workstream was inspected; unrelated product-specific PR descriptions were not used as implementation evidence.
+- Main remained at `3a2c705461ac5b9920191ef67e5b25213dff0222`; Vercel deployment `dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE` remained READY at that source SHA. No production smoke test, migration, deployment, merge, or runtime change was performed.
+- Updated paths in the draft audit PR: `docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, `docs/pr-change-log.md`. Purpose: refresh exact PR gate evidence and schema/catalog status, correct the migration 079 wording, and document blockers, privacy/security implications, tests, deployment state, and rollback notes. Runtime behavior: none.
+- Audit report commit created by this refresh: **de171326b2be76bf42ff1119226b0542dc37c1c6**. Canonical summary commit created by this refresh: **c486ddc78a3680ebf47bac3f52ae0ab88b75403c**. These commits are on the draft branch for PR #700; neither is merged.
+- Open PRs #693–#698 still have passing CI and Documentation Gate runs on the observed heads, but remain unmerged. Draft PRs #651, #652, and #673 still have passing CI and failing Documentation Gate runs; each current diff omits `docs/pr-change-log.md`. PR #695 remains open, so its local no-database startup fix is not in main.
+- Migration 068 remains blocked: integration tables absent. Migration 079 is absent from the registry; tenant ID scoping exists, but embedding/embedding_model columns, HNSW index, and hybrid-search RPC are absent. Migrations 080/081 functions exist while registry entries are missing; exact live-definition parity remains unverified. Migration 082 remains on open PR #693 only.
+- Security: leaked-password protection remains disabled. The three RLS-enabled tables with no policies have no `anon`/`authenticated` table grants in the current catalog query; the 41 unused-index findings are informational and were not acted on.
+- Validation: no application tests were run in this audit. The previous PR #700 head `e60fa42ed7af4ba3ec94dd3558c739ffa2a95c71` had CI #7865 and Documentation Gate #1879 passing; fresh checks are required for the updated head.
+- Rollback: revert only the documentation-only commit(s) on PR #700 if this audit update is inaccurate. No runtime rollback is required.
+
+## MOVO-scoped financial context — 2026-10-30
+
+- Adds server-only `context_scope: "movo"` for secret service-key chat requests, with strict validation of the stateless request and bounded financial JSON shape.
+- The current question stays separate from transient `accounts`, `recent_transactions`, and `budgets` context; context is added only to the in-memory provider request and is not saved in the upstream transcript.
+- Scoped turns skip platform/founder/product retrieval, personal memory, Library, prior-chat recall, community learning, programming retrieval, web search, tools, image recall, and exact/semantic caches. The response confirms `context_scope: "movo"` for the caller to verify.
+- Regression coverage checks platform portfolio retrieval is skipped, context is not persisted, and non-service or invalid requests fail closed. No schema migration or production data change is required.
+
 ## Coding chat: automatic failure detection and repair — 2026-10-29
 
 - New `src/auto-repair.js`: classifies check-tool results; when the last check failed in a fixable way and the model tries to finish, the coding chat sends it back to fix and re-run (max 2 repair rounds per message, coding chat up to 8 tool rounds). Rate limits, missing GitHub connection or sign-in never trigger repair. Status line "A check failed — fixing it".
