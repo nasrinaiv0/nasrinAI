@@ -70,6 +70,7 @@ import { createPagePreviews } from './web/page-preview.js';
 import { createWebCrawler } from './web/crawler.js';
 import { createCrawlerKnowledgeIndexer } from './knowledge/crawler-index.js';
 import { createYouTubeSearch } from './web/youtube.js';
+import { createIntegrationStore } from './integrations/store.js';
 import { createGoogleWeatherTool } from './weather/google-weather.js';
 import { createGoogleMapsTools } from './maps/google-maps.js';
 import { createRegionalAnalytics } from './regional-analytics.js';
@@ -132,6 +133,7 @@ export function buildApp({ config, logger }) {
   const regionalAnalytics = createRegionalAnalytics({ url: config.supabaseUrl, serviceKey: config.supabaseSecretKey, hashSecret: process.env.REGIONAL_ANALYTICS_HASH_SECRET || config.supabaseSecretKey, logger, platformTenantId: PLATFORM_TENANT_ID });
   const openRouterClient = config.ai.openrouterApiKey ? createOpenRouterClient({ apiKey: config.ai.openrouterApiKey, onTelemetry: openRouterTelemetry, dataCollection: config.ai.openrouterDataCollection }) : null;
   const gateway = createGateway({ store, guestSecret, verifyUser });
+  const integrations = createIntegrationStore({ store });
   const settings = verifyUser ? createSettings({ url: config.supabaseUrl, publishableKey: config.supabasePublishableKey, forgetToken: verifyUser.forget }) : null;
   const plans = createPlans({ store, config: effective, logger });
   const limiter = createLimiter({ store, limits: config.limits, plans });
@@ -277,7 +279,7 @@ export function buildApp({ config, logger }) {
     logger,
     gateway,
     ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger, openrouterManagementKey: process.env.OPENROUTER_MANAGEMENT_KEY || process.env.OPENROUTER_MANAGEMENT_API_KEY || '', openrouterApiKey: config.ai.openrouterApiKey || process.env.OPENROUTER_API_KEY || '' }),
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, openRouterClient, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, crawlerKnowledgeIndexer, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, openRouterClient, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, crawlerKnowledgeIndexer, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, integrations, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops),
     regionalAnalytics

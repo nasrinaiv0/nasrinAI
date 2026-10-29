@@ -1,3 +1,6 @@
+- Add universal user-owned integration groundwork: server-side ownership checks, AES-256-GCM encrypted credential storage, read-only list/detail routes, migration 068, and regression tests. Provider-specific OAuth adapters/write operations remain out of scope; migration 068 is not approved for production application.
+- Make the GitHub OAuth forged-state regression deterministic by changing a significant HMAC character rather than the final base64url characters, which could rarely leave the decoded signature unchanged.
+
 ## Fixed
 - Chat-generated MP4 preview/download now retrieves protected video bytes with the authenticated client and refreshes an expired session once before creating a browser Blob URL.
 

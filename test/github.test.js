@@ -134,7 +134,7 @@ test('settings: GitHub is on only with a client id, secret and connector key', (
   assert.equal(testConfig(ENV).githubOff, null);
 });
 
-async function ghApp(table = {}) {
+async function ghApp(table = {}, verifyUser) {
   const gh = fakeGithub({
     'POST github.com/login/oauth/access_token': (init) => {
       const p = new URLSearchParams(init.body);
@@ -147,9 +147,9 @@ async function ghApp(table = {}) {
   });
   let clock = Date.parse('2026-10-12T00:00:00Z');
   const now = () => clock;
-  const built = buildTestApp({ env: ENV });
+  const built = buildTestApp({ env: ENV, ...(verifyUser ? { verifyUser } : {}) });
   const github = createGithub({ config: built.config, store: built.store, fetchImpl: gh.fetchImpl, now });
-  const app = buildTestApp({ env: ENV, store: built.store, extraRoutes: github.routes });
+  const app = buildTestApp({ env: ENV, store: built.store, extraRoutes: github.routes, ...(verifyUser ? { verifyUser } : {}) });
   const srv = await serve(app.app);
   return { ...srv, github, store: built.store, gh, tick: (ms) => { clock += ms; } };
 }
@@ -174,7 +174,9 @@ test('github: connecting needs sign-in, a signed state and this browser\'s one-t
     const cb = (qs, c) => fetch(t.url + '/v1/github/callback?' + qs, { redirect: 'manual', headers: c ? { cookie: c } : {} });
     assert.equal((await cb(`code=good&state=${state}`)).headers.get('location'), '/?github=failed', 'no cookie');
     assert.equal((await cb(`code=good&state=${state}`, 'nasrin_gh=other')).headers.get('location'), '/?github=failed', 'wrong cookie');
-    assert.equal((await cb(`code=good&state=${state.slice(0, -2)}xx`, cookie)).headers.get('location'), '/?github=failed', 'forged state');
+    const [stateBody, stateMac] = state.split('.');
+    const forgedState = `${stateBody}.${stateMac[0] === 'A' ? 'B' : 'A'}${stateMac.slice(1)}`;
+    assert.equal((await cb(`code=good&state=${forgedState}`, cookie)).headers.get('location'), '/?github=failed', 'forged state');
     assert.equal((await cb('setup_action=install&installation_id=1')).headers.get('location'), '/?github=installed');
     assert.equal((await cb(`code=good&state=${state}`, cookie)).headers.get('location'), '/?github=connected');
 
@@ -188,12 +190,13 @@ test('github: connecting needs sign-in, a signed state and this browser\'s one-t
   } finally { await t.close(); }
 });
 
-async function connected(t) {
-  const start = await fetch(t.url + '/v1/github/connect', { method: 'POST', headers: bearer(USER_TOKEN) });
+async function connectedAs(t, token = USER_TOKEN) {
+  const start = await fetch(t.url + '/v1/github/connect', { method: 'POST', headers: bearer(token) });
   const state = new URL((await start.json()).url).searchParams.get('state');
   const cookie = start.headers.get('set-cookie').split(';')[0];
   await fetch(t.url + '/v1/github/callback?code=good&state=' + state, { redirect: 'manual', headers: { cookie } });
 }
+async function connected(t) { return connectedAs(t, USER_TOKEN); }
 const ctx = { tenantId: PLATFORM_TENANT_ID, actor: { type: 'user', id: 'user-1' } };
 
 test('github: an expiring token is refreshed; disconnecting revokes and deletes it', async () => {
@@ -683,6 +686,48 @@ test('github: merged or not, the whole diff size, and the recent pull requests l
   assert.ok(JSON.stringify(st).length < 8192, 'fits the tool result limit even for a big pull request');
   const list = await api.listPulls('tok', 'o/r', { state: 'all', limit: 5 });
   assert.deepEqual(list.pull_requests.map((p) => [p.number, p.state]), [[7, 'merged'], [6, 'closed'], [8, 'open']]);
+});
+
+
+test('github: connections and disconnect operations are isolated to the signed-in user', async () => {
+  const secondToken = 'user-two-token';
+  const verifyUser = async (token) => {
+    if (token === USER_TOKEN) return { id: 'user-1' };
+    if (token === secondToken) return { id: 'user-2' };
+    return null;
+  };
+  const t = await ghApp({}, verifyUser);
+  try {
+    await connected(t);
+    const secondHeaders = bearer(secondToken);
+    const secondStatusResponse = await fetch(t.url + '/v1/github/status', { headers: secondHeaders });
+    assert.equal(secondStatusResponse.status, 200);
+    const secondStatus = await secondStatusResponse.json();
+    assert.equal(secondStatus.connected, false);
+    assert.deepEqual(secondStatus.accounts, []);
+
+    // A second signed-in user can complete their own OAuth flow and manage
+    // their own connection without gaining access to the first user's row.
+    await connectedAs(t, secondToken);
+    const secondConnected = await (await fetch(t.url + '/v1/github/status', { headers: secondHeaders })).json();
+    assert.equal(secondConnected.connected, true);
+    assert.deepEqual(secondConnected.accounts.map((account) => account.login), ['octo-cat']);
+
+    const secondDelete = await fetch(t.url + '/v1/github', { method: 'DELETE', headers: secondHeaders });
+    assert.equal(secondDelete.status, 200);
+    assert.equal((await secondDelete.json()).connected, false);
+
+    const firstStatus = await (await fetch(t.url + '/v1/github/status', { headers: bearer(USER_TOKEN) })).json();
+    assert.equal(firstStatus.connected, true);
+    assert.deepEqual(firstStatus.accounts.map((account) => account.login), ['octo-cat']);
+
+    const spoofedMain = await fetch(t.url + '/v1/github/main', {
+      method: 'POST',
+      headers: { ...secondHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: 'octo-cat' })
+    });
+    assert.equal(spoofedMain.status, 404, 'after disconnect, a user cannot select another user account');
+  } finally { await t.close(); }
 });
 
 test('coding chat shows a visible confirmation control for prepared repository files', async () => {
