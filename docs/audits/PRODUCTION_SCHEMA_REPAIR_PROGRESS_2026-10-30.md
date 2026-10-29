@@ -135,3 +135,12 @@ However, the production migration registry has no entries named `080_owner_conso
 4. **Not verified:** verify hybrid knowledge retrieval with embeddings and tenant/audience isolation.
 5. **Blocked:** rebase PR #702 and PR #703, inspect changed files, rerun CI and Documentation Gate; do not merge without passing checks.
 6. Update this document with exact SHAs, test output, deployment status and any new blockers.
+
+
+## Follow-up hardening — migration 084
+
+- Repository migration: `db/migrations/084_harden_owner_dashboard_search_path.sql`.
+- Applied successfully to production through Supabase migration runner on 2026-10-30 (Manila time); registry version returned: `20261029225619`.
+- Changed `public.owner_console_dashboard(integer)` SECURITY DEFINER function's configured search path from `public, pg_temp` to `pg_catalog, pg_temp`. Application tables and helper function references in the function body are schema-qualified, so public-schema name shadowing is not required for resolution.
+- This narrows the search path and reduces object-shadowing risk. It does not prove owner dashboard endpoint authorization, output sanitization, or UI behavior; those remain **Not verified**.
+- The Supabase migration runner returned success. A follow-up catalog query must confirm the stored function configuration before this hardening is marked verified.
