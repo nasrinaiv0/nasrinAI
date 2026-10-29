@@ -5,6 +5,13 @@
 - Privacy Notice 2026-10-29: connected tool servers. `.env.example`, `docs/mcp.md`, CLAUDE.md map.
 - Tests: JSON/SSE parsing, handshake/session/token headers, session renewal, access rules, read vs write enforcement, required inputs, config validation.
 
+## Owner Command Center API keys — 2026-10-29
+
+- Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.
+- Migration 081: service-role-only RPCs; hash-only storage; 20-active cap with an advisory lock; platform-tenant scope only; create/revoke audited in the same transaction. DB test included.
+- `/owner/api/api-keys` endpoints: owner session, same-origin JSON, explicit confirmation; raw IPs never sent to the database (SHA-256 only).
+- Tests: endpoint access/validation, no hash disclosure, gateway accepts the key as a platform service caller and refuses it after revocation.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).
