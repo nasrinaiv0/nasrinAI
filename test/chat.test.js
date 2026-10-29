@@ -101,6 +101,8 @@ test('MOVO context scope fails closed for user credentials and invalid context',
     assert.equal(invalid.status, 400);
     const missingScope = await send(url, token, { message: 'hello', context: valid });
     assert.equal(missingScope.status, 400);
+    const extraHistory = await send(url, token, { message: 'hello', context_scope: 'movo', context: valid, history: [{ role: 'assistant', content: 'unrelated' }] });
+    assert.equal(extraHistory.status, 400);
     assert.equal(provider.calls.length, 0);
   });
 });
