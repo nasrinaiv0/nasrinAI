@@ -5,6 +5,13 @@
 - When every model fails, the last real provider error is returned instead of a generic one.
 - Tests: five models failing in four different ways ends with an answer from the fifth, each tried once; the failover cap; no same-model retry after a refusal; Stop; config validation. Docs: `docs/routing.md`, `.env.example`.
 
+## Owner Command Center API keys — 2026-10-29
+
+- Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.
+- Migration 081: service-role-only RPCs; hash-only storage; 20-active cap with an advisory lock; platform-tenant scope only; create/revoke audited in the same transaction. DB test included.
+- `/owner/api/api-keys` endpoints: owner session, same-origin JSON, explicit confirmation; raw IPs never sent to the database (SHA-256 only).
+- Tests: endpoint access/validation, no hash disclosure, gateway accepts the key as a platform service caller and refuses it after revocation.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).
