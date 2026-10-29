@@ -172,3 +172,16 @@ The following checks were run against the NasrinAI Supabase project only. No mig
 - **Deployment/migrations:** no deployment or migration was initiated. Production remains READY at main SHA `33f9283f35a0627c700efb43b3335bcfd8d52840`.
 - **Rollback:** revert only the documentation-only commit(s) on the audit branch if the evidence is wrong. No runtime rollback is needed.
 - **Scope boundary:** unrelated product-specific details in PR descriptions or existing historical logs are not audited or repeated here.
+
+
+## Audit update — 2026-10-30 07:11 Asia/Manila — production schema and OCC recovery
+
+**Supersedes older snapshot lines where the status conflicts.** Current main is `52392234ce7583303d4d25880296c06d7ad529b1`, merged PR #707; production Vercel deployment `dpl_9Ta9xUconH4kxQMipobLbDaUNMJF` reports READY at that SHA. PR #707 exact-head CI run [40969812290](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40969812290) and Documentation Gate [40970398301](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40970398301) passed. The merge records migrations 083 (explicit browser-deny policies and privilege revocation for server-only telemetry/knowledge tables) and 084 (harden `owner_console_dashboard(integer)` to `search_path=pg_catalog, pg_temp`); production migrations 068 and 079 had been applied directly before the merge.
+
+**OCC migration 085:** PR [#708](https://github.com/nasrinaiv0/nasrinAI/pull/708) remains open/non-draft at head `6bf461687c440210d3d3d5f598ff23e7917e00f3`. CI [40971199851](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199851) and Documentation Gate [40971199886](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199886) passed. The PR reports migration 085 was applied directly to production before source merge; read-only checks corroborated the registry entry `20261029230728`, table presence, RLS/policies, and service-role-only table access. `owner_console_dashboard(7)` now executes and returns 7 series days and 12 recent-activity entries; automation tables have 0 rows, so no real automation history exists yet. No preview was returned for the PR branch and hosted OCC browser/API behavior remains unverified.
+
+**Live Supabase recheck:** migration registry contains 068, 079, 083, 084, 085; versions 080–082 remain absent and source/live parity is unresolved. Security Advisor currently returns the leaked-password-protection warning. Catalog inspection found 16 SECURITY DEFINER functions with `search_path=public, pg_temp`; browser roles cannot CREATE in public, so this is an audit lead, not a confirmed exploit. Inspect function bodies for unqualified object references/dynamic SQL before proposing further hardening.
+
+**Documentation branch caution:** this branch was based on `33f9283f35a0627c700efb43b3335bcfd8d52840` and is behind current main `52392234...`; reconcile before merging. No database writes, application-code changes, migrations, deployments, Auth changes, or PR-state changes were performed by this audit.
+
+Detailed evidence: [Audit delta](https://github.com/nasrinaiv0/nasrinAI/blob/docs/change-ledger-refresh-2026-10-30-0614/docs/engineering/updates/2026-10-30-0711-production-schema-and-occ.md) (commit 8c703534a15dd6886ee7831dea25fdc5f4d74546).
