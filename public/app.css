@@ -4697,3 +4697,16 @@ html[data-theme="dark"] #pageSpace .space-connect-logo--dark { display: block; }
   .nasrin-chat-business-photo { width: 88px; height: 82px; border-radius: 12px; }
   .nasrin-chat-business-name { font-size: .85rem; }
 }
+
+/* Composer "/" command menu (public/slash-menu.js) */
+.slash-menu {
+  position: absolute; z-index: 16; left: 0.5rem; right: 0.5rem; bottom: calc(100% + 0.5rem); max-height: min(22rem, 50vh); overflow-y: auto;
+  padding: 0.35rem; background: var(--surface); border: 1px solid var(--line); border-radius: 1.1rem;
+  box-shadow: 0 24px 48px -20px rgba(0, 0, 0, 0.35); animation: menu-in 200ms var(--spring) both;
+}
+.slash-menu[hidden] { display: none; }
+.slash-item { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.55rem 0.7rem; border-radius: 0.75rem; cursor: pointer; color: var(--ink); }
+.slash-item strong { font-weight: 600; font-size: 0.95rem; }
+.slash-item small { color: var(--ink-3); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slash-item[aria-selected="true"], .slash-item:hover { background: var(--paper); }
+.slash-empty { padding: 0.65rem 0.75rem; color: var(--ink-3); font-size: 0.88rem; }
