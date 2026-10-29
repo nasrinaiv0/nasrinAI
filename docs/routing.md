@@ -177,3 +177,12 @@ embeddings, reranking, or decision endpoints are explicitly reported as not test
 by the text probe and must be verified with their task-specific request fixtures
 before being advertised as verified. The script is opt-in because each probe sends
 a real provider request and may incur usage charges.
+
+## Failover until an eligible model answers (2026-10-29)
+
+A request keeps moving to the next eligible model while candidates remain, so it does not fail just because a few models are down or out of credits:
+
+- Every failure kind except the person pressing Stop moves on: outages, timeouts, rate limits and no-credit responses (`busy`), and refusals (`config`: 400/401/403/404, a retired model, a key a provider rejects). A refused model is cooled down for 10 minutes and never retried for the same request; transient failures keep the 30-second cooldown and the one same-model retry.
+- An adapter bug or malformed provider response (any non-`ProviderError`) is treated as that provider being unavailable, so failover runs instead of the request failing.
+- Limits: up to `ROUTE_MAX_FAILOVERS` failed calls (default 6, 0–12; at least `MAX_RETRIES`), and no new attempt after `ROUTE_FAILOVER_BUDGET_MS` (default 60 s). When every eligible model has failed, the error is the last real provider failure, not a generic one.
+- Unchanged: tier, privacy, capability and Quick-free rules still decide which models are eligible; spending reservations are settled per attempt; provider billing stays authoritative.
