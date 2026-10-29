@@ -16,10 +16,11 @@ test('runs in Singapore', () => {
   assert.deepEqual(config.regions, ['sin1']);
 });
 
-test('retention, crawler, render, owner-alert, and OpenRouter generation sync cron schedules are preserved', () => {
+test('retention, crawler, hourly knowledge-learning, render, owner-alert, and OpenRouter generation sync cron schedules are preserved', () => {
   assert.deepEqual(config.crons, [
     { path: '/v1/internal/retention', schedule: '0 * * * *' },
     { path: '/v1/internal/web-crawl', schedule: '*/5 * * * *' },
+    { path: '/v1/internal/knowledge-learning', schedule: '0 * * * *' },
     { path: '/v1/internal/video-studio-render', schedule: '* * * * *' },
     { path: '/v1/internal/owner-alerts', schedule: '*/5 * * * *' },
     { path: '/v1/internal/openrouter-generation-sync', schedule: '*/15 * * * *' }

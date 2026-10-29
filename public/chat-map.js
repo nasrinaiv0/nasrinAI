@@ -37,7 +37,7 @@
         const callback = '__nasrinMapsReady';
         window[callback] = () => { delete window[callback]; resolve(window.google.maps); };
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&loading=async&callback=' + callback;
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&loading=async&libraries=places&callback=' + callback;
         script.async = true;
         script.onerror = () => { delete window[callback]; reject(new Error('Google Maps failed to load. Check the browser key and website referrer restrictions.')); };
         document.head.append(script);
@@ -45,50 +45,125 @@
     }).catch(err => { mapsPromise = null; throw err; });
     return mapsPromise;
   }
+
   function makeCard(root, title, href) {
     const card = document.createElement('section');
     card.className = 'nasrin-chat-map';
     const heading = document.createElement('div');
     heading.className = 'nasrin-chat-map-title';
-    heading.textContent = 'Map · ' + clean(title, 180);
+    heading.textContent = clean(title, 180);
     const canvas = document.createElement('div');
     canvas.className = 'nasrin-chat-map-canvas';
     canvas.setAttribute('role', 'application');
-    canvas.setAttribute('aria-label', 'Interactive Google map: ' + clean(title, 180));
+    canvas.setAttribute('aria-label', 'Map for ' + clean(title, 180));
     const status = document.createElement('div');
     status.className = 'nasrin-chat-map-status';
     status.setAttribute('aria-live', 'polite');
-    status.textContent = 'Loading interactive map…';
-    const footer = document.createElement('a');
-    footer.href = href;
-    footer.target = '_blank';
-    footer.rel = 'noopener noreferrer';
-    footer.textContent = 'Open in Google Maps';
-    card.append(heading, canvas, status, footer);
+    status.textContent = 'Loading map and nearby businesses…';
+    const businesses = document.createElement('div');
+    businesses.className = 'nasrin-chat-map-businesses';
+    businesses.setAttribute('aria-label', 'Nearby businesses');
+    card.append(heading, canvas, status, businesses);
     root.appendChild(card);
-    return { card, canvas, status };
+    return { card, canvas, status, businesses, href };
+  }
+  function mapsLink(place) {
+    if (place.url && /^https:\/\//.test(place.url)) return place.url;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(place.name || place.vicinity || 'business');
+  }
+  function renderBusinessCards(container, places) {
+    container.replaceChildren();
+    places.slice(0, 5).forEach(place => {
+      const card = document.createElement('a');
+      card.className = 'nasrin-chat-business';
+      card.href = mapsLink(place);
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      const photo = place.photos?.[0];
+      if (photo && typeof photo.getUrl === 'function') {
+        const image = document.createElement('img');
+        image.className = 'nasrin-chat-business-photo';
+        image.src = photo.getUrl({ maxWidth: 480, maxHeight: 320 });
+        image.alt = '';
+        image.loading = 'lazy';
+        card.appendChild(image);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'nasrin-chat-business-photo nasrin-chat-business-photo--empty';
+        placeholder.setAttribute('aria-hidden', 'true');
+        placeholder.textContent = '⌖';
+        card.appendChild(placeholder);
+      }
+      const details = document.createElement('div');
+      details.className = 'nasrin-chat-business-details';
+      const name = document.createElement('div');
+      name.className = 'nasrin-chat-business-name';
+      name.textContent = clean(place.name || 'Nearby business', 120);
+      details.appendChild(name);
+      const meta = [];
+      if (place.rating !== null && place.rating !== undefined && Number.isFinite(Number(place.rating))) {
+        meta.push('★ ' + Number(place.rating).toFixed(1) + (place.user_ratings_total ? ' (' + Number(place.user_ratings_total).toLocaleString() + ')' : ''));
+      }
+      const category = Array.isArray(place.types) ? place.types.find(type => !['point_of_interest','establishment','food','store','premise'].includes(type)) : '';
+      if (category) meta.push(category.replace(/_/g, ' '));
+      if (meta.length) {
+        const line = document.createElement('div');
+        line.className = 'nasrin-chat-business-meta';
+        line.textContent = meta.join(' · ');
+        details.appendChild(line);
+      }
+      const address = document.createElement('div');
+      address.className = 'nasrin-chat-business-address';
+      address.textContent = clean(place.vicinity || place.formatted_address || '', 180);
+      if (address.textContent) details.appendChild(address);
+      if (place.opening_hours && typeof place.opening_hours.open_now === 'boolean') {
+        const open = document.createElement('div');
+        open.className = 'nasrin-chat-business-open ' + (place.opening_hours.open_now ? 'is-open' : 'is-closed');
+        open.textContent = place.opening_hours.open_now ? 'Open now' : 'Closed now';
+        details.appendChild(open);
+      }
+      card.appendChild(details);
+      container.appendChild(card);
+    });
+  }
+  function nearbyBusinesses(maps, map, center, container, status) {
+    if (!center || !maps.places?.PlacesService) {
+      status.textContent = 'Nearby business details are unavailable right now.';
+      return;
+    }
+    const service = new maps.places.PlacesService(map);
+    service.nearbySearch({ location: center, radius: 1400, rankBy: maps.places.RankBy?.PROMINENCE }, (results, code) => {
+      if (code !== maps.places.PlacesServiceStatus.OK || !Array.isArray(results) || !results.length) {
+        status.textContent = code === 'REQUEST_DENIED'
+          ? 'Enable Google Places API for this Maps key to show nearby businesses.'
+          : 'No nearby businesses were found for this location.';
+        return;
+      }
+      renderBusinessCards(container, results);
+      status.textContent = 'Nearby businesses · ' + Math.min(results.length, 5) + ' shown';
+    });
   }
   function renderStructured(root, payload) {
     if (!root || !payload || !['map', 'places', 'directions'].includes(payload.type)) return false;
-    const title = clean(payload.title || 'Google Maps', 180);
-    const fallback = typeof payload.mapUrl === 'string' && /^https:\/\/www\.google\.com\/maps\//.test(payload.mapUrl)
-      ? payload.mapUrl : 'https://www.google.com/maps';
-    const { canvas, status } = makeCard(root, title, fallback);
+    const title = clean(payload.title || 'Nearby places', 180);
+    const { canvas, status, businesses } = makeCard(root, title, payload.mapUrl || 'https://www.google.com/maps');
     loadMaps().then(maps => {
       const places = Array.isArray(payload.places) ? payload.places.filter(p => validPoint(p.location)) : [];
       const center = validPoint(payload.center) ? { lat: Number(payload.center.lat), lng: Number(payload.center.lng) }
-        : places.length ? { lat: Number(places[0].location.lat), lng: Number(places[0].location.lng) } : { lat: 7.07, lng: 125.6 };
-      const map = new maps.Map(canvas, { center, zoom: places.length > 1 ? 12 : 14, mapTypeControl: true, streetViewControl: false, fullscreenControl: true, gestureHandling: 'greedy' });
+        : places.length ? { lat: Number(places[0].location.lat), lng: Number(places[0].location.lng) } : null;
+      const map = new maps.Map(canvas, { center: center || { lat: 7.07, lng: 125.6 }, zoom: places.length > 1 ? 13 : 14, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, gestureHandling: 'cooperative' });
       if (payload.type === 'directions' && payload.origin && payload.destination) {
-        const renderer = new maps.DirectionsRenderer({ map });
         new maps.DirectionsService().route({
           origin: clean(payload.origin, 180), destination: clean(payload.destination, 180),
           travelMode: maps.TravelMode[({ DRIVE: 'DRIVING', WALK: 'WALKING', BICYCLE: 'BICYCLING', TRANSIT: 'TRANSIT' })[payload.travelMode] || 'DRIVING']
         }).then(result => {
-          renderer.setDirections(result);
+          new maps.DirectionsRenderer({ map, preserveViewport: false }).setDirections(result);
           const leg = result.routes?.[0]?.legs?.[0];
+          const end = leg?.end_location;
           status.textContent = [leg?.distance?.text, leg?.duration?.text].filter(Boolean).join(' · ') || 'Route loaded';
-        }).catch(() => { status.textContent = 'Could not calculate this route. Try opening Google Maps.'; });
+          if (end) nearbyBusinesses(maps, map, end, businesses, status);
+          else locateAndFind(maps, map, payload.destination, businesses, status);
+        }).catch(() => locateAndFind(maps, map, payload.destination, businesses, status));
         return;
       }
       if (places.length) {
@@ -96,32 +171,33 @@
         places.forEach((place, index) => {
           const position = { lat: Number(place.location.lat), lng: Number(place.location.lng) };
           bounds.extend(position);
-          const marker = new maps.Marker({ map, position, title: clean(place.name || 'Place', 120), label: places.length <= 9 ? String(index + 1) : undefined });
-          const rating = place.rating !== null && place.rating !== undefined && Number.isFinite(Number(place.rating)) ? '★ ' + Number(place.rating).toFixed(1) : '';
-          const details = [clean(place.name, 120), clean(place.address, 220), rating].filter(Boolean).join('\n');
-          if (details) {
-            const info = new maps.InfoWindow({ content: document.createTextNode(details) });
-            marker.addListener('click', () => info.open({ map, anchor: marker }));
-          }
+          new maps.Marker({ map, position, title: clean(place.name || 'Place', 120), label: places.length <= 9 ? String(index + 1) : undefined });
         });
         if (places.length > 1) map.fitBounds(bounds);
-        status.textContent = places.length + (places.length === 1 ? ' place shown' : ' places shown');
-      } else if (validPoint(payload.center)) {
-        const position = { lat: Number(payload.center.lat), lng: Number(payload.center.lng) };
-        new maps.Marker({ map, position, title });
-        status.textContent = title;
-      } else if (payload.query) {
-        new maps.Geocoder().geocode({ address: clean(payload.query, 180) }).then(({ results }) => {
-          if (!results?.[0]) throw new Error('Location not found');
-          const place = results[0];
-          map.setCenter(place.geometry.location);
-          map.setZoom(place.geometry.viewport ? 13 : 15);
-          new maps.Marker({ map, position: place.geometry.location, title });
-          status.textContent = place.formatted_address || title;
-        }).catch(() => { status.textContent = 'Could not locate this place. Check Maps API configuration.'; });
-      } else status.textContent = 'No coordinates were returned for this map.';
-    }).catch(err => { status.textContent = err.message || 'Interactive map unavailable.'; });
+        renderBusinessCards(businesses, places);
+        status.textContent = 'Places near this location';
+        if (center) nearbyBusinesses(maps, map, center, businesses, status);
+      } else if (center) {
+        new maps.Marker({ map, position: center, title });
+        nearbyBusinesses(maps, map, center, businesses, status);
+      } else if (payload.query) locateAndFind(maps, map, payload.query, businesses, status);
+      else status.textContent = 'No coordinates were returned for this location.';
+    }).catch(err => {
+      status.textContent = err.message || 'Map and nearby businesses are unavailable.';
+    });
     return true;
+  }
+  function locateAndFind(maps, map, query, businesses, status) {
+    new maps.Geocoder().geocode({ address: clean(query, 180) }).then(({ results }) => {
+      const place = results?.[0];
+      if (!place) throw new Error('Location not found');
+      map.setCenter(place.geometry.location);
+      map.setZoom(14);
+      new maps.Marker({ map, position: place.geometry.location, title: clean(query, 120) });
+      nearbyBusinesses(maps, map, place.geometry.location, businesses, status);
+    }).catch(() => {
+      status.textContent = 'Could not locate this place. Check Maps and Places API configuration.';
+    });
   }
   function enhance(root) {
     const anchors = [];

@@ -1,22 +1,31 @@
-/* NasrinAI voice screen (docs/voice-screen.md). Monochrome and minimal:
-   - the conversation at the top, fading out toward the top edge;
-   - a glowing liquid orb in the lower centre that ripples out sound waves
-     (drawn by voice-wave.js); tapping it while Nasrin talks stops her;
-   - one row of controls: Plus and the tier on the left, mute and exit on
-     the right.
-   Everything is scoped to .voice-screen: Settings' voice list uses .voice
-   for its rows. Colours come from the theme tokens in app.css. */
+/* NasrinAI realtime voice: subtle dotted glow, no visible centre orb, and
+   frosted-glass controls. All styles are scoped to .voice-screen. */
 
 .voice-screen {
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column; align-items: center;
   height: 100dvh; overflow: hidden; isolation: isolate;
   padding: max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-  background: radial-gradient(80% 50% at 50% 74%, var(--bg-glow), transparent 72%) var(--paper);
+  background: var(--paper);
   color: var(--ink);
   animation: voice-screen-in var(--dur-slow, 320ms) var(--ease, ease) both;
 }
-.voice-screen[hidden] { display: none; }
+ .voice-screen[hidden] { display: none; }
+.voice-screen::before {
+  content: ""; position: absolute; z-index: 0; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--ink) 22%, transparent) 1.25px, transparent 1.65px);
+  background-size: 28px 28px; background-position: 0 0; opacity: .56;
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.42) 0%, rgba(0,0,0,.22) 32%, rgba(0,0,0,.08) 58%, transparent 88%);
+  mask-image: linear-gradient(to top, rgba(0,0,0,.42) 0%, rgba(0,0,0,.22) 32%, rgba(0,0,0,.08) 58%, transparent 88%);
+}
+:root[data-theme="dark"] .voice-screen::before {
+  background-image: radial-gradient(circle, rgba(105,165,255,.48) 1.25px, transparent 1.7px); opacity: .48;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .voice-screen::before {
+    background-image: radial-gradient(circle, rgba(105,165,255,.48) 1.25px, transparent 1.7px); opacity: .48;
+  }
+}
 body.voice-open { overflow: hidden; }
 @keyframes voice-screen-in { from { opacity: 0; } to { opacity: 1; } }
 
@@ -51,10 +60,12 @@ body.voice-open { overflow: hidden; }
 
 /* ---------- the orb, lower centre ---------- */
 .voice-stage {
-  position: relative; z-index: 0; flex: 1 1 auto; min-height: 0; width: 100%;
+  position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; width: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   gap: 0.25rem; padding-bottom: clamp(0.75rem, 3vh, 2rem);
 }
+ .voice-orb { display: none !important; }
+.voice-screen-capture { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .voice-orb {
   position: relative; display: block; flex: none;
   width: min(92vw, 44dvh, 26rem); aspect-ratio: 1;
@@ -87,20 +98,37 @@ body.voice-open { overflow: hidden; }
 
 /* ---------- one row of controls ---------- */
 .voice-controls {
-  position: relative; z-index: 2; flex: none; width: min(100%, 34rem);
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  position: relative; z-index: 2; flex: none; width: min(100%, 36rem);
+  display: flex; align-items: center; justify-content: space-between; gap: 0.55rem;
 }
 .voice-control-group { display: flex; align-items: center; gap: 0.6rem; }
 .voice-control-popover-wrap { position: relative; flex: none; }
 .voice-control {
   display: inline-grid; place-items: center; flex: none;
   width: 3.25rem; height: 3.25rem; padding: 0;
-  border: 0.5px solid var(--glass-line); border-radius: 999px;
-  background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
-  color: var(--ink); box-shadow: var(--elev-1); cursor: pointer; touch-action: manipulation;
+  border: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 10%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(145%); backdrop-filter: blur(18px) saturate(145%);
+  color: var(--ink); box-shadow: 0 8px 26px color-mix(in srgb, var(--ink) 5%, transparent);
+  cursor: pointer; touch-action: manipulation;
   transition: transform var(--dur, 220ms) var(--ease-spring, ease), background-color var(--dur-fast, 140ms) var(--ease, ease), color var(--dur-fast, 140ms) var(--ease, ease);
 }
 .voice-control svg { width: 1.4rem; height: 1.4rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.voice-control:disabled { opacity: .42; cursor: not-allowed; }
+.voice-control-share {
+  display: flex; align-items: center; justify-content: center; gap: .55rem;
+  flex: 1 1 auto; min-width: 8rem; max-width: 15rem; padding: 0 1rem;
+  border-radius: 999px; white-space: nowrap; font: 500 .9rem/1 var(--sans);
+  background: color-mix(in srgb, var(--paper) 10%, transparent);
+}
+.voice-control-share .voice-share-stop-icon { display: none; }
+.voice-control-share[aria-pressed="true"] {
+  background: color-mix(in srgb, #2878ee 16%, transparent);
+  color: color-mix(in srgb, var(--ink) 82%, #2878ee);
+}
+.voice-control-share[aria-pressed="true"] .voice-share-icon { display: none; }
+.voice-control-share[aria-pressed="true"] .voice-share-stop-icon { display: block; }
+.voice-control-share[aria-pressed="true"] .voice-share-stop-icon rect { fill: currentColor; stroke: currentColor; }
 .voice-control:active { transform: scale(0.92); background: var(--press); }
 .voice-control:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 /* The tier: an icon, the same signal bars as the chat's model button. */
@@ -108,7 +136,7 @@ body.voice-open { overflow: hidden; }
 /* The mic looks like every other control; muted, it shows the crossed-out
    mic on a filled circle so the state is clear. */
 .voice-control-mic .voice-icon-mic-off { display: none; }
-.voice-control-mic[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: transparent; }
+.voice-control-mic[aria-pressed="true"] { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink); }
 .voice-control-mic[aria-pressed="true"] .voice-icon-mic { display: none; }
 .voice-control-mic[aria-pressed="true"] .voice-icon-mic-off { display: block; }
 
@@ -132,9 +160,12 @@ body.voice-open { overflow: hidden; }
 @keyframes voice-pop-in { from { opacity: 0; transform: translateY(5px) scale(0.95); } to { opacity: 1; transform: none; } }
 
 /* ---------- small and wide screens ---------- */
-@media (max-width: 360px) {
-  .voice-control { width: 2.9rem; height: 2.9rem; }
-  .voice-control-group { gap: 0.45rem; }
+@media (max-width: 380px) {
+  .voice-controls { gap: .35rem; }
+  .voice-control { width: 2.5rem; height: 2.5rem; }
+  .voice-control-group { gap: .35rem; }
+  .voice-control-share { min-width: 0; padding: 0 .55rem; gap: .35rem; font-size: .72rem; }
+  .voice-control-share svg { width: 1.1rem; height: 1.1rem; }
 }
 @media (max-height: 560px) {
   .voice-log { height: 38dvh; padding-top: max(0.5rem, env(safe-area-inset-top)); }

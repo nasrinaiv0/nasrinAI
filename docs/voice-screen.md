@@ -71,3 +71,51 @@ The audio context is also resumed from iOS's `interrupted` state, not only
 - OpenRouter TTS uses the Google Gemini voice catalog (30 voice IDs), not the OpenAI voice catalog. Settings IDs are namespaced as `openrouter:Charon`, etc., to ensure the selected voice is routed to the correct engine.
 - The existing server-side voice endpoint continues to enforce ownership, rate limits, daily usage, spend reservations, short-lived audio cache, and usage logging. No API key is sent to the browser.
 - Current validation covers configuration and model/provider pinning. Authenticated live speech generation and audio-format compatibility must be smoke-tested in Vercel Preview before enabling production traffic.
+
+
+## Realtime screen sharing
+
+The voice control row includes a centered **Share screen** pill. It is enabled
+only while a Gemini Live or OpenAI Realtime voice session is active. The browser
+shows its native screen/window/tab picker; after permission is granted, the app
+samples a downscaled JPEG frame approximately once every 1.3 seconds. Frames are
+sent over the active realtime session as visual context, not saved to NasrinAI
+storage. Users can stop sharing from the pill or the browser's native sharing
+indicator. Ending voice also stops capture.
+
+Screen capture depends on browser support for `getDisplayMedia()`; unsupported
+browsers report a clear message rather than pretending to share. iOS browser
+support must be verified on the target iPhone/Safari version. Frame delivery is
+best-effort and never blocks microphone/audio transport.
+
+
+## OpenRouter vision fallback
+
+In compatibility voice (no realtime provider), each spoken question made while sharing sends the newest in-memory frame (under 30 seconds old) with the question to `/v1/realtime/screen-analyze`. The returned description is passed to that chat turn as `screen_context`: a voice-only, transient system-prompt block (3000 characters, control characters removed, treated as untrusted data) that is never saved. The timed description during sharing now runs only in realtime mode.
+
+When no direct realtime image transport is active, shared-screen frames can be sent
+to the authenticated `/v1/realtime/screen-analyze` endpoint. The endpoint uses
+the existing server-side OpenRouter client, applies message/budget checks, accepts
+only bounded JPEG base64 frames, and never stores screenshots. Set
+`OPENROUTER_VOICE_VISION_MODEL` to a vision-capable OpenRouter model ID; the
+default is `google/gemini-3-flash-preview`. This is screenshot analysis only,
+not a realtime audio or continuous video transport. Fallback calls are throttled
+to at most one every five seconds in the browser.
+
+
+## Turn-based STT + TTS voice mode (2026-10-27)
+
+The default voice screen now uses browser speech recognition for STT, the existing
+NasrinAI chat orchestrator for responses, and the existing authenticated
+`/v1/speech` pipeline for spoken output. It no longer opens Gemini Live or
+OpenAI Realtime when the user starts a standard voice conversation, avoiding
+the persistent realtime session that was repeatedly reconnecting in production.
+Realtime transport code remains available for a future opt-in, but is not the
+default path.
+
+Screen sharing remains user-initiated through the browser's native
+`getDisplayMedia()` picker. Frames are downscaled and sent transiently to the
+existing authenticated vision endpoint at most once every five seconds when no
+realtime transport is active. Screenshots are not persisted. Browser support is
+required; iPhone Safari may not expose `getDisplayMedia()`, in which case the
+UI reports that screen sharing is unavailable instead of implying it is active.

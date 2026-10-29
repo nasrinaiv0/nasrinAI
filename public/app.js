@@ -181,7 +181,7 @@
   let aiAvailable = true;
   let listening = false;
   // Hands-free voice conversation (see "talking with Nasrin" below).
-  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, realtimeReconnectTimer: null, realtimeRetryCount: 0, geminiState: null, audioCtx: null, audioEl: null };
+  const vc = { on: false, state: 'idle', muted: false, recognizer: null, run: 0, silence: null, idle: null, wake: null, quick: 0, watcher: null, realtimePc: null, realtimeEvents: null, realtimeStream: null, realtimeAudio: null, realtime: false, realtimeProvider: null, realtimeMaxSeconds: 0, realtimeTimer: null, realtimeReconnectTimer: null, realtimeRetryCount: 0, geminiState: null, audioCtx: null, audioEl: null, sharing: false, screenFrame: null };
 
   // ---------- the character ----------
 
@@ -859,6 +859,21 @@
     if (resp.status === 401 && !retried) return api(path, options, true);   // session ended: start a new one once
     if (!resp.ok) throw await errorFrom(resp);
     return resp.status === 204 ? null : resp.json();
+  }
+
+  // Native video requests cannot attach the app's JavaScript-managed Bearer token.
+  // Fetch protected media through the authenticated client, which can refresh
+  // an expired session, then use a same-page Blob URL for Safari playback.
+  async function apiBlob(path, retried = false) {
+    const token = await credential(retried);
+    const resp = await net(path, { headers: { Authorization: 'Bearer ' + token } });
+    if (resp.status === 401 && !retried) return apiBlob(path, true);
+    if (!resp.ok) throw await errorFrom(resp);
+    const blob = await resp.blob();
+    if (!blob.size) throw new Error('The generated video file was empty.');
+    const type = String(resp.headers.get('content-type') || blob.type || '').toLowerCase();
+    if (type && !type.includes('video/') && !type.includes('application/octet-stream')) throw new Error('The video endpoint did not return an MP4 file. Please refresh and try again.');
+    return blob;
   }
 
   // ---------- the conversation on screen ----------
@@ -2386,6 +2401,8 @@
   let chatProject = null;  // { id, name }: the project the open chat belongs to (or a new chat will)
   let imageMode = false;
 
+
+
   function closePlus() {
     if (plusMenu.hidden) return;
     plusMenu.hidden = true;
@@ -2398,11 +2415,13 @@
     attachBtn.setAttribute('aria-expanded', 'true');
     $('pickFiles').focus();
   });
-  $('pickFiles').addEventListener('click', () => { closePlus(); fileInput.click(); });
-  $('pickImage').addEventListener('click', () => { closePlus(); setImageMode(true); input.focus(); });
-  $('modeOff').addEventListener('click', () => { setImageMode(false); input.focus(); });
-  document.addEventListener('pointerdown', (e) => { if (!plusMenu.hidden && !$('plusWrap').contains(e.target)) closePlus(); });
-  plusMenu.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closePlus(); attachBtn.focus(); } });
+
+  // The Photos & files menu item must invoke the native picker directly in the
+  // click gesture; this is required by iOS Safari and avoids a dead + menu item.
+  $('pickFiles').addEventListener('click', () => {
+    closePlus();
+    fileInput.click();
+  });
 
   function setImageMode(on) {
     imageMode = on;
@@ -3074,35 +3093,75 @@
           note.textContent = 'Your video is ready' + (Number(state.target_seconds) ? ' (' + Math.round(Number(state.target_seconds)) + ' seconds).' : '.');
           const downloadLink = document.createElement('a');
           downloadLink.className = 'btn small';
-          downloadLink.href = state.download;
-          downloadLink.download = '';
+          downloadLink.download = 'nasrinai-video-' + id + '.mp4';
           downloadLink.textContent = 'Download MP4';
-          // Show the video itself in the chat, not just a link. The content
-          // endpoint checks ownership of the job.
+          downloadLink.setAttribute('aria-disabled', 'true');
+          downloadLink.style.opacity = '0.6';
+          downloadLink.style.pointerEvents = 'none';
+          box.appendChild(downloadLink);
+
+          // A native media element does not send our Bearer token. Fetch the
+          // owner-checked MP4 with session-refresh logic, then use a Blob URL for
+          // preview and download. This keeps protected video content private.
           if (typeof state.download === 'string' && state.download.startsWith('/v1/videos/')) {
-            const preview = document.createElement('video');
-            preview.className = 'generated-video-preview';
-            preview.controls = true;
-            preview.playsInline = true;
-            preview.preload = 'metadata';
-            preview.setAttribute('aria-label', 'Generated video preview');
-            preview.style.display = 'block';
-            preview.style.width = '100%';
-            preview.style.maxWidth = '640px';
-            preview.style.maxHeight = '70vh';
-            preview.style.marginTop = '12px';
-            preview.style.borderRadius = '14px';
-            preview.style.background = '#000';
-            preview.src = state.download;
-            preview.addEventListener('error', () => {
+            try {
+              const blob = await apiBlob(state.download);
+              if (!box.isConnected) return;
+              const mediaUrl = URL.createObjectURL(blob);
+              const preview = document.createElement('video');
+              preview.className = 'generated-video-preview';
+              preview.controls = true;
+              preview.playsInline = true;
+              preview.preload = 'metadata';
+              preview.setAttribute('aria-label', 'Generated video preview');
+              preview.style.display = 'block';
+              preview.style.width = '100%';
+              preview.style.maxWidth = '640px';
+              preview.style.maxHeight = '70vh';
+              preview.style.marginTop = '12px';
+              preview.style.borderRadius = '14px';
+              preview.style.background = '#000';
+              preview.src = mediaUrl;
+              preview.addEventListener('error', () => {
+                const warning = document.createElement('p');
+                warning.className = 'msg-meta generated-video-preview-warning';
+                warning.textContent = 'The MP4 was retrieved, but this browser could not play its preview. Use Download MP4 to save it.';
+                if (box.isConnected && !box.querySelector('.generated-video-preview-warning')) box.insertBefore(warning, downloadLink);
+              }, { once: true });
+              downloadLink.href = mediaUrl;
+              downloadLink.removeAttribute('aria-disabled');
+              downloadLink.style.opacity = '';
+              downloadLink.style.pointerEvents = '';
+              box.insertBefore(preview, downloadLink);
+              box.addEventListener('DOMNodeRemoved', () => URL.revokeObjectURL(mediaUrl), { once: true });
+            } catch (err) {
+              if (!box.isConnected) return;
               const warning = document.createElement('p');
               warning.className = 'msg-meta';
-              warning.textContent = 'The video completed, but its preview could not be loaded. Use Download MP4 to retrieve it.';
+              warning.textContent = err?.message || 'The video is ready, but NasrinAI could not retrieve its MP4. Please sign in again and reopen this chat.';
               box.insertBefore(warning, downloadLink);
-            }, { once: true });
-            box.appendChild(preview);
+              downloadLink.textContent = 'Retry video download';
+              downloadLink.removeAttribute('aria-disabled');
+              downloadLink.style.opacity = '';
+              downloadLink.style.pointerEvents = '';
+              downloadLink.href = '#';
+              downloadLink.addEventListener('click', async (event) => {
+                event.preventDefault();
+                downloadLink.textContent = 'Retrieving MP4…';
+                try {
+                  const retryBlob = await apiBlob(state.download);
+                  const retryUrl = URL.createObjectURL(retryBlob);
+                  downloadLink.href = retryUrl;
+                  downloadLink.download = 'nasrinai-video-' + id + '.mp4';
+                  downloadLink.textContent = 'Download MP4';
+                  downloadLink.removeAttribute('aria-disabled');
+                  downloadLink.style.pointerEvents = '';
+                } catch (retryErr) {
+                  downloadLink.textContent = retryErr?.message || 'Could not retrieve MP4. Please sign in again.';
+                }
+              }, { once: true });
+            }
           }
-          box.appendChild(downloadLink);
           if (box.dataset.waited) deviceNotify('NasrinAI video ready', 'Your video has finished rendering.', 'nasrinai-video-' + id);
           scrollToEnd(box);
           return;
@@ -3281,6 +3340,8 @@
     if ((!text && !pending.length) || busy || preparing) return;
     // Keep the normal answer path for every query. The assistant renderer may
     // append verified, relevant video embeds after the answer when available.
+    // A single failed status check at start-up must not block every later message: ask again first.
+    if (!aiAvailable) await loadStatus();
     if (!aiAvailable) {
       show('user', text);
       problem('NasrinAI is temporarily unavailable for this message. Please try again shortly.');
@@ -3391,7 +3452,7 @@
   // speakVoice: a natural voice id; the server then sends the reply as speech while it is written (onAudio).
   // onPiece(text | null): the reply as it arrives (null: start over). onFail(err): it failed.
   // Resolves { data, shown } when a reply was shown, otherwise nothing.
-  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null }) {
+  async function runTurn({ text = '', files = [], regenerate = false, replace = null, editId = null, editEl = null, spoken = false, speakVoice = null, onPiece = null, onAudio = null, onFail = null, locationContext = null, screenContext = null }) {
     const needsDeviceLocation = !locationContext && !regenerate && !files.length && /\b(?:weather|forecast|temperature|rain(?:ing)?|near(?:by)? me|near me|closest to me|around me|directions? from here|route from here|where am i|my location|current location|nearby places)\b/i.test(text);
     if (needsDeviceLocation && navigator.geolocation && window.isSecureContext) {
       // Lock the composer before awaiting consent so a second submit cannot
@@ -3448,6 +3509,7 @@
       ...(currentModel ? { model: currentModel } : {}),
       professional: proRequest(),
       ...(locationContext ? { location_context: locationContext } : {}),
+      ...(spoken && screenContext ? { screen_context: screenContext } : {}),
       ...(codingProject ? { coding: true, ...(saved.get(KEYS.coding + ':repo:' + codingProject.id) ? { repo: saved.get(KEYS.coding + ':repo:' + codingProject.id) } : {}) } : {}),
       ...(files.length ? { attachments: files.map((f) => (f.upload ? { name: f.name, type: f.type, upload: f.upload } : { name: f.name, type: f.type, data: f.data })) } : {})
     });
@@ -4000,6 +4062,37 @@
     };
   }
 
+  // Best-effort script detection happens on-device; no speech text is sent elsewhere.
+  // Latin-script languages use the selected preference or the browser's language.
+  function speechLanguageForText(text) {
+    const value = String(text || '');
+    const has = (re) => re.test(value);
+    if (has(/[\u3040-\u30ff]/)) return 'ja-JP';
+    if (has(/[\uac00-\ud7af]/)) return 'ko-KR';
+    if (has(/[\u0e00-\u0e7f]/)) return 'th-TH';
+    if (has(/[\u0e80-\u0eff]/)) return 'lo-LA';
+    if (has(/[\u1780-\u17ff]/)) return 'km-KH';
+    if (has(/[\u1000-\u109f]/)) return 'my-MM';
+    if (has(/[\u0d00-\u0d7f]/)) return 'ml-IN';
+    if (has(/[\u0c80-\u0cff]/)) return 'kn-IN';
+    if (has(/[\u0c00-\u0c7f]/)) return 'te-IN';
+    if (has(/[\u0b80-\u0bff]/)) return 'ta-IN';
+    if (has(/[\u0a80-\u0aff]/)) return 'gu-IN';
+    if (has(/[\u0a00-\u0a7f]/)) return 'pa-IN';
+    if (has(/[\u0980-\u09ff]/)) return 'bn-BD';
+    if (has(/[\u0900-\u097f]/)) return 'hi-IN';
+    if (has(/[\u0600-\u06ff]/)) return 'ar';
+    if (has(/[\u0590-\u05ff]/)) return 'he';
+    if (has(/[\u0400-\u04ff]/)) return 'ru';
+    if (has(/[\u0370-\u03ff]/)) return 'el';
+    if (has(/[\u0530-\u058f]/)) return 'hy';
+    if (has(/[\u10a0-\u10ff]/)) return 'ka';
+    if (has(/[\u4e00-\u9fff]/)) return 'zh';
+    const preferred = saved.get(KEYS.language);
+    if (preferred && preferred !== 'auto') return preferred;
+    return String(navigator.language || 'en');
+  }
+
   // The phone's own voice. Read sentence by sentence: some browsers stop long
   // utterances part-way, and the first words start sooner.
   function playDevice(text, voiceId, button) {
@@ -4007,7 +4100,17 @@
       const synth = window.speechSynthesis;
       synth.cancel();
       const uri = voiceId.slice('device:'.length);
-      const voiceObj = uri !== 'default' ? synth.getVoices().find((x) => x.voiceURI === uri) : null;
+      const voices = synth.getVoices();
+      const detectedLang = speechLanguageForText(text);
+      const langBase = detectedLang.toLowerCase().split('-')[0];
+      const preferredBase = languageBase();
+      const voiceObj = uri !== 'default'
+        ? voices.find((x) => x.voiceURI === uri)
+        : voices.find((x) => String(x.lang || '').toLowerCase() === detectedLang.toLowerCase()) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === langBase) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === preferredBase) ||
+          voices.find((x) => String(x.lang || '').toLowerCase().split('-')[0] === String(navigator.language || 'en').toLowerCase().split('-')[0]) ||
+          null;
       const chunks = (window.NasrinFormat.plain(text).slice(0, 4000).match(/[^.!?\n]+[.!?]*\s*/g) || [text])
         .reduce((acc, s) => { if (acc.length && (acc[acc.length - 1] + s).length < 220) acc[acc.length - 1] += s; else acc.push(s); return acc; }, [])
         .map((c) => c.trim()).filter(Boolean);
@@ -4024,7 +4127,12 @@
       Nasrin.mood('speaking');
       chunks.forEach((c, i) => {
         const u = new SpeechSynthesisUtterance(c);
-        if (voiceObj) { u.voice = voiceObj; u.lang = voiceObj.lang; }
+        // Set the requested language even if this browser lacks a matching installed voice.
+        u.lang = detectedLang;
+        if (voiceObj) {
+          u.voice = voiceObj;
+          if (uri !== 'default') u.lang = voiceObj.lang || detectedLang;
+        }
         u.rate = speechRate;
         if (i === chunks.length - 1) { u.onend = finish; }
         u.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled') finish(); };
@@ -4838,14 +4946,16 @@
   });
 
   const PREVIEW = 'Hi, I’m Nasrin. This is how I sound.';
+  // The browser supplies installed voices and performs speech synthesis locally.
+  // Keep all matching voices available; devices can have many language packs.
   function deviceVoices() {
     if (!canDevice) return [];
     const lang = languageBase();
     const all = window.speechSynthesis.getVoices();
-    const mine = all.filter((v) => v.lang.toLowerCase().startsWith(lang));
-    const english = lang === 'en' ? [] : all.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const mine = all.filter((v) => String(v.lang || '').toLowerCase().startsWith(lang));
+    const english = lang === 'en' ? [] : all.filter((v) => String(v.lang || '').toLowerCase().startsWith('en'));
     const seen = new Set();
-    return mine.concat(english).filter((v) => !seen.has(v.voiceURI) && seen.add(v.voiceURI)).slice(0, 6);
+    return mine.concat(english).filter((v) => v.voiceURI && !seen.has(v.voiceURI) && seen.add(v.voiceURI));
   }
 
   function voiceRow(value, name, preview, { disabled = false, provider = '' } = {}) {
@@ -6635,8 +6745,13 @@
     vc.state = state;
     voiceEl.dataset.state = state;
     voiceStatus.textContent = label;
-    // The orb stops Nasrin while she talks or thinks.
     voiceSkip.disabled = !(state === 'speaking' || state === 'thinking');
+    const share = $('voiceShareScreen');
+    if (share) {
+      share.disabled = !vc.on;
+      if (share.disabled && share.getAttribute('aria-pressed') !== 'true') share.title = 'Start realtime voice to share your screen';
+      else if (share.getAttribute('aria-pressed') !== 'true') share.title = 'Share screen';
+    }
     Nasrin.mood(MOODS[state] || 'idle');
   }
 
@@ -6843,8 +6958,22 @@
     const voice = currentVoice();
     const natural = voice.startsWith('ai:') && speech.available && Boolean(AudioCtx);
     watchForInterrupt(run, () => raw);
+    // Sharing the screen: describe the newest picture for this one question (not stored).
+    let screenContext = null;
+    const frame = vc.sharing && vc.screenFrame && Date.now() - vc.screenFrame.at < 30000 ? vc.screenFrame : null;
+    if (frame) {
+      voiceState('thinking', 'Looking at your screen…');
+      try {
+        const seen = await api('/v1/realtime/screen-analyze', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mimeType: 'image/jpeg', data: frame.data, question: said.slice(0, 500) })
+        });
+        screenContext = typeof seen?.answer === 'string' ? seen.answer : null;
+      } catch { /* answer normally if the screen could not be read */ }
+      if (!vc.on || run !== vc.run) return;
+    }
     const result = await runTurn({
-      text: said, spoken: true,
+      text: said, spoken: true, screenContext,
       speakVoice: natural ? voice.slice(3) : null,
       onPiece: (piece) => {
         // Another model took over: what was said so far is dropped.
@@ -7132,28 +7261,20 @@
     document.body.classList.add('voice-open');
     keepAwake();
     $('voiceEnd').focus();
-    const realtime = await startRealtimeVoice();
-    if (!vc.on) return;
-    // Say which mode is on only once it is known.
-    if (realtime) voiceSay('hint', 'Realtime voice is on. Just talk naturally — you can interrupt Nasrin at any time.');
-    if (!realtime) {
-      // When an AI realtime voice is selected, fail clearly rather than
-      // silently switching to a separate STT/TTS cascade.
-      if (currentVoice().startsWith('ai:')) {
-        // Initial connection failures must use the same bounded retry path as
-        // dropped sessions; do not close the voice UI after the first failure.
-        scheduleRealtimeReconnect('Voice could not start. Retrying the connection…');
-        return;
-      }
-      voiceSay('hint', 'Using compatibility voice mode. Talk naturally and Nasrin will answer out loud.');
-      if (Recognition) listenVoice();
-      else closeVoice('Realtime voice could not start, and this browser has no voice fallback.');
-    }
+    // Use turn-based STT → NasrinAI orchestrator → TTS for the standard voice
+    // experience. This avoids keeping a provider-specific realtime socket open,
+    // which has repeatedly failed on iPhone Safari in production. The realtime
+    // transport remains in the code for a future opt-in after separate validation.
+    voiceSay('hint', 'Voice is ready. Talk naturally; Nasrin will answer aloud. Screen sharing is available where your browser supports it.');
+    if (Recognition) listenVoice();
+    else closeVoice('Speech recognition is not supported in this browser. Try a supported browser or use chat.');
   }
 
   function closeVoice(message) {
     if (!vc.on) return;
+    window.dispatchEvent(new CustomEvent('nasrinai:voice-ended'));
     vc.on = false;
+    vc.sharing = false; vc.screenFrame = null;
     clearTimeout(vc.realtimeReconnectTimer);
     vc.realtimeReconnectTimer = null;
     vc.realtimeRetryCount = 0;
@@ -7178,6 +7299,61 @@
   }
 
   $('voiceEnd').addEventListener('click', () => closeVoice());
+  // Shared frames are transient and sent only to the active realtime provider.
+  window.addEventListener('nasrinai:voice-screen-frame', (event) => {
+    const frame = event.detail;
+    if (!vc.on || !frame?.data || frame.mimeType !== 'image/jpeg') return;
+    // Kept in memory only: the next spoken question is answered with a description of it.
+    vc.screenFrame = { data: frame.data, at: Date.now() };
+    let delivered = false;
+    try {
+      if (vc.realtimeProvider === 'gemini') {
+        const ws = vc.geminiState?.ws;
+        if (ws?.readyState === WebSocket.OPEN && vc.geminiState?.ready) {
+          ws.send(JSON.stringify({ realtimeInput: { video: { mimeType: frame.mimeType, data: frame.data } } }));
+          delivered = true;
+        }
+      } else if (vc.realtimeProvider === 'openai') {
+        const channel = vc.realtimeEvents;
+        if (channel?.readyState === 'open') {
+          channel.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: { type: 'message', role: 'user', content: [{ type: 'input_image', image_url: 'data:' + frame.mimeType + ';base64,' + frame.data }] }
+          }));
+          delivered = true;
+        }
+      }
+    } catch { /* a transient frame failure must not interrupt voice audio */ }
+    if (!delivered && vc.on && vc.realtime && !window.__nasrinScreenVisionPending && Date.now() - (window.__nasrinScreenVisionLast || 0) > 5000) {
+      window.__nasrinScreenVisionPending = true;
+      window.__nasrinScreenVisionLast = Date.now();
+      api('/v1/realtime/screen-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mimeType: frame.mimeType, data: frame.data })
+      }).then((result) => {
+        if (!vc.on || !result?.answer) return;
+        voiceSay('assistant', result.answer);
+        voiceStatus.textContent = 'Screen analyzed with OpenRouter vision.';
+      }).catch(() => {
+        /* Fallback is best-effort; keep voice available and avoid repeated error banners. */
+      }).finally(() => { window.__nasrinScreenVisionPending = false; });
+    }
+  });
+  window.addEventListener('nasrinai:voice-share-status', (event) => {
+    const { active, message } = event.detail || {};
+    vc.sharing = Boolean(active);
+    if (!active) vc.screenFrame = null;
+    const button = $('voiceShareScreen');
+    const label = $('voiceShareScreenLabel');
+    if (button) {
+      button.setAttribute('aria-pressed', String(Boolean(active)));
+      button.setAttribute('aria-label', active ? 'Stop sharing screen' : 'Share screen with NasrinAI');
+      button.title = active ? 'Stop sharing screen' : 'Share screen';
+    }
+    if (label) label.textContent = active ? 'Stop sharing' : 'Share screen';
+    if (vc.on && message) voiceStatus.textContent = message;
+  });
   voiceSkip.addEventListener('click', interruptVoice);
   voiceMute.addEventListener('click', () => {
     muteVoice(!vc.muted);

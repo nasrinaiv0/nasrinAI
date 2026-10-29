@@ -52,6 +52,10 @@ test('a video stays in the chat after a refresh: the reply carries a [genvideo:i
   assert.match(player, /isConnected/, 'stops polling when the chat is left');
   assert.match(player, /Download MP4/);
   assert.match(player, /generated-video-preview/);
+  assert.match(app, /async function apiBlob\(path, retried = false\)/, 'binary media requests use the authenticated API token');
+  assert.match(app, /if \(resp\.status === 401 && !retried\) return apiBlob\(path, true\)/, 'expired sessions get one refresh retry');
+  assert.match(player, /URL\.createObjectURL\(blob\)/, 'preview uses fetched MP4 bytes instead of an unauthenticated native URL');
+  assert.doesNotMatch(player, /preview\.src = state\.download/, 'native media elements never call the protected endpoint without a bearer token');
 });
 
 test('video messages cannot be edited like text messages', () => {

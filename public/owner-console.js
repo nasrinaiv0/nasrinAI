@@ -8,8 +8,10 @@
     'openrouter-unlisted': ['Unlisted Models', 'Logged models missing from NasrinAI’s configured catalog.', '⌕'],
     'other-unlisted': ['AI Models Activities', 'All logged models: listed and unlisted.', '◇'],
     learning: ['Community Learning Review', 'Review eligible examples before they can help future NasrinAI responses.', '✓'],
+    intelligence: ['Continuous Intelligence', 'Hourly crawl health, trusted source coverage, and recent indexed pages. Retrieval is keyword-based until semantic indexing is implemented.', '↻'],
     users: ['Users & Growth', 'Account totals, usage-based activity, and first-observed retention cohorts.', '♙'],
     regional: ['Regional Analytics', 'Approximate location trends for registered users and guests, derived from trusted edge metadata.', '◎'],
+    'google-analytics': ['Google Search & Traffic', 'Google Search Console clicks and impressions alongside GA4 visits and page engagement.', '⌕'],
     infra: ['Infrastructure & Releases', 'Database reachability and connected deployment sources.', '⌘'],
     security: ['Security & Audit', 'Authorization health and minimized owner-action audit events.', '◇'],
     automation: ['Automation & Jobs', 'Workflow health, queue state, retries, and execution outcomes.', '↗'],
@@ -450,18 +452,38 @@
           result.append(el('p','panel-copy','Fetched ' + new Date(payload.generated_at).toLocaleString() + ' · ' + payload.window + ' · USD totals where reported.'));
           const grid = el('div','grid');
           const providers = payload.providers || {};
-          for (const [id, label] of [['openai','OpenAI organization spend'],['anthropic','Anthropic organization spend'],['cloudflare','Cloudflare account spend'],['cerebras','Cerebras account spend']]) {
-            const item = providers[id] || {};
-            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate' : item.status === 'not_configured' ? 'Admin API key not configured' : item.status === 'not_available' ? 'No verified billing API integration' : 'Unavailable';
+          const billingProviders = [
+            ['openai','OpenAI organization spend'],
+            ['anthropic','Anthropic organization spend'],
+            ['google','Google Gemini account spend'],
+            ['groq','Groq account spend'],
+            ['cloudflare','Cloudflare Workers AI / account spend'],
+            ['cerebras','Cerebras account spend'],
+            ['mistral','Mistral account spend'],
+            ['nvidia_nim','NVIDIA NIM account spend']
+          ];
+          for (const [id, label] of billingProviders) {
+            const item = providers[id] || { status: 'not_available', source: 'billing_api_not_integrated', total_usd: null, rows: [] };
+            const statusLabel = item.status === 'available' ? 'Provider-reported · aggregate'
+              : item.status === 'not_configured' ? 'Billing credentials not configured'
+              : item.status === 'not_available' ? 'No verified billing API integration'
+              : 'Unavailable · check provider credentials or API';
             grid.append(metric(label, 'USD', moneyText(item.total_usd), statusLabel));
           }
           result.append(grid);
           const list = el('div','source-list');
-          for (const [id, label] of [['openai','OpenAI'],['anthropic','Anthropic'],['cloudflare','Cloudflare Workers AI / account usage'],['cerebras','Cerebras']]) {
-            const item = providers[id] || {};
+          for (const [id, label] of billingProviders) {
+            const item = providers[id] || { status: 'not_available', source: 'billing_api_not_integrated', total_usd: null, rows: [] };
             const row = el('div','source-row'), left = el('div');
-            left.append(el('div','source-name',label),el('div','source-detail',String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items'));
-            row.append(left,state(item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : item.status === 'not_available' ? 'Dashboard only' : 'Unavailable',item.status === 'available' ? 'available' : 'unavailable'));
+            const displayName = label.replace(' organization spend','').replace(' account spend','').replace(' / account spend','');
+            const detail = item.status === 'not_available'
+              ? 'No verified organization billing API integrated'
+              : item.status === 'not_configured'
+                ? 'Provider billing API credentials are not configured'
+                : String(item.source || 'billing API') + ' · ' + numberText(Array.isArray(item.rows) ? item.rows.length : 0) + ' report line items';
+            left.append(el('div','source-name',displayName),el('div','source-detail',detail));
+            const stateLabel = item.status === 'available' ? 'Available' : item.status === 'not_configured' ? 'Not configured' : item.status === 'not_available' ? 'Not integrated' : 'Unavailable';
+            row.append(left,state(stateLabel,item.status === 'available' ? 'available' : 'unavailable'));
             list.append(row);
           }
           result.append(list);
@@ -960,6 +982,72 @@
       c.append(panel);
     }
   }
+  async function renderIntelligence() {
+    const c = $('content');
+    c.replaceChildren();
+    c.append(head('Continuous Intelligence', 'Crawl status and indexed source evidence. Counts are bounded samples, not global totals.', 'Read-only'));
+    const panel = el('section', 'panel');
+    const toolbar = el('div', 'toolbar');
+    const refreshButton = el('button', 'quiet-button', 'Refresh crawl status');
+    refreshButton.type = 'button';
+    toolbar.append(refreshButton);
+    panel.append(toolbar);
+    const result = el('div');
+    result.append(notice('Loading crawl telemetry', 'Fetching queue and indexed-page metadata from the server. No page bodies or raw errors are returned.'));
+    panel.append(result);
+    c.append(panel);
+    async function load() {
+      refreshButton.disabled = true;
+      result.replaceChildren(notice('Loading crawl telemetry', 'Fetching current queue and indexed-page metadata.'));
+      try {
+        const response = await fetch('/owner/api/continuous-intelligence', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error?.message || 'Crawler telemetry is unavailable.');
+        result.replaceChildren();
+        const queue = payload.queue || {}, statuses = queue.status_counts || {}, sources = queue.source_counts || {};
+        const pages = Array.isArray(payload.recent_pages) ? payload.recent_pages : [];
+        const grid = el('div', 'grid');
+        grid.append(
+          metric('Queue rows sampled', '≋', numberText(payload.coverage?.queue_rows_sampled), 'Latest queue rows; limit 500'),
+          metric('Queued', '◷', numberText(statuses.queued || 0), 'Rows in the sample'),
+          metric('Retrying', '↻', numberText(statuses.retry || 0), 'Rows in the sample'),
+          metric('Indexed pages sampled', '▤', numberText(payload.coverage?.page_rows_sampled), 'Latest page metadata; limit 50'),
+          metric('Official learning seeds', '✓', numberText(sources.owner_seed || 0), 'Seed and same-host descendants in queue sample'),
+          metric('Discovered research URLs', '⌕', numberText(sources.discovered || 0), 'Other discovered links in queue sample')
+        );
+        result.append(grid);
+        result.append(notice('Retrieval and training status', 'Current retrieval: bounded keyword search over indexed page text, filtered to official HTTPS documentation hosts and cited in relevant platform coding answers. Semantic embeddings/vector ranking and model fine-tuning are not implemented by this feature. Crawling knowledge does not retrain model weights.'));
+        if (payload.coverage?.queue_sample_may_be_truncated) result.append(notice('Queue sample is capped', 'The queue sample reached 500 rows. Counts shown here are sampled and must not be interpreted as exact global totals.'));
+        const tableWrap = el('div', 'table-wrap'), table = el('table', 'data-table');
+        const thead = el('thead'), header = el('tr');
+        ['Source title','Official documentation URL','Fetched at','Content hash'].forEach(label => header.append(el('th','',label)));
+        thead.append(header); table.append(thead);
+        const tbody = el('tbody');
+        for (const page of pages) {
+          const row = el('tr');
+          row.append(el('td','',page.title || 'Untitled'));
+          const linkCell = el('td'), link = el('a','',page.url || '');
+          link.href = page.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          linkCell.append(link);
+          row.append(linkCell, el('td','',page.fetched_at || 'Unavailable'), el('td','',page.content_hash ? page.content_hash.slice(0,16) + '…' : 'Unavailable'));
+          tbody.append(row);
+        }
+        if (!pages.length) {
+          const row = el('tr'), cell = el('td','', 'No indexed pages are available in the current sample.');
+          cell.colSpan = 4; row.append(cell); tbody.append(row);
+        }
+        table.append(tbody); tableWrap.append(table); result.append(tableWrap);
+        result.append(el('p','panel-copy','Last checked: ' + new Date(payload.generated_at).toLocaleString() + '. Queue counts reflect a sample of up to 500 rows; page history shows up to 50 records.'));
+      } catch (error) {
+        result.replaceChildren(notice('Continuous intelligence unavailable', String(error?.message || 'Check the owner session and server-side crawl tables.')));
+      } finally { refreshButton.disabled = false; }
+    }
+    refreshButton.addEventListener('click', load);
+    await load();
+  }
   async function renderLearning() {
     const c = $('content');
     c.replaceChildren();
@@ -1244,6 +1332,81 @@
     await load();
   }
 
+
+  async function renderGoogleAnalytics() {
+    const c = $('content');
+    c.replaceChildren(head('Google Search & Traffic', 'Google Search Console + Google Analytics 4 · reporting uses completed days only.', 'Read-only'));
+    const controls = el('div', 'toolbar');
+    const windowSelect = el('select', 'input');
+    windowSelect.setAttribute('aria-label', 'Google analytics date range');
+    [['7d','Last 7 days'],['28d','Last 28 days'],['90d','Last 90 days']].forEach(([value,label]) => {
+      const option = el('option', '', label); option.value = value; windowSelect.append(option);
+    });
+    const refreshButton = el('button', 'quiet-button', 'Refresh Google data'); refreshButton.type = 'button';
+    controls.append(windowSelect, refreshButton); c.append(controls);
+    const result = el('div'); result.append(notice('Loading Google data', 'Requesting aggregate search and website traffic metrics from Google.'));
+    c.append(result);
+    const safeNumber = value => value === null || value === undefined ? 'Unavailable' : numberText(value);
+    const safePercent = value => value === null || value === undefined ? 'Unavailable' : (Number(value) * 100).toFixed(2) + '%';
+    const makeTable = (title, columns, rows, emptyText) => {
+      const panel = el('section', 'panel'); panel.classList.add('module-extra');
+      panel.append(el('h3', '', title));
+      const wrap = el('div', 'table-wrap'), table = el('table', 'data-table'), thead = el('thead'), tr = el('tr');
+      columns.forEach(label => tr.append(el('th', '', label)));
+      thead.append(tr); table.append(thead);
+      const tbody = el('tbody');
+      rows.forEach(row => { const line = el('tr'); row.forEach(value => line.append(el('td', '', String(value ?? '—')))); tbody.append(line); });
+      if (!rows.length) { const line = el('tr'), cell = el('td', '', emptyText); cell.colSpan = columns.length; line.append(cell); tbody.append(line); }
+      table.append(tbody); wrap.append(table); panel.append(wrap); return panel;
+    };
+    const load = async () => {
+      refreshButton.disabled = true; windowSelect.disabled = true;
+      result.replaceChildren(notice('Loading Google data', 'No metrics are cached in the browser; fetching a fresh server-side report.'));
+      try {
+        const response = await fetch('/owner/api/google-search-analytics?window=' + encodeURIComponent(windowSelect.value), { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error?.message || 'Google analytics request failed.');
+        result.replaceChildren();
+        if (payload.status === 'not_configured') {
+          result.append(notice('Google integration needs setup', payload.setup || 'Configure the server-side Google Analytics and Search Console credentials in Vercel.'));
+          refreshButton.disabled = false; windowSelect.disabled = false;
+          return;
+        }
+        const range = payload.date_range || {};
+        result.append(el('p', 'panel-copy', 'Reporting window: ' + (range.start || '—') + ' to ' + (range.end || '—') + '. Google Search Console data may be delayed; these metrics are not real-time.'));
+        const ga = payload.analytics || {}, sc = payload.search_console || {};
+        const grid = el('div', 'grid');
+        [
+          metric('Website sessions', '↗', safeNumber(ga.sessions), 'GA4 · ' + (ga.status || 'unavailable')),
+          metric('Website visitors', '♙', safeNumber(ga.total_users), 'GA4 total users'),
+          metric('New visitors', '＋', safeNumber(ga.new_users), 'GA4 new users'),
+          metric('Page views', '▤', safeNumber(ga.screen_page_views), 'GA4 screen/page views'),
+          metric('Google Search clicks', '⌕', safeNumber(sc.clicks), 'Clicks from Google Search'),
+          metric('Search impressions', '◎', safeNumber(sc.impressions), 'Appearances in Google Search'),
+          metric('Search CTR', '%', safePercent(sc.ctr), 'Clicks divided by impressions'),
+          metric('Average position', '↕', sc.average_position === null || sc.average_position === undefined ? 'Unavailable' : Number(sc.average_position).toFixed(1), 'Search Console reported average')
+        ].forEach(card => grid.append(card));
+        result.append(grid);
+        result.append(makeTable('Top website pages', ['Page path','Sessions','Users','Page views'],
+          (Array.isArray(ga.top_pages) ? ga.top_pages : []).map(row => [row.page, safeNumber(row.sessions), safeNumber(row.users), safeNumber(row.page_views)]),
+          'No GA4 page rows are available for this range.'));
+        result.append(makeTable('Top Google search queries', ['Search query','Clicks','Impressions','CTR','Avg. position'],
+          (Array.isArray(sc.top_queries) ? sc.top_queries : []).map(row => [row.query, safeNumber(row.clicks), safeNumber(row.impressions), safePercent(row.ctr), row.position === null || row.position === undefined ? 'Unavailable' : Number(row.position).toFixed(1)]),
+          'No query rows are available. Search Console may omit anonymized queries.'));
+        result.append(makeTable('Pages found in Google Search', ['Page','Clicks','Impressions','CTR','Avg. position'],
+          (Array.isArray(sc.top_pages) ? sc.top_pages : []).map(row => [row.page, safeNumber(row.clicks), safeNumber(row.impressions), safePercent(row.ctr), row.position === null || row.position === undefined ? 'Unavailable' : Number(row.position).toFixed(1)]),
+          'No Search Console page rows are available for this range.'));
+        if (ga.status !== 'available' || sc.status !== 'available') result.append(notice('Some metrics are unavailable', 'Check that the service account has GA4 Viewer access and Search Console property access. Each source can fail independently.'));
+      } catch (error) {
+        result.replaceChildren(notice('Google analytics unavailable', String(error?.message || 'Could not load Google analytics. Check server-side configuration and permissions.')));
+      } finally { refreshButton.disabled = false; windowSelect.disabled = false; }
+    };
+    refreshButton.addEventListener('click', load);
+    windowSelect.addEventListener('change', load);
+    await load();
+  }
+
   function show(key) {
     active = names[key] ? key : 'overview';
     const meta = names[active];
@@ -1257,9 +1420,11 @@
     });
     if (active === 'overview') renderOverview();
     else if (active === 'learning') renderLearning();
+    else if (active === 'intelligence') renderIntelligence();
     else if (active === 'openrouter-unlisted') renderUnlistedModels();
     else if (active === 'other-unlisted') renderActivities();
     else if (active === 'regional') renderRegional();
+    else if (active === 'google-analytics') renderGoogleAnalytics();
     else renderModule(active);
   }
   async function refresh() {
