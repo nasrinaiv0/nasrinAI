@@ -1,10 +1,10 @@
-## Production rollout state — 2026-10-29
+## Production rollout state — 2026-10-29 (observed 10:29 Asia/Manila)
 
-- Migration 078 is applied to production. Both public technical tables have RLS enabled; anonymous and authenticated roles have no SELECT privilege; service_role access and the matching RPC grant were verified.
-- The production deployment for commit c9cb52ae72e1868a9622913dd8742cb5d8a3a37a is READY. SEMANTIC_KNOWLEDGE_ENABLED=true and SEMANTIC_MAX_EMBEDDINGS_PER_RUN=10 are configured for production.
-- An unauthenticated request to the learning endpoint returned HTTP 401, confirming the route is protected.
-- The first actual scheduled invocation has not yet been observed at the time of this update; the semantic table and run-history table are still empty. The next hourly tick must produce a run record and indexed chunks before the pipeline can be considered proven.
-- Model-quality improvement is not yet established. The six-case benchmark must run with a populated index, and its per-task baseline/candidate results must be reviewed before claiming a gain.
+- Migration 078 and the production RLS/grant checks remain the security baseline: public technical knowledge is separate from tenant-owned knowledge, and client roles cannot read the global semantic index directly.
+- Deployment commit `cc4215d4e6d09b934dc64baf4a6d9c135f69be8c` reached Vercel production READY. Readiness is not treated as proof that indexing works.
+- The scheduled invocation at 2026-10-29 02:00 UTC (10:00 Manila) recorded `partial`, `embedding_rate_limited`, 0 indexed pages, 0 indexed chunks, and 8 embedding failures. A direct production count confirmed `public_technical_chunks` has 0 rows. The earlier `succeeded` run also indexed zero chunks and is not success evidence.
+- The 429 response was previously classified generically, so telemetry could not distinguish request throttling from exhausted provider quota/billing. The follow-up patch classifies the structured provider error without exposing its body, batches bounded chunks per page, and stops further provider calls after a 429. Production verification remains pending until a subsequent scheduled run writes official documentation chunks.
+- The six-case baseline-versus-retrieval benchmark has not run because the semantic index is empty. Model-quality improvement remains **UNPROVEN**.
 
 # Continuous Intelligence: Semantic Index and Quality Gate
 
