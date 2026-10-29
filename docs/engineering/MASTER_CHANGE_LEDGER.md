@@ -24,7 +24,7 @@ Start here, then open the focused audit delta and linked PR/commit/CI/deployment
 | Picture-edit slash commands, PR #701 | **Merged and deployed** | 1,017 commands reported in the merged change; main production deployment is READY. Full image-edit runtime coverage is not established by deployment status alone. |
 | Agent tools, PR #703 | **Open; not merge-ready without reconciliation** | Branch comparison reports 2 commits ahead and 28 behind current main; PR body reports 1,258 passing tests and one local FFmpeg-only failure. Exact head SHA and current-head CI were not independently confirmed in this review; no preview deployment was returned for the branch query. |
 | Rich reply rendering, PR #702 | **Open** | PR body reports 1,254 passing tests and one local FFmpeg-only failure; exact current head/checks not revalidated in this review. |
-| Audit refresh, PR #704 | **Open and stale** | Its own body says it is based on 531f56d... and behind current main; do not merge as-is. Latest-head CI was recorded as unverified in its body. |
+| Audit refresh, PR #704 | **Open, stale/duplicate** | Current branch comparison reports 0 commits ahead, 5 behind, and no changed files. It appears already contained in main; do not merge as-is. |
 | Production database/migration state | **Carry-forward risk; not re-queried in this run** | See the detailed audit section below; do not treat carried-forward catalog notes as a fresh live query. |
 
 ## Change record 2026-10-30 06:14 Asia/Manila
@@ -76,9 +76,9 @@ Evidence: [PR #702](https://github.com/nasrinaiv0/nasrinAI/pull/702).
 ### E. PR #704 — audit documentation refresh
 
 - **State:** open; do not merge as-is.
-- **Evidence:** PR body reports its branch was based on 531f56d6... while current main had advanced to 79b7ce8360ec783b6eb6b56dff5e715c90bc073e; current main has since advanced again to 33f9283f.... Its own latest-head note says no Actions runs were reported for head 187674e5e6f6465119a45885ff905ae299d18a1. This review did not independently re-query the branch head SHA or checks.
+- **Evidence:** comparing branch docs/nasrinai-progress-audit-2026-10-30 against current main reports 0 commits ahead, 5 behind, and no changed files. The content appears already contained in main, so this is a stale/duplicate review record. Its body also records no Actions runs for prior head 187674e5e6f6465119a45885ff905ae299d18a1.
 - **Risk:** stale documentation can reintroduce false PR status and deployment/migration claims. This new audit branch is based on current main instead.
-- **Action:** supersede or close the stale draft only after its owner confirms the new audit branch covers its intended content; do not merge a branch that is behind main or lacks current checks.
+- **Action:** do not merge a no-diff branch. Close/supersede through normal maintainer review after confirming the new audit branch covers its intended content. No PR state was changed in this run.
 
 Evidence: [PR #704](https://github.com/nasrinaiv0/nasrinAI/pull/704).
 
