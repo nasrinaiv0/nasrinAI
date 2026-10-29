@@ -146,7 +146,11 @@ export function loadConfig(env = process.env) {
     throw new ConfigError('set SUPABASE_URL and SUPABASE_SECRET_KEY together');
   }
 
-  const aiProvider = String(env.AI_PROVIDER || 'none').trim().toLowerCase();
+  // Production defaults to Auto when provider credentials exist; local/test
+  // environments without an explicit mode remain safely disabled.
+  const hasConfiguredProviderKey = [env.OPENAI_API_KEY, env.GEMINI_API_KEY, env.ANTHROPIC_API_KEY, env.OPENROUTER_API_KEY]
+    .some((key) => String(key || '').trim());
+  const aiProvider = String(env.AI_PROVIDER || (isProduction && hasConfiguredProviderKey ? 'auto' : 'none')).trim().toLowerCase();
   // GPT (openai), LOCAL (local) or AUTO (auto: own model first, GPT when it
   // is down or a tier asks for GPT).
   if (!['none', 'openai', 'gemini', 'claude', 'openrouter', 'local', 'auto', 'fake'].includes(aiProvider)) throw new ConfigError('AI_PROVIDER: use none, openai, gemini, claude, openrouter, local, auto or fake');
@@ -178,7 +182,7 @@ export function loadConfig(env = process.env) {
     const configuredFreeModels = String(env[p.env + '_FREE_MODELS'] || '').split(',').map((x) => x.trim()).filter(Boolean);
     const freeModels = configuredFreeModels.length ? configuredFreeModels : [...(p.freeModels || [])];
     return { id: p.id, env: p.env, adapter: p.adapter, apiKey, model, baseUrl: p.baseUrl, accountId: String(env.CLOUDFLARE_ACCOUNT_ID || '').trim(), freeModels, models: p.models || null, trainsOnData: true, vision: false, tools: false };
-  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && aiProvider !== 'openrouter' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
+  }).filter((p) => p.apiKey && p.model && aiProvider !== 'fake' && (p.adapter !== 'cloudflare-workers-ai' || p.accountId));
   for (const p of freeProviderSettings) if (!providerKeys.includes(p.id) && aiProvider !== 'fake') providerKeys.push(p.id);
   const defaultKey = { openai: 'openai', gemini: 'gemini', claude: 'anthropic', openrouter: 'openrouter', local: 'local', auto: (env.OPENAI_API_KEY ? 'openai' : geminiKey ? 'gemini' : anthropicKey ? 'anthropic' : local ? 'local' : openrouterApiKey ? 'openrouter' : 'openai'), fake: 'fake', none: 'openai' }[aiProvider];
   let temperature = null;
@@ -223,12 +227,12 @@ export function loadConfig(env = process.env) {
     max: tierSpec('TIER_MAX', env.TIER_MAX),
     ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA)
   } : aiProvider === 'auto' ? {
-    // OpenRouter is the primary model catalog for every tier when configured.
-    // Direct providers remain registered as failover targets, not first choice.
-    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : local ? 'local:' + local.model : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey && !env.OPENAI_API_KEY ? 'anthropic:claude-haiku-5-5' : 'gpt-4o-mini')),
-    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : env.OPENAI_API_KEY ? 'gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-5-mini')),
-    max: tierSpec('TIER_MAX', env.TIER_MAX ?? (openrouterApiKey ? 'openrouter:openai/gpt-6-sol' : env.OPENAI_API_KEY ? 'gpt-5' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5')),
-    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (openrouterApiKey ? 'openrouter:openai/gpt-6.1-sol' : env.OPENAI_API_KEY ? 'gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5:high'))
+    // Auto prefers configured direct providers; OpenRouter is a gateway/fallback,
+    // not the default route simply because its key is present.
+    nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI || (local ? 'local:' + local.model : env.OPENAI_API_KEY ? 'openai:gpt-4o-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-4o-mini')),
+    pro: tierSpec('TIER_PRO', env.TIER_PRO ?? (env.OPENAI_API_KEY ? 'openai:gpt-5-mini' : geminiKey ? 'gemini:gemini-3.1-flash-lite' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6-luna' : anthropicKey ? 'anthropic:claude-haiku-5-5' : 'gpt-5-mini')),
+    max: tierSpec('TIER_MAX', env.TIER_MAX ?? (env.OPENAI_API_KEY ? 'openai:gpt-5' : geminiKey ? 'gemini:gemini-3.1-pro' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6-sol' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5')),
+    ultra: tierSpec('TIER_ULTRA', env.TIER_ULTRA ?? (env.OPENAI_API_KEY ? 'openai:gpt-5:high' : geminiKey ? 'gemini:gemini-3.1-pro' : local ? 'local:' + local.model : openrouterApiKey ? 'openrouter:openai/gpt-6.1-sol' : anthropicKey ? 'anthropic:claude-sonnet-5-5' : 'gpt-5:high'))
   } : aiProvider === 'gemini' ? {
     nasrinai: tierSpec('TIER_NASRINAI', env.TIER_NASRINAI ?? 'gemini:gemini-3.1-flash-lite'),
     pro: tierSpec('TIER_PRO', env.TIER_PRO ?? 'gemini:gemini-3.1-flash-lite'),
@@ -264,19 +268,23 @@ export function loadConfig(env = process.env) {
   if (!['auto', 'free', 'openai', 'gemini', 'claude', 'anthropic', 'none'].includes(fallbackMode)) {
     throw new ConfigError('AI_FALLBACK: use auto, free, openai, gemini, claude, anthropic or none');
   }
-  // Prefer independent free inference capacity first; keep OpenRouter as
-  // the aggregator safety net, after direct providers. Remaining catalogued
-  // providers follow in stable catalog order.
-  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'openrouter'];
+  // These direct APIs are reserved for Quick Free text routing only. They must
+  // not become generic failover providers for paid tiers.
+  const QUICK_FREE_DIRECT_PROVIDER_IDS = new Set([
+    'groq', 'cerebras', 'cloudflare-workers-ai', 'mistral', 'nvidia-nim'
+  ]);
+  const freeFallbackPriority = ['cerebras', 'cloudflare-workers-ai', 'groq', 'mistral', 'nvidia-nim', 'openrouter'];
   const eligibleFreeProviderIds = freeProviderSettings
-    .filter((p) => p.freeModels.includes(p.model))
+    .filter((p) => (QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter') && p.freeModels.includes(p.model))
     .map((p) => p.id);
   const freeFallbackProviders = [
     ...freeFallbackPriority.filter((id) => eligibleFreeProviderIds.includes(id)),
     ...eligibleFreeProviderIds.filter((id) => !freeFallbackPriority.includes(id))
   ];
   const fallbackProviders = fallbackMode === 'auto'
-    ? ['gemini', 'openai', 'anthropic', ...freeFallbackProviders.filter((p) => p !== 'openrouter')].filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
+    ? ['gemini', 'openai', 'anthropic',
+      ...(providerKeys.includes('openrouter') && providerKeys.some((p) => ['openai', 'gemini'].includes(p)) ? ['openrouter'] : [])]
+      .filter((p, i, all) => providerKeys.includes(p) && all.indexOf(p) === i)
     : fallbackMode === 'free'
       ? freeFallbackProviders.filter((p) => providerKeys.includes(p))
       : fallbackMode === 'none' ? [] : [fallbackMode === 'claude' ? 'anthropic' : fallbackMode];
@@ -302,12 +310,18 @@ export function loadConfig(env = process.env) {
     ...(has('gemini') ? [{ provider: 'gemini', model: 'gemini-3.1-flash-lite', effort: null }] : []),
     ...(has('openai') ? [{ provider: 'openai', model: 'gpt-4o-mini', effort: null }] : [])
   ].map((s) => Object.freeze(s)));
-  // Guest/free Quick use explicitly free OpenRouter models first, then GPT-6 Luna as the sole paid fallback.
+  // Guest/free Quick prefers explicitly free OpenRouter models, then separately configured
+  // free-provider allowlists, and keeps GPT-6 Luna as the final emergency fallback.
   // Never use openrouter/free, which does not guarantee a model family.
   const nemotronDefaults = has('openrouter') ? [
+    // Keep Guest/Quick Free on the configured NasrinAI chat-capable free catalog.
     'openrouter:nvidia/nemotron-3.5-lightning:free',
+    'openrouter:nvidia/nemotron-3.5-super-vl:free',
     'openrouter:nvidia/nemotron-3-super-120b-a12b:free',
-    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free'
+    'openrouter:nvidia/nemotron-3-ultra-550b-a55b:free',
+    'openrouter:nvidia/nemotron-3.5-content-safety:free',
+    'openrouter:google/gemma-4-26b-a4b-it:free',
+    'openrouter:google/gemma-4-31b-it:free'
   ] : [];
   // Operators may add any OpenRouter model currently marked explicitly free
   // in the provider catalog without code changes. Ignore non-free IDs so this
@@ -340,12 +354,23 @@ export function loadConfig(env = process.env) {
     ...openRouterProCandidates
   ] : [];
   const defaultsByLevel = {
-    // Guest/free Quick tries every eligible free model before GPT-6 Luna. Policy filters this pool by plan.
-    1: quickFreeDefaults.length ? [...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), ...(has('openrouter') ? ['openrouter:openai/gpt-6-luna'] : [])] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
-    2: [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', ...openRouterProCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
-    3: [has('openrouter') ? 'openrouter:' + tiers.max.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    4: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
-    5: [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
+    // Auto prefers direct providers on normal routes. Quick/free eligibility is
+    // enforced by policy; direct free allowlists precede OpenRouter free models.
+    1: aiProvider === 'auto'
+      ? [has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-nano' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', ...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), has('openrouter') ? 'openrouter:openai/gpt-6-luna' : '']
+      : quickFreeDefaults.length ? [...quickFreeDefaults, ...openRouterProCandidates.filter((candidate) => !candidate.endsWith('openai/gpt-6-luna')), ...(has('openrouter') ? ['openrouter:openai/gpt-6-luna'] : [])] : [has('local') && local ? 'local:' + local.model : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : '', has('openai') ? 'openai:gpt-5.4-nano' : ''],
+    2: aiProvider === 'auto'
+      ? [has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', has('local') && local ? 'local:' + local.model : '', ...openRouterProCandidates]
+      : [has('openrouter') ? 'openrouter:' + tiers.pro.model : '', ...openRouterProCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4-mini:low' : '', has('gemini') ? 'gemini:gemini-3.1-flash-lite' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-haiku-5-5' : ''],
+    3: aiProvider === 'auto'
+      ? [has('openai') ? 'openai:gpt-5.4:medium' : '', has('gemini') ? 'gemini:gemini-3.1-pro' : '', has('local') && local ? 'local:' + local.model : '', ...openRouterMaxCandidates]
+      : [has('openrouter') ? 'openrouter:' + tiers.max.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:medium' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    4: aiProvider === 'auto'
+      ? [has('openai') ? 'openai:gpt-5.4:high' : '', has('gemini') ? 'gemini:gemini-3.1-pro' : '', has('local') && local ? 'local:' + local.model : '', ...openRouterMaxCandidates]
+      : [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '', aiProvider === 'claude' && has('anthropic') ? 'anthropic:claude-sonnet-5-5' : ''],
+    5: aiProvider === 'auto'
+      ? [has('openai') ? 'openai:gpt-5.4:high' : '', has('gemini') ? 'gemini:gemini-3.1-pro' : '', has('local') && local ? 'local:' + local.model : '', ...openRouterMaxCandidates]
+      : [has('openrouter') ? 'openrouter:' + tiers.ultra.model : '', ...openRouterMaxCandidates, has('local') && local ? 'local:' + local.model : '', has('openai') ? 'openai:gpt-5.4:high' : '']
   };
   const levels = {};
   for (let n = 1; n <= 5; n++) {
@@ -357,7 +382,7 @@ export function loadConfig(env = process.env) {
     // level-appropriate model first, even when ROUTE_LEVEL_n is customized.
     // In auto mode, put the configured OpenRouter tier model first for intent
     // scanning. Quick/guest policy filters this to the Nemotron allowlist later.
-    const openRouterFirst = aiProvider === 'auto' && has('openrouter')
+    const openRouterFirst = aiProvider === 'openrouter' && has('openrouter')
       ? [Object.freeze({ provider: 'openrouter', model: n === 1 ? tiers.nasrinai.model : n === 2 ? tiers.pro.model : n === 3 ? tiers.max.model : tiers.ultra.model, effort: null })]
       : [];
     const combined = [...openRouterFirst, ...normalCandidates.filter((candidate) => !openRouterFirst.some((first) => first.provider === candidate.provider && first.model === candidate.model))];
@@ -367,9 +392,9 @@ export function loadConfig(env = process.env) {
   }
   if (routingMode === 'smart' && !levels[1].length) throw new ConfigError('ROUTING=smart needs at least one model for ROUTE_LEVEL_1');
 
-  // Coding specialists are explicit, tier-scoped routes. Prefer the requested
-  // OpenRouter Sol models when OPENROUTER_API_KEY is configured; retain the
-  // previous Anthropic defaults only when OpenRouter is not configured.
+  // Coding specialists are explicit, tier-scoped routes. In Auto mode, prefer
+  // direct Anthropic coding models when configured; use OpenRouter as the
+  // specialist fallback. Explicit OpenRouter mode retains its pinned behavior.
   const codingModel = (name, value, fallback, allowedModels) => {
     const raw = value === undefined || String(value).trim() === '' ? fallback : String(value).trim();
     if (!raw) return null;
@@ -386,7 +411,7 @@ export function loadConfig(env = process.env) {
     }
     throw new ConfigError(`${name}: use an approved openrouter:openai/gpt-6-sol or openrouter:openai/gpt-6.1-sol model (or an approved anthropic:claude-... fallback)`);
   };
-  const codingOpenRouter = has('openrouter');
+  const codingOpenRouter = has('openrouter') && (aiProvider !== 'auto' || !has('anthropic'));
   const codingAnthropic = has('anthropic');
   const codingFallback = (openrouterModel, anthropicModel) => codingOpenRouter
     ? `openrouter:${openrouterModel}`
@@ -413,7 +438,9 @@ export function loadConfig(env = process.env) {
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     levels: Object.freeze(levels),
-    freeModels: Object.freeze(Object.fromEntries(freeProviderSettings.map((p) => [p.id, p.freeModels]))),
+    freeModels: Object.freeze(Object.fromEntries(freeProviderSettings
+      .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
+      .map((p) => [p.id, p.freeModels]))),
     coding,
     safeFallbacks,
     tierRange: Object.freeze({
@@ -591,9 +618,19 @@ export function loadConfig(env = process.env) {
         ? { provider: 'gemini', model: env.IMAGE_MODEL || 'gemini-3.1-flash-lite-image' }
         : {};
   for (const n of [1, 2, 3, 4]) {
-    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, defaultImageRoute);
+    // Quick's image lane is intentionally paid even when Quick text chat is
+    // free-only. Prefer OpenRouter's low-cost GPT Image 2 for tier 1, with
+    // Flare as a same-modality, speed-oriented paid fallback. This is isolated
+    // to tier 1 so higher-quality tiers retain their own route configuration.
+    const tierDefaultImageRoute = n === 1 && openrouterApiKey
+      ? { provider: 'openrouter', model: 'openai/gpt-image-2' }
+      : defaultImageRoute;
+    const tierDefaultImageFallback = n === 1 && openrouterApiKey
+      ? { provider: 'openrouter', model: 'openai/gpt-image-2.5-flare' }
+      : defaultImageFallback;
+    const primary = imageSlot(`IMAGE_TIER_${n}_PRIMARY`, tierDefaultImageRoute);
     const legacy = n === 1 && env.IMAGE_FALLBACK_MODEL
-      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : defaultImageFallback;
+      ? { provider: 'openai', model: env.IMAGE_FALLBACK_MODEL } : tierDefaultImageFallback;
     const fallback = imageSlot(`IMAGE_TIER_${n}_FALLBACK`, legacy);
     if (primary) imageTiers[n] = Object.freeze({ primary, fallback });
     else if (fallback) warnings.push(`IMAGE_TIER_${n}_FALLBACK is set without a primary. Tier ${n} pictures are off.`);
@@ -777,6 +814,11 @@ export function loadConfig(env = process.env) {
     emails: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerEmails)] : []),
     ips: Object.freeze(ownerConsoleEnabled ? [...new Set(ownerIps)] : []),
     sessionSecret: ownerConsoleEnabled ? ownerSessionSecret : '',
+    // Organization-level billing keys are optional, read-only, and never sent to the browser.
+    openaiAdminKey: ownerConsoleEnabled ? String(env.OPENAI_ADMIN_KEY || '').trim() : '',
+    anthropicAdminKey: ownerConsoleEnabled ? String(env.ANTHROPIC_ADMIN_KEY || '').trim() : '',
+    cloudflareBillingApiToken: ownerConsoleEnabled ? String(env.CLOUDFLARE_BILLING_API_TOKEN || '').trim() : '',
+    cloudflareAccountId: ownerConsoleEnabled ? String(env.CLOUDFLARE_ACCOUNT_ID || '').trim() : '',
     githubActions: Object.freeze({
       enabled: ownerConsoleEnabled && String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim().length >= 20,
       token: ownerConsoleEnabled ? String(env.OWNER_GITHUB_ACTIONS_TOKEN || '').trim() : ''
@@ -826,7 +868,7 @@ export function loadConfig(env = process.env) {
     // must accept the current Terms before using the service.
     legal: Object.freeze({
       terms: String(env.LEGAL_TERMS_VERSION || '2026-10-13').trim().slice(0, 40),
-      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-24').trim().slice(0, 40),
+      privacy: String(env.LEGAL_PRIVACY_VERSION || '2026-10-28').trim().slice(0, 40),
       requireTerms: String(env.LEGAL_REQUIRE_TERMS ?? 'true').toLowerCase() !== 'false'
     }),
     // Pictures (Phase 4.2): Gemini image model, one image per request.
@@ -852,6 +894,8 @@ export function loadConfig(env = process.env) {
     web: Object.freeze({
       links: String(env.WEB_LINKS ?? 'true').toLowerCase() !== 'false',
       searchModel: webSearchModel(),
+      // Optional: a non-free search model for paid plans (never a :free model). Blank = use searchModel.
+      paidSearchModel: (() => { const v = String(env.OPENROUTER_WEB_SEARCH_PAID_MODEL ?? '').trim(); return v && !/:free$/i.test(v) && openrouterApiKey ? v : ''; })(),
       // Optional official Google Custom Search API. Configure both values
       // to enable a failure-only fallback for the primary OpenRouter web search.
       googleApiKey: String(env.WEB_GOOGLE_API_KEY || '').trim(),
@@ -891,7 +935,9 @@ export function loadConfig(env = process.env) {
       fallback,
       geminiApiKey: geminiKey,
       anthropicApiKey: anthropicKey,
-      freeProviders: Object.freeze(freeProviderSettings.map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
+      freeProviders: Object.freeze(freeProviderSettings
+        .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
+        .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
       maxReplyTokens: toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 800, 50, 8000),

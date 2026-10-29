@@ -3,15 +3,16 @@ import { redactForProvider } from '../ai/redact.js';
 import { looksSecret } from './secrets.js';
 import { searchTerms } from './index.js';
 
-export const COMMUNITY_LEARNING_CONSENT_VERSION = '2026-10-23-community-learning-v1';
+export const COMMUNITY_LEARNING_CONSENT_VERSION = '2026-10-26-guest-notice-v1';
 const MAX_QUESTION_CHARS = 2400;
 const MAX_ANSWER_CHARS = 6000;
-const EXAMPLE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const EXAMPLE_TTL_MS = null;
 const BLOCKED = /\b(password|passcode|one.time.password|otp|api[ _-]?key|secret key|private key|access token|refresh token|credit card|debit card|bank account|social security|passport|diagnosis|medical record|prescription|therapy|mental health|sexual|religion|political affiliation)\b/i;
 const CONTACT = /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:\+?\d[\d ().-]{7,}\d))/i;
 
-// Learning is consent-gated and platform-only. Existing screening excludes risky
-// content before storage; passing examples are auto-approved for retrieval, not model-weight training.
+// Learning is authorization-gated and platform-only. Guest authorization is recorded
+// by the first-use notice; signed-in users must enable their preference. Screening
+// excludes risky content before storage; examples do not train model weights automatically.
 export function buildCommunityExample({ question, answer }) {
   if (typeof question !== 'string' || typeof answer !== 'string' || CONTACT.test(question) || CONTACT.test(answer)) return null;
   let q = redactForProvider(question).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, ' ').trim().slice(0, MAX_QUESTION_CHARS);
@@ -40,7 +41,7 @@ export function createCommunityLearning({ store, logger, now = () => Date.now() 
         if (!consent || consent.version !== COMMUNITY_LEARNING_CONSENT_VERSION || consent.decision !== 'granted') return false;
         await store.addImprovementExample({
           ...identity, consentVersion: COMMUNITY_LEARNING_CONSENT_VERSION, exampleText,
-          expiresAt: new Date(now() + EXAMPLE_TTL_MS).toISOString()
+          expiresAt: EXAMPLE_TTL_MS === null ? null : new Date(now() + EXAMPLE_TTL_MS).toISOString()
         });
         return true;
       } catch (err) {

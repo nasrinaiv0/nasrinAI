@@ -152,3 +152,42 @@ Changes in this follow-up:
 - **Status (2026-10-19):** partly implemented. Done: 404 page, `robots.txt`, `sitemap.xml`, page descriptions, canonical and share tags (#405, see [seo.md](seo.md)); unstyled FAQ and registry pages fixed (#431); performance measured (#432, see [performance-baseline.md](performance-baseline.md)). Not done: route inventory, structured data, source-map and console review, live verification of the 404 page and the `www` redirect.
 - **Constraints:** audit before changing architecture; preserve behaviour and security; no hardcoded production configuration; use Vercel environment variables.
 - **Acceptance:** section 13 of the specification. Record evidence, tests, remaining risks and deployment verification before marking anything complete.
+
+
+## Continuous Intelligence / Hourly Learning — 2026-10-29
+
+- Detailed upgrade: [nasrinai-continuous-intelligence-upgrade.md](nasrinai-continuous-intelligence-upgrade.md).
+- Branch: `feat/continuous-intelligence-hourly-learning`.
+- Initial implementation adds a curated official programming documentation source registry and a protected hourly route using the existing crawler. Queue insertion is intended to be idempotent so hourly seeding does not reset crawl scheduling.
+- Target behavior: retrieve trusted knowledge for relevant tasks, evaluate coding/reasoning outcomes, and promote only validated, privacy-safe improvements. Database ingestion alone is not model training; fine-tuning remains a separate later phase.
+- Status: in progress. Run CI and inspect the final diff; confirm the deployed cron and live Supabase schema before production claims.
+
+
+## Continuous Intelligence and hourly learning — deployed baseline; phase 2 open — 2026-10-29
+
+- **Status:** PR #674 is merged and the Vercel production deployment is READY. CI #7706 passed 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax checks, and secret scanning. Documentation Gate #1808 passed.
+- **Runtime evidence:** Live Supabase contains 19 indexed `owner_seed` queue rows and 41 official-host pages; the latest official page fetch observed was 2026-10-28 22:35 UTC. This verifies that official crawl data exists, but does not by itself prove the exact hourly Cron invocation or a successful authenticated OCC request.
+- **Security:** Live crawl tables exist; RLS is enabled and anonymous/authenticated policies deny access. The claim function has a fixed search_path and execution grants limited to service_role/postgres. Migration-history drift remains: objects exist but migration 044 is absent from the migration list. Do not blindly reapply migration 044.
+- **Deployed behavior:** Curated official programming seeds, protected hourly queue seeding, idempotent queue insertion, same-host traversal for owner-seeded sources, bounded locally ranked keyword retrieval for platform coding questions, official HTTPS host allowlisting, secret-pattern exclusions, untrusted-context handling, source citations, and an owner-only OCC panel/API with bounded metadata samples.
+- **Known gaps:** Current retrieval is keyword-based, not semantic/vector RAG, and does not train model weights. Production schema has no enabled `vector` extension; existing `knowledge_docs`/`knowledge_chunks` require tenant IDs, so global public docs must not be mixed into tenant-owned records. Semantic index requires a reviewed schema/permission boundary and embedding-provider cost controls. Direct cron-invocation/OCC runtime evidence, persistent per-run history, and a fixed coding/reasoning evaluation benchmark remain open.
+- **Next:** Confirm a successful hourly route invocation and authenticated OCC response from production logs; reconcile migration history; design a separate RLS-protected public-doc index or explicit public scope; select an embedding provider and budget; implement semantic retrieval and fixed benchmark only after security review.
+
+
+## Continuous Intelligence full-text indexing follow-up — in development — 2026-10-29
+
+- **Scope:** Add idempotent, content-hash-aware ingestion of trusted crawler pages into the existing platform knowledge search, rather than relying only on the crawler keyword fallback.
+- **Implementation:** Migration 076 adds managed-document content hashes and a service-role-only SECURITY DEFINER upsert RPC with fixed search_path, platform-tenant validation, HTTPS URL validation, chunk size/count limits, and a 200-document cap. The server indexer filters to the official host allowlist and processes up to five changed documents per hourly run.
+- **Retrieval:** Uses existing knowledge_docs/knowledge_chunks and search_knowledge full-text ranking. Public docs are labelled untrusted reference data. This is full-text RAG, not vector embeddings or model-weight training.
+- **OCC:** Extends owner-only telemetry with managed knowledge-document sample count and latest indexed timestamp, without returning page bodies or raw errors.
+- **Validation:** Migration/database regression tests and unit tests have been added; CI and Documentation Gate are pending on the follow-up PR.
+- **Rollout gate:** Do not merge or deploy until CI passes. Apply migration 076 to production only after CI; then verify RLS/grants, idempotent indexing, and actual search_knowledge retrieval. Existing migration-history mismatch for crawler migration 044 must not be “fixed” by blindly rerunning it.
+- **Remaining:** Semantic embeddings/vector ranking, persistent per-run history, a measured coding/reasoning benchmark, and optional fine-tuning remain separate phases.
+
+
+## Continuous Intelligence full-text indexing — deployed — 2026-10-29
+
+- **Status:** PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production Vercel deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` is READY.
+- **Migration 076:** Applied to production. Verified `source_content_hash`, the unique partial index, and the SECURITY DEFINER RPC with fixed search_path; execution is denied to anon/authenticated and granted to service_role.
+- **Implementation:** Trusted HTTPS crawl pages are hashed, chunked, and upserted into the existing platform knowledge store; changed pages refresh their chunks; legacy illustrative examples can be upgraded in place. Up to five changed docs are indexed per hourly run.
+- **Validation:** CI #7753 passed: 1,191 passed, 0 failed, 1 skipped out of 1,192 Node tests; database tests, dependency audit, OpenRouter activity-sync tests, syntax check, and secret scan passed. Documentation Gate #1818 passed.
+- **Still to verify:** The first post-deployment hourly run, real indexed-doc counts, and retrieval impact in live platform answers. Semantic embeddings/vector ranking, persistent per-run history, and a measured coding/reasoning benchmark remain follow-up phases.

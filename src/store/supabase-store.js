@@ -7,7 +7,7 @@ const KEY_ID = /^[0-9a-f]{12}$/;
 const OWNER_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const OWNER_TYPES = new Set(['user', 'guest', 'service']);
 const CONVERSATION_COLUMNS = 'id,tenant_id,owner_type,owner_id,title,created_at,updated_at,expires_at';
-const MESSAGE_COLUMNS = 'id,role,content,created_at';
+const MESSAGE_COLUMNS = 'id,role,content,created_at,response_metadata';
 
 const PROJECT_COLUMNS = 'id,name,description,instructions,status,created_at,updated_at';
 const mapProject = (r) => ({ id: r.id, name: r.name, description: r.description, instructions: r.instructions, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at });
@@ -48,7 +48,10 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
   async function request(method, path, { body, prefer } = {}) {
     const headers = {
       apikey: serviceKey,
-      Authorization: 'Bearer ' + serviceKey,
+      // New Supabase secret keys are opaque API keys, not JWTs. Sending one as
+      // a Bearer token makes PostgREST try to validate it as a JWT (PGRST303).
+      // Legacy service_role JWTs still need the Authorization header.
+      ...(!serviceKey.startsWith('sb_secret_') ? { Authorization: 'Bearer ' + serviceKey } : {}),
       Accept: 'application/json'
     };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -85,7 +88,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         method,
         headers: {
           apikey: serviceKey,
-          Authorization: 'Bearer ' + serviceKey,
+          ...(!serviceKey.startsWith('sb_secret_') ? { Authorization: 'Bearer ' + serviceKey } : {}),
           ...(bytes ? { 'Content-Type': mime, 'x-upsert': String(upsert) } : {}),
           ...(deleting ? { 'Content-Type': 'application/json' } : {})
         },
@@ -320,12 +323,21 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       await request('DELETE', `conversations?id=eq.${id}`, { prefer: 'return=minimal' });
     },
 
-    async addMessage({ conversationId, tenantId, role, content }) {
+    async addMessage({ conversationId, tenantId, role, content, responseMetadata = null }) {
       const rows = await request('POST', `messages?select=${MESSAGE_COLUMNS}`, {
         prefer: 'return=representation',
-        body: { conversation_id: conversationId, tenant_id: tenantId, role, content }
+        body: { conversation_id: conversationId, tenant_id: tenantId, role, content, response_metadata: responseMetadata && typeof responseMetadata === 'object' ? responseMetadata : null }
       });
       return mapMessage(rows[0]);
+    },
+
+    async setMessageResponseMetadata(id, responseMetadata) {
+      if (!UUID.test(String(id))) return null;
+      const rows = await request('PATCH', `messages?id=eq.${id}&select=${MESSAGE_COLUMNS}`, {
+        prefer: 'return=representation',
+        body: { response_metadata: responseMetadata }
+      });
+      return rows && rows[0] ? mapMessage(rows[0]) : null;
     },
 
     // The latest `limit` messages, oldest first.
@@ -344,7 +356,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
 
     async getMessage(id) {
       if (!UUID.test(String(id))) return null;
-      const rows = await request('GET', `messages?id=eq.${id}&select=id,conversation_id,role,content,created_at&limit=1`);
+      const rows = await request('GET', `messages?id=eq.${id}&select=id,conversation_id,role,content,created_at,response_metadata&limit=1`);
       const r = rows && rows[0];
       return r ? { ...mapMessage(r), conversationId: r.conversation_id } : null;
     },
@@ -376,22 +388,54 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
         tenant_id: e.tenantId, actor_type: e.actorType, actor_id: e.actorId,
         provider: e.provider, model: e.model,
         input_tokens: e.inputTokens, output_tokens: e.outputTokens,
-        latency_ms: e.latencyMs, outcome: e.outcome
+        latency_ms: e.latencyMs, outcome: e.outcome,
+        request_id: e.requestId,
+        endpoint: e.endpoint ?? null,
+        http_method: e.httpMethod ?? null,
+        http_status: e.httpStatus ?? null,
+        error_code: e.errorCode ?? null,
+        provider_request_id: e.providerRequestId ?? null,
+        finish_reason: e.finishReason ?? null
       };
       const reservation = e.reservationId ? { reservation_id: e.reservationId } : {};
       const spendReservation = e.spendReservationId ? { spend_reservation_id: e.spendReservationId } : {};
       const routing = {
         task: e.task ?? null, level: e.level ?? null, cost_usd: e.costUsd ?? null, cost_source: e.costSource ?? null,
+        estimated_cost_usd: e.estimatedCostUsd ?? null, estimated_cost_source: e.estimatedCostSource ?? null,
+        pricing_version: e.pricingVersion ?? null, estimated_cost_at: e.estimatedCostAt ?? null,
         cached_tokens: e.cachedTokens ?? null, escalated: e.escalated === true, cache_hit: e.cacheHit === true
       };
       try {
         await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...routing } });
       } catch (err) {
+        // Estimates are optional telemetry and have a dedicated migration. If
+        // the app rolls out first, retry without estimates while retaining actual
+        // provider cost provenance and request activity where the schema permits.
+        if (/estimated_cost_usd|estimated_cost_source|pricing_version|estimated_cost_at/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { estimated_cost_usd, estimated_cost_source, pricing_version, estimated_cost_at, ...withoutEstimates } = routing;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...withoutEstimates } });
+          return;
+        }
+        // App deployment can precede migration 076. Retry without the new
+        // request metadata columns so telemetry still records on an older schema.
+        if (/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
+          const { request_id, endpoint, http_method, http_status, error_code, provider_request_id, finish_reason, ...legacyBody } = body;
+          try {
+            await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...legacyBody, ...reservation, ...spendReservation, ...routing } });
+            return;
+          } catch (retryError) {
+            if (!/cost_source/i.test(retryError.message) || !/PGRST204|column|schema cache/i.test(retryError.message)) throw retryError;
+            const { cost_source, ...legacyRouting } = routing;
+            await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...legacyBody, ...reservation, ...spendReservation, ...legacyRouting } });
+            return;
+          }
+        }
         // Deploy can precede migration 062. Preserve routing telemetry when only
         // the new provenance column is missing; old rows remain cost-unknown.
         if (/cost_source/i.test(err.message) && /PGRST204|column|schema cache/i.test(err.message)) {
           const { cost_source, ...legacyRouting } = routing;
-          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...body, ...reservation, ...spendReservation, ...legacyRouting } });
+          const { request_id, endpoint, http_method, http_status, error_code, provider_request_id, finish_reason, ...legacyBody } = body;
+          await request('POST', 'usage_events', { prefer: 'return=minimal', body: { ...legacyBody, ...reservation, ...spendReservation, ...legacyRouting } });
           return;
         }
         // Before migration 003 the routing columns do not exist: keep the basic record.
@@ -433,7 +477,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !['user', 'guest'].includes(subjectType) || !OWNER_ID.test(String(subjectId))
           || !/^[A-Za-z0-9._-]{1,40}$/.test(String(consentVersion)) || consentVersion === '2026-10-10-preference-only'
           || typeof exampleText !== 'string' || !exampleText.trim() || exampleText.length > 12000
-          || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()) throw new Error('invalid improvement example');
+          || (expiresAt !== null && (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now()))) throw new Error('invalid improvement example');
       const consent = await this.getImprovementConsent({ tenantId, subjectType, subjectId });
       if (!consent || consent.version !== consentVersion || consent.decision !== 'granted') throw new Error('active learning consent required');
       const rows = await request('POST', 'improvement_examples?select=id', {
@@ -447,7 +491,7 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !Array.isArray(terms)) return [];
       const wanted = [...new Set(terms.map((x) => String(x).toLowerCase()).filter((x) => /^[\p{L}\p{N}]{2,40}$/u.test(x)))].slice(0, 8);
       if (!wanted.length) return [];
-      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=example_text,created_at&order=created_at.desc&limit=100`);
+      const rows = await request('GET', `improvement_examples?tenant_id=eq.${tenantId}&status=eq.approved&or=(expires_at.is.null,expires_at.gt.${encodeURIComponent(new Date().toISOString())})&select=example_text,created_at&order=created_at.desc&limit=100`);
       return (rows || []).map((row) => {
         const text = String(row.example_text || '');
         const lower = text.toLowerCase();
@@ -1049,11 +1093,25 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       const rows = await request('GET', `knowledge_docs?tenant_id=eq.${tenantId}&order=updated_at.desc&select=id,title,source_url,who,chars,updated_at`);
       return (rows || []).map((r) => ({ id: r.id, tenantId, title: r.title, sourceUrl: r.source_url, who: r.who, chars: r.chars, updatedAt: r.updated_at }));
     },
-    async addKnowledgeDoc({ tenantId, title, sourceUrl = null, who, chars, chunks }) {
+    async addKnowledgeDoc({ tenantId, title, sourceUrl = null, who, chars, chunks, embeddings = null, embeddingModel = null }) {
       const rows = await request('POST', 'knowledge_docs?select=id', { prefer: 'return=representation', body: { tenant_id: tenantId, title, source_url: sourceUrl, who, chars } });
       const id = rows[0].id;
+      const hasVectors = Array.isArray(embeddings) && embeddings.length === chunks.length
+        && embeddings.every((vector) => Array.isArray(vector) && vector.length === 384 && vector.every(Number.isFinite));
+      const plainRows = chunks.map((text, idx) => ({ doc_id: id, tenant_id: tenantId, idx, text }));
+      const vectorRows = hasVectors ? chunks.map((text, idx) => ({
+        doc_id: id, tenant_id: tenantId, idx, text,
+        embedding: '[' + embeddings[idx].join(',') + ']', embedding_model: embeddingModel
+      })) : plainRows;
       try {
-        await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: chunks.map((text, idx) => ({ doc_id: id, tenant_id: tenantId, idx, text })) });
+        try {
+          await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: vectorRows });
+        } catch (err) {
+          // Safe rolling deploy: before migration 079, preserve document writes
+          // using the old schema and let the caller's full-text fallback answer.
+          if (!hasVectors || !/(?:PGRST204|42703|schema cache|column .*embedding|embedding .*column|type .*vector.*does not exist)/i.test(String(err?.message || ''))) throw err;
+          await request('POST', 'knowledge_chunks', { prefer: 'return=minimal', body: plainRows });
+        }
       } catch (err) {
         await request('DELETE', `knowledge_docs?id=eq.${id}`, { prefer: 'return=minimal' }).catch(() => {});
         throw err;
@@ -1069,6 +1127,21 @@ export function createSupabaseStore({ url, serviceKey, fetchImpl = fetch, timeou
       if (!UUID.test(String(tenantId)) || !terms.length) return [];
       const rows = await request('POST', 'rpc/search_knowledge', { body: { p_tenant: tenantId, p_terms: terms.join(' | '), p_audience: audience, p_limit: limit } });
       return (rows || []).map((r) => ({ docId: r.doc_id, title: r.title, sourceUrl: r.source_url, idx: r.idx, text: r.text, rank: Number(r.rank) || 0 }));
+    },
+    async searchKnowledgeHybrid({ tenantId, terms, embedding, embeddingModel, audience, limit = 8 }) {
+      if (!UUID.test(String(tenantId)) || !Array.isArray(terms) || !terms.length) return [];
+      const vector = Array.isArray(embedding) && embedding.length === 384 && embedding.every(Number.isFinite)
+        ? '[' + embedding.join(',') + ']' : null;
+      const rows = await request('POST', 'rpc/search_knowledge_hybrid', {
+        body: {
+          p_tenant: tenantId, p_terms: terms.join(' | '), p_query_embedding: vector,
+          p_embedding_model: String(embeddingModel || '').slice(0, 120), p_audience: audience, p_limit: limit
+        }
+      });
+      return (rows || []).map((r) => ({
+        docId: r.doc_id, title: r.title, sourceUrl: r.source_url, idx: r.idx, text: r.text,
+        rank: Number(r.rank) || 0, semanticSimilarity: r.semantic_similarity == null ? null : Number(r.semantic_similarity)
+      }));
     },
     // Memories (migration 009).
     async listMemories({ tenantId, userId }) {

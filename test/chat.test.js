@@ -26,6 +26,7 @@ test('a guest asks, gets an answer, and the history is kept on the server', asyn
     assert.equal(a1.response_metadata?.usage?.output_tokens > 0, true, 'output tokens are exposed per reply');
     assert.equal(Number.isFinite(a1.response_metadata?.duration_ms), true, 'server measures request duration');
     assert.equal(Number.isFinite(Date.parse(a1.response_metadata?.timestamp)), true, 'reply timestamp is ISO date/time');
+    assert.deepEqual(a1.message.response_metadata, a1.response_metadata, 'reply metadata is persisted with the assistant message');
 
     const r2 = await send(url, token, { message: 'And of France?', conversation_id: a1.conversation_id });
     assert.equal((await r2.json()).conversation_id, a1.conversation_id);
@@ -35,6 +36,7 @@ test('a guest asks, gets an answer, and the history is kept on the server', asyn
 
     const page = await (await fetch(`${url}/v1/conversations/${a1.conversation_id}/messages`, { headers: bearer(token) })).json();
     assert.equal(page.messages.length, 4);
+    assert.deepEqual(page.messages[1].response_metadata, a1.response_metadata, 'history reloads the saved real usage metadata from the store');
     assert.equal(page.conversation.title, 'What is the capital of Japan?');
     assert.equal(store.usage.length, 2);
     assert.ok(store.usage.every((u) => u.outcome === 'ok' && u.inputTokens > 0 && u.provider === 'fake'));
@@ -347,4 +349,39 @@ test('system prompt enforces platform-wide intent understanding and action routi
     assert.match(system, /Conversation continuity/i);
     assert.match(system, /Action and safety discipline/i);
   });
+});
+
+test('browser TTS supports multilingual language selection and matching installed voices', async () => {
+  const fs = await import('node:fs/promises');
+  const src = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(src, /function speechLanguageForText\(text\)/);
+  assert.match(src, /const detectedLang = speechLanguageForText\(text\)/);
+  assert.match(src, /u\.lang = detectedLang/);
+  assert.match(src, /window\.speechSynthesis\.getVoices\(\)/);
+  assert.doesNotMatch(src, /return mine\.concat\(english\).*slice\(0, 6\)/);
+});
+
+test('chat map reply cards use a compact map with nearby business details', async () => {
+  const fs = await import('node:fs/promises');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.nasrin-chat-map-canvas[^}]*height: 220px/s);
+  assert.match(css, /\.nasrin-chat-map-businesses/);
+  assert.match(css, /\.nasrin-chat-business-photo/);
+  assert.match(css, /\.nasrin-chat-business-details/);
+  assert.match(css, /\.nasrin-chat-business-open/);
+  assert.match(css, /@media \(max-width: 420px\)/);
+});
+
+test('map replies request Google Places and render rich nearby business cards', async () => {
+  const fs = await import('node:fs/promises');
+  const js = await fs.readFile(new URL('../public/chat-map.js', import.meta.url), 'utf8');
+  const css = await fs.readFile(new URL('../public/app.css', import.meta.url), 'utf8');
+  assert.match(js, /libraries=places/);
+  assert.match(js, /nearbySearch\(/);
+  assert.match(js, /renderBusinessCards/);
+  assert.match(js, /place\.photos\?\.\[0\]/);
+  assert.match(js, /user_ratings_total/);
+  assert.match(js, /opening_hours\.open_now/);
+  assert.match(css, /\.nasrin-chat-business-photo/);
+  assert.match(css, /\.nasrin-chat-business-details/);
 });

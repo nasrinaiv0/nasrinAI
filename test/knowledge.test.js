@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chunkText, searchTerms } from '../src/knowledge/index.js';
+import { chunkText, searchTerms, dedupeKnowledgeHits } from '../src/knowledge/index.js';
 import { createFakeProvider } from '../src/ai/fake.js';
 import { hashSecret } from '../src/auth/keys.js';
 import { buildTestApp, serve, bearer, postJson, BIZ_TENANT, SECRET_KEY, USER_TOKEN, PUB_KEY, testConfig } from './helpers.js';
@@ -18,6 +18,14 @@ async function app(reply = (req) => 'ANSWER ' + req.messages.at(-1).content, env
   const add = (body, token = KNOW) => postJson(srv.url + '/v1/knowledge', body, bearer(token));
   return { ...built, ...srv, fake: provider, add };
 }
+
+test('knowledge retrieval keeps the highest-ranked chunk per source document', () => {
+  const first = { docId: 'doc-1', idx: 0, title: 'Python docs', rank: 0.9, text: 'first chunk' };
+  const duplicate = { docId: 'doc-1', idx: 1, title: 'Python docs', rank: 0.8, text: 'duplicate chunk' };
+  const second = { docId: 'doc-2', idx: 0, title: 'TypeScript docs', rank: 0.7, text: 'second document' };
+  assert.deepEqual(dedupeKnowledgeHits([first, duplicate, second]), [first, second]);
+  assert.deepEqual(dedupeKnowledgeHits(null), []);
+});
 
 test('chunks and search terms', () => {
   const chunks = chunkText('Para one.\n\n' + 'Long sentence here. '.repeat(200));

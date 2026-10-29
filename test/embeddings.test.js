@@ -20,7 +20,18 @@ test('embeddings: 384 numbers from OpenAI, contact details removed first', async
 
 test('embeddings: errors and wrong sizes are refused', async () => {
   const bad = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => new Response('no', { status: 429 }) });
-  await assert.rejects(bad.embed('x'), /429/);
+  await assert.rejects(bad.embed('x'), (err) => err.message.includes('429') && err.status === 429 && err.code === 'embedding_rate_limited');
+  const quota = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => Response.json({
+    error: { type: 'insufficient_quota', code: 'insufficient_quota', message: 'Quota/billing detail that must not be exposed.' }
+  }, { status: 429 }) });
+  await assert.rejects(quota.embed('x'), (err) => {
+    assert.equal(err.message, 'embeddings answered 429');
+    assert.equal(err.code, 'embedding_quota_exhausted');
+    assert.equal(err.status, 429);
+    return true;
+  });
+  const unauthorized = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => new Response('secret provider body must not be logged', { status: 401 }) });
+  await assert.rejects(unauthorized.embed('x'), (err) => err.status === 401 && err.code === 'embedding_auth_rejected');
   const short = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => Response.json({ data: [{ embedding: [1, 2] }] }) });
   await assert.rejects(short.embed('x'), /unexpected shape/);
 });

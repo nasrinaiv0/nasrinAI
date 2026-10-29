@@ -23,14 +23,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <script src="/theme.js"></script>
-  <link rel="stylesheet" href="/app.css?v=20261021-glass-5-8">
+  <link rel="stylesheet" href="/app.css?v=20261026-guest-privacy">
   <link rel="stylesheet" href="/generative-ui.css">
   <script src="/image-crop.js" defer></script>
   <link rel="stylesheet" href="/voice-liquid-glass.css">
   <script src="/character.js" defer></script>
   <script src="/galaxy-scene.js" defer></script>
   <script src="/voice-wave.js" defer></script>
-  <script src="/format.js" defer></script>
+  <script src="/format.js?v=20261026-rich-replies" defer></script>
   <script src="/generative-ui.js?v=20261024-raw-ui-fix" defer></script>
   <script src="/paste.js" defer></script>
   <script src="/markdown-html.js" defer></script>
@@ -40,6 +40,7 @@
   <script src="/connect/qr.js" defer></script>
   <script src="/connect/dashboard.js" defer></script>
   <script src="/gemini-realtime.js" defer></script>
+  <script src="/voice-screen-share.js" defer></script>
   <script src="/creative-intent.js" defer></script>
   <script src="/chat-map.js" defer></script>
   <script src="/app.js" defer></script>
@@ -529,7 +530,7 @@
       <p class="menu-label">Privacy controls</p>
       <div class="menu-card setting-row"><label for="memoryPref">Memory<span class="setting-hint">Nasrin may offer to remember useful things you share. You confirm each saved note. Turn off to stop memory use; saved notes remain until deleted.</span></label><input type="checkbox" role="switch" class="switch" id="memoryPref"></div>
       <div class="menu-card setting-row" id="libraryPrefRow" hidden><label for="libraryPref">Use my Library in chats<span class="setting-hint">Matching Library content can be used to answer your message. Turn this off to keep Library content out of chats.</span></label><input type="checkbox" role="switch" class="switch" id="libraryPref"></div>
-      <div class="menu-card setting-row"><label for="improvementConsent">Help improve NasrinAI<span class="setting-hint">Required for Guest and Quick access. Eligible examples may be considered for NasrinAI improvement under screening and consent safeguards. This does not mean every chat is collected or that AI models are trained automatically. Upgrade to Pro to manage this preference.</span></label><input type="checkbox" role="switch" class="switch" id="improvementConsent" disabled></div>
+      <div class="menu-card setting-row"><label for="improvementConsent">Help improve NasrinAI<span class="setting-hint">Guest access requires this setting. Eligible prompts and replies may be screened, retained without a routine expiry, and used to improve NasrinAI. Signed-in users can manage their preference where available. Not every message is eligible, and storing examples does not automatically train model weights.</span></label><input type="checkbox" role="switch" class="switch" id="improvementConsent" disabled></div>
       <p class="data-status" id="improvementConsentStatus" role="status" aria-live="polite"></p>
       <p class="data-status" id="privacyStatus" role="status" aria-live="polite"></p>
       <div class="menu-card"><p class="card-title">Data privacy</p><p class="setting-hint">NasrinAI does not sell your information or use tracking cookies. Your chats are not used to train AI models automatically. When an outside AI service is needed, the Privacy Notice explains what is shared and why.</p></div>
@@ -978,8 +979,9 @@
     <div class="sheet-grip" aria-hidden="true"></div>
     <div class="sheet-head"><h2 id="termsTitle">Before you continue</h2></div>
     <p class="signin-lede" id="termsLede">Please read and accept NasrinAI’s Terms of Service.</p>
+    <p class="guest-privacy-notice" id="guestPrivacyNotice" hidden>Guest access: eligible prompts and replies may be screened, retained without a routine expiry, and used to improve NasrinAI. Not every message is eligible, and this does not automatically train model weights. Sign in to access the privacy controls available to your account. Applicable privacy and deletion rights still apply. Please do not submit passwords, API keys, or sensitive personal information.</p>
     <ul class="terms-notes" id="termsNotes"><li>Replies come from an AI and can be wrong. Check anything important.</li></ul>
-    <label class="check-row"><input type="checkbox" id="termsCheck"> <span>I agree to the <a href="/legal.html?doc=terms">Terms of Service</a>.</span></label>
+    <label class="check-row"><input type="checkbox" id="termsCheck"> <span id="termsCheckCopy">I agree to the </span><a href="/legal.html?doc=terms">Terms of Service</a><span id="termsGuestConsentCopy" hidden> and understand the Guest data notice above</span>.</label>
     <p class="terms-note">How your information is used is explained in the <a href="/legal.html?doc=privacy">Privacy Notice</a>.</p>
     <button type="button" class="btn wide" id="termsAccept" disabled>Continue</button>
     <button type="button" class="text-btn" id="termsLater">Sign out instead</button>
@@ -1147,6 +1149,11 @@
           <div class="voice-popover voice-tier-menu" id="voiceTierMenu" role="menu" hidden></div>
         </div>
       </div>
+      <button type="button" class="voice-control voice-control-share" id="voiceShareScreen" aria-pressed="false" aria-label="Share screen with NasrinAI" title="Share screen" disabled>
+        <svg class="voice-share-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="12" rx="1.8"/><path d="M8.5 20h7M12 16.5V20"/></svg>
+        <svg class="voice-share-stop-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>
+        <span id="voiceShareScreenLabel">Share screen</span>
+      </button>
       <div class="voice-control-group">
         <button type="button" class="voice-control voice-control-mic" id="voiceMute" aria-pressed="false" aria-label="Mute microphone" title="Mute microphone">
           <svg class="voice-icon-mic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>
