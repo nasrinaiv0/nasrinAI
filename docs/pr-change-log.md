@@ -1,3 +1,10 @@
+## MOVO-scoped financial context — 2026-10-30
+
+- Adds server-only `context_scope: "movo"` for secret service-key chat requests, with strict validation of the stateless request and bounded financial JSON shape.
+- The current question stays separate from transient `accounts`, `recent_transactions`, and `budgets` context; context is added only to the in-memory provider request and is not saved in the upstream transcript.
+- Scoped turns skip platform/founder/product retrieval, personal memory, Library, prior-chat recall, community learning, programming retrieval, web search, tools, image recall, and exact/semantic caches. The response confirms `context_scope: "movo"` for the caller to verify.
+- Regression coverage checks platform portfolio retrieval is skipped, context is not persisted, and non-service or invalid requests fail closed. No schema migration or production data change is required.
+
 ## Coding chat: automatic failure detection and repair — 2026-10-29
 
 - New `src/auto-repair.js`: classifies check-tool results; when the last check failed in a fixable way and the model tries to finish, the coding chat sends it back to fix and re-run (max 2 repair rounds per message, coding chat up to 8 tool rounds). Rate limits, missing GitHub connection or sign-in never trigger repair. Status line "A check failed — fixing it".
