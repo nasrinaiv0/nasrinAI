@@ -996,3 +996,100 @@ test('continuous intelligence telemetry is not public without an owner session',
   await consoleHandler.handle(pair.req, pair.res, '/owner/api/continuous-intelligence');
   assert.equal(pair.res.statusCode, 404);
 });
+
+test('owner dashboard series is session-protected, bounded, and returns masked identity plus integration booleans only', async () => {
+  const calls = [];
+  const store = { kind: 'supabase', request: async (_method, path, options) => {
+    calls.push({ path, body: options?.body });
+    if (path === 'rpc/owner_console_record_audit') return null;
+    if (path === 'rpc/owner_console_dashboard') return { series: [{ day: '2026-10-29', requests: 3 }], recent_users: [{ email_masked: 'a***@example.com' }] };
+    throw new Error('unavailable');
+  } };
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, githubActions: { enabled: true, token: 'github-actions-token-value-123456789' } };
+  const { consoleHandler } = setup({ store, ownerConsole });
+
+  const anonymous = request('GET', '/owner/api/dashboard?window=7d', { testIp: IP });
+  await consoleHandler.handle(anonymous.req, anonymous.res, '/owner/api/dashboard');
+  assert.equal(anonymous.res.statusCode, 404);
+
+  const cookie = (await bootstrap(consoleHandler)).res.headers['set-cookie'].split(';')[0];
+  const bad = request('GET', '/owner/api/dashboard?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(bad.req, bad.res, '/owner/api/dashboard');
+  assert.equal(bad.res.statusCode, 400);
+
+  const out = request('GET', '/owner/api/dashboard?window=14d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/dashboard');
+  assert.equal(out.res.statusCode, 200);
+  const body = JSON.parse(out.res.body);
+  assert.equal(body.status, 'available');
+  assert.equal(body.window_days, 14);
+  assert.deepEqual(calls.find((c) => c.path === 'rpc/owner_console_dashboard').body, { p_days: 28 });
+  assert.equal(body.owner.email_masked, 'o***@example.com');
+  assert.equal(body.access.owner_emails, 1);
+  assert.equal(body.integrations.github_actions, true);
+  assert.equal(out.res.body.includes(EMAIL), false);
+  assert.equal(out.res.body.includes(IP), false);
+  assert.equal(out.res.body.includes('github-actions-token-value'), false);
+  assert.equal(out.res.body.includes(SECRET), false);
+});
+
+test('owner dashboard reports unavailable instead of placeholder data when the series RPC is missing', async () => {
+  const { consoleHandler } = setup();
+  const cookie = (await bootstrap(consoleHandler)).res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/dashboard', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/dashboard');
+  const body = JSON.parse(out.res.body);
+  assert.equal(body.status, 'unavailable');
+  assert.equal(body.dashboard, null);
+});
+
+test('Release Guard reads GitHub Actions read-only, keeps only github.com links, and never returns the token', async () => {
+  const calls = [];
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, githubActions: { enabled: true, token: 'github-actions-token-value-123456789' } };
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    if (url.includes('/actions/runs')) return { ok: true, json: async () => ({ workflow_runs: [
+      { name: 'CI', head_branch: 'main', event: 'push', status: 'completed', conclusion: 'success', head_sha: 'abcdef1234567', created_at: '2026-10-29T00:00:00Z', html_url: 'https://github.com/nasrinaiv0/nasrinAI/actions/runs/1' },
+      { name: 'Bad', head_branch: 'x', status: 'completed', conclusion: 'failure', head_sha: 'not-a-sha', html_url: 'javascript:alert(1)' }
+    ] }) };
+    return { ok: true, json: async () => [{ number: 7, title: 'Feature', draft: false, head: { ref: 'feat/x' }, html_url: 'https://github.com/nasrinaiv0/nasrinAI/pull/7' }] };
+  };
+  const { consoleHandler } = setup({ ownerConsole, fetchImpl });
+  const cookie = (await bootstrap(consoleHandler)).res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/release-guard', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/release-guard');
+  assert.equal(out.res.statusCode, 200);
+  const body = JSON.parse(out.res.body);
+  assert.equal(body.status, 'available');
+  assert.equal(body.runs[0].commit, 'abcdef1');
+  assert.equal(body.runs[1].url, null);
+  assert.equal(body.runs[1].commit, null);
+  assert.equal(body.pull_requests[0].number, 7);
+  assert.ok(calls.every((c) => !c.options.method || c.options.method === 'GET'));
+  assert.ok(calls.every((c) => c.url.startsWith('https://api.github.com/repos/nasrinaiv0/nasrinAI/')));
+  assert.equal(out.res.body.includes('github-actions-token-value'), false);
+
+  const { consoleHandler: unconfigured } = setup();
+  const cookie2 = (await bootstrap(unconfigured)).res.headers['set-cookie'].split(';')[0];
+  const none = request('GET', '/owner/api/release-guard', { headers: { cookie: cookie2 }, testIp: IP });
+  await unconfigured.handle(none.req, none.res, '/owner/api/release-guard');
+  assert.equal(JSON.parse(none.res.body).status, 'not_configured');
+});
+
+test('Owner Command Center page has the eleven mockup sections and CSP-safe client code', async () => {
+  const { consoleHandler } = setup();
+  const cookie = (await bootstrap(consoleHandler)).res.headers['set-cookie'].split(';')[0];
+  const page = request('GET', '/owner', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(page.req, page.res, '/owner');
+  const pages = [...page.res.body.matchAll(/data-page="([a-z-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(pages, ['overview', 'ai-ops', 'users', 'content', 'finance', 'infrastructure', 'security', 'automation', 'release', 'reports', 'settings']);
+  assert.doesNotMatch(page.res.body, /<script>|<script [^>]*>[^<]/);
+  assert.doesNotMatch(page.res.body, /style="/);
+  const js = await readFile(new URL('../public/owner-console.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(js, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/);
+  assert.doesNotMatch(js, /setAttribute\('style'/);
+  assert.doesNotMatch(js, /target = '_blank';(?![\s\S]{0,40}rel = 'noopener noreferrer')/);
+  for (const key of ['overview', 'ai-ops', 'users', 'content', 'finance', 'infrastructure', 'security', 'automation', 'release', 'reports', 'settings']) {
+    assert.match(js, new RegExp("'?" + key + "'?: \\{ title:"), key + ' page is registered');
+  }
+});

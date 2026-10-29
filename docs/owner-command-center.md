@@ -6,6 +6,17 @@ Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
 
+## Redesign to the owner's mockup (2026-10-29)
+
+The console now follows the owner's "NasrinAI Owner Console — Darker" mockup: 11 sidebar pages (Overview, AI Ops Center, Users & CRM, Content & Media, Finance, Infrastructure, Security, Automation (NCC), Release Guard, Reports, Settings), a dark default with light/system themes, accent colours, compact sidebar and font size (saved per device), a date-range picker (7/14/30 days), a computed system-status pill, and a notifications bell (failing services and open incidents).
+
+- **Real data only.** Charts and KPIs come from `/owner/api/overview`, the new `/owner/api/dashboard?window=7d|14d|30d` (migration 080, `owner_console_dashboard(p_days)`: daily series for requests, tokens, conversations, features, active users, sign-ups, payments, media and automation runs, plus short recent lists) and the new read-only `/owner/api/release-guard` (GitHub Actions runs and open PRs via `OWNER_GITHUB_ACTIONS_TOKEN`). A missing source shows an empty state that names what is needed; no placeholder numbers.
+- **Privacy.** Emails are masked in SQL (`a***@domain`); no auth IDs, IPs, prompts, file names or media content are returned. Recent media shows generation events only. The allowlist is shown as counts, never values.
+- **Earlier modules kept.** Every earlier panel (AI Logs, Unlisted Models, Model Activities, Community Learning, Continuous Intelligence, Growth & Retention, Regional, Search & Traffic, Costs & Billing, Database & Deployments, Audit, Incidents, Run Health, Exports, Data Readiness) is a sub-tab of its page.
+- **Buttons.** Every button navigates in the console, calls an existing audited owner API, downloads a CSV, prints, or opens the provider's own dashboard in a new tab (Vercel, Supabase, GitHub, PayMongo, OpenRouter, NCC). Destructive actions (restart, rollback, block IP, delete files, refunds, credentials) are never performed from the console; they open the provider dashboard where the provider's own controls and audit apply.
+- **Not available from current sources (shown as such):** CPU/memory/disk (Vercel functions don't expose them), WAF/threat sources by country, per-request plan tier, per-payment method totals, content-moderation queue, conversion funnels.
+- **Owner step:** run `db/migrations/080_owner_console_dashboard.sql` in the Supabase SQL editor (staging first). Optional: `OWNER_GITHUB_ACTIONS_TOKEN` and `OWNER_VERCEL_*` for Release Guard and deployments.
+
 ## Implementation status (2026-10-23)
 
 Implementation is being delivered on `feature/owner-console-v2-current-main`, based on current `main` to avoid merging an outdated feature branch.

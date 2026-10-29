@@ -1,3 +1,17 @@
+## Coding/reasoning benchmark (`feat/coding-reasoning-benchmark`, 2026-10-29)
+
+- Adds `scripts/eval/suites/coding.json` (version `2026-10-29-v1`, 10 checkable coding/reasoning cases) and a `coding` option in the Manual live evaluations workflow.
+- Tests: suite structure, pattern compilation, right/wrong answer grading, workflow wiring (`test/eval-coding-suite.test.js`).
+- Continuous-intelligence Phase 3 benchmark item done; measuring the baseline is an owner-run live job (it calls production and may cost provider credits).
+
+## Owner Command Center redesign to the owner's mockup — 2026-10-29
+
+- Rebuilt the owner console shell and pages to match the owner's 11-page mockup (dark default, light/system themes, accents, compact sidebar, font size, date range, status pill, notifications, owner menu). All earlier modules remain as sub-tabs.
+- Added migration 080 (`owner_console_dashboard`, `owner_console_mask_email`): service-role-only daily series and short recent lists with masked emails; DB test included.
+- Added `/owner/api/dashboard` (session-protected, window-validated, integration booleans and allowlist counts only) and read-only `/owner/api/release-guard` (GitHub Actions runs and open PRs; only github.com links kept; token never returned). The workflow-dispatch URL now uses the moved repository name.
+- Charts are dependency-free SVG built with DOM APIs (strict CSP unchanged); every button navigates, calls an existing audited API, exports a CSV, prints, or opens the provider dashboard. Missing sources show empty states, never placeholder numbers.
+- Tests: dashboard/release-guard access, masking and token non-disclosure; page structure and CSP-safe client code.
+
 ## Tenant-scoped hybrid knowledge retrieval — 2026-10-29
 
 - Added optional 384-dimensional embeddings to tenant-owned knowledge chunks, using bounded batch embedding and model-version filtering. The new `TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED` switch is off by default; full-text search remains available when disabled, embeddings are missing, or the provider is unavailable.
@@ -2869,8 +2883,8 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.
 
 
-## Coding/reasoning benchmark (`feat/coding-reasoning-benchmark`, 2026-10-29)
+## Docs — align community learning and privacy version (`docs/align-learning-privacy`, 2026-10-29)
 
-- Adds `scripts/eval/suites/coding.json` (version `2026-10-29-v1`, 10 checkable coding/reasoning cases) and a `coding` option in the Manual live evaluations workflow.
-- Tests: suite structure, pattern compilation, right/wrong answer grading, workflow wiring (`test/eval-coding-suite.test.js`).
-- Continuous-intelligence Phase 3 benchmark item done; measuring the baseline is an owner-run live job (it calls production and may cost provider credits).
+- `docs/community-learning.md` matched to code/migration 075/Privacy Notice (Guest notice grant, no routine expiry for screened examples, signed-in opt-in default off).
+- `public/legal/privacy.md` header set to version 2026-10-28 (matches `LEGAL_PRIVACY_VERSION`; content last changed 2026-10-27).
+- `CLAUDE.md`: repo move and owner reply/token preference; master plan summary: draft PR review record. No runtime code changed.
