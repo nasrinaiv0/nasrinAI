@@ -2,6 +2,7 @@ import { HttpError } from '../http/errors.js';
 import { cleanUserText } from '../ai/output.js';
 import { readLink } from '../web/read-link.js';
 import { PLATFORM_TENANT_ID } from '../tenants.js';
+import { analyzeRagQuery } from './rag-orchestrator.js';
 
 // Knowledge (Phase 7): a business's own documents, found by full-text search
 // in the database (no AI call), added to the turn as data with their titles,
@@ -56,7 +57,7 @@ export function chunkText(text) {
   return out.slice(0, 1000);
 }
 
-export function createKnowledge({ store, logger, readLinkImpl = readLink, now = () => Date.now(), cacheMs = 60_000 }) {
+export function createKnowledge({ store, logger, readLinkImpl = readLink, now = () => Date.now(), cacheMs = 60_000, embedder = null, tenantEmbeddingsEnabled = process.env.TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED === 'true' }) {
   const has = new Map();   // tenantId -> { until, any }
 
   async function anyDocs(tenantId) {
@@ -79,9 +80,34 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
     async context(caller, message) {
       try {
         if (!(await anyDocs(caller.tenantId))) return null;
-        const terms = searchTerms(message);
+        const startedAt = now();
+        const analysis = analyzeRagQuery(message);
+        const expandedTerms = analysis.terms.flatMap((term) => term.toLowerCase().split(/[^\p{L}\p{N}_]+/u)).filter((term) => term.length >= 2);
+        const terms = [...new Set([...searchTerms(message), ...expandedTerms])].slice(0, 18);
         if (!terms.length) return null;
-        const hits = dedupeKnowledgeHits((await store.searchKnowledge({ tenantId: caller.tenantId, terms, audience: caller.actor.type, limit: 8 })).filter((h) => h.rank >= MIN_RANK));
+        let found = null;
+        if (tenantEmbeddingsEnabled && embedder?.embed && typeof store.searchKnowledgeHybrid === 'function') {
+          try {
+            const embedding = await embedder.embed(message);
+            found = await store.searchKnowledgeHybrid({
+              tenantId: caller.tenantId, terms, embedding, embeddingModel: embedder.modelName,
+              audience: caller.actor.type, limit: 8
+            });
+          } catch (err) {
+            logger.warn('tenant semantic knowledge search fell back to full-text search', {
+              code: String(err?.status || err?.code || 'semantic_unavailable').slice(0, 40)
+            });
+          }
+        }
+        if (!Array.isArray(found)) found = await store.searchKnowledge({
+          tenantId: caller.tenantId, terms, audience: caller.actor.type, limit: 8
+        });
+        const hits = dedupeKnowledgeHits(found.filter((h) => h.rank >= MIN_RANK));
+        logger.info('tenant knowledge retrieval completed', {
+          intent: analysis.intent, expanded_terms: terms.length, candidate_count: hits.length,
+          semantic_candidates: hits.filter((hit) => Number.isFinite(hit.semanticSimilarity)).length,
+          latency_ms: Math.max(0, now() - startedAt)
+        });
         if (!hits.length) return null;
         let size = 0;
         const parts = [];
@@ -126,7 +152,22 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
         if (!text) throw new HttpError(400, 'invalid_document', `text: 1-${MAX_DOC_CHARS} characters (or a url).`);
         if ((await store.listKnowledgeDocs(caller.tenantId)).length >= MAX_DOCS) throw new HttpError(409, 'too_many_documents', `At most ${MAX_DOCS} documents.`);
         const chunks = chunkText(text);
-        const id = await store.addKnowledgeDoc({ tenantId: caller.tenantId, title, sourceUrl, who: [...new Set(who)], chars: text.length, chunks });
+        let embeddings = null;
+        if (tenantEmbeddingsEnabled && embedder?.embedMany && typeof store.searchKnowledgeHybrid === 'function') {
+          try {
+            embeddings = await embedder.embedMany(chunks.map((chunk) => title + '\n' + chunk));
+            if (!Array.isArray(embeddings) || embeddings.length !== chunks.length) throw new Error('unexpected embedding count');
+          } catch (err) {
+            embeddings = null;
+            logger.warn('tenant knowledge vector indexing skipped; full-text search remains available', {
+              code: String(err?.status || err?.code || 'embedding_unavailable').slice(0, 40)
+            });
+          }
+        }
+        const id = await store.addKnowledgeDoc({
+          tenantId: caller.tenantId, title, sourceUrl, who: [...new Set(who)], chars: text.length,
+          chunks, embeddings, embeddingModel: embeddings ? embedder.modelName : null
+        });
         has.delete(caller.tenantId);
         logger.info('knowledge added', { tenantId: caller.tenantId, chunks: chunks.length });
         return { id, title, chunks: chunks.length };

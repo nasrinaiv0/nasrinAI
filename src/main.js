@@ -205,7 +205,7 @@ export function buildApp({ config, logger }) {
   const videoStudioRenderWorker = config.supabaseUrl && config.supabaseSecretKey
     ? createVideoStudioRenderWorker({ config: effective, logger }) : null;
   // Tools: the basic ones for everyone, plus each business's own connectors.
-  const knowledge = createKnowledge({ store, logger });
+  const knowledge = createKnowledge({ store, logger, embedder });
   const memory = createMemory({ store, logger });
   const communityLearning = createCommunityLearning({ store, logger });
   const library = createLibrary({ store, limiter, config: effective, logger });

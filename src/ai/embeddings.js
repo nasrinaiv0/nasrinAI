@@ -1,29 +1,41 @@
 import { redactForProvider } from './redact.js';
 
-// Embeddings for the semantic cache through OpenAI's embeddings endpoint, with
-// plain fetch (no packages; ADR-002). text-embedding-3 models accept
-// `dimensions`, so the vectors fit the cache's vector(384) column. Contact
-// details are removed before the text leaves the server, as for chat.
+// Embeddings use 384 dimensions so tenant and public technical retrieval can
+// share the same configured model contract without mixing their data scopes.
 export const EMBEDDING_DIMENSIONS = 384;
 
 export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small', fetchImpl = fetch, timeoutMs = 4000, baseUrl = 'https://api.openai.com/v1' }) {
   return {
-    // Stored with each row: rows from another model or size are never matched.
     modelName: `openai/${model}@${EMBEDDING_DIMENSIONS}`,
-    async embed(text) {
+    async embedMany(texts) {
+      if (!Array.isArray(texts) || texts.length > 1000) throw new Error('embeddings input count is outside the supported range');
+      if (!texts.length) return [];
+      const input = texts.map((text) => redactForProvider(String(text)).slice(0, 2000));
       const resp = await fetchImpl(baseUrl + '/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-        body: JSON.stringify({ model, input: redactForProvider(String(text)).slice(0, 2000), dimensions: EMBEDDING_DIMENSIONS }),
-        signal: AbortSignal.timeout(timeoutMs)
+        body: JSON.stringify({ model, input: input.length === 1 ? input[0] : input, dimensions: EMBEDDING_DIMENSIONS }),
+        signal: AbortSignal.timeout(input.length > 1 ? Math.max(timeoutMs, 15000) : timeoutMs),
+        redirect: 'error'
       });
       if (!resp.ok) throw new Error(`embeddings answered ${resp.status}`);
       const data = await resp.json();
-      const vector = data?.data?.[0]?.embedding;
-      if (!Array.isArray(vector) || vector.length !== EMBEDDING_DIMENSIONS || !vector.every(Number.isFinite)) {
-        throw new Error('embeddings returned an unexpected shape');
+      if (!Array.isArray(data?.data) || data.data.length !== input.length) throw new Error('embeddings returned an unexpected item count');
+      const ordered = new Array(input.length);
+      for (const [position, row] of data.data.entries()) {
+        const index = Number.isInteger(row?.index) ? row.index : position;
+        const vector = row?.embedding;
+        if (index < 0 || index >= input.length || ordered[index]
+          || !Array.isArray(vector) || vector.length !== EMBEDDING_DIMENSIONS || !vector.every(Number.isFinite)) {
+          throw new Error('embeddings returned an unexpected shape');
+        }
+        ordered[index] = vector;
       }
-      return vector;
+      if (ordered.some((vector) => !vector)) throw new Error('embeddings returned incomplete results');
+      return ordered;
+    },
+    async embed(text) {
+      return (await this.embedMany([text]))[0];
     }
   };
 }
