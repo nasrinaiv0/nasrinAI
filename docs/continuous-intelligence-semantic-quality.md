@@ -14,7 +14,7 @@
 - The table has RLS enabled, no client policies, and grants only to service_role; the matching RPC is similarly restricted.
 - Only HTTPS pages on the fixed official programming-documentation host allowlist are indexed. Retrieval repeats host/protocol checks in SQL and application code.
 - Embeddings use the existing 384-dimensional OpenAI embedding adapter. The model identifier is stored with each row and the RPC filters by exact model before ranking.
-- Page text is chunked and bounded; the hourly indexer processes at most five recent pages and ten embedding requests per run (SEMANTIC_MAX_EMBEDDINGS_PER_RUN, clamped to 1–10). The feature remains disabled unless SEMANTIC_KNOWLEDGE_ENABLED=true.
+- Page text is chunked and bounded; the hourly indexer processes at most five recent official pages and ten embedding inputs per run (SEMANTIC_MAX_EMBEDDINGS_PER_RUN, clamped to 1–10), batching each page's chunks into one provider request. A provider 429 stops further embedding calls for that run. The feature remains disabled unless SEMANTIC_KNOWLEDGE_ENABLED=true.
 - Retrieved content is untrusted reference material, never instructions. Private chats, prompts, credentials, tenant documents, and model outputs are not indexed here.
 
 ## Rollout sequence
