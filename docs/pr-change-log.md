@@ -4,6 +4,12 @@
 - `docs/route-inventory.md`: public/private routes, checks done (no source maps or debug logging), open items (canonical host redirect is an owner Vercel step; shared legal canonical).
 - `test/route-inventory.test.js` guards the canonical, robots/sitemap boundaries and the no-source-map/no-debug-log rule.
 
+## Coding/reasoning benchmark (`feat/coding-reasoning-benchmark`, 2026-10-29)
+
+- Adds `scripts/eval/suites/coding.json` (version `2026-10-29-v1`, 10 checkable coding/reasoning cases) and a `coding` option in the Manual live evaluations workflow.
+- Tests: suite structure, pattern compilation, right/wrong answer grading, workflow wiring (`test/eval-coding-suite.test.js`).
+- Continuous-intelligence Phase 3 benchmark item done; measuring the baseline is an owner-run live job (it calls production and may cost provider credits).
+
 ## Owner Command Center redesign to the owner's mockup — 2026-10-29
 
 - Rebuilt the owner console shell and pages to match the owner's 11-page mockup (dark default, light/system themes, accents, compact sidebar, font size, date range, status pill, notifications, owner menu). All earlier modules remain as sub-tabs.

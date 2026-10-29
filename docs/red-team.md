@@ -21,6 +21,7 @@ been tricked into obeying whatever it reads:
 ```bash
 node scripts/eval/run.js --suite redteam      # attacks a guest can try
 node scripts/eval/run.js --suite quality      # plain questions with checkable answers
+node scripts/eval/run.js --suite coding       # versioned coding/reasoning benchmark
 # options: --url https://nasrinai.com  --key nsp_... (a business website key)  --origin https://shop.example.com
 ```
 
