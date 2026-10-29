@@ -1,6 +1,7 @@
 # NasrinAI Progress Audit — 2026-10-30
 
 **Audit timestamp:** 2026-10-30 03:33:18 Asia/Manila (UTC+08:00)  
+**Latest read-only refresh:** 2026-10-30 04:26 Asia/Manila (UTC+08:00)  
 **Repository:** https://github.com/nasrinaiv0/nasrinAI  
 **Branch audited:** main  
 **Main commit observed:** [3a2c705461ac5b9920191ef67e5b25213dff0222](https://github.com/nasrinaiv0/nasrinAI/commit/3a2c705461ac5b9920191ef67e5b25213dff0222) — merge of PR #692  
@@ -36,7 +37,7 @@ Status meanings:
 - Open PRs #693–#698 each have a successful CI run and a successful Documentation Gate run on the observed head. They remain unmerged; these features must not be described as shipped.
 - Production migration 080/081 objects are present and their checked owner-console functions are executable by service_role but not by anon/authenticated roles. Their migration-history records are absent, so migration-history drift remains.
 - Production migration 068 is missing from the registry, and both tables named by the migration are absent from the live schema even though current main contains code that queries integration_connections. This is a concrete production-readiness blocker for the universal integration persistence path.
-- Production migration 079 is absent from the registry; the tenant-hybrid-knowledge columns, index, and search RPC defined by that migration are also absent. Keep tenant hybrid embeddings disabled until a reviewed migration rollout is completed.
+- Production migration 079 is absent from the registry. Existing tenant scoping (`knowledge_docs.tenant_id`, `knowledge_chunks.tenant_id`, and `knowledge_chunks_tenant_idx`) is present, but the migration-specific `knowledge_chunks.embedding` and `embedding_model` columns, `knowledge_chunks_embedding_hnsw` index, and `public.search_knowledge_hybrid` RPC are absent. Keep tenant hybrid embeddings disabled until a reviewed migration rollout is completed.
 - The Supabase security advisor still reports leaked-password protection disabled. The dated security audit says this was intentionally deferred by the owner; it remains a documented residual risk, not a resolved finding.
 
 ### Blocked or not verified
@@ -320,7 +321,7 @@ Read-only Supabase migration registry and catalog checks were performed against 
 | Migration / area | Repository evidence | Production registry/catalog evidence | Status and action |
 |---|---|---|---|
 | 068_user_owned_integrations | Main contains db/migrations/068_user_owned_integrations.sql (blob SHA d405e25c611d539e901a2d1f133366aa6bee38e3) and db/tests/068_user_owned_integrations.test.sql. | Registry has no 068 entry. public.integration_connections and public.integration_oauth_states are absent. src/integrations/store.js queries integration_connections. | **Blocked.** The deployed code path depends on missing storage objects. Prepare a reviewed migration plan and verify RLS/grants before enabling/claiming integration persistence. Do not run migration in this audit. |
-| 079_tenant_hybrid_knowledge | Main contains db/migrations/079_tenant_hybrid_knowledge.sql (blob SHA 8350a4e52c29521fd79154efd3d3c25882c0b6e9). The documented flag is TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED and is intended to remain off until rollout. | Registry has no 079 entry. public.knowledge_chunks exists, but embedding and embedding_model columns are absent; knowledge_chunks_embedding_hnsw index and public.search_knowledge_hybrid function are absent. | **Blocked** for activation. Do not enable the flag until migration and tenant/audience/grant checks are reviewed and applied through the normal release process. |
+| 079_tenant_hybrid_knowledge | Main contains db/migrations/079_tenant_hybrid_knowledge.sql (blob SHA 8350a4e52c29521fd79154efd3d3c25882c0b6e9). The documented flag is TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED and is intended to remain off until rollout. | Registry has no 079 entry. Existing `knowledge_chunks.tenant_id` and `knowledge_chunks_tenant_idx` are present; `embedding` and `embedding_model` columns, `knowledge_chunks_embedding_hnsw` index, and `public.search_knowledge_hybrid` function are absent. | **Blocked** for activation. Do not enable the flag until migration and tenant/audience/grant checks are reviewed and applied through the normal release process. |
 | 080_owner_console_dashboard | Main contains db/migrations/080_owner_console_dashboard.sql and db/tests/080_owner_console_dashboard.test.sql. | Registry has no 080 entry, but owner_console_dashboard(integer) and owner_console_mask_email(text) exist. Both are executable by service_role and not anon/authenticated. owner_audit_events exists with RLS enabled and one policy. | **Partially implemented / migration-history drift.** Function presence and broad grants were checked; exact live-definition parity was not compared. Do not blindly reapply. |
 | 081_owner_console_api_keys | Main contains db/migrations/081_owner_console_api_keys.sql (blob SHA 07c7fa3ef36d18e0056ea465703c3cda478e8e91) and db/tests/081_owner_console_api_keys.test.sql. | Registry has no 081 entry, but owner_console_create_api_key(text,text,text), owner_console_list_api_keys(), and owner_console_revoke_api_key(text,text,text) exist. All are executable by service_role and not anon/authenticated. api_keys exists with RLS enabled and one policy. | **Partially implemented / migration-history drift.** Verify definitions and history before further migration operations; do not blindly reapply or drop active key state. |
 | 082_user_message_recall | Migration and test files are on open PR #693, not current main. | Registry has no 082 entry and public.search_user_messages is absent. | **Not implemented in main/production.** Expected while PR is open. Review and merge first, then apply to staging and verify tenant/user scoping before any production rollout. |
@@ -388,3 +389,59 @@ Observed on 2026-10-30 Manila time during this audit:
 - Migration 081: https://github.com/nasrinaiv0/nasrinAI/blob/main/db/migrations/081_owner_console_api_keys.sql
 - Existing historical security audit: https://github.com/nasrinaiv0/nasrinAI/blob/main/docs/audit/NASRINAI_AUDIT_STATUS_2026-10-24.md
 - Documentation policy: https://github.com/nasrinaiv0/nasrinAI/blob/main/docs/change-documentation-policy.md
+
+
+## 9. Scheduled monitoring refresh — 2026-10-30 04:26 Asia/Manila
+
+**Refresh result:** No new commit landed on `main` since the previous audit. This refresh corrected an overbroad description of migration 079, rechecked current PR heads and gates, rechecked the production deployment, and repeated read-only Supabase registry/catalog/advisor checks. No application tests were run by this monitoring refresh.
+
+### Repository and deployment evidence
+
+- **Main commit:** still `3a2c705461ac5b9920191ef67e5b25213dff0222`; latest observed main commit remains the merge of PR #692. Recent history also includes PR #409 at `7166e6ca4a75b650bae526c37f4a82a18dc2c401`, PR #690 at `cc5dbe89e54b0365b27539b1de280ea901db3c03`, and PR #691 at `b2cf4922fe9ac884b569adb6cce09529934b56ff`. No newer main SHA was returned by the recent-commit query.
+- **Production deployment:** Vercel deployment `dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE` remains `READY`, target `production`, source SHA `3a2c705461ac5b9920191ef67e5b25213dff0222`. This proves deployment state only; no end-to-end production smoke test was run.
+- **Audit PR #700 before this refresh:** head `e60fa42ed7af4ba3ec94dd3558c739ffa2a95c71`; CI run #7865 and Documentation Gate run #1879 both passed. The documentation refresh creates a new head, so checks must be re-read for the new SHA before merge. PR #700 remains draft and is not merged.
+- **Scope:** this audit remains limited to this NasrinAI repository. No other-product repository or workstream was inspected, and unrelated product-specific implementation claims in PR descriptions were not used as audit evidence.
+
+### Open PR check refresh
+
+The following open PR heads have successful CI and Documentation Gate runs. This does not mean the implementation is merged or production-verified.
+
+| PR | Current head SHA | CI run | Documentation Gate run | Status |
+|---|---|---:|---:|---|
+| #693 | `5a7d366937e1c722d6ca549fd25c8f9292009c6b` | #40912971112 — success | #40912971287 — success | **Partially implemented** on PR branch; not in main/production. |
+| #694 | `c6db0a9f0389725d1da788c531f706e187a24d0c` | #40913593059 — success | #40913592901 — success | **Partially implemented** on PR branch; not in main/production. |
+| #695 | `bec02ceb5aafb8a3af08852925842871e9280f50` | #40914188019 — success | #40914187980 — success | **Blocked** until reviewed/merged; current main's no-database startup behavior has not been reproduced by this audit. |
+| #696 | `e2a94648c1314bff578ed61e6a76615a6e44b567` | #40914590714 — success | #40914590817 — success | **Partially implemented** on PR branch; not in main/production. |
+| #697 | `54f523a88e3a3a9f754469d951b7a22d8b03a28c` | #40915254987 — success | #40915255151 — success | **Partially implemented** on PR branch; live provider failover/billing remains **Not verified**. |
+| #698 | `d1ade3adb86492a54d5b9142c56cd3c5dc773a0f` | #40915714885 — success | #40915714888 — success | **Partially implemented** on PR branch; live coding workflow remains **Not verified**. |
+
+Three older draft PRs remain blocked by the Documentation Gate despite passing CI:
+
+| PR | Current head SHA | CI | Documentation Gate | Exact changed paths observed |
+|---|---|---|---|---|
+| #651 | `e8fac1dfd4f916f171ec5a2dc86811643958ee39` | #40375805259 — success | #40375805287 — failure | `docs/integrations/media-skills/MCP_VIDEO_EDITOR_INTEGRATION_ARCHITECTURE.md`; `docs/integrations/media-skills/MCP_VIDEO_EDITOR_SOURCE_AUDIT.md` |
+| #652 | `5f9f99035c3db83bdd7eb441a3f0dc92762791a4` | #40383918872 — success | #40383919277 — failure | `src/video-studio-editor-adapter.js`; `test/video-studio-editor-adapter.test.js` |
+| #673 | `0772c6296671f7c2f8659588e03cfa57031ebba2` | #40581026647 — success | #40581026708 — failure | `docs/bidirectional-mcp-integration.md` |
+
+For #651, #652, and #673, the current PR diffs do not include `docs/pr-change-log.md`. **Blocked** for merge readiness until each branch includes the required changelog update and both gates are rerun. Do not treat passing CI as a substitute for the failed documentation gate.
+
+### Production migration and security recheck
+
+The read-only Supabase migration list still has no registry entries for 068, 079, 080, 081, or 082. The current catalog query confirms:
+
+- **Migration 068 — Blocked:** `public.integration_connections` and `public.integration_oauth_states` remain absent while main contains code that queries integration persistence. No migration was applied.
+- **Migration 079 — Blocked for semantic retrieval activation:** `knowledge_docs.tenant_id`, `knowledge_chunks.tenant_id`, and `knowledge_chunks_tenant_idx` exist. The migration-specific `knowledge_chunks.embedding` and `embedding_model` columns, `knowledge_chunks_embedding_hnsw` index, and `public.search_knowledge_hybrid` function are absent. Keep `TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED` off. This is a precision correction to the earlier wording: existing tenant columns/index are present; the missing pieces are the embedding and hybrid-search objects defined by migration 079.
+- **Migrations 080/081 — Partially implemented / registry drift:** `owner_console_dashboard`, `owner_console_create_api_key`, `owner_console_list_api_keys`, and `owner_console_revoke_api_key` exist in the production catalog, but their migration registry entries are absent. Exact live-definition parity has not been compared. Do not blindly replay these migrations or drop existing objects.
+- **Migration 082 — Not implemented in main/production:** PR #693 remains open; `public.search_user_messages` is absent. Do not apply a migration from an unmerged branch.
+- **Security advisor — Open risk:** leaked-password protection remains disabled. Informational RLS-without-policy findings remain for `knowledge_learning_runs`, `openrouter_generations`, and `public_technical_chunks`; the current read-only table-grant query returned grants for `postgres` and `service_role`, not `anon` or `authenticated`. This appears consistent with server-only access but is not a reason to skip future grant/policy reviews.
+- **Performance advisor:** 41 unused-index informational findings were returned. No index was removed; do not drop indexes without workload evidence.
+
+### Refresh changes, behavior, and rollback
+
+- **Exact paths changed by this documentation refresh:** `docs/audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, and `docs/pr-change-log.md`.
+- **Purpose:** reconcile current PR check evidence and production catalog findings; narrow the migration 079 claim to the exact absent columns/index/RPC; record current blockers and the next safe steps for Claude.
+- **Runtime behavior:** none. No application code, API behavior, database schema, grants, RLS policies, provider configuration, or user data changed.
+- **Privacy/security impact:** no secrets or personal data were added. The review used metadata and schema/grant catalogs only.
+- **Tests:** no application tests run in this refresh. The previous #700 head's CI and Documentation Gate passed; fresh checks are required on the updated head.
+- **Deployment/migrations:** no deployment or migration performed. Production remains on main SHA `3a2c705461ac5b9920191ef67e5b25213dff0222`.
+- **Rollback:** if the documentation update is incorrect, revert the documentation-only commit(s) on the #700 draft branch. No runtime rollback is required because no runtime artifacts changed.
