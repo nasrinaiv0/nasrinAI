@@ -71,7 +71,7 @@ test('tenant knowledge falls back to permission-scoped full-text search when emb
     }
   };
   const knowledge = createKnowledge({ store, logger, embedder: { modelName: 'openai/test@384', async embed() { throw new Error('network'); } }, tenantEmbeddingsEnabled: true });
-  const context = await knowledge.context({ tenantId: TENANT, actor: { type: 'service' } }, 'Explain the delivery policy');
+  const context = await knowledge.context({ tenantId: TENANT, actor: { type: 'service' } }, 'Explain the TS delivery policy');
   assert.equal(fallbackCalled, true);
   assert.match(context, /Fallback FAQ/);
 });
