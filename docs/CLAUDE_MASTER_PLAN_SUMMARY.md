@@ -245,3 +245,10 @@ Changes in this follow-up:
 - **Verification:** dashboard SQL now executes and returns a JSON object with 7 daily series points and 12 recent-activity entries. Both automation tables have RLS enabled, explicit deny policies, and no `anon`/`authenticated` SELECT grants. Tables are empty; no fake activity was inserted.
 - **Source and evidence:** `db/migrations/085_restore_owner_console_automation_schema.sql`; `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`.
 - **Still not verified:** hosted owner-console browser/API smoke test and deployment. Migration history for 080–082 still needs exact source/live definition reconciliation. Do not fabricate registry records or blindly replay those migrations.
+
+
+## OCC automation label correction — 2026-10-30
+
+- Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
+- Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
+- UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
