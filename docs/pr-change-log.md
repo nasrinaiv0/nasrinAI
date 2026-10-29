@@ -2867,3 +2867,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Stop provider calls after a 429. Distinguish quota/billing exhaustion as `embedding_quota_exhausted` using structured fields only; never log or return raw provider response bodies.
 - Ensure any sanitized semantic indexing error marks the scheduled run partial, including chunk-write failures. Add regression tests for quota classification, batch writes, throttling stop behavior, and preserving existing chunks.
 - **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.
+
+## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
+
+- Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).
+- `docs/route-inventory.md`: public/private routes, checks done (no source maps or debug logging), open items (canonical host redirect is an owner Vercel step; shared legal canonical).
+- `test/route-inventory.test.js` guards the canonical, robots/sitemap boundaries and the no-source-map/no-debug-log rule.
