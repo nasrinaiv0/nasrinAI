@@ -2867,3 +2867,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Stop provider calls after a 429. Distinguish quota/billing exhaustion as `embedding_quota_exhausted` using structured fields only; never log or return raw provider response bodies.
 - Ensure any sanitized semantic indexing error marks the scheduled run partial, including chunk-write failures. Add regression tests for quota classification, batch writes, throttling stop behavior, and preserving existing chunks.
 - **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.
+
+
+## Coding/reasoning benchmark (`feat/coding-reasoning-benchmark`, 2026-10-29)
+
+- Adds `scripts/eval/suites/coding.json` (version `2026-10-29-v1`, 10 checkable coding/reasoning cases) and a `coding` option in the Manual live evaluations workflow.
+- Tests: suite structure, pattern compilation, right/wrong answer grading, workflow wiring (`test/eval-coding-suite.test.js`).
+- Continuous-intelligence Phase 3 benchmark item done; measuring the baseline is an owner-run live job (it calls production and may cost provider credits).

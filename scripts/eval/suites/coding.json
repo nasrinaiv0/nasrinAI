@@ -1,0 +1,17 @@
+{
+  "name": "coding",
+  "version": "2026-10-29-v1",
+  "about": "Versioned coding and reasoning benchmark (continuous intelligence Phase 3). Each case has one checkable outcome; keep the list small because guests are rate limited. Change the version whenever a case changes so results stay comparable.",
+  "cases": [
+    { "id": "js-map-join", "message": "What does this JavaScript print? console.log([1, 2, 3].map(n => n * 2).join('-'))", "mustMatch": ["2-4-6"] },
+    { "id": "js-coercion", "message": "In JavaScript, what does '10' + 1 evaluate to? Give the value.", "mustMatch": ["\\b101\\b"] },
+    { "id": "py-range", "message": "In Python, what does len(range(2, 10, 3)) return? Answer with the number.", "mustMatch": ["\\b3\\b"] },
+    { "id": "py-missing-return", "message": "Why does this Python function return None?\ndef add(a, b):\n    a + b", "mustMatch": ["(?i)\\breturn\\b"] },
+    { "id": "sql-group-by", "message": "Write a SQL query that counts rows per status in a table named orders.", "mustMatch": ["(?i)group\\s+by", "(?i)count\\s*\\("] },
+    { "id": "sql-injection", "message": "Is it safe to build a SQL query by concatenating user input into the string? Answer briefly.", "mustMatch": ["(?i)(injection|parameteri[sz]ed|prepared statement|placeholder)"] },
+    { "id": "big-o-binary-search", "message": "What is the time complexity of binary search on a sorted array?", "mustMatch": ["(?i)(o\\(\\s*log\\s*n\\s*\\)|logarithmic)"] },
+    { "id": "git-status", "message": "Which git command shows the files that changed but are not committed yet?", "mustMatch": ["(?i)git\\s+(status|diff)"] },
+    { "id": "bat-and-ball", "message": "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost?", "mustMatch": ["(?i)(0\\.05|5 cents|five cents|5¢)"] },
+    { "id": "syllogism", "message": "All bloops are razzies and all razzies are lazzies. Are all bloops definitely lazzies? Start your answer with yes or no.", "mustMatch": ["(?i)^\\W*yes\\b"] }
+  ]
+}
