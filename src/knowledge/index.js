@@ -82,7 +82,7 @@ export function createKnowledge({ store, logger, readLinkImpl = readLink, now = 
         if (!(await anyDocs(caller.tenantId))) return null;
         const startedAt = now();
         const analysis = analyzeRagQuery(message);
-        const expandedTerms = analysis.terms.flatMap((term) => term.toLowerCase().split(/[^\\p{L}\\p{N}_]+/u)).filter((term) => term.length >= 2);
+        const expandedTerms = analysis.terms.flatMap((term) => term.toLowerCase().split(/[^\p{L}\p{N}_]+/u)).filter((term) => term.length >= 2);
         const terms = [...new Set([...searchTerms(message), ...expandedTerms])].slice(0, 18);
         if (!terms.length) return null;
         let found = null;
