@@ -8,9 +8,10 @@
 - Updated docs/owner-command-center.md status header to distinguish merged/deployed code from unverified runtime and record the migration registry mismatch.
 - Critical findings: migration 068 is absent from the production registry and its integration tables are absent; migration 079 and its hybrid retrieval objects are absent; migrations 080/081 objects exist with service_role-only function grants but are missing registry entries; PRs #651, #652, and #673 have failed Documentation Gates because their current diffs omit docs/pr-change-log.md; PR #695's local no-database startup fix is still open.
 - Security: leaked-password protection remains disabled as an owner-deferred residual risk; RLS-enabled server-only tables have no policies but anon/authenticated SELECT/INSERT grants are absent and service_role grants are present. No secret values or personal data were recorded.
-- Validation: read-only GitHub/Vercel/Supabase checks only. No application tests were run by this audit. CI and Documentation Gate for this documentation-only branch are pending until GitHub runs them.
+- Validation: read-only GitHub/Vercel/Supabase checks only. No application tests were run by this audit. On initial audit PR head 6d0b8a19ba4f2992456bc4e9c9cefd31143132cf, CI run #7864 passed and Documentation Gate run #1878 passed. This follow-up changelog commit changes the PR head, so the latest head must pass both checks again before merge.
 - Deployment/migration status: the current Vercel production deployment is READY at commit 3a2c705461ac5b9920191ef67e5b25213dff0222; no production changes, migrations, merges, or deployments were performed by this audit.
 - Rollback: documentation-only revert of this PR; do not roll back application code or database objects as part of this audit. See the detailed report for exact evidence links and per-PR paths.
+- Validation follow-up commit records the prior checked head SHA 6d0b8a19ba4f2992456bc4e9c9cefd31143132cf and its successful CI/Documentation Gate results; this commit's own SHA and checks are visible in PR #700.
 
 ## Owner Command Center API keys — 2026-10-29
 
