@@ -2969,3 +2969,19 @@ The original test used over-escaped regular expressions. The test is being simpl
 - `docs/community-learning.md` matched to code/migration 075/Privacy Notice (Guest notice grant, no routine expiry for screened examples, signed-in opt-in default off).
 - `public/legal/privacy.md` header set to version 2026-10-28 (matches `LEGAL_PRIVACY_VERSION`; content last changed 2026-10-27).
 - `CLAUDE.md`: repo move and owner reply/token preference; master plan summary: draft PR review record. No runtime code changed.
+
+
+## NasrinAI integration persistence — migration 068 production blocker and repair plan (2026-10-30 06:39 Asia/Manila)
+
+- **Scope:** NasrinAI repository and its NasrinAI Supabase project only. Unrelated product workstreams are excluded from this audit.
+- **Baseline:** main `33f9283f35a0627c700efb43b3335bcfd8d52840`; documentation branch `docs/integration-068-repair-plan-2026-10-30`.
+- **Finding:** read-only SQL at 2026-10-30 06:39:56 +08:00 returned NULL for `public.integration_connections` and `public.integration_oauth_states`. The migration registry relation exists, but the migration list has no entry for 068 while later 069 is present.
+- **Exact paths inspected:** `db/migrations/068_user_owned_integrations.sql` (blob `d405e25c611d539e901a2d1f133366aa6bee38e3`); `src/integrations/store.js` (blob `d09e449c5892ea56d36d01a8f053d4957824c21b`); `src/integrations/ownership.js` (blob `988449baf2c06bbb9adcb705a9d31234ed48be07`); `db/tests/068_user_owned_integrations.test.sql` (blob `94c88951fb5967006ca120355b2bdc58f2bccf53`).
+- **Purpose/behavior:** the repository migration defines server-only integration connection and OAuth-state tables with credential-envelope checks, uniqueness/provider allowlists, indexes, RLS, browser-role revokes, and deny policies. The runtime store performs tenant/user-scoped requests and public response filtering. Production does not currently have the two required tables, so the universal integration persistence path is **Blocked**.
+- **Security/privacy implications:** do not repair by granting `anon`/ `authenticated` broad access or by logging encrypted credentials/OAuth state. Validate RLS, grants, deny policies, tenant/user isolation, and response redaction in an isolated development database before requesting a production change.
+- **Status labels:** migration file **Implemented in repository**; production schema **Not implemented in observed catalog / Blocked**; registry history **Blocked by drift**; end-to-end runtime **Not verified**.
+- **Tests:** no application or SQL tests were run manually. Existing SQL regression test file exists but must be run in an isolated environment; record exact output on execution. No test pass is claimed.
+- **Deployment/migration status:** no migration was created or applied, no production settings/schema/data/grants/policies were changed, and no deployment or merge was performed.
+- **Rollback:** documentation-only; revert this branch if findings are superseded. A future schema rollout must not drop credential tables or blindly replay later migrations; use a reviewed forward repair and preserve existing data/audit evidence.
+- **New plan:** `docs/audits/INTEGRATION_MIGRATION_068_REPAIR_PLAN_2026-10-30.md`, commit `4fb4d6e21b15680c9125c2e07106252bf3b700cc`. It defines non-production preflight, security assertions, validation gates, and explicit production approval separation.
+- **Change log entry commit:** this entry is included in the current documentation branch; exact commit SHA is recorded by the branch's resulting head/PR metadata after creation.
