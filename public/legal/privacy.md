@@ -1,7 +1,7 @@
 # Privacy Notice
 
 
-**Version 2026-10-26** · Effective: 26 October 2026 · Last updated: 26 October 2026
+**Version 2026-10-28** · Effective: 28 October 2026 · Last updated: 28 October 2026
 
 This notice explains what NasrinAI does with personal information, written to match how the service actually works today. This notice describes the NasrinAI service and its current privacy practices.
 

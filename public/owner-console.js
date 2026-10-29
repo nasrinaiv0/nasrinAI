@@ -242,7 +242,7 @@
     runButton.type = 'button';
     const status = el('p', 'panel-copy provider-verification-status', 'Results appear in GitHub Actions after the workflow starts.');
     const link = el('a', 'quiet-button', 'View workflow runs');
-    link.href = 'https://github.com/primusco20/nasrinAI/actions/workflows/verify-openrouter-models.yml';
+    link.href = 'https://github.com/nasrinaiv0/nasrinAI/actions/workflows/verify-openrouter-models.yml';
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     runButton.addEventListener('click', async () => {
@@ -1407,53 +1407,1099 @@
     await load();
   }
 
-  function show(key) {
-    active = names[key] ? key : 'overview';
-    const meta = names[active];
-    $('page-title').textContent = meta[0];
-    $('page-description').textContent = meta[1];
-    $('crumb').textContent = active === 'overview' ? 'Overview' : meta[0];
-    document.querySelectorAll('.nav-item').forEach((button) => {
-      const selected = button.dataset.panel === active;
-      button.classList.toggle('active', selected);
-      button.setAttribute('aria-current', selected ? 'page' : 'false');
-    });
-    if (active === 'overview') renderOverview();
-    else if (active === 'learning') renderLearning();
-    else if (active === 'intelligence') renderIntelligence();
-    else if (active === 'openrouter-unlisted') renderUnlistedModels();
-    else if (active === 'other-unlisted') renderActivities();
-    else if (active === 'regional') renderRegional();
-    else if (active === 'google-analytics') renderGoogleAnalytics();
-    else renderModule(active);
-  }
-  async function refresh() {
-    $('freshness').textContent = 'Checking data sources…';
+  // ---------------------------------------------------------------------------
+  // Owner Command Center pages. Every figure comes from a server-side source;
+  // a missing source renders an empty state, never placeholder numbers.
+  // Charts are built with DOM/SVG APIs only (strict CSP: no inline code or styles).
+  // ---------------------------------------------------------------------------
+  const NS = 'http://www.w3.org/2000/svg';
+  const LINKS = {
+    ncc: 'https://ncc.nasrinai.com/',
+    vercel: 'https://vercel.com/dashboard',
+    supabase: 'https://supabase.com/dashboard/projects',
+    github: 'https://github.com/nasrinaiv0/nasrinAI',
+    actions: 'https://github.com/nasrinaiv0/nasrinAI/actions',
+    pulls: 'https://github.com/nasrinaiv0/nasrinAI/pulls',
+    githubSecurity: 'https://github.com/nasrinaiv0/nasrinAI/security',
+    paymongo: 'https://dashboard.paymongo.com/',
+    openrouter: 'https://openrouter.ai/activity',
+    searchConsole: 'https://search.google.com/search-console',
+    analytics: 'https://analytics.google.com/'
+  };
+  const ICONS = {
+    home: ['m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9 22V12h6v10'],
+    cpu: ['r:4,4,16,16,2', 'r:9,9,6,6,1', 'M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2'],
+    users: ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'c:9,7,4', 'M22 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
+    user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'c:12,7,4'],
+    image: ['r:3,3,18,18,2', 'c:9,9,2', 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'],
+    dollar: ['M12 2v20', 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'],
+    layers: ['m12 2 10 5-10 5L2 7z', 'm2 17 10 5 10-5', 'm2 12 10 5 10-5'],
+    shield: ['M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z'],
+    share: ['c:18,5,3', 'c:6,12,3', 'c:18,19,3', 'm8.59 13.51 6.83 3.98', 'm15.41 6.51-6.82 3.98'],
+    'check-circle': ['c:12,12,10', 'm9 12 2 2 4-4'],
+    file: ['M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z', 'M14 2v4a2 2 0 0 0 2 2h4', 'M10 9H8M16 13H8M16 17H8'],
+    settings: ['c:12,12,3', 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'],
+    'chevron-right': ['m9 18 6-6-6-6'],
+    arrow: ['M5 12h14', 'm12 5 7 7-7 7'],
+    menu: ['M4 6h16M4 12h16M4 18h16'],
+    calendar: ['r:3,4,18,18,2', 'M16 2v4M8 2v4M3 10h18'],
+    bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+    message: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
+    database: ['M3 5c0-1.66 4-3 9-3s9 1.34 9 3-4 3-9 3-9-1.34-9-3', 'M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5', 'M3 12c0 1.66 4 3 9 3s9-1.34 9-3'],
+    activity: ['M22 12h-4l-3 9L9 3l-3 9H2'],
+    clock: ['c:12,12,10', 'M12 6v6l4 2'],
+    alert: ['m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3', 'M12 9v4', 'M12 17h.01'],
+    zap: ['M13 2 3 14h9l-1 8 10-12h-9l1-8z'],
+    video: ['m16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.94a.5.5 0 0 0-.78-.42L16 11', 'r:2,6,14,12,2'],
+    upload: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm17 8-5-5-5 5', 'M12 3v12'],
+    download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm7 10 5 5 5-5', 'M12 15V3'],
+    refresh: ['M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16', 'M8 16H3v5'],
+    play: ['m6 3 14 9-14 9z'],
+    pause: ['M8 4v16M16 4v16'],
+    globe: ['c:12,12,10', 'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20', 'M2 12h20'],
+    lock: ['r:3,11,18,11,2', 'M7 11V7a5 5 0 0 1 10 0v4'],
+    key: ['c:7.5,15.5,5.5', 'm21 2-9.6 9.6', 'm15.5 7.5 3 3L22 7l-3-3'],
+    server: ['r:2,2,20,8,2', 'r:2,14,20,8,2', 'M6 6h.01M6 18h.01'],
+    terminal: ['m4 17 6-6-6-6', 'M12 19h8'],
+    search: ['c:11,11,8', 'm21 21-4.3-4.3'],
+    plus: ['M5 12h14M12 5v14'],
+    x: ['M18 6 6 18M6 6l12 12'],
+    check: ['M20 6 9 17l-5-5'],
+    branch: ['M6 3v12', 'c:18,6,3', 'c:6,18,3', 'M18 9a9 9 0 0 1-9 9'],
+    box: ['M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z', 'm3.3 7 8.7 5 8.7-5', 'M12 22V12'],
+    cloud: ['M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z'],
+    list: ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
+    chart: ['M3 3v18h18', 'M18 17V9', 'M13 17V5', 'M8 17v-3'],
+    card: ['r:2,5,20,14,2', 'M2 10h20'],
+    rotate: ['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5'],
+    external: ['M15 3h6v6', 'M10 14 21 3', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'],
+    printer: ['M6 9V2h12v7', 'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2', 'r:6,14,12,8,0'],
+    sun: ['c:12,12,4', 'M12 2v2M12 20v2m-7.07-14.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2M20 12h2m-14.07 7.07 1.41-1.41m11.32-11.32 1.41-1.41'],
+    moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'],
+    monitor: ['r:2,3,20,14,2', 'M8 21h8M12 17v4'],
+    eye: ['M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7', 'c:12,12,3'],
+    mail: ['r:2,4,20,16,2', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'],
+    trend: ['m22 7-8.5 8.5-5-5L2 17', 'M16 7h6v6'],
+    code: ['m16 18 6-6-6-6', 'm8 6-6 6 6 6'],
+    flag: ['M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z', 'M4 22v-7'],
+    dot: ['c:12,12,3']
+  };
+  const TONES = { blue: 1, green: 2, amber: 3, pink: 4, purple: 5, cyan: 6 };
+  let dash = null;
+  let release = null;
+  let incidentsCache = null;
+  let activeTab = 'dashboard';
+  let liveTimer = null;
+  let liveOn = true;
+  const prefs = loadPrefs();
+
+  function loadPrefs() {
+    const defaults = { theme: 'dark', accent: 'blue', sidebar: 'default', font: 'medium', range: '7d', dateFormat: 'medium', timeFormat: '12h', usageMetric: 'requests' };
     try {
-      const response = await fetch('/owner/api/overview', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
-      if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; return; }
-      if (!response.ok) throw new Error('refresh failed');
-      data = await response.json();
-      $('freshness').textContent = 'Checked ' + new Date(data.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · sources pending';
-      show(active);
-    } catch {
-      $('freshness').textContent = 'Could not refresh';
-      $('content').replaceChildren(el('div', 'error-state', 'The secure overview could not be refreshed. No data was cached. Try again, or sign out and open the console again.'));
-    }
+      const saved = JSON.parse(localStorage.getItem('nasrinai-owner-prefs') || '{}');
+      const allowed = { theme: ['dark', 'light', 'system'], accent: ['blue', 'green', 'amber', 'pink', 'purple', 'mono'], sidebar: ['default', 'compact'], font: ['small', 'medium', 'large'], range: ['7d', '14d', '30d'], dateFormat: ['medium', 'iso', 'dmy'], timeFormat: ['12h', '24h'], usageMetric: ['requests', 'conversations', 'tokens', 'active'] };
+      Object.keys(allowed).forEach((key) => { if (allowed[key].includes(saved[key])) defaults[key] = saved[key]; });
+    } catch (_) {}
+    return defaults;
   }
-  document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => show(button.dataset.panel)));
-  const refreshButton = el('button', 'quiet-button', 'Refresh');
-  refreshButton.type = 'button';
-  refreshButton.addEventListener('click', () => {
-    refreshButton.disabled = true;
-    refresh().finally(() => { refreshButton.disabled = false; });
-  });
-  $('signout').parentElement.insertBefore(refreshButton, $('signout'));
-  $('signout').addEventListener('click', async () => {
-    $('signout').disabled = true;
-    try { await fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }); } catch {}
+  function savePrefs() { try { localStorage.setItem('nasrinai-owner-prefs', JSON.stringify(prefs)); } catch (_) {} }
+  function applyPrefs() {
+    const root = document.documentElement;
+    root.dataset.theme = prefs.theme; root.dataset.accent = prefs.accent; root.dataset.sidebar = prefs.sidebar; root.dataset.font = prefs.font;
+  }
+
+  // ---- small DOM helpers ----------------------------------------------------
+  function svgEl(tag, attrs, cls) {
+    const n = document.createElementNS(NS, tag);
+    Object.keys(attrs || {}).forEach((k) => n.setAttribute(k, String(attrs[k])));
+    if (cls) n.setAttribute('class', cls);
+    return n;
+  }
+  function icon(name) {
+    const wrap = el('span', 'icon'), s = svgEl('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' });
+    (ICONS[name] || ICONS.dot).forEach((d) => {
+      if (d.startsWith('c:')) { const [cx, cy, r] = d.slice(2).split(','); s.append(svgEl('circle', { cx, cy, r })); }
+      else if (d.startsWith('r:')) { const [x, y, width, height, rx] = d.slice(2).split(','); s.append(svgEl('rect', { x, y, width, height, rx })); }
+      else s.append(svgEl('path', { d }));
+    });
+    wrap.append(s);
+    return wrap;
+  }
+  function tile(name, tone) { const t = el('span', 'tile tone-' + (TONES[tone] || tone || 1)); t.append(icon(name)); return t; }
+  function button(label, cls, onClick, iconName) {
+    const b = el('button', cls || 'btn'); b.type = 'button';
+    if (iconName) b.append(icon(iconName));
+    b.append(document.createTextNode(label));
+    if (onClick) b.addEventListener('click', onClick);
+    return b;
+  }
+  function extLink(label, href, cls, iconName) {
+    const a = el('a', cls || 'btn'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    if (iconName) a.append(icon(iconName));
+    a.append(document.createTextNode(label));
+    return a;
+  }
+  function card(title, opts) {
+    const o = opts || {}, root = el('section', 'card ' + (o.span ? 'span-' + o.span : 'span-12')), h = el('div', 'card-head');
+    h.append(el('h2', '', title));
+    const tools = el('div', 'card-tools');
+    (o.tools || []).forEach((t) => tools.append(t));
+    if (o.view) tools.append(viewAll(o.view[0], o.view[1], o.view[2]));
+    if (tools.childNodes.length) h.append(tools);
+    if (o.sub) h.append(el('p', '', o.sub));
+    root.append(h);
+    return root;
+  }
+  function viewAll(label, page, tab) {
+    const b = el('button', 'link-button', label || 'View all'); b.type = 'button';
+    b.append(icon('arrow'));
+    b.addEventListener('click', () => go(page, tab));
+    return b;
+  }
+  function empty(title, copy) { const e = el('div', 'empty'); e.append(el('strong', '', title)); if (copy) e.append(el('span', '', copy)); return e; }
+  function statusTag(label, kind) { return el('span', 'status ' + (kind || 'idle'), label); }
+  function badge(label, cls) { return el('span', 'badge ' + (cls || ''), label); }
+  function selectEl(options, value, onChange, label) {
+    const s = el('select', 'select'); s.setAttribute('aria-label', label || 'Choose');
+    options.forEach(([v, t]) => { const o = el('option', '', t); o.value = v; if (v === value) o.selected = true; s.append(o); });
+    s.addEventListener('change', () => onChange(s.value));
+    return s;
+  }
+  function toast(message) {
+    const t = $('toast'); t.textContent = message; t.hidden = false;
+    clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3800);
+  }
+  function dash_() { return dash && dash.dashboard; }
+
+  // ---- formatting -------------------------------------------------------------
+  const NF = new Intl.NumberFormat('en-US');
+  const CF = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+  function num(v) { const n = Number(v); return Number.isFinite(n) ? NF.format(n) : '—'; }
+  function compact(v) { const n = Number(v); return Number.isFinite(n) ? CF.format(n) : '—'; }
+  function peso(minor) { const n = Number(minor) / 100; return Number.isFinite(n) ? '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: n >= 1000 ? 0 : 2 }) : '—'; }
+  function pct(part, whole, digits) { const p = Number(part), w = Number(whole); return w > 0 && Number.isFinite(p) ? (p / w * 100).toFixed(digits === undefined ? 1 : digits) + '%' : '—'; }
+  function bytes(v) { let n = Number(v); if (!Number.isFinite(n)) return '—'; const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : n) + ' ' + u[i]; }
+  function ms(v) { const n = Number(v); if (!Number.isFinite(n) || v === null) return '—'; return n >= 1000 ? (n / 1000).toFixed(1) + ' s' : Math.round(n) + ' ms'; }
+  function dateText(value) {
+    const d = new Date(value); if (Number.isNaN(d.getTime())) return '—';
+    if (prefs.dateFormat === 'iso') return d.toISOString().slice(0, 10);
+    if (prefs.dateFormat === 'dmy') return d.toLocaleDateString('en-GB');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function timeText(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: prefs.timeFormat === '12h' }); }
+  function dateTimeText(value) { return dateText(value) + ' ' + timeText(value); }
+  function shortDateTime(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + timeText(value); }
+  function ago(value, short) {
+    const t = new Date(value).getTime(); if (!Number.isFinite(t)) return '—';
+    const s = Math.round((t - Date.now()) / 1000), rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: short ? 'narrow' : 'long' });
+    const steps = [[60, 'second'], [3600, 'minute', 60], [86400, 'hour', 3600], [604800, 'day', 86400], [Infinity, 'week', 604800]];
+    for (const [limit, unit, div] of steps) if (Math.abs(s) < limit) return rtf.format(Math.round(s / (div || 1)), unit);
+    return dateText(value);
+  }
+  function dayLabel(day) { const d = new Date(day + 'T00:00:00Z'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); }
+  function initials(text) { const s = String(text || '?').replace(/[^A-Za-z]/g, ''); return (s.slice(0, 2) || '?').toUpperCase(); }
+
+  // ---- series maths -------------------------------------------------------------
+  function windowRows() {
+    const d = dash_(), rows = d && Array.isArray(d.series) ? d.series : [], n = dash ? dash.window_days : 7;
+    return { cur: rows.slice(-n), prev: rows.length > n ? rows.slice(0, rows.length - n) : [], n };
+  }
+  function pick(row, f) { return typeof f === 'function' ? Number(f(row)) || 0 : Number(row[f]) || 0; }
+  function total(rows, f) { return rows.reduce((a, r) => a + pick(r, f), 0); }
+  function chat(row) { return Math.max(0, pick(row, 'requests') - pick(row, 'coding') - pick(row, 'image') - pick(row, 'video') - pick(row, 'voice')); }
+  function trend(f, opts) {
+    const w = windowRows(), cur = total(w.cur, f), prev = total(w.prev, f), o = opts || {};
+    return { value: cur, values: w.cur.map((r) => pick(r, f)), delta: deltaText(cur, prev, o.downIsGood, w.n, w.prev.length) };
+  }
+  function deltaText(cur, prev, downIsGood, n, havePrev) {
+    const d = el('div', 'kpi-delta');
+    if (!havePrev) { d.textContent = 'No earlier period to compare'; return d; }
+    if (prev === 0 && cur === 0) { d.textContent = 'No activity in either period'; return d; }
+    if (prev === 0) { d.append(el('b', downIsGood ? 'down' : 'up', 'New'), document.createTextNode(' vs. previous ' + n + ' days')); return d; }
+    if (cur === prev) { d.append(el('b', 'flat', 'No change'), document.createTextNode(' vs. previous ' + n + ' days')); return d; }
+    const change = (cur - prev) / prev * 100, up = change >= 0, good = downIsGood ? !up : up;
+    d.append(el('b', Math.abs(change) < 0.05 ? 'flat' : good ? 'up' : 'down', (up ? '↑ ' : '↓ ') + Math.abs(change).toFixed(Math.abs(change) < 10 ? 1 : 0) + '%'), document.createTextNode(' vs. previous ' + n + ' days'));
+    return d;
+  }
+
+  // ---- charts -------------------------------------------------------------------
+  function niceMax(v) { if (!(v > 0)) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
+  function smooth(points) {
+    if (points.length < 3) return points.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    let d = 'M' + points[0][0].toFixed(1) + ' ' + points[0][1].toFixed(1);
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i], p1 = points[i], p2 = points[i + 1], p3 = points[i + 2] || p2;
+      const lo = Math.min(p1[1], p2[1]), hi = Math.max(p1[1], p2[1]);
+      const c1y = Math.min(hi, Math.max(lo, p1[1] + (p2[1] - p0[1]) / 6)), c2y = Math.min(hi, Math.max(lo, p2[1] - (p3[1] - p1[1]) / 6));
+      d += ' C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ' ' + c1y.toFixed(1) + ' ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ' ' + c2y.toFixed(1) + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+  function axes(svg, w, h, pad, max, labels, fmt) {
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.t + (h - pad.t - pad.b) * (1 - i / 4);
+      svg.append(svgEl('line', { x1: pad.l, x2: w - pad.r, y1: y, y2: y }, 'gridline'));
+      const t = svgEl('text', { x: pad.l - 8, y: y + 4, 'text-anchor': 'end' }); t.textContent = (fmt || compact)(max * i / 4); svg.append(t);
+    }
+    const n = labels.length, every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(w / 80))));
+    labels.forEach((label, i) => {
+      if (i % every && i !== n - 1) return;
+      const x = n === 1 ? (pad.l + w - pad.r) / 2 : pad.l + (w - pad.l - pad.r) * i / (n - 1);
+      const t = svgEl('text', { x, y: h - 4, 'text-anchor': 'middle' }); t.textContent = label; svg.append(t);
+    });
+  }
+  function legend(items) { const l = el('div', 'legend'); items.forEach(([label, tone]) => { const s = el('span'); s.append(el('i', 'sw c' + tone), document.createTextNode(label)); l.append(s); }); return l; }
+  // Charts draw at their real width so axis text stays readable; they redraw on resize.
+  function responsive(drawSvg, legendNode) {
+    const wrap = el('div', 'chart-wrap'), holder = el('div');
+    let last = 0;
+    const draw = () => { const w = Math.max(260, Math.round(holder.clientWidth || 600)); if (w === last) return; last = w; holder.replaceChildren(drawSvg(w)); };
+    wrap.append(holder);
+    if (legendNode) wrap.append(legendNode);
+    holder.append(drawSvg(600));
+    requestAnimationFrame(draw);
+    if (typeof ResizeObserver === 'function') new ResizeObserver(() => draw()).observe(holder);
+    return wrap;
+  }
+  function lineChart(labels, series, opts) {
+    const o = opts || {};
+    return responsive((w) => {
+      const h = o.height || 230, pad = { l: 46, r: 12, t: 10, b: 24 };
+      const svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': o.label || 'Line chart' }, 'chart');
+      const max = niceMax(Math.max(1, ...series.flatMap((s) => s.values)));
+      axes(svg, w, h, pad, max, labels, o.fmt);
+      series.forEach((s) => {
+        const pts = s.values.map((v, i) => [labels.length === 1 ? (pad.l + w - pad.r) / 2 : pad.l + (w - pad.l - pad.r) * i / (labels.length - 1), pad.t + (h - pad.t - pad.b) * (1 - (Number(v) || 0) / max)]);
+        if (!pts.length) return;
+        const d = smooth(pts);
+        if (o.area !== false && s.area !== false) svg.append(svgEl('path', { d: d + ' L' + pts[pts.length - 1][0] + ' ' + (h - pad.b) + ' L' + pts[0][0] + ' ' + (h - pad.b) + ' Z' }, 'area f' + s.tone));
+        svg.append(svgEl('path', { d }, 'line s' + s.tone));
+        if (pts.length <= 31) pts.forEach((p, i) => { const c = svgEl('circle', { cx: p[0], cy: p[1], r: 3.2 }, 'dot f' + s.tone); const tt = svgEl('title'); tt.textContent = s.name + ' · ' + labels[i] + ': ' + (o.fmt || num)(s.values[i]); c.append(tt); svg.append(c); });
+      });
+      return svg;
+    }, o.legend === false ? null : legend(series.map((s) => [s.name, s.tone])));
+  }
+  function barChart(labels, series, opts) {
+    const o = opts || {};
+    return responsive((w) => {
+      const h = o.height || 230, pad = { l: 46, r: 12, t: 10, b: 24 };
+      const svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': o.label || 'Bar chart' }, 'chart');
+      const sums = labels.map((_, i) => o.stacked ? series.reduce((a, s) => a + (Number(s.values[i]) || 0), 0) : Math.max(0, ...series.map((s) => Number(s.values[i]) || 0)));
+      const max = niceMax(Math.max(1, ...sums));
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (h - pad.t - pad.b) * (1 - i / 4);
+        svg.append(svgEl('line', { x1: pad.l, x2: w - pad.r, y1: y, y2: y }, 'gridline'));
+        const t = svgEl('text', { x: pad.l - 8, y: y + 4, 'text-anchor': 'end' }); t.textContent = (o.fmt || compact)(max * i / 4); svg.append(t);
+      }
+      const slot = (w - pad.l - pad.r) / Math.max(1, labels.length), every = Math.max(1, Math.ceil(labels.length / Math.max(2, Math.floor(w / 70))));
+      labels.forEach((label, i) => {
+        const x0 = pad.l + slot * i, inner = Math.min(46, slot * 0.62);
+        let base = h - pad.b;
+        series.forEach((s, si) => {
+          const v = Number(s.values[i]) || 0, bh = (h - pad.t - pad.b) * v / max;
+          const bw = o.stacked ? inner : inner / series.length;
+          const x = x0 + (slot - inner) / 2 + (o.stacked ? 0 : bw * si);
+          const y = o.stacked ? base - bh : h - pad.b - bh;
+          if (bh > 0) { const r = svgEl('rect', { x, y, width: Math.max(1, bw - (o.stacked ? 0 : 2)), height: bh, rx: 3 }, 'f' + s.tone); const tt = svgEl('title'); tt.textContent = s.name + ' · ' + label + ': ' + (o.fmt || num)(v); r.append(tt); svg.append(r); }
+          if (o.stacked) base -= bh;
+        });
+        if (i % every === 0 || i === labels.length - 1) { const t = svgEl('text', { x: x0 + slot / 2, y: h - 4, 'text-anchor': 'middle' }); t.textContent = label; svg.append(t); }
+      });
+      return svg;
+    }, o.legend === false ? null : legend(series.map((s) => [s.name, s.tone])));
+  }
+  function sparkline(values, tone) {
+    const w = 86, h = 34, svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, 'aria-hidden': 'true' }, 'spark chart');
+    if (!values.length || values.every((v) => !v)) { svg.append(svgEl('line', { x1: 0, x2: w, y1: h - 4, y2: h - 4 }, 'line s' + tone)); return svg; }
+    const max = Math.max(...values), min = Math.min(...values), span = max - min || 1;
+    const pts = values.map((v, i) => [values.length === 1 ? w / 2 : w * i / (values.length - 1), 3 + (h - 6) * (1 - (v - min) / span)]);
+    const d = smooth(pts);
+    svg.append(svgEl('path', { d: d + ' L' + w + ' ' + h + ' L0 ' + h + ' Z' }, 'area f' + tone), svgEl('path', { d }, 'line s' + tone));
+    return svg;
+  }
+  function donut(segments, center, centerLabel, opts) {
+    const o = opts || {}, wrap = el('div', 'donut-wrap'), box = el('div', 'donut');
+    const totalValue = segments.reduce((a, s) => a + Math.max(0, Number(s.value) || 0), 0);
+    const r = 15.9, c = 2 * Math.PI * r, svg = svgEl('svg', { viewBox: '0 0 42 42', role: 'img', 'aria-label': o.label || 'Donut chart' });
+    svg.append(svgEl('circle', { cx: 21, cy: 21, r, fill: 'none', 'stroke-width': 5 }, 'track'));
+    let offset = 0;
+    if (totalValue > 0) segments.forEach((s) => {
+      const len = c * Math.max(0, Number(s.value) || 0) / totalValue; if (!len) return;
+      const gap = segments.filter((x) => Number(x.value) > 0).length > 1 ? 0.6 : 0;
+      svg.append(svgEl('circle', { cx: 21, cy: 21, r, fill: 'none', 'stroke-width': 5, 'stroke-dasharray': Math.max(0, len - gap) + ' ' + (c - Math.max(0, len - gap)), 'stroke-dashoffset': -offset }, 's' + s.tone));
+      offset += len;
+    });
+    const mid = el('div', 'donut-center'); mid.append(el('strong', String(center).length > 6 ? 'long' : '', center), el('span', '', centerLabel || ''));
+    box.append(svg, mid);
+    const rows = el('div', 'rows');
+    segments.forEach((s) => {
+      const row = el('div', 'row'), name = el('div', 'name');
+      name.append(el('i', 'sw c' + s.tone), el('span', '', s.label));
+      row.append(name, el('span', 'muted num', totalValue > 0 ? pct(s.value, totalValue, 0) : '—'), el('span', 'num', s.display || num(s.value)));
+      rows.append(row);
+    });
+    wrap.append(box, rows);
+    return wrap;
+  }
+  function barRows(items, valueText) {
+    const rows = el('div'), max = Math.max(1, ...items.map((i) => Number(i.value) || 0));
+    items.forEach((item, idx) => {
+      const r = el('div', 'bar-row'), top = el('div', 'top'), name = el('span', 'name');
+      if (item.icon) name.append(icon(item.icon));
+      name.append(document.createTextNode(' ' + item.label));
+      top.append(name, el('span', 'muted num', valueText ? valueText(item) : num(item.value)));
+      const bar = el('div', 'bar'), fill = el('i', 'c' + (item.tone || ((idx % 6) + 1)));
+      fill.style.width = Math.max(1.5, (Number(item.value) || 0) / max * 100) + '%';
+      bar.append(fill); r.append(top, bar); rows.append(r);
+    });
+    return rows;
+  }
+  function table(columns, rows, opts) {
+    const o = opts || {}, wrap = el('div', 'tbl-wrap'), t = el('table', 'tbl'), thead = el('thead'), hr = el('tr'), tb = el('tbody');
+    columns.forEach((c) => hr.append(el('th', '', c)));
+    thead.append(hr); t.append(thead, tb);
+    rows.forEach((cells, i) => {
+      const tr = el('tr');
+      cells.forEach((cell) => { const td = el('td'); if (cell instanceof Node) td.append(cell); else td.textContent = cell === null || cell === undefined ? '—' : String(cell); tr.append(td); });
+      if (o.onRow) { tr.classList.add('clickable'); tr.tabIndex = 0; tr.addEventListener('click', () => o.onRow(i, tr)); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') o.onRow(i, tr); }); }
+      tb.append(tr);
+    });
+    wrap.append(t);
+    return wrap;
+  }
+  function kpi(label, value, iconName, tone, deltaNode, values) {
+    const c = el('article', 'card kpi span-3'), body = el('div', 'kpi-body');
+    body.append(el('div', 'kpi-label', label), el('div', 'kpi-value', value));
+    body.append(deltaNode || el('div', 'kpi-delta', ''));
+    c.append(tile(iconName, tone), body);
+    if (values) { c.classList.add('has-spark'); c.append(sparkline(values, TONES[tone] || 1)); }
+    return c;
+  }
+  function note(text) { return el('div', 'kpi-delta', text); }
+  function action(title, sub, iconName, tone, handler) {
+    const isLink = typeof handler === 'string', a = el(isLink ? 'a' : 'button', 'action');
+    if (isLink) { a.href = handler; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = 'Opens in a new tab'; } else { a.type = 'button'; a.addEventListener('click', handler); }
+    const text = el('span', 'action-text'); text.append(el('strong', '', title), el('small', '', sub));
+    if (isLink) text.querySelector('strong').append(icon('external'));
+    a.append(tile(iconName, tone), text);
+    return a;
+  }
+  function actions(title, items, opts) {
+    const c = card(title, { span: (opts && opts.span) || 12 }), grid = el('div', 'actions' + (opts && opts.tiles ? ' tiles' : ''));
+    items.forEach((i) => grid.append(action(...i)));
+    c.append(grid);
+    return c;
+  }
+  function rowLine(label, middle, right, opts) {
+    const o = opts || {}, row = el('div', 'row' + (middle === null ? ' two' : '')), name = el('div', 'name');
+    if (o.icon) name.append(icon(o.icon)); if (o.tone) name.append(el('i', 'sw ' + o.tone));
+    name.append(el('span', '', label));
+    row.append(name);
+    if (middle !== null) row.append(middle instanceof Node ? middle : el('span', 'muted num', middle));
+    row.append(right instanceof Node ? right : el('span', 'num', right));
+    return row;
+  }
+  function csvDownload(filename, header, rows) {
+    const clean = (v) => { let s = v === null || v === undefined ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const text = [header, ...rows].map((r) => r.map(clean).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+    const a = el('a'); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Downloaded ' + filename);
+  }
+  function exportSeries() {
+    const w = windowRows();
+    if (!w.cur.length) { toast('No daily data to export yet.'); return; }
+    const fields = ['requests', 'successes', 'failures', 'tokens', 'conversations', 'coding', 'image', 'video', 'voice', 'active_users', 'active_guests', 'new_users', 'payments', 'gross_php_minor', 'images', 'videos', 'files', 'automation_ok', 'automation_failed'];
+    csvDownload('nasrinai-daily-' + dash.window + '.csv', ['day', ...fields], w.cur.map((r) => [r.day, ...fields.map((f) => r[f])]));
+  }
+  async function getJson(url) {
+    const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+    if (response.status === 404) { window.location.href = 'https://www.nasrinai.com/'; throw new Error('session ended'); }
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error((body && body.error && body.error.message) || 'Request failed');
+    return body;
+  }
+  function needsData(container, what) {
+    if (dash_()) return false;
+    container.append(empty('Daily ' + (what || 'series') + ' unavailable', dash && dash.status === 'unavailable' ? 'Apply migration 080 (owner_console_dashboard) in Supabase to turn on charts.' : 'Loading…'));
+    return true;
+  }
+  function planBreakdown() {
+    const users = data && data.user_summary, plans = data && data.plans_24h;
+    if (!users || !plans) return null;
+    const pro = Number(plans.active_pro_periods) || 0, max = Number(plans.active_max_periods) || 0, ultra = Number(plans.active_ultra_periods) || 0;
+    const all = Number(users.auth_user_records) || 0;
+    return { all, segments: [{ label: 'Free', value: Math.max(0, all - pro - max - ultra), tone: 2 }, { label: 'Pro', value: pro, tone: 1 }, { label: 'Max', value: max, tone: 3 }, { label: 'Ultra', value: ultra, tone: 4 }] };
+  }
+  function planBadge(plan) { const p = String(plan || 'free').toLowerCase(); return badge(p === 'free' ? 'Free' : p[0].toUpperCase() + p.slice(1), p); }
+  function aiSuccess() { const u = data && data.usage_24h; return u && Number(u.request_count) > 0 ? Number(u.success_count) / Number(u.request_count) : null; }
+
+  // ---- system status ------------------------------------------------------------------
+  function services() {
+    const db = data && data.database_health && data.database_health.status === 'available';
+    const dep = data && data.deployment_summary, latest = dep && dep.latest;
+    const rate = aiSuccess(), sig = data && data.incidents_24h, auto = data && data.automation_24h, integ = (dash && dash.integrations) || {};
+    const list = [
+      { name: 'NasrinAI API', icon: 'server', kind: data ? 'good' : 'idle', label: data ? 'Operational' : 'Checking', short: data ? 'Live' : '—', detail: data ? 'Responded ' + timeText(data.generated_at) : '—' },
+      { name: 'Supabase Database', icon: 'database', kind: !data ? 'idle' : db ? 'good' : 'bad', label: !data ? 'Checking' : db ? 'Operational' : 'Unreachable', short: db ? 'Read OK' : '—', detail: db ? 'Read check passed' : 'Read check failed' },
+      { name: 'Vercel Deployment', icon: 'cloud', kind: !latest ? 'idle' : latest.state === 'ready' ? 'good' : ['error', 'canceled', 'cancelled'].includes(latest.state) ? 'bad' : 'warn', label: !latest ? 'Not connected' : latest.state === 'ready' ? 'Operational' : latest.state[0].toUpperCase() + latest.state.slice(1), short: latest && latest.created_at ? ago(latest.created_at, true) : '—', detail: latest && latest.created_at ? 'Deployed ' + ago(latest.created_at) : 'Read-only token not set' },
+      { name: 'AI Providers', icon: 'cpu', kind: rate === null ? 'idle' : rate >= 0.97 ? 'good' : rate >= 0.9 ? 'warn' : 'bad', label: rate === null ? 'No traffic (24h)' : rate >= 0.97 ? 'Operational' : rate >= 0.9 ? 'Degraded' : 'Failing', short: rate === null ? '—' : (rate * 100).toFixed(2) + '%', detail: rate === null ? 'No model calls in 24 hours' : (rate * 100).toFixed(2) + '% success in 24 hours' },
+      { name: 'Automations', icon: 'share', kind: !auto ? 'idle' : Number(auto.failed_count) > 0 || Number(auto.stale_running_count) > 0 ? 'warn' : 'good', label: !auto ? 'Not connected' : Number(auto.failed_count) > 0 || Number(auto.stale_running_count) > 0 ? 'Needs attention' : 'Operational', short: auto ? num(auto.run_count) + ' runs' : '—', detail: auto ? num(auto.run_count) + ' runs in 24 hours' : 'Automation summary unavailable' },
+      { name: 'Payment Gateway', icon: 'card', kind: integ.paymongo ? 'good' : 'idle', label: integ.paymongo ? 'Configured' : 'Not configured', short: 'PayMongo', detail: 'PayMongo checkout' },
+      { name: 'GitHub Actions', icon: 'branch', kind: integ.github_actions ? 'good' : 'idle', label: integ.github_actions ? 'Connected' : 'Not connected', short: '—', detail: 'Release Guard source (OWNER_GITHUB_ACTIONS_TOKEN)' },
+      { name: 'Signals (24h)', icon: 'alert', kind: !sig ? 'idle' : (Number(sig.ai_failed_requests) + Number(sig.automation_failed_runs) + Number(sig.stale_running_runs)) > 0 ? 'warn' : 'good', label: !sig ? 'Unavailable' : (Number(sig.ai_failed_requests) + Number(sig.automation_failed_runs) + Number(sig.stale_running_runs)) > 0 ? 'Attention' : 'Clear', short: sig ? num(sig.ai_failed_requests) + ' fails' : '—', detail: sig ? num(sig.ai_failed_requests) + ' failed AI calls in 24 hours' : 'Signals unavailable' }
+    ];
+    return list;
+  }
+  function updateStatusPill() {
+    const pill = $('status-pill'), text = $('status-text'), list = services();
+    const bad = list.filter((s) => s.kind === 'bad'), warn = list.filter((s) => s.kind === 'warn');
+    pill.className = 'status-pill ' + (!data ? 'idle' : bad.length ? 'bad' : warn.length ? 'warn' : '');
+    text.textContent = !data ? 'Checking systems…' : bad.length ? bad.length + ' system' + (bad.length > 1 ? 's' : '') + ' down' : warn.length ? 'Some systems need attention' : 'All Systems Operational';
+  }
+  async function updateNotifications() {
+    const listEl = $('notify-list'), items = [];
+    services().filter((s) => s.kind === 'bad' || s.kind === 'warn').forEach((s) => items.push({ title: s.name + ': ' + s.label, sub: s.detail, page: 'infrastructure' }));
+    try {
+      if (!incidentsCache) incidentsCache = await getJson('/owner/api/incidents');
+      (incidentsCache.incidents || []).filter((i) => i.status !== 'resolved').slice(0, 8).forEach((i) => items.push({ title: (i.severity ? String(i.severity).toUpperCase() + ' · ' : '') + (i.title || 'Incident'), sub: i.created_at ? ago(i.created_at) : '', page: 'security', tab: 'incidents' }));
+    } catch (_) {}
+    $('bell-dot').hidden = items.length === 0;
+    listEl.replaceChildren();
+    if (!items.length) listEl.append(empty('You’re all caught up', 'No open incidents or failing systems.'));
+    items.forEach((item) => {
+      const b = el('button', 'notify-item'); b.type = 'button';
+      b.append(el('strong', '', item.title), el('small', '', item.sub || ''));
+      b.addEventListener('click', () => { closePanels(); go(item.page, item.tab); });
+      listEl.append(b);
+    });
+  }
+
+  // ---- pages -------------------------------------------------------------------
+  function pageOverview(c) {
+    const g = el('div', 'dash'), users = data && data.user_summary;
+    const conv = trend('conversations'), tok = trend('tokens'), rev = trend('gross_php_minor'), signups = trend('new_users');
+    const has = Boolean(dash_());
+    g.append(
+      kpi('Total Users', users ? num(users.auth_user_records) : '—', 'users', 'blue', has ? deltaText(signups.value, total(windowRows().prev, 'new_users'), false, windowRows().n, windowRows().prev.length) : note('Account summary'), has ? signups.values : null),
+      kpi('Total Conversations', has ? num(conv.value) : '—', 'message', 'green', has ? conv.delta : note('Needs migration 080'), has ? conv.values : null),
+      kpi('Total Tokens', has ? compact(tok.value) : '—', 'database', 'amber', has ? tok.delta : note('Needs migration 080'), has ? tok.values : null),
+      kpi('Revenue (gross)', has ? peso(rev.value) : '—', 'dollar', 'pink', has ? rev.delta : note('PayMongo payments recorded'), has ? rev.values : null)
+    );
+    const usage = card('Usage Overview', { span: 8, tools: [selectEl([['requests', 'AI requests'], ['conversations', 'Conversations'], ['tokens', 'Tokens'], ['active', 'Active users']], prefs.usageMetric, (v) => { prefs.usageMetric = v; savePrefs(); render(); }, 'Usage metric'), rangeSelect()] });
+    if (!needsData(usage)) {
+      const w = windowRows(), labels = w.cur.map((r) => dayLabel(r.day));
+      const m = prefs.usageMetric;
+      const series = m === 'requests' ? [
+        { name: 'Total', tone: 0, values: w.cur.map((r) => pick(r, 'requests')) },
+        { name: 'Chat', tone: 2, values: w.cur.map(chat), area: false },
+        { name: 'Coding', tone: 1, values: w.cur.map((r) => pick(r, 'coding')), area: false },
+        { name: 'Images', tone: 3, values: w.cur.map((r) => pick(r, 'image')), area: false },
+        { name: 'Video', tone: 4, values: w.cur.map((r) => pick(r, 'video')), area: false }
+      ] : m === 'active' ? [
+        { name: 'Signed-in', tone: 1, values: w.cur.map((r) => pick(r, 'active_users')) },
+        { name: 'Guests', tone: 2, values: w.cur.map((r) => pick(r, 'active_guests')), area: false }
+      ] : [{ name: m === 'tokens' ? 'Tokens' : 'Conversations', tone: m === 'tokens' ? 3 : 2, values: w.cur.map((r) => pick(r, m)) }];
+      usage.append(lineChart(labels, series, { label: 'Usage over time' }));
+    }
+    const plan = card('Plan Distribution', { span: 4, view: ['Users', 'users'] }), pb = planBreakdown();
+    plan.append(pb ? donut(pb.segments, num(pb.all), 'Users', { label: 'Users by plan' }) : empty('Plan data unavailable', 'Needs migration 057.'));
+    const recent = card('Recent Users', { span: 5, view: ['View all', 'users'] }), ru = dash_() ? dash_().recent_users : [];
+    recent.append(ru && ru.length ? table(['User', 'Plan', 'Status', 'Joined'], ru.slice(0, 6).map((u) => [userCell(u.email_masked), planBadge(u.plan), activeTag(u.last_sign_in_at), dateText(u.joined_at)])) : empty('No users to show', dash_() ? 'No sign-ups yet.' : 'Needs migration 080.'));
+    const sys = card('System Status', { span: 4, view: ['View all', 'infrastructure'] }), rows = el('div', 'rows');
+    services().forEach((s) => { const r = rowLine(s.name, el('span', 'status plain ' + s.kind, s.label), el('span', 'muted num', s.short), { tone: s.kind }); r.title = s.detail; rows.append(r); });
+    sys.append(rows);
+    const act = card('Recent Activity', { span: 3, view: ['View all', 'reports'] });
+    act.append(activityList(dash_() ? dash_().recent_activity : null, 8));
+    g.append(usage, plan, recent, sys, act);
+    g.append(quick([
+      ['Open NCC', 'Manage automations', 'share', 'blue', LINKS.ncc],
+      ['View Logs', 'AI request logs', 'file', 'green', () => go('ai-ops', 'logs')],
+      ['Infrastructure', 'Services & deployments', 'database', 'amber', () => go('infrastructure')],
+      ['User Management', 'Accounts & plans', 'users', 'pink', () => go('users')],
+      ['Financial Reports', 'Revenue & costs', 'chart', 'purple', () => go('finance')],
+      ['Security Center', 'Access & audit logs', 'shield', 'cyan', () => go('security')]
+    ]));
+    c.append(g);
+  }
+  function quick(items, title) { const a = actions(title || 'Quick Actions', items); a.classList.add('quick'); return a; }
+  function rangeSelect() { return selectEl([['7d', 'Last 7 days'], ['14d', 'Last 14 days'], ['30d', 'Last 30 days']], prefs.range, setRange, 'Date range'); }
+  function userCell(email) { const n = el('div', 'name'); n.append(el('span', 'mini-avatar', initials(email)), el('span', '', email || 'Unknown')); return n; }
+  function activeTag(lastSignIn) { const recent = lastSignIn && Date.now() - new Date(lastSignIn).getTime() < 30 * 86400e3; return statusTag(recent ? 'Active' : 'Inactive', recent ? 'good' : 'idle'); }
+  function activityList(items, limit) {
+    const rows = el('div', 'rows');
+    if (!items) { rows.append(empty('Activity unavailable', 'Needs migration 080.')); return rows; }
+    if (!items.length) { rows.append(empty('No recent activity', 'Events appear here as they happen.')); return rows; }
+    const map = { signup: 'user', payment: 'card', image: 'image', video: 'video', owner: 'key', automation: 'share' };
+    rows.classList.add('wrap');
+    items.slice(0, limit || 10).forEach((i) => rows.append(rowLine(i.label, null, el('span', 'muted num', ago(i.at, true)), { icon: map[i.kind] || 'dot' })));
+    return rows;
+  }
+
+  function pageAiOps(c) {
+    const g = el('div', 'dash'), u24 = data && data.usage_24h, u7 = data && data.usage_7d, req = trend('requests'), tok = trend('tokens'), act = trend('active_users');
+    const has = Boolean(dash_());
+    g.append(
+      kpi('AI Requests', has ? num(req.value) : u24 ? num(u24.request_count) : '—', 'message', 'blue', has ? req.delta : note('Last 24 hours'), has ? req.values : null),
+      kpi('Active Users (24h)', u24 ? num(u24.active_user_ids) : '—', 'users', 'green', note(u24 ? num(u24.active_guest_ids) + ' guests also active' : 'Usage telemetry'), has ? act.values : null),
+      kpi('Tokens', has ? compact(tok.value) : u24 ? compact(u24.total_tokens) : '—', 'database', 'amber', has ? tok.delta : note('Last 24 hours'), has ? tok.values : null),
+      kpi('Provider Cost (7d)', u7 && Number(u7.cost_known_rows) > 0 ? moneyText(u7.provider_reported_cost_usd) : '—', 'dollar', 'pink', note(u7 ? num(u7.cost_known_rows) + ' calls with provider cost · ' + num(u7.cost_unknown_rows) + ' unknown' : 'Provider-reported only'))
+    );
+    const prov = card('AI Provider Usage', { span: 5, tools: [rangeSelect()] });
+    if (!needsData(prov)) {
+      const w = windowRows(), days = w.cur.map((r) => r.day), daily = (dash_().providers_daily || []).filter((p) => days.includes(p.day));
+      const names = [...new Set(daily.map((p) => p.provider))].sort((a, b) => (a === 'others') - (b === 'others'));
+      if (!names.length) prov.append(empty('No provider traffic', 'No model calls in this window.'));
+      else prov.append(lineChart(days.map(dayLabel), names.map((n, i) => ({ name: n === 'others' ? 'Others' : n, tone: (i % 6) + 1, area: i === 0, values: days.map((d) => { const hit = daily.find((p) => p.day === d && p.provider === n); return hit ? Number(hit.requests) : 0; }) })), { label: 'Requests by provider' }));
+    }
+    const feat = card('Requests by Feature', { span: 4 });
+    if (!needsData(feat)) {
+      const w = windowRows(), segs = [{ label: 'Chat', value: total(w.cur, chat), tone: 2 }, { label: 'Coding', value: total(w.cur, 'coding'), tone: 1 }, { label: 'Images', value: total(w.cur, 'image'), tone: 3 }, { label: 'Video', value: total(w.cur, 'video'), tone: 4 }, { label: 'Voice', value: total(w.cur, 'voice'), tone: 5 }];
+      feat.append(donut(segs, compact(total(w.cur, 'requests')), 'Total', { label: 'Requests by feature' }));
+    }
+    const health = card('AI Service Health', { span: 3 }), ph = dash_() ? dash_().provider_health : null;
+    if (!ph) health.append(empty('Health unavailable', 'Needs migration 080.'));
+    else if (!ph.length) health.append(empty('No provider calls', 'Nothing recorded in this window.'));
+    else { const rows = el('div', 'rows'); ph.forEach((p) => { const r = Number(p.requests) ? Number(p.successes) / Number(p.requests) : 0; rows.append(rowLine(p.provider, (r * 100).toFixed(2) + '%', ms(p.latency_p50_ms), { tone: r >= 0.97 ? 'good' : r >= 0.9 ? 'warn' : 'bad' })); }); health.append(rows); }
+    const live = card('Real-time Activity', { span: 5, view: ['View all', 'ai-ops', 'logs'] }), liveBody = el('div');
+    const toggle = button(liveOn ? 'Pause' : 'Resume', 'btn', () => { liveOn = !liveOn; toggle.lastChild.textContent = liveOn ? 'Pause' : 'Resume'; toggle.firstChild.replaceWith(icon(liveOn ? 'pause' : 'play')); liveBadge.className = 'status ' + (liveOn ? 'good' : 'idle'); liveBadge.textContent = liveOn ? 'Live' : 'Paused'; if (liveOn) loadLive(liveBody); }, liveOn ? 'pause' : 'play');
+    const liveBadge = statusTag(liveOn ? 'Live' : 'Paused', liveOn ? 'good' : 'idle');
+    live.querySelector('.card-tools').prepend(liveBadge, toggle);
+    live.append(liveBody); loadLive(liveBody);
+    liveTimer = setInterval(() => { if (liveOn && !document.hidden) loadLive(liveBody); }, 20000);
+    const tokens = card('Token Usage by Feature', { span: 4, view: ['View all', 'reports'] });
+    if (!needsData(tokens)) {
+      const w = windowRows();
+      tokens.append(barChart(w.cur.map((r) => dayLabel(r.day)), [{ name: 'Requests', tone: 2, values: w.cur.map((r) => pick(r, 'successes')) }, { name: 'Failures', tone: 4, values: w.cur.map((r) => pick(r, 'failures')) }], { stacked: true, label: 'Successful and failed requests' }));
+      tokens.querySelector('h2').textContent = 'Request Outcomes';
+    }
+    const alerts = card('System Alerts', { span: 3, view: ['View all', 'security', 'incidents'] });
+    alerts.append(signalRows());
+    g.append(prov, feat, health, live, tokens, alerts);
+    g.append(actions('AI Operations Tools', [
+      ['AI Logs', 'Request-level telemetry', 'list', 'blue', () => go('ai-ops', 'logs')],
+      ['Model Catalog', 'Unlisted models', 'search', 'green', () => go('ai-ops', 'openrouter-unlisted')],
+      ['Model Activity', 'All logged models', 'activity', 'amber', () => go('ai-ops', 'other-unlisted')],
+      ['Usage & Costs', 'Providers & features', 'chart', 'pink', () => go('ai-ops', 'ai')],
+      ['Learning Review', 'Community examples', 'check-circle', 'purple', () => go('ai-ops', 'learning')],
+      ['Knowledge Crawl', 'Continuous intelligence', 'globe', 'cyan', () => go('ai-ops', 'intelligence')]
+    ], { span: 7, tiles: true }));
+    g.append(actions('Quick Actions', [
+      ['Refresh', 'Reload all data', 'refresh', 'blue', () => refresh(true)],
+      ['Verify Models', 'Run GitHub check', 'check', 'green', () => go('ai-ops', 'ai')],
+      ['Health Check', 'Re-test services', 'activity', 'amber', healthCheck],
+      ['OpenRouter', 'Provider activity', 'external', 'pink', LINKS.openrouter]
+    ], { span: 5, tiles: true }));
+    c.append(g);
+  }
+  async function loadLive(target) {
+    try {
+      const body = await getJson('/owner/api/ai-logs?window=24h&provider=all&limit=8&offset=0');
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      target.replaceChildren(rows.length ? table(['Time', 'Provider', 'Model', 'Status', 'Tokens', 'Latency'], rows.map((r) => [timeText(r.created_at), r.provider || '—', r.model || '—', statusTag(['success', 'ok'].includes(r.status) ? 'Success' : r.status || 'Unknown', ['success', 'ok'].includes(r.status) ? 'good' : 'bad'), compact(r.total_tokens), ms(r.latency_ms)])) : empty('No AI requests in the last 24 hours'));
+    } catch (e) { target.replaceChildren(empty('Live activity unavailable', e.message)); }
+  }
+  function signalRows() {
+    const rows = el('div', 'rows'), sig = data && data.incidents_24h, auto = data && data.automation_24h;
+    if (!sig) { rows.append(empty('Signals unavailable', 'Needs migration 057.')); return rows; }
+    const items = [
+      ['Failed AI requests (24h)', Number(sig.ai_failed_requests) || 0],
+      ['Failed automation runs (24h)', Number(sig.automation_failed_runs) || 0],
+      ['Stale running jobs', Number(sig.stale_running_runs) || 0],
+      ['Pending approvals', auto ? Number(auto.pending_approval_count) || 0 : 0]
+    ];
+    items.forEach(([label, n]) => rows.append(rowLine(label, null, el('span', 'num', num(n)), { tone: n > 0 ? 'warn' : 'good' })));
+    if (sig.last_failure_at) rows.append(rowLine('Last failure', null, el('span', 'muted num', ago(sig.last_failure_at)), { icon: 'clock' }));
+    return rows;
+  }
+  async function healthCheck() {
+    toast('Running health check…');
+    await refresh(true);
+    const list = services(), bad = list.filter((s) => s.kind === 'bad').length, warn = list.filter((s) => s.kind === 'warn').length;
+    toast(bad ? bad + ' service(s) failing — see Infrastructure.' : warn ? warn + ' service(s) need attention.' : 'All checked services are operational.');
+  }
+
+  let userFilter = 'all', selectedUser = 0;
+  function pageUsers(c) {
+    const g = el('div', 'dash'), users = data && data.user_summary, growth = data && data.growth_summary, plans = data && data.plans_24h, signups = trend('new_users'), has = Boolean(dash_());
+    g.append(
+      kpi('Total Users', users ? num(users.auth_user_records) : '—', 'users', 'blue', note(users && users.last_signup_at ? 'Last sign-up ' + ago(users.last_signup_at) : 'Auth records'), has ? signups.values : null),
+      kpi('Active Users (7d)', growth ? num(growth.active_user_ids_7d) : '—', 'user', 'green', note(growth ? num(growth.active_user_ids_30d) + ' in 30 days' : 'Usage-based')),
+      kpi('New Signups', has ? num(signups.value) : users ? num(users.new_auth_records_7d) : '—', 'plus', 'amber', has ? signups.delta : note('Last 7 days'), has ? signups.values : null),
+      kpi('Paid Subscribers', plans ? num(plans.active_paid_periods) : '—', 'card', 'pink', note('Active Pro / Max / Ultra periods'))
+    );
+    const byPlan = card('Users by Plan', { span: 4 }), pb = planBreakdown();
+    byPlan.append(pb ? donut(pb.segments, num(pb.all), 'Total Users') : empty('Plan data unavailable'));
+    const growthCard = card('User Growth', { span: 5, tools: [rangeSelect()] });
+    if (!needsData(growthCard)) { const w = windowRows(); growthCard.append(barChart(w.cur.map((r) => dayLabel(r.day)), [{ name: 'New Users', tone: 1, values: w.cur.map((r) => pick(r, 'new_users')) }, { name: 'Paid Conversions', tone: 2, values: w.cur.map((r) => pick(r, 'payments')) }], { label: 'New users and payments' })); }
+    const activity = card('User Activity', { span: 3 }), rows = el('div', 'rows');
+    const line = (label, f, iconName) => { const t = trend(f), d = t.delta; rows.append(rowLine(label, el('span', 'num', num(t.value)), d.querySelector('b') ? d.querySelector('b') : el('span', 'muted', '—'), { icon: iconName })); };
+    if (!needsData(activity)) {
+      rows.append(rowLine('Sign-ins (30d)', el('span', 'num', users ? num(users.active_signins_30d) : '—'), el('span', 'muted', ''), { icon: 'users' }));
+      line('Chat requests', chat, 'message'); line('Images generated', 'images', 'image'); line('Videos generated', 'videos', 'video'); line('Files sent', 'files', 'file');
+      activity.append(rows);
+    }
+    const list = card('', { span: 8 }), head2 = list.querySelector('.card-head'); head2.replaceChildren();
+    const tabs = el('div', 'subtabs');
+    [['all', 'All Users'], ['free', 'Free'], ['pro', 'Pro'], ['max', 'Max'], ['ultra', 'Ultra']].forEach(([k, t]) => { const b = button(t, 'subtab' + (userFilter === k ? ' active' : ''), () => { userFilter = k; selectedUser = 0; render(); }); tabs.append(b); });
+    const search = el('input', 'select'); search.type = 'search'; search.placeholder = 'Search users…'; search.setAttribute('aria-label', 'Search users');
+    const all = dash_() ? dash_().recent_users || [] : [];
+    const filtered = () => all.filter((u) => (userFilter === 'all' || String(u.plan || 'free') === userFilter) && (!search.value || String(u.email_masked || '').toLowerCase().includes(search.value.toLowerCase())));
+    const body = el('div');
+    const draw = () => {
+      const rowsData = filtered();
+      body.replaceChildren(rowsData.length ? table(['User', 'Plan', 'Status', 'Sign up', 'Last sign-in'], rowsData.map((u) => [userCell(u.email_masked), planBadge(u.plan), activeTag(u.last_sign_in_at), dateText(u.joined_at), u.last_sign_in_at ? ago(u.last_sign_in_at) : 'Never']), { onRow: (i) => { selectedUser = all.indexOf(rowsData[i]); drawDetail(); } }) : empty(all.length ? 'No users match' : 'No users to show', all.length ? 'Try another plan or search.' : dash_() ? 'No sign-ups yet.' : 'Needs migration 080.'));
+    };
+    search.addEventListener('input', draw);
+    const tools = el('div', 'card-tools');
+    tools.append(search, button('Export', 'btn', () => csvDownload('nasrinai-recent-users.csv', ['email_masked', 'plan', 'joined_at', 'last_sign_in_at'], filtered().map((u) => [u.email_masked, u.plan || 'free', u.joined_at, u.last_sign_in_at])), 'download'), extLink('Add User', LINKS.supabase, 'btn primary', 'plus'));
+    head2.append(tabs, tools);
+    list.append(body, el('p', 'freshness', 'Latest 10 sign-ups. Emails are masked by the server; manage accounts in Supabase Auth.'));
+    draw();
+    const detail = card('User', { span: 4 });
+    function drawDetail() {
+      const u = all[selectedUser]; detail.replaceChildren();
+      if (!u) { detail.append(el('h2', '', 'User details'), empty('Select a user', 'Click a row to see details.')); return; }
+      const top = el('div', 'card-head'); top.append(userCell(u.email_masked), activeTag(u.last_sign_in_at)); detail.append(top);
+      const rws = el('div', 'rows');
+      rws.append(rowLine('Plan', null, planBadge(u.plan)), rowLine('Member since', null, dateText(u.joined_at)), rowLine('Last sign-in', null, u.last_sign_in_at ? ago(u.last_sign_in_at) : 'Never'));
+      detail.append(rws);
+      const btns = el('div', 'actions stack'); btns.append(action('Manage account', 'Supabase Auth', 'user', 'blue', LINKS.supabase), action('Message user', 'Open NCC', 'message', 'green', LINKS.ncc));
+      detail.append(btns);
+    }
+    drawDetail();
+    g.append(byPlan, growthCard, activity, list, detail);
+    c.append(g);
+  }
+
+  let mediaFilter = 'all';
+  function pageContent(c) {
+    const g = el('div', 'dash'), d = dash_(), m = d ? d.media_totals : null, img = trend('images'), vid = trend('videos'), files = trend('files');
+    g.append(
+      kpi('Total Media Files', m ? num(Number(m.images) + Number(m.videos) + Number(m.sent_files) + Number(m.library_files)) : '—', 'image', 'blue', note('Images, videos, sent and Library files')),
+      kpi('Images Generated', d ? num(img.value) : '—', 'image', 'green', d ? img.delta : note('Needs migration 080'), d ? img.values : null),
+      kpi('Videos Generated', d ? num(vid.value) : '—', 'video', 'amber', d ? vid.delta : note('Needs migration 080'), d ? vid.values : null),
+      kpi('Sent Files Stored', m ? bytes(m.sent_file_bytes) : '—', 'database', 'pink', note(m ? num(m.sent_files) + ' files kept for their owners' : 'Storage metadata'))
+    );
+    const tabsCard = el('div', 'span-12 card-tools'), tabs = el('div', 'subtabs');
+    [['all', 'All Media'], ['image', 'Images'], ['video', 'Videos']].forEach(([k, t]) => tabs.append(button(t, 'subtab' + (mediaFilter === k ? ' active' : ''), () => { mediaFilter = k; render(); })));
+    tabsCard.append(tabs, extLink('Storage', LINKS.supabase, 'btn', 'database'), button('Export', 'btn primary', () => { if (!m) return toast('No media data yet.'); csvDownload('nasrinai-media-summary.csv', ['metric', 'value'], [['images_total', m.images], ['videos_total', m.videos], ['videos_failed', m.videos_failed], ['sent_files', m.sent_files], ['sent_file_bytes', m.sent_file_bytes], ['library_files', m.library_files]]); }, 'download'));
+    g.append(tabsCard);
+    const recent = card('Recent Media', { span: 8, sub: 'Latest generation events. Media content stays private to its owner and is never shown here.' });
+    const events = d ? (d.recent_activity || []).filter((a) => (mediaFilter === 'all' ? ['image', 'video'].includes(a.kind) : a.kind === mediaFilter)) : null;
+    if (!events) recent.append(empty('Media events unavailable', 'Needs migration 080.'));
+    else if (!events.length) recent.append(empty('No recent media', 'Generated pictures and videos appear here.'));
+    else { const grid = el('div', 'media-grid'); events.forEach((e) => { const cardEl = el('div', 'media-card'), thumb = el('div', 'media-thumb tone-' + (e.kind === 'video' ? 4 : 1)); thumb.append(el('span', 'tag', e.kind === 'video' ? 'VIDEO' : 'IMAGE'), icon(e.kind === 'video' ? 'video' : 'image')); cardEl.append(thumb, el('strong', '', e.label), el('small', '', ago(e.at))); grid.append(cardEl); }); recent.append(grid); }
+    const types = card('Media Usage by Type', { span: 4 });
+    if (!m) types.append(empty('Unavailable', 'Needs migration 080.'));
+    else { const kinds = (m.sent_by_kind || []).slice(0, 3).map((k, i) => ({ label: 'Sent ' + k.kind, value: Number(k.files), tone: i + 3 })); const segs = [{ label: 'Images', value: Number(m.images), tone: 1 }, { label: 'Videos', value: Number(m.videos), tone: 4 }, { label: 'Library files', value: Number(m.library_files), tone: 2 }, ...kinds]; types.append(donut(segs, compact(segs.reduce((a, s) => a + s.value, 0)), 'Files')); }
+    const storage = card('Storage Breakdown', { span: 4, sub: 'Sent files by kind (bytes kept).' });
+    storage.append(m && (m.sent_by_kind || []).length ? barRows(m.sent_by_kind.map((k, i) => ({ label: k.kind, value: Number(k.bytes), tone: (i % 6) + 1, files: k.files })), (i) => bytes(i.value) + ' · ' + num(i.files) + ' files') : empty('No stored files', m ? 'Nothing kept yet.' : 'Needs migration 080.'));
+    const top = card('Top Users by Media Generation', { span: 4, sub: 'Images and videos in the selected window. Emails masked.' });
+    const tm = d ? d.top_media_users || [] : null;
+    top.append(tm && tm.length ? barRows(tm.map((u, i) => ({ label: (i + 1) + '. ' + (u.email_masked || 'Unknown'), value: Number(u.items), tone: (i % 6) + 1 })), (i) => num(i.value) + ' files') : empty('No media generators', tm ? 'Nobody generated media in this window.' : 'Needs migration 080.'));
+    const mod = card('Content Safety', { span: 4 }), rows = el('div', 'rows');
+    rows.append(rowLine('Failed video generations', null, m ? num(m.videos_failed) : '—', { icon: 'alert' }), rowLine('Image safety', null, 'Provider-side filters', { icon: 'shield' }), rowLine('Moderation queue', null, el('span', 'muted', 'Not connected'), { icon: 'list' }));
+    mod.append(rows);
+    g.append(recent, types, storage, top, mod);
+    g.append(actions('Quick Actions', [
+      ['Bulk Download', 'Export media summary', 'download', 'blue', () => tabsCard.querySelector('.btn.primary').click()],
+      ['Storage', 'Supabase Storage', 'database', 'green', LINKS.supabase],
+      ['Policies', 'Privacy & retention', 'shield', 'amber', 'https://www.nasrinai.com/legal.html?doc=privacy'],
+      ['Search User', 'Users & CRM', 'search', 'pink', () => go('users')],
+      ['Delete Files', 'Supabase Storage', 'x', 'purple', LINKS.supabase],
+      ['Analytics', 'Reports', 'chart', 'cyan', () => go('reports')]
+    ]));
+    c.append(g);
+  }
+
+  function pageFinance(c) {
+    const g = el('div', 'dash'), d = dash_(), plans = data && data.plans_24h, rev = trend('gross_php_minor'), pays = trend('payments'), u7 = data && data.usage_7d;
+    g.append(
+      kpi('Total Revenue (gross)', d ? peso(rev.value) : '—', 'dollar', 'blue', d ? rev.delta : note('PayMongo, before fees/refunds'), d ? rev.values : null),
+      kpi('Total Payments', d ? num(pays.value) : '—', 'card', 'green', d ? pays.delta : note('Recorded paid checkouts'), d ? pays.values : null),
+      kpi('Active Subscribers', plans ? num(plans.active_paid_periods) : '—', 'users', 'amber', note('Unexpired paid periods')),
+      kpi('Avg. Payment', d && pays.value ? peso(rev.value / pays.value) : '—', 'rotate', 'pink', note('Gross ÷ payments in window'))
+    );
+    const over = card('Revenue Overview', { span: 5, tools: [rangeSelect()] });
+    if (!needsData(over)) { const w = windowRows(); over.append(lineChart(w.cur.map((r) => dayLabel(r.day)), [{ name: 'Gross (₱)', tone: 0, values: w.cur.map((r) => pick(r, 'gross_php_minor') / 100) }], { fmt: (v) => '₱' + compact(v), label: 'Gross revenue per day' })); }
+    const byPlan = card('Revenue by Plan', { span: 4 }), rp = d ? d.revenue_by_plan || [] : null;
+    if (!rp) byPlan.append(empty('Unavailable', 'Needs migration 080.'));
+    else { const tones = { pro: 1, max: 3, ultra: 4 }; const segs = ['pro', 'max', 'ultra'].map((p) => { const hit = rp.find((x) => x.plan === p); return { label: p[0].toUpperCase() + p.slice(1), value: hit ? Number(hit.gross_php_minor) : 0, display: peso(hit ? hit.gross_php_minor : 0), tone: tones[p] }; }); byPlan.append(donut(segs, peso(segs.reduce((a, s) => a + s.value, 0)), 'Total')); }
+    const methods = card('Payment Methods', { span: 3, sub: 'Enabled at checkout (PayMongo). Per-method totals are not recorded.' }), pm = dash ? dash.payment_methods || [] : [];
+    const mrows = el('div', 'rows');
+    if (!pm.length) mrows.append(empty('No methods configured', 'Set PayMongo methods in Vercel.'));
+    pm.forEach((m) => mrows.append(rowLine(m.replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase()), null, statusTag('Enabled', 'good'), { icon: 'card' })));
+    methods.append(mrows);
+    const tx = card('Recent Transactions', { span: 6, view: ['Costs & billing', 'finance', 'finance'] }), rows = d ? d.recent_payments || [] : null;
+    tx.append(rows && rows.length ? table(['Date & time', 'User', 'Plan', 'Amount', 'Method', 'Status'], rows.map((p) => [shortDateTime(p.created_at), p.email_masked || '—', planBadge(p.plan), p.amount_minor !== null && p.currency === 'PHP' ? peso(p.amount_minor) : p.amount_minor !== null ? num(p.amount_minor / 100) + ' ' + (p.currency || '') : '—', p.provider === 'paymongo' ? 'PayMongo' : 'Manual grant', statusTag(p.status === 'active' ? 'Success' : 'Canceled', p.status === 'active' ? 'good' : 'idle')])) : empty('No transactions', rows ? 'No plan periods recorded.' : 'Needs migration 080.'));
+    const subs = card('Subscription Metrics', { span: 3 }), srows = el('div', 'rows');
+    if (!needsData(subs)) {
+      [['New Pro', 'new_pro', 'user'], ['New Max', 'new_max', 'trend'], ['New Ultra', 'new_ultra', 'zap']].forEach(([label, f, ic]) => { const t = trend(f); srows.append(rowLine(label, el('span', 'num', num(t.value)), t.delta.querySelector('b') || el('span', 'muted', '—'), { icon: ic })); });
+      const canceled = plans && Array.isArray(plans.recent_by_status) ? plans.recent_by_status.filter((s) => s.status === 'canceled').reduce((a, s) => a + Number(s.periods || 0), 0) : null;
+      srows.append(rowLine('Canceled (24h)', null, canceled === null ? '—' : num(canceled), { icon: 'x' }));
+      subs.append(srows);
+    }
+    const margin = card('AI Cost vs Revenue', { span: 3, sub: 'Provider-reported AI cost (USD, 7 days) next to gross payments (PHP, 7 days). Different currencies; not net margin.' }), mr = el('div', 'rows');
+    const last7 = d ? (d.series || []).slice(-7) : [];
+    mr.append(rowLine('Gross payments · 7d', null, d ? peso(total(last7, 'gross_php_minor')) : '—', { icon: 'dollar' }), rowLine('AI cost · 7d', null, u7 && Number(u7.cost_known_rows) > 0 ? moneyText(u7.provider_reported_cost_usd) : '—', { icon: 'cpu' }), rowLine('Calls without provider cost', null, u7 ? num(u7.cost_unknown_rows) : '—', { icon: 'alert' }));
+    margin.append(mr);
+    g.append(over, byPlan, methods, tx, subs, margin);
+    g.append(quick([
+      ['Payouts', 'PayMongo dashboard', 'dollar', 'blue', LINKS.paymongo],
+      ['Generate Report', 'Daily CSV', 'file', 'green', exportSeries],
+      ['Export', 'Usage CSV (7d)', 'download', 'amber', () => { window.location.href = '/owner/api/export?window=7d'; }],
+      ['Manage Plans', 'Costs & billing', 'flag', 'pink', () => go('finance', 'finance')],
+      ['Refund', 'In PayMongo', 'rotate', 'purple', LINKS.paymongo],
+      ['Disputes', 'In PayMongo', 'shield', 'cyan', LINKS.paymongo]
+    ]));
+    c.append(g);
+  }
+
+  function pageInfrastructure(c) {
+    const g = el('div', 'dash'), d = dash_(), u7 = data && data.usage_7d, req = trend('requests'), fails = trend('failures', { downIsGood: true }), dep = data && data.deployment_summary;
+    const w = windowRows(), rate = total(w.cur, 'requests') ? total(w.cur, 'successes') / total(w.cur, 'requests') : null;
+    g.append(
+      kpi('API Success Rate', rate === null ? '—' : (rate * 100).toFixed(2) + '%', 'shield', 'blue', note('Successful model calls in window')),
+      kpi('Total Requests', d ? compact(req.value) : '—', 'layers', 'green', d ? req.delta : note('Needs migration 080'), d ? req.values : null),
+      kpi('p95 Response Time', u7 && u7.latency_p95_ms != null ? ms(u7.latency_p95_ms) : '—', 'zap', 'amber', note(u7 && u7.latency_p50_ms != null ? 'p50 ' + ms(u7.latency_p50_ms) + ' · 7 days' : 'Successful calls · 7 days')),
+      kpi('Error Rate', rate === null ? '—' : ((1 - rate) * 100).toFixed(2) + '%', 'alert', 'pink', d ? fails.delta : note('Failed model calls'), d ? fails.values : null)
+    );
+    const chips = el('div', 'chips span-12');
+    services().slice(1, 7).forEach((s) => { const chip = el('div', 'chip-card'), t = el('div'); t.append(el('strong', '', s.name), statusTag(s.label, s.kind)); chip.append(tile(s.icon, s.kind === 'bad' ? 'pink' : s.kind === 'warn' ? 'amber' : 'green'), t); chips.append(chip); });
+    g.append(chips);
+    const perf = card('Service Performance', { span: 5, sub: 'Daily p95 latency of successful model calls.', tools: [rangeSelect()] });
+    if (!needsData(perf)) perf.append(lineChart(w.cur.map((r) => dayLabel(r.day)), [{ name: 'p95 latency', tone: 2, values: w.cur.map((r) => Number(r.latency_p95_ms) || 0) }], { fmt: (v) => ms(v), label: 'Latency per day' }));
+    const arch = card('Infrastructure Overview', { span: 4 }), dia = el('div', 'diagram');
+    const node = (name, sub, ic) => { const n = el('div', 'node'), t = el('div'); t.append(el('strong', '', name), el('small', '', sub)); n.append(icon(ic), t); return n; };
+    const lvl = (...nodes) => { const l = el('div', 'level'); nodes.forEach((n) => l.append(n)); return l; };
+    dia.append(lvl(node('Users', 'Web, guests, NCC', 'users')), el('div', 'arrow', '↓'), lvl(node('Vercel', 'App & API functions', 'layers')), el('div', 'arrow', '↓'), lvl(node('AI Providers', 'Routed models', 'cpu'), node('Supabase', 'Database & Auth', 'database'), node('Storage', 'Uploads & media', 'cloud')), el('div', 'arrow', '↓'), lvl(node('Automations', 'Approval outbox', 'share'), node('External', 'PayMongo, Meta, Google', 'globe')));
+    arch.append(dia);
+    const res = card('Resource Usage', { span: 3 });
+    res.append(empty('Not exposed', 'Vercel serverless functions do not report CPU, memory or disk. See Vercel Observability.'), extLink('Open Vercel', LINKS.vercel, 'btn', 'external'));
+    const deps = card('Deployments', { span: 7, sub: 'Latest production deployments (read-only Vercel token).' });
+    deps.append(dep && (dep.deployments || []).length ? table(['Time', 'Branch', 'Commit', 'URL', 'Status'], dep.deployments.map((x) => [x.created_at ? dateTimeText(x.created_at) : '—', x.branch || '—', x.commit ? x.commit.slice(0, 7) : '—', x.url || '—', statusTag(x.state === 'ready' ? 'Ready' : x.state, x.state === 'ready' ? 'good' : ['error', 'canceled', 'cancelled'].includes(x.state) ? 'bad' : 'warn')])) : empty('Deployment source not connected', 'Set OWNER_VERCEL_READONLY_TOKEN, OWNER_VERCEL_PROJECT_ID and OWNER_VERCEL_TEAM_ID in Vercel.'));
+    const store = card('Storage Usage', { span: 5 }), m = d ? d.media_totals : null;
+    store.append(m && (m.sent_by_kind || []).length ? donut(m.sent_by_kind.slice(0, 6).map((k, i) => ({ label: k.kind, value: Number(k.bytes), display: bytes(k.bytes), tone: (i % 6) + 1 })), bytes(m.sent_file_bytes), 'Sent files') : empty('No stored files tracked', m ? 'Nothing kept yet.' : 'Needs migration 080.'));
+    const healthCard = card('Services Health', { span: 5 });
+    healthCard.append(table(['Service', 'Status', 'Detail'], services().map((s) => [s.name, statusTag(s.label, s.kind), s.detail])));
+    const env = card('Environment Status', { span: 3 }), er = el('div', 'rows');
+    const latest = dep && dep.latest, integ = (dash && dash.integrations) || {};
+    er.append(
+      rowLine('Production', null, latest ? statusTag(latest.state === 'ready' ? 'Healthy' : latest.state, latest.state === 'ready' ? 'good' : 'warn') : statusTag('Unknown', 'idle')),
+      rowLine('Database', null, statusTag(data && data.database_health && data.database_health.status === 'available' ? 'Healthy' : 'Unreachable', data && data.database_health && data.database_health.status === 'available' ? 'good' : 'bad')),
+      rowLine('Automation jobs', null, statusTag(data && data.automation_24h ? 'Running' : 'Unknown', data && data.automation_24h ? 'good' : 'idle')),
+      rowLine('Supabase store', null, statusTag(integ.supabase ? 'Connected' : 'Memory store', integ.supabase ? 'good' : 'warn')),
+      rowLine('Billing reconciliation', null, statusTag(integ.openrouter ? 'OpenRouter' : 'Not connected', integ.openrouter ? 'good' : 'idle'))
+    );
+    env.append(er);
+    g.append(perf, arch, res, deps, store, healthCard, env);
+    g.append(actions('Quick Actions', [
+      ['View Logs', 'Vercel runtime logs', 'file', 'blue', LINKS.vercel],
+      ['Deployments', 'Rollback in Vercel', 'upload', 'green', LINKS.vercel],
+      ['Restart', 'Redeploy in Vercel', 'refresh', 'amber', LINKS.vercel],
+      ['Database', 'Supabase dashboard', 'database', 'pink', LINKS.supabase],
+      ['Backups', 'Supabase backups', 'check', 'purple', LINKS.supabase],
+      ['Details', 'DB & deployments', 'terminal', 'cyan', () => go('infrastructure', 'infra')]
+    ], { span: 4, tiles: true }));
+    c.append(g);
+  }
+
+  function pageSecurity(c) {
+    const g = el('div', 'dash'), d = dash_(), pa = data && data.platform_auth_audit_24h, audit = data && data.audit_24h, sig = data && data.incidents_24h, fails = trend('failures', { downIsGood: true });
+    const paReady = pa && pa.available === true;
+    g.append(
+      kpi('Failed AI Requests', d ? num(fails.value) : sig ? num(sig.ai_failed_requests) : '—', 'shield', 'blue', d ? fails.delta : note('Last 24 hours'), d ? fails.values : null),
+      kpi('Sign-in Events (24h)', paReady ? num(pa.sign_in_events) : '—', 'users', 'green', note(paReady ? num(pa.event_count) + ' Auth events in total' : 'Supabase Auth audit')),
+      kpi('Account Recovery (24h)', paReady ? num(pa.account_recovery_events) : '—', 'lock', 'amber', note(paReady ? num(pa.password_change_events) + ' password changes' : 'Supabase Auth audit')),
+      kpi('Open Incidents', incidentsCache ? num((incidentsCache.counts || {}).open || 0) : '—', 'alert', 'pink', note(incidentsCache ? num((incidentsCache.counts || {}).critical_open || 0) + ' critical open' : 'Incident register'))
+    );
+    const threat = card('Failure Activity', { span: 5, tools: [rangeSelect()] });
+    if (!needsData(threat)) { const w = windowRows(); threat.append(lineChart(w.cur.map((r) => dayLabel(r.day)), [{ name: 'Failed AI calls', tone: 4, values: w.cur.map((r) => pick(r, 'failures')) }, { name: 'Failed automations', tone: 3, values: w.cur.map((r) => pick(r, 'automation_failed')), area: false }], { label: 'Failures per day' })); }
+    const types = card('Requests by Outcome', { span: 4 });
+    if (!needsData(types)) { const w = windowRows(); types.append(donut([{ label: 'Successful', value: total(w.cur, 'successes'), tone: 2 }, { label: 'Failed', value: total(w.cur, 'failures'), tone: 4 }], compact(total(w.cur, 'requests')), 'Total')); }
+    const auth = card('Auth Events (24h)', { span: 3 });
+    auth.append(paReady && Array.isArray(pa.by_category) && pa.by_category.length ? barRows(pa.by_category.map((x, i) => ({ label: String(x.category || x.action || 'other').replace(/_/g, ' '), value: Number(x.count || x.events || 0), tone: (i % 6) + 1 }))) : empty('No Auth events', paReady ? 'Nothing recorded in 24 hours.' : 'Supabase Auth audit source unavailable.'));
+    const events = card('Recent Security Events', { span: 5, view: ['Audit', 'security', 'security'] });
+    events.append(activityList(d ? (d.recent_activity || []).filter((a) => ['owner', 'signup'].includes(a.kind)) : null, 8));
+    const health = card('Security Health', { span: 4, sub: 'Controls enforced in code and CI.' }), hr = el('div', 'rows');
+    [['Strict Content Security Policy', 'Enforced'], ['Owner email + IP allowlist', 'Enforced'], ['Unknown visitors get 404', 'Enforced'], ['Same-origin + JSON on writes', 'Enforced'], ['Secret scan in CI', 'On every push'], ['Row-level security', 'Service role only'], ['Rate limits', 'Shared limiter']].forEach(([a, b]) => hr.append(rowLine(a, null, el('span', 'up', b), { icon: 'check' })));
+    health.append(hr);
+    const access = card('Access Control', { span: 3, view: ['Manage', 'settings'] }), ar = el('div', 'rows'), acc = dash ? dash.access : null;
+    ar.append(rowLine('Owner emails', null, acc ? num(acc.owner_emails) : '—', { icon: 'mail' }), rowLine('Allowed IP addresses', null, acc ? num(acc.allowed_ips) : '—', { icon: 'lock' }), rowLine('Session timeout', null, acc ? acc.session_minutes + ' minutes' : '—', { icon: 'clock' }), rowLine('Owner audit events (24h)', null, audit ? num(audit.event_count) : '—', { icon: 'file' }), rowLine('Session cookie', null, 'HttpOnly, Strict', { icon: 'key' }));
+    access.append(ar);
+    g.append(threat, types, auth, events, health, access);
+    g.append(actions('Security Analytics', [
+      ['Incidents', 'Register & signals', 'alert', 'blue', () => go('security', 'incidents')],
+      ['Audit', 'Owner & Auth events', 'file', 'green', () => go('security', 'security')],
+      ['Login Analytics', 'Regional sign-ins', 'globe', 'amber', () => go('users', 'regional')],
+      ['Code Scanning', 'GitHub security', 'code', 'pink', LINKS.githubSecurity]
+    ], { span: 7, tiles: true }));
+    g.append(actions('Quick Actions', [
+      ['Block IP', 'Vercel Firewall', 'x', 'blue', LINKS.vercel],
+      ['Auth Logs', 'Supabase Auth', 'list', 'green', LINKS.supabase],
+      ['Settings', 'Access & security', 'settings', 'amber', () => go('settings')],
+      ['Security Scan', 'Run CI checks', 'search', 'pink', LINKS.actions]
+    ], { span: 5, tiles: true }));
+    c.append(g);
+  }
+
+  function pageAutomation(c) {
+    const g = el('div', 'dash'), d = dash_(), a = d ? d.automation : null, ok = trend('automation_ok'), failed = trend('automation_failed', { downIsGood: true }), a24 = data && data.automation_24h;
+    g.append(
+      kpi('Total Workflows', a ? num(a.workflows) : '—', 'play', 'blue', note(a ? num(a.enabled_workflows) + ' enabled' : 'Needs migration 080')),
+      kpi('Successful Runs', d ? num(ok.value) : '—', 'check', 'green', d ? ok.delta : note('Automation runs'), d ? ok.values : null),
+      kpi('Failed Runs', d ? num(failed.value) : '—', 'alert', 'amber', d ? failed.delta : note('Automation runs'), d ? failed.values : null),
+      kpi('Avg. Execution Time', a && a.avg_duration_ms != null ? ms(a.avg_duration_ms) : '—', 'clock', 'pink', note('Finished runs in window'))
+    );
+    const flow = card('Workflow Builder & Monitor', { span: 8, sub: 'How NasrinAI automations run. Workflows are built and approved in NCC.', tools: [extLink('Open NCC', LINKS.ncc, 'btn primary', 'external')] });
+    const p = el('div', 'pipeline');
+    [['Trigger', 'Manual, schedule, event', 'zap'], ['Rules', 'Allowed actions only', 'list'], ['AI Draft', 'Untrusted output', 'cpu'], ['Approval', 'Owner confirms', 'user'], ['Outbox', 'Queued sends', 'share'], ['Send', 'Meta, email, CRM', 'globe'], ['Log', 'Run history', 'database']].forEach(([t, s, ic]) => { const st = el('div', 'stage'); st.append(tile(ic, 'blue'), el('strong', '', t), el('small', '', s)); p.append(st); });
+    flow.append(p);
+    const status = card('Automation Status', { span: 4 }), sr = el('div', 'rows');
+    if (!a24) sr.append(empty('Unavailable', 'Needs migration 057.'));
+    else [['Runs (24h)', a24.run_count, 'activity'], ['Pending approval', a24.pending_approval_count, 'user'], ['Running', a24.running_count, 'refresh'], ['Failed', a24.failed_count, 'alert'], ['Stale running', a24.stale_running_count, 'clock']].forEach(([l, v, ic]) => sr.append(rowLine(l, null, num(v), { icon: ic })));
+    status.append(sr);
+    const runs = card('Workflow Runs', { span: 8, view: ['Run health', 'automation', 'automation'] }), rr = a ? a.recent_runs || [] : null;
+    const runTone = (s) => s === 'succeeded' ? 'good' : s === 'failed' ? 'bad' : s === 'running' || s === 'queued' ? 'info' : 'warn';
+    runs.append(rr && rr.length ? table(['Date & time', 'Workflow', 'Trigger', 'Status', 'Time'], rr.map((r) => [dateTimeText(r.created_at), r.workflow || '—', r.trigger_type || '—', statusTag(String(r.status || '').replace(/_/g, ' '), runTone(r.status)), ms(r.duration_ms)])) : empty('No workflow runs', rr ? 'Runs appear here once workflows execute.' : 'Needs migration 080.'));
+    const daily = card('Runs per Day', { span: 4 });
+    if (!needsData(daily)) { const w = windowRows(); daily.append(barChart(w.cur.map((r) => dayLabel(r.day)), [{ name: 'Succeeded', tone: 2, values: w.cur.map((r) => pick(r, 'automation_ok')) }, { name: 'Failed', tone: 4, values: w.cur.map((r) => pick(r, 'automation_failed')) }], { stacked: true })); }
+    g.append(flow, status, runs, daily);
+    g.append(quick([
+      ['New Workflow', 'In NCC', 'plus', 'blue', LINKS.ncc],
+      ['Integrations', 'Meta channels', 'share', 'green', LINKS.ncc],
+      ['Executions', 'Run health', 'list', 'amber', () => go('automation', 'automation')],
+      ['Incidents', 'Failures & alerts', 'zap', 'pink', () => go('security', 'incidents')],
+      ['Credentials', 'Vercel env vars', 'key', 'purple', LINKS.vercel],
+      ['Export', 'Daily CSV', 'download', 'cyan', exportSeries]
+    ]));
+    c.append(g);
+  }
+
+  async function pageRelease(c) {
+    const g = el('div', 'dash'), dep = data && data.deployment_summary;
+    c.append(g);
+    if (!release) { g.append(el('div', 'span-12 loading', 'Loading release data…')); try { release = await getJson('/owner/api/release-guard'); } catch (e) { release = { status: 'unavailable', runs: [], pull_requests: [], message: e.message }; } if (active !== 'release') return; g.replaceChildren(); }
+    const runs = release.runs || [], done = runs.filter((r) => r.status === 'completed'), okRuns = done.filter((r) => r.conclusion === 'success'), badRuns = done.filter((r) => ['failure', 'timed_out', 'cancelled'].includes(r.conclusion));
+    g.append(
+      kpi('Production Deployments', dep ? num(dep.deployment_count) : '—', 'share', 'blue', note(dep ? 'Latest ' + num(dep.deployment_count) + ' from Vercel' : 'Vercel token not set')),
+      kpi('Successful Deployments', dep ? num(dep.ready_count) : '—', 'check', 'green', note('Ready state')),
+      kpi('Failed Deployments', dep ? num(dep.failed_count) : '—', 'x', 'amber', note('Error or canceled')),
+      kpi('CI Pass Rate', done.length ? pct(okRuns.length, done.length, 0) : '—', 'clock', 'pink', note(release.status === 'not_configured' ? 'GitHub Actions token not set' : num(done.length) + ' recent completed runs'))
+    );
+    const pipe = card('Deployment Pipeline', { span: 5, sub: 'Latest run of each check on main.', tools: [extLink('Deploy (merge PR)', LINKS.pulls, 'btn primary', 'check-circle')] });
+    const latestBy = new Map(); runs.filter((r) => r.branch === 'main').forEach((r) => { if (!latestBy.has(r.name)) latestBy.set(r.name, r); });
+    if (!latestBy.size) pipe.append(empty('No main-branch runs', release.status === 'not_configured' ? 'Set OWNER_GITHUB_ACTIONS_TOKEN in Vercel.' : 'Nothing recent.'));
+    else { const p = el('div', 'pipeline'); [...latestBy.values()].slice(0, 7).forEach((r) => { const ok = r.conclusion === 'success', st = el('div', 'stage'); st.append(tile(ok ? 'check' : r.status !== 'completed' ? 'clock' : 'x', ok ? 'green' : r.status !== 'completed' ? 'blue' : 'pink'), el('strong', '', r.name || 'Workflow'), statusTag(ok ? 'Passed' : r.status !== 'completed' ? 'Running' : r.conclusion || 'Failed', ok ? 'good' : r.status !== 'completed' ? 'info' : 'bad')); p.append(st); }); const st = el('div', 'stage'); st.append(tile('user', 'amber'), el('strong', '', 'Approval'), statusTag('Owner only', 'warn')); p.append(st); pipe.append(p); }
+    const check = card('Pre-Deployment Checklist', { span: 4 }), cr = el('div', 'rows');
+    [['Tests pass (npm test)', 'CI'], ['Database tests', 'CI'], ['Documentation gate', 'CI'], ['Secret scan', 'CI'], ['Vercel preview build', 'Every PR'], ['Owner merges the PR', 'Enforced'], ['Rollback available', 'Vercel']].forEach(([a, b]) => cr.append(rowLine(a, null, el('span', 'muted', b), { icon: 'check' })));
+    check.append(cr);
+    const envs = card('Environments', { span: 3 }), latest = dep && dep.latest, er = el('div', 'rows');
+    er.append(rowLine('Production', null, latest ? statusTag(latest.state === 'ready' ? 'Healthy' : latest.state, latest.state === 'ready' ? 'good' : 'warn') : statusTag('Unknown', 'idle'), { icon: 'server' }), rowLine('Preview (open PRs)', null, num((release.pull_requests || []).length), { icon: 'branch' }), rowLine('Owner console', null, statusTag('Healthy', 'good'), { icon: 'shield' }));
+    envs.append(er);
+    const recent = card('Recent CI Runs', { span: 7, tools: [extLink('All runs', LINKS.actions, 'link-button', 'external')] });
+    recent.append(runs.length ? table(['Time', 'Workflow', 'Branch', 'Commit', 'Status'], runs.slice(0, 10).map((r) => [r.created_at ? dateTimeText(r.created_at) : '—', r.url ? linkCell(r.name || 'Run', r.url) : r.name || '—', r.branch || '—', r.commit || '—', statusTag(r.status !== 'completed' ? 'Running' : r.conclusion === 'success' ? 'Success' : r.conclusion || 'Failed', r.status !== 'completed' ? 'info' : r.conclusion === 'success' ? 'good' : 'bad')])) : empty('No CI runs', release.status === 'not_configured' ? 'Set OWNER_GITHUB_ACTIONS_TOKEN in Vercel.' : release.message || 'Nothing recent.'));
+    const results = card('Test Results', { span: 5, sub: 'Outcomes of the latest completed CI runs.' });
+    results.append(done.length ? donut([{ label: 'Passed', value: okRuns.length, tone: 2 }, { label: 'Failed', value: badRuns.length, tone: 4 }, { label: 'Other', value: done.length - okRuns.length - badRuns.length, tone: 3 }], num(done.length), 'Runs') : empty('No completed runs'));
+    const prs = card('Open Pull Requests', { span: 7, tools: [extLink('GitHub', LINKS.pulls, 'link-button', 'external')] });
+    const pr = release.pull_requests || [];
+    prs.append(pr.length ? table(['#', 'Title', 'Branch', 'Updated'], pr.map((x) => ['#' + x.number, x.url ? linkCell(x.title || 'Pull request', x.url) : x.title, x.branch || '—', x.updated_at ? ago(x.updated_at) : '—'])) : empty('No open pull requests'));
+    const deps = card('Production Deployments', { span: 5 });
+    deps.append(dep && (dep.deployments || []).length ? table(['Time', 'Commit', 'Status'], dep.deployments.slice(0, 6).map((x) => [x.created_at ? dateTimeText(x.created_at) : '—', x.commit ? x.commit.slice(0, 7) : '—', statusTag(x.state, x.state === 'ready' ? 'good' : 'bad')])) : empty('Vercel source not connected'));
+    g.append(pipe, check, envs, recent, results, prs, deps);
+    g.append(actions('Quick Actions', [
+      ['Deploy', 'Merge a ready PR', 'check-circle', 'blue', LINKS.pulls],
+      ['View Logs', 'GitHub Actions', 'file', 'green', LINKS.actions],
+      ['Run Tests', 'Re-run in Actions', 'check', 'amber', LINKS.actions],
+      ['Security Scan', 'Code scanning', 'shield', 'pink', LINKS.githubSecurity],
+      ['Rollback', 'Instant rollback in Vercel', 'rotate', 'purple', LINKS.vercel],
+      ['Refresh', 'Reload release data', 'refresh', 'cyan', () => { release = null; render(); }]
+    ], { tiles: true }));
+  }
+  function linkCell(text, href) { const a = el('a', '', text); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; }
+
+  function miniReport(title, sub, stats, chartNode, page, tab) {
+    const c2 = card(title, { span: 4, sub, tools: [button('View Full Report', 'btn', () => go(page, tab))] }), ms2 = el('div', 'mini-stats');
+    stats.forEach(([v, l]) => { const s = el('div'); s.append(el('strong', '', v), el('small', '', l)); ms2.append(s); });
+    c2.append(ms2, chartNode || empty('No chart data'));
+    return c2;
+  }
+  function pageReports(c) {
+    const g = el('div', 'dash'), d = dash_(), w = windowRows(), labels = w.cur.map((r) => dayLabel(r.day)), users = data && data.user_summary, plans = data && data.plans_24h, m = d ? d.media_totals : null, a = d ? d.automation : null;
+    const bar = el('div', 'span-12 card-tools');
+    bar.append(rangeSelect(), button('Export Daily CSV', 'btn primary', exportSeries, 'download'), button('Usage CSV (24h)', 'btn', () => { window.location.href = '/owner/api/export?window=24h'; }, 'download'), button('Print / PDF', 'btn', () => window.print(), 'printer'));
+    g.append(bar);
+    const small = (label, value, ic, tone, f) => { const k = kpi(label, value, ic, tone, d && f ? trend(f).delta : note('Current')); k.className = 'card kpi small span-2'; return k; };
+    g.append(small('New Users', d ? num(total(w.cur, 'new_users')) : '—', 'users', 'blue', 'new_users'), small('Gross Revenue', d ? peso(total(w.cur, 'gross_php_minor')) : '—', 'dollar', 'green', 'gross_php_minor'), small('AI Requests', d ? compact(total(w.cur, 'requests')) : '—', 'layers', 'amber', 'requests'), small('Media Generated', d ? num(total(w.cur, 'images') + total(w.cur, 'videos')) : '—', 'image', 'pink', (r) => pick(r, 'images') + pick(r, 'videos')), small('Subscribers', plans ? num(plans.active_paid_periods) : '—', 'user', 'purple'), small('Success Rate', d && total(w.cur, 'requests') ? pct(total(w.cur, 'successes'), total(w.cur, 'requests'), 2) : '—', 'shield', 'cyan'));
+    const lc = (series, o) => d ? lineChart(labels, series, Object.assign({ height: 150, legend: false }, o)) : null;
+    const bc = (series, o) => d ? barChart(labels, series, Object.assign({ height: 150, legend: false }, o)) : null;
+    g.append(
+      miniReport('Users & Growth', 'Sign-ups and active users.', [[users ? num(users.auth_user_records) : '—', 'Total users'], [d ? num(total(w.cur, 'new_users')) : '—', 'New sign-ups'], [plans ? num(plans.active_paid_periods) : '—', 'Paid'], [data && data.growth_summary && data.growth_summary.return_rate_pct != null ? Number(data.growth_summary.return_rate_pct).toFixed(0) + '%' : '—', 'Return rate']], lc([{ name: 'Active users', tone: 1, values: w.cur.map((r) => pick(r, 'active_users')) }, { name: 'New users', tone: 2, values: w.cur.map((r) => pick(r, 'new_users')), area: false }]), 'users'),
+      miniReport('Revenue & Payments', 'Gross PayMongo payments.', [[d ? peso(total(w.cur, 'gross_php_minor')) : '—', 'Gross'], [d ? num(total(w.cur, 'payments')) : '—', 'Payments'], [d ? num(total(w.cur, 'new_pro')) : '—', 'Pro'], [d ? num(total(w.cur, 'new_max') + total(w.cur, 'new_ultra')) : '—', 'Max + Ultra']], bc([{ name: 'Pro', tone: 1, values: w.cur.map((r) => pick(r, 'new_pro')) }, { name: 'Max', tone: 3, values: w.cur.map((r) => pick(r, 'new_max')) }, { name: 'Ultra', tone: 4, values: w.cur.map((r) => pick(r, 'new_ultra')) }], { stacked: true }), 'finance'),
+      miniReport('Token Usage', 'Input plus output tokens.', [[d ? compact(total(w.cur, 'tokens')) : '—', 'Total'], [d ? compact(total(w.cur, 'tokens') / Math.max(1, w.n)) : '—', 'Daily avg'], [d ? compact(total(w.cur, 'requests')) : '—', 'Requests'], [d ? compact(total(w.cur, 'conversations')) : '—', 'Chats']], lc([{ name: 'Tokens', tone: 0, values: w.cur.map((r) => pick(r, 'tokens')) }]), 'ai-ops'),
+      miniReport('Media Generation', 'Images, videos and files.', [[m ? num(Number(m.images) + Number(m.videos)) : '—', 'All time'], [d ? num(total(w.cur, 'images')) : '—', 'Images'], [d ? num(total(w.cur, 'videos')) : '—', 'Videos'], [d ? num(total(w.cur, 'files')) : '—', 'Files sent']], bc([{ name: 'Images', tone: 1, values: w.cur.map((r) => pick(r, 'images') + pick(r, 'videos')) }]), 'content'),
+      miniReport('AI Provider Analytics', 'Usage by provider.', [[d ? compact(total(w.cur, 'requests')) : '—', 'Requests'], [data && data.usage_7d && Number(data.usage_7d.cost_known_rows) > 0 ? moneyText(data.usage_7d.provider_reported_cost_usd) : '—', 'Cost 7d'], [data && data.usage_7d ? ms(data.usage_7d.latency_p95_ms) : '—', 'p95'], [d && total(w.cur, 'requests') ? pct(total(w.cur, 'successes'), total(w.cur, 'requests'), 1) : '—', 'Success']], d && (d.provider_health || []).length ? barRows(d.provider_health.slice(0, 4).map((p, i) => ({ label: p.provider, value: Number(p.requests), tone: i + 1 }))) : null, 'ai-ops'),
+      miniReport('System & Infrastructure', 'Latency and failures.', [[d ? compact(total(w.cur, 'requests')) : '—', 'API calls'], [data && data.usage_7d ? ms(data.usage_7d.latency_p50_ms) : '—', 'p50'], [data && data.deployment_summary ? num(data.deployment_summary.ready_count) : '—', 'Ready deploys'], [d && total(w.cur, 'requests') ? pct(total(w.cur, 'failures'), total(w.cur, 'requests'), 2) : '—', 'Error rate']], lc([{ name: 'p95', tone: 2, values: w.cur.map((r) => Number(r.latency_p95_ms) || 0) }], { fmt: ms }), 'infrastructure'),
+      miniReport('Security & Failures', 'Failures and Auth activity.', [[d ? num(total(w.cur, 'failures')) : '—', 'Failed calls'], [data && data.platform_auth_audit_24h && data.platform_auth_audit_24h.available ? num(data.platform_auth_audit_24h.sign_in_events) : '—', 'Sign-ins 24h'], [data && data.audit_24h ? num(data.audit_24h.event_count) : '—', 'Owner events'], [incidentsCache ? num((incidentsCache.counts || {}).open || 0) : '—', 'Open incidents']], lc([{ name: 'Failures', tone: 4, values: w.cur.map((r) => pick(r, 'failures')) }]), 'security'),
+      miniReport('Automation (NCC)', 'Workflow runs.', [[a ? num(a.workflows) : '—', 'Workflows'], [d ? num(total(w.cur, 'automation_ok')) : '—', 'Succeeded'], [d ? num(total(w.cur, 'automation_failed')) : '—', 'Failed'], [a && a.avg_duration_ms != null ? ms(a.avg_duration_ms) : '—', 'Avg time']], bc([{ name: 'Succeeded', tone: 2, values: w.cur.map((r) => pick(r, 'automation_ok')) }, { name: 'Failed', tone: 4, values: w.cur.map((r) => pick(r, 'automation_failed')) }]), 'automation'),
+      miniReport('Search & Traffic', 'Google Search Console and GA4.', [['GSC', 'Clicks'], ['GA4', 'Visits'], ['', ''], ['', '']], empty('Open the full report', 'Loaded live from Google when connected.'), 'users', 'google-analytics')
+    );
+    const sum = card('Recent Activity Summary', { span: 8 });
+    sum.append(d && (d.recent_activity || []).length ? table(['Date & time', 'Category', 'Details'], d.recent_activity.map((x) => [dateTimeText(x.at), x.kind[0].toUpperCase() + x.kind.slice(1), x.label])) : empty('No recent activity', d ? 'Nothing yet.' : 'Needs migration 080.'));
+    g.append(sum, actions('Custom Reports & Exports', [
+      ['Generate', 'Daily CSV for range', 'file', 'blue', exportSeries],
+      ['Usage export', 'Aggregate CSV (7d)', 'clock', 'green', () => { window.location.href = '/owner/api/export?window=7d'; }],
+      ['Print', 'Save as PDF', 'printer', 'amber', () => window.print()],
+      ['Saved', 'Exports module', 'list', 'pink', () => go('reports', 'reports')]
+    ], { span: 4, tiles: true }));
+    c.append(g);
+  }
+
+  let settingsSection = 'general';
+  function pageSettings(c) {
+    const g = el('div', 'dash'), side = el('section', 'card span-3'), nav = el('nav', 'settings-nav'), main = el('div', 'span-9 dash');
+    main.classList.add('settings-main');
+    const sections = [['general', 'General', 'settings'], ['appearance', 'Appearance', 'eye'], ['access', 'Access & Permissions', 'users'], ['security', 'Security', 'shield'], ['notifications', 'Notifications', 'bell'], ['integrations', 'Integrations', 'share'], ['data', 'Data Sources', 'database'], ['about', 'About', 'file']];
+    sections.forEach(([k, t, ic]) => { const b = button(t, 'nav-btn' + (settingsSection === k ? ' active' : ''), () => { settingsSection = k; render(); }, ic); nav.append(b); });
+    side.append(nav);
+    const field = (label, value) => { const f = el('div', 'field'); f.append(el('span', '', label), el('div', 'value', value)); return f; };
+    const selField = (label, opts, key) => { const f = el('label', 'field'); f.append(el('span', '', label), selectEl(opts, prefs[key], (v) => { prefs[key] = v; savePrefs(); toast('Saved on this device.'); render(); }, label)); return f; };
+    const general = card('General Settings', { span: 6, sub: 'Basic configuration for the Owner Command Center.' }), fg = el('div', 'form-grid');
+    fg.append(field('Platform Name', 'NasrinAI'), field('Signed-in owner', dash && dash.owner ? dash.owner.email_masked || 'Owner' : '—'), field('Timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local'), field('Session ends', dash && dash.owner ? timeText(dash.owner.session_expires_at) : '—'), selField('Date Format', [['medium', 'Oct 23, 2026'], ['iso', '2026-10-23'], ['dmy', '23/10/2026']], 'dateFormat'), selField('Time Format', [['12h', '12-hour (AM/PM)'], ['24h', '24-hour']], 'timeFormat'));
+    general.append(fg);
+    const appearance = card('Appearance', { span: 6, sub: 'Saved on this device only.' });
+    const themes = el('div', 'theme-cards');
+    [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['system', 'System', 'monitor']].forEach(([k, t, ic]) => { const b = button(t, 'choice', () => { prefs.theme = k; savePrefs(); applyPrefs(); render(); }, ic); b.setAttribute('aria-pressed', String(prefs.theme === k)); themes.append(b); });
+    const sw = el('div', 'swatches');
+    ['blue', 'green', 'amber', 'pink', 'purple', 'mono'].forEach((k) => { const b = button('', 'swatch', () => { prefs.accent = k; savePrefs(); applyPrefs(); render(); }); b.dataset.accent = k; b.setAttribute('aria-label', k + ' accent'); b.setAttribute('aria-pressed', String(prefs.accent === k)); sw.append(b); });
+    const seg = (key, opts) => { const s = el('div', 'seg'); opts.forEach(([k, t]) => { const b = button(t, 'choice', () => { prefs[key] = k; savePrefs(); applyPrefs(); render(); }); b.setAttribute('aria-pressed', String(prefs[key] === k)); s.append(b); }); return s; };
+    const ap = el('div', 'rows');
+    ap.append(themes, rowLine('Accent Color', null, sw), rowLine('Sidebar Style', null, seg('sidebar', [['default', 'Default'], ['compact', 'Compact']])), rowLine('Font Size', null, seg('font', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']])));
+    appearance.append(ap);
+    const acc = dash ? dash.access : null;
+    const access = card('Access & Permissions', { span: 6, sub: 'Allowlists live in Vercel environment variables; values are never shown here.' }), ar = el('div', 'rows');
+    const fixed = (on) => { const t = el('button', 'toggle'); t.type = 'button'; t.disabled = true; t.setAttribute('aria-pressed', String(on)); t.title = 'Enforced by the server'; return t; };
+    ar.append(rowLine('Owner emails (OWNER_ALLOWED_EMAILS)', null, acc ? num(acc.owner_emails) : '—', { icon: 'mail' }), rowLine('Allowed IPs (OWNER_ALLOWED_IPS)', null, acc ? num(acc.allowed_ips) : '—', { icon: 'lock' }), rowLine('Require both email and IP', null, fixed(true), { icon: 'shield' }));
+    access.append(ar, extLink('Edit in Vercel', LINKS.vercel, 'btn', 'external'));
+    const sec = card('Security Settings', { span: 6, sub: 'Enforced in code. Changing them requires a reviewed code change.' }), sr = el('div', 'rows');
+    sr.append(rowLine('Session timeout', null, acc ? acc.session_minutes + ' minutes' : '—', { icon: 'clock' }), rowLine('Owner access logging', null, fixed(true), { icon: 'file' }), rowLine('404 outside allowed IPs', null, fixed(true), { icon: 'globe' }), rowLine('Sign out everywhere', null, button('Sign out', 'btn', signOut), { icon: 'key' }));
+    sec.append(sr);
+    const notif = card('Notifications', { span: 6 }), nr = el('div', 'rows');
+    nr.append(rowLine('In-console alerts (bell)', null, fixed(true), { icon: 'bell' }), rowLine('Owner alert delivery', null, el('span', 'muted', 'Server-side outbox'), { icon: 'mail' }), rowLine('Incident register', null, button('Open', 'btn', () => go('security', 'incidents')), { icon: 'alert' }));
+    notif.append(nr);
+    const integ = (dash && dash.integrations) || {}, ig = card('Integrations', { span: 6, sub: 'Connection status only; credentials stay on the server.' }), ir = el('div', 'rows');
+    [['Supabase', 'Database, Auth, Storage', integ.supabase, LINKS.supabase], ['Vercel (read-only)', 'Deployments', integ.vercel, LINKS.vercel], ['GitHub Actions', 'CI & model checks', integ.github_actions, LINKS.actions], ['GitHub App', 'Coding chat', integ.github_app, LINKS.github], ['PayMongo', 'Payments', integ.paymongo, LINKS.paymongo], ['OpenRouter', 'Models & billing', integ.openrouter, LINKS.openrouter], ['OpenAI billing', 'Admin key', integ.openai_billing, 'https://platform.openai.com/usage'], ['Anthropic billing', 'Admin key', integ.anthropic_billing, 'https://console.anthropic.com/'], ['Cloudflare billing', 'API token', integ.cloudflare_billing, 'https://dash.cloudflare.com/']].forEach(([name, sub, on, href]) => { const right = el('div', 'card-tools'); right.append(statusTag(on ? 'Connected' : 'Not configured', on ? 'good' : 'idle'), extLink('Manage', href, 'btn')); const r = rowLine(name, null, right, { icon: 'share' }); r.querySelector('.name > span:last-child').append(el('small', 'sub', sub)); ir.append(r); });
+    ig.append(ir);
+    const about = card('About', { span: 6 }), ab = el('div', 'rows');
+    ab.append(rowLine('Console', null, 'Owner Command Center'), rowLine('Data policy', null, 'Real data only · masked emails'), rowLine('Data window', null, dash ? dash.window_days + ' days' : '—'), rowLine('Last refresh', null, data ? timeText(data.generated_at) : '—'));
+    about.append(ab);
+    const map = { general: [general, appearance], appearance: [appearance, general], access: [access, sec], security: [sec, access], notifications: [notif, ig], integrations: [ig, notif], about: [about, general] };
+    if (settingsSection === 'data') { main.append(sourcesCard()); }
+    else (map[settingsSection] || map.general).forEach((x) => main.append(x));
+    if (!['data'].includes(settingsSection)) [general, appearance, access, sec, notif, ig].filter((x) => !(map[settingsSection] || []).includes(x)).forEach((x) => main.append(x));
+    g.append(side, main);
+    c.append(g);
+  }
+  function sourcesCard() { const s = card('Data Sources', { span: 12, sub: 'A source is Available only when its server-side query succeeds.' }); s.append(sourceRows()); return s; }
+
+  // ---- routing --------------------------------------------------------------------
+  const PAGES = {
+    overview: { title: null, desc: 'Here’s what’s happening with NasrinAI today.', render: pageOverview, tabs: [['snapshot', 'Data Readiness']] },
+    'ai-ops': { title: 'AI Ops Center', desc: 'Real-time monitoring, AI services, and system operations.', render: pageAiOps, tabs: [['logs', 'AI Logs'], ['ai', 'Usage & Verification'], ['openrouter-unlisted', 'Unlisted Models'], ['other-unlisted', 'Model Activities'], ['learning', 'Community Learning'], ['intelligence', 'Continuous Intelligence']] },
+    users: { title: 'Users & CRM', desc: 'Manage users, subscriptions, customer relationships, and engagement.', render: pageUsers, tabs: [['users', 'Growth & Retention'], ['regional', 'Regional'], ['google-analytics', 'Search & Traffic']] },
+    content: { title: 'Content & Media', desc: 'User-generated and system content, media files, and storage.', render: pageContent },
+    finance: { title: 'Finance', desc: 'Track revenue, subscriptions, payments, and financial performance.', render: pageFinance, tabs: [['finance', 'Costs & Billing']] },
+    infrastructure: { title: 'Infrastructure', desc: 'Monitor systems, services, deployments, and integrations.', render: pageInfrastructure, tabs: [['infra', 'Database & Deployments']] },
+    security: { title: 'Security', desc: 'Monitor threats, access control, and system security.', render: pageSecurity, tabs: [['security', 'Audit'], ['incidents', 'Incidents']] },
+    automation: { title: 'Automation (NCC)', desc: 'Monitor workflows, integrations, and automated operations.', render: pageAutomation, tabs: [['automation', 'Run Health']] },
+    release: { title: 'Release Guard', desc: 'Ensure safe, reliable, and controlled deployments for NasrinAI.', render: pageRelease },
+    reports: { title: 'Reports', desc: 'Analytics and detailed reports across all areas of NasrinAI.', render: pageReports, tabs: [['reports', 'Exports']] },
+    settings: { title: 'Settings', desc: 'Configure the Owner Command Center and platform preferences.', render: pageSettings }
+  };
+  function legacy(key) {
+    if (key === 'snapshot') renderOverview();
+    else if (key === 'learning') renderLearning();
+    else if (key === 'intelligence') renderIntelligence();
+    else if (key === 'openrouter-unlisted') renderUnlistedModels();
+    else if (key === 'other-unlisted') renderActivities();
+    else if (key === 'regional') renderRegional();
+    else if (key === 'google-analytics') renderGoogleAnalytics();
+    else renderModule(key);
+  }
+  function go(page, tab) { const next = '#/' + page + (tab && tab !== 'dashboard' ? '/' + tab : ''); if (window.location.hash === next) render(); else window.location.hash = next; closePanels(); }
+  function fromHash() {
+    const parts = window.location.hash.replace(/^#\/?/, '').split('/');
+    active = PAGES[parts[0]] ? parts[0] : 'overview';
+    const tabs = (PAGES[active].tabs || []).map((t) => t[0]);
+    activeTab = tabs.includes(parts[1]) ? parts[1] : 'dashboard';
+  }
+  function render() {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    const page = PAGES[active], c = $('content');
+    const title = $('page-title'); title.replaceChildren();
+    if (page.title) title.textContent = page.title; else title.append(document.createTextNode('Welcome back, '), el('span', 'accent-text', 'Nasrin'));
+    $('page-description').textContent = page.desc;
+    document.title = (page.title || 'Overview') + ' · Owner Command Center';
+    document.querySelectorAll('.nav-item').forEach((b) => { const on = b.dataset.page === active; b.classList.toggle('active', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    const tabsEl = $('subtabs'); tabsEl.replaceChildren();
+    if (page.tabs) [['dashboard', 'Dashboard'], ...page.tabs].forEach(([k, t]) => { const b = button(t, 'subtab' + (activeTab === k ? ' active' : ''), () => go(active, k)); b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(activeTab === k)); tabsEl.append(b); });
+    c.replaceChildren();
+    if (activeTab !== 'dashboard') { legacy(activeTab); return; }
+    page.render(c);
+  }
+  function setRange(value) { prefs.range = value; savePrefs(); $('range').value = value; loadDashboard().then(render); }
+  function rangeDates() {
+    const n = { '7d': 7, '14d': 14, '30d': 30 }[prefs.range] || 7, end = new Date(), start = new Date(Date.now() - (n - 1) * 86400e3);
+    $('range-dates').textContent = dateText(start) + ' – ' + dateText(end);
+  }
+  async function loadDashboard() {
+    rangeDates();
+    try { dash = await getJson('/owner/api/dashboard?window=' + encodeURIComponent(prefs.range)); } catch (_) { if (!dash) dash = { status: 'unavailable', window_days: 7 }; }
+    if (dash && dash.owner && dash.owner.email_masked) $('owner-session').textContent = 'Signed in as ' + dash.owner.email_masked;
+  }
+  async function refresh(force) {
+    $('freshness').textContent = 'Checking data sources…';
+    if (force) { incidentsCache = null; release = null; }
+    try {
+      const [overview] = await Promise.all([getJson('/owner/api/overview'), loadDashboard()]);
+      data = overview;
+      $('freshness').textContent = 'Updated ' + timeText(data.generated_at) + (dash && dash.status === 'unavailable' ? ' · charts need migration 080' : '') + ' · real data only';
+    } catch (_) {
+      $('freshness').textContent = 'Could not refresh. No data was cached.';
+    }
+    updateStatusPill();
+    await updateNotifications();
+    render();
+  }
+  async function signOut() {
+    try { await fetch('/owner/api/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' }); } catch (_) {}
     window.location.href = 'https://www.nasrinai.com/';
-  });
-  show('overview');
+  }
+  function closePanels() {
+    $('notify-panel').hidden = true; $('bell').setAttribute('aria-expanded', 'false');
+    $('owner-menu').hidden = true; $('owner-card').setAttribute('aria-expanded', 'false');
+    $('sidebar').closest('.shell').classList.remove('nav-open'); $('menu-toggle').setAttribute('aria-expanded', 'false');
+  }
+
+  // ---- wiring -----------------------------------------------------------------------
+  applyPrefs();
+  document.querySelectorAll('[data-icon]').forEach((n) => n.replaceWith(icon(n.dataset.icon)));
+  document.querySelectorAll('.nav-item').forEach((b) => b.addEventListener('click', () => go(b.dataset.page)));
+  $('range').value = prefs.range;
+  $('range').addEventListener('change', () => setRange($('range').value));
+  $('status-pill').addEventListener('click', () => go('infrastructure'));
+  $('bell').addEventListener('click', (e) => { e.stopPropagation(); const open = $('notify-panel').hidden; closePanels(); $('notify-panel').hidden = !open; $('bell').setAttribute('aria-expanded', String(open)); });
+  $('notify-all').addEventListener('click', () => go('security', 'incidents'));
+  $('owner-card').addEventListener('click', (e) => { e.stopPropagation(); const open = $('owner-menu').hidden; closePanels(); $('owner-menu').hidden = !open; $('owner-card').setAttribute('aria-expanded', String(open)); });
+  $('owner-menu').querySelector('[data-go]').addEventListener('click', () => go('settings'));
+  $('theme-toggle').addEventListener('click', () => { prefs.theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; savePrefs(); applyPrefs(); closePanels(); if (active === 'settings') render(); });
+  $('signout').addEventListener('click', () => { $('signout').disabled = true; signOut(); });
+  $('menu-toggle').addEventListener('click', (e) => { e.stopPropagation(); const shell = $('sidebar').closest('.shell'), open = !shell.classList.contains('nav-open'); closePanels(); shell.classList.toggle('nav-open', open); $('menu-toggle').setAttribute('aria-expanded', String(open)); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.notify-panel, .owner-menu, .sidebar')) closePanels(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanels(); });
+  window.addEventListener('hashchange', () => { fromHash(); render(); });
+  fromHash();
   refresh();
 })();

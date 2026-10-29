@@ -6,16 +6,16 @@ This release uses the existing improvement-consent and improvement-example table
 
 ### How it works
 
-1. Guest and signed-in Quick users can explicitly opt in through `/v1/improvement-consent`.
+1. Signed-in Quick users can opt in through `/v1/improvement-consent` (default off). Guests see the Guest improvement notice before chatting; continuing as Guest records the grant (`2026-10-26-guest-notice-v1`). Guests have no opt-out switch; they can sign in to use account controls.
 2. Only new, eligible Quick-tier turns after the current consent version is granted may contribute.
 3. The capture path rejects common sensitive topics, secrets, and direct contact details; applies the existing external-provider redactor; and excludes attachments, coding, web-sourced answers, and tool/search-like requests.
-4. A sample is stored as a time-limited `pending_review` example. It is never used as shared context until a reviewer approves it.
+4. A sample is stored as a `pending_review` example with no routine expiry (migration 075). It is never used as shared context until a reviewer approves it.
 5. Approved examples are retrieved with bounded lexical matching and clearly marked as untrusted reference material in the prompt. They are not instructions and must not be treated as ground truth.
-6. Withdrawal removes that subject's contributed examples; the existing retention job removes expired examples and examples without a current grant. Guest examples expire within 24 hours under the existing database policy.
+6. Withdrawal (signed-in) removes that subject's contributed examples. Raw Guest chats still expire after 24 hours; only the screened example is kept.
 
 ### Privacy and operational limits
 
-- Consent defaults to off. The previous `2026-10-10-preference-only` value is not accepted for collection.
+- Signed-in consent defaults to off; Guest use records the notice grant. The previous `2026-10-10-preference-only` value is not accepted for collection. Matches `public/legal/privacy.md` (Guests, Improving NasrinAI).
 - Platform-only: business tenant content is never collected or used as community learning.
 - Sample capture is best-effort and must never fail an otherwise valid chat response; it performs a bounded storage operation after answer generation, so a database request may add a small amount of latency.
 - Existing RLS and service-role-only database permissions remain in force.
