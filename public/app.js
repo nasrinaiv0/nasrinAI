@@ -3221,6 +3221,7 @@
 
   function shortcutImagePrompt(shortcut) {
     const extra = shortcut.args ? '\n\nAdditional direction: ' + shortcut.args : '';
+    if (shortcut.prompt) return shortcut.prompt + extra;
     if (shortcut.name === 'clone') return 'Clone the attached reference image’s visual style, lighting, mood, and composition. Preserve its main subject and key content.' + extra;
     if (shortcut.name === 'blur') return 'Edit the attached image by blurring its background while keeping the main subject sharp. Use a natural, professional depth-of-field effect.' + extra;
     if (shortcut.name === 'remove-background') return 'Remove the background from the attached image and preserve clean edges around the subject.' + extra;
@@ -3348,6 +3349,8 @@
       return;
     }
     if (!imageMode && !editing && !pending.length && isJobSearchRequest(text)) return runChatJobSearch(text);
+    // A picture-editing command typed without opening the "/" menu: load the catalog first.
+    if (/^\/[a-z0-9]/i.test(text) && !window.NasrinCreativeIntent.parseShortcut(text) && window.NasrinSlashMenu) await window.NasrinSlashMenu.load();
     const shortcut = window.NasrinCreativeIntent.parseShortcut(text);
     const intent = shortcut ? (shortcut.capability === 'chat' ? null : shortcut.capability) : window.NasrinCreativeIntent.detect(text);
     if (shortcut && shortcut.requiresPhoto && !pending.some((f) => f.type && f.type.startsWith('image/') && f.data)) {

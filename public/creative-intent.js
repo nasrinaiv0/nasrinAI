@@ -48,11 +48,21 @@
   const videoFromPhotos = /\b(video|clip|reel|movie|slideshow)\b[\s\S]*\b(from|using|out of|with)\b[\s\S]*\b(photos?|pictures?|images?|pics?)\b/;
   const imageEnhancement = /\b(enhance|enhancement|upscale|upscaling|sharpen|sharpening|deblur|denoise|restore|restoration|improve (?:the )?(?:image|photo|picture|quality)|higher resolution|high resolution|hd|4k|8k|make it clear(?:er)?|make this clear(?:er)?|less blurry|remove blur|fix blur)\b/i;
 
+  // Picture-editing commands from the "/" menu catalog (registered once it loads).
+  const IMAGE_EDITS = new Map();
+  function registerImageEdits(list) {
+    for (const c of Array.isArray(list) ? list : []) {
+      if (c && c.kind === 'image-edit' && /^[a-z0-9][a-z0-9-]{0,47}$/.test(c.command) && typeof c.prompt === 'string' && !COMMANDS[c.command]) {
+        IMAGE_EDITS.set(c.command, Object.freeze({ capability: 'image', executeFirst: true, requiresPhoto: true, prompt: c.prompt.slice(0, 600) }));
+      }
+    }
+  }
+
   function parseShortcut(text) {
-    const match = String(text || '').trim().match(/^\/([a-z][a-z0-9-]*)(?:\s+([\s\S]*))?$/i);
+    const match = String(text || '').trim().match(/^\/([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/i);
     if (!match) return null;
     const name = match[1].toLowerCase();
-    const command = COMMANDS[name];
+    const command = COMMANDS[name] || IMAGE_EDITS.get(name);
     if (!command) return null;
     return Object.freeze({ name, args: (match[2] || '').trim(), ...command });
   }
@@ -93,5 +103,5 @@
     return n >= 1 ? Math.min(60, n) : null;
   }
 
-  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, parseVideoSeconds, commands: COMMANDS });
+  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, parseVideoSeconds, registerImageEdits, commands: COMMANDS });
 })();
