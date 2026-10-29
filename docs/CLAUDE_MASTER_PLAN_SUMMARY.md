@@ -228,3 +228,18 @@ Changes in this follow-up:
 - PR statuses for #352, #363, #365, #366 above are historical; recheck GitHub before relying on them.
 - Docs aligned with code: `docs/community-learning.md` now matches migration 075 and the Privacy Notice (Guest notice grant, no routine expiry for screened examples); Privacy Notice header set to version 2026-10-28 to match `LEGAL_PRIVACY_VERSION`.
 - Repository moved to `nasrinaiv0/nasrinAI` (old `primusco20/nasrinAI` URLs redirect; `gh api repos/...` fails on the redirect, use the GitHub MCP tools).
+
+
+## Follow-up correction — migration registry and outstanding blockers (2026-10-30)
+
+- **Migration registry correction:** the observed registry includes `069_openrouter_cached_tokens` (version `20261025091119`), an unrelated OpenRouter migration. Do not describe it as evidence that integration migration 068 was applied.
+- The observed registry entries stop at `078_secure_semantic_knowledge` (version `20261028230728`). Registry entries for 079–082 were not returned. This does not prove every associated object is absent: prior catalog checks found some 080/081/082 objects. Their exact definitions and grants must be compared before any repair.
+- **068:** both `public.integration_connections` and `public.integration_oauth_states` absent; status **Blocked**.
+- **079:** embedding columns, HNSW index, and hybrid-search RPC absent in the earlier catalog check; status **Blocked** for semantic retrieval activation.
+- **080/081:** registry entries absent; expected functions were observed but definition parity not verified; status **Partially implemented / Not verified**.
+- **082:** registry entry absent; recall function and FTS index were observed, but definition parity and memory-opt-in runtime behavior are **Not verified**.
+- **Auth leaked-password protection:** earlier audit reports disabled; status **Blocked — explicit owner approval required**.
+- **PR #702:** head `c9ddf310f48c0157b8267187c0da9e69735a3d09`, base SHA `ed6f0ad6d9bc8cf3b22862e89adbd67396ee7ab8`, not mergeable. **Blocked** pending reconcile and required checks.
+- **PR #703:** head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`, base SHA `531f56d6d5685730692372d64bd7780b974f5c69`, not mergeable. **Blocked** pending reconcile, security review, and required checks.
+- Detailed evidence and safe steps: [Integration Migration 068 Repair Plan](audits/INTEGRATION_MIGRATION_068_REPAIR_PLAN_2026-10-30.md).
+- **Execution boundary:** standing instructions prohibit production changes, merges, deployments, migrations, and destructive operations. This audit did not make those changes and does not claim the blockers are fixed.
