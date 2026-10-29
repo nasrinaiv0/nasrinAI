@@ -18,18 +18,23 @@ Read this before making changes. Treat GitHub's current `main`, open PRs, workfl
 - Keep user-facing UI premium, restrained, consistent, accessible, responsive, and especially reliable on mobile Safari.
 - After each meaningful change, update this handoff with the PR, commit, test state, limitations, and next steps so Claude can resume without guessing.
 
-## Latest verified status — 2026-10-30 06:14 Asia/Manila
+## Latest verified status — 2026-10-30 06:20 Asia/Manila
 
-- **Current main:** 33f9283f35a0627c700efb43b3335bcfd8d52840 (merge of PR #701).
-- **Current production:** Vercel deployment dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H is READY at that exact SHA. This verifies deployment state, not end-to-end feature behavior.
-- **Merged/deployed:** PR #699 server-enforced MOVO context scope (merge 4b61cae46279492aa6983b3974ecf726f8d7deff) and PR #701 with 1,017 picture-editing slash commands (merge 33f9283f35a0627c700efb43b3335bcfd8d52840).
-- **Open:** PR #702 rich reply rendering; PR #703 agent tools; PR #704 audit refresh. A current comparison of branch docs/nasrinai-progress-audit-2026-10-30 against main reports 0 commits ahead, 5 behind, and no changed files; PR #704 appears to be a stale/duplicate record for content already in main. Do not merge it as-is.
-- **PR #703 risk:** main → feat/agent-tools branch comparison is diverged, 2 commits ahead / 28 behind. PR body reports 1,258 passing tests and one local FFmpeg-only failure; exact current head SHA and current-head CI were not verified in this review. Reconcile and rerun gates before merge.
-- **PR #702:** PR body reports 1,254 passing tests and one local FFmpeg-only failure; exact current-head checks were not revalidated here.
-- **Production DB/security:** earlier audit notes about migration 068/079/080/081/082 drift and leaked-password protection remain carry-forward findings, not a fresh query at 06:14. Re-query before any database or Auth changes; never blindly replay migrations.
-- **No production smoke test:** no authenticated end-to-end test was run for the deployed MOVO scope endpoint or new image-edit commands in this review.
-- **Audit documents:** [Master Change Ledger](engineering/MASTER_CHANGE_LEDGER.md) and [06:14 Audit Delta](engineering/updates/2026-10-30-0614-audit-delta.md). These are on branch docs/change-ledger-refresh-2026-10-30-0614 and are not merged yet.
+- **Current main:** `33f9283f35a0627c700efb43b3335bcfd8d52840` (in-scope merge of PR #701). [Commit](https://github.com/nasrinaiv0/nasrinAI/commit/33f9283f35a0627c700efb43b3335bcfd8d52840).
+- **Current production:** Vercel deployment `dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H` is READY at that SHA; the Vercel status is success. READY does not prove end-to-end feature behavior. [Deployment](https://vercel.com/nasrin-ai/nasrinai/G39Ax4eFvM514ohoKQmVKwVqxV3H).
+- **Recent in-scope change:** PR #701 merged image-edit slash-command catalog/menu wiring and tests. CI #40958705882 and Documentation Gate #40958705888 passed on PR head `684b82865559a2286c856efe9c02dae226df94ad`. The PR reports 1,248 passing tests and one local-only FFmpeg export failure; no production image-edit smoke test was run. Status: **Partially implemented**.
+- **PR #702:** open rich reply rendering; head `c9ddf310f48c0157b8267187c0da9e69735a3d09`. CI #40957687555 and Documentation Gate #40957687102 passed on that head, but it is 1 ahead / 32 behind main. Status: **Blocked** pending reconciliation and rerun.
+- **PR #703:** open agent tools; head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`. It is 2 ahead / 28 behind main; no workflow runs or combined status checks were returned for that exact head. Status: **Blocked** pending rebase and security/CI verification.
+- **PR #704:** stale audit draft; comparison is 0 ahead / 5 behind with no changed files. Do not merge as-is.
+- **PR #705:** audit-documentation draft. Prior head `8245a7de6b30afad01f114d6c43d0cffa4ba964b` had CI #40964845572 pass and Documentation Gate #40964845542 fail because `docs/pr-change-log.md` was missing from the PR diff. This refresh adds the changelog; latest-head checks must be confirmed before merge.
+- **Fresh read-only DB check:** registry lacks 068/079/080/081/082. Migration 068 integration tables are absent despite code references; migration 079 embedding columns/HNSW/search RPC are absent while tenant columns/index exist; 080/081 owner-console functions exist with service-role-only execution but registry entries are missing; migration 082 recall function and full-text index exist with service-role-only execution but its registry entry is missing. See the [Master Change Ledger](engineering/MASTER_CHANGE_LEDGER.md) and [current audit delta](engineering/updates/2026-10-30-0614-audit-delta.md) for exact object evidence and paths.
+- **Security:** Supabase Security Advisor still reports leaked-password protection disabled. Three RLS-enabled tables have no policies; the checked grants query found no `anon`/`authenticated` table privileges for them. Forty-one unused-index findings are informational; no index was removed.
+- **Not verified:** production image-edit end-to-end behavior, tenant-hybrid retrieval activation, integration persistence, exact live migration-definition parity, owner-console/API-key user flows, and opt-in recall behavior. The production feature-flag value for tenant embeddings was not inspected.
+- **Scope:** this audit covers NasrinAI repository/deployment/database only. Unrelated product-specific work is excluded even if mentioned in NasrinAI PR descriptions; no conclusions are made about excluded work.
+- **Documentation commits on PR #705 branch:** master ledger `8ee6f7035cdb198745403b89dff4bbd8d62dc6e3`; audit delta `6c17831f6212e794d0625cf59ba93a36a79fa987`. The summary and changelog commits will be recorded after they are created.
 
+Start with the [Master Change Ledger](engineering/MASTER_CHANGE_LEDGER.md), then the [Audit Delta](engineering/updates/2026-10-30-0614-audit-delta.md). Treat `audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md` as a historical snapshot unless its evidence is rechecked; its older PR/deployment statuses may be stale.
+ 
 ## Historical snapshot — 2026-10-30 04:26 Asia/Manila (superseded by the latest status above)
 
 - **Main:** 3a2c705461ac5b9920191ef67e5b25213dff0222 (merge of PR #692).
