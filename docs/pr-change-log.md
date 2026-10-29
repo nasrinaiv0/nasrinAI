@@ -1,3 +1,10 @@
+## MOVO-scoped financial context — 2026-10-30
+
+- Adds server-only `context_scope: "movo"` for secret service-key chat requests, with strict validation of the stateless request and bounded financial JSON shape.
+- The current question stays separate from transient `accounts`, `recent_transactions`, and `budgets` context; context is added only to the in-memory provider request and is not saved in the upstream transcript.
+- Scoped turns skip platform/founder/product retrieval, personal memory, Library, prior-chat recall, community learning, programming retrieval, web search, tools, image recall, and exact/semantic caches. The response confirms `context_scope: "movo"` for the caller to verify.
+- Regression coverage checks platform portfolio retrieval is skipped, context is not persisted, and non-service or invalid requests fail closed. No schema migration or production data change is required.
+
 ## Owner Command Center API keys — 2026-10-29
 
 - Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.
