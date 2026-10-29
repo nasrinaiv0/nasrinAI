@@ -423,7 +423,7 @@ return { body: { sites: await connect.list(caller) } }; }
             Number(semantic.indexed_chunks || 0) === 0 && Number(semantic.skipped_unchanged || 0) === 0;
           const failed = (result.results || []).some((item) => item.status === 'retry') ||
             Number(knowledgeIndex.failed || 0) > 0 || Number(semantic.embedding_failures || 0) > 0 ||
-            semanticEnabledWithoutEvidence;
+            Boolean(semantic.error_code) || semanticEnabledWithoutEvidence;
           const run = {
             started_at: new Date(startedAt).toISOString(), finished_at: new Date().toISOString(),
             status: failed ? 'partial' : 'succeeded', seed_count: PROGRAMMING_DOC_SOURCES.length,
