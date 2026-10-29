@@ -229,3 +229,10 @@ Changes in this follow-up:
 - PR statuses for #352, #363, #365, #366 above are historical; recheck GitHub before relying on them.
 - Docs aligned with code: `docs/community-learning.md` now matches migration 075 and the Privacy Notice (Guest notice grant, no routine expiry for screened examples); Privacy Notice header set to version 2026-10-28 to match `LEGAL_PRIVACY_VERSION`.
 - Repository moved to `nasrinaiv0/nasrinAI` (old `primusco20/nasrinAI` URLs redirect; `gh api repos/...` fails on the redirect, use the GitHub MCP tools).
+
+
+### Follow-up — owner dashboard SECURITY DEFINER search path (2026-10-30)
+
+- Applied migration `084_harden_owner_dashboard_search_path` (registry version `20261029225619`) to set `public.owner_console_dashboard(integer)` to `search_path=pg_catalog, pg_temp`, replacing the riskier `public, pg_temp` setting.
+- Source file: `db/migrations/084_harden_owner_dashboard_search_path.sql`; detailed record: `audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`.
+- Migration runner returned success. Confirm catalog configuration after apply. Owner dashboard auth, endpoint behavior and UI remain **Not verified**.
