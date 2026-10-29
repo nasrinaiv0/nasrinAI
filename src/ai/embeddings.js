@@ -14,7 +14,7 @@ export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small',
       const resp = await fetchImpl(baseUrl + '/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-        body: JSON.stringify({ model, input, dimensions: EMBEDDING_DIMENSIONS }),
+        body: JSON.stringify({ model, input: input.length === 1 ? input[0] : input, dimensions: EMBEDDING_DIMENSIONS }),
         signal: AbortSignal.timeout(input.length > 1 ? Math.max(timeoutMs, 15000) : timeoutMs),
         redirect: 'error'
       });

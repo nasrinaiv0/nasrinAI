@@ -13,8 +13,9 @@ test('OpenAI embedder batches embeddings and preserves input order', async () =>
     apiKey: 'test-key',
     fetchImpl: async (_url, options) => {
       const body = JSON.parse(options.body);
-      inputs.push(body.input);
-      const rows = body.input.map((text, index) => ({
+      const batch = Array.isArray(body.input) ? body.input : [body.input];
+      inputs.push(batch);
+      const rows = batch.map((text, index) => ({
         index, embedding: vector(text === 'first document' ? 0.1 : text === 'second document' ? 0.2 : 0.3)
       })).reverse();
       return { ok: true, json: async () => ({ data: rows }) };
