@@ -18,7 +18,16 @@ export function createOpenAIEmbedder({ apiKey, model = 'text-embedding-3-small',
         signal: AbortSignal.timeout(input.length > 1 ? Math.max(timeoutMs, 15000) : timeoutMs),
         redirect: 'error'
       });
-      if (!resp.ok) throw new Error(`embeddings answered ${resp.status}`);
+      if (!resp.ok) {
+        // Keep provider diagnostics actionable without logging provider response bodies or secrets.
+        const error = new Error(`embeddings answered ${resp.status}`);
+        error.status = resp.status;
+        error.code = resp.status === 401 || resp.status === 403 ? 'embedding_auth_rejected'
+          : resp.status === 429 ? 'embedding_rate_limited'
+          : resp.status >= 500 ? 'embedding_provider_unavailable'
+          : 'embedding_provider_rejected';
+        throw error;
+      }
       const data = await resp.json();
       if (!Array.isArray(data?.data) || data.data.length !== input.length) throw new Error('embeddings returned an unexpected item count');
       const ordered = new Array(input.length);
