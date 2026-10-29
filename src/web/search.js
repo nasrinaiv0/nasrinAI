@@ -7,7 +7,9 @@ import { ProviderError } from '../ai/provider.js';
 export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl = fetch, timeoutMs = 12_000, baseUrl = 'https://openrouter.ai/api/v1', onTelemetry = null, now = () => Date.now() }) {
   return {
     model,
-    async search({ system, messages, maxTokens = 1200, onText = null }) {
+    async search({ system, messages, maxTokens = 1200, onText = null, model: modelOverride = null }) {
+      // A paid plan may name its own (non-free) search model; blank keeps the default.
+      const searchModel = typeof modelOverride === 'string' && modelOverride.trim() ? modelOverride.trim() : model;
       const telemetryRequestId = randomUUID();
       const telemetryStartedAt = now();
       const telemetryRequestSummary = {
@@ -22,7 +24,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           requestId: telemetryRequestId,
           endpoint: '/responses',
           method: 'POST',
-          requestedModel: model,
+          requestedModel: searchModel,
           requestSummary: telemetryRequestSummary,
           ...event
         })).catch(() => {});
@@ -109,7 +111,7 @@ export function createWebSearch({ apiKey, model, googleSearch = null, fetchImpl 
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
           body: JSON.stringify({
-            model,
+            model: searchModel,
             tools: [{ type: 'openrouter:web_search', parameters: { engine: 'auto', max_results: 10, max_total_results: deepResearch ? 20 : 10, search_context_size: searchContextSize } }],
             include: ['web_search_call.action.sources'],
             instructions: String(system || '') + '\n\nWeb research quality requirements:\n' + researchInstructions,

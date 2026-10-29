@@ -44,8 +44,10 @@
     async start(session, hooks) {
       if(!window.WebSocket||!window.AudioContext||!navigator.mediaDevices?.getUserMedia) throw new Error('Realtime voice is not supported in this browser.');
       const state={ws:null,ctx:null,processor:null,stream:null,sources:[],next:0,buffer:[],ready:false,stopping:false,setupTimer:null};
-      const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(session.value));
-      ws.binaryType='arraybuffer';
+      // Request microphone permission before opening the socket. iOS Safari may
+      // show a permission prompt long enough for a socket's onopen event to fire;
+      // registering handlers after that await silently loses the event and leaves
+      // the UI stuck in "Starting secure realtime voice" until reconnect.
       const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
       const ctx=hooks.audioContext||new AudioContext();
       try{await ctx.resume();}catch{}
@@ -56,6 +58,10 @@
         try{const out=ctx.createMediaStreamDestination();el.srcObject=out.stream;el.play().catch(()=>{});Object.assign(state,{out,el});}
         catch{/* falls back to the context's own output */}
       }
+      // Open only after all permission awaits are complete, then attach handlers
+      // synchronously in this turn so the initial open event cannot be missed.
+      const ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(session.value));
+      ws.binaryType='arraybuffer';
       Object.assign(state,{ws,ctx,processor,stream});hooks.state(state);
       const flush=()=>{
         if(!state.ready||ws.readyState!==WebSocket.OPEN||!state.buffer.length)return;
@@ -75,7 +81,7 @@
       source.connect(processor);processor.connect(ctx.destination);
       ws.onopen=()=>{
         try{
-          ws.send(JSON.stringify({setup:{model:'models/'+session.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:'Speak in a natural adult vocal register at a comfortable, moderate pitch and normal conversational speed. Avoid squeaky, childlike, cartoonish, or chipmunk-like delivery. Keep articulation clear and intonation relaxed. ' + (session.instructions||'You are NasrinAI. Be natural, concise, accurate, and interruptible.')}]}}}));
+          ws.send(JSON.stringify({setup:{model:String(session.model||'gemini-3.8-live').startsWith('models/')?String(session.model):'models/'+String(session.model||'gemini-3.8-live'),generationConfig:{responseModalities:['AUDIO'],maxOutputTokens:Math.max(1,Math.min(1024,Number(session.maxOutputTokens)||256)),speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.gemini_voice||'Kore'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{},systemInstruction:{parts:[{text:String(session.instructions||'You are NasrinAI. Keep replies brief, accurate, natural, and safe.')}]}}}));
           state.setupTimer=setTimeout(()=>{if(!state.ready&&!state.stopping)hooks.error('Voice setup timed out. Please try again.');},12000);
         }catch(e){hooks.error('Could not initialize voice. Please try again.');}
       };
@@ -85,7 +91,10 @@
           if(typeof Blob!=='undefined'&&raw instanceof Blob)raw=await raw.arrayBuffer();
           const msg=JSON.parse(typeof raw==='string'?raw:decoder.decode(raw));
           if(msg.error){
-            hooks.error('Voice connection failed. Please try again.');return;
+            const code=String(msg.error.code||msg.error.status||'').slice(0,80);
+            hooks.error(code ? `Gemini Live rejected the session (${code}). Check the Live model and session configuration.` : 'Gemini Live rejected the session configuration.');
+            try{ws.close(1000,'provider setup error');}catch{}
+            return;
           }
           if(msg.setupComplete){
             clearTimeout(state.setupTimer);state.ready=true;hooks.open();return;
@@ -101,8 +110,8 @@
           if(!(err instanceof SyntaxError))hooks.error('Could not process voice audio. Please try again.');
         }
       };
-      ws.onerror=()=>{if(!state.stopping)hooks.error('Voice connection failed. Please check your connection and try again.');};
-      ws.onclose=()=>{clearTimeout(state.setupTimer);if(!state.stopping)hooks.close();};
+      ws.onerror=()=>{if(!state.stopping)hooks.error('Gemini Live WebSocket failed. Check network access and session authorization.');};
+      ws.onclose=(event)=>{clearTimeout(state.setupTimer);if(!state.stopping){const code=Number(event?.code)||0;hooks.error(code&&code!==1000?`Gemini Live disconnected (WebSocket ${code}).`:'Gemini Live connection closed.');hooks.close();}};
       return state;
     },
     stop

@@ -39,7 +39,9 @@ export function createGeminiRealtime({ apiKey, fetchImpl = fetch }) {
                 parts: [{ text: String(instructions || 'You are NasrinAI. Keep replies brief, accurate, natural, and safe.') }]
               },
               generationConfig: {
-                maxOutputTokens: Math.max(1, Math.min(1024, Number(maxOutputTokens) || 256))
+                responseModalities: ['AUDIO'],
+                maxOutputTokens: Math.max(1, Math.min(1024, Number(maxOutputTokens) || 256)),
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: String(voice) } } }
               }
             }
           }

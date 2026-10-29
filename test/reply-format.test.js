@@ -245,3 +245,14 @@ test('rich inline links remain clickable and safe; untrusted HTML is rendered as
   assert.match(unsafe.textContent, /<img src=x onerror=alert\(1\)>/);
   assert.match(unsafe.textContent, /javascript:alert\(1\)/);
 });
+
+
+test('embedded map card layout stays full-width and responsive without iframe overflow', async () => {
+  const css = await readFile(new URL('../public/generative-ui.css', import.meta.url), 'utf8');
+  assert.match(css, /\.genui-map-card\s*\{[^}]*display:\s*block/s);
+  assert.match(css, /\.genui-map-card\s*\{[^}]*width:\s*100%/s);
+  assert.match(css, /\.genui-map-frame-wrap\s*\{[^}]*position:\s*relative/s);
+  assert.match(css, /\.genui-map-frame\s*\{[^}]*position:\s*absolute/s);
+  assert.match(css, /@media\s*\(max-width:\s*600px\)/);
+  assert.match(css, /\.genui-map-open:focus-visible/);
+});

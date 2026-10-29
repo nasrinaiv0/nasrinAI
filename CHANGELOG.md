@@ -1,6 +1,89 @@
 - Add universal user-owned integration groundwork: server-side ownership checks, AES-256-GCM encrypted credential storage, read-only list/detail routes, migration 068, and regression tests. Provider-specific OAuth adapters/write operations remain out of scope; migration 068 is not approved for production application.
 - Make the GitHub OAuth forged-state regression deterministic by changing a significant HMAC character rather than the final base64url characters, which could rarely leave the decoded signature unchanged.
 
+## Fixed
+- Chat-generated MP4 preview/download now retrieves protected video bytes with the authenticated client and refreshes an expired session once before creating a browser Blob URL.
+
+## Direct-provider cost reconciliation — 2026-10-26
+
+- Add optional, owner-only OpenAI organization Costs API and Anthropic Cost Report API integrations for aggregate billed-spend reconciliation.
+- Keep provider billing totals separate from per-request telemetry; do not allocate aggregate costs to individual requests or double-count OpenRouter spend.
+- Add Finance panel status, refresh, bounded date windows, and regression tests for amount parsing, key isolation, and unavailable states.
+- Add a versioned request-level list-price estimator for supported direct text models, separate estimate columns, an aggregate-only OCC Finance summary, and AI Logs labels that distinguish estimates from provider-reported actual costs.
+- Gemini requests with a verified model price are estimated at paid Standard list rates; unknown models and unverified provider costs remain unavailable. Google Cloud billed-spend reconciliation is not claimed.
+
+## Unreleased
+
+- Add user-approved screen sharing to Realtime Voice with transient, downscaled visual frames, stop-sharing cleanup, and borderless frosted-glass controls over a subtle full-screen dotted background.
+
+- Quick Free uses GPT-6 Luna as a main model for heavy, scraping, web and file requests (free models first for simple chat); Quick Paid never uses free models; optional paid web-search model for paid plans.
+- Route Quick Free and paid Quick file extraction and document interpretation through GPT-6 Luna as a first-class task-specific model route, with regression coverage.
+
+- Add versioned request-level estimates for Cerebras Developer-tier and selected Cloudflare Workers AI models. Add owner-only Cloudflare Billable Usage API reporting using USD `ContractedCost` values, plus explicit Cerebras actual-billing unavailability until a verified billing API is available. Add owner Finance coverage, tests, and setup documentation.
+
+- Direct-provider activity in Owner Command Center now carries a stable per-event request ID and safe optional request/response metadata (endpoint, method, HTTP status, error code, provider request ID, finish reason) alongside existing usage/token/latency telemetry. No prompt or completion text is stored; provider costs remain unknown unless explicitly provider-reported.
+
+- Owner AI Logs and Finance now use finite, non-negative `openrouter_logs.total_cost_usd` values even when older rows lack provenance tags; new OpenRouter telemetry records tag this source explicitly.
+- Save reply timing and token usage metadata in the assistant-message insert, avoiding a second write that could leave restored replies without usage details.
+
+- Route Quick Free image generation through the paid, low-cost OpenRouter image lane (`openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` fallback) when OpenRouter is configured, without changing Quick Free text-chat eligibility. Add regression coverage and document route overrides.
+
+- Enforce Quick Free's free-model-only policy independently of provider-presence flags, and prevent paid Quick from falling back to free OpenRouter models. Add regression coverage for the legacy flag-off case.
+
+- Persist sanitized reply timing and token-usage metadata on assistant messages in Supabase; conversation history and the reply details panel now use saved metadata instead of estimating historical token counts from text. Replies without stored metadata show "Not reported".
+
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
+- Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
+## OpenRouter generation ID and cost reconciliation fix — 2026-10-26
+
+- Capture the `gen-*` generation ID from OpenRouter response JSON independently of the HTTP request ID, and persist it to `openrouter_logs.openrouter_generation_id`.
+- Discover sync candidates from paginated Supabase request logs, including valid legacy `gen-*` IDs, instead of depending on Analytics generation-ID discovery.
+- Fetch authoritative per-generation cost, token counts, finish reason, latency, and generation time with the NasrinAI inference key; upsert only selected metadata and never store prompts or completions.
+- Add regression tests covering request-ID separation, log persistence, log-based discovery, provider metric mapping, and authorization errors.
+
+## OpenRouter generation discovery sync — 2026-10-26
+
+- Add a protected Vercel cron that discovers generation IDs via OpenRouter Analytics using the Management key, fetches generation metadata with the separate inference key, and idempotently upserts selected fields into private Supabase storage.
+- Add migration 072 for provider-discovered generation records with RLS enabled and no public/anon/authenticated access. Do not store raw provider responses, prompts, or completions.
+- Include imported generation records in Owner AI Logs without duplicating generations already represented by local request telemetry; preserve provider-reported cost provenance.
+- Add regression coverage for credential separation, sync persistence, and Owner AI Logs rendering.
+
+## Owner Command Center model inventory refresh — 2026-10-26
+
+- Replace inferred model membership with explicit OpenRouter and direct OpenAI, Google, and Anthropic inventories supplied for the Owner Command Center.
+- Preserve exact IDs, including the 51 supplied OpenRouter entries (49 unique IDs because two entries were repeated) and 14 direct-provider entries.
+- Classify recorded telemetry against the appropriate provider inventory only; unknown providers/aliases remain unknown. Catalog membership does not imply model readiness or fabricate activity/costs.
+- Add regression coverage for inventory counts and direct-provider AI Logs classification.
+
+## Rich reply rendering polish — 2026-10-26
+
+- Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
+- Render Markdown task lists as accessible, non-interactive completion indicators.
+- Refine long-answer paragraph rhythm and mobile table/code-block spacing while preserving safe DOM-only rendering.
+
+## OpenRouter generation-log reconciliation correction — 2026-10-26
+
+- Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; require same-origin JSON requests and retain the owner session, email/IP allowlist, rate-limit and explicit confirmation controls.
+- Reconcile using `openrouter_generation_id` first, with a validated `gen-` provider request ID fallback; arbitrary request IDs are not sent to the generation endpoint.
+- Revisit recent rows with missing or unverified cost provenance, including legacy rows with an existing unmarked cost, and overwrite only after a successful generation lookup returns a finite non-negative authoritative cost and matching generation identity.
+- Persist provider-reported cost provenance, model/provider, token counts and generation timing; convert generation API timing values from milliseconds to seconds. Do not fetch or store prompt/completion content.
+- Backfill legacy rows whose cost is present but provenance is missing/unverified. PATCH requests include the observed cost and provenance as optimistic concurrency guards, preventing stale reconciliation from overwriting a concurrently verified value.
+
+## Auto provider default and OpenRouter fallback — 2026-10-26
+
+- Restore the agreed production routing contract: `AI_PROVIDER=auto` is the documented production default and is also selected automatically for production when provider credentials exist but the variable is omitted. Unconfigured local/test environments remain safely disabled.
+- Quick routing policy: free Quick prioritizes OpenRouter `:free` models, reserves GPT-6 Luna for heavy tasks after free candidates, and uses allowlisted direct free providers as fallback; paid Quick uses only non-free OpenRouter candidates.
+- In Auto mode, prefer configured direct providers instead of injecting OpenRouter ahead of every route. Keep OpenRouter available as an additional fallback when independent direct providers are configured.
+- Fix Quick fallback ordering so explicitly allowlisted direct free-provider candidates are actually appended and tried before OpenRouter free models; retain the approved Luna emergency route and all tier/privacy/capability restrictions.
+- Add regression coverage and update routing/deployment documentation. No production environment variables, merge, or deployment are changed by this PR.
+- Validation: CI must pass before merge; production guest and signed-in Quick smoke tests remain required after deployment.
+
+- Restore Quick for guests and signed-in users during OpenRouter free-model outages: keep OpenRouter free models first, then allow only separately configured provider models explicitly present in their `*_FREE_MODELS` allowlist, with the approved Luna emergency route last. Preserve privacy checks and prohibit paid-model fallback; add regression coverage.
+- Fix guest-session database access for modern Supabase `sb_secret_` keys: send the opaque secret in `apikey` only rather than incorrectly treating it as a JWT Bearer token. Preserve the Authorization header for legacy `service_role` JWTs. Add regression coverage.
 - Update the AI Logs regression fixture to use a model in NasrinAI's configured catalog; verify live provider catalog calls are not used for inventory classification and unresolved aliases remain `unknown`.
 - Align AI Logs status copy with the configured NasrinAI catalog rather than implying a live provider-catalog check.
 - Respect the migration-062 `usage_events.cost_source` provenance marker: direct-provider usage costs are shown only when explicitly marked `provider_reported` with a valid non-negative amount; legacy/unmarked amounts remain unavailable.

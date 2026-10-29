@@ -1,32 +1,13 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { API_CSP, PAGE_CSP, sendJson } from './http/headers.js';
-import { MODEL_CAPABILITIES } from './ai/model-capabilities.js';
-import { OPENROUTER_MODEL_ROUTING } from './ai/openrouter-tier-routing.js';
-import { OPENROUTER_SKILL_CATALOG } from './ai/openrouter-catalog.js';
+import { ownerCatalogStatus } from './ai/owner-model-catalog.js';
+import { fetchDirectProviderBilling } from './ai/provider-cost-reconciliation.js';
+import { createGoogleSearchAnalytics } from './owner-google-search-analytics.js';
 
 const SESSION_COOKIE = 'nasrin_owner';
 const SESSION_SECONDS = 10 * 60;
 const NOT_FOUND = 'Page not found.';
-
-// Membership is defined by NasrinAI's configured source catalogs, never by a
-// provider's live catalog. This is inventory membership only, not runtime readiness.
-const NASRINAI_CATALOG_IDS = new Set([
-  ...MODEL_CAPABILITIES.map((entry) => entry?.id),
-  ...OPENROUTER_MODEL_ROUTING.map((entry) => entry?.id),
-  ...OPENROUTER_SKILL_CATALOG.map((entry) => entry?.id)
-].filter((id) => typeof id === 'string' && id.trim()).flatMap((id) => {
-  const value = id.trim().toLowerCase();
-  const slash = value.indexOf('/');
-  return slash > 0 ? [value, value.slice(slash + 1)] : [value];
-}));
-function nasrinCatalogStatus(model) {
-  const value = String(model || '').trim().toLowerCase();
-  if (!value || /^(?:actual model not reported|openrouter\/(?:auto|free)|auto)$/i.test(value)) return 'unknown';
-  const slash = value.indexOf('/');
-  const listed = NASRINAI_CATALOG_IDS.has(value) || (slash > 0 && NASRINAI_CATALOG_IDS.has(value.slice(slash + 1)));
-  return listed ? 'listed' : 'not_listed';
-}
 
 function sendNotFound(res, head = false) {
   res.statusCode = 404;
@@ -182,8 +163,10 @@ const dashboardHtml = `<!doctype html>
       <button class="nav-item" data-panel="openrouter-unlisted"><span>⌕</span>Unlisted Models</button>
       <button class="nav-item" data-panel="other-unlisted"><span>◇</span>AI Models Activities</button>
       <button class="nav-item" data-panel="learning"><span>✓</span>Community Learning</button>
+      <button class="nav-item" data-panel="intelligence"><span>↻</span>Continuous Intelligence</button>
       <button class="nav-item" data-panel="users"><span>♙</span>Users &amp; Growth</button>
       <button class="nav-item" data-panel="regional"><span>◎</span>Regional Analytics</button>
+      <button class="nav-item" data-panel="google-analytics"><span>⌕</span>Google Search &amp; Traffic</button>
       <button class="nav-item" data-panel="infra"><span>⌘</span>Infrastructure &amp; Releases</button>
       <button class="nav-item" data-panel="security"><span>◇</span>Security &amp; Audit</button>
       <button class="nav-item" data-panel="automation"><span>↗</span>Automation &amp; Jobs</button>
@@ -211,6 +194,7 @@ const panels = {
   'openrouter-unlisted': { title: 'Unlisted Models', description: 'Logged models missing from NasrinAI’s configured catalog.' },
   'other-unlisted': { title: 'AI Models Activities', description: 'All logged models: listed and unlisted.' },
   learning: { title: 'Community Learning Review', description: 'Review eligible examples before they can help future NasrinAI responses.' },
+  intelligence: { title: 'Continuous Intelligence', description: 'Hourly crawl health, trusted source coverage, and recent indexed pages. Retrieval is keyword-based until semantic indexing is implemented.' },
   users: { title: 'Users & Growth', description: 'Adoption and account trends, with personal data minimized by default.' },
   regional: { title: 'Regional Analytics', description: 'Approximate country, region, and city trends for registered users and guests. No raw IPs, emails, or GPS coordinates.' },
   infra: { title: 'Infrastructure & Releases', description: 'Deployment and dependency status from explicitly connected sources.' },
@@ -224,7 +208,7 @@ const panels = {
 
 function jsonError(res, head = false) { sendNotFound(res, head); }
 
-export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '', openrouterApiKey = '' }) {
+export function createOwnerConsole({ config, verifyUser, store = null, limiter = null, clientIp = () => '', now = () => Date.now(), logger = null, fetchImpl = globalThis.fetch, openrouterManagementKey = '', openrouterApiKey = '', googleSearchAnalytics = createGoogleSearchAnalytics({ fetchImpl }) }) {
   async function usageSince(since) {
     if (typeof store?.request !== 'function') return null;
     try {
@@ -414,6 +398,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
     const workflowWrite = req.method === 'POST' && workflowDispatchPath;
     const incidentAction = /^\/owner\/api\/incidents\/([0-9a-f-]{36})\/(acknowledge|resolve)$/.exec(pathname);
     const incidentWrite = req.method === 'POST' && (incidentCollectionPath || Boolean(incidentAction));
+    const reconciliationWrite = req.method === 'POST' && pathname === '/owner/api/openrouter-billing/reconcile';
     if (!ownerPath && !bootstrapPath && !reservedOwnerApi) return false;
 
     // In production the console UI/API exists only on the dedicated subdomain.
@@ -467,7 +452,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(pathname === '/owner/api/session' && req.method === 'DELETE') && !incidentWrite && !communityWrite && !workflowWrite && !reconciliationWrite) {
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     const allowlist = allowedRequest(req, config, clientIp);
@@ -476,6 +461,29 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       sendNotFound(res, req.method === 'HEAD'); return true;
     }
     if (!(await rateAllowed(req))) { sendNotFound(res, req.method === 'HEAD'); return true; }
+
+    if (pathname === '/owner/api/google-search-analytics' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '28d';
+      if (!['7d', '28d', '90d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 28d, or 90d.' } });
+        return true;
+      }
+      try {
+        const report = await googleSearchAnalytics.getReport(windowName);
+        sendJson(res, 200, report);
+      } catch (error) {
+        logger?.warn?.('owner Google search analytics unavailable', {
+          source: 'google_search_analytics',
+          reason: ['google_token_unavailable', 'google_api_unavailable'].includes(error?.message) ? error.message : 'internal_error'
+        });
+        sendJson(res, 503, {
+          status: 'unavailable',
+          error: { code: 'google_analytics_unavailable', message: 'Google analytics data could not be retrieved. Check the server-side Google integration and property permissions.' }
+        });
+      }
+      return true;
+    }
 
     if (pathname === '/owner/api/session' && req.method === 'DELETE') {
       if (!trustedSameOrigin(req)) { sendNotFound(res); return true; }
@@ -703,6 +711,68 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       });
       return true;
     }
+    if (pathname === '/owner/api/continuous-intelligence' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (store?.kind !== 'supabase' || typeof store.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'continuous_intelligence_unavailable', message: 'Continuous intelligence telemetry is unavailable until the crawl tables are connected.' } });
+        return true;
+      }
+      try {
+        const [queueRows, pageRows, runRows, semanticRows] = await Promise.all([
+          store.request('GET', 'web_crawl_queue?select=status,source,attempts,next_crawl_at,last_crawled_at,last_error&order=created_at.desc&limit=500'),
+          store.request('GET', 'web_crawl_pages?select=url,title,fetched_at,content_hash&order=fetched_at.desc&limit=50'),
+          store.request('GET', 'knowledge_learning_runs?select=started_at,finished_at,status,seed_count,crawl_processed,indexed_pages,indexed_chunks,skipped_unchanged,embedding_failures,duration_ms,error_code&order=started_at.desc&limit=5'),
+          store.request('GET', 'public_technical_chunks?select=id&limit=1000')
+        ]);
+        if (!Array.isArray(queueRows) || !Array.isArray(pageRows) || !Array.isArray(runRows) || !Array.isArray(semanticRows)) throw new Error('invalid crawler telemetry');
+        const statusCounts = {}, sourceCounts = {};
+        let attempts = 0;
+        for (const row of queueRows) {
+          const status = ['queued','processing','indexed','retry','robots_denied'].includes(row.status) ? row.status : 'unknown';
+          const source = ['research','discovered','owner_seed'].includes(row.source) ? row.source : 'unknown';
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+          sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+          attempts += Number.isSafeInteger(Number(row.attempts)) && Number(row.attempts) > 0 ? Number(row.attempts) : 0;
+        }
+        const recentPages = pageRows.slice(0, 50).flatMap((row) => {
+          let url;
+          try { url = new URL(String(row.url || '')); } catch { return []; }
+          if (url.protocol !== 'https:' || url.username || url.password) return [];
+          return [{
+            url: url.href.slice(0, 2000),
+            title: String(row.title || url.hostname).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 160) || url.hostname,
+            fetched_at: typeof row.fetched_at === 'string' ? row.fetched_at.slice(0, 40) : null,
+            content_hash: /^[0-9a-f]{64}$/.test(String(row.content_hash || '')) ? row.content_hash : null
+          }];
+        });
+        sendJson(res, 200, {
+          source: 'supabase.web_crawl_queue+web_crawl_pages',
+          generated_at: new Date(now()).toISOString(),
+          coverage: { queue_rows_sampled: queueRows.length, queue_sample_limit: 500, page_rows_sampled: recentPages.length, page_sample_limit: 50, queue_sample_may_be_truncated: queueRows.length === 500 },
+          queue: { status_counts: statusCounts, source_counts: sourceCounts, total_attempts_in_sample: attempts },
+          recent_pages: recentPages,
+          learning_runs: {
+            recent: runRows.slice(0, 5).map((row) => ({
+              started_at: typeof row.started_at === 'string' ? row.started_at : null,
+              finished_at: typeof row.finished_at === 'string' ? row.finished_at : null,
+              status: ['running','succeeded','partial','failed'].includes(row.status) ? row.status : 'unknown',
+              seed_count: Number(row.seed_count) || 0, crawl_processed: Number(row.crawl_processed) || 0,
+              indexed_pages: Number(row.indexed_pages) || 0, indexed_chunks: Number(row.indexed_chunks) || 0,
+              skipped_unchanged: Number(row.skipped_unchanged) || 0, embedding_failures: Number(row.embedding_failures) || 0,
+              duration_ms: Number.isFinite(Number(row.duration_ms)) ? Number(row.duration_ms) : null,
+              error_code: /^[a-z0-9_]{1,64}$/.test(String(row.error_code || '')) ? row.error_code : null
+            })),
+            sample_limit: 5
+          },
+          semantic_index: { enabled: process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true', chunks_sampled: semanticRows.length, sample_limit: 1000, sample_may_be_truncated: semanticRows.length === 1000 },
+          retrieval: { mode: process.env.SEMANTIC_KNOWLEDGE_ENABLED === 'true' && semanticRows.length > 0 ? 'semantic_vector' : 'keyword_fallback', official_host_allowlist: true, source_citations: true, embedding_model: 'openai/text-embedding-3-small@384' },
+          privacy: 'No page body text, user prompts, or raw crawler errors are exposed.'
+        });
+      } catch {
+        logger?.warn?.('continuous intelligence owner telemetry unavailable', { source: 'web_crawl_queue,web_crawl_pages' });
+        sendJson(res, 503, { error: { code: 'continuous_intelligence_unavailable', message: 'Crawler telemetry could not be loaded. Verify migration 044 and server-side database access.' } });
+      }
+      return true;
+    }
     if (pathname === '/owner/api/regional-analytics' && (req.method === 'GET' || req.method === 'HEAD')) {
       if (typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'regional_analytics_unavailable', message: 'Regional analytics storage is not connected.' } });
@@ -913,10 +983,50 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       };
       try {
         const [usageRows, routerRows] = await Promise.all([
-          store.request('GET', 'usage_events?select=provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000'),
+          (async () => {
+            const cutoffFilter = 'created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000';
+            const columns = 'request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,cached_tokens,output_tokens,latency_ms,cost_usd,cost_source,estimated_cost_usd,estimated_cost_source,pricing_version,estimated_cost_at';
+            const baseColumns = 'request_id,endpoint,http_method,http_status,error_code,provider_request_id,finish_reason,provider,model,task,outcome,created_at,input_tokens,cached_tokens,output_tokens,latency_ms,cost_usd,cost_source';
+            const legacyColumns = 'provider,model,task,outcome,created_at,input_tokens,output_tokens,latency_ms,cost_usd,cost_source';
+            try {
+              return await store.request('GET', 'usage_events?select=' + columns + '&' + cutoffFilter);
+            } catch (error) {
+              if (!/PGRST204|column|schema cache/i.test(String(error?.message || error))) throw error;
+              if (/estimated_cost_usd|estimated_cost_source|pricing_version|estimated_cost_at/i.test(String(error?.message || error))) {
+                try { return await store.request('GET', 'usage_events?select=' + baseColumns + '&' + cutoffFilter); }
+                catch (baseError) {
+                  if (!/PGRST204|column|schema cache/i.test(String(baseError?.message || baseError)) || !/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason|cached_tokens/i.test(String(baseError?.message || baseError))) throw baseError;
+                  return store.request('GET', 'usage_events?select=' + legacyColumns + '&' + cutoffFilter);
+                }
+              }
+              if (/request_id|endpoint|http_method|http_status|error_code|provider_request_id|finish_reason|cached_tokens/i.test(String(error?.message || error))) {
+                return store.request('GET', 'usage_events?select=' + legacyColumns + '&' + cutoffFilter);
+              }
+              throw error;
+            }
+          })(),
           store.request('GET', 'openrouter_logs?select=id,request_id,created_at,provider,upstream_provider,finish_reason,generation_time_seconds,upstream_inference_time_seconds,endpoint,http_method,requested_model,model,prompt_tokens,cached_tokens,completion_tokens,total_tokens,total_cost_usd,status,http_status,error_code,latency_ms,provider_request_id,openrouter_generation_id,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000')
         ]);
         if (!Array.isArray(usageRows) || !Array.isArray(routerRows)) throw new Error('invalid telemetry rows');
+        let generationRows = [];
+        let generationSourceAvailable = true;
+        try {
+          const imported = await store.request('GET', 'openrouter_generations?select=generation_id,created_at,model,provider_name,cost_total,tokens_prompt,tokens_completion,tokens_reasoning,tokens_cached,finish_reason,finish_reason_norm,latency_ms,generation_time_ms,request_id&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=1000');
+          if (Array.isArray(imported)) generationRows = imported;
+          else generationSourceAvailable = false;
+        } catch {
+          // Keep existing request logs available until migration 072 is applied or if the sync table is temporarily unavailable.
+          generationSourceAvailable = false;
+          logger?.warn?.('OpenRouter generation records unavailable', { source: 'openrouter_generations' });
+        }
+        // Join authoritative generation metadata to local request logs by the
+        // provider generation ID. Local logs often arrive before cost reconciliation;
+        // without this join the dashboard would hide costs already saved by the sync job.
+        const generationById = new Map();
+        for (const generationRow of generationRows) {
+          const generationId = String(generationRow?.generation_id || '').trim();
+          if (/^gen-[0-9A-Za-z-]{1,120}$/.test(generationId)) generationById.set(generationId, generationRow);
+        }
         // Deliberately do not use provider live catalogs to classify NasrinAI inventory membership.
         const rows = [];
         for (const row of routerRows) {
@@ -925,22 +1035,75 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // Such rows are inferred request targets, not proof that the alias itself executed.
           const model = normalizeModel(actual || row.requested_model || 'Actual model not reported', 'openrouter');
           const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
-          const catalogStatus = nasrinCatalogStatus(model);
+          const catalogStatus = ownerCatalogStatus(model, 'openrouter');
           const modelStatus = actual ? 'observed' : row.requested_model ? 'inferred' : 'unavailable';
+          const generationId = [row.openrouter_generation_id, row.provider_request_id]
+            .find((value) => typeof value === 'string' && /^gen-[0-9A-Za-z-]{1,120}$/.test(value.trim()))?.trim() || '';
+          const generation = generationId ? generationById.get(generationId) : null;
+          const generationCostValue = generation?.cost_total;
+          const generationCost = generationCostValue === null || generationCostValue === undefined || generationCostValue === ''
+            ? null : Number(generationCostValue);
+          const hasGenerationCost = generationCost !== null && Number.isFinite(generationCost) && generationCost >= 0;
+          const hasVerifiedLogCost = row.total_cost_usd !== null && row.total_cost_usd !== undefined && row.total_cost_usd !== '' &&
+            Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0;
+          const providerCost = hasGenerationCost ? generationCost : hasVerifiedLogCost ? Number(row.total_cost_usd) : null;
+          const providerCostSource = providerCost === null ? null
+            : hasGenerationCost ? 'openrouter_generation_api'
+              : row.provider_cost_source || 'openrouter_logs.total_cost_usd';
+          const generationMs = generation?.generation_time_ms === null || generation?.generation_time_ms === undefined
+            ? null : Number(generation.generation_time_ms);
           rows.push({
             id: row.id, request_id: row.request_id, created_at: row.created_at, provider: 'openrouter',
             upstream_provider: row.upstream_provider || null, endpoint: row.endpoint, http_method: row.http_method,
             requested_model: row.requested_model, model, status, http_status: row.http_status, error_code: row.error_code,
-            prompt_tokens: row.prompt_tokens, cached_tokens: row.cached_tokens, completion_tokens: row.completion_tokens,
-            total_tokens: row.total_tokens,
-            total_cost_usd: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? Number(row.total_cost_usd) : null,
-            provider_cost_source: row.provider_cost_source === 'openrouter_generation_api' ? row.provider_cost_source : null,
+            prompt_tokens: row.prompt_tokens ?? generation?.tokens_prompt ?? null,
+            cached_tokens: row.cached_tokens ?? generation?.tokens_cached ?? null,
+            completion_tokens: row.completion_tokens ?? generation?.tokens_completion ?? null,
+            total_tokens: row.total_tokens ?? (generation?.tokens_prompt != null && generation?.tokens_completion != null
+              ? Number(generation.tokens_prompt) + Number(generation.tokens_completion) : null),
+            total_cost_usd: providerCost,
+            provider_cost_source: providerCostSource,
             provider_request_id: row.provider_request_id, openrouter_generation_id: row.openrouter_generation_id,
-            finish_reason: row.finish_reason, generation_time_seconds: row.generation_time_seconds,
-            upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms,
+            finish_reason: row.finish_reason || generation?.finish_reason || generation?.finish_reason_norm || null,
+            generation_time_seconds: row.generation_time_seconds ?? (Number.isFinite(generationMs) && generationMs >= 0 ? generationMs / 1000 : null),
+            upstream_inference_time_seconds: row.upstream_inference_time_seconds, latency_ms: row.latency_ms ?? generation?.latency_ms ?? null,
             catalog_status: catalogStatus, model_status: modelStatus,
             model_status_source: actual ? 'provider_response' : row.requested_model ? 'requested_model_alias' : 'missing_model_metadata',
-            telemetry_source: 'openrouter_logs', cost_kind: row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd != null && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0 ? 'provider_reported' : 'unknown'
+            telemetry_source: 'openrouter_logs', cost_kind: providerCost !== null ? 'provider_reported' : 'unknown'
+          });
+        }
+        // Include provider-discovered generations even when NasrinAI's best-effort
+        // request logger did not persist a corresponding local request row.
+        // Avoid double-counting generations already represented by local telemetry.
+        const locallyLoggedGenerationIds = new Set(routerRows.flatMap((row) => {
+          const candidates = [row.openrouter_generation_id, row.provider_request_id];
+          return candidates.filter((value) => typeof value === 'string' && /^gen-[0-9A-Za-z-]{1,120}$/.test(value.trim())).map((value) => value.trim());
+        }));
+        for (const row of generationRows) {
+          const generationId = String(row.generation_id || '').trim();
+          if (!/^gen-[0-9A-Za-z-]{1,120}$/.test(generationId) || locallyLoggedGenerationIds.has(generationId)) continue;
+          const model = normalizeModel(row.model || 'Actual model not reported', 'openrouter');
+          const cost = row.cost_total === null || row.cost_total === undefined || row.cost_total === '' ? null : Number(row.cost_total);
+          const validCost = cost !== null && Number.isFinite(cost) && cost >= 0;
+          const generationMs = row.generation_time_ms === null || row.generation_time_ms === undefined ? null : Number(row.generation_time_ms);
+          rows.push({
+            id: null, request_id: row.request_id || null, created_at: row.created_at, provider: 'openrouter',
+            upstream_provider: row.provider_name || null, endpoint: '/generation', http_method: 'GET',
+            requested_model: model, model, status: 'success', http_status: 200, error_code: null,
+            prompt_tokens: row.tokens_prompt, cached_tokens: row.tokens_cached, completion_tokens: row.tokens_completion,
+            total_tokens: Number.isFinite(Number(row.tokens_prompt)) && Number.isFinite(Number(row.tokens_completion))
+              ? Number(row.tokens_prompt) + Number(row.tokens_completion) : null,
+            total_cost_usd: validCost ? cost : null,
+            provider_cost_source: validCost ? 'openrouter_generation_api' : null,
+            provider_request_id: generationId, openrouter_generation_id: generationId,
+            finish_reason: row.finish_reason || row.finish_reason_norm || null,
+            generation_time_seconds: Number.isFinite(generationMs) && generationMs >= 0 ? generationMs / 1000 : null,
+            upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
+            catalog_status: ownerCatalogStatus(model, 'openrouter'),
+            model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
+            model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'openrouter_generation_api',
+            telemetry_source: 'openrouter_generations',
+            cost_kind: validCost ? 'provider_reported' : 'unknown'
           });
         }
         for (const row of usageRows) {
@@ -956,17 +1119,27 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           // Legacy usage_events.cost_usd values may be estimates. Trust only the
           // explicit cost_source marker enforced by migration 062.
           rows.push({
-            id: null, request_id: null, created_at: row.created_at, provider: catalogProvider,
-            upstream_provider: null, endpoint: null, http_method: null, requested_model: model, model,
-            status, http_status: null, error_code: null, prompt_tokens: row.input_tokens, cached_tokens: null,
+            id: null, request_id: row.request_id || null, created_at: row.created_at, provider: catalogProvider,
+            upstream_provider: null, endpoint: row.endpoint || null, http_method: row.http_method || null, requested_model: model, model,
+            status, http_status: row.http_status ?? null, error_code: row.error_code || null, prompt_tokens: row.input_tokens, cached_tokens: row.cached_tokens ?? null,
             completion_tokens: row.output_tokens, total_tokens: (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0),
-            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? Number(row.cost_usd) : null,
-            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null, provider_request_id: null, openrouter_generation_id: null,
-            finish_reason: null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
-            catalog_status: nasrinCatalogStatus(model),
+            total_cost_usd: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0
+              ? Number(row.cost_usd)
+              : row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' && row.estimated_cost_usd != null && Number.isFinite(Number(row.estimated_cost_usd)) && Number(row.estimated_cost_usd) >= 0
+                ? Number(row.estimated_cost_usd) : null,
+            provider_cost_source: row.cost_source === 'provider_reported' ? 'usage_events.provider_reported' : null,
+            estimated_cost_source: row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' ? row.estimated_cost_source : null,
+            pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null,
+            provider_request_id: row.provider_request_id || null, openrouter_generation_id: null,
+            finish_reason: row.finish_reason || null, generation_time_seconds: null, upstream_inference_time_seconds: null, latency_ms: row.latency_ms,
+            catalog_status: ownerCatalogStatus(model, catalogProvider),
             model_status: model === 'Actual model not reported' ? 'unavailable' : 'observed',
             model_status_source: model === 'Actual model not reported' ? 'missing_model_metadata' : 'usage_event',
-            telemetry_source: 'usage_events', cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0 ? 'provider_reported' : 'unknown'
+            telemetry_source: 'usage_events',
+            cost_kind: row.cost_source === 'provider_reported' && row.cost_usd != null && Number.isFinite(Number(row.cost_usd)) && Number(row.cost_usd) >= 0
+              ? 'provider_reported'
+              : row.estimated_cost_source === 'pricing_registry_v1_standard_list_price' && row.estimated_cost_usd != null && Number.isFinite(Number(row.estimated_cost_usd)) && Number(row.estimated_cost_usd) >= 0
+                ? 'estimated' : 'unknown'
           });
         }
         const canonicalFilter = providerFilter === 'gemini' ? 'google' : providerFilter === 'claude' ? 'anthropic' : providerFilter;
@@ -981,10 +1154,11 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
         const page = filtered.slice(offset, offset + limit);
         sendJson(res, 200, {
-          source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs',
+          source: 'nasrinai_configured_catalog+supabase.usage_events+supabase.openrouter_logs+supabase.openrouter_generations',
+          generation_source_available: generationSourceAvailable,
           generated_at: new Date(now()).toISOString(), window: windowName, provider: providerFilter, scope,
           limit, offset, count: filtered.length, has_more: offset + limit < filtered.length,
-          coverage_limited: usageRows.length === 1000 || routerRows.length === 1000,
+          coverage_limited: usageRows.length === 1000 || routerRows.length === 1000 || generationRows.length === 1000,
           catalog_source: 'nasrinai_configured_catalog',
           rows: page
         });
@@ -1024,7 +1198,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           const key = p + '\u0000' + m;
           let item = grouped.get(key);
           if (!item) {
-            item = { provider: p, model: m, first_seen: row.created_at || null, last_seen: row.created_at || null,
+            item = { provider: p, catalog_provider: source === 'openrouter_logs' ? 'openrouter' : p, model: m, first_seen: row.created_at || null, last_seen: row.created_at || null,
               request_count: 0, successes: 0, failures: 0, input_tokens: 0, output_tokens: 0,
               cost_usd: 0, cost_known: false, cost_sources: new Set(), sources: new Set(), actual_model_confirmed: false };
             grouped.set(key, item);
@@ -1039,7 +1213,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           item.output_tokens += Math.max(0, Number(row.output_tokens ?? row.completion_tokens) || 0);
           // Only generation-reconciled OpenRouter cost is verified provider spend.
           // usage_events.cost_usd is an application-side estimate without provenance.
-          const cost = source === 'usage_events' && row.cost_source === 'provider_reported' ? row.cost_usd : source === 'openrouter_logs' && row.provider_cost_source === 'openrouter_generation_api' ? row.total_cost_usd : null;
+          const cost = source === 'usage_events' && row.cost_source === 'provider_reported' ? row.cost_usd : source === 'openrouter_logs' && ['openrouter_generation_api', 'openrouter_logs.total_cost_usd'].includes(row.provider_cost_source) ? row.total_cost_usd : null;
           if (cost !== null && cost !== undefined && Number.isFinite(Number(cost)) && Number(cost) >= 0) {
             item.cost_usd += Number(cost); item.cost_known = true; item.cost_sources.add(source === 'usage_events' ? 'usage_events.provider_reported' : 'openrouter_generation_api');
           }
@@ -1052,7 +1226,7 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
           if (row.model) add(row.upstream_provider || row.provider, row.model, row, 'openrouter_logs', true);
         }
         const rows = [...grouped.values()].map((item) => {
-          const catalogStatus = nasrinCatalogStatus(item.model);
+          const catalogStatus = ownerCatalogStatus(item.model, item.catalog_provider);
           const result = {
             provider: item.provider, model: item.model, first_seen: item.first_seen, last_seen: item.last_seen,
             request_count: item.request_count, successes: item.successes, failures: item.failures,
@@ -1073,6 +1247,74 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       } catch {
         logger?.warn?.('Cross-provider model telemetry unavailable', { source: 'model_telemetry' });
         sendJson(res, 503, { error: { code: 'model_telemetry_unavailable', message: 'Model telemetry could not be loaded. Verify owner database access and provider usage logging.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/provider-billing' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const owner = config?.ownerConsole || {};
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      if (!['7d', '30d', '90d'].includes(windowName)) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const report = await fetchDirectProviderBilling({
+          openaiAdminKey: owner.openaiAdminKey,
+          anthropicAdminKey: owner.anthropicAdminKey,
+          cloudflareBillingApiToken: owner.cloudflareBillingApiToken,
+          cloudflareAccountId: owner.cloudflareAccountId,
+          window: windowName,
+          now,
+          fetchImpl
+        });
+        sendJson(res, 200, report);
+      } catch {
+        logger?.warn?.('direct provider billing reconciliation unavailable', { source: 'provider_billing' });
+        sendJson(res, 503, { error: { code: 'provider_billing_unavailable', message: 'Direct-provider billing data could not be loaded.' } });
+      }
+      return true;
+    }
+    if (pathname === '/owner/api/estimated-costs' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (typeof store?.request !== 'function') {
+        sendJson(res, 503, { error: { code: 'estimated_costs_unavailable', message: 'Request estimate telemetry is not connected.' } });
+        return true;
+      }
+      const url = new URL(req.url, 'http://local');
+      const windowName = url.searchParams.get('window') || '7d';
+      const windowDays = { '7d': 7, '30d': 30, '90d': 90 }[windowName];
+      if (!windowDays) {
+        sendJson(res, 400, { error: { code: 'invalid_window', message: 'Choose 7d, 30d, or 90d.' } });
+        return true;
+      }
+      try {
+        const summaryValue = await store.request('POST', 'rpc/owner_console_estimated_cost_summary', {
+          body: { p_since: new Date(now() - windowDays * 86400_000).toISOString() }
+        });
+        const summary = Array.isArray(summaryValue) ? summaryValue[0] : summaryValue;
+        if (!summary || typeof summary !== 'object' || !Array.isArray(summary.rows)) throw new Error('invalid estimate summary');
+        sendJson(res, 200, {
+          source: 'supabase.owner_console_estimated_cost_summary',
+          generated_at: new Date(now()).toISOString(),
+          window: windowName,
+          summary: {
+            request_count: Math.max(0, Number(summary.request_count) || 0),
+            estimated_total_usd: Number.isFinite(Number(summary.estimated_total_usd)) ? Math.max(0, Number(summary.estimated_total_usd)) : null,
+            pricing_versions: Array.isArray(summary.pricing_versions) ? summary.pricing_versions.filter((value) => typeof value === 'string').slice(0, 10) : [],
+            rows: summary.rows.slice(0, 200).map((row) => ({
+              provider: typeof row.provider === 'string' ? row.provider.slice(0, 40) : 'unknown',
+              model: typeof row.model === 'string' ? row.model.slice(0, 160) : 'unknown',
+              request_count: Math.max(0, Number(row.request_count) || 0),
+              estimated_cost_usd: Number.isFinite(Number(row.estimated_cost_usd)) ? Math.max(0, Number(row.estimated_cost_usd)) : null,
+              latest_at: typeof row.latest_at === 'string' ? row.latest_at : null,
+              pricing_version: typeof row.pricing_version === 'string' ? row.pricing_version : null
+            }))
+          },
+          note: 'These are application estimates using a versioned public list-price registry, not provider-billed actual costs. Gemini estimates use paid Standard list prices because free-quota eligibility is not confirmed per request. Cerebras and Cloudflare Workers AI estimates use published token rates; Cloudflare free neuron allocation and account billing adjustments are not allocated per request. OpenRouter is excluded to prevent double-counting.'
+        });
+      } catch {
+        logger?.warn?.('owner estimated-cost summary unavailable', { source: 'usage_events_estimated_cost' });
+        sendJson(res, 503, { error: { code: 'estimated_costs_unavailable', message: 'Estimated request costs could not be loaded. Confirm migration 077 is applied.' } });
       }
       return true;
     }
@@ -1220,6 +1462,10 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
       return true;
     }
     if (pathname === '/owner/api/openrouter-billing/reconcile' && req.method === 'POST') {
+      if (!trustedSameOrigin(req) || String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
+        sendNotFound(res);
+        return true;
+      }
       if (!openrouterApiKey || typeof fetchImpl !== 'function' || typeof store?.request !== 'function') {
         sendJson(res, 503, { error: { code: 'reconciliation_not_configured', message: 'Provider reconciliation is not configured on the server.' } });
         return true;
@@ -1233,12 +1479,25 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
         const windowName = body.window === '7d' ? '7d' : '30d';
         const days = windowName === '7d' ? 7 : 30;
         const cutoff = new Date(now() - days * 86400000).toISOString();
-        const rows = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,created_at,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd&provider_request_id=not.is.null&total_cost_usd=is.null&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=100');
+        // Query a bounded recent window, then reconcile only rows with a real
+        // OpenRouter generation ID. Legacy cost values without provenance are
+        // deliberately eligible for authoritative replacement/backfill.
+        const rows = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,openrouter_generation_id,created_at,model,prompt_tokens,completion_tokens,total_tokens,total_cost_usd,provider_cost_source&created_at=gte.' + encodeURIComponent(cutoff) + '&order=created_at.desc&limit=500');
         if (!Array.isArray(rows)) throw new Error('invalid telemetry rows');
+        const eligible = rows.filter((row) => {
+          const candidates = [row.openrouter_generation_id, row.provider_request_id]
+            .filter((value) => typeof value === 'string')
+            .map((value) => value.trim());
+          const validId = candidates.some((id) => /^gen-[0-9A-Za-z-]{1,120}$/.test(id));
+          const verified = row.provider_cost_source === 'openrouter_generation_api' &&
+            row.total_cost_usd !== null && row.total_cost_usd !== undefined &&
+            row.total_cost_usd !== '' && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0;
+          return validId && !verified;
+        });
         let matched = 0, updated = 0, unavailable = 0, failed = 0;
-        for (const row of rows) {
-          const generationId = typeof row.provider_request_id === 'string' ? row.provider_request_id.trim() : '';
-          if (!generationId || generationId.length > 200) { unavailable++; continue; }
+        for (const row of eligible) {
+          const generationId = [row.openrouter_generation_id, row.provider_request_id]
+            .find((value) => typeof value === 'string' && /^gen-[0-9A-Za-z-]{1,120}$/.test(value.trim()))?.trim() || '';
           try {
             const response = await fetchImpl('https://openrouter.ai/api/v1/generation?id=' + encodeURIComponent(generationId), {
               method: 'GET',
@@ -1251,18 +1510,20 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             const generation = payload?.data;
             const costValue = generation?.total_cost ?? generation?.usage;
             const cost = costValue === null || costValue === undefined || costValue === '' ? NaN : Number(costValue);
-            if (!generation || !Number.isFinite(cost) || cost < 0) { unavailable++; continue; }
+            if (!generation || (generation.id && generation.id !== generationId) || !Number.isFinite(cost) || cost < 0) { unavailable++; continue; }
             const providerModel = typeof generation.model === 'string' ? generation.model.slice(0, 180) : row.model;
             const promptTokens = Number(generation.tokens_prompt ?? generation.prompt_tokens);
             const completionTokens = Number(generation.tokens_completion ?? generation.completion_tokens);
             const totalTokens = Number(generation.tokens ?? generation.total_tokens);
+            const generationTime = Number(generation.generation_time);
+            const upstreamTime = Number(generation.upstream_inference_time);
             const patch = {
               total_cost_usd: cost,
               model: providerModel || null,
               upstream_provider: typeof generation.provider_name === 'string' ? generation.provider_name.slice(0, 160) : null,
-              finish_reason: typeof generation.finish_reason === 'string' ? generation.finish_reason.slice(0, 120) : null,
-              generation_time_seconds: Number.isFinite(Number(generation.generation_time)) && Number(generation.generation_time) >= 0 ? Number(generation.generation_time) : null,
-              upstream_inference_time_seconds: Number.isFinite(Number(generation.upstream_inference_time)) && Number(generation.upstream_inference_time) >= 0 ? Number(generation.upstream_inference_time) : null,
+              finish_reason: typeof (generation.native_finish_reason ?? generation.finish_reason) === 'string' ? String(generation.native_finish_reason ?? generation.finish_reason).slice(0, 120) : null,
+              generation_time_seconds: Number.isFinite(generationTime) && generationTime >= 0 ? generationTime / 1000 : null,
+              upstream_inference_time_seconds: Number.isFinite(upstreamTime) && upstreamTime >= 0 ? upstreamTime / 1000 : null,
               openrouter_generation_id: generationId,
               provider_cost_source: 'openrouter_generation_api',
               provider_cost_reconciled_at: new Date(now()).toISOString()
@@ -1270,7 +1531,15 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             if (Number.isSafeInteger(promptTokens) && promptTokens >= 0) patch.prompt_tokens = promptTokens;
             if (Number.isSafeInteger(completionTokens) && completionTokens >= 0) patch.completion_tokens = completionTokens;
             if (Number.isSafeInteger(totalTokens) && totalTokens >= 0) patch.total_tokens = totalTokens;
-            const result = await store.request('PATCH', 'openrouter_logs?id=eq.' + encodeURIComponent(row.id) + '&total_cost_usd=is.null', { body: patch, headers: { Prefer: 'return=representation' } });
+            // Optimistic concurrency guard: only replace the exact cost/provenance
+            // observed above, so a concurrent verified reconciliation is never overwritten.
+            const sourceFilter = row.provider_cost_source === null || row.provider_cost_source === undefined || row.provider_cost_source === ''
+              ? '&provider_cost_source=is.null'
+              : '&provider_cost_source=eq.' + encodeURIComponent(String(row.provider_cost_source));
+            const costFilter = row.total_cost_usd === null || row.total_cost_usd === undefined || row.total_cost_usd === ''
+              ? '&total_cost_usd=is.null'
+              : '&total_cost_usd=eq.' + encodeURIComponent(String(row.total_cost_usd));
+            const result = await store.request('PATCH', 'openrouter_logs?id=eq.' + encodeURIComponent(row.id) + sourceFilter + costFilter, { body: patch, headers: { Prefer: 'return=representation' } });
             if (Array.isArray(result) && result.length) updated++;
             else unavailable++;
             matched++;
@@ -1278,14 +1547,14 @@ export function createOwnerConsole({ config, verifyUser, store = null, limiter =
             failed++;
           }
         }
-        const summary = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,total_cost_usd,created_at&created_at=gte.' + encodeURIComponent(cutoff) + '&limit=1000');
+        const summary = await store.request('GET', 'openrouter_logs?select=id,provider_request_id,openrouter_generation_id,total_cost_usd,provider_cost_source,created_at&created_at=gte.' + encodeURIComponent(cutoff) + '&limit=1000');
         const all = Array.isArray(summary) ? summary : [];
-        const reconciled = all.filter((row) => row.provider_request_id && row.total_cost_usd !== null && row.total_cost_usd !== undefined).length;
+        const reconciled = all.filter((row) => (row.openrouter_generation_id || row.provider_request_id) && row.provider_cost_source === 'openrouter_generation_api' && row.total_cost_usd !== null && row.total_cost_usd !== undefined && Number.isFinite(Number(row.total_cost_usd)) && Number(row.total_cost_usd) >= 0).length;
         sendJson(res, 200, {
           source: 'openrouter_generation_api',
           generated_at: new Date(now()).toISOString(),
           window: windowName,
-          attempted: rows.length,
+          attempted: eligible.length,
           matched,
           updated,
           unavailable,

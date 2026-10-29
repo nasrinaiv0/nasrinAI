@@ -39,7 +39,7 @@ from a phone browser. Production from `main` comes after you approve merging
    | `SUPABASE_SECRET_KEY` | Supabase service_role / secret key (Sensitive) |
    | `GUEST_SESSION_SECRET` | The 64 characters from step 1 (Sensitive) |
    | `CRON_SECRET` | A separate random 32+ character secret for hourly retention cleanup (Sensitive) |
-   | `AI_PROVIDER` | `openai` |
+   | `AI_PROVIDER` | `auto` |
    | `OPENAI_API_KEY` | Your OpenAI key (Sensitive) |
    | `OPENAI_MODEL` | `gpt-4o-mini` |
 

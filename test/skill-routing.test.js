@@ -30,3 +30,12 @@ test('attachment instructions require execution-first behavior and honest capabi
   assert.match(prompt, /name that missing capability specifically/i);
   assert.match(prompt, /Never imply the app can perform a transformation solely because the model can describe it/i);
 });
+
+test('Google app requests offer the Google tools', async () => {
+  const { GOOGLE_ASK } = await import('../src/chat.js');
+  for (const request of ['but my gmail is connected', 'summarize my inbox', 'read my emails', 'what is in my google drive',
+    'send an email to Bob', 'what meetings do I have', 'create a google meet link', 'list my keep notes', 'add an event to my calendar']) {
+    assert.equal(GOOGLE_ASK.test(request), true, request);
+  }
+  for (const request of ['Hello!', 'Tell me a joke', 'how do I drive safely in rain']) assert.equal(GOOGLE_ASK.test(request), false, request);
+});

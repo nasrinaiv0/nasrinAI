@@ -68,6 +68,7 @@ import { createSiteIcons } from './web/site-icon.js';
 import { createImageSearch } from './web/image-search.js';
 import { createPagePreviews } from './web/page-preview.js';
 import { createWebCrawler } from './web/crawler.js';
+import { createCrawlerKnowledgeIndexer } from './knowledge/crawler-index.js';
 import { createYouTubeSearch } from './web/youtube.js';
 import { createIntegrationStore } from './integrations/store.js';
 import { createGoogleWeatherTool } from './weather/google-weather.js';
@@ -206,7 +207,7 @@ export function buildApp({ config, logger }) {
   const videoStudioRenderWorker = config.supabaseUrl && config.supabaseSecretKey
     ? createVideoStudioRenderWorker({ config: effective, logger }) : null;
   // Tools: the basic ones for everyone, plus each business's own connectors.
-  const knowledge = createKnowledge({ store, logger });
+  const knowledge = createKnowledge({ store, logger, embedder });
   const memory = createMemory({ store, logger });
   const communityLearning = createCommunityLearning({ store, logger });
   const library = createLibrary({ store, limiter, config: effective, logger });
@@ -240,9 +241,10 @@ export function buildApp({ config, logger }) {
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });
-  const crawler = config.supabaseUrl ? createWebCrawler({ store, logger }) : null;
+  const crawler = config.supabaseUrl ? createWebCrawler({ store, logger, embedder }) : null;
+  const crawlerKnowledgeIndexer = config.supabaseUrl ? createCrawlerKnowledgeIndexer({ store, logger, platformTenantId: PLATFORM_TENANT_ID }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, library, projects, storage, founder, productKnowledge, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
@@ -277,7 +279,7 @@ export function buildApp({ config, logger }) {
     logger,
     gateway,
     ownerConsole: createOwnerConsole({ config: effective, verifyUser, store, limiter, clientIp: (req) => clientIpFrom(req, config.trustProxyHops), logger, openrouterManagementKey: process.env.OPENROUTER_MANAGEMENT_KEY || process.env.OPENROUTER_MANAGEMENT_API_KEY || '', openrouterApiKey: config.ai.openrouterApiKey || process.env.OPENROUTER_API_KEY || '' }),
-    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, integrations, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
+    routes: buildRoutes({ config: effective, gateway, store, limiter, usageLog, conversations, chat, provider, models, voice, openRouterClient, realtime: createRealtime({ apiKey: config.ai.openaiApiKey }), geminiRealtime: createGeminiRealtime({ apiKey: config.ai.geminiApiKey }), auth, plans, payments, images, videos, legal, connectors: connectors.manage, confirmations, facebook, hooks: [...connectors.routes, ...github.routes, ...google.routes], knowledge, memory, settings, library, projects, ncc, storage, uploads, videoStudioAssets, research, crawler, crawlerKnowledgeIndexer, cite: createCite({ limiter }), siteIcons: createSiteIcons(), pagePreviews: createPagePreviews(), youtubeSearch: createYouTubeSearch({ apiKey: process.env.YOUTUBE_DATA_API_KEY }), imageSearch: createImageSearch(), connect, integrations, transcription, pdfOcr, elevenlabs, videoStudioExporter, videoStudioRenderWorker, logger }),
     serveStatic: createStatic(PUBLIC_DIR),
     clientIp: (req) => clientIpFrom(req, config.trustProxyHops),
     regionalAnalytics

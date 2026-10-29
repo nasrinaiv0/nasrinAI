@@ -269,7 +269,15 @@ export function createUsageLog({ store, logger }) {
         costSource: e.costSource === 'provider_reported' && Number.isFinite(e.costUsd) ? 'provider_reported' : null,
         cachedTokens: Number.isFinite(e.cachedTokens) ? Math.max(0, Math.round(e.cachedTokens)) : null,
         escalated: e.escalated === true,
-        cacheHit: e.cacheHit === true
+        cacheHit: e.cacheHit === true,
+        // Safe request metadata for Owner Command Center. Never persist message content.
+        requestId: randomUUID(),
+        endpoint: typeof e.endpoint === 'string' && /^\/[A-Za-z0-9/_-]{1,120}$/.test(e.endpoint) ? e.endpoint : null,
+        httpMethod: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(e.httpMethod) ? e.httpMethod : null,
+        httpStatus: Number.isInteger(e.httpStatus) && e.httpStatus >= 100 && e.httpStatus <= 599 ? e.httpStatus : null,
+        errorCode: typeof e.errorCode === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(e.errorCode) ? e.errorCode : null,
+        providerRequestId: typeof e.providerRequestId === 'string' && /^[A-Za-z0-9._:-]{1,200}$/.test(e.providerRequestId) ? e.providerRequestId : null,
+        finishReason: typeof e.finishReason === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(e.finishReason) ? e.finishReason : null
       };
       try {
         await store.recordUsage(event);

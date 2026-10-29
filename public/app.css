@@ -408,6 +408,24 @@ body:not(.has-chat) #newChat { display: none; }
 .rich .step.is-done .step-text { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--line); }
 
 .rich .code-block { border: 1px solid var(--line); border-radius: 0.95rem; overflow: hidden; background: var(--paper); }
+.rich .answer-divider { border: 0; border-top: 1px solid var(--line); margin: 1.15rem 0; opacity: .8; }
+.rich p { overflow-wrap: anywhere; }
+.rich p + p { margin-top: .8rem; }
+.rich strong { font-weight: 650; }
+.rich em { font-style: italic; }
+.rich del { color: var(--ink-3); text-decoration: line-through; text-decoration-color: currentColor; }
+.rich p code, .rich li code, .rich td code, .rich th code, .rich blockquote code { padding: .12em .36em; border: 1px solid var(--line); border-radius: .35rem; background: var(--surface); font-size: .9em; overflow-wrap: anywhere; }
+.rich .task-item { display: flex; align-items: flex-start; gap: .55rem; margin: .35rem 0; }
+.rich .task-checkbox { flex: 0 0 auto; width: 1rem; height: 1rem; margin: .28rem 0 0; accent-color: var(--ink-2); }
+.rich .task-text { min-width: 0; }
+.rich .task-item.is-complete .task-text { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--line); }
+@media (max-width: 600px) {
+  .rich .table-wrap { margin-inline: 0; border-radius: .7rem; }
+  .rich table { font-size: .82rem; }
+  .rich th, .rich td { min-width: 5.25rem; padding: .45rem .6rem; }
+  .rich .code-head { min-height: 2.6rem; }
+  .rich .code-copy { min-height: 2rem; padding-inline: .6rem; }
+}
 .rich .code-head { display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0.5rem 0.35rem 0.8rem; border-bottom: 1px solid var(--line); font-size: 0.75rem; color: var(--ink-3); }
 .rich .code-copy { border: 0; background: transparent; color: var(--ink-2); font-size: 0.75rem; font-weight: 500; padding: 0.25rem 0.5rem; border-radius: 999px; }
 .rich .code-copy:hover { background: var(--surface); color: var(--ink); }
@@ -4637,4 +4655,45 @@ html[data-theme="dark"] #pageSpace .space-connect-logo--dark { display: block; }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) #pageSpace .space-connect-logo--light { display: none; }
   html:not([data-theme="light"]) #pageSpace .space-connect-logo--dark { display: block; }
+}
+
+/* First-use Guest data notice: readable, accessible, and consistent with the settings sheet. */
+.guest-privacy-notice{margin:12px 0 16px;padding:14px 16px;border:1px solid var(--line,rgba(120,130,140,.28));border-radius:16px;background:var(--surface-2,rgba(127,127,127,.07));font-size:.94rem;line-height:1.55;color:var(--text,inherit)}
+.guest-privacy-notice[hidden]{display:none}
+
+
+
+/* Nearby business results in chat: compact map + photo cards. */
+.nasrin-chat-map {
+  width: min(100%, 640px); min-width: 0; margin: .7rem 0 .3rem;
+  overflow: hidden; border: 1px solid var(--line, rgba(128,140,160,.22));
+  border-radius: 18px; background: var(--surface, #f8f9fc);
+  box-shadow: 0 6px 22px -16px rgba(25,35,55,.3);
+}
+.nasrin-chat-map-title { padding: .8rem .9rem .25rem; font-size: .95rem; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.nasrin-chat-map-canvas { display: block; position: relative; width: 100%; height: 220px; min-height: 190px; overflow: hidden; background: var(--paper,#eef1f6); }
+.nasrin-chat-map-canvas > div, .nasrin-chat-map-canvas iframe { width: 100% !important; max-width: 100% !important; height: 100% !important; border: 0 !important; }
+.nasrin-chat-map-status { padding: .55rem .9rem .35rem; color: var(--ink-2,#657084); font-size: .78rem; line-height: 1.4; }
+.nasrin-chat-map-businesses { display: grid; grid-template-columns: minmax(0,1fr); gap: 0; padding: 0 .65rem .65rem; }
+.nasrin-chat-business { display: grid; grid-template-columns: 104px minmax(0,1fr); gap: .75rem; align-items: center; padding: .65rem .25rem; color: inherit; text-decoration: none !important; border-top: 1px solid var(--line,rgba(128,140,160,.16)); min-width: 0; }
+.nasrin-chat-business:first-child { border-top: 0; }
+.nasrin-chat-business-photo { display: block; width: 104px; height: 92px; object-fit: cover; border-radius: 14px; background: var(--paper,#e9edf4); }
+.nasrin-chat-business-photo--empty { display: grid; place-items: center; font-size: 1.7rem; color: var(--ink-2,#7a8496); }
+.nasrin-chat-business-details { min-width: 0; display: grid; gap: .22rem; }
+.nasrin-chat-business-name { font-size: .9rem; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.nasrin-chat-business-meta, .nasrin-chat-business-address { font-size: .76rem; line-height: 1.4; color: var(--ink-2,#657084); overflow-wrap: anywhere; }
+.nasrin-chat-business-open { font-size: .75rem; font-weight: 600; }
+.nasrin-chat-business-open.is-open { color: #218653; }
+.nasrin-chat-business-open.is-closed { color: #b4534b; }
+@media (min-width: 560px) {
+  .nasrin-chat-map-businesses { grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: .6rem; }
+  .nasrin-chat-business { grid-template-columns: 84px minmax(0,1fr); border-top: 1px solid var(--line,rgba(128,140,160,.16)); }
+  .nasrin-chat-business-photo { width: 84px; height: 78px; }
+}
+@media (max-width: 420px) {
+  .nasrin-chat-map { border-radius: 15px; }
+  .nasrin-chat-map-canvas { height: 190px; min-height: 170px; }
+  .nasrin-chat-business { grid-template-columns: 88px minmax(0,1fr); gap: .6rem; }
+  .nasrin-chat-business-photo { width: 88px; height: 82px; border-radius: 12px; }
+  .nasrin-chat-business-name { font-size: .85rem; }
 }

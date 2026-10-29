@@ -13,9 +13,9 @@ import { assertProvider } from './provider.js';
 //   AI_PROVIDER=openrouter  route all normal text-model tiers through OpenRouter (OPENROUTER_API_KEY)
 //   AI_PROVIDER=openai      GPT direct (needs OPENAI_API_KEY)
 //   AI_PROVIDER=local       NasrinAI's own model only (LOCAL_AI_URL, LOCAL_AI_MODEL)
-//   AI_PROVIDER=auto        configured local/direct providers with explicit fallback
+//   AI_PROVIDER=auto        configured providers with direct-first routing and fallback (default when keys exist)
 //   AI_PROVIDER=fake    local echo, not allowed in production
-//   AI_PROVIDER=none    chat answers "unavailable" (the default)
+//   AI_PROVIDER=none    explicitly disable model chat (also the safe default without provider keys)
 export function providerFromConfig(config, { logger = { info() {}, warn() {} }, openRouterClient = null } = {}) {
   const mode = config.ai.provider;
   if (mode === 'none' && !(config.ai.freeProviders || []).length && !config.ai.geminiApiKey) return null;

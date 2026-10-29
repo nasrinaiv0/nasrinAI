@@ -1,3 +1,271 @@
+## Tenant-scoped hybrid knowledge retrieval — 2026-10-29
+
+- Added optional 384-dimensional embeddings to tenant-owned knowledge chunks, using bounded batch embedding and model-version filtering. The new `TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED` switch is off by default; full-text search remains available when disabled, embeddings are missing, or the provider is unavailable.
+- Added a hybrid search RPC that enforces tenant ID and document audience in SQL before returning results; it combines vector similarity with full-text rank and never uses the global public documentation table.
+- Added regression tests for batch embedding order, tenant/audience/model scoping, fallback behavior, and document ingestion.
+
+## Hybrid RAG orchestration — 2026-10-29
+
+- Added bounded intent classification, technical query expansion, hybrid vector-plus-keyword candidate retrieval, and deterministic semantic/lexical/freshness reranking for trusted programming documentation.
+- Retrieval telemetry records intent, expansion count, candidate counts, result count, mode, and latency without logging raw queries or retrieved content.
+- Kept strict HTTPS/host/model validation and untrusted-source handling; vector or keyword failures degrade to the available retrieval path.
+- Added unit and crawler integration tests for aliases, ranking, source filtering, semantic/keyword merging, telemetry, and fallback behavior.
+
+## Full-text knowledge retrieval quality fix — 2026-10-29
+
+- Production verification showed the full-text search can return several chunks from one document among the top results. Added source-document deduplication before building platform knowledge context so the highest-ranked chunk per document is retained and context budget can cover more sources.
+- Added a regression test for duplicate chunks and empty input.
+- No schema, permission, or production database changes. CI #7774 and Documentation Gate #1824 passed for the PR head; rerun after this merge commit.
+
+## PR #684 — Tighten benchmark scoring and record production rollout status — 2026-10-29
+
+- Tightened the reasoning evidence rubric so the substring "no" inside unrelated words cannot satisfy a required criterion.
+- Fixed the untrusted-content safety rubric so a correct warning not to reveal an API key does not trigger a forbidden-answer match.
+- Recorded the verified migration/RLS/deployment/flag state while explicitly leaving first scheduled invocation and model-quality improvement unproven until observed.
+
+## PR #683 — Fail visibly when semantic embeddings are unavailable — 2026-10-29
+
+- Changed the hourly indexer to report a bounded partial failure when semantic retrieval is enabled but the embedding adapter or service store is not configured, rather than incorrectly reporting a successful run with zero indexed chunks.
+- Added a sanitized error code to the scheduled-run telemetry and a regression test for missing embedding configuration.
+
+## PR #682 — Align benchmark credentials with production configuration — 2026-10-29
+
+- Corrected the model-quality benchmark runner to use the application's existing SUPABASE_SECRET_KEY variable instead of a nonexistent SUPABASE_SERVICE_ROLE_KEY alias.
+- This is a benchmark-tool compatibility fix only; it does not change the deployed runtime path or enable additional database privileges.
+
+## PR #681 — Secure semantic index, scheduled-run evidence, and coding/reasoning benchmark — 2026-10-29
+
+- Added a separately scoped public technical vector index and run-history table, with RLS enabled, no client policies, service-role-only grants, official HTTPS host filtering, exact embedding-model filtering, and bounded HNSW retrieval.
+- Extended the hourly learning route to perform bounded semantic indexing and persist sanitized run telemetry; expanded owner-only OCC telemetry with recent run status and semantic-index sample counts.
+- Added a six-case coding/reasoning benchmark and an OpenRouter baseline-vs-retrieval runner capped at 12 chat completions and six embeddings. A test suite passing does not claim answer quality improved; the benchmark must run against a populated semantic index.
+- Fixed the CI database service to use the pgvector-enabled PostgreSQL 16 image because the standard postgres:16 image lacks the vector extension required by migration 078; the migration fixes its search path across public/extensions schema layouts.
+- Local validation against the current PR head: 1,195 passed, 0 failed, 1 skipped across 1,196 Node tests. Focused semantic/owner tests: 39 passed, 0 failed. CI initially identified the missing pgvector extension in the database test container and the missing changelog entry; both are addressed in this PR.
+- Production activation remains gated on applying and verifying migration 078, enabling SEMANTIC_KNOWLEDGE_ENABLED, observing a real scheduled invocation, and running the model-level benchmark with reviewed per-task outputs.
+
+## Continuous Intelligence full-text index deployed — 2026-10-29
+
+- PR #678 merged as `df7f9f1ecef8e2dc8409cadf22ff682cc737f723`; production deployment `dpl_2YBLzFCp62TnyxDqiHWq15g8a5Zy` reached READY.
+- Migration 076 applied and verified: source hash column, unique partial index, SECURITY DEFINER function with fixed search_path, and service_role-only execution.
+- CI #7753 passed (1,191 passed, 0 failed, 1 skipped out of 1,192 Node tests); database tests, dependency audit, OpenRouter activity-sync tests, syntax check, and secret scan passed. Documentation Gate #1818 passed.
+- The indexer uses trusted HTTPS source hosts, existing chunking/full-text search, content-hash idempotency, and a five-document hourly cap.
+- The first post-deployment scheduled indexing run and live answer impact are not yet verified. Semantic embeddings, persistent run history, and model-level reasoning benchmarks remain follow-up work.
+
+## Continuous Intelligence full-text knowledge indexing follow-up — 2026-10-29
+
+- Added migration 076 with managed-document content hashes, a unique partial index, and an idempotent SECURITY DEFINER upsert RPC restricted to service_role and the active platform tenant.
+- Added a server-side indexer that filters trusted HTTPS docs, chunks with the existing knowledge chunker, and indexes at most five changed pages per hourly run.
+- Platform context now labels public programming docs as untrusted reference data; full-text knowledge retrieval is preferred, with crawler keyword retrieval as fallback.
+- Owner-only OCC telemetry now includes managed knowledge-document count and latest index timestamp.
+- Added unit/database tests for trusted hosts, no-op/update behavior, tenant/RPC grants, fixed search_path, document/chunk bounds, and retrieval through search_knowledge.
+- **Validation pending:** CI and Documentation Gate must pass before applying migration 076 to production or merging. No production schema change has been applied for migration 076.
+
+## Continuous Intelligence live-evidence and security-gate update — 2026-10-29
+
+- Corrected the upgrade plan and runbook to distinguish a READY deployment from proof of a specific hourly Cron invocation or authenticated OCC request.
+- Recorded production crawl evidence: 19 indexed `owner_seed` rows and 41 pages from official documentation hosts, with latest observed official fetch at 2026-10-28 22:35 UTC.
+- Recorded live schema/security findings: `web_crawl_queue`, `web_crawl_pages`, and `claim_web_crawl_jobs` exist; RLS is enabled and anon/authenticated policies deny access; claim function has a fixed search_path and execute grants restricted to service_role/postgres.
+- Recorded migration-history drift: live crawler objects exist, but migration 044 is missing from the Supabase migration list. Do not blindly reapply migration 044.
+- Recorded semantic-RAG prerequisites: no enabled `vector` extension is present, and existing `knowledge_docs`/`knowledge_chunks` require a tenant ID. A reviewed, separately scoped public-document index and embedding-provider cost controls are required before semantic indexing.
+- Validation baseline for merged runtime code: CI #7706 passed (1,189 Node tests: 1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, syntax checks, secret scan; Documentation Gate #1808 passed.
+- Remaining gates: capture an invocation-specific Cron log and authenticated OCC response, reconcile migration history, build semantic retrieval only after security/schema/provider review, add persistent run history, and create a fixed coding/reasoning benchmark.
+
+## Continuous Intelligence merge and production deployment — 2026-10-29
+
+- PR #674 was squash-merged as `e957a51aac742fa6fb6aa176374682df78541dc6`; Vercel production deployment `dpl_EKiFeNBJfjaNoEZ11iU91cAnVkAG` reached READY.
+- Production configuration includes the hourly `/v1/internal/knowledge-learning` schedule (`0 * * * *`). Actual first post-deploy cron execution and live owner-console/retrieval behavior remain pending observation.
+- Live Supabase inspection verified `web_crawl_queue`, `web_crawl_pages`, and `claim_web_crawl_jobs` exist; RLS is enabled, anon/authenticated policies deny access, and function execution is limited to service_role/postgres. The migration list lacks a 044 record despite the objects existing; do not blindly reapply the migration.
+- Final tested code CI #7706 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1808 passed.
+- Scope boundary: current retrieval is bounded, locally ranked keyword search with official-host filtering and citations; it is not semantic/vector RAG and does not train model weights. Semantic embeddings, persistent run history, and a measured coding/reasoning benchmark remain follow-up work.
+
+## Continuous Intelligence quality/security follow-up — 2026-10-29
+
+- Restricted official learning seed descendants to the same hostname at every crawl depth while preserving the owner_seed policy and idempotent queue insertion.
+- Added a platform-chat retrieval hook that uses the existing crawler keyword index only for technical questions, excludes customer tenants/attachment turns/sensitive credential-pattern queries, filters results to official HTTPS documentation hosts, bounds excerpts, marks them as untrusted data, and adds source citations.
+- Added constant-time cron-secret authorization tests.
+- Added an owner-only Continuous Intelligence OCC panel/API with sampled queue status/source counts and recent page metadata. It does not return page bodies or raw crawler errors; it labels sample limits and explicitly reports that semantic embeddings are not implemented.
+- Added regression coverage for trusted-source filtering, sensitive-query exclusions, host boundaries, cron authorization, owner-only telemetry, and data minimization.
+- **Validation:** CI #7696 passed: 1,189 Node tests (1,188 passed, 0 failed, 1 skipped), database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check, and secret scan. Documentation Gate #1801 passed.
+- **Not production-verified:** production cron execution, schema presence in live Supabase, actual retrieval quality, semantic embeddings, persistent run history, and OCC live behavior still need deployment verification.
+
+## Continuous Intelligence — hourly programming knowledge pipeline — 2026-10-29
+
+- Added `src/knowledge/programming-sources.js` with curated official documentation roots across TypeScript/JavaScript, Python, PostgreSQL, web standards, React/Next.js, Node.js, Go, Rust, Java, C#, C/C++, Swift, Kotlin, Bash, PowerShell, and Solidity.
+- Added `/v1/internal/knowledge-learning`, protected by the existing internal cron authorization, to enqueue seeds idempotently and process a bounded crawler batch. Added an hourly Vercel Cron schedule; existing five-minute crawler worker remains in place.
+- Added/expanded `docs/nasrinai-continuous-intelligence-upgrade.md`, `docs/continuous-intelligence-runbook.md`, `docs/web-crawler.md`, and the master plan index/summary with the full target loop: discovery, safe crawling, normalization/chunking, embeddings/indexing, inference-time retrieval, reasoning/tool verification, evaluations, privacy, cost controls, OCC metrics, rollback and optional fine-tuning gates.
+- **Test fix:** Corrected the queue-path regex in `test/crawler-seeding.test.js`; it was incorrectly expecting a literal backslash.
+- **Validation:** CI run #7633 passed. Node tests: 1,179 total, 1,178 passed, 0 failed, 1 skipped. Database tests, dependency audit, Python OpenRouter activity sync tests, JavaScript syntax check and secret scan passed. Documentation Gate #1768 passed.
+- This is knowledge acquisition and a future RAG/evaluation loop, not model-weight training. Production schema, live cron execution, retrieval impact, and OCC telemetry remain unverified.
+
+## Fix: "NasrinAI cannot answer right now" that cleared on Retry — 2026-10-28
+
+- Router (`src/ai/policy.js`): an empty or cut-off answer at the top level now goes to the next model (up to 2 more) instead of failing; if every model is only on its short failure cooldown, they are tried anyway once rather than returning "cannot answer". The empty answer is still returned if no other model is left.
+- Page (`public/app.js`): if the start-up status check said the AI was unavailable, sending re-checks status first instead of refusing.
+- Tests in `test/routing.test.js` (both fail without the change). An unlucky request can now make up to 2 extra model calls. No migration, env or legal change. Not verified against live providers.
+
+## Fix: voice could not read the shared screen — 2026-10-27
+
+- In compatibility voice the shared screen frame was never tied to the spoken question, so Nasrin said it could not see the screen. Each question now sends the newest in-memory frame (under 30 s old) with the question to `/v1/realtime/screen-analyze`; the description is passed as a transient, never-saved `screen_context` for that turn (`src/chat.js`, `public/app.js`). The unprompted timed description now runs only in realtime mode.
+- Privacy notice gets a screen-sharing line; `LEGAL_PRIVACY_VERSION` default is now 2026-10-28 (people see it again). Test: `test/voice-screen-context.test.js`.
+- A screen question in voice now uses two message allowances (describe + answer). Not verified live: needs `OPENROUTER_VOICE_VISION_MODEL` or the default vision model on the deployed site.
+
+## Fix: Google plugins never reached the chat model — 2026-10-27
+
+- Chat only offered tools when a message matched `MAY_NEED_TOOLS`, which had no Gmail/inbox/calendar/Drive/Meet/Keep words, so a connected Gmail still got "I have no access". Added `GOOGLE_ASK` in `src/chat.js`: such messages now offer the tools, skip the web-search shortcut, and are not used for community learning.
+- Test in `test/skill-routing.test.js`. No migration, env or legal change.
+- Separate owner step: Google sign-in `redirect_uri_mismatch` needs `https://nasrinai.com/v1/google/callback` added in Google Cloud. Not verified live.
+
+## Fix: realtime voice could not start (CSP) — 2026-10-27
+
+- The page policy's `connect-src` did not allow the browser to reach the realtime voice providers, so "Voice could not start. Retrying the connection…" looped. Added `https://api.openai.com` (WebRTC call) and `wss://generativelanguage.googleapis.com` (Gemini Live) to `PAGE_CSP` in `src/http/headers.js` and the matching header in `vercel.json`. No wildcard added.
+- Test: `test/realtime-voice-csp.test.js`. No migration, env or legal change.
+- Not verified live: a real voice session needs the owner's provider keys on the deployed site.
+
+## PR #665 — Reliable default voice with STT/TTS fallback (2026-10-27)
+
+- Replace the default persistent realtime voice startup with browser speech recognition → NasrinAI chat orchestration → authenticated /v1/speech output, addressing the production reconnect loop.
+- Keep screen sharing user-initiated, send only bounded transient frames to the existing authenticated vision endpoint, and report unsupported browser APIs clearly.
+- Update voice regression assertions for the turn-based default path.
+- **Validation:** CI passed on implementation commit; Documentation Gate failed because this required changelog file was not included. This entry fixes the gate requirement; rerun all checks on the updated PR head before merge. iPhone Safari screen sharing and production voice still need device smoke verification.
+
+## PR #662 — Add realtime voice screen sharing — 2026-10-27
+
+- Add a centered Share screen pill to Realtime Voice with the native browser screen picker, user-controlled start/stop, and automatic cleanup when voice ends or the browser stops the capture track.
+- Downscale screen frames in memory and send visual context to the active Gemini Live or OpenAI Realtime session; frames are not persisted to app storage.
+- Match the requested UI: no visible center orb, borderless 10%-opacity frosted-glass controls, and a subtle dotted background spanning the full screen and fading upward in light and dark modes.
+- Add screen-share regression assertions and document browser compatibility/privacy behavior. Real-device iPhone/Safari validation remains required.
+- **Validation:** GitHub Actions CI is still running; do not merge until the full test suite and required checks pass.
+
+## Quick Free: GPT-6 Luna as a main model; Quick Paid: paid only (2026-10-26)
+
+- Resolves #643 onto main's routing (the registry marks `openai/gpt-6-luna` as the `quick-free-fallback` text model; `openai/gpt-6-luna-decisions` is a decisions model and must not answer chat).
+- Free Quick/guests: simple chat starts with a free model; heavy work, pages to scrape/extract, current-web questions and attached files start with GPT-6 Luna, with the free models behind it. If every free model fails, Luna is the backup for any task. Without OpenRouter configured, direct providers are unchanged.
+- Paid Quick: unchanged rule, never a `:free` model and never the free-tier Luna route (tested).
+- Optional `OPENROUTER_WEB_SEARCH_PAID_MODEL` (never a `:free` id): paid plans search the internet through it instead of the free default; blank keeps current behavior.
+- Free Quick answers that use the heavy/scrape/web/file route get the roomier level-3 reply (1600 tokens) and history (16000 characters) budget instead of the 700–1000 token Quick chat size, so long answers are not cut off; token allowances and reservations still apply. Simple chat is unchanged.
+- No migration; no new model IDs invented (registry IDs only).
+## PR #653 — Preserve paid tier on weekly usage lookup failure — 2026-10-27
+
+- Update `src/plans.js` so a transient weekly token-usage lookup error does not downgrade a verified active Pro, Max, or Ultra subscription to Quick. Subscription verification itself remains fail-closed.
+- Add a regression test in `test/plans.test.js` for a temporary usage-read failure.
+- Implementation commits: `c35ef51fb4e94ca640a2ed45e39c509ecff4fb3e` (tier behavior), `b00032fe6f91ef06f6245999ad33750e4631718d` (regression test), and this changelog update records both prior commits.
+- **Validation:** CI passed on the implementation/test commit; Documentation Gate failed because this file was not updated. Rerun checks after this documentation fix. Full local test suite and production behavior remain unverified; no production env or database changes.
+
+## PR #649 — Show all direct AI providers in Owner Finance — 2026-10-27
+
+- Update `public/owner-console.js` so the Direct-provider billing reconciliation UI keeps OpenAI, Anthropic, Google Gemini, Groq, Cloudflare Workers AI, Cerebras, Mistral, and NVIDIA NIM visible even when the server returns no row for a provider.
+- Represent absent integrations as `not_available` / “Not integrated” rather than silently omitting providers or fabricating costs. This is a UI inventory change only; it does not claim provider billing APIs are implemented.
+- Commit `47c4b4293417821c1094e8b4cdc0723b7d6d8f4a` added the UI update; this follow-up commit records that change to satisfy the mandatory PR changelog gate.
+- **Validation:** CI passed on the initial PR head. Documentation Gate failed because `docs/pr-change-log.md` was not updated; rerun checks on this changelog-updated head. No merge or deployment is claimed.
+
+## Cerebras and Cloudflare cost reporting — 2026-10-26
+
+- Add versioned per-request list-price estimates for selected Cerebras Developer-tier and Cloudflare Workers AI models; unknown model IDs remain unavailable.
+- Extend the owner-only provider billing report with Cloudflare's Billable Usage API using `ContractedCost` and `BillingCurrency` from the account-level response.
+- Add server-only `CLOUDFLARE_BILLING_API_TOKEN` configuration and expose Cloudflare account spend in OCC Finance. Cloudflare billing is daily, account-level, and not attributed to individual AI requests.
+- Report Cerebras actual billing as unavailable rather than estimating an invoice; Cerebras request-level estimates remain separate.
+- Add regression tests and setup documentation. No database migration is required.
+
+## Direct-provider cost reconciliation and estimates — 2026-10-26
+
+- Add owner-only OpenAI and Anthropic organization billing reports with explicit aggregate reconciliation boundaries and bounded pagination.
+- Add a versioned list-price estimator for supported direct text models and persist estimates in dedicated columns, never in migration 062's provider-reported cost fields.
+- OCC AI Logs shows estimates with a `~` prefix and source/version labels when actual provider cost is unavailable; verified actual cost remains preferred.
+- OCC Finance shows organization-level provider billing and aggregate request estimates separately. Gemini estimate uses paid Standard list pricing; Google Cloud billed-spend reconciliation is not claimed.
+- Unknown model prices and unsupported billing dimensions remain unavailable rather than guessed.
+
+## Direct-provider Owner Command Center activity — 2026-10-26
+
+- Add migration 076 for safe per-event request UUIDs and optional endpoint, HTTP method/status, sanitized error code, provider request ID, and finish reason on `usage_events`.
+- Capture provider request IDs/finish reasons from OpenAI, Anthropic, and OpenAI-compatible providers such as Gemini, and include them in the owner-only AI Logs view.
+- Default AI Logs to all catalog states so observed models are not hidden by configured-catalog classification; preserve the distinction between listed, unlisted, and unknown.
+- Keep prompts, completions, credentials, and raw provider errors out of telemetry. Provider cost remains unavailable unless explicit provider-reported provenance is present.
+- Preserve compatibility during rollout by falling back to legacy usage-event columns when migration 076 is not yet applied.
+
+## Guest improvement notice and consent-aware retention — 2026-10-26
+
+- Add a first-use Guest disclosure before chat. Continuing requires an explicit acknowledgement, records the current version against the server-issued guest session, and offers a sign-in path to account privacy controls.
+- Keep raw Guest chat history on its existing 24-hour expiry. Eligible, screened improvement examples are stored separately without routine time-based expiry; consent withdrawal, deletion requests, security requirements, and applicable law remain enforceable.
+- Update improvement-store expiry handling and the Privacy Notice so database retention is not misrepresented as automatic model training. Signed-in improvement preferences remain separate.
+- **Validation:** CI and database migration tests must pass on the PR head. No production migration, merge, or deployment is performed by this change.
+
+## Owner cost and reply usage telemetry follow-up — 2026-10-26
+
+- Use valid stored `openrouter_logs.total_cost_usd` values for Owner AI Logs and Finance even when legacy rows have no provenance marker; new telemetry writes identify this source and migration 074 backfills existing populated rows.
+- Persist response metadata in the same insert as the assistant message so saved conversation history receives token usage/timing metadata atomically.
+- Keep estimates explicitly labeled; never misrepresent estimated token counts as provider-reported usage.
+
+## PR #639 — Persist real token usage for reply details (2026-10-26)
+
+- Store sanitized response metadata, including provider-reported input/output tokens and request duration, on the exact assistant message in Supabase.
+- Return saved metadata in conversation history so the reply details panel remains accurate after refresh.
+- Remove text-length token estimates for historical replies; missing persisted metadata displays "Not reported" rather than a guessed value.
+- Add migration 073 and regression coverage for persisted metadata.
+
+## Quick free/paid routing correction — 2026-10-26
+
+- Free Quick tries OpenRouter `:free` models first, then allowlisted direct free providers, and reserves GPT-6 Luna for heavy tasks only after the free pool fails.
+- Paid Quick uses non-free OpenRouter models only and prioritizes the configured lower-cost shortlist.
+- Add regression coverage for free-first ordering, paid model eligibility, and heavy-task fallback.
+
+## OpenRouter generation ID and cost reconciliation fix — 2026-10-26
+
+- Keep OpenRouter's HTTP `x-request-id` separate from the response body's `gen-*` generation ID and persist both to their respective telemetry columns.
+- Discover generation IDs from paginated Supabase request logs and use the NasrinAI inference key to retrieve authoritative per-generation cost, tokens, finish reason, latency, and generation time.
+- Upsert only selected provider metadata; never persist raw prompts or completions.
+- Add regression tests for request-ID separation, generation-ID persistence, log-based sync, metrics mapping, and authorization failure handling.
+- **Validation:** GitHub Actions CI is running. No merge or production deployment has been performed.
+
+## OpenRouter generation discovery sync — 2026-10-26
+
+- Port the supplied sync template into a protected 15-minute Vercel cron: Management API analytics discovers generation IDs; the separate inference key retrieves per-generation details; Supabase upserts records idempotently by generation ID.
+- Persist selected provider-reported fields in a dedicated RLS-protected `openrouter_generations` table, not synthetic request rows. Do not store raw provider payloads, prompts, completions, or uploaded content.
+- Include discovered generation records in Owner AI Logs only when no corresponding local OpenRouter request row is present, with explicit telemetry-source labeling and provider-reported cost provenance.
+- Add regression tests for key separation, generation-ID deduplication, private metadata persistence, and Owner AI Logs inclusion.
+- **Validation:** CI is required; migration 072 must be applied and server-only Vercel secrets verified before live data can be confirmed.
+
+## Owner Command Center provider-specific model inventory — 2026-10-26
+
+- Replace model-membership inference with explicit inventories for the 51 supplied OpenRouter entries (49 unique IDs; two IDs were repeated in the source list) and the 14 direct-provider models across OpenAI, Google, and Anthropic.
+- Classify OpenRouter request logs against the OpenRouter inventory and direct-provider usage events against the corresponding provider inventory. Unknown provider aliases remain unknown.
+- Keep catalog membership separate from runtime readiness; do not synthesize activity records or estimate provider costs.
+- Add regression tests for the inventory counts and direct-provider AI Logs classification. Validation remains pending until CI completes.
+
+## Rich reply rendering polish — 2026-10-26
+
+- Improve assistant reply Markdown with italic, bold-italic, strikethrough, horizontal section dividers, and readable inline code.
+- Render Markdown task lists as accessible, non-interactive completion indicators.
+- Refine long-answer paragraph rhythm and mobile table/code-block spacing while preserving safe DOM-only rendering.
+
+## OpenRouter generation-log reconciliation correction — 2026-10-26
+
+- Explicitly allow the owner-authenticated reconciliation POST route in the write-method gate; require same-origin JSON requests and retain the owner session, email/IP allowlist, rate-limit and explicit confirmation controls.
+- Reconcile using `openrouter_generation_id` first, with a validated `gen-` provider request ID fallback; arbitrary request IDs are not sent to the generation endpoint.
+- Revisit recent rows with missing or unverified cost provenance, including legacy rows with an existing unmarked cost, and overwrite only after a successful generation lookup returns a finite non-negative authoritative cost and matching generation identity.
+- Persist provider-reported cost provenance, model/provider, token counts and generation timing; convert generation API timing values from milliseconds to seconds. Do not fetch or store prompt/completion content.
+- Backfill legacy rows whose cost is present but provenance is missing/unverified. PATCH requests include the observed cost and provenance as optimistic concurrency guards, preventing stale reconciliation from overwriting a concurrently verified value.
+
+## Auto provider default and OpenRouter fallback — 2026-10-26
+
+- Restore the agreed production routing contract: `AI_PROVIDER=auto` is the documented production default and is also selected automatically for production when provider credentials exist but the variable is omitted.
+- Quick routing policy: free Quick prioritizes OpenRouter `:free` models, reserves GPT-6 Luna for heavy tasks after free candidates, and uses allowlisted direct free providers as fallback; paid Quick uses only non-free OpenRouter candidates.
+- In Auto mode, prefer configured direct providers instead of injecting OpenRouter ahead of every route. Keep OpenRouter available as an additional fallback when independent direct providers are configured.
+- Fix Quick fallback ordering so explicitly allowlisted direct free-provider candidates are actually appended and tried before OpenRouter free models; retain the approved Luna emergency route and all tier/privacy/capability restrictions.
+- Add regression coverage and update routing/deployment documentation. No production environment variables, merge, or deployment are changed by this PR.
+- Validation: CI must pass before merge; production guest and signed-in Quick smoke tests remain required after deployment.
+
+## Quick free-provider fallback — 2026-10-26
+
+- Production logs show repeated OpenRouter provider-unavailable failures on `POST /v1/chat`. The current Quick policy blocks every non-OpenRouter provider whenever OpenRouter is configured, even when a separately configured free provider (such as the existing Groq allowlist) is available.
+- Keep OpenRouter `:free` routes first, then permit only provider/model pairs exactly present in the server-side `*_FREE_MODELS` allowlist. The configured Luna fallback remains last. Paid models and non-allowlisted provider models remain blocked for Quick/guests.
+- Enable the configured free-provider pool in OpenRouter mode, include only explicitly allowlisted models in Quick's level-1 route, and add regression coverage. No migration or production secret change is required.
+- **Validation:** CI and a live production guest/signed-in chat smoke test are required before declaring restored.
+
+## Guest-session Supabase secret-key compatibility — 2026-10-26
+
+- Fix the shared Supabase store to send modern `sb_secret_` API keys through the `apikey` header without misusing them as JWT Bearer credentials. Legacy `service_role` JWT compatibility is preserved.
+- Add regression coverage for the new key format. No database migration or production environment value is changed by this code patch.
+- The known production API status endpoint reports healthy; live guest-session POST verification and CI are still required before calling this fully resolved.
+
 ## Catalog scope regression correction — 2026-10-26
 
 - Correct the legacy AI Logs regression fixture that expected live OpenRouter catalog membership. It now uses a NasrinAI-configured model, verifies no live catalog call is needed, and expects unresolved aliases to remain `unknown`.
@@ -458,13 +726,11 @@
 - Left-align reply action icons and reduce gaps between controls.
 - Fixes the Documentation Gate requirement by recording this PR in the required changelog.
 
-
 ## Proposed PR — Video Studio button and padding normalization (`fix/video-studio-buttons-padding-v2`)
 
 - Normalize icon-only controls to fixed square dimensions with consistent borders, alignment, and line-height; prevent inherited button padding from inflating the media-bin plus button.
 - Standardize editor toolbar, save, canvas, timeline, and clip-action button heights/padding; ensure media import button fills its container without overflow.
 - Add responsive rules for narrow phones and regression checks for fixed icon dimensions, box sizing, and mobile breakpoints.
-
 
 ## Proposed PR — Video Studio button and padding consistency (`fix/video-studio-button-spacing`)
 
@@ -473,7 +739,6 @@
 - Add visible keyboard focus rings and explicit disabled-button affordances.
 - Add regression assertions for consistent sizing and responsive breakpoints.
 
-
 ## Proposed PR — CapCut-inspired Video Studio workspace (`feat/capcut-style-video-studio`)
 
 - Replace the previous spacious template/timeline page with an editor-first, dark workspace inspired by familiar desktop video editors while retaining NasrinAI branding.
@@ -481,7 +746,6 @@
 - Wire Import media, Save project, Create scene, Text focus, Audio import, and Export navigation to existing functional flows.
 - Keep the layout responsive for tablet/mobile and add regression coverage for unique DOM IDs, core editor controls, media bin, and responsive styles.
 - Scope note: this improves the editing workspace and does not claim full CapCut parity; multi-track editing, transitions, keyframes, captions/effects, and a server render worker are not included by this change.
-
 
 ## Post-merge Video Studio preview fix (2026-10-20)
 
@@ -1299,7 +1563,6 @@ Status reflects the repository state at the latest documentation update.
 | [#162](https://github.com/primusco20/nasrinAI/pull/162) | Cache, SSRF, definer, and video ownership hardening | Merged | Security-sensitive change; keep security/database documentation aligned with implementation. |
 | [#161](https://github.com/primusco20/nasrinAI/pull/161) | Harden SECURITY DEFINER search paths | Merged | Database security hardening; review function privileges and search paths for future migrations. |
 
-
 ## Earlier PR index (#91–#160)
 
 The following older PRs are backfilled by title and outcome. Each link opens the full diff, review, and any original test evidence. The short labels below are summaries of the PR titles, not a substitute for reviewing the implementation.
@@ -1377,7 +1640,6 @@ The following older PRs are backfilled by title and outcome. Each link opens the
 | [#92](https://github.com/primusco20/nasrinAI/pull/92) | Account and NasrinAI Space settings | Merged |
 | [#91](https://github.com/primusco20/nasrinAI/pull/91) | Secure product knowledge | Merged |
 
-
 ## PR #190 — Usage and Billing separation
 
 ### Intended behavior
@@ -1397,7 +1659,6 @@ The UI change is limited to `public/index.html`, `public/app.js`, and `public/ap
 
 The original test used over-escaped regular expressions. The test is being simplified to explicit string and page-boundary assertions to avoid fragile regex escaping. Verify the repository's test command and all required CI checks after the correction; do not treat the fix as verified until those checks return results.
 
-
 ## Voice-model catalog visibility audit
 
 - Keep OpenAI and Gemini voice choices in Settings whenever the server knows the catalog, even if a provider is not configured; unavailable choices must be visibly disabled and must not trigger provider requests.
@@ -1405,13 +1666,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - The public `/v1/status` response returns the known voice catalog and a separate availability flag. It exposes no provider credentials or secret configuration.
 - Regression tests cover the rendering gate and status response shape. Verify all CI checks before merge; no production settings or secrets are changed by this UI fix.
 
-
 ### CI correction — voice catalog status contract
 
 - The first CI run exposed one outdated assertion in the existing /v1/status test: it expected an empty voice catalog and default null, although the intended fix now publishes known voice IDs and the coral default while correctly marking provider voices unavailable.
 - Updated that test to normalize only the voice-catalog fields before checking the unrelated status contract. Dedicated regression tests continue to check catalog visibility and response structure.
 - Re-run the full test suite and required CI checks before merge; this is a test expectation correction, not a rollback of the voice catalog behavior.
-
 
 ## Turnstile sign-in initialization regression
 
@@ -1421,14 +1680,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - No secrets, server-side verification rules, OAuth redirect URLs, database schema, or unrelated UI behavior are changed.
 - Validate with the focused regression checks and full CI before merge; production behavior is not considered fixed until a deployment is tested.
 
-
 ## Google CAPTCHA failure diagnostics
 
 - Add server-side warning categories for the Google OAuth start route when the CAPTCHA token is missing/invalid or Cloudflare verification fails.
 - Logs contain only a fixed reason category; CAPTCHA tokens, Turnstile secrets, and provider response payloads are never logged.
 - This is diagnostic instrumentation only. It does not bypass CAPTCHA verification or change DNS, OAuth redirects, production secrets, or database state.
 - Validation required: run the focused auth tests and full CI, then test the deployed sign-in flow and inspect the corresponding Vercel function logs before treating the issue as resolved.
-
 
 ## Sign-in CAPTCHA placement
 
@@ -1437,14 +1694,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - No DNS, authentication configuration, or unrelated layout changes.
 - Validate with CI and test both Google and email sign-in on a narrow mobile viewport before considering the change complete.
 
-
 ## Google OAuth callback failure diagnostics
 
 - Log a fixed reason category when the Google callback has no authorization code, no PKCE verifier cookie, or an invalid-length authorization code.
 - Never log the authorization code, PKCE verifier, cookies, or provider secrets.
 - This makes the existing callback early-return path observable without changing OAuth validation, cookie policy, CAPTCHA verification, or redirect behavior.
 - Validate with focused auth tests and full CI before merge; then inspect the production callback log to select any further fix based on evidence.
-
 
 ## Email sign-in CAPTCHA/upstream error handling
 - Preserve a constrained upstream status and error-code category for email OTP rejection so production logs can distinguish a CAPTCHA rejection from other email-send failures.
@@ -1461,8 +1716,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Important scope limit: this PR is the policy/schema foundation only. It does not yet wire OAuth callbacks, encrypted user OAuth tokens, provider API calls, queue/scheduler, UI, or live sending/publishing. Social providers remain planned until each official API/app review is configured and tested.
 - Validate with npm test, secret scanning, SQL review, and focused OAuth/ownership tests before merge. Do not deploy or apply migration without explicit authorization.
 
-
-
 ## Proposed PR — Semantic cache write fallback and stable scope
 
 - Preserve a successfully computed embedding when the semantic-cache search RPC fails, so the normal AI reply can still seed the cache; embedding failures continue to fall back safely without blocking chat.
@@ -1471,7 +1724,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for retaining embeddings on search-RPC errors and for the stable scope behavior.
 - No SQL, RLS, auth, token limits, or unrelated UI changes. Require focused tests, full CI, and production verification before considering the fix complete.
 
-
 ## Proposed PR — Await semantic cache writes safely
 
 - Await the persistent semantic-cache insert attempt before returning a successful chat response, preventing serverless execution from ending while the write is still pending.
@@ -1479,14 +1731,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add chat integration regression tests for both delayed writes (response remains pending until the write attempt settles) and failed inserts (chat still returns HTTP 200 without exposing database error details).
 - No SQL, RLS, authentication, token-limit, provider-routing, or unrelated UI changes.
 
-
 ## Proposed PR — Universal slash commands execute first (`feature/universal-slash-execute-first`)
 
 - **Owner request (2026-10-12):** add universal shortcuts such as `/clone` and `/blur` across NasrinAI, and avoid unnecessary follow-up questions.
 - **Change:** add a dependency-free browser command registry for image, video and common chat tasks; dispatch image/video shortcuts to existing media endpoints; execute image shortcuts directly without optional brief questions or the extra confirmation sheet; add execute-first instructions to the chat system prompt. Commands needing a reference image require an attachment. Server-side authorization, plan, budget, legal and safety checks remain unchanged.
 - **Documentation:** `docs/features/universal-slash-commands.md`, `docs/chat.md`, `README.md`.
 - **Validation observed (commit `0c53e78`):** `npm test` passed 517/517; `npm run check:secrets` reported no secrets in 425 files; database tests passed; GitGuardian Security Checks passed; Vercel Preview reported Ready. Re-run checks on the final documentation commit before merge.
-
 
 ## Security hardening — automated dependency audit
 
@@ -1496,18 +1746,15 @@ The original test used over-escaped regular expressions. The test is being simpl
 - No application runtime, authentication, token limits, database schema/RLS, production secrets, or deployment configuration changes.
 - Validation required: review the dependency-audit job and all required CI results on this PR before merge. The temporary-lockfile audit is not a substitute for a committed lockfile and reproducible dependency installation.
 
-
 ## Proposed PR — Scan test files for committed secrets (`security/scan-test-fixtures`)
 
 - **Change:** remove the blanket `test/` exclusion from `scripts/check-secrets.js`; split synthetic key examples in tests into fragments; extend the scanner regression to require detection in both source and test paths.
 - **Validation:** pending CI on the PR; do not merge until `npm test`, `npm run check:secrets`, and required repository checks pass.
 
-
 ## Proposed PR — Bound GitHub coding archive expansion (`security/harden-runner-archive-limits`)
 
 - **Change:** validate repository gzip/tar archives before sandbox extraction; cap compressed/expanded sizes, entry count, and individual entry sizes; reject unsafe traversal paths and links/special file types; reconcile the secure-workspace document with the implemented GitHub runner.
 - **Validation:** pending CI. The real Vercel Sandbox integration test remains opt-in and must not be reported as passed when skipped.
-
 
 ## Proposed PR — Browser render, test, screenshots and recordings (`feature/browser-render-test-screenshots-ci`)
 
@@ -1516,13 +1763,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Fixed from the first version:** the base64 screenshot could never pass the 8 KB tool-result limit; the 240 s time could not run (90 s registry cap, 120 s function); the browser sandbox reinstalled Chrome on every run and had wide network access.
 - **Validation:** `npm test`; live sandbox runs need the owner's Vercel account.
 
-
 ## Proposed PR — Dependencies: remove unused, pin, commit lockfile (`security/deps-lockfile`)
 
 - **Change:** remove `express` and `@supabase/supabase-js` (not imported anywhere); pin `@vercel/sandbox` 3.8.0 and `@agent-browser/sandbox` 0.39.1 (loaded on demand by the coding runner only); commit `package-lock.json`; CI fails when the lockfile is out of date; ADR-002 amended; `docs/security.md` follow-up closed.
 - **Validation:** `npm test`, `npm run check:secrets`, `npm audit --audit-level=high` (0 vulnerabilities) locally; CI pending. No app runtime code, schema, or production settings changed.
-
-
 
 ## Proposed PR — NasrinAI production quality and anti-vibe-coding audit (`docs/production-quality-anti-vibe-coding`)
 
@@ -1538,7 +1782,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Critical auth finding:** the existing refresh cookie is scoped to `/v1/auth`, while the access token is held in browser memory. A direct `/owner` request therefore needs a dedicated, short-lived owner-session bootstrap after server-side Supabase identity, email allowlist, and trusted-IP checks. Owner page and every API/export/control must independently enforce the same generic real HTTP 404 boundary for unauthorized callers.
 - **Current change:** documentation and read-only source audit only. No runtime code, schema, environment variables, DNS, or production behavior changed. No tests were executed by this audit.
 - **Next:** implement and regression-test the owner-session boundary first, then build all modules sequentially on this same branch. Verify real data sources before displaying metrics. No merge or deployment without explicit owner approval.
-
 
 - **Additional audit:** verified repository migration definitions for `usage_events`, `plan_periods`, automation runs, NCC outbox, and server-only RLS. Plan entitlement records alone are not a complete refunds/net-revenue ledger.
 - **Preview status:** the Vercel check for the audit commit is `BLOCKED` by deployment policy, not reported as an application build error. No Vercel protection/settings were changed. Owner or project-admin action is needed to enable an authorized preview validation path before the PR is ready.
@@ -1559,7 +1802,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Dependency:** provider catalog/adapters and exact free-model allowlists are being tracked in [PR #361](https://github.com/primusco20/nasrinAI/pull/361). Provider quota reset/failover, live billing/usage sources, credit balances, and dashboard runtime remain unimplemented/unverified until code and tests prove them.
 - **Validation:** documentation-only. No runtime tests, provider API calls, account credits, secrets, schema changes, production environment changes, merge, or deployment performed by this entry. CI must rerun on new commits.
 - **Next:** inspect actual usage writers, spend reservations, provider pricing/billing APIs, and migration definitions; implement server-side accounting and owner-secured endpoints with regression tests. Never fabricate balances or stop the whole eligible pool because one provider quota is exhausted.
-
 
 ## Proposed PR — Upgrade docs status cleanup (`docs/status-cleanup`)
 
@@ -1599,13 +1841,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - `main` had already received newer versions of the audio-chunk and video-scene code and a stricter PDF page-count check, so on conflict `main`'s versions were kept. What this PR still adds: the clearer scene-selection comment, a test that OCR rejects missing page numbers, and a fix for two over-escaped line breaks (`'\\n\\n'`) that would have put the characters `\n\n` between transcript parts instead of a blank line (test added).
 - Not run locally: the test suite (a half-installed package in this session); GitHub CI is the check of record.
 
-
 ## October 2026 documentation reconciliation (2026-10-20)
 
 - Added [October 2026 Implementation Ledger](2026-10-implementation-ledger.md), grouping the current merged work by area and linking the main PRs. It separates merged code from documentation-only specifications and flags migration, OAuth, provider and live-device verification still required.
 - Added [NasrinAI Video Studio Architecture](ai-video-studio-architecture.md), a proposal for a complete template-driven editor plus AI video generation. Proposed default: Shotstack Studio/Edit API, Runway generation adapter, provider-neutral project model and licensed provider templates plus NasrinAI originals; Creatomate remains a proof-of-concept comparator/optional adapter.
 - These documents do not implement the Video Studio or claim that any pending provider, migration, CI run or production deployment is complete.
-
 
 ## NasrinAI Video Studio — initial frontend MVP (feature branch)
 
@@ -1619,7 +1859,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Dedicated Studio chat:** documented the new responsive Ask NasrinAI panel, its use of the existing `/v1/chat` API, bounded project-context injection, in-memory authenticated/guest token handling, test coverage, and release limitations. This adds contextual creative chat inside Studio; it does not yet provide shared cloud project persistence or guarantee reuse of main-chat history.
 
-
 ## Repository-wide change documentation policy (2026-10-20)
 
 - **Owner requirement:** every commit and every pull request must be documented; documentation is part of the change, not optional follow-up work.
@@ -1628,7 +1867,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added a GitHub Actions documentation gate that fails a PR when `docs/pr-change-log.md` is not changed. The template also requires commit-by-commit changelog coverage; reviewers must verify each implementation commit has a corresponding entry.
 - **Enforcement boundary:** the PR gate can verify the changelog is part of the PR, but does not independently prove every commit has its own matching entry. Commit-level coverage remains a review requirement unless a future commit-aware check is added.
 - **Validation:** files and workflow added to `feat/video-studio-mvp`; CI execution and workflow behavior have not yet been confirmed.
-
 
 ## Documentation policy enforcement files (2026-10-20)
 
@@ -1639,7 +1877,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** source files committed to `feat/video-studio-mvp`. GitHub Actions execution and the full test suite are not yet confirmed.
 - This changelog update records the enforcement setup and its follow-up policy clarification; do not treat the documentation gate as proof that every individual commit has a matching entry.
 
-
 ## Fix Vercel routing regression test (2026-10-20)
 
 - **Failure found in CI:** `test/vercel.test.js`, test “API paths are sent to the function, with the original path passed along”. The test's rewrite helper ignored Vercel's host match condition and incorrectly treated the `studio.nasrinai.com` root rewrite as applying to the main `nasrinai.com` host. Actual failure: expected `null` for `/`, received `/video-studio.html`.
@@ -1647,14 +1884,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Production configuration:** unchanged. The Studio rewrite is intentional and remains scoped to `studio.nasrinai.com`; this was a test-model defect, not a routing change.
 - **Validation:** the failing assertion is addressed in the regression test. CI has not yet rerun on the fix, so the suite is not yet confirmed passing.
 
-
 ### Follow-up correction to the Vercel test edit (2026-10-20)
 
 - **Commit:** `42f0f64c58ebc39e7231ff0fbb7c1b8c7675907e`.
 - The first test edit was malformed because the regular-expression line was truncated, causing a JavaScript `SyntaxError` before the test could execute. Replaced the complete `test/vercel.test.js` with a syntactically complete version, retaining all previous assertions and the new host-aware checks.
 - The earlier behavioral failure and root cause remain as recorded above; this follow-up fixes the edit itself.
 - **Validation:** new CI run is required to confirm the file parses and all tests pass; no pass is claimed yet.
-
 
 ### Video Studio custom-domain root routing fix (2026-10-20)
 
@@ -1664,14 +1899,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** live pre-fix checks reproduced the issue; this branch change has not yet been deployed or tested in CI. Verify Vercel build/production routing and run the regression suite before considering complete.
 - **Security/data impact:** no database, auth, secret, storage, or API behavior changed.
 
-
 ### Studio root redirect regression coverage (2026-10-20)
 
 - **Commit:** `03c4f44399b98cc1bb1985b6ffc4d9106ba1e83d` — `test: cover Studio root redirect`.
 - Added a configuration regression test requiring an explicit temporary redirect from `/` to `/video-studio.html` only when the host is `studio.nasrinai.com`, and confirming the main root is not redirected to Studio.
 - Updated API rewrite tests to validate that API paths remain routed to the function independently of host routing.
 - **Validation:** test source updated; execution is pending CI because this connector session does not run the repository's Node test suite.
-
 
 ### Video Studio cloud project persistence foundation (2026-10-20)
 
@@ -1680,14 +1913,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - RLS is enabled and browser roles have no table privileges; application access is intended through the server-side service role only.
 - **Status:** schema foundation only. Authenticated CRUD APIs, frontend sync, migration execution, database tests, and deployment are not yet complete. Do not describe cloud persistence as usable until all are verified.
 
-
 ### Video Studio owner-scoped store operations (2026-10-20)
 
 - **Commit:** `3990e67752ceb5feaceba9d9b25ec512e3a89c5f` — `feat: add owner-scoped Video Studio project store methods`.
 - Added list/get/create/update/delete methods filtered by tenant and authenticated user; project document and metadata are returned as a bounded, server-owned record.
 - Updates support an optional expected-version filter to detect stale writes.
 - **Validation:** source edit is committed; CI and store tests are pending. No production migration was run.
-
 
 ### Video Studio cloud project API (2026-10-20)
 
@@ -1707,7 +1938,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added authenticated cloud save/open flows, local draft fallback on cloud-save failure, and saved project ID/version tracking for subsequent updates.
 - **Limitations:** uploaded local file bytes are not uploaded or synchronized; generated MP4 access remains subject to the existing owner-checked video route. Full end-to-end verification is pending.
 
-
 ### Video Studio cloud project regression coverage (2026-10-20)
 
 - **Commit:** `642ef0c734a0e1a70c6e357ddb566e172eb2c604` — `test: cover Video Studio cloud project persistence`.
@@ -1720,20 +1950,17 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Updated the architecture document to describe the cloud schema/API/UI and explicitly list pending migration, CI, live save/reopen, cross-device, and rendering validation.
 - **Validation:** documentation update only; production database schema has not been changed.
 
-
 ### Video Studio database permission test (2026-10-20)
 
 - **Commit:** `c7527c2897c2027536a5f1e195c52fd39b79f231` — `test: enforce Video Studio project database permissions`.
 - Added a migration-runner SQL test asserting RLS is enabled, anon/authenticated cannot directly access project records, and the server role has the CRUD grants required by the API.
 - **Validation:** test is committed; the database test runner must execute it on a scratch PostgreSQL database. Production schema is unchanged.
 
-
 ### Video Studio cloud controls responsive layout (2026-10-20)
 
 - **Commit:** `00c07379396d624ab891e5c36f5c7daa3e2ea6ed` — `style: fit cloud project controls in Studio header`.
 - Added wrapping layout for the Save/Open controls to avoid forcing them into one fixed-width row on small screens.
 - **Validation:** CSS committed; responsive browser testing remains pending.
-
 
 ### Video Studio cloud prompt preservation (2026-10-20)
 
@@ -1753,7 +1980,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Persist the current prompt in the cloud project document and restore it when opening a cloud project.
 - **Validation:** source edit committed; CI and live round-trip validation pending.
 
-
 ### Video Studio account-deletion cleanup (2026-10-20)
 
 - **Commit:** `00ea728192d8b46a29be8e39e1b008d0a74d626a` — `fix: remove Studio cloud projects on account deletion`.
@@ -1761,20 +1987,17 @@ The original test used over-escaped regular expressions. The test is being simpl
 - If migration 051 has not yet been applied, only a confirmed missing-table error is tolerated; other deletion errors still propagate rather than being silently ignored.
 - **Validation:** code committed; account deletion tests and CI must verify behavior with and without migration 051.
 
-
 ### Video Studio cloud prompt round-trip correction (2026-10-20)
 
 - **Commit:** `f1bc5d7040b200cd6c8ff910f9b221adeb89962c` — `fix: restore prompt when opening cloud Studio project`.
 - Corrected the cloud-project hydration path so it restores the saved, bounded generation prompt into the Studio prompt field when a user opens a project.
 - **Validation:** source change committed; regression test and CI confirmation pending.
 
-
 ### Video Studio cloud round-trip regression test (2026-10-20)
 
 - **Commit:** `c77cc8f325117222f13eaec65975a15e4ef25a70` — `test: cover cloud Studio prompt round trip`.
 - Added a regression test that asserts the bounded prompt is persisted in the cloud document and restored when opening a cloud project.
 - **Validation:** test added; CI pending.
-
 
 ## 2026-10-20 — PR #474 conflict-safe renderer port
 
@@ -1789,7 +2012,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation at this point:** files were transplanted by stable insertion points and current-main content was preserved; CI for this new branch has not yet completed. No browser/device playback test is claimed.
 - **Known limitations:** Browser-dependent MediaRecorder export; MP4 only where supported, otherwise WebM; maximum 30 clips / 180 seconds; local upload bytes are not durable cloud media; manual export playback/audio synchronization remains required.
 
-
 ## 2026-10-20 — Video Studio renderer conflict resolved and merged
 
 - **PR:** #475 — https://github.com/primusco20/nasrinAI/pull/475 (merged by squash).
@@ -1799,14 +2021,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Conflict resolution:** renderer-only controls/styles/functions were ported onto current `main`; current cloud-project prompt restoration was preserved. No whole-file replacement from the stale branch was used.
 - **Still not verified:** browser/device export playback, audio sync, mobile memory behavior, durable local-media cloud storage, and server-side rendering. The browser renderer is a limited client-side export feature, not a production render worker.
 
-
 ## PR #468 — ElevenLabs Video Studio conflict resolution
 
 - Reconciled the ElevenLabs integration with the latest `main` branch (`aa27d8a9f8db5ea48262764c525a0b457d8f2b25`) while preserving the newer cloud-project editor and storage changes.
 - Restored the Video Studio audio generation handlers and audio-specific styles alongside the current editor UI.
 - Local validation: `npm test` — 822 passed, 0 failed, 1 skipped; `npm run check:secrets` — no secrets found in 587 files; JavaScript syntax checks passed; `git diff --check` passed.
 - Deployed Studio/provider/export smoke testing and remaining release gates are still pending.
-
 
 ## PR #483 — Video Studio reference-matched workspace (2026-10-20)
 
@@ -1827,7 +2047,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added test/video-studio-multitrack.test.js and updated renderer regression assertions to cover the new implementation and resource limits.
 - **Release gates:** guaranteed/server-side MP4 rendering is not implemented; browser export emits only the actual supported MIME type (MP4 or WebM). Real iOS Safari, tablet, and desktop end-to-end playback/export QA is still required. Browser export remains capped at 40 clips and 180 seconds.
 
-
 ## PR #484 — Video Studio in NasrinAI Space (2026-10-20)
 
 - Added a Video Studio tile to the NasrinAI Space app grid and wired it to open `/video-studio.html`.
@@ -1835,13 +2054,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added the supplied SVG under `public/space-logos/nasrinai-video-studio.svg` and made the inline navigation mark adapt its pause line to the selected light/dark theme while preserving the pastel-orange play mark.
 - Added regression assertions for Space navigation and the adaptive logo mark.
 
-
 ## Remove standalone Research and Your chats navigation (`ui/remove-research-and-chats-nav`)
 
 - Remove the separate Research and Your chats navigation rows from the desktop rail and mobile drawer while preserving chat search, recent-chat access, the Research workspace implementation, and the existing header history control.
 - Remove obsolete event bindings and update navigation regression tests to assert the simplified navigation rather than requiring the deleted controls.
 - **Validation:** GitHub Actions initially identified stale assertions in desktop navigation, iOS-style icon, Research UI, and Video Studio tests; those expectations are being aligned with the requested navigation change. CI must pass before merge.
-
 
 ## PR #487 — Comprehensive production audit remediation plan (2026-10-20)
 
@@ -1851,14 +2068,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** GitHub Documentation Gate initially failed because this PR did not include `docs/pr-change-log.md`. This changelog entry is the corrective follow-up; the gate must rerun to confirm it passes. No other test results are claimed here.
 - **Limitations:** audit findings must be revalidated against current repository, CI, Supabase, and Vercel state before implementation. No vulnerabilities are represented as exploited without evidence.
 
-
 ## PR #488 — Persistent chat attachments and previews (2026-10-20)
 
 - Persist stable attachment references with signed-in chat messages using the existing private sent-file storage and authenticated owner-checked read route.
 - Restore attachment cards from chat history, add tap-to-preview full-screen lightbox for images, and open/download controls for other supported files.
 - Add storage regression coverage for stable attachment IDs and cross-user denial.
 - **Validation:** CI is running; iPhone Safari end-to-end verification remains required before merge or deployment. Guest attachment persistence is not expanded in this change.
-
 
 ## PR #489 — Multi-provider AI routing and free-model failover (2026-10-20)
 
@@ -1886,13 +2101,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 
 - **Free-tier-only decision:** keep the example Groq model and `GROQ_FREE_MODELS` allowlist pinned to `openai/gpt-oss-20b`; do not select Llama models unless Groq later lists them in the Free Plan Limits for this account. Free-plan limits are enforced by Groq and may produce rate-limit errors; NasrinAI must not automatically upgrade to paid usage.
 
-
 ## PR #489 follow-up — Emergency-only free-tier fallback (2026-10-20)
 
 - **Routing policy:** paid/general-purpose providers remain the normal route. Configured free-tier providers such as Groq are excluded from default cost-aware routing levels and are only considered after configured paid fallback providers fail with eligible errors.
 - **Groq model:** keep `openai/gpt-oss-20b` explicitly allowlisted through `GROQ_FREE_MODELS`; this allowlist is a routing guard, not proof that the provider account is on a free billing plan.
 - **Validation:** regression tests assert Groq is registered for failover, ordered after paid providers, and absent from normal routing levels. CI must pass before merge; no live billing-plan guarantee is possible from the inference API alone.
-
 
 ## PR #491 — OpenRouter multimodal quality and security (2026-10-21)
 
@@ -1902,11 +2115,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add OpenRouter GPT Image 2 / GPT Image 2.5 Flare / Sunburst allowlisting and image quality propagation.
 - Release status: draft only. CI, provider-specific pricing and capability checks, task-policy routing, and end-to-end tests are required before merge or production enablement.
 
-
 - Follow-up: wired the policy's classified task into the OpenRouter text adapter; exact models are checked against live output modality and tool support, external data collection is denied, attachments fail closed on the text adapter, and structured decisions are kept separate from ordinary chat.
 
 - Further hardening: preflight OpenRouter image/video model capabilities and live pricing before paid generation; reconcile OpenRouter image spend with provider-reported `usage.cost`; video SKU pricing is checked against the configured conservative per-second estimate.
-
 
 ## PR #493 — Mobile reply actions and details popover (2026-10-21)
 
@@ -1956,13 +2167,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for discovery intent and generation/explanation exclusions.
 - Validation required: focused tests, full `npm test`, and Preview smoke test with configured `YOUTUBE_DATA_API_KEY`; no production deployment until checks pass.
 
-
 ## YouTube inline playback fix (2026-10-21)
 
 - Use YouTube's privacy-enhanced `youtube-nocookie.com/embed/` host for the inline iframe after server-side embeddability and regional-availability checks.
 - Preserve the current YouTube-first intent routing and validated video IDs; keep video generation and explanation requests on their existing AI routes.
 - Add regression assertions for the privacy-enhanced embed URL. Verify CI and iPhone Preview playback before merging.
-
 
 ## Interaction token estimates and multimodal image preparation (2026-10-21)
 
@@ -1971,13 +2180,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add `tokenizeText`/`estimateTextTokenCount` and `prepareImageForMultimodal` utilities for common raster image types with a 20 MiB default limit.
 - Add regression tests for token normalization, image payload preparation, and rejection of unsupported, empty, or oversized images.
 
-
 ## Reply details visibility and source wave animations (2026-10-21)
 
 - Explicitly position the reply-details popover within the viewport on mobile Safari.
 - Animate the three-dot control and source badges/label from left to right when tapped.
 - Respect `prefers-reduced-motion` and add regression coverage for panel positioning and animation hooks.
-
 
 ## Reply details frosted glass and synchronized source animation (2026-10-21)
 
@@ -1986,14 +2193,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Reuse the exact reply-dot wave keyframes, duration, easing, and stagger for the Sources control.
 - Add regression tests for transparency, readability, and matching animation timing.
 
-
 ## Reply-details glass refinement (2026-10-21)
 
 - Use 10% background opacity for a more transparent, strongly frosted-glass reply-details panel.
 - Set a 0.5px border and 10px vertical / 15px horizontal margins.
 - Use regular font weight for all detail labels and values, including date/time, completion time, and token counts.
 - Preserve readable theme-aware foreground colors and add regression coverage.
-
 
 ## NasrinAI skills catalog and user knowledge base (2026-10-21)
 
@@ -2003,14 +2208,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Mark catalog entries as `needs_verification`; do not claim every listed skill is live or verified. Runtime integration and implementation audit remain separate follow-up work.
 - Validation: JSON parses successfully and contains 644 skill entries. No application tests were run because this change adds documentation and a static knowledge file only.
 
-
 ## Reply-details glass, label color, and padding refinement (2026-10-21)
 
 - Increase transparency to 6% background opacity and strengthen the frosted glass blur.
 - Render detail labels such as Date & time, Time to complete, Input tokens, Output tokens, and Total tokens in gray in both themes.
 - Set panel padding to 10px on all sides while preserving the existing outer margins and regular-weight text.
 - Add regression coverage for the glass, labels, and spacing.
-
 
 ## Reply panel glass and spacing refinement (2026-10-21)
 
@@ -2019,14 +2222,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Set internal padding to 10px vertically and 20px horizontally.
 - Preserve regular-weight typography and the subtle 0.5px border.
 
-
 ## YouTube send and inline playback context fix (2026-10-21)
 
 - Keep the composer Send button actionable when a user has typed text; report AI availability failures in the conversation instead of silently dropping a submission.
 - Preserve YouTube/video intent for affirmative follow-ups such as "Yes" when the generated answer contains the requested YouTube/video context, so inline video results are attached to the relevant reply rather than searching for the literal confirmation.
 - Add regression tests for affirmative follow-up context and composer send behavior.
 - Continue to render only server-verified, embeddable YouTube results in the inline player; direct YouTube search remains a fallback when no eligible embedded results are available.
-
 
 ## PR — Resolve reply-panel styling conflict and animate “Sources” letter-by-letter (2026-10-21)
 
@@ -2035,14 +2236,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Animate the “Sources” word in a left-to-right wave, one character at a time, after the source badges; respect reduced-motion preferences.
 - Add regression coverage for each letter delay and the final backdrop filter.
 
-
 ## PR #514 — Fix SmartChat guest-session send retry (2026-10-21)
 
 - Retry guest-session initialization when the initial request fails, rather than silently ignoring Send when no session token is available.
 - Show a connecting/thinking state, disable duplicate submissions while a request is active, and restore controls after success or failure.
 - Preserve the submitted message in the input after a failure so the user can retry without retyping.
 - Validation: GitHub CI is running; live widget/deployment smoke test remains pending.
-
 
 ## PR #515 — Premium themes and Galaxy solar welcome scene (2026-10-21)
 
@@ -2052,13 +2251,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Respect reduced-motion preferences and keep the animation out of active chats; add regression tests for palette tokens, persistence, welcome-state isolation, and animation hooks.
 - **Validation:** GitHub CI passed for the current PR head. The Documentation Gate failed because this changelog file was not included in the PR diff; this entry addresses that gate condition. Vercel preview status is successful. Recheck the Documentation Gate after this commit; browser/iPhone visual verification remains pending.
 
-
 ## Top navigation ultra-transparent glass refinement (2026-10-21)
 
 - Reduce the top navigation tint to 5% opacity, apply an 8px backdrop blur with neutral saturation, and fade the tint to transparent over the final 5px.
 - Keep navigation icons and text crisp while allowing the underlying page to remain visible through the glass surface.
 - Validation: CI and visual verification remain pending; confirm the effect on iPhone Safari in light and dark themes.
-
 
 ## Top navigation glass adjustment (2026-10-21)
 
@@ -2073,7 +2270,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Record investigation steps for the observed knowledge-write 403 and guest-session/chat errors without weakening origin validation, tenant isolation, or rate limits.
 - **Validation:** the initial Documentation Gate failed because `docs/pr-change-log.md` was missing from the PR diff; this entry addresses that gate. CI passed for the PR head. Production behavior and live end-to-end SmartChat remain unverified.
 
-
 ## PR #518 — Live OpenRouter pricing verification and safe failover (2026-10-22)
 
 - Replace the static OpenRouter model-price snapshot with exact model IDs and input/output/cache rates from the official live catalog before smart routing.
@@ -2082,7 +2278,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression tests for live-price conversion, missing/empty/invalid pricing, zero-cost models, and removal of stale static OpenRouter prices.
 - Implementation commits: `4aaa160` (share pricing preflight), `af626d4` (skip unpriced failover), `8e8caf0` (failover regression), `76b07b3` (live catalog conversion), `a4732be` (refresh before routing), `9b6b576` (runtime catalog refresh), `425e65e` (price verification tests), `b0d6b7a` (no free-list bypass), `f4c8ef4` (reject empty price fields), `df80f51` (empty-price regression), and `dc0c4db` (initial changelog entry).
 - **Validation:** Vercel status passed on the prior implementation commit. Latest CI and Documentation Gate checks need to finish; full test results and production behavior remain pending.
-
 
 ## PR #520 — OpenRouter-primary routing (2026-10-22)
 
@@ -2093,14 +2288,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This mode applies to normal text-model inference. Dedicated integrations such as YouTube Data API search and platform-specific media/voice endpoints remain separately configured capabilities; they are not silently converted into chat completions.
 - **Validation:** CI must pass on the final PR head. Production deployment and live-provider verification remain pending.
 
-
 ## PRs #522–#523 — OpenRouter fallback and provider-owned chat billing (2026-10-22)
 
 - In `AI_PROVIDER=auto`, append OpenRouter as the final eligible chat-provider fallback when configured earlier providers cannot answer; keep provider capability, privacy, and retry checks in force.
 - Remove local USD price metadata as a prerequisite for selecting and calling configured chat models. Provider accounts own billing; provider-reported costs remain authoritative, with local estimates used only for fallback telemetry where necessary.
 - Local USD budget/price snapshots no longer downgrade or block chat routing. Token reservations/limits and hourly anti-abuse limits remain separate controls.
 - **Validation:** PR #522's CI unit tests passed; the Documentation Gate failed because this changelog was absent from the diff. PR #523's follow-up updates legacy tests that still expected local USD budget downgrades and price-based safe-model substitution. Re-run CI and Documentation Gate before merge. No production environment variables or secrets were changed.
-
 
 ## PR #524 — Rebase provider-owned pricing changes after #522 (2026-10-22)
 
@@ -2130,7 +2323,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for persistent tier visibility and OpenRouter-first routing/failover.
 - Validation: CI pending.
 
-
 ## Unified platform engineering contract (2026-10-23)
 
 - Define the engineering scope across Chat, Code, Video Studio, and shared platform services; Video Studio is not the only surface covered by the quality bar.
@@ -2139,7 +2331,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Update `CLAUDE.md` and `README.md` to point all future feature work at the shared contract.
 - **Validation:** documentation-only change. Automated tests, secret scan, CI, Preview, and production behavior have not been run or verified for this change yet.
 
-
 ## Intent-aware interactive chat visualizations (2026-10-23)
 
 - Add a chart widget selected by user intent and data shape, with bar, line, area, donut, and data-table views.
@@ -2147,7 +2338,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Validate chart categories and numeric series, constrain payload size, build output from safe DOM/SVG nodes, and display source/notes when provided.
 - Instruct NasrinAI to use verified, user-supplied, retrieved, or explicitly calculated values and never fabricate data; add prompt regression coverage.
 - **Validation:** CI is running; production deployment and live-browser behavior have not been verified.
-
 
 ## Owner Command Center security and telemetry foundation (2026-10-23)
 
@@ -2162,14 +2352,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Production boundary:** migration 057 and Vercel environment variables have not been applied/changed. Do not enable production owner access until migration and permission checks pass. No merge or deployment has been performed.
 - **Validation:** production module/frontend syntax checks passed. Full test suite, database tests, secret scan, GitGuardian, and desktop/iPhone preview inspection remain unconfirmed. Vercel preview was canceled by the project's ignored-build step.
 
-
 ## Owner Command Center — Phase 3 operational alerts (PR #545)
 
 - **Change:** add a server-only alert outbox and a five-minute CRON_SECRET-protected monitor for AI failure spikes, automation failure spikes, and stale automation. Optional Slack/Discord delivery uses strict HTTPS webhook host/path validation, rejects redirects, and stores only fixed-category summaries. Retries use leases, bounded backoff, and an eight-attempt cap.
 - **Security:** browser roles cannot read or claim outbox records; alert RPCs are service-role-only. No prompts, email addresses, workflow payloads, raw IP addresses, webhook responses, or credentials are included in alerts.
 - **Migration:** 059 (migration 058 is already used by the Owner Console Auth audit feature). Apply 057, 058, then 059 in order after review.
 - **Validation:** CI is running on the draft PR. Production migration, webhook configuration, alert delivery, settlement reconciliation, and privileged controls are not yet verified.
-
 
 ## PR #546 — Owner Command Center bootstrap retry fix (2026-10-23)
 
@@ -2189,7 +2377,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Validation:** Vercel preview status succeeded on implementation commits. Dependency audit passed for CI run 39922830525; test and database jobs were in progress when this entry was authored. No production deployment or merge is claimed.
 - **Rollback:** revert PR #547 if post-merge regressions occur; no database rollback is needed because this change adds no migration.
 
-
 ### PR #547 follow-up fixes and validation (2026-10-23)
 
 - 844a20d866f11f746c44dcf843c83d534e02310a: do not inject a “no matching chats” notice into unrelated ordinary prompts.
@@ -2200,7 +2387,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - fb9ba526706557758309bbc02d36501884c0906e: add the required PR changelog and commit coverage.
 - **Validation history:** the 395a5c8f4d run passed 969 tests with zero failures, but the secret scan correctly rejected a realistic-looking key in the test fixture. The fixture was redacted in 13c7ef6ae145ba9fbe9bed45cc5cc43a30d889ff; the resulting CI run is pending at time of this entry. The database job and dependency audit have passed on the latest run; full CI must be green before merge.
 - **This entry:** documents the follow-up fixes, validation findings, and the current changelog update as part of PR #547.
-
 
 ### PR #547 final validation and merge preparation (2026-10-23)
 
@@ -2234,14 +2420,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - PR: https://github.com/primusco20/nasrinAI/pull/551
 - Validation is pending CI; do not merge until all required checks pass. No production services or settings changed.
 
-
 ## Phase 3 — Supabase foreign-key performance indexes (2026-10-23)
 
 - Add migration 061 with idempotent indexes for eight foreign-key columns reported by the live Supabase performance advisor: NCC activities/outbox/tasks and Video Studio audio/timeline relations.
 - Add database regression checks that each column has a valid, ready, non-partial index with the foreign-key column first.
 - Keep the advisor's 24 unused-index candidates intact until query workload and maintenance paths are reviewed; an unused-index warning alone is not sufficient evidence for safe deletion.
 - **Validation:** migration 061 was approved, applied to production, and verified: all eight foreign-key index checks passed. The post-migration advisor no longer reports the eight missing foreign-key indexes; 32 unused-index informational findings remain under review.
-
 
 ## Phase 5 — Production audit and migration reconciliation (2026-10-23)
 
@@ -2267,7 +2451,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Operational requirement:** enable spending limits, alerts, and account-level billing controls in every configured provider account. The application no longer acts as a USD spend cap based on estimated model prices.
 - **Validation:** pending final CI completion. No production environment variables or Supabase migrations were changed for this phase.
 
-
 ## PR #558 — Provider-availability fallback and image model discovery
 
 - Remove the stale local allowlist for OpenRouter image model IDs; configured models are validated against the live image catalog and task capabilities.
@@ -2288,7 +2471,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Record the required PR changelog entry for the Documentation Gate.
 - **Validation:** CI must pass all tests, database checks, security/dependency checks, and Documentation Gate before merge. Approval applies to screened examples eligible for retrieval only, not model-weight training.
 
-
 ## OpenRouter multi-model routing expansion (2026-10-24)
 
 - Respect operator verification of OpenRouter model IDs/provider access/billing; distinguish that from NasrinAI integration readiness.
@@ -2296,7 +2478,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep specialized decisions IDs out of ordinary chat routing and keep vision payload work separately gated until its adapter is confirmed.
 - Provider-reported usage/billing remains authoritative; local model-price metadata is not a text-routing gate.
 - Validation: CI and authenticated live smoke tests are required before merge/deployment; no production verification is claimed here.
-
 
 ## Quick and guest Nemotron routing (2026-10-24)
 
@@ -2320,7 +2501,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add a regression test that verifies Nemotron remains first choice and the emergency route is attempted only after model failures.
 - Production logs previously showed provider errors for the Nemotron free endpoints. Confirm CI and perform a live smoke test after deployment.
 
-
 ## OpenRouter model route activation (2026-10-24)
 
 - Wire the requested DeepSeek, GLM, MiMo, GPT-6 Luna, Claude Haiku, Qwen, and Ling chat models into default paid-tier candidate pools.
@@ -2328,7 +2508,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for requested IDs in paid-tier routes and Quick exclusion of paid-only models, including custom `ROUTE_LEVEL_1` overrides.
 - Bound Quick/guest retry attempts to the configured OpenRouter candidates so the emergency model can actually be reached after Nemotron failures; other tiers keep their normal retry cap.
 - Provider-reported billing remains authoritative. Full CI and authenticated live model smoke tests are required before merge/release.
-
 
 ## Live OpenRouter model discovery and capability-aware routing (2026-10-24)
 
@@ -2338,7 +2517,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Catalog discovery errors fall back to configured routes; dynamic candidates remain subject to tier, privacy, and bounded retry policy.
 - **Verification caveat:** discovery makes models eligible to be attempted; it does not prove every endpoint succeeds. Authenticated live smoke tests and production telemetry are required before calling a model live-verified.
 
-
 ## OpenRouter verification integrity (2026-10-24)
 
 - Changed static model entries from an unsupported `verified` claim to `catalog-listed` with `verificationStatus: 'not-tested'`.
@@ -2346,13 +2524,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added an opt-in authenticated OpenRouter text endpoint verifier and `npm run verify:openrouter`.
 - The verifier records model ID, advertised modalities/parameters, endpoint result, returned model ID, latency, usage, and sanitized provider error; it does not expose credentials.
 
-
 ## PR #572 — OpenRouter Supabase telemetry
 - Added migration `063_openrouter_logs.sql` with service-role-only table access and indexes.
 - Instrumented the shared OpenRouter client and Responses API web-search path with sanitized request/response summaries, latency, HTTP status, provider IDs, usage tokens, and provider-reported costs when present.
 - Added tests for success/error telemetry, prompt/completion redaction, and non-disruptive Supabase failures.
 - Added setup and privacy documentation in `docs/openrouter-telemetry.md`.
-
 
 ## OpenRouter image catalog filtering (2026-10-24)
 
@@ -2379,13 +2555,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add migration `064_openrouter_generation_reconciliation.sql` for generation IDs, cost source, and reconciliation timestamps.
 - **Validation:** Initial CI for the billing panel passed unit tests, JavaScript syntax, secret scanning, dependency audit, and database tests. Reconciliation changes are awaiting the latest CI run and live OpenRouter/Supabase verification; do not merge until those checks pass.
 
-
 ## PR #587 — Video capability fallback (2026-10-24)
 
 - Report exhausted video quality/model capability checks with a capability-specific 503 error instead of a misleading plan error.
 - Add regression coverage for two-second video requests and unsupported quality combinations.
 - **Validation:** CI identified a test-fixture logger missing the `warn` method and the required PR changelog file was not updated; both are corrected in this follow-up. Re-run CI before merge.
-
 
 ## PR — Provider-default video settings fallback (2026-10-24)
 
@@ -2395,7 +2569,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Add regression coverage for provider-default settings and invalid FPS fallback.
 - **Validation:** CI required on the PR head; live OpenRouter generation must be verified before deployment.
 
-
 ## PR #594 — Owner OpenRouter request logs
 - Add a read-only owner-authenticated API at `/owner/api/openrouter-logs` with validated time-window, status, model, endpoint, and pagination filters. Response projection deliberately excludes request summaries and all prompt/completion content.
 - Add the AI Provider Logs console panel and responsive request table with request time, model, endpoint, outcome, tokens, latency, cost, request identifiers, and upstream provider/generation timing after reconciliation.
@@ -2404,7 +2577,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Implementation commits: `f3b33079b017e307d8b72df0c45dcaf38c25b42f`, `6a6d5434da8a3064d87a3961f7e14090c3820823`, `d770a3ecb841dc43a8d49958d8bedcf535195dd2`, `6f7300ccc2f30a1eeb479df8b53eb9fd68ad26d5`, `e3570e540bcdc57b8deab849c2fe765c3e037ea5`, `326260b4fcfa10fa2dc48495f2d679090b1bfdfc`, `5cf44f2b8f0baaf3d66d1f776957c9643e332750`, `34468eb38adfa00aef33c1ab1fa822ddc7c5422e`, `2918ec69a540844e7cc970aafda984dd9b3a9209`.
 - Validation: CI and database checks are running; do not merge until all required checks pass and Preview behavior is verified.
 
-
 ## PR #595 — Restore verified Owner Command Center entry
 - Fix the settings entry placement by rendering it in a dedicated menu row immediately after Account.
 - Display the entry only after `/v1/owner/session` returns HTTP 204, proving both signed-in email and client IP pass the server-side allowlists; remove it on failure and sign-out.
@@ -2412,12 +2584,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Implementation commits: `22e5b8a3ad039e14b5d8a856d4812d3c81be7daf`, `9ac0c59f4faa5d40890bab0ada4841df2cb41f7d`.
 - Validation: CI queued; browser verification requires a deployed allowlisted session plus wrong-email and wrong-IP negative checks.
 
-
 ## PR #595 follow-up — Owner Command Center inside NasrinAI Space
 - Add a hidden-by-default `Owner Console` app tile to the NasrinAI Space grid.
 - Reveal it only when `POST https://owner.nasrinai.com/v1/owner/session` returns 204 after server-side email + IP allowlist checks; hide it on sign-out and verification failure.
 - The tile re-verifies a fresh token before navigating to the owner console. Add a page test for placement and the verification gate.
-
 
 ## PR #595 follow-up — Adaptive owner-supplied logos and regression tests
 - Add light/dark logo variants to the NasrinAI Space Connect tile, with explicit-theme and system-preference switching and no invert filter.
@@ -2578,7 +2748,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Speed is derived from output tokens and provider generation time. Routing overhead is an estimate, not an authoritative provider metric. No prompts or completions are exposed.
 - Migration 069 is not applied to production; coordinate it with the pending 067–068 release sequence and use the approved migration process.
 
-
 ## Production migration reconciliation — OpenRouter telemetry (2026-10-25)
 
 - Applied and recorded migrations `063_openrouter_logs`, `064_openrouter_generation_reconciliation`, `065_openrouter_provider_performance`, and `069_openrouter_cached_tokens` to the connected production Supabase project.
@@ -2586,15 +2755,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - This closes the prior changelog note that migration 069 was pending. Historical migration-history/schema reconciliation remains open for other unrecorded migrations; do not infer they are unapplied solely from absent registry entries.
 - **Validation:** Supabase migration application returned success for all four migrations and the cached-token constraint was verified in production. This is database schema verification, not a full application/provider end-to-end test.
 
-
 ## Production migration reconciliation — additional idempotent migrations (2026-10-25)
 
 - Applied and recorded `025_global_spend_reservations`, `053_user_provider_credentials`, `057_owner_console_metrics`, `058_owner_console_auth_audit`, and `059_owner_alert_outbox` to the connected production Supabase project.
 - These migrations returned success through Supabase's migration runner. The existing credential and alert tables were retained; owner-console functions and spend-reservation schema were reasserted using the repository migration definitions.
 - The production migration registry now includes these five entries plus OpenRouter migrations 063–065 and 069. This does not resolve every historical migration-label discrepancy: older migration files have overlapping numbers and mixed idempotency, so remaining unrecorded files must be reconciled against live schema and dependencies before they can safely be applied or recorded.
 - **Validation:** migration runner success and registry entries verified. Full application tests and production workflow smoke tests remain separate release gates.
-
-
 
 ## Cross-provider AI Logs and model activities — 2026-10-25
 
@@ -2605,7 +2771,6 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Source limitation:** this endpoint reports telemetry recorded by NasrinAI/OpenRouter. It does not discover calls made independently in provider accounts unless those calls are imported into a connected activity source. Provider catalog membership alone is not evidence that a model was called.
 - Add a consolidated unlisted-model view and provider/model activity summaries with request outcome counts, latest status, and provider-reported cost coverage.
 - **Validation:** automated CI and preview UI checks are required before merge. No production deployment or live provider-data completeness claim is made by this change.
-
 
 ## AI Models Activities — retain all observed model states — 2026-10-25
 
@@ -2620,3 +2785,91 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Keep integration credential keys server-only; browser access to integration tables remains denied. Provider-specific OAuth adapters and provider write operations remain out of scope.
 - Migration 068 has not been applied to production. Verify migration ordering and history in an approved non-production environment before requesting separate production approval.
 - Preserve the latest main changes in routing, Owner Console telemetry, regional analytics, and related tests. No production migration, deployment, or merge performed.
+## PR #641 — Fix Quick Free and Paid model routing — 2026-10-26
+
+- Enforce free Quick's model allowlist independently of the legacy provider-presence flag: only explicitly free OpenRouter models, configured free-provider models, and the authorized GPT-6 Luna fallback for heavy tasks are eligible.
+- Ensure paid Quick only attempts non-free OpenRouter models and never routes to free endpoints or the special free-tier fallback.
+- Add regression coverage for the legacy flag-off case. CI must pass before merge; production behavior remains unverified until both modes are exercised against the deployed service.
+
+## PR #641 follow-up — Quick Free paid image generation — 2026-10-26
+
+- Keep Quick Free text chat on the existing free-model-only policy.
+- When OpenRouter is configured, route tier-1 image generation to the paid OpenRouter Images API using `openai/gpt-image-2`, with `openai/gpt-image-2.5-flare` as the paid fallback.
+- Preserve existing tier ceilings, per-user/image quotas, provider cost telemetry and explicit per-tier environment overrides. When OpenRouter is not configured, retain the existing configured image-provider behavior.
+- Add a regression test for the tier-1 route and fallback. CI must pass before merge; live provider generation still requires production verification.
+
+## PR #642 follow-up — Guest and Quick Free catalog routing — 2026-10-26
+- Restrict Guest and Quick Free OpenRouter chat eligibility to the configured NasrinAI catalog of chat-capable free models.
+- Add configured Nemotron and Gemma free chat candidates to Quick Free defaults while keeping paid Quick and higher tiers separate.
+- Correct policy module import ordering so test modules can load; CI must confirm the fix.
+
+## PR #642 follow-up — direct Gemini for Guest/Quick Free — 2026-10-26
+- Added direct Gemini Flash Lite as an approved Guest/Quick Free fallback outside OpenRouter when Gemini credentials are configured.
+- Preserved OpenRouter catalog free-model priority, paid-model restrictions, and the authorized heavy-task Luna escape hatch ordering.
+- Kept scraping/web research and orchestration tool access in the shared tool layer; provider fallback changes do not remove task/tool capabilities. Regression tests cover the direct Gemini fallback.
+
+## PR #643 follow-up — GPT-6 Luna file routing for Quick — 2026-10-26
+- Added GPT-6 Luna as a first-class route for file extraction, document interpretation, and attachment-based tasks for both Quick Free and paid Quick, rather than limiting it to a generic heavy-task fallback.
+- Quick Free still tries Luna only for file/document tasks as an explicit exception; ordinary chat remains on approved free OpenRouter models and direct Gemini fallback. Paid Quick keeps its paid-model routing policy.
+- Added regression coverage for both Quick Free and paid Quick attachment routing. CI and production verification remain required.
+
+## PR #646 — Quick Free direct-provider allowlist — 2026-10-26
+
+- Reserve direct Groq, Cerebras, Cloudflare Workers AI, Mistral, and NVIDIA NIM APIs for Quick Free only, and only use configured models explicitly included in each provider's free-model allowlist.
+- Keep those direct providers out of generic automatic failover and paid-tier model candidates; retain OpenRouter's separate free-model pool.
+- Add regression coverage proving the exact allowlist and isolation from paid tiers.
+- CI and production verification are required before merge/deployment; provider credentials and current free-tier eligibility must be configured and verified separately.
+
+## PR #654 — Premium responsive map widget layout — 2026-10-27
+- Fix embedded Google Maps cards that render unevenly in chat by enforcing a full-width card/header and a bounded, responsive iframe canvas.
+- Polish mobile spacing, rounded corners, action-button states, and keyboard-visible focus styling without changing map URL construction or provider behavior.
+- Add a regression test for full-width layout, iframe positioning, the mobile breakpoint, and focus styling. CI must pass before merge.
+
+- **PR #657 — Multilingual browser TTS:** Browser speech synthesis now sets a best-effort language from the text's writing system, selects a matching installed device voice in automatic mode, and lists all installed voices matching the preferred language. Latin-script speech follows the language preference or device language; no speech text is sent to an external service for browser TTS.
+
+
+
+## Compact premium map cards in chat replies (2026-10-27)
+- Render Google Maps reply cards as compact two-column cards: a fixed rectangular map preview on the left and concise route/place details plus the Maps link on the right.
+- Bound card and map heights, prevent inherited oval/button-like shapes, clamp layout widths, and use smaller mobile typography and spacing.
+- Keep the existing Google Maps loading, route, and fallback behavior unchanged. Regression tests cover the compact grid and rectangular responsive canvas.
+
+- **Nearby business cards in map replies:** Replace the oversized map/link panel with a responsive map followed by up to five nearby business cards. Use Google Places results for business names, photos, ratings, categories, addresses, and open/closed status when Google returns those fields. Cards link to the individual business in Google Maps; no results are fabricated. Requires Places library/API enabled and billing configured for the browser key.
+
+
+## PR #663 — Fix Gemini Live voice session setup (2026-10-27)
+
+- Align the ephemeral-token session constraints with the browser's Gemini Live setup, including audio response modality, bounded output tokens, and the selected prebuilt voice.
+- Normalize model names before setup and surface sanitized provider error/close codes so session failures are diagnosable without exposing credentials, audio, or transcripts.
+- **Validation:** GitHub Actions CI passed on the implementation head. Documentation Gate initially failed because the required changelog entry was missing; rerun both checks on this changelog-updated head before merge. No merge or deployment is claimed.
+
+
+## Production follow-up — Gemini Live reconnect loop (2026-10-27)
+
+- Fix an iOS/Safari startup race in `public/gemini-realtime.js`: microphone permission is awaited before opening the Gemini WebSocket, so a slow permission prompt cannot let the socket's `open` event fire before its handler is registered.
+- Add a browser regression test that verifies no socket is created during the microphone permission await and that the open handler is registered before startup returns.
+- **Validation:** CI and production voice smoke test are required; do not call the issue resolved until the deployed production voice session reaches `setupComplete` and audio works on iPhone Safari.
+
+
+## OCC Google Search & Traffic analytics — 2026-10-27
+
+- Add a protected Google Search & Traffic panel for GA4 sessions/users/page views and Search Console clicks, impressions, CTR, average position, top queries, and top pages across 7/28/90-day windows.
+- Add a server-only service-account JWT adapter using read-only Google Analytics Data API and Search Console API scopes. Missing configuration returns an explicit setup-required state; source errors are kept separate and no credentials/tokens are sent to the browser.
+- Add focused tests for missing configuration and supported date-window behavior, plus setup/permission documentation.
+- **Validation:** Pending GitHub Actions CI on this branch. Production configuration, Google property permissions, merge, and deployment have not been performed. The live panel will remain setup-required until the three documented server-only environment variables are configured and Google permissions are verified.
+
+
+## fix/video-preview-authenticated-mp4 — load chat video through the authenticated client (2026-10-27)
+
+- Root cause: the inline player assigned the owner-protected `/v1/videos/:id/content` route directly to native `<video>` and download links. Native media/navigation requests do not carry the app's JavaScript-managed Bearer token, so the endpoint could return an unauthenticated JSON response instead of MP4 bytes; Safari then showed a black preview.
+- Fetch the MP4 through the authenticated API client, including its one-time session refresh on HTTP 401, and use a Blob URL for inline playback and download. Keep server-side ownership checks intact; do not make video content public.
+- Add regression assertions for authenticated binary retrieval, 401 retry, Blob URL playback and avoiding direct protected URLs in the native player.
+- Validation boundary: CI must pass on this PR. A fresh production video and Safari/iPhone playback still need to be verified after deployment; OpenRouter's completed status alone does not prove client delivery.
+
+## PR #687 — Batch semantic embeddings and classify quota failures (2026-10-29)
+
+- Production evidence before this change: the 10:00 Manila scheduled run was partial with sanitized `embedding_rate_limited`, 0 indexed pages/chunks, and 8 embedding failures; the global semantic chunk table was empty. A prior zero-chunk run marked succeeded was not accepted as proof.
+- Batch each official page's bounded chunks through `embedMany`, validate all vectors, and bulk-upsert replacement chunks in one request. Preserve existing chunks on embedding/write failure and remove trailing stale chunks only after a complete replacement write.
+- Stop provider calls after a 429. Distinguish quota/billing exhaustion as `embedding_quota_exhausted` using structured fields only; never log or return raw provider response bodies.
+- Ensure any sanitized semantic indexing error marks the scheduled run partial, including chunk-write failures. Add regression tests for quota classification, batch writes, throttling stop behavior, and preserving existing chunks.
+- **Validation:** Focused semantic-index/embedding tests pass (8/8); full `npm test` passes after installing the lockfile dependencies; `npm run check:secrets` passes (no secrets found in 743 files). Production deployment and a subsequent successful scheduled run are still required before the pipeline or model-quality improvement can be called proven.

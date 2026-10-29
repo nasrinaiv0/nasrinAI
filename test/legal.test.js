@@ -17,12 +17,12 @@ test('terms: required for signed-in use, recorded on the server, version-checked
     const blocked = await postJson(a.url + '/v1/chat', { message: 'hi' }, bearer(USER_TOKEN));
     assert.equal(blocked.status, 403);
     assert.equal((await blocked.json()).error.code, 'terms_required');
-    assert.deepEqual(await (await fetch(a.url + '/v1/legal', { headers: bearer(USER_TOKEN) })).json(), { terms_version: '2026-10-13', privacy_version: '2026-10-24', accepted: false });
+    assert.deepEqual(await (await fetch(a.url + '/v1/legal', { headers: bearer(USER_TOKEN) })).json(), { terms_version: '2026-10-13', privacy_version: '2026-10-28', accepted: false });
 
     assert.equal((await postJson(a.url + '/v1/legal/accept', { terms_version: 'old' }, bearer(USER_TOKEN))).status, 409, 'must accept the current version');
     assert.equal((await postJson(a.url + '/v1/legal/accept', { terms_version: '2026-10-13' }, bearer(USER_TOKEN))).status, 200);
     assert.deepEqual(a.store.acceptances.map((x) => [x.userId, x.document, x.version, x.action, x.method]), [
-      ['user-1', 'terms', '2026-10-13', 'accepted', 'signin'], ['user-1', 'privacy', '2026-10-24', 'acknowledged', 'signin']]);
+      ['user-1', 'terms', '2026-10-13', 'accepted', 'signin'], ['user-1', 'privacy', '2026-10-28', 'acknowledged', 'signin']]);
     assert.equal((await postJson(a.url + '/v1/chat', { message: 'hi' }, bearer(USER_TOKEN))).status, 200);
 
     const g = (await (await fetch(a.url + '/v1/guest/sessions', { method: 'POST' })).json()).token;
@@ -63,6 +63,10 @@ test('improvement consent is separate, identity-scoped, versioned, and withdrawa
     a.store.improvementExamples.push({ id: 'example-legal-withdrawal', tenantId: PLATFORM, subjectType: 'user', subjectId: 'user-1', consentVersion: 'example-v1', exampleText: 'redacted sample', createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
     const guestBefore = await (await fetch(url, { headers: bearer(guestToken) })).json();
     assert.equal(guestBefore.enabled, false, 'signed-in consent cannot authorize a guest session');
+    const guestGranted = await put(guestToken, { enabled: true, version: guestBefore.version });
+    assert.equal(guestGranted.status, 200, 'Guest notice acknowledgement grants this guest session');
+    const guestDisabled = await put(guestToken, { enabled: false, version: guestBefore.version });
+    assert.equal(guestDisabled.status, 403, 'Guest cannot turn off improvement collection through settings');
     const withdrawn = await put(USER_TOKEN, { enabled: false, version: empty.version });
     assert.equal(withdrawn.status, 200);
     assert.equal((await withdrawn.json()).enabled, false);
@@ -73,7 +77,7 @@ test('improvement consent is separate, identity-scoped, versioned, and withdrawa
     const finalState = await (await fetch(url, { headers: bearer(USER_TOKEN) })).json();
     assert.equal(finalState.enabled, false);
     assert.equal(finalState.decision, 'withdrawn');
-    assert.equal(a.store.improvementConsentEvents.length, 2, 'prior consent evidence remains append-only');
+    assert.equal(a.store.improvementConsentEvents.length, 3, 'user and Guest consent evidence remains append-only');
     assert.ok(a.store.improvementConsentEvents.every((e) => !('content' in e)), 'consent records never contain chat content');
     const guestGrant = await put(guestToken, { enabled: true, version: guestBefore.version });
     assert.equal(guestGrant.status, 200);

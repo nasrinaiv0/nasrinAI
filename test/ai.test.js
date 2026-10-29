@@ -68,6 +68,8 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
   assert.ok(config.ai.fallback.providers.includes('openai'));
   assert.ok(config.ai.fallback.providers.includes('gemini'));
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
+  assert.equal(config.ai.routing.coding.max.provider, 'anthropic',
+    'Auto should prefer the direct Anthropic coding specialist when it is configured and keep OpenRouter as fallback');
 
   const customized = loadConfig({
     AI_PROVIDER: 'auto',
@@ -76,11 +78,12 @@ test('auto mode registers Gemini, OpenAI, and Claude together and includes them 
     GEMINI_API_KEY: 'gemini-test-key',
     ROUTE_LEVEL_1: 'openai:gpt-5-mini,gemini:gemini-3.1-flash-lite'
   });
-  assert.equal(customized.ai.routing.levels[1][0].provider, 'openrouter', 'custom route lists must not bypass OpenRouter-first intent scanning');
-  assert.deepEqual(customized.ai.routing.levels[1].slice(1).map((route) => route.provider), ['openai', 'gemini']);
+  assert.deepEqual(customized.ai.routing.levels[1].map((route) => route.provider), ['openai', 'gemini'],
+    'Auto must preserve explicitly configured direct-provider order');
+  assert.ok(customized.ai.fallback.providers.includes('openrouter'), 'OpenRouter remains available as a provider fallback');
 });
 
-test('Groq registers as an OpenAI-compatible provider and participates in allowlisted free-model failover', () => {
+test('Groq registers as an OpenAI-compatible provider but is excluded from generic cross-tier fallback', () => {
   const config = loadConfig({
     AI_PROVIDER: 'auto',
     AI_FALLBACK: 'auto',
@@ -91,8 +94,7 @@ test('Groq registers as an OpenAI-compatible provider and participates in allowl
   });
   const provider = providerFromConfig(config);
   assert.ok(provider.providerIds.includes('groq'));
-  assert.ok(config.ai.fallback.providers.includes('groq'));
-  assert.equal(config.ai.fallback.providers.at(-1), 'groq', 'free-tier providers are last-resort after paid providers');
+  assert.ok(!config.ai.fallback.providers.includes('groq'), 'Quick Free direct providers must not enter generic fallback');
   assert.ok(!Object.values(config.ai.routing.levels).flat().some((candidate) => candidate.provider === 'groq'), 'free-tier providers must not be normal routing candidates');
 });
 
@@ -119,7 +121,7 @@ test('OpenRouter-primary mode routes all tiers and intent levels through OpenRou
   assert.deepEqual(providerFromConfig(config).providerIds, ['openrouter']);
 });
 
-test('auto mode with OpenRouter configured selects OpenRouter first for every tier and intent level', () => {
+test('auto mode prefers direct providers and keeps OpenRouter available as fallback', () => {
   const config = loadConfig({
     AI_PROVIDER: 'auto',
     OPENROUTER_API_KEY: 'or-test-key',
@@ -129,20 +131,26 @@ test('auto mode with OpenRouter configured selects OpenRouter first for every ti
   });
   assert.deepEqual(
     Object.values(config.ai.tiers).map((route) => route.provider),
-    ['openrouter', 'openrouter', 'openrouter', 'openrouter']
+    ['openai', 'openai', 'openai', 'openai']
   );
   for (const candidates of Object.values(config.ai.routing.levels)) {
-    assert.equal(candidates[0].provider, 'openrouter');
+    assert.notEqual(candidates[0].provider, 'openrouter', 'Auto must not inject OpenRouter ahead of direct routes');
+    assert.ok(candidates.some((route) => route.provider === 'openrouter'), 'OpenRouter stays available as a fallback candidate');
   }
-  assert.equal(config.ai.fallback.providers[0], 'gemini', 'after the primary OpenRouter attempt, direct providers are fallback targets');
-  assert.ok(!config.ai.fallback.providers.includes('openrouter'), 'do not retry OpenRouter as its own fallback');
   assert.ok(config.ai.fallback.providers.includes('openai'));
   assert.ok(config.ai.fallback.providers.includes('gemini'));
+  assert.ok(config.ai.fallback.providers.includes('openrouter'), 'OpenRouter must be registered as an Auto fallback');
+  assert.ok(config.ai.fallback.providers.indexOf('openai') < config.ai.fallback.providers.indexOf('openrouter'),
+    'OpenAI fallback should precede OpenRouter');
+  assert.ok(config.ai.fallback.providers.indexOf('gemini') < config.ai.fallback.providers.indexOf('openrouter'),
+    'Gemini fallback should precede OpenRouter');
   assert.ok(config.ai.fallback.providers.includes('anthropic'));
 });
 
-test('provider choice: none by default; openai needs a key; fake never in production', () => {
+test('provider choice: explicit Auto works; unconfigured environment stays safely disabled', () => {
   assert.equal(providerFromConfig(loadConfig({})), null);
+  assert.equal(loadConfig({ AI_PROVIDER: 'auto', OPENAI_API_KEY: KEY }).ai.provider, 'auto');
+  assert.equal(loadConfig({ AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key' }).ai.provider, 'auto');
   assert.throws(() => loadConfig({ AI_PROVIDER: 'openai' }), ConfigError);
   assert.deepEqual(providerFromConfig(loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: KEY })).providerIds, ['openai']);
   assert.deepEqual(providerFromConfig(loadConfig({ AI_PROVIDER: 'fake' })).providerIds, ['fake']);

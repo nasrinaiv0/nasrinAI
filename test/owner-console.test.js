@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOwnerConsole, OWNER_SESSION_SECONDS } from '../src/owner-console.js';
+import { DIRECT_PROVIDER_OWNER_MODEL_IDS, OPENROUTER_OWNER_MODEL_IDS, ownerCatalogStatus } from '../src/ai/owner-model-catalog.js';
 
 const SECRET = ['owner-console-test-', 'signing-material-', 'x'.repeat(32)].join('');
 const TOKEN = ['valid-access-', 'token-1234567890'].join('');
@@ -431,6 +432,84 @@ test('OpenRouter Analytics 403 is reported safely as a Management API permission
   assert.equal(out.res.body.includes(secretSentinel), false);
 });
 
+test('direct-provider billing endpoint is owner-session protected and never returns admin credentials', async () => {
+  const calls = [];
+  const ownerConsole = { enabled: true, emails: [EMAIL], ips: [IP], sessionSecret: SECRET, openaiAdminKey: 'openai-admin-secret-test', anthropicAdminKey: 'anthropic-admin-secret-test' };
+  const { consoleHandler } = setup({
+    ownerConsole,
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), options });
+      if (String(url).startsWith('https://api.openai.com/')) return {
+        ok: true, status: 200, json: async () => ({ data: [{ results: [{ amount: { value: 1.25, currency: 'usd' } }] }] })
+      };
+      return {
+        ok: true, status: 200, json: async () => ({ data: [{ results: [{ amount: '275', description: 'Claude messages' }] }], has_more: false })
+      };
+    }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/provider-billing?window=7d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/provider-billing');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.providers.openai.total_usd, 1.25);
+  assert.equal(payload.providers.anthropic.total_usd, 2.75);
+  assert.equal(out.res.body.includes('admin-secret-test'), false);
+  assert.equal(calls.length, 2);
+  assert.equal(calls.find((call) => call.url.includes('api.openai.com')).options.headers.Authorization, 'Bearer openai-admin-secret-test');
+  assert.equal(calls.find((call) => call.url.includes('api.anthropic.com')).options.headers['x-api-key'], 'anthropic-admin-secret-test');
+
+  const invalid = request('GET', '/owner/api/provider-billing?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/provider-billing');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/provider-billing?window=7d', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/provider-billing');
+  assert.equal(denied.res.statusCode, 404);
+});
+
+test('estimated request-cost summary is owner-only, bounded, aggregate-only, and explicitly estimated', async () => {
+  let called = false;
+  const store = {
+    kind: 'supabase',
+    request: async (method, path, options = {}) => {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      assert.equal(method, 'POST');
+      assert.equal(path, 'rpc/owner_console_estimated_cost_summary');
+      assert.ok(options.body.p_since);
+      called = true;
+      return {
+        request_count: 3,
+        estimated_total_usd: 0.0125,
+        pricing_versions: ['2026-10-26-v1'],
+        rows: [{ provider: 'google', model: 'gemini-3.1-flash-lite', request_count: 3, estimated_cost_usd: 0.0125, latest_at: '2026-10-26T01:00:00Z', pricing_version: '2026-10-26-v1' }]
+      };
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/estimated-costs?window=30d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/estimated-costs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.summary.estimated_total_usd, 0.0125);
+  assert.equal(payload.summary.request_count, 3);
+  assert.equal(payload.summary.rows[0].provider, 'google');
+  assert.match(payload.note, /not provider-billed actual costs/i);
+  assert.equal(out.res.body.includes('actor_id'), false);
+  assert.equal(called, true);
+
+  const invalid = request('GET', '/owner/api/estimated-costs?window=365d', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(invalid.req, invalid.res, '/owner/api/estimated-costs');
+  assert.equal(invalid.res.statusCode, 400);
+
+  const denied = request('GET', '/owner/api/estimated-costs?window=30d', { headers: { cookie }, testIp: '198.51.100.99' });
+  await consoleHandler.handle(denied.req, denied.res, '/owner/api/estimated-costs');
+  assert.equal(denied.res.statusCode, 404);
+});
+
 test('OpenRouter request logs are available only inside the authenticated owner boundary and return sanitized rows', async () => {
   let queriedPath = '';
   const store = {
@@ -605,8 +684,15 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
         requested_model: 'openrouter/auto', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', upstream_provider: 'OpenAI',
         endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
         prompt_tokens: 12, cached_tokens: 2, completion_tokens: 8, total_tokens: 20,
-        total_cost_usd: 0.0012, provider_cost_source: 'openrouter_generation_api',
+        total_cost_usd: null, provider_cost_source: null,
         provider_request_id: 'gen-1', latency_ms: 250, generation_time_seconds: 0.1
+      }, {
+        id: 'log-cost-no-source', request_id: 'req-cost-no-source', created_at: timestamp, provider: 'openrouter',
+        requested_model: 'openrouter/auto', model: null, upstream_provider: 'OpenRouter',
+        endpoint: '/chat/completions', http_method: 'POST', status: 'success', http_status: 200,
+        prompt_tokens: 18, cached_tokens: null, completion_tokens: 5, total_tokens: 23,
+        total_cost_usd: 0.012, provider_cost_source: null, provider_request_id: null,
+        latency_ms: 180, generation_time_seconds: 0.1
       }, {
         id: 'log-inferred', request_id: 'req-inferred', created_at: timestamp, provider: 'openrouter',
         requested_model: 'openrouter/auto', model: null, upstream_provider: 'OpenRouter',
@@ -614,6 +700,11 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
         prompt_tokens: 3, cached_tokens: null, completion_tokens: null, total_tokens: null,
         total_cost_usd: null, provider_cost_source: null, provider_request_id: null,
         latency_ms: null, generation_time_seconds: null
+      }];
+      if (path.startsWith('openrouter_generations?')) return [{
+        generation_id: 'gen-1', created_at: timestamp, model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+        provider_name: 'OpenAI', cost_total: '0.0045', tokens_prompt: 12, tokens_completion: 8,
+        tokens_cached: 2, finish_reason: 'stop', generation_time_ms: 100
       }];
       throw new Error('unexpected telemetry query');
     }
@@ -634,14 +725,19 @@ test('cross-provider AI logs apply short time windows, provider filters, configu
   assert.equal(payload.rows[0].catalog_status, 'listed');
   assert.equal(payload.rows[0].model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
   assert.equal(payload.rows[0].cost_kind, 'provider_reported');
-  assert.equal(payload.rows[0].total_cost_usd, 0.0012);
+  assert.equal(payload.rows[0].total_cost_usd, 0.0045);
+  assert.equal(payload.rows[0].provider_cost_source, 'openrouter_generation_api');
   assert.equal(payload.rows[0].model_status, 'observed');
 
   const allStates = request('GET', '/owner/api/ai-logs?window=15m&provider=openrouter&scope=all&limit=50&offset=0', { headers: { cookie }, testIp: IP });
   await consoleHandler.handle(allStates.req, allStates.res, '/owner/api/ai-logs');
   assert.equal(allStates.res.statusCode, 200);
   const allStatesPayload = JSON.parse(allStates.res.body);
-  assert.equal(allStatesPayload.rows.length, 2);
+  assert.equal(allStatesPayload.rows.length, 3);
+  const untaggedCost = allStatesPayload.rows.find((row) => row.id === 'log-cost-no-source');
+  assert.equal(untaggedCost.cost_kind, 'provider_reported');
+  assert.equal(untaggedCost.total_cost_usd, 0.012);
+  assert.equal(untaggedCost.provider_cost_source, 'openrouter_logs.total_cost_usd');
   const inferred = allStatesPayload.rows.find((row) => row.id === 'log-inferred');
   assert.equal(inferred.status, 'running');
   assert.equal(inferred.model_status, 'inferred');
@@ -678,6 +774,7 @@ test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases
         { id: 'unlisted', created_at: timestamp, provider: 'openrouter', requested_model: 'vendor/not-in-nasrin-catalog', model: 'vendor/not-in-nasrin-catalog', status: 'success', endpoint: '/chat/completions' },
         { id: 'alias', created_at: timestamp, provider: 'openrouter', requested_model: 'openrouter/auto', model: null, status: 'running', endpoint: '/chat/completions' }
       ];
+      if (path.startsWith('openrouter_generations?')) return [];
       throw new Error('unexpected telemetry query');
     }
   };
@@ -702,4 +799,200 @@ test('AI log scopes use NasrinAI configured catalogs and keep unresolved aliases
   const all = await load('all');
   assert.equal(all.rows.length, 3);
   assert.equal(all.rows.find(row => row.id === 'alias').catalog_status, 'unknown');
+});
+
+test('AI Logs include OpenRouter generations discovered from account analytics when no local request row exists', async () => {
+  const timestamp = new Date(1_800_000_000_000).toISOString();
+  const store = { kind: 'supabase', request: async (_method, path) => {
+    if (path === 'rpc/owner_console_record_audit') return null;
+    if (path.startsWith('usage_events?')) return [];
+    if (path.startsWith('openrouter_logs?')) return [];
+    if (path.startsWith('openrouter_generations?')) return [{
+      generation_id: 'gen-imported-1', created_at: timestamp, model: 'nvidia/nemotron-3.5-lightning:free',
+      provider_name: 'NVIDIA', cost_total: '0.0002', tokens_prompt: 12, tokens_completion: 7,
+      tokens_reasoning: null, tokens_cached: 2, finish_reason: 'stop', finish_reason_norm: 'stop',
+      latency_ms: 180, generation_time_ms: 90, request_id: 'provider-request-1'
+    }];
+    throw new Error('unexpected telemetry query');
+  }};
+  const { consoleHandler } = setup({ store, fetchImpl: async () => { throw new Error('must not fetch provider catalog for inventory membership'); } });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/ai-logs?window=24h&provider=openrouter&scope=listed&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.rows.length, 1);
+  assert.equal(payload.rows[0].telemetry_source, 'openrouter_generations');
+  assert.equal(payload.rows[0].openrouter_generation_id, 'gen-imported-1');
+  assert.equal(payload.rows[0].endpoint, '/generation');
+  assert.equal(payload.rows[0].total_cost_usd, 0.0002);
+  assert.equal(payload.rows[0].cost_kind, 'provider_reported');
+  assert.equal(payload.rows[0].prompt_tokens, 12);
+  assert.equal(Object.hasOwn(payload.rows[0], 'raw'), false);
+});
+
+test('Owner Command Center model inventory matches the requested OpenRouter and direct-provider catalogs', () => {
+  assert.equal(OPENROUTER_OWNER_MODEL_IDS.length, 51);
+  assert.equal(new Set(OPENROUTER_OWNER_MODEL_IDS).size, 49);
+  assert.equal(DIRECT_PROVIDER_OWNER_MODEL_IDS.openai.length, 6);
+  assert.equal(DIRECT_PROVIDER_OWNER_MODEL_IDS.google.length, 5);
+  assert.equal(DIRECT_PROVIDER_OWNER_MODEL_IDS.anthropic.length, 3);
+  assert.equal(Object.values(DIRECT_PROVIDER_OWNER_MODEL_IDS).flat().length, 14);
+  assert.ok(OPENROUTER_OWNER_MODEL_IDS.includes('nvidia/nemotron-3.5-embed-8b:free'));
+  assert.ok(OPENROUTER_OWNER_MODEL_IDS.includes('nvidia/nemotron-3.5-rerank-8b:free'));
+  assert.ok(DIRECT_PROVIDER_OWNER_MODEL_IDS.google.includes('google/gemini-3.8-flash-lite-tts'));
+  assert.equal(ownerCatalogStatus('nvidia/nemotron-3-ultra-550b-a55b:free', 'openrouter'), 'listed');
+  assert.equal(ownerCatalogStatus('gemini-3.8-flash-lite-tts', 'google'), 'listed');
+  assert.equal(ownerCatalogStatus('claude-opus-5.5', 'anthropic'), 'listed');
+  assert.equal(ownerCatalogStatus('model-not-configured', 'openai'), 'not_listed');
+  assert.equal(ownerCatalogStatus('openrouter/auto', 'openrouter'), 'unknown');
+  assert.equal(ownerCatalogStatus('model-not-configured', 'unknown-provider'), 'unknown');
+});
+
+test('direct-provider AI Logs classify models against their provider-specific inventory', async () => {
+  const timestamp = new Date(1_800_000_000_000).toISOString();
+  const usageRows = [
+    { provider: 'openai', model: 'openai/gpt-6-luna', created_at: timestamp, outcome: 'success', input_tokens: 10, output_tokens: 5, request_id: '11111111-1111-4111-8111-111111111111', endpoint: '/v1/chat', http_method: 'POST', http_status: 200, provider_request_id: 'chatcmpl-test-123', finish_reason: 'stop', estimated_cost_usd: 0.0000035, estimated_cost_source: 'pricing_registry_v1_standard_list_price', pricing_version: '2026-10-26-v1' },
+    { provider: 'gemini', model: 'google/gemini-3.8-flash-lite-tts', created_at: timestamp, outcome: 'success', input_tokens: 20, output_tokens: 8 },
+    { provider: 'claude', model: 'anthropic/claude-opus-5.5', created_at: timestamp, outcome: 'success', input_tokens: 30, output_tokens: 12 },
+    { provider: 'openai', model: 'openai/not-in-owner-catalog', created_at: timestamp, outcome: 'success', input_tokens: 1, output_tokens: 1 }
+  ];
+  const store = { kind: 'supabase', request: async (_method, path) => {
+    if (path === 'rpc/owner_console_record_audit') return null;
+    if (path.startsWith('usage_events?')) return usageRows;
+    if (path.startsWith('openrouter_logs?')) return [];
+    if (path.startsWith('openrouter_generations?')) return [];
+      throw new Error('unexpected telemetry query');
+  }};
+  const { consoleHandler } = setup({ store, fetchImpl: async () => { throw new Error('static inventory must not call provider catalogs'); } });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('GET', '/owner/api/ai-logs?window=24h&provider=all&scope=all&limit=50&offset=0', { headers: { cookie }, testIp: IP });
+  await consoleHandler.handle(out.req, out.res, '/owner/api/ai-logs');
+  assert.equal(out.res.statusCode, 200);
+  const rows = JSON.parse(out.res.body).rows;
+  const openaiRow = rows.find(row => row.provider === 'openai' && row.model === 'gpt-6-luna');
+  assert.equal(openaiRow.catalog_status, 'listed');
+  assert.equal(openaiRow.request_id, '11111111-1111-4111-8111-111111111111');
+  assert.equal(openaiRow.endpoint, '/v1/chat');
+  assert.equal(openaiRow.http_method, 'POST');
+  assert.equal(openaiRow.http_status, 200);
+  assert.equal(openaiRow.provider_request_id, 'chatcmpl-test-123');
+  assert.equal(openaiRow.finish_reason, 'stop');
+  assert.equal(openaiRow.total_cost_usd, 0.0000035);
+  assert.equal(openaiRow.cost_kind, 'estimated');
+  assert.equal(openaiRow.provider_cost_source, null, 'estimates must never be labeled provider-reported');
+  assert.equal(openaiRow.estimated_cost_source, 'pricing_registry_v1_standard_list_price');
+  assert.equal(openaiRow.pricing_version, '2026-10-26-v1');
+  assert.equal(rows.find(row => row.provider === 'google' && row.model === 'gemini-3.8-flash-lite-tts').catalog_status, 'listed');
+  assert.equal(rows.find(row => row.provider === 'anthropic' && row.model === 'claude-opus-5.5').catalog_status, 'listed');
+  assert.equal(rows.find(row => row.model === 'not-in-owner-catalog').catalog_status, 'not_listed');
+});
+
+test('OpenRouter generation reconciliation uses generation IDs and backfills unverified costs', async () => {
+  const calls = [];
+  const rows = [
+    { id: 'row-1', provider_request_id: 'req-not-a-generation', openrouter_generation_id: 'gen-valid-1', total_cost_usd: 0.02, provider_cost_source: null, model: 'openai/gpt-4o' },
+    { id: 'row-2', provider_request_id: 'gen-valid-2', openrouter_generation_id: null, total_cost_usd: null, provider_cost_source: null, model: 'openai/gpt-4o' },
+    { id: 'row-3', provider_request_id: 'req-not-a-generation', openrouter_generation_id: null, total_cost_usd: null, provider_cost_source: null, model: 'openai/gpt-4o' },
+    { id: 'row-4', provider_request_id: 'gen-verified', openrouter_generation_id: 'gen-verified', total_cost_usd: 0.01, provider_cost_source: 'openrouter_generation_api', model: 'openai/gpt-4o' }
+  ];
+  const store = { request: async (method, path, options = {}) => {
+    if (method === 'GET' && path.startsWith('openrouter_logs?select=id,provider_request_id,openrouter_generation_id')) return rows;
+    if (method === 'PATCH' && path.startsWith('openrouter_logs?id=eq.')) {
+      calls.push({ method, path, patch: options.body });
+      return [{ id: path.includes('row-1') ? 'row-1' : 'row-2' }];
+    }
+    if (method === 'GET' && path.startsWith('openrouter_logs?select=id,provider_request_id,openrouter_generation_id,total_cost_usd,provider_cost_source,created_at')) {
+      return rows.map((row) => ({ ...row, provider_cost_source: row.provider_cost_source }));
+    }
+    if (path === 'rpc/owner_console_record_audit') return null;
+    throw new Error('unexpected store request');
+  }};
+  const { consoleHandler } = setup({
+    store,
+    openrouterApiKey: 'openrouter-inference-key-123456789',
+    fetchImpl: async (url, options) => {
+      const id = new URL(url).searchParams.get('id');
+      calls.push({ url, options });
+      return { ok: true, status: 200, json: async () => ({ data: {
+        id, total_cost: id === 'gen-valid-1' ? 0.03 : 0,
+        tokens_prompt: 10, tokens_completion: 4, tokens: 14,
+        generation_time: 1200, upstream_inference_time: 900,
+        model: 'openai/gpt-4o', provider_name: 'Test Provider', native_finish_reason: 'stop'
+      } }) };
+    }
+  });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const out = request('POST', '/owner/api/openrouter-billing/reconcile', {
+    headers: { ...sameOrigin, cookie, 'content-type': 'application/json' }, testIp: IP
+  });
+  out.req[Symbol.asyncIterator] = async function* () { yield Buffer.from(JSON.stringify({ confirm: 'RECONCILE', window: '7d' })); };
+  await consoleHandler.handle(out.req, out.res, '/owner/api/openrouter-billing/reconcile');
+  assert.equal(out.res.statusCode, 200);
+  const payload = JSON.parse(out.res.body);
+  assert.equal(payload.attempted, 2);
+  assert.equal(payload.updated, 2);
+  const generationCalls = calls.filter((call) => call.url);
+  assert.deepEqual(generationCalls.map((call) => new URL(call.url).searchParams.get('id')), ['gen-valid-1', 'gen-valid-2']);
+  assert.ok(calls.some((call) => call.patch?.total_cost_usd === 0.03 && call.patch?.provider_cost_source === 'openrouter_generation_api'));
+  assert.ok(calls.some((call) => call.patch?.total_cost_usd === 0 && call.patch?.generation_time_seconds === 1.2));
+  assert.ok(generationCalls.every((call) => call.options.headers.Authorization === 'Bearer openrouter-inference-key-123456789'));
+
+  const crossOrigin = request('POST', '/owner/api/openrouter-billing/reconcile', {
+    headers: { ...sameOrigin, origin: 'https://attacker.example', cookie, 'content-type': 'application/json' },
+    testIp: IP
+  });
+  crossOrigin.req[Symbol.asyncIterator] = async function* () {
+    yield Buffer.from(JSON.stringify({ confirm: 'RECONCILE', window: '7d' }));
+  };
+  await consoleHandler.handle(crossOrigin.req, crossOrigin.res, '/owner/api/openrouter-billing/reconcile');
+  assert.equal(crossOrigin.res.statusCode, 404, 'cross-origin reconciliation requests must be rejected');
+});
+
+test('continuous intelligence telemetry is owner-session protected and excludes page bodies and raw errors', async () => {
+  const store = {
+    kind: 'supabase',
+    async request(method, path) {
+      if (path === 'rpc/owner_console_record_audit') return null;
+      if (method === 'GET' && path.startsWith('web_crawl_queue?')) return [
+        { status: 'queued', source: 'owner_seed', attempts: 0, last_error: 'sensitive raw error detail', next_crawl_at: '2026-10-29T00:00:00Z' },
+        { status: 'retry', source: 'discovered', attempts: 2, last_error: 'another raw error' }
+      ];
+      if (method === 'GET' && path.startsWith('web_crawl_pages?')) return [
+        { url: 'https://www.typescriptlang.org/docs/', title: 'TypeScript Docs', fetched_at: '2026-10-29T00:00:00Z', content_hash: 'a'.repeat(64), text_content: 'private body must not be returned' }
+      ];
+      if (method === 'GET' && path.startsWith('knowledge_learning_runs?')) return [
+        { started_at: '2026-10-29T00:00:00Z', finished_at: '2026-10-29T00:00:03Z', status: 'partial', seed_count: 19, crawl_processed: 5, indexed_pages: 1, indexed_chunks: 2, skipped_unchanged: 1, embedding_failures: 0, duration_ms: 3000, error_code: null }
+      ];
+      if (method === 'GET' && path.startsWith('public_technical_chunks?')) return [{ id: 'safe-id-only' }];
+      throw new Error('unexpected query');
+    }
+  };
+  const { consoleHandler } = setup({ store });
+  const opened = await bootstrap(consoleHandler);
+  const cookie = opened.res.headers['set-cookie'].split(';')[0];
+  const pair = request('GET', '/owner/api/continuous-intelligence', { headers: { cookie, ...sameOrigin } });
+  await consoleHandler.handle(pair.req, pair.res, '/owner/api/continuous-intelligence');
+  assert.equal(pair.res.statusCode, 200);
+  const body = JSON.parse(pair.res.body);
+  assert.equal(body.queue.status_counts.queued, 1);
+  assert.equal(body.queue.status_counts.retry, 1);
+  assert.equal(body.queue.source_counts.owner_seed, 1);
+  assert.equal(body.recent_pages[0].title, 'TypeScript Docs');
+  assert.equal(body.recent_pages[0].content_hash, 'a'.repeat(64));
+  assert.equal(JSON.stringify(body).includes('sensitive raw error detail'), false);
+  assert.equal(JSON.stringify(body).includes('private body must not be returned'), false);
+  assert.equal(body.retrieval.mode, 'keyword_fallback');
+  assert.equal(body.learning_runs.recent[0].indexed_chunks, 2);
+  assert.equal(body.semantic_index.chunks_sampled, 1);
+});
+
+test('continuous intelligence telemetry is not public without an owner session', async () => {
+  const { consoleHandler } = setup();
+  const pair = request('GET', '/owner/api/continuous-intelligence');
+  await consoleHandler.handle(pair.req, pair.res, '/owner/api/continuous-intelligence');
+  assert.equal(pair.res.statusCode, 404);
 });
