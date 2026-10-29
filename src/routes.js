@@ -419,8 +419,11 @@ return { body: { sites: await connect.list(caller) } }; }
           const semantic = typeof crawler.indexSemanticPages === 'function'
             ? await crawler.indexSemanticPages({ limit: 5 })
             : { enabled: false, indexed_pages: 0, indexed_chunks: 0, skipped_unchanged: 0, embedding_failures: 0 };
+          const semanticEnabledWithoutEvidence = semantic.enabled === true &&
+            Number(semantic.indexed_chunks || 0) === 0 && Number(semantic.skipped_unchanged || 0) === 0;
           const failed = (result.results || []).some((item) => item.status === 'retry') ||
-            Number(knowledgeIndex.failed || 0) > 0 || Number(semantic.embedding_failures || 0) > 0;
+            Number(knowledgeIndex.failed || 0) > 0 || Number(semantic.embedding_failures || 0) > 0 ||
+            semanticEnabledWithoutEvidence;
           const run = {
             started_at: new Date(startedAt).toISOString(), finished_at: new Date().toISOString(),
             status: failed ? 'partial' : 'succeeded', seed_count: PROGRAMMING_DOC_SOURCES.length,
@@ -438,6 +441,7 @@ return { body: { sites: await connect.list(caller) } }; }
             status: run.status, seed_count: run.seed_count, enqueued,
             crawl_processed: run.crawl_processed, indexed_pages: run.indexed_pages,
             indexed_chunks: run.indexed_chunks, embedding_failures: run.embedding_failures,
+            error_code: run.error_code,
             duration_ms: run.duration_ms
           });
           return { body: { ok: true, seed_count: PROGRAMMING_DOC_SOURCES.length, enqueued, ...result, knowledge_index: knowledgeIndex, semantic } };

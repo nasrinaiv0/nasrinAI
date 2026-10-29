@@ -20,7 +20,9 @@ test('embeddings: 384 numbers from OpenAI, contact details removed first', async
 
 test('embeddings: errors and wrong sizes are refused', async () => {
   const bad = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => new Response('no', { status: 429 }) });
-  await assert.rejects(bad.embed('x'), /429/);
+  await assert.rejects(bad.embed('x'), (err) => err.message.includes('429') && err.status === 429 && err.code === 'embedding_rate_limited');
+  const unauthorized = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => new Response('secret provider body must not be logged', { status: 401 }) });
+  await assert.rejects(unauthorized.embed('x'), (err) => err.status === 401 && err.code === 'embedding_auth_rejected');
   const short = createOpenAIEmbedder({ apiKey: 'k', fetchImpl: async () => Response.json({ data: [{ embedding: [1, 2] }] }) });
   await assert.rejects(short.embed('x'), /unexpected shape/);
 });
