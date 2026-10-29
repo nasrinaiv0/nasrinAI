@@ -3,6 +3,13 @@
 - Since #409, `AI_PROVIDER=fake npm start` (in-memory store, no Supabase) crashed at startup because the integration store requires the database. Integrations are now created only when the Supabase store is present; their routes stay off otherwise. Production (Supabase) is unchanged.
 - Test: the app builds without a database.
 
+## Owner Command Center API keys — 2026-10-29
+
+- Settings → API Keys: create (full key shown once with copy), list by prefix, revoke with confirmation.
+- Migration 081: service-role-only RPCs; hash-only storage; 20-active cap with an advisory lock; platform-tenant scope only; create/revoke audited in the same transaction. DB test included.
+- `/owner/api/api-keys` endpoints: owner session, same-origin JSON, explicit confirmation; raw IPs never sent to the database (SHA-256 only).
+- Tests: endpoint access/validation, no hash disclosure, gateway accepts the key as a platform service caller and refuses it after revocation.
+
 ## SEO: route inventory (`seo/structured-data-route-inventory`, 2026-10-29)
 
 - Structured data deferred: the app page's strict no-inline-script guard stays as is (owner decision needed).

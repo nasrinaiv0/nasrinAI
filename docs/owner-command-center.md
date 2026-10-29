@@ -6,6 +6,15 @@ Owner: [REQUIRES INPUT: canonical owner account/identity]
 Production: https://www.nasrinai.com
 Architecture constraints: see `CLAUDE.md`, `docs/operations.md`, ADR-002, and the existing server-side Supabase/auth patterns.
 
+## API keys (2026-10-29)
+
+Settings → **API Keys** lets the owner create, list and revoke secret `nss_` keys for the NasrinAI API (platform tenant, scope `chat`).
+
+- Migration 081: `owner_console_create_api_key`, `owner_console_list_api_keys`, `owner_console_revoke_api_key` (service-role only). Creation is capped at 20 active keys and serialised; only the SHA-256 hash is stored; create and revoke each write an owner audit event in the same transaction (`api_key_created`, `api_key_revoked`).
+- Endpoints: `GET /owner/api/api-keys` (prefix, label, scope, dates; never hashes), `POST /owner/api/api-keys` (`{label, confirm:true}`; full key returned once), `POST /owner/api/api-keys/:id/revoke` (`{confirm:true}`). Writes require the owner session, same-origin JSON and confirmation.
+- A key authenticates `Authorization: Bearer nss_…` as a platform service caller on `/v1/chat` and other `chat`-scope routes, subject to the service per-hour message limit. Revocation takes effect on the next request.
+- Owner step: run `db/migrations/081_owner_console_api_keys.sql` in Supabase (staging first).
+
 ## Redesign to the owner's mockup (2026-10-29)
 
 The console now follows the owner's "NasrinAI Owner Console — Darker" mockup: 11 sidebar pages (Overview, AI Ops Center, Users & CRM, Content & Media, Finance, Infrastructure, Security, Automation (NCC), Release Guard, Reports, Settings), a dark default with light/system themes, accent colours, compact sidebar and font size (saved per device), a date-range picker (7/14/30 days), a computed system-status pill, and a notifications bell (failing services and open incidents).
