@@ -5,6 +5,22 @@
 Last updated: 2026-10-30
 Repository: https://github.com/nasrinaiv0/nasrinAI
 
+## Production reconciliation update — 2026-10-30 (direct Supabase changes)
+
+**Latest observed database status:** migrations `068_user_owned_integrations`, `079_tenant_hybrid_knowledge`, and `083_explicit_deny_server_only_tables` were applied successfully to production Supabase after the user explicitly asked to execute the updated repair plan. Do not rely on the earlier historical lines below that say these changes are pending; this dated update supersedes them for these three migrations.
+
+- `068_user_owned_integrations` — **Implemented (schema only)**. Both `public.integration_connections` and `public.integration_oauth_states` now exist. RLS is enabled; explicit `server_only_deny_browser` policies deny `anon` and `authenticated`; table privileges are revoked from browser roles; `service_role` retains access. Migration registry entry version: `20261029225506`. Application-level OAuth/credential persistence and ownership behavior have not been exercised end-to-end.
+- `079_tenant_hybrid_knowledge` — **Implemented (schema only)**. `knowledge_chunks.embedding` and `embedding_model` exist; `knowledge_chunks_embedding_hnsw` exists; `search_knowledge_hybrid` exists as SECURITY DEFINER with fixed `search_path=pg_catalog, public, extensions`; routine privileges observed for `postgres` and `service_role`, with browser roles revoked. Registry version: `20261029225531`. Semantic embeddings are not populated/validated by this schema change; runtime retrieval remains **Not verified**.
+- `083_explicit_deny_server_only_tables` — **Implemented (security hardening)**. Explicit false policies now exist for `anon` and `authenticated` on `knowledge_learning_runs`, `openrouter_generations`, and `public_technical_chunks`; no table privileges were found for `PUBLIC`, `anon`, or `authenticated`. Registry version: `20261029225602`. Supabase security advisor no longer reports the three RLS-enabled/no-policy findings.
+- **Still Blocked:** leaked-password protection remains disabled. The available Supabase connector exposes no Auth security-settings mutation, so this must be enabled through the Supabase Dashboard's Auth password-security settings by an authorized owner.
+- **Still Not verified:** migrations `080_owner_console_dashboard`, `081_owner_console_api_keys`, and `082_user_message_recall` have relevant functions/indexes present in the live schema, but their migration registry entries are absent and exact definition parity has not been established. Do not blindly replay 080: its repository migration sets `search_path=public, pg_temp` on a SECURITY DEFINER dashboard function; review and harden that definition before reconciling history.
+- **Still Not verified:** end-to-end integration connection/OAuth flows, tenant hybrid retrieval, memory opt-in behavior, owner dashboard/API-key UI, PR #702 and #703 conflict resolution, and production app behavior.
+- **Test/deployment boundary:** these were direct production database changes. Migration runner success and read-only catalog/advisor verification are confirmed; no app test suite or end-to-end test was run for these DB changes. No GitHub PR was merged and no Vercel deployment was initiated as part of this pass.
+- **Environment constraint:** Supabase development branches are unavailable on the current Free plan; the approved `$0.01344/hour` branch could not be created. No separate test project was created.
+
+Detailed evidence and exact SQL: [production schema repair progress](audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md).
+
+
 ## How to use this file
 Read this before making changes. Treat GitHub's current `main`, open PRs, workflow results, and Vercel deployment state as the source of truth. Do not assume an open PR is merged or that a successful deployment status means every test passed. Inspect the actual diff and run the applicable checks before changing code.
 
@@ -213,3 +229,10 @@ Changes in this follow-up:
 - PR statuses for #352, #363, #365, #366 above are historical; recheck GitHub before relying on them.
 - Docs aligned with code: `docs/community-learning.md` now matches migration 075 and the Privacy Notice (Guest notice grant, no routine expiry for screened examples); Privacy Notice header set to version 2026-10-28 to match `LEGAL_PRIVACY_VERSION`.
 - Repository moved to `nasrinaiv0/nasrinAI` (old `primusco20/nasrinAI` URLs redirect; `gh api repos/...` fails on the redirect, use the GitHub MCP tools).
+
+
+### Follow-up — owner dashboard SECURITY DEFINER search path (2026-10-30)
+
+- Applied migration `084_harden_owner_dashboard_search_path` (registry version `20261029225731`) to set `public.owner_console_dashboard(integer)` to `search_path=pg_catalog, pg_temp`, replacing the riskier `public, pg_temp` setting.
+- Source file: `db/migrations/084_harden_owner_dashboard_search_path.sql`; detailed record: `audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`.
+- Migration runner returned success. Read-only catalog verification confirmed `search_path=pg_catalog, pg_temp`. Owner dashboard auth, endpoint behavior and UI remain **Not verified**.

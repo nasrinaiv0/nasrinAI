@@ -2969,3 +2969,22 @@ The original test used over-escaped regular expressions. The test is being simpl
 - `docs/community-learning.md` matched to code/migration 075/Privacy Notice (Guest notice grant, no routine expiry for screened examples, signed-in opt-in default off).
 - `public/legal/privacy.md` header set to version 2026-10-28 (matches `LEGAL_PRIVACY_VERSION`; content last changed 2026-10-27).
 - `CLAUDE.md`: repo move and owner reply/token preference; master plan summary: draft PR review record. No runtime code changed.
+
+
+## Production schema repair — migrations 068, 079 and 083 (2026-10-30)
+
+- Applied production migration `068_user_owned_integrations`: created the user/tenant-owned integration credential and OAuth-state tables; enabled RLS; revoked browser-role privileges; added explicit deny policies for `anon` and `authenticated`; preserved `service_role` access. Registry version `20261029225506`.
+- Applied production migration `079_tenant_hybrid_knowledge`: added nullable 384-dimension embeddings and model labels to tenant-scoped knowledge chunks; added a partial HNSW cosine index; created tenant/audience-scoped hybrid search and restricted execute to `service_role` (plus owner privileges). Registry version `20261029225531`.
+- Applied production migration `083_explicit_deny_server_only_tables`: revoked browser/public privileges and added explicit false RLS policies for `knowledge_learning_runs`, `openrouter_generations`, and `public_technical_chunks`. Registry version `20261029225602`.
+- **Verification:** Supabase migration runner returned success for all three migrations. Read-only catalog queries confirmed the two integration tables, RLS and deny policies, service-role grants, knowledge embedding columns/index/search function, and migration registry entries. A fresh Supabase security-advisor read no longer reported the three RLS-enabled/no-policy findings.
+- **Not verified:** application-level integration/OAuth flows; embedding ingestion and retrieval quality; owner-console functions/UI; Memory opt-in behavior; app test suite; end-to-end production behavior. These schema operations did not constitute full functional QA.
+- **Still open:** leaked-password protection remains disabled. The connected Supabase toolset does not expose a mutation for this Auth setting; enable it through the project Auth password-security settings. Migrations 080–082 have live functions/indexes but no corresponding registry entries; exact definition parity is still unverified. Review the SECURITY DEFINER dashboard function's `search_path=public, pg_temp` before replaying migration 080.
+- No PR was merged and no Vercel deployment was triggered. The Supabase development branch request was blocked because the organization is on Free; no separate test project was created.
+- Full evidence: `docs/audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`.
+
+
+## Production hardening — owner dashboard SECURITY DEFINER search path (2026-10-30)
+
+- Added and applied `084_harden_owner_dashboard_search_path.sql` to change `public.owner_console_dashboard(integer)` from `search_path=public, pg_temp` to `search_path=pg_catalog, pg_temp`.
+- The function body schema-qualifies application relations and helper functions, so the public schema is not required in the search path.
+- Supabase migration runner returned success; confirm stored function configuration via read-only catalog query. No app test or endpoint/UI verification is claimed.
