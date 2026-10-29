@@ -2,8 +2,22 @@
 
 > Original status audit 2026-10-18; this is a running record. The latest reconciled snapshot is 2026-10-30. Historical entries may be stale; always follow the current audit report, GitHub PR state, CI, deployment, and database evidence. See [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
-Last updated: 2026-10-30
+Last updated: 2026-10-30 07:15 Asia/Manila
 Repository: https://github.com/nasrinaiv0/nasrinAI
+
+
+## Current audit snapshot — 2026-10-30 07:15 Asia/Manila (authoritative)
+
+- **Repository/main:** `nasrinaiv0/nasrinAI`, main SHA [`5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`](https://github.com/nasrinaiv0/nasrinAI/commit/5521bd0a4a019693d99ffd4e7a75e26a53c88ea4), merge of PR #708.
+- **Production deployment:** [Vercel `dpl_92MyPKc8FF6pQo6xFxjqu6hUsPZy`](https://vercel.com/nasrin-ai/nasrinai/92MyPKc8FF6pQo6xFxjqu6hUsPZy) is **READY** at the same SHA. READY is not end-to-end UI verification; the authenticated OCC browser/API flow remains **Not verified**.
+- **PR #708 — OCC Recent Activity:** **Implemented / merged**. Exact changed paths: `db/migrations/085_restore_owner_console_automation_schema.sql`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`, `docs/pr-change-log.md`. CI [#40971199851](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199851) passed: Node suite 1,255 total / 1,254 passed / 0 failed / 1 skipped; Python 2 passed; DB tests passed; syntax and secret checks passed; `npm audit --audit-level=high` reported 0 vulnerabilities. Documentation Gate [#40971199886](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199886) passed.
+- **OCC database check:** production registry includes migrations 068, 079, 083, 084, 085. The dashboard function returns JSON with 7 daily series points and 12 recent-activity entries. Automation tables are empty; no synthetic activity exists.
+- **Still Not verified:** owner-console browser/API flow; integration/OAuth lifecycle; hybrid-knowledge retrieval quality and tenant isolation; exact source/live parity for migrations 080–082.
+- **Still Blocked:** Supabase Auth leaked-password protection is disabled; current Security Advisor reports this warning. An authorized owner must enable it in Auth password-security settings.
+- **Open PRs:** #702 and #703 are non-draft and GitHub reports non-mergeable; #704 and #705 are draft/non-mergeable and stale with no current-head checks; #706 is draft, has passing CI/Documentation Gate on its reported head, but its repair plan is superseded by already-applied schema changes. See [the detailed current audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md), Section 10.
+- **Documentation integrity:** PR #708's blanket NCC→OCC replacement altered literal historical identifiers in the change log and one historical summary line. A documentation-only correction is proposed in the current audit branch; it restores historical paths/identifiers while keeping the present Owner Command Center repair labeled OCC.
+- **Audit safety:** this audit used read-only GitHub/Vercel/Supabase queries. It did not change production, apply migrations, alter Auth settings, merge PRs, or trigger deployments.
+
 
 ## Production reconciliation update — 2026-10-30 (direct Supabase changes)
 
@@ -34,7 +48,7 @@ Read this before making changes. Treat GitHub's current `main`, open PRs, workfl
 - Keep user-facing UI premium, restrained, consistent, accessible, responsive, and especially reliable on mobile Safari.
 - After each meaningful change, update this handoff with the PR, commit, test state, limitations, and next steps so Claude can resume without guessing.
 
-## Current verified state — 2026-10-30 04:26 Asia/Manila
+## Historical snapshot — 2026-10-30 04:26 Asia/Manila (superseded by the current audit above)
 
 - **Main:** 3a2c705461ac5b9920191ef67e5b25213dff0222 (merge of PR #692).
 - **Production deployment:** Vercel reports deployment dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE as READY at the same commit. READY is not end-to-end functional verification.
@@ -96,7 +110,7 @@ When implementing, preserve keyboard/mobile accessibility, source attribution, a
 - PR #363: performance optimization handoff document; prior context said open and documentation-only. Baseline audit and measured optimization were still required; no Lighthouse/performance results should be assumed.
 - PR #365: documentation-only master summary; prior context said open and mergeability needed review.
 - PR #366: production-quality upgrade documentation; prior context said open, required checks pending.
-- PR #352: Vercel-only environment configuration and OCC AI voice front desk planning; prior context did not establish it was merged or deployed.
+- PR #352: Vercel-only environment configuration and NCC AI voice front desk planning; prior context did not establish it was merged or deployed.
 These statuses are historical snapshots and may have changed.
 
 ## Immediate next steps for Claude
@@ -238,10 +252,12 @@ Changes in this follow-up:
 - Migration runner returned success. Read-only catalog verification confirmed `search_path=pg_catalog, pg_temp`. Owner dashboard auth, endpoint behavior and UI remain **Not verified**.
 
 
-## OCC Recent Activity repair — 2026-10-30
+## OCC Recent Activity repair — post-merge status, 2026-10-30 07:15 Asia/Manila
 
-- **Production repair implemented:** migration `085_restore_owner_console_automation_schema` restores the canonical server-only `automation_workflows` and `automation_runs` tables required by the existing owner dashboard function. Production registry version: `20261029230728`.
-- **Root cause:** `owner_console_dashboard(7)` failed with PostgreSQL `42P01` because `public.automation_runs` was missing. The dashboard had existed; blindly replaying migration 080 was not the fix.
-- **Verification:** dashboard SQL now executes and returns a JSON object with 7 daily series points and 12 recent-activity entries. Both automation tables have RLS enabled, explicit deny policies, and no `anon`/`authenticated` SELECT grants. Tables are empty; no fake activity was inserted.
-- **Source and evidence:** `db/migrations/085_restore_owner_console_automation_schema.sql`; `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`.
-- **Still not verified:** hosted owner-console browser/API smoke test and deployment. Migration history for 080–082 still needs exact source/live definition reconciliation. Do not fabricate registry records or blindly replay those migrations.
+- **Status:** **Implemented / merged** through [PR #708](https://github.com/nasrinaiv0/nasrinAI/pull/708). Merge/current-main SHA: [`5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`](https://github.com/nasrinaiv0/nasrinAI/commit/5521bd0a4a019693d99ffd4e7a75e26a53c88ea4). PR head: `6bf461687c440210d3d3d5f598ff23e7917e00f3`.
+- **Exact changed paths:** `db/migrations/085_restore_owner_console_automation_schema.sql`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, `docs/audits/OCC_AUTOMATION_SCHEMA_REPAIR_2026-10-30.md`, `docs/pr-change-log.md`.
+- **CI:** [run #40971199851](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199851) passed. Node tests: 1,255 total, 1,254 pass, 0 fail, 1 skipped (opt-in real Vercel Sandbox integration); Python activity-sync tests: 2 passed; database regression script passed; JavaScript syntax and secret checks passed; `npm audit --audit-level=high` reported 0 vulnerabilities. [Documentation Gate #40971199886](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40971199886) passed.
+- **Deployment:** Vercel production deployment [`dpl_92MyPKc8FF6pQo6xFxjqu6hUsPZy`](https://vercel.com/nasrin-ai/nasrinai/92MyPKc8FF6pQo6xFxjqu6hUsPZy) is READY at merge SHA `5521bd0a4a019693d99ffd4e7a75e26a53c88ea4`. No deployment was triggered by this audit.
+- **Production migration:** `085_restore_owner_console_automation_schema` is in the production migration registry at version `20261029230728`; both automation tables exist with RLS and explicit browser-deny policies. No workflows/runs were inserted. Read-only function check returned a JSON object with 7 series days and 12 recent-activity entries; both automation tables have zero rows.
+- **Remaining:** hosted owner-authenticated OCC browser/API smoke test **Not verified**; migration registry/source parity for 080–082 **Not verified**; leaked-password protection **Blocked**. Do not drop the automation tables as rollback; preserve the server-only security boundary.
+- **Scope:** this record covers NasrinAI OCC only. No other product repository or workstream is assessed.
