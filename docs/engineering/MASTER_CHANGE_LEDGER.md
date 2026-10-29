@@ -1,110 +1,174 @@
 # NasrinAI Master Change Ledger
 
-**Snapshot:** 2026-10-30 06:14 Asia/Manila (2026-10-29 22:14 UTC)  
+**Snapshot:** 2026-10-30 06:20 Asia/Manila (2026-10-29 22:20 UTC)  
 **Repository:** https://github.com/nasrinaiv0/nasrinAI  
 **Baseline main SHA:** 33f9283f35a0627c700efb43b3335bcfd8d52840  
-**Scope:** NasrinAI repository and its own deployments. The MOVO repository is tracked separately; cross-repository dependency is named only where necessary.
+**Scope:** NasrinAI repository, its own production deployment, and its own database only. All MOVO/MOVI and other unrelated product workstreams are excluded, including any such changes mentioned in NasrinAI PR descriptions. No implementation claims are made about excluded work.
 
-## How to use this ledger
+## How Claude should use this ledger
 
-Start here, then open the focused audit delta and linked PR/commit/CI/deployment evidence. Do not reread the entire repository by default. Inspect only the cited changed files and the adjacent security/data-flow boundaries needed to validate each claim. The state labels mean:
+Start here, then open the focused audit delta and cited source files/PRs. Do not reread the entire codebase by default. Inspect only the paths linked to the finding and the adjacent authorization/data-flow boundary needed to verify it.
 
-- **Verified metadata:** directly observed from GitHub/Vercel connector results during this review.
-- **Reported by PR/commit documentation:** present in a PR description or existing audit, not independently rerun during this review.
-- **Not verified:** no sufficient evidence was available in this review.
-- **Inference:** reasoned from verified metadata and explicitly not a direct runtime observation.
+Every finding uses exactly one status:
+- **Implemented** — implementation or configuration is present and the specific claim is supported by evidence.
+- **Partially implemented** — some implementation exists, but a required component or verification is missing.
+- **Not implemented** — the required implementation/object is confirmed absent.
+- **Blocked** — progress or safe release is prevented by a known dependency, failed gate, missing schema, or owner action.
+- **Not verified** — available evidence does not establish the claim.
 
-## Current executive status
+Evidence labels:
+- **Directly verified:** observed in current GitHub, Vercel, or read-only Supabase results during this run.
+- **Reported:** recorded in a PR description or existing audit, not independently rerun during this run.
+- **Not verified:** no current evidence for the claim.
+- **Inference:** reasoned from direct evidence and explicitly not a runtime observation.
 
-| Workstream | Status at snapshot | Evidence / caveat |
+## Executive status — 2026-10-30 06:20 Asia/Manila
+
+| Item | Status | Evidence and caveat |
 |---|---|---|
-| Main | **Verified:** 33f9283f35a0627c700efb43b3335bcfd8d52840; merge of PR #701 | [Commit](https://github.com/nasrinaiv0/nasrinAI/commit/33f9283f35a0627c700efb43b3335bcfd8d52840) |
-| Production | **Verified READY:** dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H at main SHA above | [Deployment](https://vercel.com/nasrin-ai/nasrinai/G39Ax4eFvM514ohoKQmVKwVqxV3H); READY does not prove all live features work |
-| Server-enforced MOVO context scope, PR #699 | **Merged and deployed** | Merge commit 4b61cae46279492aa6983b3974ecf726f8d7deff; production deployment dpl_7otkrxYWVTkVCDMZ7dkbBr28eEb7 is READY. Authenticated end-to-end MOVO smoke test is still not verified here. |
-| Picture-edit slash commands, PR #701 | **Merged and deployed** | 1,017 commands reported in the merged change; main production deployment is READY. Full image-edit runtime coverage is not established by deployment status alone. |
-| Agent tools, PR #703 | **Open; not merge-ready without reconciliation** | Branch comparison reports 2 commits ahead and 28 behind current main; PR body reports 1,258 passing tests and one local FFmpeg-only failure. Exact head SHA and current-head CI were not independently confirmed in this review; no preview deployment was returned for the branch query. |
-| Rich reply rendering, PR #702 | **Open** | PR body reports 1,254 passing tests and one local FFmpeg-only failure; exact current head/checks not revalidated in this review. |
-| Audit refresh, PR #704 | **Open, stale/duplicate** | Current branch comparison reports 0 commits ahead, 5 behind, and no changed files. It appears already contained in main; do not merge as-is. |
-| Production database/migration state | **Carry-forward risk; not re-queried in this run** | See the detailed audit section below; do not treat carried-forward catalog notes as a fresh live query. |
+| Repository main | **Implemented** (reference state observed) | Main SHA `33f9283f35a0627c700efb43b3335bcfd8d52840`, merge of in-scope PR #701. [Commit](https://github.com/nasrinaiv0/nasrinAI/commit/33f9283f35a0627c700efb43b3335bcfd8d52840). This audit does not make claims about excluded work in repository history. |
+| Production deployment | **Implemented** (deployment state only) | Vercel deployment `dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H` reports READY at the main SHA; the GitHub Vercel status is success. READY is not end-to-end feature verification. [Deployment](https://vercel.com/nasrin-ai/nasrinai/G39Ax4eFvM514ohoKQmVKwVqxV3H). |
+| PR #701 — image-edit slash commands | **Partially implemented** | Merged/deployed; CI run #40958705882 and Documentation Gate #40958705888 passed on PR head `684b82865559a2286c856efe9c02dae226df94ad`. PR-reported test total is 1,248 passing with one local-only FFmpeg export failure; current production edit smoke tests were not run. |
+| PR #702 — rich reply rendering | **Blocked** | Head `c9ddf310f48c0157b8267187c0da9e69735a3d09`; CI #40957687555 and Documentation Gate #40957687102 passed on that head, but branch comparison is 1 commit ahead / 32 behind main. Reconcile and rerun checks before merge. |
+| PR #703 — agent tools | **Blocked** | Head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`; comparison is 2 commits ahead / 28 behind main. No workflow runs or combined status checks were returned for that exact head. Treat PR-body test counts as historical reports only. |
+| PR #704 — older audit draft | **Blocked** | Branch comparison reports 0 commits ahead, 5 behind, and no changed files. It is stale/duplicate; do not merge as-is. |
+| PR #705 — current audit documentation | **Blocked pending exact-head gates** | Prior head `8245a7de6b30afad01f114d6c43d0cffa4ba964b`: CI #40964845572 passed; Documentation Gate #40964845542 failed at “Require changelog update in this PR”. This refresh adds `docs/pr-change-log.md`; checks on the new head must be verified before merge. |
+| Migration 068 — integration persistence | **Blocked** | Migration file exists in main, but production registry lacks 068 and production lacks `public.integration_connections` and `public.integration_oauth_states`, while `src/integrations/store.js` queries `integration_connections`. No migration was applied. |
+| Migration 079 — tenant hybrid retrieval | **Blocked** for semantic retrieval activation | Production has tenant columns and `knowledge_chunks_tenant_idx`, but lacks `embedding`, `embedding_model`, `knowledge_chunks_embedding_hnsw`, and `public.search_knowledge_hybrid`; registry lacks 079. The production feature-flag value was not inspected. |
+| Migrations 080/081 — owner console/API keys | **Partially implemented** | Expected functions exist and execute as `service_role`, not `anon` or `authenticated`; migration registry entries are absent. Exact live-definition parity has not been compared. Do not blindly replay. |
+| Migration 082 — user-message recall | **Partially implemented** | `public.search_user_messages` and `messages_content_fts_idx` exist; execution is service-role-only. Registry lacks 082 and exact live-definition parity has not been compared. |
+| Supabase Auth leaked-password protection | **Blocked — owner action required** | Security Advisor still reports the setting disabled. No Auth setting was changed. |
+| RLS-without-policy findings | **Partially implemented / review required** | RLS is enabled on `knowledge_learning_runs`, `openrouter_generations`, and `public_technical_chunks`, each with zero policies; the read-only grants query found no `anon` or `authenticated` table privileges, while `service_role`/postgres grants exist. Keep the server-only access intent explicit and recheck after schema changes. |
+| Unused-index advisor findings | **Not verified** as removable | Advisor reports 41 informational unused-index findings. No workload review or index removal was performed. |
 
-## Change record 2026-10-30 06:14 Asia/Manila
+## 1. Recent in-scope merged change — PR #701
 
-### A. PR #699 — server-enforced MOVO context scope
+- **PR:** https://github.com/nasrinaiv0/nasrinAI/pull/701
+- **Merge/main commit:** `33f9283f35a0627c700efb43b3335bcfd8d52840`
+- **PR head checked:** `684b82865559a2286c856efe9c02dae226df94ad`
+- **Exact changed paths from the merge commit:**
+  - `config/image-edit-commands.json`
+  - `docs/features/universal-slash-commands.md`
+  - `docs/pr-change-log.md`
+  - `public/app.js`
+  - `public/creative-intent.js`
+  - `public/slash-menu.js`
+  - `scripts/build-image-edit-commands.js`
+  - `src/routes.js`
+  - `src/skill-commands.js`
+  - `test/image-edit-commands.test.js`
+  - `test/skill-commands.test.js`
+- **Purpose/behavior:** the PR reports 1,017 image-edit slash commands. The merged paths add/build the command catalog, register and render slash-menu choices, resolve creative intent, route commands through existing image handling, and add focused tests. A command is described as requiring an attached image and using existing plan/rate/billing/safety controls.
+- **Validation:** CI #40958705882 passed; Documentation Gate #40958705888 passed on the PR head. The PR reports 1,248 passing tests and one local-only FFmpeg export test failure because FFmpeg was unavailable in that test environment. Those totals are PR-reported, not a fresh full test run performed by this audit.
+- **Deployment:** Vercel deployment `dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H` is READY at main SHA `33f9283f...`; Vercel status is success. No authenticated production image-edit smoke test was run.
+- **Security/privacy implications:** no new privilege boundary is intended. Keep the existing image endpoint's authorization, quota, billing, upload, and content-safety checks authoritative; verify representative edits, missing-image rejection, catalog uniqueness/no shadowing, and plan/rate enforcement before claiming end-to-end completion.
+- **Status:** **Partially implemented** — code is merged/deployed; production behavior is not fully verified.
+- **Rollback:** if a regression is confirmed, use the normal reviewed application rollback/revert process for the feature commit; do not roll back unrelated main history. This audit did not initiate a rollback.
 
-- **State:** GitHub reports PR #699 closed; the main history includes merge commit 4b61cae46279492aa6983b3974ecf726f8d7deff.
-- **Production:** Vercel deployment dpl_7otkrxYWVTkVCDMZ7dkbBr28eEb7 is READY at that merge SHA. A later production deployment for PR #701 is READY at main SHA 33f9283f..., which includes the earlier merge in history.
-- **Intended behavior change:** scoped server-to-server chat requests can specify context_scope "movo"; the service validates the caller, enforces a bounded allowlist of accounts/recent_transactions/budgets, disables unrelated platform retrieval/memory/Library/prior-chat recall/shared learning/web search/tools/caches for the scoped request, and returns a scope confirmation only after completion.
-- **Files/areas:** PR #699 description identifies POST /v1/chat, request validation, scoped prompt assembly, provider request construction, transcript persistence boundaries, and regression tests. Exact merged file list was not separately fetched in this review; inspect the PR diff for path-level details.
-- **Security/privacy implication:** the design aims to keep financial context transient and prevent unrelated product knowledge from entering the scoped model request. The code is deployed, but this is not proof that the integrated MOVO production client invokes the scope correctly or that the runtime boundary passes an authenticated canary test.
-- **Validation reported in PR #699:** exact pre-merge head 14d27bea72c04183c8e5c27f199130c71b261330 had 1,230 tests passed, 0 failed, 1 skipped; database tests, dependency audit, changelog gate, GitGuardian, JavaScript syntax, and repository secret checks passed. These are PR-reported results on that head, not a fresh run on the merge commit.
-- **Remaining verification:** authenticated production request, valid scope confirmation, negative test for non-service credentials, portfolio canary absent from retrieval/prompt/transcript/cache/log, and confirmation that failures fail closed.
+## 2. Open PR inventory and merge readiness
 
-Evidence: [PR #699](https://github.com/nasrinaiv0/nasrinAI/pull/699), [merge commit](https://github.com/nasrinaiv0/nasrinAI/commit/4b61cae46279492aa6983b3974ecf726f8d7deff), [production deployment](https://vercel.com/nasrin-ai/nasrinai/7otkrxYWVTkVCDMZ7dkbBr28eEb7).
+### PR #702 — rich reply rendering
 
-### B. PR #701 — 1,017 picture-editing slash commands
+- **URL:** https://github.com/nasrinaiv0/nasrinAI/pull/702
+- **Head:** `c9ddf310f48c0157b8267187c0da9e69735a3d09`; merge base `ed6f0ad6d9bc8cf3b22862e89adbd67396ee7ab8`.
+- **Changed paths:** `docs/chat.md`, `docs/pr-change-log.md`, `public/app.css`, `public/app.js`, `public/format.js`, `public/index.html`, `src/ai/prompt.js`, `test/reply-rendering-rich.test.js`.
+- **Reported behavior:** richer formatting for code, diffs, math, callouts, quotes, nested lists, and headings. Current code-level security review was not repeated in this run.
+- **Checks:** CI #40957687555 passed; Documentation Gate #40957687102 passed on this exact head. No current production preview/runtime verification was established here.
+- **Branch drift:** 1 commit ahead / 32 behind main. **Status: Blocked** until reconciled and all required checks pass on the new head.
+- **Security/accessibility follow-up:** review output/URL escaping, MathML safety, malformed and oversized payloads, regex complexity, CSP, keyboard navigation, and screen-reader/mobile rendering.
+- **Rollback:** do not merge while stale; if merged later and a regression is confirmed, use a targeted reviewed revert.
 
-- **State:** merged as 33f9283f35a0627c700efb43b3335bcfd8d52840; current production deployment dpl_G39Ax4eFvM514ohoKQmVKwVqxV3H is READY at that SHA.
-- **Intended behavior change:** generated image-edit catalog adds 1,017 unique edit commands across backgrounds, styles, color looks, retouching, adjustments, weather, crops, product photos, hair/outfits/themes and transformations. The public command catalog and slash menu expose them; an edit command requires an attached image and routes through the existing image endpoint, preserving plan/rate/billing/safety controls. Watermark/logo removal commands are deliberately excluded.
-- **Files/areas identified by merged diff:** config/image-edit-commands.json, scripts/build-image-edit-commands.js, public command/menu and creative-intent parsing, image prompt resolution, docs/NASRINAI_SKILLS.md, docs/pr-change-log.md, and tests. The merge diff also updates command registration and typed-command catalog loading.
-- **Test state:** PR description reports 1,248 passing tests and one local-only FFmpeg export failure because the binary was not installed in that environment. Current merged SHA has a Vercel success status and READY production deployment; a current GitHub Actions suite result was not independently retrieved during this review. Do not claim that the local FFmpeg failure is a production failure, but retain it as an environment/coverage caveat.
-- **Security/privacy:** no new privilege or tools are intended; existing image endpoint limits should remain authoritative. Verify command prompt payload limits and safety checks against generated commands, especially commands that add/remove visual content.
-- **Next checks:** test catalog generation determinism, command uniqueness/no shadowing, photo-required rejection, plan/rate/billing enforcement, representative image edits in authenticated production, and client rendering of slash-menu choices.
+### PR #703 — agent tools
 
-Evidence: [PR #701](https://github.com/nasrinaiv0/nasrinAI/pull/701), [merge commit](https://github.com/nasrinaiv0/nasrinAI/commit/33f9283f35a0627c700efb43b3335bcfd8d52840), [production deployment](https://vercel.com/nasrin-ai/nasrinai/G39Ax4eFvM514ohoKQmVKwVqxV3H).
+- **URL:** https://github.com/nasrinaiv0/nasrinAI/pull/703
+- **Head:** `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`; merge base `531f56d6d5685730692372d64bd7780b974f5c69`.
+- **Changed paths:** `.env.example`, `docs/pr-change-log.md`, `docs/tools.md`, `public/app.js`, `public/legal/privacy.md`, `src/auto-repair.js`, `src/chat.js`, `src/config.js`, `src/github/api.js`, `src/github/index.js`, `src/main.js`, `src/routes.js`, `src/tools/agent.js`, `test/agent-tools.test.js`, `test/legal.test.js`, `test/page.test.js`.
+- **Reported behavior:** URL fetch, optional search, repository file search, and bounded code execution in isolated sandboxes, with privacy-notice updates and repair-on-failure behavior. Exact runtime enforcement was not independently tested.
+- **Checks:** no workflow runs and no combined status checks were returned for the exact head. The PR's reported test count is not accepted as current-head evidence.
+- **Branch drift:** 2 commits ahead / 28 behind main. **Status: Blocked** until rebased/reconciled and exact-head CI, Documentation Gate, dependency/security checks, and sandbox-specific tests pass.
+- **Security review required:** sandbox isolation, network denial, process/resource/output caps, filesystem persistence, environment/secret inheritance, SSRF protections, prompt-injection treatment for fetched results, server-side per-user limits, guest denial, and kill-switch enforcement.
+- **Rollback:** keep unmerged until verified; if a future release exposes unsafe execution, disable via the server-side kill switch if available and follow the reviewed release rollback plan.
 
-### C. PR #703 — agent tools
+### PR #704 — older audit draft
 
-- **State:** open. Branch comparison main → feat/agent-tools is diverged, 2 commits ahead and 28 behind, merge base 531f56d6d5685730692372d64bd7780b974f5c69. Exact branch head SHA was not exposed by the comparison response and remains **not verified** in this report.
-- **Changed paths from branch comparison:** .env.example; docs/pr-change-log.md; docs/tools.md; public/app.js; public/legal/privacy.md; src/auto-repair.js; src/chat.js; src/config.js; src/github/api.js; src/github/index.js; src/main.js; src/routes.js; new src/tools/agent.js; new test/agent-tools.test.js; test/legal.test.js; test/page.test.js.
-- **Intended behavior change:** add fetch_url via existing SSRF-safe readLink, optional Google Custom Search, github_find_files, and run_code using fresh Vercel Sandboxes with Node 22/Python 3.13, deny-all networking, no secrets passed, and a 30-second limit. Run-code is described as signed-in only, rate-limited to 20/hour and disableable by RUN_CODE_ENABLED=false. The feature also adds tool-result provenance labels, privacy-notice updates, and automatic repair after failed run_code.
-- **Test state reported in PR body:** 1,258 pass; one failure is the local-only FFmpeg test because the binary is absent. This review did not confirm the exact PR head SHA, its latest Actions run, or a preview deployment.
-- **Security implications:** this adds execution capability and network-facing tools. Before merge, audit sandbox isolation, process/resource caps, network denial enforcement, environment/secret inheritance, filesystem persistence, output-size limits, timeout enforcement, SSRF protections, Google API configuration, per-user quotas, and prompt-injection handling for fetched/search results. Verify code execution is inaccessible to guests and the kill switch is honored server-side.
-- **Branch risk:** 28 commits behind main means the PR must be reconciled against current main and all required gates rerun on the resulting exact SHA. Do not rely on the PR body's historical test count as current-head proof.
+- **URL:** https://github.com/nasrinaiv0/nasrinAI/pull/704
+- **Branch comparison:** 0 commits ahead, 5 behind current main, no changed files.
+- **Status:** **Blocked** as a stale/duplicate proposal. Do not merge as-is. No PR state was changed by this audit.
 
-Evidence: [PR #703](https://github.com/nasrinaiv0/nasrinAI/pull/703), [branch comparison](https://github.com/nasrinaiv0/nasrinAI/compare/main...feat/agent-tools).
+### PR #705 — canonical audit documentation proposal
 
-### D. PR #702 — richer reply rendering
+- **URL:** https://github.com/nasrinaiv0/nasrinAI/pull/705
+- **Branch:** `docs/change-ledger-refresh-2026-10-30-0614`; prior head `8245a7de6b30afad01f114d6c43d0cffa4ba964b`; base/main `33f9283f35a0627c700efb43b3335bcfd8d52840`.
+- **Purpose:** provide a concise current-state handoff plus detailed change ledger and audit delta so Claude can investigate only cited files.
+- **Gate failure on prior head:** CI #40964845572 passed; Documentation Gate #40964845542 failed in job “Require changelog entry”, step “Require changelog update in this PR”. This refresh adds the required changelog path.
+- **Status:** **Blocked pending exact-head validation**. Keep draft; do not merge until the latest head's CI and Documentation Gate results are observed and green.
+- **Rollback:** revert only the documentation commits on this branch if the report is materially inaccurate. No runtime rollback is needed for documentation-only changes.
 
-- **State:** open; no current-head or preview verification in this review.
-- **Intended behavior change:** DOM-node rendering without innerHTML, 13 language-family highlighting, diff blocks, foldable long code, bounded LaTeX-to-MathML, callouts, multi-line quotes, nested lists, and h5/h6 headings. Unsupported math should remain plain text; currency strings such as "$5 and $10" should not be misinterpreted as math.
-- **Tests reported by PR:** 1,254 pass and one local FFmpeg-only failure; visual Chromium check is reported in the PR body, not independently repeated here.
-- **Security implications:** renderer changes process model-generated text. Review escaping of text/URLs, MathML output safety, regex complexity, malformed/unclosed fences, nested list depth, huge payload limits, and CSP compliance.
-- **Next checks:** run exact-head CI after rebasing, add malformed/hostile payload tests, and test screen-reader/mobile output and links.
+## 3. Production database and security — fresh read-only checks
 
-Evidence: [PR #702](https://github.com/nasrinaiv0/nasrinAI/pull/702).
+The following checks were run against the NasrinAI Supabase project only. No migration, DDL, DML, grant, policy, or Auth-setting changes were performed. The migration registry does not contain entries named 068, 079, 080, 081, or 082; registry/object mismatches must be reconciled rather than “fixed” by blind replay.
 
-### E. PR #704 — audit documentation refresh
+### Migration 068 — universal integration persistence
 
-- **State:** open; do not merge as-is.
-- **Evidence:** comparing branch docs/nasrinai-progress-audit-2026-10-30 against current main reports 0 commits ahead, 5 behind, and no changed files. The content appears already contained in main, so this is a stale/duplicate review record. Its body also records no Actions runs for prior head 187674e5e6f6465119a45885ff905ae299d18a1.
-- **Risk:** stale documentation can reintroduce false PR status and deployment/migration claims. This new audit branch is based on current main instead.
-- **Action:** do not merge a no-diff branch. Close/supersede through normal maintainer review after confirming the new audit branch covers its intended content. No PR state was changed in this run.
+- **Repository evidence:** `db/migrations/068_user_owned_integrations.sql` (blob SHA `d405e25c611d539e901a2d1f133366aa6bee38e3`) defines `public.integration_connections` and `public.integration_oauth_states`, encrypted credential fields, tenant/user/provider uniqueness, indexes, RLS, and browser-deny policies.
+- **Code evidence:** `src/integrations/store.js` (blob SHA `d09e449c5892ea56d36d01a8f053d4957824c21b`) queries `integration_connections` for owner-scoped reads/writes/deletes.
+- **Production evidence:** migration registry has no 068 entry; both expected tables are absent from `information_schema.tables`.
+- **Security/privacy implication:** the intended model is server-only encrypted credentials and tenant/user ownership. With the tables absent, integration persistence paths may fail; do not claim universal integration persistence works in production.
+- **Status:** **Blocked**.
+- **Next step:** prepare a small reviewed migration-reconciliation plan, inspect existing objects/history first, validate RLS and grants in non-production, and obtain explicit owner approval before any production migration.
+- **Rollback:** no migration was run. A future rollout needs a reviewed rollback plan that accounts for any credential rows created after deployment; do not drop or overwrite live credentials blindly.
 
-Evidence: [PR #704](https://github.com/nasrinaiv0/nasrinAI/pull/704).
+### Migration 079 — tenant hybrid semantic retrieval
 
-## Production database/security findings carried forward (not re-queried in this run)
+- **Repository evidence:** `db/migrations/079_tenant_hybrid_knowledge.sql` (blob SHA `8350a4e52c29521fd79154efd3d3c25882c0b6e9`) adds `knowledge_chunks.embedding`, `embedding_model`, `knowledge_chunks_embedding_hnsw`, and `search_knowledge_hybrid`, with tenant/audience filters and service-role-only execute grants.
+- **Production evidence:** registry has no 079 entry. `knowledge_docs.tenant_id`, `knowledge_chunks.tenant_id`, and `knowledge_chunks_tenant_idx` exist. The two embedding columns, HNSW index, and `public.search_knowledge_hybrid` are absent.
+- **Flag caveat:** the current production value of `TENANT_KNOWLEDGE_EMBEDDINGS_ENABLED` was not inspected. Do not enable it until migration state, tenant/audience isolation, embedding model matching, fallback, and grants are verified.
+- **Status:** **Blocked** for semantic retrieval activation.
+- **Rollback:** no migration or flag change was made. Future rollout must define a safe flag-off fallback and a reviewed rollback for any new index/function/columns.
 
-The open audit PR #704 body records the following from earlier read-only production catalog checks. Treat these as **carry-forward evidence**, not a fresh query at 06:14:
+### Migrations 080/081 — Owner Console and API-key functions
 
-- Migration 068 integration tables absent.
-- Migration 079 absent from the registry; hybrid-search columns/index/RPC were reported absent, while tenant-scoping objects existed.
-- Migrations 080/081 registry drift despite existing owner-console functions; exact live-definition parity was not verified.
-- Migration 082 recall objects absent.
-- Supabase Security Advisor reports leaked-password protection disabled.
-- Three RLS-enabled tables without policies were reported; the checked role grants had no anon/authenticated table grants on those tables. Do not add broad client policies merely to silence an advisor warning.
-- No production schema writes, migrations, policy/grant changes, or user-data changes were performed during this review.
+- **Repository evidence:** `db/migrations/080_owner_console_dashboard.sql` (blob SHA `a086f61b3636acf2c99033ff09c86c4e872cf3d4`) and `db/migrations/081_owner_console_api_keys.sql` (blob SHA `07c7fa3ef36d18e0056ea465703c3cda478e8e91`).
+- **Production evidence:** registry entries for 080/081 are absent. `owner_console_dashboard`, `owner_console_mask_email`, `owner_console_create_api_key`, `owner_console_list_api_keys`, and `owner_console_revoke_api_key` exist. The checked dashboard/API-key functions are executable by `service_role`, not `anon` or `authenticated`; the relevant API-key/dashboard functions are SECURITY DEFINER.
+- **Parity limitation:** exact live function definitions and constraints were not diffed against the migration files. Function presence does not prove complete UI/runtime behavior or migration-history consistency.
+- **Status:** **Partially implemented** — catalog objects exist but registry drift remains.
+- **Next step:** compare live definitions, ownership, search_path, grants, constraints, and tests; reconcile history without blindly replaying or dropping objects.
+- **Rollback:** no changes made; do not revoke service-role access or remove functions as an audit shortcut.
 
-Before acting, run read-only catalog queries again and compare migration registry, actual objects, function definitions, grants, and RLS. Never blindly replay a migration because the registry and schema disagree.
+### Migration 082 — long-term user-message recall
 
-## Next actions, ordered
+- **Repository evidence:** PR #693 is merged at `d953f139b70032fdea2834cf7cd755d90cde606d`; main contains `db/migrations/082_user_message_recall.sql` (blob SHA `2d124e0ebf078ea27ae9273585039be6df6dbe07`) and `db/tests/082_user_message_recall.test.sql`. Other changed paths include `docs/knowledge.md`, `docs/pr-change-log.md`, `public/legal/privacy.md`, `src/config.js`, `src/conversations.js`, `src/store/memory-store.js`, `src/store/supabase-store.js`, `test/conversations.test.js`, `test/knowledge.test.js`, `test/legal.test.js`, and `test/page.test.js`.
+- **Production evidence:** migration registry lacks 082, but `public.search_user_messages` and `messages_content_fts_idx` exist. The function is SECURITY DEFINER and executable by `service_role`, not `anon` or `authenticated`.
+- **Parity limitation:** live function/index definition parity and end-to-end memory-opt-in behavior were not tested in this run.
+- **Status:** **Partially implemented** — expected recall objects exist but registry history is missing and runtime behavior is not verified.
+- **Next step:** compare live function/index definitions to migration 082, reconcile registry safely, then test signed-in user/tenant isolation and opt-in gating in an approved environment.
+- **Rollback:** no change made; avoid deleting the function or index while users may rely on recall.
 
-1. Reconcile PR #703 onto current main; retrieve exact head SHA; rerun Actions, Documentation Gate, dependency audit, and sandbox-specific security tests. Do not merge until every required check is green on the final head.
-2. Verify PR #702 exact head and checks; add hostile/malformed renderer regression tests and run mobile/accessibility review.
-3. Run an authenticated end-to-end test of the deployed PR #699 scope contract with synthetic canaries. Verify transient context is absent from transcript, cache, logs, and unrelated retrieval.
-4. Re-query production migration/RLS/grant/security metadata and update the carry-forward findings with query time and exact evidence.
-5. Correct stale status in existing handoff docs only on a current-main-based branch; keep historical snapshots labeled historical.
-6. For every future change, record exact commit, changed paths, exact-head CI, deployment SHA/target, test totals, unresolved risks, and rollback instructions.
+### Supabase Security Advisor and grants
 
-## Change-control statement
+- **Leaked-password protection:** Advisor warning remains active. Status **Blocked — owner action required**; setting was not changed.
+- **RLS without policy:** `knowledge_learning_runs`, `openrouter_generations`, and `public_technical_chunks` have RLS enabled and zero policies in the read-only catalog query. The checked table-grant query showed no `anon` or `authenticated` table privileges for these tables; `postgres` and `service_role` grants exist. This is consistent with a server-only deny-by-grant pattern but does not remove the need to document intended access and recheck after schema changes.
+- **API-key and owner audit tables:** `api_keys` and `owner_audit_events` each have one `server_only_deny_browser` policy; checked owner-console functions are service-role-only.
+- **Performance Advisor:** 41 informational unused-index findings were returned. They were not individually analyzed; no index was removed. Never drop indexes based solely on this advisor count.
 
-This review changed documentation only on branch docs/change-ledger-refresh-2026-10-30-0614. No application code, production settings, migrations, deployments, PR states, or user data were changed. This branch is intended for review; it has not been merged.
+## 4. Required next actions
+
+1. **P0 — Migration 068:** investigate why production lacks both integration tables while main code queries them. Draft a reviewed, non-production-first reconciliation plan; do not apply it from this audit.
+2. **P1 — Migration 079:** keep semantic retrieval activation blocked until embedding columns/index/RPC and tenant/audience/grant checks are verified.
+3. **P1 — Migrations 080/081/082:** compare live definitions and migration history; reconcile without blind replay.
+4. **P1 — Auth security:** leaked-password protection remains disabled; schedule the change only through explicit owner approval and verify afterward.
+5. **P1 — PR #705:** verify CI and Documentation Gate on the latest documentation head; do not merge if either is pending/failing.
+6. **P1 — PR #703:** reconcile 28 commits of drift, then run exact-head CI, Documentation Gate, dependency audit, and security tests for the execution sandbox.
+7. **P2 — PR #702:** reconcile 32 commits of drift and rerun checks; include hostile/malformed renderer and accessibility tests.
+8. **P2 — Production feature verification:** run approved authenticated smoke tests for image-edit commands, owner-console/API-key workflows, and opted-in message recall; distinguish test results from deployment READY.
+9. **P2 — Performance:** investigate unused-index findings with workload/query evidence before considering any index changes.
+
+## 5. Audit change and rollback record
+
+- **Exact documentation paths being refreshed:** `docs/engineering/MASTER_CHANGE_LEDGER.md`, `docs/engineering/updates/2026-10-30-0614-audit-delta.md`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, and `docs/pr-change-log.md`.
+- **Purpose:** correct scope leakage in the earlier draft, reconcile the latest in-scope main/PR state, record fresh read-only database and security evidence, and give Claude a targeted investigation plan.
+- **Runtime behavior:** none. No application code, API behavior, credentials, provider configuration, user data, database schema, grants, policies, Auth settings, or production deployments were changed.
+- **Tests:** no application tests were run manually by this audit. Exact-head CI/Gate results are listed above; checks for the updated documentation head remain pending until observed.
+- **Deployment/migrations:** no deployment or migration was initiated. Production remains READY at main SHA `33f9283f35a0627c700efb43b3335bcfd8d52840`.
+- **Rollback:** revert only the documentation-only commit(s) on the audit branch if the evidence is wrong. No runtime rollback is needed.
+- **Scope boundary:** unrelated product-specific details in PR descriptions or existing historical logs are not audited or repeated here.
