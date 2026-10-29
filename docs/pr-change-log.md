@@ -2981,3 +2981,10 @@ The original test used over-escaped regular expressions. The test is being simpl
 - **Still open:** leaked-password protection remains disabled. The connected Supabase toolset does not expose a mutation for this Auth setting; enable it through the project Auth password-security settings. Migrations 080–082 have live functions/indexes but no corresponding registry entries; exact definition parity is still unverified. Review the SECURITY DEFINER dashboard function's `search_path=public, pg_temp` before replaying migration 080.
 - No PR was merged and no Vercel deployment was triggered. The Supabase development branch request was blocked because the organization is on Free; no separate test project was created.
 - Full evidence: `docs/audits/PRODUCTION_SCHEMA_REPAIR_PROGRESS_2026-10-30.md`.
+
+
+## Production hardening — owner dashboard SECURITY DEFINER search path (2026-10-30)
+
+- Added and applied `084_harden_owner_dashboard_search_path.sql` to change `public.owner_console_dashboard(integer)` from `search_path=public, pg_temp` to `search_path=pg_catalog, pg_temp`.
+- The function body schema-qualifies application relations and helper functions, so the public schema is not required in the search path.
+- Supabase migration runner returned success; confirm stored function configuration via read-only catalog query. No app test or endpoint/UI verification is claimed.
