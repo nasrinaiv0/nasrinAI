@@ -1,9 +1,9 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
-> Status audit 2026-10-18: this log is a running record. Entries that say "pending" describe the moment they were written; check the PR and CI before relying on them. See also [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
+> Original status audit 2026-10-18; this is a running record. The latest reconciled snapshot is 2026-10-30. Historical entries may be stale; always follow the current audit report, GitHub PR state, CI, deployment, and database evidence. See [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
-Last updated: 2026-10-18
-Repository: https://github.com/primusco20/nasrinAI
+Last updated: 2026-10-30
+Repository: https://github.com/nasrinaiv0/nasrinAI
 
 ## How to use this file
 Read this before making changes. Treat GitHub's current `main`, open PRs, workflow results, and Vercel deployment state as the source of truth. Do not assume an open PR is merged or that a successful deployment status means every test passed. Inspect the actual diff and run the applicable checks before changing code.
@@ -18,7 +18,20 @@ Read this before making changes. Treat GitHub's current `main`, open PRs, workfl
 - Keep user-facing UI premium, restrained, consistent, accessible, responsive, and especially reliable on mobile Safari.
 - After each meaningful change, update this handoff with the PR, commit, test state, limitations, and next steps so Claude can resume without guessing.
 
-## Current task — plugin settings mobile layout
+## Current verified state — 2026-10-30 03:33 Asia/Manila
+
+- **Main:** 3a2c705461ac5b9920191ef67e5b25213dff0222 (merge of PR #692).
+- **Production deployment:** Vercel reports deployment dpl_GkNLFAzWEnU2Sb8okP4X5an1iJSE as READY at the same commit. READY is not end-to-end functional verification.
+- **Critical DB blocker:** migration 068 is missing from the production registry, and public.integration_connections / public.integration_oauth_states are absent even though current main queries integration_connections. See [the detailed audit](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md).
+- **Migration drift:** migration 079 and its hybrid-knowledge objects are absent in production. Migrations 080/081 are absent from the registry even though their owner-console functions exist and have service_role-only execution grants. Do not blindly replay migrations.
+- **Open PRs:** #693–#698 have passing CI and Documentation Gate on the observed heads but are not merged; #695 addresses the no-database dev-start regression. Draft PRs #651, #652, and #673 have a failing Documentation Gate because docs/pr-change-log.md is absent from the current PR diff.
+- **Security:** Supabase still warns that leaked-password protection is disabled (documented as owner-deferred); three RLS-enabled server-only tables have no policies and no anon/authenticated SELECT/INSERT grants, with service_role grants present.
+- **Unverified:** owner-console/API-key live flows, universal integration persistence, tenant-hybrid retrieval, coding/reasoning benchmark baseline, hourly learning invocation, and live media/provider end-to-end behavior.
+- **Scope boundary:** this handoff and scheduled audit cover only NasrinAI. MOVO/MOVI workstreams and product-specific changes are excluded.
+
+Read [NASRINAI_PROGRESS_AUDIT_2026-10-30.md](audits/NASRINAI_PROGRESS_AUDIT_2026-10-30.md) before acting on historical status entries.
+
+## Historical task snapshot — plugin settings mobile layout (2026-10-18)
 ### PR #383
 URL: https://github.com/primusco20/nasrinAI/pull/383
 Branch: `fix/plugin-settings-mobile-overlap`
