@@ -375,3 +375,18 @@ The NasrinAI [docs/pr-change-log.md](https://github.com/nasrinaiv0/nasrinAI/blob
 6. Never place API keys, raw IPs, financial records, raw prompts, or provider secrets in this ledger. Use stable references and sanitized outcomes only.
 7. Do not merge, deploy, change production settings, or perform destructive actions during monitoring. Raise a blocker for owner approval where required.
 8. Append new timestamped entries; do not silently rewrite historical outcomes. Correct stale status only with a dated reconciliation note and supporting evidence.
+
+
+---
+
+## Incremental review — 2026-10-30 03:59 Manila
+
+**New delta:** [MOVO embedded-chat audit and deployment reconciliation](updates/2026-10-30-0359-movo-chat-audit.md)
+
+- **Verified production progress:** MOVO PR #50 rich-reply/chart rendering is deployed READY at commit `94d089d35483558b320f751cf122aa68755ef0eb`; prompt-level MOVO scope restrictions are deployed READY at `a60c6b24935c55a80c681bc055aaf6f8922f236e`.
+- **Verified preview-only progress:** `532beda71a2590ebb6a3e3428e4eff8122861551` adds unrelated-document disclaimer suppression in `src/components/NasrinAIMessage.js`. Exact-head GitHub Actions run #40939920136 passed its test and production-bundle steps; Vercel preview is READY with no production target.
+- **Open risk:** MOVO issue #47 still appears in open-issue search. The renderer filter masks a symptom and is not server-enforced context isolation. The screenshot does not by itself establish cross-user finance-data exposure.
+- **Evidence freshness:** MOVO `docs/PR_PROGRESS.md` is still marked last reconciled 2026-10-29 13:02 UTC and is stale relative to later merged main deployments. Reconcile PR states, heads, CI and deployment SHAs.
+- **Not reverified this run:** current authoritative states/heads for NasrinAI PR #699 and MOVO PR #48; production Supabase migrations 080/081, RPC grants/RLS and leaked-password protection. Keep these open until separately checked.
+
+The detailed delta records per-commit behavior, changed files, evidence, security interpretation, test status, limitations and ordered follow-up. Historical entries above remain unchanged.
