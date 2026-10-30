@@ -3040,3 +3040,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## AI limit test fixture follow-up — 2026-10-31
+
+- Add explicit test-only environment values for the Vercel-managed reply budgets, routing-level token/history budgets, file reply minimum, planning-council output, and chat body byte limit. This keeps the production runtime free of hidden fallback caps while keeping CI deterministic.
+- Related implementation: PR #719. Test fixture PR #720.
