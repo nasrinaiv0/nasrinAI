@@ -220,3 +220,11 @@ The ledger update itself advanced PR #705's head to `ffe51db6664e98dc0b343bed950
 The SHA references in the earlier follow-up paragraphs are **intermediate commits**, not the final branch head: the master-ledger and detailed-delta updates were committed sequentially. After the last update in this checkpoint, the exact current head is the latest commit shown on [PR #705](https://github.com/nasrinaiv0/nasrinAI/pull/705). No CI/status result has been returned for the latest documentation head, and the branch remains diverged from main; validation and branch reconciliation are pending. Use PR metadata as the source of truth for the final head SHA.
 
 - **Current audit-document PR:** [#711](https://github.com/nasrinaiv0/nasrinAI/pull/711), open/draft, based on current main `b39f4dc...`; documentation checks on its final head must pass before merge.
+
+
+## Monitoring checkpoint — 2026-10-30 10:35 Asia/Manila
+- No new application-code merge or production deployment was detected since the 10:12 checkpoint. Main remains b39f4dcd62641d5f601e4e707cb46155ca8e135e; production deployment dpl_EYBvVZe2o1qdMrUuXvGoXcqD4qkG is READY at that SHA.
+- Newly verified high-priority governance gap: main branch metadata reports protected=false and required checks enforcement off; repository rulesets endpoint returned an empty array. External organization/user-level rules were not separately verified. See [10:35 audit delta](updates/2026-10-30-1035-branch-protection-and-release-control.md).
+- PR #711 exact-head CI #40985781454 and Documentation Gate #40985781356 both passed. PR #702 is 1 ahead / 48 behind main and non-mergeable; PR #703 is 2 ahead / 44 behind and non-mergeable. Their older green checks do not validate reconciled heads.
+- Existing issue #486 (persistent chat attachments) remains open without new implementation progress in this checkpoint. Secure private storage, ownership checks, expiry handling, and persistence tests remain acceptance requirements.
+- No branch settings, code, database, secrets, or deployments were changed by monitoring.
