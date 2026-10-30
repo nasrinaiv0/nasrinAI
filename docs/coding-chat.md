@@ -169,3 +169,15 @@ A reply must finish inside the 120-second server limit (`vercel.json`). Before e
 
 Tests: `test/code-workspace.test.js`.
 
+## Many commands per reply (2026-10-30)
+
+The coding chat investigates first and then runs as many commands as the task needs (`src/github/runner.js`):
+
+- **Batches:** `github_run_command` takes `commands`, up to 10 lines, each checked exactly like a single command, same runtime. They run in order and stop at the first failure unless `keep_going` is true. Long output keeps its start and end (where errors are); failed commands get the most room.
+- **One sandbox per reply:** in a chat, the sandbox (same person, chat, repository, ref, runtime) stays open for the rest of the reply, at most about 115 seconds, so later runs skip the download and install. Only changed workspace files are written again; reverted ones are restored from GitHub (new ones removed). A changed `package.json`, `package-lock.json` or `requirements.txt`, or a `patch`, gets a fresh sandbox. The reply's end closes it (`release`, called when the workspace finishes). Other chats never share it.
+- **Deadline:** the chat passes the reply's deadline to the tool (`ctx.deadline`). The runner stops a batch before it (`out_of_time`, exit 124 for a cut command), so it may start with about 20 seconds left instead of reserving its full 85-second limit.
+- **More tools:** `npx` (installed tools only, never downloads: `--no`), `pip list|show|freeze|check`, `head`, `tail`, `wc`, `diff`, `sort`, `uniq`, `cut`, `tr`, `echo`, `pwd`, `du`, `stat`, `file`, `which`, `make`, alongside the earlier ones. Still no shell operators, no network after install, no `git push/pull/fetch`.
+- **Limit:** `CODE_RUNS_PER_HOUR` (default 60, 1–1000) per person; a batch counts once.
+
+Tests: `test/batch-commands.test.js`.
+

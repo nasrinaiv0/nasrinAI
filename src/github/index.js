@@ -36,9 +36,11 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const api = createGithubApi({ fetchImpl });
   const workspace = createCodeWorkspace({
     fetchFile: (token, repo, path, ref) => api.fileAt(token, repo, path, encodeURIComponent(ref)),
-    defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch
+    defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch,
+    // The reply is done: close its open coding sandboxes.
+    onFinish: (ctx) => codingRunner.release(ctx)
   });
-  const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
+  const codingRunner = createCodingRunner({ runsPerHour: config.tools?.codeRunsPerHour ?? 60, downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
   const browserTestRunner = createBrowserTestRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger, snapshotId: config.codingBrowser?.snapshotId || null, ...(browserDeps || {}) });
   const available = Boolean(gh && key && store.listGithubConnections);
   const redirectUri = (config.publicUrl || '') + '/v1/github/callback';
@@ -445,14 +447,16 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
     },
     {
       name: 'github_run_command',
-      description: 'Run one command on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. After inspecting repository files, optionally provide a standard unified diff in `patch` to apply proposed edits inside the temporary workspace before running tests/build/lint. This enables test-fix-retest without writing to GitHub. Every invocation starts from a fresh repository snapshot, so send the complete cumulative diff against the same ref on every rerun. It receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Changes you made with code_edit / code_write are applied automatically before the command, so you do not need `patch` for them. Supports Node.js and Python. Use one command without shell operators or chaining. Patches are text-only, limited to 100 KB, and cannot touch secret files, .git, dependencies, or generated framework state.',
-      risk: 'read', who: ['user'], timeoutMs: 80_000, longRunning: true, maxArgs: 240_000,
+      description: 'Run one command (or a batch of up to 10) on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. After inspecting repository files, optionally provide a standard unified diff in `patch` to apply proposed edits inside the temporary workspace before running tests/build/lint. This enables test-fix-retest without writing to GitHub. Every invocation starts from a fresh repository snapshot, so send the complete cumulative diff against the same ref on every rerun. It receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Changes you made with code_edit / code_write are applied automatically before the command, so you do not need `patch` for them. To run several commands at once, put up to 10 in `commands`, one per line (same runtime); they run in order and stop at the first failure unless keep_going is true. Within one reply the same sandbox stays open, so later runs skip the download and install and are fast: investigate (ls, cat, grep, find, git log/diff), then test, lint and build as often as needed. Allowed: npm, npx (installed tools only), node, python, pytest, pip list/show, git (no network), ls, cat, head, tail, wc, diff, sort, uniq, cut, tr, echo, pwd, du, stat, file, which, grep, rg, find, sed, awk, make, tsc, eslint, prettier. Supports Node.js and Python. Use one command without shell operators or chaining. Patches are text-only, limited to 100 KB, and cannot touch secret files, .git, dependencies, or generated framework state.',
+      risk: 'read', who: ['user'], timeoutMs: 85_000, longRunning: true, deadlineAware: true, maxArgs: 240_000,
       parameters: { properties: {
         repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' },
         ref: { type: 'string', maxLength: 200, pattern: '^(?!.*\\.\\.)(?!/)[A-Za-z0-9._/-]{1,200}$' },
         command: { type: 'string', maxLength: 300 },
+        commands: { type: 'string', maxLength: 3000 },
+        keep_going: { type: 'boolean' },
         patch: { type: 'string', maxLength: 100_000 }
-      }, required: ['repo', 'command'] },
+      }, required: ['repo'] },
       run: async (args, ctx) => {
         const token = await tokenFor(ctx).catch(() => null);
         let files = [];
@@ -460,7 +464,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
           if (err instanceof GithubError) return { error: 'workspace_unavailable', message: err.message };
           throw err;
         }
-        return codingRunner.run(args, ctx, { files });
+        return codingRunner.run(args, ctx, { files, baseFor: (path) => workspace.base(ctx, path) });
       }
     },
     {

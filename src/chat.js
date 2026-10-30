@@ -944,7 +944,10 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
           for (const c of calls) {
             let content;
             const toolStage = toolStageOf(c.name);
-            const toolTime = reg.get?.(c.name)?.timeoutMs || 15_000;
+            const toolInfo = reg.get?.(c.name);
+            // Deadline-aware tools (the coding runner) stop their own work in
+            // time, so they only need a useful slice of time left.
+            const toolTime = toolInfo?.deadlineAware ? 20_000 : (toolInfo?.timeoutMs || 15_000);
             if (now() - requestStartedAt + toolTime > TURN_TIME_LIMIT_MS) {
               outOfTime = true;
               results.push({ role: 'tool', toolCallId: c.id, content: JSON.stringify({ error: 'out_of_time', message: 'Not run: not enough time is left in this reply. Report what is done and what is left; the person can say "continue" to go on.' }) });
@@ -952,7 +955,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
             }
             if (toolStage) stage(toolStage);
             try {
-              const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id });
+              const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id, deadline: requestStartedAt + TURN_TIME_LIMIT_MS });
               if (reg.mediaOf) toolMedia.push(...reg.mediaOf(c.name, out));
               if (c.name === 'google_maps_explore' && out && ['map', 'places', 'directions'].includes(out.type) && mapResults.length < 4) {
                 // Keep only bounded, display-safe fields. Provider keys and raw responses never enter metadata.

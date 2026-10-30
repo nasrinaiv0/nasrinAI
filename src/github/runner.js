@@ -2,7 +2,7 @@ import { gunzipSync } from 'node:zlib';
 
 const MAX_ARCHIVE_BYTES=15*1024*1024, MAX_EXPANDED_ARCHIVE_BYTES=64*1024*1024, MAX_ARCHIVE_ENTRIES=10_000, MAX_ARCHIVE_FILE_BYTES=16*1024*1024, MAX_OUTPUT_CHARS=2800, MAX_PATCH_BYTES=100_000;
 const SANDBOX_ROOT='/vercel/sandbox', WORKSPACE=`${SANDBOX_ROOT}/repo`, ARCHIVE_PATH=`${SANDBOX_ROOT}/source.tar.gz`;
-const COMMANDS=new Set(['npm','node','python','python3','pytest','git','ls','cat','grep','rg','find','sed','awk','tsc','eslint','prettier']);
+const COMMANDS=new Set(['npm','npx','node','python','python3','pytest','pip','pip3','git','ls','cat','head','tail','wc','diff','sort','uniq','cut','tr','echo','pwd','du','stat','file','which','grep','rg','find','sed','awk','make','tsc','eslint','prettier']);
 const BLOCKED_NPM=new Set(['install','ci','add','remove','uninstall','exec','init','publish','link','login','config']);
 // Validate GitHub's compressed tarball before passing it to the sandbox extractor.
 // gunzipSync has a hard output cap; tar headers then enforce file-count, per-file,
@@ -45,6 +45,9 @@ export function parseCodingCommand(raw){
  const executable=tokens[0];if(!COMMANDS.has(executable))throw Error('That command is not allowed in the coding runner.');
  if(executable==='npm'&&BLOCKED_NPM.has(tokens[1]))throw Error('Dependency installation and publishing are managed by the isolated runner.');
  if(executable==='git'&&['push','pull','fetch','clone','remote','submodule'].includes(tokens[1]))throw Error('Git network and remote-write commands are disabled.');
+ if((executable==='pip'||executable==='pip3')&&!['list','show','freeze','check'].includes(tokens[1]))throw Error('pip can only list, show, freeze or check packages here; dependencies are installed by the runner.');
+ // npx runs only tools the repository already installed (never downloads).
+ if(executable==='npx'){if(!tokens[1]||tokens[1].startsWith('-'))throw Error('Use npx with a tool the repository installs, for example npx vitest run.');return{executable,args:['--no',...tokens.slice(1)],runtime:'node22'};}
  return{executable,args:tokens.slice(1),runtime:['python','python3','pytest'].includes(executable)?'python3.13':'node22'};
 }
 // Paths the runner may write (patches and workspace files): inside the repository,
@@ -102,85 +105,174 @@ const failureCode=stage=>({
  command_execute:'sandbox_exec_failed'
 }[stage]||'runner_failed');
 const run=(s,c,a,cwd)=>s.runCommand({cmd:c,args:a,...(cwd?{cwd}:{})});
-export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store,logger=null,sandboxFactory=null}){
+// Up to MAX_BATCH commands per call (one per line in `commands`), all for the
+// same runtime. Each line passes the same checks as a single command.
+export const MAX_BATCH=10;
+export function parseCodingCommands(input){
+ if(input?.commands!==undefined&&input?.commands!==null&&input.commands!==''){
+  if(typeof input.commands!=='string'||input.commands.length>3000)throw Error('Give the commands as text, one per line, up to 3000 characters.');
+  const lines=input.commands.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+  if(!lines.length||lines.length>MAX_BATCH)throw Error(`Give between 1 and ${MAX_BATCH} commands, one per line.`);
+  const parsed=lines.map(line=>({...parseCodingCommand(line),text:line}));
+  if(new Set(parsed.map(c=>c.runtime)).size>1)throw Error('Run Node.js and Python commands in separate calls.');
+  return parsed;
+ }
+ return[{...parseCodingCommand(input?.command),text:String(input?.command||'').trim()}];
+}
+// Long output keeps its start and its end (where errors usually are).
+const clip=(v,n)=>{const s=String(v||'');if(s.length<=n)return s;const head=Math.floor(n*0.35);return s.slice(0,head)+'\n[… output shortened …]\n'+s.slice(s.length-(n-head));};
+const DEPENDENCY_FILES=new Set(['package.json','package-lock.json','requirements.txt']);
+// A sandbox stays open for the rest of one chat reply (same person, chat,
+// repository, ref and runtime), so later calls skip the download and install.
+const SESSION_MS=100_000;
+export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store,logger=null,sandboxFactory=null,runsPerHour=10,now=()=>Date.now()}){
  const createSandbox=sandboxFactory||(async o=>{const{Sandbox}=await import('@vercel/sandbox');return Sandbox.create(o);});
- return{async run(input,ctx,{files:workspaceFiles=[]}={}){
+ const sessions=new Map();
+ const stopQuietly=async sandbox=>{try{await sandbox.stop();}catch(e){logger?.warn('coding runner cleanup failed',{...safeErrorDetail('sandbox_cleanup',e)});}};
+ const sweep=()=>{for(const[k,v]of sessions)if(!v.busy&&now()-v.createdAt>SESSION_MS){sessions.delete(k);stopQuietly(v.sandbox);}};
+ return{
+ // Turn end: close this chat's open sandboxes.
+ async release(ctx){
+  const prefix=`${ctx?.tenantId}:${ctx?.actor?.id}:${ctx?.conversationId}:`;
+  for(const[k,v]of sessions)if(k.startsWith(prefix)){sessions.delete(k);await stopQuietly(v.sandbox);}
+ },
+ async run(input,ctx,{files:workspaceFiles=[],baseFor=null}={}){
   if(ctx?.actor?.type!=='user'||!ctx.actor.id||!ctx.tenantId)return{error:'sign_in_required',message:'Sign in and connect GitHub to run repository code.'};
-  let parsed,patch;try{parsed=parseCodingCommand(input?.command);}catch(e){return{error:'invalid_command',message:e.message};}try{patch=validateCodingPatch(input?.patch);}catch(e){return{error:'invalid_patch',message:e.message};}
+  let commands,patch;try{commands=parseCodingCommands(input);}catch(e){return{error:'invalid_command',message:e.message};}try{patch=validateCodingPatch(input?.patch);}catch(e){return{error:'invalid_patch',message:e.message};}
+  const runtime=commands[0].runtime,batch=input?.commands!==undefined&&input?.commands!==null&&input.commands!=='';
   const repo=String(input?.repo||'').trim();let ref=String(input?.ref||'').trim();
   if(!/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(repo)||ref.length>200||(ref&&!/^(?!.*\.\.)(?!\/)[A-Za-z0-9._/-]{1,200}$/.test(ref)))return{error:'invalid_arguments',message:'Choose a valid repository and branch or commit.'};
-  const token=await tokenFor(ctx).catch(()=>null);if(!token)return{error:'github_not_connected',message:'Connect GitHub first in Plugins → GitHub.'};
-  try{const lim=await store.rateHit('ghrun:'+ctx.tenantId+':'+ctx.actor.id,3600,10);if(!lim?.allowed)return{error:'rate_limited',message:'You have run the coding environment 10 times this hour. Try again later.'};}catch{return{error:'rate_limit_unavailable',message:'The coding runner is temporarily unavailable. Please try again later.'};}
-  if(!ref){try{ref=await defaultBranch(token,repo);}catch{return{error:'default_branch_unavailable',message:'Nasrin could not determine the repository default branch. Specify a branch or commit.'};}}
-  let archive;try{archive=await downloadArchive(token,repo,ref);}catch(e){logger?.warn('coding runner source fetch failed',{code:e?.code||'failed'});return{error:'source_unavailable',message:'Could not safely fetch that repository snapshot. Check the repository, branch, and GitHub access.'};}
-  try{inspectCodingArchive(archive);}catch(e){return{error:'repository_too_large',message:e.message};}
   const edited=Array.isArray(workspaceFiles)?workspaceFiles.slice(0,20):[];
   try{for(const f of edited){safeRunnerPath(f.path);if(typeof f.content!=='string'||Buffer.byteLength(f.content)>200_000)throw Error('A workspace file is not usable text.');}}catch(e){return{error:'invalid_workspace',message:e.message};}
-  let sandbox;const started=Date.now();let stage='sandbox_create',activeResult=null;
+  const token=await tokenFor(ctx).catch(()=>null);if(!token)return{error:'github_not_connected',message:'Connect GitHub first in Plugins → GitHub.'};
+  try{const lim=await store.rateHit('ghrun:'+ctx.tenantId+':'+ctx.actor.id,3600,runsPerHour);if(!lim?.allowed)return{error:'rate_limited',message:`You have run the coding environment ${runsPerHour} times this hour. Try again later.`};}catch{return{error:'rate_limit_unavailable',message:'The coding runner is temporarily unavailable. Please try again later.'};}
+  if(!ref){try{ref=await defaultBranch(token,repo);}catch{return{error:'default_branch_unavailable',message:'Nasrin could not determine the repository default branch. Specify a branch or commit.'};}}
+  const deadline=Number.isFinite(ctx.deadline)?ctx.deadline:Infinity;
+  const reusable=Boolean(ctx.conversationId)&&!patch;
+  const key=`${ctx.tenantId}:${ctx.actor.id}:${ctx.conversationId}:${repo}@${ref}:${runtime}`;
+  sweep();
+  let session=reusable?sessions.get(key):null;
+  if(session&&(session.busy||[...edited.map(f=>f.path),...session.written.keys()].some(p=>DEPENDENCY_FILES.has(p)&&session.written.get(p)!==edited.find(f=>f.path===p)?.content))){
+   // Changed dependency files need a fresh install.
+   if(!session.busy){sessions.delete(key);await stopQuietly(session.sandbox);}
+   session=null;
+  }
+  const reused=Boolean(session);
+  let sandbox=session?.sandbox||null;const started=now();let stage='sandbox_create',activeResult=null,keep=false;
   const finish=value=>(activeResult=value,value);
+  const left=()=>deadline-now();
   try{
-   stage='sandbox_create';
-   sandbox=await createSandbox({runtime:parsed.runtime,timeout:70_000,persistent:false,networkPolicy:{allow:['registry.npmjs.org','pypi.org','files.pythonhosted.org']}});
-   stage='workspace_write';
-   await sandbox.writeFiles([{path:ARCHIVE_PATH,content:archive}]);
-   stage='workspace_create';
-   let r=await run(sandbox,'mkdir',['-p',WORKSPACE]);if(r.exitCode!==0)throw Error('workspace_create_failed');
-   stage='snapshot_extract';
-   r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','--no-overwrite-dir','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
-   if(r.exitCode!==0)return finish({error:'snapshot_extract_failed',stage,exit_code:r.exitCode,stdout:trim(await r.stdout()),stderr:trim(await r.stderr()),message:'The repository snapshot could not be unpacked.'});
-   if(edited.length){
+   if(session){
+    session.busy=true;
+    // Bring the open sandbox in line with the workspace: write what changed,
+    // restore what was reverted.
     stage='workspace_files';
-    const dirs=[...new Set(edited.map(f=>f.path.split('/').slice(0,-1).join('/')).filter(Boolean))].map(d=>`${WORKSPACE}/${d}`);
-    if(dirs.length){const mk=await run(sandbox,'mkdir',['-p',...dirs]);if(mk.exitCode!==0)throw Error('workspace_files_failed');}
-    await sandbox.writeFiles(edited.map(f=>({path:`${WORKSPACE}/${f.path}`,content:Buffer.from(f.content,'utf8')})));
-   }
-   if(patch){
-    stage='patch_write';
-    await sandbox.writeFiles([{path:`${WORKSPACE}/changes.patch`,content:Buffer.from(patch,'utf8')}]);
-    stage='patch_check';
-    const check=await run(sandbox,'git',['apply','--check',`${WORKSPACE}/changes.patch`],WORKSPACE);
-    if(check.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:check.exitCode,stdout:trim(await check.stdout()),stderr:trim(await check.stderr()),message:'The proposed changes do not apply cleanly to this repository snapshot.'});
-    stage='patch_apply';
-    const applied=await run(sandbox,'git',['apply',`${WORKSPACE}/changes.patch`],WORKSPACE);
-    if(applied.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:applied.exitCode,stdout:trim(await applied.stdout()),stderr:trim(await applied.stderr()),message:'The proposed changes could not be applied to the isolated workspace.'});
-   }
-   stage='dependency_detect';
-   const hasPkg=(await run(sandbox,'test',['-f','package.json'],WORKSPACE)).exitCode===0;
-   const hasLock=(await run(sandbox,'test',['-f','package-lock.json'],WORKSPACE)).exitCode===0;
-   const hasReq=(await run(sandbox,'test',['-f','requirements.txt'],WORKSPACE)).exitCode===0;
-   if(hasPkg&&parsed.runtime==='node22'){
-    stage='dependency_install';
-    const ins=await run(sandbox,'npm',hasLock?['ci','--ignore-scripts','--no-audit','--no-fund']:['install','--ignore-scripts','--no-audit','--no-fund'],WORKSPACE);
-    if(ins.exitCode!==0){
-     const result={error:'dependency_install_failed',stage,exit_code:ins.exitCode,stdout:trim(await ins.stdout()),stderr:trim(await ins.stderr()),message:'Dependencies could not be installed safely; lifecycle scripts are disabled and egress is limited to registries.'};
-     try{await sandbox.updateNetworkPolicy({allow:[]});}catch(cleanup){result.cleanup_error=safeErrorDetail('network_restrict',cleanup);logger?.warn('coding runner network restriction failed',{stage:'dependency_install',cleanup_error:result.cleanup_error});}
-     return finish(result);
+    const want=new Map(edited.map(f=>[f.path,f.content]));
+    const writes=edited.filter(f=>session.written.get(f.path)!==f.content);
+    for(const p of[...session.written.keys()].filter(p=>!want.has(p))){
+     const base=baseFor?await baseFor(p):null;
+     if(typeof base==='string')writes.push({path:p,content:base});
+     else{const rm=await run(sandbox,'rm',['-f',`${WORKSPACE}/${p}`]);if(rm.exitCode!==0)throw Error('workspace_files_failed');}
+     session.written.delete(p);
     }
-   }else if(hasReq&&parsed.runtime==='python3.13'){
-    stage='dependency_install';
-    const ins=await run(sandbox,'python',['-m','pip','install','--disable-pip-version-check','--no-input','--only-binary=:all:','-r','requirements.txt'],WORKSPACE);
-    if(ins.exitCode!==0){
-     const result={error:'dependency_install_failed',stage,exit_code:ins.exitCode,stdout:trim(await ins.stdout()),stderr:trim(await ins.stderr()),message:'Python dependencies could not be installed as binary wheels from approved registries.'};
-     try{await sandbox.updateNetworkPolicy({allow:[]});}catch(cleanup){result.cleanup_error=safeErrorDetail('network_restrict',cleanup);logger?.warn('coding runner network restriction failed',{stage:'dependency_install',cleanup_error:result.cleanup_error});}
-     return finish(result);
+    if(writes.length){
+     const dirs=[...new Set(writes.map(f=>f.path.split('/').slice(0,-1).join('/')).filter(Boolean))].map(d=>`${WORKSPACE}/${d}`);
+     if(dirs.length){const mk=await run(sandbox,'mkdir',['-p',...dirs]);if(mk.exitCode!==0)throw Error('workspace_files_failed');}
+     await sandbox.writeFiles(writes.map(f=>({path:`${WORKSPACE}/${f.path}`,content:Buffer.from(f.content,'utf8')})));
+     for(const f of writes)if(want.has(f.path))session.written.set(f.path,f.content);
     }
+   }else{
+    let archive;try{archive=await downloadArchive(token,repo,ref);}catch(e){logger?.warn('coding runner source fetch failed',{code:e?.code||'failed'});return finish({error:'source_unavailable',message:'Could not safely fetch that repository snapshot. Check the repository, branch, and GitHub access.'});}
+    try{inspectCodingArchive(archive);}catch(e){return finish({error:'repository_too_large',message:e.message});}
+    stage='sandbox_create';
+    sandbox=await createSandbox({runtime,timeout:reusable?115_000:70_000,persistent:false,networkPolicy:{allow:['registry.npmjs.org','pypi.org','files.pythonhosted.org']}});
+    stage='workspace_write';
+    await sandbox.writeFiles([{path:ARCHIVE_PATH,content:archive}]);
+    stage='workspace_create';
+    let r=await run(sandbox,'mkdir',['-p',WORKSPACE]);if(r.exitCode!==0)throw Error('workspace_create_failed');
+    stage='snapshot_extract';
+    r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','--no-overwrite-dir','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
+    if(r.exitCode!==0)return finish({error:'snapshot_extract_failed',stage,exit_code:r.exitCode,stdout:trim(await r.stdout()),stderr:trim(await r.stderr()),message:'The repository snapshot could not be unpacked.'});
+    if(edited.length){
+     stage='workspace_files';
+     const dirs=[...new Set(edited.map(f=>f.path.split('/').slice(0,-1).join('/')).filter(Boolean))].map(d=>`${WORKSPACE}/${d}`);
+     if(dirs.length){const mk=await run(sandbox,'mkdir',['-p',...dirs]);if(mk.exitCode!==0)throw Error('workspace_files_failed');}
+     await sandbox.writeFiles(edited.map(f=>({path:`${WORKSPACE}/${f.path}`,content:Buffer.from(f.content,'utf8')})));
+    }
+    if(patch){
+     stage='patch_write';
+     await sandbox.writeFiles([{path:`${WORKSPACE}/changes.patch`,content:Buffer.from(patch,'utf8')}]);
+     stage='patch_check';
+     const check=await run(sandbox,'git',['apply','--check',`${WORKSPACE}/changes.patch`],WORKSPACE);
+     if(check.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:check.exitCode,stdout:trim(await check.stdout()),stderr:trim(await check.stderr()),message:'The proposed changes do not apply cleanly to this repository snapshot.'});
+     stage='patch_apply';
+     const applied=await run(sandbox,'git',['apply',`${WORKSPACE}/changes.patch`],WORKSPACE);
+     if(applied.exitCode!==0)return finish({error:'patch_rejected',stage,exit_code:applied.exitCode,stdout:trim(await applied.stdout()),stderr:trim(await applied.stderr()),message:'The proposed changes could not be applied to the isolated workspace.'});
+    }
+    stage='dependency_detect';
+    const hasPkg=(await run(sandbox,'test',['-f','package.json'],WORKSPACE)).exitCode===0;
+    const hasLock=(await run(sandbox,'test',['-f','package-lock.json'],WORKSPACE)).exitCode===0;
+    const hasReq=(await run(sandbox,'test',['-f','requirements.txt'],WORKSPACE)).exitCode===0;
+    if(hasPkg&&runtime==='node22'){
+     stage='dependency_install';
+     const ins=await run(sandbox,'npm',hasLock?['ci','--ignore-scripts','--no-audit','--no-fund']:['install','--ignore-scripts','--no-audit','--no-fund'],WORKSPACE);
+     if(ins.exitCode!==0){
+      const result={error:'dependency_install_failed',stage,exit_code:ins.exitCode,stdout:trim(await ins.stdout()),stderr:trim(await ins.stderr()),message:'Dependencies could not be installed safely; lifecycle scripts are disabled and egress is limited to registries.'};
+      try{await sandbox.updateNetworkPolicy({allow:[]});}catch(cleanup){result.cleanup_error=safeErrorDetail('network_restrict',cleanup);logger?.warn('coding runner network restriction failed',{stage:'dependency_install',cleanup_error:result.cleanup_error});}
+      return finish(result);
+     }
+    }else if(hasReq&&runtime==='python3.13'){
+     stage='dependency_install';
+     const ins=await run(sandbox,'python',['-m','pip','install','--disable-pip-version-check','--no-input','--only-binary=:all:','-r','requirements.txt'],WORKSPACE);
+     if(ins.exitCode!==0){
+      const result={error:'dependency_install_failed',stage,exit_code:ins.exitCode,stdout:trim(await ins.stdout()),stderr:trim(await ins.stderr()),message:'Python dependencies could not be installed as binary wheels from approved registries.'};
+      try{await sandbox.updateNetworkPolicy({allow:[]});}catch(cleanup){result.cleanup_error=safeErrorDetail('network_restrict',cleanup);logger?.warn('coding runner network restriction failed',{stage:'dependency_install',cleanup_error:result.cleanup_error});}
+      return finish(result);
+     }
+    }
+    stage='network_restrict';
+    await sandbox.updateNetworkPolicy({allow:[]});
+    if(reusable){session={sandbox,written:new Map(edited.map(f=>[f.path,f.content])),createdAt:now(),busy:true};sessions.set(key,session);}
    }
-   stage='network_restrict';
-   await sandbox.updateNetworkPolicy({allow:[]});
    stage='command_execute';
-   const out=await run(sandbox,parsed.executable,parsed.args,WORKSPACE),stdout=trim(await out.stdout()),stderr=trim(await out.stderr());
-   logger?.info('coding command completed',{durationMs:Date.now()-started,exitCode:out.exitCode,runtime:parsed.runtime,repo,command:parsed.executable});
-   return finish({ok:out.exitCode===0,repo,ref:ref||null,command:input.command,patch_applied:!!patch,workspace_files:edited.length,exit_code:out.exitCode,stdout,stderr,runtime:parsed.runtime,sandboxed:true,network_after_install:'disabled',duration_ms:Date.now()-started,message:out.exitCode===0?'Command completed; use captured output as evidence.':'Command failed; inspect the real output and fix the cause.'});
+   // Commands run one after another; the batch stops at the first failure
+   // unless keep_going is set, and stops before the reply runs out of time.
+   const results=[];let skipped=0,outOfTime=false;
+   for(const c of commands){
+    if(results.length&&results.at(-1).exit_code!==0&&input?.keep_going!==true){skipped++;continue;}
+    if(left()<5_000){outOfTime=true;skipped++;continue;}
+    const signal=Number.isFinite(deadline)?AbortSignal.timeout(Math.max(1_000,left()-2_000)):undefined;
+    let out;
+    try{out=await sandbox.runCommand({cmd:c.executable,args:c.args,cwd:WORKSPACE,...(signal?{signal}:{})});}
+    catch(e){if(signal?.aborted){outOfTime=true;results.push({command:c.text,exit_code:124,stdout:'',stderr:'Stopped: the reply ran out of time.'});break;}throw e;}
+    results.push({command:c.text,exit_code:out.exitCode,stdout:await out.stdout(),stderr:await out.stderr()});
+   }
+   const failed=results.find(r=>r.exit_code!==0);
+   const exitCode=failed?failed.exit_code:0;
+   keep=reusable&&!outOfTime;
+   logger?.info('coding command completed',{durationMs:now()-started,exitCode,runtime,repo,commands:results.length,reused});
+   const base={ok:!failed&&!skipped,repo,ref:ref||null,patch_applied:!!patch,workspace_files:edited.length,exit_code:exitCode,runtime,sandboxed:true,network_after_install:'disabled',reused_sandbox:reused,duration_ms:now()-started};
+   const message=outOfTime?'Stopped: this reply ran out of time. Report what ran; the person can say "continue".':failed?'Command failed; inspect the real output and fix the cause.':'Command completed; use captured output as evidence.';
+   if(!batch){const r=results[0]||{command:commands[0].text,exit_code:124,stdout:'',stderr:''};return finish({...base,command:input.command,stdout:trim(r.stdout),stderr:trim(r.stderr),...(outOfTime?{error:'out_of_time'}:{}),message});}
+   // Output room is shared: failed commands get the most.
+   const room=5200,share=Math.floor(room/Math.max(1,results.length+(failed?1:0)));
+   return finish({...base,commands:results.length,...(skipped?{skipped}:{}),...(outOfTime?{error:'out_of_time'}:{}),results:results.map(r=>{const n=r.exit_code!==0?share*2:share;return{command:r.command,exit_code:r.exit_code,stdout:clip(r.stdout,Math.floor(n*0.45)),stderr:clip(r.stderr,Math.floor(n*0.55))};}),message});
   }catch(e){
    const detail=safeErrorDetail(stage,e),error=failureCode(stage);
    const result={error,stage,stage_detail:detail,message:'The isolated coding environment could not complete this run. No repository branch was changed.'};
-   logger?.warn('coding runner failed',{...detail,error,durationMs:Date.now()-started});
+   logger?.warn('coding runner failed',{...detail,error,durationMs:now()-started});
    return finish(result);
   }
-  finally{if(sandbox){try{await sandbox.stop();}catch(e){
-   const cleanup=safeErrorDetail('sandbox_cleanup',e);
-   logger?.warn('coding runner cleanup failed',{...cleanup});
-   if(activeResult&&typeof activeResult==='object')activeResult.cleanup_error=cleanup;
-  }}}
+  finally{
+   if(session)session.busy=false;
+   if(sandbox&&!keep){
+    if(session&&sessions.get(key)===session)sessions.delete(key);
+    try{await sandbox.stop();}catch(e){
+     const cleanup=safeErrorDetail('sandbox_cleanup',e);
+     logger?.warn('coding runner cleanup failed',{...cleanup});
+     if(activeResult&&typeof activeResult==='object')activeResult.cleanup_error=cleanup;
+    }
+   }
+  }
  }};
 }

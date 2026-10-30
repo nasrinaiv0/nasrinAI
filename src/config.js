@@ -932,7 +932,7 @@ export function loadConfig(env = process.env) {
     weather: Object.freeze({ googleApiKey: String(env.GOOGLE_WEATHER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim() }),
     maps: Object.freeze({ serverApiKey: String(env.GOOGLE_MAPS_SERVER_API_KEY || env.GOOGLE_MAPS_PLATFORM_API_KEY || env.GOOGLE_MAPS_API_KEY || '').trim(), browserApiKey: String(env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim() }),
     // runCode: the run_code tool (an isolated, offline sandbox for short programs).
-    tools: Object.freeze({ enabled: toolsEnabled, runCode: String(env.RUN_CODE_ENABLED ?? 'true').trim().toLowerCase() !== 'false' }),
+    tools: Object.freeze({ enabled: toolsEnabled, runCode: String(env.RUN_CODE_ENABLED ?? 'true').trim().toLowerCase() !== 'false', codeRunsPerHour: softInt('CODE_RUNS_PER_HOUR', env.CODE_RUNS_PER_HOUR, 60, 1, 1000) }),
     mcp: Object.freeze({ servers: Object.freeze(mcpServers) }),
     professional: Object.freeze({ enabled: professionalEnabled }),
     library,

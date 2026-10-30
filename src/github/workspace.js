@@ -39,7 +39,7 @@ const count = (text, part) => {
   return n;
 };
 
-export function createCodeWorkspace({ fetchFile, defaultBranch, now = () => Date.now() }) {
+export function createCodeWorkspace({ fetchFile, defaultBranch, onFinish = null, now = () => Date.now() }) {
   const turns = new Map();
   const keyOf = (ctx) => `${ctx.tenantId}:${ctx.actor.type}:${ctx.actor.id}:${ctx.conversationId || '-'}`;
   const sweep = () => { for (const [k, s] of turns) if (now() - s.at > TTL_MS) turns.delete(k); };
@@ -188,6 +188,14 @@ export function createCodeWorkspace({ fetchFile, defaultBranch, now = () => Date
       return { repo: s.repo, ref: s.ref, files, ...(s.notes.length ? { notes: s.notes.slice(0, 5) } : {}) };
     },
 
+    // A file's text on GitHub (null for a new file), for the runner to restore
+    // a file whose changes were reverted.
+    async base(ctx, path) {
+      const s = stateFor(ctx);
+      const f = s.files.get(checkPath(path));
+      return f ? f.base : null;
+    },
+
     // Final file contents for the runner ([{ path, content }]), or [].
     async files(ctx, token, repo) {
       const s = stateFor(ctx);
@@ -203,6 +211,7 @@ export function createCodeWorkspace({ fetchFile, defaultBranch, now = () => Date
     // maxChars keeps the reply inside its stored size: blocks that do not fit
     // are left out whole (never cut) and named, so nothing is half-attached.
     finish(ctx, reply, { maxChars = 18_500 } = {}) {
+      if (onFinish) Promise.resolve().then(() => onFinish(ctx)).catch(() => {});
       const k = keyOf(ctx);
       const s = turns.get(k);
       turns.delete(k);
