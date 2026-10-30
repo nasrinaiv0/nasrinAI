@@ -449,10 +449,22 @@ export function loadConfig(env = process.env) {
       max: range('ROUTE_RANGE_MAX', env.ROUTE_RANGE_MAX, '1-4'),
       ultra: range('ROUTE_RANGE_ULTRA', env.ROUTE_RANGE_ULTRA, '1-5')
     }),
-    // Smallest sufficient context and output for each level (characters of
-    // history, reply tokens).
-    historyChars: Object.freeze({ 1: 6000, 2: 10000, 3: 16000, 4: 24000, 5: 32000 }),
-    maxTokens: Object.freeze({ 1: 700, 2: 1000, 3: 1600, 4: 2400, 5: 3200 }),
+    // Reply and history budgets are operator-controlled through Vercel.
+    // Zero means no application-imposed budget; provider/model limits still apply.
+    historyChars: Object.freeze({
+      1: toInt('ROUTE_LEVEL_1_HISTORY_CHARS', env.ROUTE_LEVEL_1_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      2: toInt('ROUTE_LEVEL_2_HISTORY_CHARS', env.ROUTE_LEVEL_2_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      3: toInt('ROUTE_LEVEL_3_HISTORY_CHARS', env.ROUTE_LEVEL_3_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      4: toInt('ROUTE_LEVEL_4_HISTORY_CHARS', env.ROUTE_LEVEL_4_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      5: toInt('ROUTE_LEVEL_5_HISTORY_CHARS', env.ROUTE_LEVEL_5_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER)
+    }),
+    maxTokens: Object.freeze({
+      1: toInt('ROUTE_LEVEL_1_MAX_REPLY_TOKENS', env.ROUTE_LEVEL_1_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      2: toInt('ROUTE_LEVEL_2_MAX_REPLY_TOKENS', env.ROUTE_LEVEL_2_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      3: toInt('ROUTE_LEVEL_3_MAX_REPLY_TOKENS', env.ROUTE_LEVEL_3_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      4: toInt('ROUTE_LEVEL_4_MAX_REPLY_TOKENS', env.ROUTE_LEVEL_4_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      5: toInt('ROUTE_LEVEL_5_MAX_REPLY_TOKENS', env.ROUTE_LEVEL_5_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER)
+    }),
     maxEscalations: toInt('MAX_ESCALATION_DEPTH', env.MAX_ESCALATION_DEPTH, 1, 0, 3),
     maxRetries: toInt('MAX_RETRIES', env.MAX_RETRIES, 1, 0, 3),
     // Failover keeps trying other eligible models up to this many failed calls, within a time budget.
@@ -970,9 +982,9 @@ export function loadConfig(env = process.env) {
         .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
-      maxReplyTokens: toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 800, 50, 8000),
-      maxMessageChars: toInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 4000, 100, 15000),
-      historyChars: toInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 12000, 1000, 100000),
+      maxReplyTokens: toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      maxMessageChars: toInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      historyChars: toInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
       // Strip emails, phone and card numbers from what is sent to a model
       // outside this server. On by default.
       redactExternal: redact === 'true',
