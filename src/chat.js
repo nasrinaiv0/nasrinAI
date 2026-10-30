@@ -821,6 +821,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
       const toolMedia = [];   // screenshots and recordings a tool saved: shown above the reply
       mapResults = [];   // structured Google Maps results rendered directly inside the chat
       const prChips = new Map();   // one per pull request
+      try {
       // Cost-optimized coding pipeline: reuse existing plan-aware routing,
       // reservations/settlement and usage telemetry. Actual code edits and commands
       // remain in the existing isolated workspace and sandbox tool workflow.
