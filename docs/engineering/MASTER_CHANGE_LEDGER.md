@@ -228,3 +228,15 @@ The SHA references in the earlier follow-up paragraphs are **intermediate commit
 - PR #711 exact-head CI #40985781454 and Documentation Gate #40985781356 both passed. PR #702 is 1 ahead / 48 behind main and non-mergeable; PR #703 is 2 ahead / 44 behind and non-mergeable. Their older green checks do not validate reconciled heads.
 - Existing issue #486 (persistent chat attachments) remains open without new implementation progress in this checkpoint. Secure private storage, ownership checks, expiry handling, and persistence tests remain acceptance requirements.
 - No branch settings, code, database, secrets, or deployments were changed by monitoring.
+
+
+## Monitoring checkpoint — 2026-10-30 12:06 Asia/Manila
+
+- Main remains `b39f4dcd62641d5f601e4e707cb46155ca8e135e`; production deployment [EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) is READY at the same application SHA. No new in-scope application-code merge/deployment was detected in this review.
+- PR #709 remains the latest verified application change (OCC automation-label correction). Existing CI #40972509344 and Documentation Gate #40972509431 passed on the exact PR head; the hosted OCC browser/API path remains not independently smoke-tested.
+- PR #711's prior exact head `99d3458f2fb15feed4756aba8a1efc2e6473d8c0` passed CI [#40992805066](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40992805066) and Documentation Gate [#40992805056](https://github.com/nasrinaiv0/nasrinAI/actions/runs/40992805056). This checkpoint appends documentation, so its resulting new head must rerun both gates; do not reuse the prior pass as validation of the new head.
+- PR #702 head `c9ddf310f48c0157b8267187c0da9e69735a3d09` is based on `ed6f0ad6d9bc8cf3b22862e89adbd67396ee7ab8` and GitHub reports mergeable=false. PR #703 head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1` is based on `531f56d6d5685730692372d64bd7780b974f5c69` and is also non-mergeable. Reconcile these implementation branches with current main and rerun exact-head CI/security checks before review or merge.
+- PRs #705 and #710 remain stale/non-mergeable documentation branches. Avoid merging duplicate historical snapshots; keep #711 as the primary current-main ledger review.
+- Migration 080–082 parity, leaked-password protection, SECURITY DEFINER review, OCC live smoke, and issue #486 attachment persistence remain carried-forward risks and were not freshly rechecked here.
+- MOVO's merged PR #63/#64 are outside this repository and are intentionally excluded from NasrinAI implementation status.
+- No application code, production schema/data, Auth setting, secret, configuration, or deployment changed. This is a documentation-only checkpoint.
