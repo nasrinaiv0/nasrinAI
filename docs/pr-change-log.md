@@ -1,3 +1,9 @@
+## Many commands per reply: batches, one sandbox per reply, deadline — 2026-10-30
+
+- `src/github/runner.js`: `commands` (up to 10 per call, `keep_going`), the sandbox stays open for the rest of a chat reply (only changed files rewritten, reverted ones restored, fresh sandbox for dependency changes or patches, closed at the reply's end), deadline-aware stop (`out_of_time`), more allowed tools (`npx --no`, `pip list/show`, head/tail/wc/diff/…/make), `CODE_RUNS_PER_HOUR` (default 60).
+- `src/tools/registry.js` + `src/chat.js`: the reply deadline reaches tools (`ctx.deadline`); deadline-aware tools may start with 20 s left. `src/github/workspace.js`: `base()` and the end-of-reply hook. `src/coding.js`: investigate first, batch related commands.
+- Docs: `docs/coding-chat.md`, `.env.example`. Tests: `test/batch-commands.test.js`.
+
 ## Coding workspace, automatic web search, time guard — 2026-10-30
 
 - `src/github/workspace.js` + `src/github/index.js`: `code_edit` (exact find-and-replace), `code_write`, `code_changes`, `code_revert`; `github_read_file` shows edited files; `github_run_command` tests the edits (`src/github/runner.js` writes them into the sandbox, unsafe paths refused). The change set is attached to the reply as `[[file]]` blocks (PR-compatible) and carried into the next message via `response_metadata.code_workspace`.
