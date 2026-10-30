@@ -438,7 +438,7 @@ export function loadConfig(env = process.env) {
     // Cost-optimized coding pipeline is opt-in and remains OFF until Preview validation.
     costOptimizedCodingEnabled: String(env.CODING_PIPELINE_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     codingPipeline: Object.freeze({
-      maxStageCalls: toInt('CODING_PIPELINE_MAX_STAGE_CALLS', env.CODING_PIPELINE_MAX_STAGE_CALLS, 5, 1, 10),
+      maxStageCalls: toInt('CODING_PIPELINE_MAX_STAGE_CALLS', env.CODING_PIPELINE_MAX_STAGE_CALLS, 5, 4, 5),
       contextChars: toInt('CODING_PIPELINE_CONTEXT_CHARS', env.CODING_PIPELINE_CONTEXT_CHARS, 24000, 2000, 100000),
       reviewTokens: toInt('CODING_PIPELINE_REVIEW_MAX_TOKENS', env.CODING_PIPELINE_REVIEW_MAX_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
       enablePremiumReview: String(env.CODING_PIPELINE_PREMIUM_REVIEW ?? 'true').trim().toLowerCase() === 'true',
