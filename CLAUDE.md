@@ -242,3 +242,13 @@ The staging test requires distinct Vercel environment variables for the staging 
 ## Unified platform engineering scope — 2026-10-23
 
 The production-quality engineering rules apply to the entire platform, not only Video Studio: **Chat, Code, Video Studio, and shared services**. Use `docs/architecture/unified-platform-engineering.md` as the cross-surface acceptance contract. For any change, identify every affected surface, reuse shared auth/tier/quota/privacy/orchestration services, test all affected consumers, and report only verified test/CI/Preview/deployment results. Studio must not be treated as a separate app or quality bar; Code must use the approved isolated runner for execution; Chat must preserve answer-first behavior and route model inference through the configured shared policy. Keep this contract synchronized with the implementation and changelog.
+
+
+## Cost-optimized autonomous coding pipeline — 2026-10-31
+
+- Branch: `feature/cost-optimized-coding-pipeline`, stacked on #719 reply-budget configuration.
+- Stages: plan → implementation proposal → test design → independent review → optional Ultra premium review → existing isolated workspace/Sandbox → evidence-backed test-fix-retest → explicitly user-confirmed PR.
+- All model calls use current policy, server-side entitlements, permitted route ranges, token reservation/settlement and provider usage telemetry. Never accept prompt/client-supplied model IDs or entitlement overrides.
+- Models propose; workspace tools edit; isolated sandbox executes. No autonomous merge or deploy authority.
+- Keep `CODING_PIPELINE_ENABLED=false` until Preview, exact-head CI, entitlement/privacy/accounting tests, secret scan and empirical cost/quality benchmark pass. Savings must be measured from actual provider billing.
+- Detailed design/status: `docs/MULTI_MODEL_PLANNING_COUNCIL.md`.
