@@ -148,4 +148,24 @@ claim.
 
 ## Automatic failure detection and repair (2026-10-29)
 
-The coding chat no longer relies on the model alone to notice a failed check. `src/auto-repair.js` classifies every `github_run_command` / `github_render_test_screenshot` result. When the last check failed in a way code can fix (non-zero exit, rejected patch, failed install/preview/test) and the model tries to finish, the chat sends it back automatically with a short "[NasrinAI automatic check n/2]" note to diagnose, revise the cumulative patch and re-run, at most 2 times per message. The page shows "A check failed — fixing it" meanwhile. Environment problems a code change cannot fix (rate limit, GitHub not connected, sign-in) never trigger a repair round. The coding chat gets up to 8 tool rounds (other chats keep 4). Nothing is merged or deployed automatically; pull requests still need Confirm.
+The coding chat no longer relies on the model alone to notice a failed check. `src/auto-repair.js` classifies every `github_run_command` / `github_render_test_screenshot` result. When the last check failed in a way code can fix (non-zero exit, rejected patch, failed install/preview/test) and the model tries to finish, the chat sends it back automatically with a short "[NasrinAI automatic check n/3]" note to diagnose, fix the code and re-run, at most 3 times per message. The page shows "A check failed — fixing it" meanwhile. Environment problems a code change cannot fix (rate limit, GitHub not connected, sign-in) never trigger a repair round. The coding chat gets up to 12 tool rounds (other chats keep 4), always inside the reply's time limit (below). A failed `run_code` counts as a check too. Nothing is merged or deployed automatically; pull requests still need Confirm.
+
+## Edit workspace, like a developer (2026-10-30)
+
+`src/github/workspace.js` gives the coding chat a workspace for a GitHub repository, so Nasrin works the way a coding assistant does: find files (`github_find_files`, `github_search_code`), read them, edit, test, fix, re-test.
+
+- `code_edit`: exact find-and-replace. `old_string` must match exactly one place (or set `replace_all`); otherwise the tool says why and nothing changes.
+- `code_write`: a new file, or a small file replaced whole.
+- `code_changes`: what changed so far. `code_revert`: undo one file or all.
+- `github_read_file` returns Nasrin's edited version once a file changed.
+- `github_run_command` writes the edited files into the sandbox before the command (paths checked like patches: never `.git`, `node_modules`, `.env`), so tests run against the edits without a hand-written diff. `patch` still works on top.
+- At the end of the reply the change set is attached as `[[file]]` blocks: SEARCH/REPLACE parts that apply to the base exactly like a pull request, or whole files for new files and `replace_all`. Blocks the model wrote for the same paths are replaced. The person reviews them and opens a pull request with the usual Confirm. Nothing is written to GitHub by the workspace.
+- The reply's `response_metadata.code_workspace` (`repo`, `ref`, `files`; no code) marks it, and the next message continues from that reply's changes. Changes that no longer apply (for example, already merged) are dropped with a note.
+- Limits: 20 files, 200 KB per file, 500 KB in all; state lives for one reply (at most 15 minutes) in server memory. Attached blocks must fit the stored reply (about 18,500 characters): a block that does not fit is left out whole, never cut, and named in the reply.
+
+## Time guard (2026-10-30)
+
+A reply must finish inside the 120-second server limit (`vercel.json`). Before each tool call the chat checks the time used: a tool that could not finish before `TURN_TIME_LIMIT_MS` (112 s) is not started (`out_of_time`), and after `TOOL_TIME_BUDGET_MS` (85 s) or a skipped tool the model gets no more tools and answers with what is done and what is left; the person can say "continue". No repair round starts once time is short.
+
+Tests: `test/code-workspace.test.js`.
+

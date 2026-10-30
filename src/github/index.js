@@ -5,6 +5,7 @@ import { createGithubApi, checkRepo, GithubError } from './api.js';
 import { createCodingRunner } from './runner.js';
 import { createBrowserTestRunner } from './browser-runner.js';
 import { globToRegExp } from '../tools/agent.js';
+import { createCodeWorkspace } from './workspace.js';
 
 // GitHub for coding chats (docs/github.md). A GitHub App with user sign-in
 // (OAuth): the person connects their own GitHub account; their tokens are
@@ -33,6 +34,10 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const gh = config.github || null;
   const key = config.connectors?.key || null;
   const api = createGithubApi({ fetchImpl });
+  const workspace = createCodeWorkspace({
+    fetchFile: (token, repo, path, ref) => api.fileAt(token, repo, path, encodeURIComponent(ref)),
+    defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch
+  });
   const codingRunner = createCodingRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger });
   const browserTestRunner = createBrowserTestRunner({ downloadArchive: api.downloadArchive, defaultBranch: async (token, repo) => (await api.repoInfo(token, repo)).default_branch, tokenFor, store, logger, snapshotId: config.codingBrowser?.snapshotId || null, ...(browserDeps || {}) });
   const available = Boolean(gh && key && store.listGithubConnections);
@@ -303,12 +308,60 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
   const pathParam = { type: 'string', maxLength: 300 };
   const wrap = (fn) => async (args, ctx) => {
     const token = await tokenFor(ctx).catch(() => null);
-    try { return { ...(await fn(token, args)), note: NOTE }; } catch (err) {
+    try { return { ...(await fn(token, args, ctx)), note: NOTE }; } catch (err) {
+      if (err instanceof GithubError) return { error: err.code, message: err.message };
+      throw err;
+    }
+  };
+  // A page of an edited file, like api.readFile (6,000 characters per part).
+  const pageText = (path, text, startLine = 1, budget = 6000) => {
+    const lines = text.split('\n');
+    const from = Math.max(1, Math.floor(startLine) || 1);
+    let out = ''; let i = from - 1;
+    for (; i < lines.length; i++) {
+      const next = lines[i] + (i < lines.length - 1 ? '\n' : '');
+      if (out.length + next.length > budget) { if (!out) { out = next.slice(0, budget); i++; } break; }
+      out += next;
+    }
+    return { path, lines: lines.length, from_line: from, text: out, ...(i < lines.length ? { next_line: i + 1 } : {}) };
+  };
+  const editRepo = { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' };
+  const ws = (fn) => async (args, ctx) => {
+    const token = await tokenFor(ctx).catch(() => null);
+    try { return await fn(token, args, ctx); } catch (err) {
       if (err instanceof GithubError) return { error: err.code, message: err.message };
       throw err;
     }
   };
   const tools = [
+    {
+      name: 'code_edit',
+      description: 'Edits a file of a GitHub repository in your workspace, like a developer: replaces old_string with new_string. old_string must be copied exactly from the file (read it first with github_read_file, which shows your edited version once you change it) and match exactly one place, unless replace_all is true. Nothing is written to GitHub: run the tests with github_run_command (it uses your workspace automatically), fix and re-run until they pass. Your changes are attached to your reply for the person to open a pull request; do not repeat them as file blocks.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000, maxArgs: 240_000,
+      parameters: { properties: { repo: editRepo, path: pathParam, old_string: { type: 'string', minLength: 1, maxLength: 100_000 }, new_string: { type: 'string', maxLength: 100_000 }, replace_all: { type: 'boolean' }, ref: refParam }, required: ['repo', 'path', 'old_string', 'new_string'] },
+      run: ws((token, a, ctx) => workspace.edit(ctx, token, a))
+    },
+    {
+      name: 'code_write',
+      description: 'Creates a new file (or replaces a small file completely) in your workspace for a GitHub repository. For changes to an existing file prefer code_edit. Nothing is written to GitHub; the file is attached to your reply.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000, maxArgs: 240_000,
+      parameters: { properties: { repo: editRepo, path: pathParam, content: { type: 'string', maxLength: 200_000 }, ref: refParam }, required: ['repo', 'path', 'content'] },
+      run: ws((token, a, ctx) => workspace.write(ctx, token, a))
+    },
+    {
+      name: 'code_changes',
+      description: 'Lists the files you have changed in your workspace for a repository (new or changed, lines before/after, number of edits). Use it before finishing to check your work.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000,
+      parameters: { properties: { repo: editRepo }, required: ['repo'] },
+      run: ws((token, a, ctx) => workspace.status(ctx, token, a))
+    },
+    {
+      name: 'code_revert',
+      description: 'Undoes your workspace changes to one file (path) or to every file (no path) of a repository.',
+      risk: 'read', who: ['guest', 'user'], timeoutMs: 12000,
+      parameters: { properties: { repo: editRepo, path: pathParam }, required: ['repo'] },
+      run: ws((token, a, ctx) => workspace.revert(ctx, token, a))
+    },
     {
       name: 'github_repo_info',
       description: 'Facts about a GitHub repository (owner/name): description, default branch, language, stars, last push.',
@@ -328,7 +381,11 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
       description: 'Reads a text file from a GitHub repository. Long files come in parts: call again with start_line = next_line.',
       risk: 'read', who: ['guest', 'user'], timeoutMs: 9000,
       parameters: { properties: { repo: repoParam, path: pathParam, ref: refParam, start_line: { type: 'integer', minimum: 1, maximum: 1_000_000 } }, required: ['repo', 'path'] },
-      run: wrap((token, a) => api.readFile(token, checkRepo(a.repo), a.path, { ref: a.ref, startLine: a.start_line }))
+      run: wrap(async (token, a, ctx) => {
+        const edited = await workspace.read(ctx, token, a.repo, a.path, a.ref);
+        if (edited === null) return api.readFile(token, checkRepo(a.repo), a.path, { ref: a.ref, startLine: a.start_line });
+        return { ...pageText(a.path, edited, a.start_line), workspace: 'This is your edited version (not yet on GitHub).' };
+      })
     },
     {
       name: 'github_find_files',
@@ -388,7 +445,7 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
     },
     {
       name: 'github_run_command',
-      description: 'Run one command on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. After inspecting repository files, optionally provide a standard unified diff in `patch` to apply proposed edits inside the temporary workspace before running tests/build/lint. This enables test-fix-retest without writing to GitHub. Every invocation starts from a fresh repository snapshot, so send the complete cumulative diff against the same ref on every rerun. It receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Supports Node.js and Python. Use one command without shell operators or chaining. Patches are text-only, limited to 100 KB, and cannot touch secret files, .git, dependencies, or generated framework state.',
+      description: 'Run one command on a connected user’s GitHub repository snapshot inside an isolated Vercel Sandbox microVM. After inspecting repository files, optionally provide a standard unified diff in `patch` to apply proposed edits inside the temporary workspace before running tests/build/lint. This enables test-fix-retest without writing to GitHub. Every invocation starts from a fresh repository snapshot, so send the complete cumulative diff against the same ref on every rerun. It receives no production secrets, disables network access before the requested command, and returns actual exit code/stdout/stderr. Changes you made with code_edit / code_write are applied automatically before the command, so you do not need `patch` for them. Supports Node.js and Python. Use one command without shell operators or chaining. Patches are text-only, limited to 100 KB, and cannot touch secret files, .git, dependencies, or generated framework state.',
       risk: 'read', who: ['user'], timeoutMs: 80_000, longRunning: true, maxArgs: 240_000,
       parameters: { properties: {
         repo: { type: 'string', maxLength: 205, pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' },
@@ -396,7 +453,15 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
         command: { type: 'string', maxLength: 300 },
         patch: { type: 'string', maxLength: 100_000 }
       }, required: ['repo', 'command'] },
-      run: (args, ctx) => codingRunner.run(args, ctx)
+      run: async (args, ctx) => {
+        const token = await tokenFor(ctx).catch(() => null);
+        let files = [];
+        try { files = token ? await workspace.files(ctx, token, args.repo) : []; } catch (err) {
+          if (err instanceof GithubError) return { error: 'workspace_unavailable', message: err.message };
+          throw err;
+        }
+        return codingRunner.run(args, ctx, { files });
+      }
     },
     {
       name: 'github_render_test_screenshot',
@@ -415,5 +480,5 @@ export function createGithub({ config, store, logger = null, fetchImpl = (...a) 
     },
   ];
 
-  return { available, routes, tools, tokenFor };
+  return { available, routes, tools, tokenFor, workspace };
 }

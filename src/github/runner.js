@@ -47,18 +47,21 @@ export function parseCodingCommand(raw){
  if(executable==='git'&&['push','pull','fetch','clone','remote','submodule'].includes(tokens[1]))throw Error('Git network and remote-write commands are disabled.');
  return{executable,args:tokens.slice(1),runtime:['python','python3','pytest'].includes(executable)?'python3.13':'node22'};
 }
+// Paths the runner may write (patches and workspace files): inside the repository,
+// never metadata, dependencies, generated framework state or secret files.
+export function safeRunnerPath(p){
+ if(!p||p.startsWith('/')||p.includes('\\')||p.length>300||p.split('/').some(s=>!s||s==='.'||s==='..'))throw Error('The patch contains an unsafe file path.');
+ const parts=p.split('/');
+ if(parts.some(s=>s==='.git'||s==='node_modules'||s==='.vercel'||s==='.next'))throw Error('The patch cannot change repository metadata, dependencies, or generated framework state.');
+ const base=parts.at(-1);
+ if(base==='.env'||(base.startsWith('.env.')&&base!=='.env.example'))throw Error('The patch cannot change environment or secret files.');
+}
 export function validateCodingPatch(raw){
  if(raw===undefined||raw===null||raw==='')return '';
  if(typeof raw!=='string'||Buffer.byteLength(raw,'utf8')>MAX_PATCH_BYTES||raw.includes('\0'))throw Error('The proposed patch must be text under 100 KB.');
  if(/GIT binary patch|^Binary files /m.test(raw))throw Error('Binary patches are not supported; use text-file changes only.');
  const lines=raw.split(/\r?\n/);let found=false;
- const safePath=p=>{
-  if(!p||p.startsWith('/')||p.includes('\\')||p.length>300||p.split('/').some(s=>!s||s==='.'||s==='..'))throw Error('The patch contains an unsafe file path.');
-  const parts=p.split('/');
-  if(parts.some(s=>s==='.git'||s==='node_modules'||s==='.vercel'||s==='.next'))throw Error('The patch cannot change repository metadata, dependencies, or generated framework state.');
-  const base=parts.at(-1);
-  if(base==='.env'||(base.startsWith('.env.')&&base!=='.env.example'))throw Error('The patch cannot change environment or secret files.');
- };
+ const safePath=safeRunnerPath;
  for(const line of lines){
   if(line.startsWith('diff --git ')){
    const m=line.match(/^diff --git a\/([^ ]+) b\/([^ ]+)$/);
@@ -88,6 +91,7 @@ const failureCode=stage=>({
  sandbox_create:'sandbox_create_failed',
  workspace_write:'sandbox_workspace_failed',
  workspace_create:'sandbox_workspace_failed',
+ workspace_files:'sandbox_workspace_failed',
  snapshot_extract:'snapshot_extract_failed',
  patch_write:'patch_write_failed',
  patch_check:'patch_check_failed',
@@ -100,7 +104,7 @@ const failureCode=stage=>({
 const run=(s,c,a,cwd)=>s.runCommand({cmd:c,args:a,...(cwd?{cwd}:{})});
 export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store,logger=null,sandboxFactory=null}){
  const createSandbox=sandboxFactory||(async o=>{const{Sandbox}=await import('@vercel/sandbox');return Sandbox.create(o);});
- return{async run(input,ctx){
+ return{async run(input,ctx,{files:workspaceFiles=[]}={}){
   if(ctx?.actor?.type!=='user'||!ctx.actor.id||!ctx.tenantId)return{error:'sign_in_required',message:'Sign in and connect GitHub to run repository code.'};
   let parsed,patch;try{parsed=parseCodingCommand(input?.command);}catch(e){return{error:'invalid_command',message:e.message};}try{patch=validateCodingPatch(input?.patch);}catch(e){return{error:'invalid_patch',message:e.message};}
   const repo=String(input?.repo||'').trim();let ref=String(input?.ref||'').trim();
@@ -110,6 +114,8 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
   if(!ref){try{ref=await defaultBranch(token,repo);}catch{return{error:'default_branch_unavailable',message:'Nasrin could not determine the repository default branch. Specify a branch or commit.'};}}
   let archive;try{archive=await downloadArchive(token,repo,ref);}catch(e){logger?.warn('coding runner source fetch failed',{code:e?.code||'failed'});return{error:'source_unavailable',message:'Could not safely fetch that repository snapshot. Check the repository, branch, and GitHub access.'};}
   try{inspectCodingArchive(archive);}catch(e){return{error:'repository_too_large',message:e.message};}
+  const edited=Array.isArray(workspaceFiles)?workspaceFiles.slice(0,20):[];
+  try{for(const f of edited){safeRunnerPath(f.path);if(typeof f.content!=='string'||Buffer.byteLength(f.content)>200_000)throw Error('A workspace file is not usable text.');}}catch(e){return{error:'invalid_workspace',message:e.message};}
   let sandbox;const started=Date.now();let stage='sandbox_create',activeResult=null;
   const finish=value=>(activeResult=value,value);
   try{
@@ -122,6 +128,12 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
    stage='snapshot_extract';
    r=await run(sandbox,'tar',['--no-same-owner','--no-same-permissions','--no-overwrite-dir','-xzf',ARCHIVE_PATH,'--strip-components=1','-C',WORKSPACE]);
    if(r.exitCode!==0)return finish({error:'snapshot_extract_failed',stage,exit_code:r.exitCode,stdout:trim(await r.stdout()),stderr:trim(await r.stderr()),message:'The repository snapshot could not be unpacked.'});
+   if(edited.length){
+    stage='workspace_files';
+    const dirs=[...new Set(edited.map(f=>f.path.split('/').slice(0,-1).join('/')).filter(Boolean))].map(d=>`${WORKSPACE}/${d}`);
+    if(dirs.length){const mk=await run(sandbox,'mkdir',['-p',...dirs]);if(mk.exitCode!==0)throw Error('workspace_files_failed');}
+    await sandbox.writeFiles(edited.map(f=>({path:`${WORKSPACE}/${f.path}`,content:Buffer.from(f.content,'utf8')})));
+   }
    if(patch){
     stage='patch_write';
     await sandbox.writeFiles([{path:`${WORKSPACE}/changes.patch`,content:Buffer.from(patch,'utf8')}]);
@@ -158,7 +170,7 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
    stage='command_execute';
    const out=await run(sandbox,parsed.executable,parsed.args,WORKSPACE),stdout=trim(await out.stdout()),stderr=trim(await out.stderr());
    logger?.info('coding command completed',{durationMs:Date.now()-started,exitCode:out.exitCode,runtime:parsed.runtime,repo,command:parsed.executable});
-   return finish({ok:out.exitCode===0,repo,ref:ref||null,command:input.command,patch_applied:!!patch,exit_code:out.exitCode,stdout,stderr,runtime:parsed.runtime,sandboxed:true,network_after_install:'disabled',duration_ms:Date.now()-started,message:out.exitCode===0?'Command completed; use captured output as evidence.':'Command failed; inspect the real output and fix the cause.'});
+   return finish({ok:out.exitCode===0,repo,ref:ref||null,command:input.command,patch_applied:!!patch,workspace_files:edited.length,exit_code:out.exitCode,stdout,stderr,runtime:parsed.runtime,sandboxed:true,network_after_install:'disabled',duration_ms:Date.now()-started,message:out.exitCode===0?'Command completed; use captured output as evidence.':'Command failed; inspect the real output and fix the cause.'});
   }catch(e){
    const detail=safeErrorDetail(stage,e),error=failureCode(stage);
    const result={error,stage,stage_detail:detail,message:'The isolated coding environment could not complete this run. No repository branch was changed.'};

@@ -42,7 +42,7 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
     // One tool's public facts (for the Confirm card), or null.
     get(name) {
       const t = byName.get(name);
-      return t ? { name: t.name, description: t.description, risk: t.risk, parameters: t.parameters } : null;
+      return t ? { name: t.name, description: t.description, risk: t.risk, parameters: t.parameters, timeoutMs: Math.min(t.timeoutMs || timeoutMs, t.longRunning === true ? 90_000 : 15_000) } : null;
     },
 
     // The tools this caller may use, in the shape the model API takes.

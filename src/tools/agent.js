@@ -30,7 +30,7 @@ async function limited(store, bucket, perHour) {
   try { return (await store.rateHit(bucket, 3600, perHour))?.allowed === true; } catch { return false; }
 }
 
-export function createAgentTools({ store, links = true, googleSearch = null, runCode = true, sandboxFactory = null, readLinkImpl = readLink, logger = null, now = () => Date.now() }) {
+export function createAgentTools({ store, links = true, googleSearch = null, webSearch = null, runCode = true, sandboxFactory = null, readLinkImpl = readLink, logger = null, now = () => Date.now() }) {
   const createSandbox = sandboxFactory || (async (o) => { const { Sandbox } = await import('@vercel/sandbox'); return Sandbox.create(o); });
   const tools = [];
 
@@ -60,15 +60,30 @@ export function createAgentTools({ store, links = true, googleSearch = null, run
     }
   });
 
-  if (googleSearch?.available) tools.push({
+  // Google's results when configured; otherwise NasrinAI's own web search
+  // (the default search model, never a paid one), so the tool always works.
+  if (googleSearch?.available || webSearch) tools.push({
     name: 'web_search',
-    description: 'Searches the web and returns up to 6 results (title, address, snippet). Use it to find current facts, documentation or error messages, then fetch_url to read the best result. Cite the pages you used.',
+    description: 'Searches the web for current information and returns results (title, address, snippet) and, when available, a short summary. Use it whenever you need facts that may have changed, documentation, versions, prices, news or the meaning of an error message, then fetch_url to read the best result. Cite the pages you used.',
     risk: 'read', who: ['guest', 'user'], timeoutMs: 9000,
     parameters: { properties: { query: { type: 'string', minLength: 2, maxLength: 180 } }, required: ['query'] },
     async run(args, ctx) {
       if (!await limited(store, 'tool_search:' + who(ctx), 30)) return { error: 'rate_limited', message: 'Too many searches this hour. Try again later.' };
       let items = [];
-      try { items = await googleSearch.search(args.query); } catch { items = []; }
+      if (googleSearch?.available) { try { items = await googleSearch.search(args.query); } catch { items = []; } }
+      if (!items.length && webSearch) {
+        try {
+          const found = await webSearch.search({
+            system: 'Search the web for the query. Answer in at most 120 words with the key facts and dates, and cite the pages used.',
+            messages: [{ role: 'user', content: args.query }], maxTokens: 500
+          });
+          const results = (Array.isArray(found?.citations) ? found.citations : []).slice(0, 6)
+            .map((c) => ({ title: String(c.title || '').slice(0, 160), url: String(c.url || '').slice(0, 500), snippet: '' }))
+            .filter((r) => /^https?:\/\//.test(r.url));
+          const summary = String(found?.text || '').slice(0, 1500);
+          if (results.length || summary) return fit({ query: args.query, summary, results, note: NOTE }, ['summary']);
+        } catch (err) { logger?.warn('web_search fallback failed', { error: String(err?.name || 'Error').slice(0, 60) }); }
+      }
       const results = (Array.isArray(items) ? items : []).slice(0, 6).map((r) => ({
         title: String(r.title || '').slice(0, 160), url: String(r.url || r.link || '').slice(0, 500), snippet: String(r.snippet || '').slice(0, 300)
       })).filter((r) => /^https?:\/\//.test(r.url));

@@ -23,7 +23,7 @@ test('classifies check results: real failures are fixable, environment problems 
   assert.equal(checkOutcome('github_run_command', { error: 'github_not_connected' }).fixable, false);
   assert.equal(checkOutcome('github_render_test_screenshot', { test: { exit_code: 2 } }).fixable, true);
   assert.equal(checkOutcome('calculate', { exit_code: 1 }), null, 'only check tools count');
-  assert.match(repairNote({ tool: 'github_run_command', exitCode: 1, stage: 'command', error: null }, 1), /automatic check 1\/2\].*exit code 1.*run the failing check again/);
+  assert.match(repairNote({ tool: 'github_run_command', exitCode: 1, stage: 'command', error: null }, 1), /automatic check 1\/3\].*exit code 1.*run the failing check again/);
 });
 
 test('coding chat: a failed check is detected and the model is sent back to fix and re-run before answering', async () => {

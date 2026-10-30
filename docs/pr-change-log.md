@@ -1,3 +1,10 @@
+## Coding workspace, automatic web search, time guard — 2026-10-30
+
+- `src/github/workspace.js` + `src/github/index.js`: `code_edit` (exact find-and-replace), `code_write`, `code_changes`, `code_revert`; `github_read_file` shows edited files; `github_run_command` tests the edits (`src/github/runner.js` writes them into the sandbox, unsafe paths refused). The change set is attached to the reply as `[[file]]` blocks (PR-compatible) and carried into the next message via `response_metadata.code_workspace`.
+- `src/chat.js`: time guard (no tool started that cannot finish within the 120 s limit; tools stop after 85 s), 12 coding tool rounds, 3 repair rounds (`src/auto-repair.js`). `src/coding.js`: workflow rule. `src/tools/registry.js`: `get()` reports the timeout.
+- `src/tools/agent.js`: `web_search` works without Google keys through NasrinAI's own web search.
+- Privacy Notice 2026-10-30. Docs: `docs/coding-chat.md`, `docs/tools.md`. Tests: `test/code-workspace.test.js`, `test/agent-tools.test.js`.
+
 ## Agent tools: fetch_url, web_search, run_code, github_find_files — 2026-10-29
 
 - `src/tools/agent.js`: `fetch_url` (SSRF-safe page reading with paging), `web_search` (Google Custom Search results, only when configured), `run_code` (JS/Python in a fresh offline Vercel Sandbox, signed-in only, 20/hour).
