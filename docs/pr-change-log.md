@@ -1,3 +1,26 @@
+## Video Studio continuity bible — 2026-10-30
+
+- Extended the Director & Shot Planner with editable character, location, important-prop, and continuity-rule notes.
+- Applying continuity appends the current bible to every shot prompt; shot plan generation applies existing notes automatically.
+- Continuity notes are saved in feature-scoped localStorage and included in the detailed adoption document. These are textual prompt references, not generated reference imagery or automated visual continuity checks.
+- Added regression markers for the new controls. Latest CI rerun pending.
+
+## Video Studio Director workflow implementation — 2026-10-30
+
+- Added `public/video-studio-director.js`, loaded from `public/video-studio.html`, with a responsive Director & Shot Planner for short drama, music video, product ad, and social-short outlines.
+- Shot prompts are editable; users can remove shots, populate the existing video prompt field, save/reuse/delete local prompt-library entries, and export a versioned JSON shot plan. Plan export is not video rendering and does not automatically call a paid generator.
+- Uses feature-scoped localStorage keys and bounds for user-entered text; validates restored prompt-library shape and does not store provider credentials or auth tokens.
+- Added `test/video-studio-director.test.js` and detailed status/limitations in `docs/video-studio-drama-studio-feature-adoption.md`.
+- Validation: JavaScript parser check passed in the implementation session. CI, full test suite, and browser/mobile runtime behavior are still pending. This is the first workflow slice, not completion of the entire Drama Studio-inspired backlog.
+
+## Video Studio Drama Studio-inspired feature adoption plan — 2026-10-30
+
+- Added `docs/video-studio-drama-studio-feature-adoption.md`, a planning-only, prioritized and test-gated backlog for timeline editing, Director/creator workflows, prompt and workflow libraries, asset provenance, and production-safe export.
+- The plan explicitly records that arbitrary multi-clip visual composition is not yet proven in the server render path; do not advertise full-timeline MP4 export until implemented and verified.
+- Security acceptance criteria require project/tenant isolation, private storage, short-lived signed URLs, server-side media validation, existing auth/entitlement/quota/spend controls, and tests proving unrelated project/chat context and secrets are excluded.
+- Licensing note: the reference repository identifies as GPL-3.0-only. Adopt product concepts only; do not copy code, assets, branding, artwork, or workflows without an explicit licensing review.
+- No application code, tests, schema, migration, dependency, or runtime behavior changed in this PR. Initial Documentation Gate failed because this changelog entry was missing; the gate must be rerun on the resulting head.
+
 ## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
 
 - `src/chat.js`: independent read-only tools asked for in one step run at the same time (up to 4); edits, memory writes and Confirm tools stay sequential and ordered; results keep the model's order; a failed check wins for the repair loop. `src/github/runner.js`: overlapping runs of one chat get their own sandbox.
