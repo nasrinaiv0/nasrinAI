@@ -116,8 +116,8 @@
     ].filter(item => item[1]).map(item => item[0] + ': ' + item[1]);
     if (!state.shots.length) { if (announce) setStatus('Create a shot plan before applying continuity notes.'); return; }
     state.shots = state.shots.map(shot => {
-      const base = clampText(shot.prompt, 2000).replace(/\\n\\nContinuity bible:[\\s\\S]*$/, '');
-      const suffix = bible.length ? '\\n\\nContinuity bible:\\n' + bible.join('\\n') : '';
+      const base = clampText(shot.prompt, 2000).replace(/\n\nContinuity bible:[\s\S]*$/, '');
+      const suffix = bible.length ? '\n\nContinuity bible:\n' + bible.join('\n') : '';
       return { ...shot, prompt: (base + suffix).slice(0, 2000) };
     });
     renderShots(); persist();
