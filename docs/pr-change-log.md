@@ -1,3 +1,8 @@
+## Safety-first USD budget enforcement — 2026-10-31
+
+- `AI_BUDGET_*` settings (Vercel), required in production; per-call holds in the shared ledger (migration 025) before every paid model attempt, settled to provider-reported cost; free models hold nothing; request ceiling toggle never disables daily/weekly/monthly limits; `budget_unavailable` vs `budget_reached`.
+- Files: `src/config.js`, `src/main.js`, `src/chat.js`, `src/ai/{policy,router,budget,provider-billing}.js`, `.env.example`, `docs/audits/USD_BUDGET_ENFORCEMENT_SAFETY_PLAN.md`. Tests: `test/usd-budget.test.js`; production config fixtures updated.
+
 ## Fix MOVO GPT-6 Luna route and test-config speech default — 2026-10-31
 
 - `src/ai/policy.js`: MOVO-scoped requests keep the approved `openai/gpt-6-luna` route for any caller plan (it was added only for free Quick and then dropped by later ranking, so every MOVO request failed with 503); still fails closed when Luna is unavailable.

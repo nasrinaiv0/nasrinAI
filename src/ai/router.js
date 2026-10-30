@@ -70,7 +70,7 @@ export function createRouter({ providers, config, logger, now = () => Date.now()
         reasoningEffort: spec.effort || req.reasoningEffort, route: undefined });
     } catch (err) {
       if (spendHooks && spendReservation) {
-        try { await spendHooks.settle(spendReservation, null); }
+        try { await spendHooks.settle(spendReservation, null, err); }
         catch (settleErr) { logger.error('failed provider spend reservation remains held', { provider: key, model: spec.model, error: settleErr.message }); }
         if (err && typeof err === 'object') err.spendReservationId = spendReservation.id;
       }

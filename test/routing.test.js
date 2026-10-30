@@ -683,7 +683,7 @@ test('provider billing records authoritative costs without local reservations', 
     provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices',
     request: { system: 'You are helpful', messages: [{ role: 'user', content: 'hello' }], maxTokens: 64 }
   });
-  assert.deepEqual(reservation, { provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices', providerBilling: true });
+  assert.deepEqual(reservation, { provider: 'openrouter', model: 'vendor/new-model-not-in-local-prices', providerBilling: true, hold: null }, 'no USD limits configured: nothing is held');
   const result = await hooks.settle(reservation, { inputTokens: 5, outputTokens: 8, actualCostUsd: 0.0017 });
   assert.equal(result.costUsd, 0.0017);
   assert.equal(result.spendReservationId, null);

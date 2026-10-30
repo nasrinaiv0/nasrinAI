@@ -1,6 +1,6 @@
 # USD Budget Enforcement — Safety-First Implementation Record
 
-**Status: implementation required; NOT production-ready.**  
+**Status: implemented on this branch (2026-10-31); production gates below still open.**  
 **Base:** `main` at `3d626702657e0a0cd5c77d145ee1d6bdd67e5d81` (inspected before this branch was created).  
 **Scope:** NasrinAI production model routing and MOVO scoped chat requests that use the NasrinAI chat backend.
 
@@ -48,4 +48,13 @@
 
 ## Current state of this branch
 
-This branch currently records the findings and implementation contract only. No production environment variables were changed; no migration was run; no code path has yet been changed by this branch; no deployment has been made. Do not treat this document alone as a fix.
+Implemented (code + tests):
+- `src/config.js`: `AI_BUDGET_DAILY_USD`, `AI_BUDGET_WEEKLY_USD`, `AI_BUDGET_MONTHLY_USD` (required in production), `AI_BUDGET_REQUEST_LIMIT_ENABLED` (default true; false switches off only the request ceiling), `AI_BUDGET_MAX_REQUEST_USD` (required while the ceiling is on), `AI_BUDGET_RESERVE_USD` (per-call hold, default 0.05). Invalid values refuse to start.
+- `src/main.js`: the shared ledger budget is wired into the production policy and the legacy chat path.
+- `src/ai/provider-billing.js` + `src/ai/policy.js` + `src/ai/router.js`: every paid provider attempt (including failover) reserves first; settles to the provider-reported cost, keeps the hold when the cost is unknown or the call timed out, and releases when the provider answered with an error status. Free models hold nothing.
+- `src/ai/budget.js`: `budget_reached` only for real limits (daily/weekly/monthly/request); ledger failures are `budget_unavailable`.
+- Tests: `test/usd-budget.test.js` (config gates, independent periods with the ceiling off, concurrency, settle/release/hold, free models, infrastructure failure, policy blocks the provider call).
+
+Not covered here: picture generation (`src/images.js`) keeps its plan allowance and does not hold USD budget yet.
+
+Still open before production: verify migration 025 and its RPC grants in the production Supabase project; set the Vercel variables; Preview smoke test (one allowed, one blocked request); record the deployed SHA.

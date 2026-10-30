@@ -44,7 +44,7 @@ export function createBudget({ store, config, logger, kind = 'reasoning', now = 
     if (!caller?.tenantId || !caller?.actor?.type || !caller?.actor?.id
         || !Number.isFinite(amountUsd) || amountUsd < 0.000001
         || !store.reserveGlobalSpend) {
-      throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
+      throw new HttpError(503, 'budget_unavailable', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
     }
     const reservationId = randomUUID();
     let result;
@@ -56,9 +56,15 @@ export function createBudget({ store, config, logger, kind = 'reasoning', now = 
       });
     } catch (err) {
       logger.error('global USD reservation failed', { kind, error: err.message });
-      throw new HttpError(503, 'budget_reached', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
+      throw new HttpError(503, 'budget_unavailable', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
     }
     if (!result?.allowed || result.reservationId !== reservationId) {
+      // daily_budget | weekly_budget | monthly_budget | request_limit: a real
+      // limit. Anything else (invalid input, wrong id) is an infrastructure fault.
+      const reason = String(result?.reason || '');
+      const limit = /^(daily_budget|weekly_budget|monthly_budget|request_limit)$/.test(reason);
+      logger.warn(limit ? 'USD budget limit reached' : 'USD reservation refused unexpectedly', { kind, reason: reason.slice(0, 40) });
+      if (!limit) throw new HttpError(503, 'budget_unavailable', 'NasrinAI cannot verify its spending limit right now. Please try again later.', { retryAfter: 600 });
       throw new HttpError(503, 'budget_reached', 'NasrinAI has reached its spending limit for now. Please try again later.', { retryAfter: 600 });
     }
     if (cache.value && !cache.value.unknown && Number.isFinite(cache.value.usd)) {
