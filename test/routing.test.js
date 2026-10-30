@@ -865,31 +865,36 @@ test('routing failover settings are validated', () => {
   assert.throws(() => loadConfig({ ...ENV, ROUTE_MAX_FAILOVERS: '50' }), /ROUTE_MAX_FAILOVERS/);
 });
 
-test('MOVO-scoped requests use GPT-6 Luna only and fail closed rather than switching models', async () => {
-  const s = setup({
-    env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key', GEMINI_API_KEY: '', ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna', ROUTE_LEVEL_2: 'openrouter:openai/gpt-6-luna', ROUTE_LEVEL_3: 'openrouter:openai/gpt-6-luna' },
-    liveOpenRouterModels: ['openai/gpt-6-luna']
-  });
-  const plan = s.policy.plan({ tier: 'nasrinai', message: 'Summarize my MOVO spending', movoScoped: true });
-  assert.equal(plan.movoScoped, true);
-  assert.equal(plan.lunaPrimary, true);
-  const run = await s.policy.run(plan, req('Summarize my MOVO spending'));
-  assert.equal(run.spec.provider, 'openrouter');
-  assert.equal(run.spec.model, 'openai/gpt-6-luna');
-  assert.equal(s.gemini.calls.length, 0);
-  assert.equal(s.openai.calls.length, 0);
+test('MOVO-scoped requests use direct OpenAI first, then GPT-6 Luna via OpenRouter, and never another model', async () => {
+  const env = { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key', MOVO_OPENAI_MODEL: 'gpt-5.4-nano', ROUTE_LEVEL_1: 'gemini:gemini-3.1-flash-lite', ROUTE_LEVEL_2: 'gemini:gemini-3.1-flash-lite', ROUTE_LEVEL_3: 'gemini:gemini-3.1-flash-lite' };
+  const ask = async (s) => s.policy.run(s.policy.plan({ tier: 'nasrinai', message: 'Summarize my MOVO spending', movoScoped: true }), req('Summarize my MOVO spending'));
 
-  const unavailable = setup({
-    env: { AI_PROVIDER: 'auto', OPENROUTER_API_KEY: 'or-test-key', GEMINI_API_KEY: '', ROUTE_LEVEL_1: 'openrouter:openai/gpt-6-luna', ROUTE_LEVEL_2: 'openrouter:openai/gpt-6-luna' },
-    liveOpenRouterModels: ['openai/gpt-6-luna'],
-    openrouterFail: () => new ProviderError('unavailable', 'test outage')
-  });
-  const scopedPlan = unavailable.policy.plan({ tier: 'nasrinai', message: 'Summarize my MOVO spending', movoScoped: true });
-  await assert.rejects(unavailable.policy.run(scopedPlan, req('Summarize my MOVO spending')));
-  assert.equal(unavailable.gemini.calls.length, 0, 'MOVO finance context must not fall back to a different model');
-  assert.equal(unavailable.openai.calls.length, 0, 'MOVO finance context must not fall back to a different provider');
+  // 1. Direct OpenAI answers when it is available.
+  const direct = setup({ env, liveOpenRouterModels: ['openai/gpt-6-luna'] });
+  assert.deepEqual(direct.config.ai.movoRoute.map((c) => `${c.provider}:${c.model}`), ['openai:gpt-5.4-nano', 'openrouter:openai/gpt-6-luna']);
+  const first = await ask(direct);
+  assert.equal(first.spec.provider, 'openai');
+  assert.equal(first.spec.model, 'gpt-5.4-nano');
+  assert.equal(direct.gemini.calls.length, 0);
+
+  // 2. OpenAI unavailable: GPT-6 Luna through OpenRouter, nothing else.
+  const fallback = setup({ env, liveOpenRouterModels: ['openai/gpt-6-luna'], openaiFail: () => new ProviderError('unavailable', 'test outage') });
+  const second = await ask(fallback);
+  assert.equal(second.spec.provider, 'openrouter');
+  assert.equal(second.spec.model, 'openai/gpt-6-luna');
+  assert.equal(fallback.gemini.calls.length, 0, 'MOVO finance context must not reach Gemini');
+
+  // 3. No OpenAI key: straight to GPT-6 Luna.
+  const lunaOnly = setup({ env: { ...env, OPENAI_API_KEY: '' }, liveOpenRouterModels: ['openai/gpt-6-luna'] });
+  assert.deepEqual(lunaOnly.config.ai.movoRoute.map((c) => `${c.provider}:${c.model}`), ['openrouter:openai/gpt-6-luna']);
+  assert.equal((await ask(lunaOnly)).spec.model, 'openai/gpt-6-luna');
+
+  // 4. Both unavailable: fail closed, never another provider or model.
+  const down = setup({ env, liveOpenRouterModels: ['openai/gpt-6-luna'], openaiFail: () => new ProviderError('unavailable', 'test outage'), openrouterFail: () => new ProviderError('unavailable', 'test outage') });
+  await assert.rejects(ask(down));
+  assert.equal(down.gemini.calls.length, 0, 'MOVO finance context must not fall back to a different model');
+  assert.ok(down.openrouter.calls.every((call) => call.model === 'openai/gpt-6-luna'), 'OpenRouter is used only for GPT-6 Luna');
 });
-
 test('reply and history budgets come from Vercel: 0 means no reply cap and the shared history budget', () => {
   const unset = loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30) });
   assert.deepEqual(Object.values(unset.ai.routing.maxTokens), [0, 0, 0, 0, 0], 'no application reply cap unless Vercel sets one');
