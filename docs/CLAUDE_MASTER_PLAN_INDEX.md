@@ -6,7 +6,7 @@
 
 **Status rule:** This file summarizes plans; it does not prove implementation. Always distinguish **planned**, **documented**, **in development**, **merged**, **deployed**, and **verified in production**. Never report a feature as shipped without checking code, tests, GitHub PR state, configuration, and live behavior where applicable.
 
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-31
 
 ## 1. Required continuity rule
 
@@ -211,3 +211,13 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - The hourly indexer writes trusted official HTTPS documentation into the existing platform full-text knowledge search with content-hash idempotency and bounded chunks/batches. It does not train model weights and is not vector RAG.
 - CI #7753 and Documentation Gate #1818 passed.
 - Next check: observe the first post-deploy hourly run and confirm new docs are searchable and visible in owner-only OCC metrics.
+
+
+## Clone Spreadsheets — dashboard module (requirements documented; implementation not verified)
+
+- **Detailed specification:** [Clone Spreadsheets dashboard upgrade](architecture/clone-spreadsheets-dashboard-upgrade.md).
+- **Scope:** an original spreadsheet workspace inspired by common Excel/Google Sheets workflows, plus authorized capture/reporting of AI Receptionist activities, leads, bookings, sales/orders, and verified transaction events.
+- **Architecture guardrails:** audit existing routes/schema/RLS/event sources first; reuse canonical business records; use durable idempotent event processing and reconciliation; enforce tenant isolation and server-side authorization; keep MOVO financial data isolated by default.
+- **Implementation phases:** Phase 0 repository/schema/security/event-flow audit; Phase 1 secure workbook/grid foundation; Phase 2 spreadsheet workflows and safe import/export; Phase 3 event capture and recovery; Phase 4 authorized AI tools/reports; Phase 5 production verification.
+- **Current status (2026-10-31):** requirements documented in PR #726; existing route/schema audit, runtime implementation, migrations, feature-specific tests, deployment, and production behavior are **not verified by this documentation change**. Do not treat this as shipped.
+- **Continuity:** update the detailed specification, this index, the running progress summary, and docs/pr-change-log.md at each meaningful implementation milestone with exact evidence and explicit status labels.
