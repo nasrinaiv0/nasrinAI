@@ -10,7 +10,7 @@ import { redactForProvider } from './ai/redact.js';
 import { BRIEF_SYSTEM, planningMessage, readPlan, fallbackBrief, cleanAnswers, cleanBrief, promptFromBrief, summarize } from './ai/brief.js';
 
 // Making pictures (Phase 4.2). Step 1: a prompt, optionally a photo, gives
-// exactly one image. Step 2: before that, `brief` asks up to 5 adaptive
+// one image, or up to MAX_PICTURES made at the same time (`count`). Step 2: before that, `brief` asks up to 5 adaptive
 // questions and writes a structured creative brief with a low-cost text
 // model; `create` then builds the image prompt from the brief's fields.
 // Regenerate is simply `create` again with the same brief (a new, counted
@@ -18,6 +18,7 @@ import { BRIEF_SYSTEM, planningMessage, readPlan, fallbackBrief, cleanAnswers, c
 // session; signed-in users IMAGES_USER_DAY per day. Each image is counted in
 // plan limits and provider billing, kept private, and shown only to its owner.
 
+export const MAX_PICTURES = 4;
 const QUALITY = 'Create one professional, campaign-ready image. Keep any product in the attached photo exactly as it is (shape, colours, label, logo) unless asked to change it. No added text unless asked.';
 
 // Picture tiers (chosen by code, no model call): 1 simple; 2 editing a photo
@@ -56,20 +57,24 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
   // Allowance: only pictures actually made count (failed attempts do not).
   // Guests: per guest session, plus one ceiling for all guests per day.
   // Signed-in users: per day (Manila time), by plan. Business keys: per day.
-  async function allowance(caller) {
+  // need: how many pictures this request makes; all of them must fit.
+  async function allowance(caller, need = 1) {
     const { type, id } = caller.actor;
     const base = { tenantId: caller.tenantId, actorType: type };
+    const fewer = (left) => new HttpError(429, 'image_limit', `You can make ${left} more ${left === 1 ? 'picture' : 'pictures'} ${type === 'guest' ? 'as a guest' : 'today'}. Ask for ${left === 1 ? 'one' : left + ' or fewer'}.`);
     if (type === 'guest') {
       const per = config.images.perGuest;
       const mine = await store.imagesMadeSince({ ...base, actorId: id, since: new Date(now() - config.guestTtlSeconds * 1000), limit: per + 1 });
       if (mine >= per) throw new HttpError(429, 'image_limit', per === 1 ? 'Guests can make one picture. Sign in to make more.' : `Guests can make ${per} pictures. Sign in to make more.`);
+      if (mine + need > per) throw fewer(per - mine);
       const all = await store.imagesMadeSince({ ...base, since: new Date(manilaDayStart(now())), limit: config.images.guestDayTotal + 1 });
-      if (all >= config.images.guestDayTotal) throw new HttpError(429, 'image_limit', 'Guest pictures are used up for today. Sign in to make more.');
+      if (all + need > config.images.guestDayTotal) throw new HttpError(429, 'image_limit', 'Guest pictures are used up for today. Sign in to make more.');
       return;
     }
     const per = await dailyLimit(caller);
     const made = await store.imagesMadeSince({ ...base, actorId: id, since: new Date(manilaDayStart(now())), limit: per + 1 });
     if (made >= per) throw new HttpError(429, 'image_limit', `You have made ${per} ${per === 1 ? 'picture' : 'pictures'} today, the most your plan allows. Try again tomorrow.`);
+    if (made + need > per) throw fewer(per - made);
   }
 
   // Pictures a day for a signed-in user (by plan) or a business key.
@@ -216,6 +221,8 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
         selectedTier = resolveRequestTier(requestBody.tier ?? requestBody.model, 'nasrinai', { guest: caller.actor.type === 'guest' });
       }
       const { prompt, photos } = readRequest(requestBody);
+      const count = requestBody.count === undefined ? 1 : Number(requestBody.count);
+      if (!Number.isInteger(count) || count < 1 || count > MAX_PICTURES) throw new HttpError(400, 'invalid_count', `Ask for 1 to ${MAX_PICTURES} pictures at a time.`);
       maybePurge();
       const brief = body.brief === undefined ? null : cleanBrief(body.brief);
       if (body.brief !== undefined && !brief) throw new HttpError(400, 'invalid_brief', 'The brief needs at least a subject.');
@@ -244,7 +251,7 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
       await limiter.message(caller, ip);
 
       // Reuse only an exact, still-existing asset owned by this caller.
-      const cached = body.reuse_cached === true && store.getMarketingCache ? await store.getMarketingCache({
+      const cached = body.reuse_cached === true && count === 1 && store.getMarketingCache ? await store.getMarketingCache({
         tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id, kind: 'image', key: cacheKey
       }) : null;
       if (cached && typeof cached.imageId === 'string') {
@@ -260,8 +267,8 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
         }
       }
 
-      // Cache misses must pass the existing daily image allowance.
-      await allowance(caller);
+      // Cache misses must pass the existing daily image allowance (every picture counts).
+      await allowance(caller, count);
       const conv = body.conversation_id ? await conversations.get(caller, body.conversation_id) : await conversations.create(caller);
       const userMessage = await conversations.add(conv, 'user', `Create an image: ${prompt}${photos.length ? '\n\n[Attached: ' + photos[0].name + ']' : ''}`);
       if (!conv.title) await conversations.setTitle(conv, ('Image: ' + prompt).slice(0, 60)).catch(() => {});
@@ -276,50 +283,62 @@ export function createImages({ store, conversations, limiter, usageLog, routes =
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
         return usageLog.record(caller, { provider: p.id, model: p.model, latencyMs: now() - started, outcome: kind === 'timeout' ? 'timeout' : kind === 'refused' ? 'rejected_output' : 'provider_error', task: 'image', level: tier, costUsd: null });
       };
-      let started = now();
-      let out;
-      let used = route.primary;
-
-      try {
+      // One picture: the primary, then the fallback once when the primary is
+      // down, overloaded, out of quota, timed out, or its model is unavailable.
+      // Never for a safety refusal (no shopping around a provider's rules) or a bad key.
+      const makeOne = async (variant) => {
+        const req = count > 1 ? { ...request, prompt: `${request.prompt}\n\nMake exactly one single picture (not a grid, collage or set of panels). It is picture ${variant + 1} of ${count}: give it a clearly different composition, angle or styling from the others, same subject and brief.` } : request;
+        let used = route.primary;
+        let started = now();
         try {
-          out = await used.p.generate(request);
-          // Provider-reported cost is retained when available; otherwise cost stays unknown.
+          return { out: await used.p.generate(req), used, started };
         } catch (err) {
-          // The fallback, once, when the primary is down, overloaded, out of
-          // quota, timed out, or its model is unavailable. Never for a safety
-          // refusal (no shopping around a provider's rules) or a bad key.
-          if (!route.fallback || !switchable(err)) throw err;
+          if (!route.fallback || !switchable(err)) { await failed(used.p, err, started); throw err; }
           await failed(used.p, err, started);
           logger.warn('image: using the fallback', { tier, from: used.p.id, status: err.status, error: err.message });
           used = route.fallback;
           started = now();
-          out = await used.p.generate(request);
-          // Any charge for the failed primary attempt is provider-side and cannot be inferred locally.
+          try { return { out: await used.p.generate(req), used, started }; } catch (err2) { await failed(used.p, err2, started); throw err2; }
         }
-      } catch (err) {
+      };
+      let made;
+      try {
+        // Several pictures are made at the same time.
+        made = await Promise.allSettled(Array.from({ length: count }, (_, k) => makeOne(k)));
+      } finally {
+        busy.delete(who);
+      }
+      const done = made.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+      if (!done.length) {
+        const err = made[0].reason;
         const kind = err instanceof ProviderError ? err.kind : 'unexpected';
-        await failed(used.p, err, started);
         (kind === 'config' || kind === 'unexpected' ? logger.error : logger.warn)('image failed', { kind, status: err?.status, error: err?.message });
         if (kind === 'refused') throw new HttpError(422, 'image_refused', 'That picture could not be made. Try describing it differently.');
         if (err?.status === 503) throw new HttpError(503, 'images_busy', 'The picture service is very busy right now. Please try again in a few minutes.', { retryAfter: 120 });
         throw new HttpError(503, 'images_unavailable', 'Pictures cannot be made right now. Please try again in a moment.', kind === 'busy' ? { retryAfter: 30 } : {});
-      } finally {
-        busy.delete(who);
       }
 
-      const imageId = await store.addImage({
-        tenantId: caller.tenantId, conversationId: conv.id, ownerType: caller.actor.type, ownerId: caller.actor.id,
-        mime: out.mime, bytes: out.bytes, provider: used.p.id, model: used.p.model
-      });
-      await usageLog.record(caller, { provider: used.p.id, model: used.p.model, latencyMs: now() - started, outcome: 'ok', task: 'image', level: tier, costUsd: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? out.costUsd : null, costSource: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? 'provider_reported' : null });
-      if (store.setMarketingCache) {
+      const imageIds = [];
+      for (const { out, used, started } of done) {
+        const imageId = await store.addImage({
+          tenantId: caller.tenantId, conversationId: conv.id, ownerType: caller.actor.type, ownerId: caller.actor.id,
+          mime: out.mime, bytes: out.bytes, provider: used.p.id, model: used.p.model
+        });
+        imageIds.push(imageId);
+        await usageLog.record(caller, { provider: used.p.id, model: used.p.model, latencyMs: now() - started, outcome: 'ok', task: 'image', level: tier, costUsd: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? out.costUsd : null, costSource: Number.isFinite(out?.costUsd) && out.costUsd >= 0 ? 'provider_reported' : null });
+      }
+      const imageId = imageIds[0];
+      if (count === 1 && store.setMarketingCache) {
         await store.setMarketingCache({
           tenantId: caller.tenantId, ownerType: caller.actor.type, ownerId: caller.actor.id,
           kind: 'image', key: cacheKey, value: { imageId }
         }).catch((err) => logger.warn('marketing image cache write failed', { error: err.message }));
       }
-      const assistant = await conversations.add(conv, 'assistant', `[image:${imageId}]\nHere is your picture.`);
-      return { conversation_id: conv.id, user_message_id: userMessage.id, image_id: imageId, message: publicMessage(assistant) };
+      const missing = count - imageIds.length;
+      const text = count === 1 ? 'Here is your picture.'
+        : `Here are your ${imageIds.length} pictures.${missing ? ` ${missing} could not be made; ask again for ${missing === 1 ? 'it' : 'them'}.` : ''}`;
+      const assistant = await conversations.add(conv, 'assistant', imageIds.map((id) => `[image:${id}]`).join('\n') + '\n' + text);
+      return { conversation_id: conv.id, user_message_id: userMessage.id, image_id: imageId, ...(count > 1 ? { image_ids: imageIds } : {}), message: publicMessage(assistant) };
     },
 
     // The image bytes, only for the person who made it.

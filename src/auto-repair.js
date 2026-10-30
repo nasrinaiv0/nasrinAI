@@ -5,7 +5,7 @@
 // trigger a repair round.
 
 export const CHECK_TOOLS = new Set(['github_run_command', 'github_render_test_screenshot', 'run_code']);
-export const MAX_REPAIR_ROUNDS = 2;
+export const MAX_REPAIR_ROUNDS = 3;
 const FIXABLE_ERRORS = new Set(['patch_rejected', 'dependency_install_failed', 'preview_start_failed', 'test_failed']);
 
 // { tool, failed, fixable, exitCode, stage } for a check tool's result, else null.
@@ -23,6 +23,6 @@ export function repairNote(check, attempt) {
   return '[NasrinAI automatic check ' + attempt + '/' + MAX_REPAIR_ROUNDS + '] The last ' + check.tool + ' run failed'
     + (check.stage ? ' at ' + check.stage : '') + (check.exitCode !== null ? ' (exit code ' + check.exitCode + ')' : '')
     + (check.error ? ' [' + check.error + ']' : '') + '. Do not finish yet: read that failure output above, find the cause, '
-    + 'revise the code (for repository runs, the complete cumulative patch), and run the failing check again. If the failure is outside the requested scope '
+    + 'fix the code (with code_edit, or the complete cumulative patch), and run the failing check again. If the failure is outside the requested scope '
     + 'or cannot be fixed with the available tools, say exactly why instead of claiming success.';
 }

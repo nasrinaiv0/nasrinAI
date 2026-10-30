@@ -103,5 +103,18 @@
     return n >= 1 ? Math.min(60, n) : null;
   }
 
-  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, parseVideoSeconds, registerImageEdits, commands: COMMANDS });
+  // How many pictures were asked for: "4 pictures of…", "three logo options",
+  // "a pair of posters". 1 when no number is given; at most MAX_PICTURES.
+  const MAX_PICTURES = 4;
+  const NUMBER_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2, pair: 2, isa: 1, dalawa: 2, tatlo: 3, apat: 4 };
+  const PICTURE_COUNT = /\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|isa|dalawa|tatlo|apat|(?:a\s+)?(?:couple|pair)(?:\s+of)?)\s+(?:[a-z-]+\s+){0,3}?(pictures?|images?|photos?|pics?|logos?|posters?|illustrations?|drawings?|designs?|versions?|variations?|options?|wallpapers?|icons?|banners?|thumbnails?|avatars?|stickers?|mock-?ups?|renders?|artworks?|larawan)\b/i;
+  function pictureCount(text) {
+    const m = PICTURE_COUNT.exec(String(text || ''));
+    if (!m) return 1;
+    const word = m[1].toLowerCase().replace(/^a\s+/, '').replace(/\s+of$/, '');
+    const n = /^\d+$/.test(word) ? Number(word) : NUMBER_WORDS[word] || 1;
+    return Math.max(1, Math.min(MAX_PICTURES, n));
+  }
+
+  globalThis.NasrinCreativeIntent = Object.freeze({ detect, parseShortcut, isImageEnhancement, parseVideoSeconds, registerImageEdits, pictureCount, MAX_PICTURES, commands: COMMANDS });
 })();

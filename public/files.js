@@ -55,11 +55,14 @@
   const REPO_MARK = /^[ \t]*\[\[repo ([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})\]\][ \t]*$/m;
   const repoOf = (input) => { const m = REPO_MARK.exec(String(input || '')); return m ? m[1] : null; };
 
+  // Files shown under one reply (the coding chat's pull request uses sources(), up to 20).
+  const MAX_FILES = 10;
+
   function parse(input) {
     let text = String(input || '').replace(new RegExp(REPO_MARK.source, 'gm'), '');
     const files = [];
     text = text.replace(FILE_BLOCK, (all, name, body) => {
-      if (files.length < 3) {
+      if (files.length < MAX_FILES) {
         const f = cleanFileName(name);
         files.push({ name: f.name, ext: f.ext, content: unfence(body).replace(/\s+$/, '') });
       }

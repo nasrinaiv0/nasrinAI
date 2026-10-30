@@ -1,3 +1,23 @@
+## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
+
+- `src/chat.js`: independent read-only tools asked for in one step run at the same time (up to 4); edits, memory writes and Confirm tools stay sequential and ordered; results keep the model's order; a failed check wins for the repair loop. `src/github/runner.js`: overlapping runs of one chat get their own sandbox.
+- `src/images.js`: `count` (1–4) makes several pictures in parallel, each distinct and counted; partial failures kept and reported. `public/creative-intent.js` (`pictureCount`) + `public/app.js` send it.
+- `src/ai/prompt.js` + `public/files.js`: up to 10 files per reply.
+- `CLAUDE.md` owner decision updated (up to 4 pictures when asked). Docs: `docs/chat.md`, `docs/features/image-creation.md`. Tests: `test/multitask.test.js`, `test/images.test.js`.
+
+## Many commands per reply: batches, one sandbox per reply, deadline — 2026-10-30
+
+- `src/github/runner.js`: `commands` (up to 10 per call, `keep_going`), the sandbox stays open for the rest of a chat reply (only changed files rewritten, reverted ones restored, fresh sandbox for dependency changes or patches, closed at the reply's end), deadline-aware stop (`out_of_time`), more allowed tools (`npx --no`, `pip list/show`, head/tail/wc/diff/…/make), `CODE_RUNS_PER_HOUR` (default 60).
+- `src/tools/registry.js` + `src/chat.js`: the reply deadline reaches tools (`ctx.deadline`); deadline-aware tools may start with 20 s left. `src/github/workspace.js`: `base()` and the end-of-reply hook. `src/coding.js`: investigate first, batch related commands.
+- Docs: `docs/coding-chat.md`, `.env.example`. Tests: `test/batch-commands.test.js`.
+
+## Coding workspace, automatic web search, time guard — 2026-10-30
+
+- `src/github/workspace.js` + `src/github/index.js`: `code_edit` (exact find-and-replace), `code_write`, `code_changes`, `code_revert`; `github_read_file` shows edited files; `github_run_command` tests the edits (`src/github/runner.js` writes them into the sandbox, unsafe paths refused). The change set is attached to the reply as `[[file]]` blocks (PR-compatible) and carried into the next message via `response_metadata.code_workspace`.
+- `src/chat.js`: time guard (no tool started that cannot finish within the 120 s limit; tools stop after 85 s), 12 coding tool rounds, 3 repair rounds (`src/auto-repair.js`). `src/coding.js`: workflow rule. `src/tools/registry.js`: `get()` reports the timeout.
+- `src/tools/agent.js`: `web_search` works without Google keys through NasrinAI's own web search.
+- Privacy Notice 2026-10-30. Docs: `docs/coding-chat.md`, `docs/tools.md`. Tests: `test/code-workspace.test.js`, `test/agent-tools.test.js`.
+
 ## Agent tools: fetch_url, web_search, run_code, github_find_files — 2026-10-29
 
 - `src/tools/agent.js`: `fetch_url` (SSRF-safe page reading with paging), `web_search` (Google Custom Search results, only when configured), `run_code` (JS/Python in a fresh offline Vercel Sandbox, signed-in only, 20/hour).
@@ -3021,7 +3041,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
 
 
-## Audit ledger recovery after PR #711 closure — 2026-10-30
+## Monitoring checkpoint — 2026-10-30 15:08 Asia/Manila
 
-- PR #711 was closed unmerged after main advanced through PRs #702 and #703. A new current-main-based draft documentation PR restores the detailed central ledger and dated audit trail without changing application code.
-- Current production SHA: `771e1b6646e20f3ffb01285f50306ac953170d79`; production deployment READY. The detailed ledger distinguishes merged/deployed changes from unverified authenticated sandbox behavior and carries forward unresolved security/database checks.
+- Reconciled the central audit ledger with main after merges #713 (coding workspace/time guard), #714 (batched commands and sandbox reuse), and #715 (parallel read-only tools, up to four pictures, up to ten file blocks).
+- Exact-head CI and Documentation Gates passed for all three merged PRs; main push CI #41012161842 passed. Full test totals were 1,287/1,286 pass/0 fail/1 skipped for #713; 1,294/1,293/0/1 for #714; and 1,297/1,296/0/1 for #715.
+- Production deployment dpl_HiEJFRKoymqDcVX2PMN88GmCtBqY is READY at main SHA 85db3be07e8fa895a835fa7736e2de8ea07b9ed5; root, app.js and creative-intent.js return HTTP 200. This is static delivery evidence, not authenticated feature QA.
+- PR #716 adds a planning-only Video Studio adoption backlog with explicit GPL-3.0-only licensing precautions and tenant/project isolation acceptance criteria. Its initial Documentation Gate failed for a missing changelog entry; commit bfc83e87e47e142c5d93096013ade2d4e635958d added the entry, and corrected-head CI #41018566624 plus Documentation Gate #41018566645 passed.
+- Rate-limit hardening remains open: src/tools/agent.js limited() returns true when store.rateHit is absent. Supported stores implement the method, so this is a defense-in-depth gap, not a demonstrated production exploit.
+- Ledger branch refresh is documentation-only; PR #712 remains open/draft and exact-head validation is required after the current-main reconciliation.

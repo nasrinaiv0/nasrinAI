@@ -200,3 +200,12 @@ Chat/Code buttons all detach it from the screen (`detachTurn` in
 `public/app.js`). It finishes on the server and is saved in its own chat;
 the page says "Your previous reply is continuing in the background and will
 be saved in Your chats." Only Stop (or voice "stop") ends a reply early.
+
+## Multitasking (2026-10-30)
+
+- **Tools at the same time:** when the model asks for several tools in one step, independent read-only tools run together (up to `MAX_PARALLEL_TOOLS`, 4). Workspace edits (`code_edit`, `code_write`, `code_revert`), `remember` and anything needing Confirm run one by one, in the model's order, and wait for the tools before them. Results go back in the order the model asked. If two coding runs of one chat overlap, the second gets its own sandbox.
+- **Several files per reply:** up to 10 `[[file]]` blocks (for example the same report as .pdf, .docx and .xlsx); the page shows up to 10 (`MAX_FILES` in `public/files.js`). They must all fit in one reply (about 18,000 characters).
+- **Several pictures:** see `docs/features/image-creation.md`.
+
+Tests: `test/multitask.test.js`.
+

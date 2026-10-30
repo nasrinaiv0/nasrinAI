@@ -168,3 +168,15 @@ a **Create** button; the result as an image in the conversation with
 ## Quick Free image-generation billing
 
 Quick Free text chat remains restricted by the Quick free-model routing policy. Image generation is a separate paid capability: when `OPENROUTER_API_KEY` is configured, tier 1 defaults to OpenRouter `openai/gpt-image-2` with `openai/gpt-image-2.5-flare` as the paid, speed-oriented fallback. Provider-reported image cost is recorded through the existing image usage and OpenRouter telemetry paths. You can override either route with `IMAGE_TIER_1_PRIMARY_*` and `IMAGE_TIER_1_FALLBACK_*` variables. Image generation is still subject to existing image quotas, budgets, and provider billing; it is not free just because the user's chat tier is Quick Free.
+
+## Several pictures at once (2026-10-30)
+
+When the person asks for a number of pictures ("4 pictures of…", "three logo options", "a pair of posters"), the page sends `count` (1–4, `NasrinCreativeIntent.pictureCount`; larger numbers are capped at 4) and `POST /v1/images` makes them **at the same time**:
+
+- Each one is a separate provider request for exactly one picture (never a grid), told it is picture *n* of *N* and to differ in composition, angle or styling. Each has the usual fallback.
+- Every picture counts against the daily allowance, and all of them must fit: with 1 left, asking for 2 is refused with how many are left.
+- The reply holds one `[image:id]` line per picture ("Here are your 4 pictures."), and the response adds `image_ids`. If some fail, the rest are kept and the reply says how many could not be made; if all fail, the usual error. Each made picture is recorded in usage and provider billing.
+- The cache is used only for single pictures. Still one request at a time per person.
+
+Tests: `test/images.test.js`.
+

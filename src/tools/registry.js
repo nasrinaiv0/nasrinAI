@@ -42,7 +42,7 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
     // One tool's public facts (for the Confirm card), or null.
     get(name) {
       const t = byName.get(name);
-      return t ? { name: t.name, description: t.description, risk: t.risk, parameters: t.parameters } : null;
+      return t ? { name: t.name, description: t.description, risk: t.risk, parameters: t.parameters, timeoutMs: Math.min(t.timeoutMs || timeoutMs, t.longRunning === true ? 90_000 : 15_000), deadlineAware: t.deadlineAware === true } : null;
     },
 
     // The tools this caller may use, in the shape the model API takes.
@@ -55,7 +55,9 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
 
     // Runs one call the model asked for. rawArgs: a JSON string (as models
     // send it) or an object. Resolves the tool's result; rejects with ToolError.
-    async run(caller, name, rawArgs, { confirmed = false, conversationId = null } = {}) {
+    // deadline (ms timestamp, from the chat): tools marked deadlineAware stop
+    // their own work in time; every tool's time limit also ends by then.
+    async run(caller, name, rawArgs, { confirmed = false, conversationId = null, deadline = null } = {}) {
       const started = now();
       const fail = async (code, detail, outcome = 'rejected_output') => {
         await record(caller, byName.has(name) ? name : 'unknown', outcome, started);
@@ -79,13 +81,14 @@ export function createToolRegistry({ tools, usageLog = null, logger = null, time
 
       // The chat this call belongs to (from the server, never the model): lets a
       // tool save a picture or video for the person in that chat.
-      const ctx = Object.freeze({ tenantId: caller.tenantId, actor: Object.freeze({ ...caller.actor }), ...(conversationId ? { conversationId } : {}) });
+      const ctx = Object.freeze({ tenantId: caller.tenantId, actor: Object.freeze({ ...caller.actor }), ...(conversationId ? { conversationId } : {}), ...(Number.isFinite(deadline) ? { deadline } : {}) });
+      const limit = Math.min(tool.timeoutMs || timeoutMs, tool.longRunning === true ? 90_000 : 15_000);
       let timer;
       let result;
       try {
         result = await Promise.race([
           Promise.resolve().then(() => tool.run(args, ctx)),
-          new Promise((_, reject) => { timer = setTimeout(() => reject(new ToolError('timeout', 'The tool took too long.')), Math.min(tool.timeoutMs || timeoutMs, tool.longRunning === true ? 90_000 : 15_000)); })
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new ToolError('timeout', 'The tool took too long.')), Number.isFinite(deadline) ? Math.max(1_000, Math.min(limit, deadline - now())) : limit); })
         ]);
       } catch (err) {
         const timeout = err instanceof ToolError && err.code === 'timeout';

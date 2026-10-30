@@ -177,7 +177,7 @@ Connect is a no-code customer experience backed by a strict authorization bounda
 - Type: keep the soft rounded font for headings (`--round` in `public/app.css`:
   SF Pro Rounded on Apple devices); body text in the system font; no heavy
   bold or oversized text.
-- Images: Gemini as the cheap default (swappable), one image per request.
+- Images: Gemini as the cheap default (swappable), one image per request, or up to 4 made at the same time when the person asks for a number of pictures (owner request 2026-10-30; each counts against the plan's daily allowance).
 - Signed-in users' pictures are kept 30 days.
 - Identity: NasrinAI, created by Nasrin Abubakar. Never presented as Google's,
   OpenAI's or another company's product (`src/ai/prompt.js`, `keepIdentity` in `src/ai/output.js`).

@@ -160,7 +160,7 @@ test('only tools marked media may put pictures and videos under the reply; the c
   assert.deepEqual(reg.mediaOf('shows', out), [{ type: 'image', id: '11111111-1111-4111-8111-111111111111' }]);
   assert.deepEqual(reg.mediaOf('plain', await reg.run(caller, 'plain', '{}')), []);
   const chat = await readFile(new URL('../src/chat.js', import.meta.url), 'utf8');
-  assert.match(chat, /reg\.run\(caller, c\.name, c\.arguments, \{ conversationId: conv\.id \}\)/);
+  assert.match(chat, /reg\.run\(caller, c\.name, c\.arguments, \{ conversationId: conv\.id, deadline: requestStartedAt \+ TURN_TIME_LIMIT_MS \}\)/);
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(app, /fetch\('\/v1\/recordings\/' \+ encodeURIComponent\(videoId\)/);
 });

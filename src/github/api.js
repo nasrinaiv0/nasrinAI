@@ -381,5 +381,5 @@ export function createGithubApi({ fetchImpl = (...a) => fetch(...a), timeoutMs =
     return Buffer.concat(chunks,size);
   }
 
-  return { call, repoInfo, listFiles, readFile, findFiles, recentCommits, myRepos, searchCode, prStatus, listPulls, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
+  return { call, repoInfo, listFiles, readFile, fileAt, findFiles, recentCommits, myRepos, searchCode, prStatus, listPulls, createPullRequest, checkFiles, applyEdits, blobSha, downloadArchive };
 }

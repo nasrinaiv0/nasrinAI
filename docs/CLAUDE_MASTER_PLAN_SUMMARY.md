@@ -1,5 +1,27 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
+## Latest verified snapshot — 2026-10-30 15:08 Asia/Manila (07:08 UTC)
+
+- Current main: 85db3be07e8fa895a835fa7736e2de8ea07b9ed5, merge of PR #715. The current production deployment is Vercel deployment dpl_HiEJFRKoymqDcVX2PMN88GmCtBqY, READY at that exact SHA; nasrinai.com is listed among its aliases.
+- PRs #713, #714 and #715 merged in sequence between 05:56 and 06:06 UTC. Their PR-head CI and Documentation Gates passed; main push CI #41012161842 passed.
+- PR #713 CI #41011007035: 1,287 tests total, 1,286 passed, 0 failed, 1 skipped; database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax and secret checks passed.
+- PR #714 CI #41011532839: 1,294 tests total, 1,293 passed, 0 failed, 1 skipped; database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax and secret checks passed.
+- PR #715 CI #41012048749: 1,297 tests total, 1,296 passed, 0 failed, 1 skipped; database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax and secret checks passed.
+- Production root and /app.js returned HTTP 200; the served client bundle contains the multi-picture intent/count flow, and /creative-intent.js contains the MAX_PICTURES cap. This is static asset smoke evidence only, not authenticated live image-generation or sandbox execution proof.
+- PR #716 adds a planning-only Video Studio adoption backlog. Its initial Documentation Gate failed because docs/pr-change-log.md was not updated. Changelog correction commit bfc83e87e47e142c5d93096013ade2d4e635958d was pushed; CI #41018566624 and Documentation Gate #41018566645 now pass on the corrected head.
+- PR #712 remains the central audit-ledger review path. Its prior head 21e04a47ec287607ecc11315191b90d8c8946990 was 6 commits behind current main in the API comparison. This update merges current main into the documentation branch without merging the PR; exact-head validation is pending.
+- Security follow-up remains open: src/tools/agent.js limited() returns true if store.rateHit is absent. Both current supported stores implement rateHit, so this is a fail-open configuration fallback, not a demonstrated production exploit. Harden it and test missing-method/store-failure paths.
+- Carried forward and not freshly rechecked: repository main-branch protection, Supabase leaked-password protection, migration 080–082 parity, targeted SECURITY DEFINER review, authenticated Owner Command Center smoke, and persistent attachment issue #486.
+
+### Immediate next actions
+1. Harden the missing-rateHit fallback in src/tools/agent.js and add fail-closed regression tests.
+2. Verify authenticated coding workspace and sandbox behavior, including network denial, timeout/output limits, cleanup and tenant isolation.
+3. Test multi-image allowance, provider billing, partial failures and duplicate retries with synthetic accounts.
+4. Keep PR #716 as planning-only; validate any implementation independently because the reference repository is GPL-3.0-only.
+5. Reconcile the carried-forward branch-protection, leaked-password, migration 080–082, SECURITY DEFINER, OCC and attachment issues.
+
+--- Historical material retained below ---
+
 ## Latest verified snapshot — 2026-10-30 09:20 Asia/Manila
 
 - Main/production source: `b39f4dcd62641d5f601e4e707cb46155ca8e135e`; Vercel deployment [dpl_EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) is READY at the same SHA.
