@@ -75,7 +75,7 @@ export function createOpenAIProvider({
     model,
     capabilities: () => ({ local: false, dataLeavesServer: true, tools: true }),
 
-    async generate({ system, messages, model: chosen, reasoningEffort: effortOverride, attachments = [], tools = null, maxTokens = 800, signal, onText }) {
+    async generate({ system, messages, model: chosen, reasoningEffort: effortOverride, attachments = [], tools = null, maxTokens, signal, onText }) {
       const useModel = chosen || model;
       const reasoning = isReasoningModel(useModel);
       const effort = effortOverride || reasoningEffort;
