@@ -492,7 +492,7 @@ export function loadConfig(env = process.env) {
   }
   // Read-aloud speed for both natural and phone voices (1 = normal).
   // Which engine reads replies aloud.
-  const wantSpeech = String(env.SPEECH_PROVIDER || (openrouterApiKey ? 'openrouter' : 'auto')).trim().toLowerCase();
+  const wantSpeech = String(env.SPEECH_PROVIDER || (openrouterApiKey && aiProvider !== 'fake' ? 'openrouter' : 'auto')).trim().toLowerCase();
   if (!['auto', 'openai', 'gemini', 'openrouter'].includes(wantSpeech)) throw new ConfigError('SPEECH_PROVIDER: use auto, openai, gemini or openrouter');
   const openaiSpeechOk = (aiProvider === 'openai' || aiProvider === 'auto') && Boolean(env.OPENAI_API_KEY);
   const geminiSpeechOk = Boolean(geminiKey) && aiProvider !== 'fake';

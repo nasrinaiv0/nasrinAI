@@ -1,3 +1,9 @@
+## Fix MOVO GPT-6 Luna route and test-config speech default — 2026-10-31
+
+- `src/ai/policy.js`: MOVO-scoped requests keep the approved `openai/gpt-6-luna` route for any caller plan (it was added only for free Quick and then dropped by later ranking, so every MOVO request failed with 503); still fails closed when Luna is unavailable.
+- `src/config.js`: the default speech engine is OpenRouter only when an OpenRouter key is set and `AI_PROVIDER` is not `fake` (test configs with a key no longer fail to load).
+- Fixes the `main` test failure from #718. Tests: `test/chat.test.js`, `test/routing.test.js`.
+
 - MOVO scoped server chat: pass validated `movoScoped` into routing policy; pin to OpenRouter `openai/gpt-6-luna`; fail closed if unavailable; add routing regression coverage. Live credential and production scope/model verification remain release gates.
 ## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
 
