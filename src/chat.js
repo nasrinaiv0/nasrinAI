@@ -1187,6 +1187,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
             run = await policy.run(plan, req, runOpts);
           }
         }
+        }
       } catch (err) {
         if (err?.kind === 'stopped' || opts.signal?.aborted) return stopped(err, req, started, plan);
         if (err instanceof HttpError) {
