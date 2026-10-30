@@ -171,7 +171,7 @@ const dashboardHtml = `<!doctype html>
       <button type="button" class="nav-item" data-page="finance" data-tone="4"><span class="icon" data-icon="dollar"></span><span class="nav-text">Finance</span></button>
       <button type="button" class="nav-item" data-page="infrastructure" data-tone="5"><span class="icon" data-icon="layers"></span><span class="nav-text">Infrastructure</span></button>
       <button type="button" class="nav-item" data-page="security" data-tone="0"><span class="icon" data-icon="shield"></span><span class="nav-text">Security</span></button>
-      <button type="button" class="nav-item" data-page="automation" data-tone="1"><span class="icon" data-icon="share"></span><span class="nav-text">Automation (NCC)</span></button>
+      <button type="button" class="nav-item" data-page="automation" data-tone="1"><span class="icon" data-icon="share"></span><span class="nav-text">Automation &amp; Jobs</span></button>
       <button type="button" class="nav-item" data-page="release" data-tone="2"><span class="icon" data-icon="check-circle"></span><span class="nav-text">Release Guard</span></button>
       <button type="button" class="nav-item" data-page="reports" data-tone="3"><span class="icon" data-icon="file"></span><span class="nav-text">Reports</span></button>
       <button type="button" class="nav-item" data-page="settings" data-tone="4"><span class="icon" data-icon="settings"></span><span class="nav-text">Settings</span></button>

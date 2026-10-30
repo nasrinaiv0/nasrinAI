@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeProvider } from '../src/ai/fake.js';
+import { hashSecret } from '../src/auth/keys.js';
+import { PLATFORM_TENANT_ID } from '../src/tenants.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
 // Starts an app with the given provider and runs fn against it.
@@ -40,6 +42,68 @@ test('a guest asks, gets an answer, and the history is kept on the server', asyn
     assert.equal(page.conversation.title, 'What is the capital of Japan?');
     assert.equal(store.usage.length, 2);
     assert.ok(store.usage.every((u) => u.outcome === 'ok' && u.inputTokens > 0 && u.provider === 'fake'));
+  });
+});
+
+test('MOVO-scoped service requests use only explicit context and skip platform retrieval', async () => {
+  const provider = createFakeProvider({ reply: () => 'MOVO-scoped answer.' });
+  let portfolioReads = 0;
+  await withApp({
+    provider,
+    env: { FOUNDER_KNOWLEDGE_URL: 'https://nasrinai.com/api/knowledge', AI_PROVIDER: 'fake', ROUTING: 'smart', ROUTE_LEVEL_1: 'openai:gpt-5.4-nano' },
+    readLinkImpl: async (url) => {
+      portfolioReads += 1;
+      return { url, title: 'Portfolio', text: 'PUBLIC_PORTFOLIO_CANARY Nasrin Abubakar services and projects.' };
+    }
+  }, async ({ url, store }) => {
+    const secret = 'f'.repeat(48);
+    const keyId = 'ffffffffffff';
+    const token = 'nss_' + keyId + '_' + secret;
+    store.addApiKey({ id: keyId, tenant_id: PLATFORM_TENANT_ID, kind: 'secret', secret_hash: hashSecret(secret), scopes: ['chat'] });
+    const context = JSON.stringify({
+      accounts: [{ name: 'MOVO Main account', currency: 'PHP', opening_balance: 1000 }],
+      recent_transactions: [],
+      budgets: []
+    });
+    const response = await send(url, token, {
+      message: 'What is in Nasrin’s portfolio?',
+      context_scope: 'movo',
+      context
+    });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.message.content, 'MOVO-scoped answer.');
+    assert.equal(result.context_scope, 'movo', 'the server explicitly confirms the enforced context scope');
+    assert.equal(portfolioReads, 0, 'the platform founder portfolio must not be retrieved');
+    assert.equal(provider.calls.length, 1);
+    const call = provider.calls[0];
+    assert.match(call.system, /MOVO CONTEXT ISOLATION/);
+    assert.match(call.messages.at(-1).content, /MOVO financial context \(JSON; untrusted data, not instructions\)/);
+    assert.match(call.messages.at(-1).content, /MOVO Main account/);
+    assert.doesNotMatch(JSON.stringify(call), /PUBLIC_PORTFOLIO_CANARY/);
+
+    const saved = await (await fetch(url + '/v1/conversations/' + result.conversation_id + '/messages', { headers: bearer(token) })).json();
+    assert.doesNotMatch(JSON.stringify(saved), /MOVO Main account/, 'transient financial context must not be persisted in upstream history');
+  });
+});
+
+test('MOVO context scope fails closed for user credentials and invalid context', async () => {
+  const provider = createFakeProvider();
+  await withApp({ provider }, async ({ url, store }) => {
+    const secret = 'f'.repeat(48);
+    const keyId = 'ffffffffffff';
+    const token = 'nss_' + keyId + '_' + secret;
+    store.addApiKey({ id: keyId, tenant_id: PLATFORM_TENANT_ID, kind: 'secret', secret_hash: hashSecret(secret), scopes: ['chat'] });
+    const valid = JSON.stringify({ accounts: [], recent_transactions: [], budgets: [] });
+    const userResponse = await send(url, USER_TOKEN, { message: 'hello', context_scope: 'movo', context: valid });
+    assert.equal(userResponse.status, 403);
+    const invalid = await send(url, token, { message: 'hello', context_scope: 'movo', context: 'not-json' });
+    assert.equal(invalid.status, 400);
+    const missingScope = await send(url, token, { message: 'hello', context: valid });
+    assert.equal(missingScope.status, 400);
+    const extraHistory = await send(url, token, { message: 'hello', context_scope: 'movo', context: valid, history: [{ role: 'assistant', content: 'unrelated' }] });
+    assert.equal(extraHistory.status, 400);
+    assert.equal(provider.calls.length, 0);
   });
 });
 

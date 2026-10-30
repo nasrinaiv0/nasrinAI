@@ -26,7 +26,12 @@
       loading = fetch('/v1/commands', { headers: { Accept: 'application/json' } })
         .then((r) => (r.ok ? r.json() : { commands: [] }))
         .catch(() => ({ commands: [] }))
-        .then((body) => { catalog = core.concat(Array.isArray(body.commands) ? body.commands : []); return catalog; });
+        .then((body) => {
+          const list = Array.isArray(body.commands) ? body.commands : [];
+          if (globalThis.NasrinCreativeIntent && globalThis.NasrinCreativeIntent.registerImageEdits) globalThis.NasrinCreativeIntent.registerImageEdits(list);
+          catalog = core.concat(list);
+          return catalog;
+        });
     }
     return loading;
   }
