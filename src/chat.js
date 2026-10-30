@@ -62,7 +62,6 @@ export const TURN_TIME_LIMIT_MS = 112_000;
 export const TOOL_TIME_BUDGET_MS = 85_000;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
 const FILE_WORDS = /\b(files?|docx?|pdf|xlsx?|excel|spreadsheet|csv|download|export)\b|\b(write|draft|create|make|prepare|generate)\b[^.?!\n]{0,40}\b(report|essay|letter|resume|cv|proposal|contract|ebook|document|article|story)\b/i;
-const FILE_TOKENS = 5500;
 const MAX_MOVO_CONTEXT_CHARS = 3800;
 const MOVO_CONTEXT_KEYS = Object.freeze(['accounts', 'recent_transactions', 'budgets']);
 const MOVO_REQUEST_KEYS = new Set(['message', 'context_scope', 'context']);
@@ -532,7 +531,7 @@ export function createChat({ budget = null, conversations, limiter, uploads = nu
       }
     }
     // Asking for a file or a long document needs room: the reply may use more tokens than usual.
-    const minTokens = blocks && !voice && FILE_WORDS.test(typed) ? FILE_TOKENS : 0;
+    const minTokens = blocks && !voice && FILE_WORDS.test(typed) ? config.ai.fileReplyMinTokens : 0;
     // Smart routing decides the level, and with it how much history and reply length.
     const plan = smart ? policy.plan({ tier: choice.tier, paidQuick: choice.tier === 'nasrinai' && accountPlan !== 'free', message: typed, history: fullHistory, attachments: files, movoScoped }) : null;
     activePlan = plan;
@@ -838,7 +837,7 @@ export function createChat({ budget = null, conversations, limiter, uploads = nu
             goal: typed,
             context: history.slice(-4).map((m) => `${m.role}: ${String(m.content || '').slice(0, 1800)}`).join('\\n'),
             maxCalls: 2,
-            maxTokensPerCall: 450,
+            maxTokensPerCall: config.ai.routing.planningCouncil.maxTokensPerCall,
             maxInputChars: 9000,
             runCandidate: async ({ role, system, messages, maxTokens }) => {
               const roleTask = role === 'brainstorm' ? 'creative' : role === 'architect' ? 'design' : 'analysis';
@@ -1104,7 +1103,7 @@ export function createChat({ budget = null, conversations, limiter, uploads = nu
         route: { provider: choice.provider, model: choice.model, effort: choice.effort },
         reasoningEffort: choice.effort || undefined,
         attachments: media,
-        maxTokens: legacyMaxTokens,
+        ...(legacyMaxTokens > 0 ? { maxTokens: legacyMaxTokens } : {}),
         ...(spendHooks ? { spendHooks, spendTier: choice.tier } : {}),
         ...streamReq,
         ...(opts.signal ? { signal: opts.signal } : {})
