@@ -130,7 +130,7 @@ export function buildSystemPrompt({ now = new Date(), knowledgeOnly = false, pro
 
 // Keeps the newest messages that fit in a character budget, always including
 // the latest one, and always starting with a user turn.
-export function fitHistory(messages, budgetChars = 12_000) {
+export function fitHistory(messages, budgetChars = Number.MAX_SAFE_INTEGER) {
   const kept = [];
   let used = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
