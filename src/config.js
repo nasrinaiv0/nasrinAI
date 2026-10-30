@@ -435,8 +435,22 @@ export function loadConfig(env = process.env) {
   const routing = Object.freeze({
     mode: routingMode,
     quickNemotronOnly: has('openrouter'),
-    // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
+    // Cost-optimized coding pipeline is opt-in and remains OFF until Preview validation.
+    costOptimizedCodingEnabled: String(env.CODING_PIPELINE_ENABLED ?? 'false').trim().toLowerCase() === 'true',
+    codingPipeline: Object.freeze({
+      maxStageCalls: toInt('CODING_PIPELINE_MAX_STAGE_CALLS', env.CODING_PIPELINE_MAX_STAGE_CALLS, 5, 1, 10),
+      contextChars: toInt('CODING_PIPELINE_CONTEXT_CHARS', env.CODING_PIPELINE_CONTEXT_CHARS, 24000, 2000, 100000),
+      reviewTokens: toInt('CODING_PIPELINE_REVIEW_MAX_TOKENS', env.CODING_PIPELINE_REVIEW_MAX_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      enablePremiumReview: String(env.CODING_PIPELINE_PREMIUM_REVIEW ?? 'true').trim().toLowerCase() === 'true',
+      premiumReviewMinComplexity: toInt('CODING_PIPELINE_PREMIUM_REVIEW_MIN_COMPLEXITY', env.CODING_PIPELINE_PREMIUM_REVIEW_MIN_COMPLEXITY, 4, 1, 5)
+    }),
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
+    planningCouncil: Object.freeze({
+      maxCalls: toInt('PLANNING_COUNCIL_MAX_CALLS', env.PLANNING_COUNCIL_MAX_CALLS, 2, 1, 3),
+      maxTokensPerCall: toInt('PLANNING_COUNCIL_MAX_TOKENS_PER_CALL', env.PLANNING_COUNCIL_MAX_TOKENS_PER_CALL, 0, 0, Number.MAX_SAFE_INTEGER),
+      contextChars: toInt('PLANNING_COUNCIL_CONTEXT_CHARS', env.PLANNING_COUNCIL_CONTEXT_CHARS, 9000, 2000, 50000),
+      outputChars: toInt('PLANNING_COUNCIL_OUTPUT_CHARS', env.PLANNING_COUNCIL_OUTPUT_CHARS, 0, 0, Number.MAX_SAFE_INTEGER)
+    }),
     levels: Object.freeze(levels),
     freeModels: Object.freeze(Object.fromEntries(freeProviderSettings
       .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
@@ -982,9 +996,10 @@ export function loadConfig(env = process.env) {
         .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
-      maxReplyTokens: env.AI_MAX_REPLY_TOKENS == null || env.AI_MAX_REPLY_TOKENS === '' ? 0 : toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      // Legacy global AI_MAX_REPLY_TOKENS retired; per-level route limits are authoritative.
       maxMessageChars: env.MESSAGE_MAX_CHARS == null || env.MESSAGE_MAX_CHARS === '' ? 0 : toInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
       historyChars: env.AI_HISTORY_CHARS == null || env.AI_HISTORY_CHARS === '' ? 0 : toInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      fileReplyMinTokens: toInt('FILE_REPLY_MIN_TOKENS', env.FILE_REPLY_MIN_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
       // Strip emails, phone and card numbers from what is sent to a model
       // outside this server. On by default.
       redactExternal: redact === 'true',
