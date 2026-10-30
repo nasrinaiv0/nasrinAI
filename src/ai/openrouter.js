@@ -338,8 +338,9 @@ export function createOpenRouterClient({
     if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256 || hasUnsafeSessionIdCharacters)) {
       throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 safe characters');
     }
-    const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.floor(maxTokens)),
+    const payload = { model: selected.id, messages,
       provider: { ...provider, data_collection: provider.data_collection === 'deny' ? 'deny' : defaultDataCollection, allow_fallbacks: provider.allow_fallbacks !== false } };
+    if (Number.isSafeInteger(maxTokens) && maxTokens > 0) payload.max_tokens = Math.floor(maxTokens);
     if (normalizedSessionId) payload.session_id = normalizedSessionId;
     if (includeUsage) payload.usage = { include: true };
     if (Array.isArray(tools) && tools.length) payload.tools = tools;
