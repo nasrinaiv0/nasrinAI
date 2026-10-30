@@ -373,16 +373,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         const callMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens > 0
           ? (normalMaxTokens > 0 ? Math.min(normalMaxTokens, requestedMaxTokens) : requestedMaxTokens)
           : normalMaxTokens;
-        if (!Number.isSafeInteger(callMaxTokens) || callMaxTokens < 1) {
-          throw new HttpError(503, 'reply_limit_not_configured', 'Reply token limits are not configured for this route level.');
-        }
         let reservation = null;
         let result;
         try {
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, sensitive: plan.sensitive === true,
+          const generationRequest = { ...req, task: plan.task, route: spec, sensitive: plan.sensitive === true,
+            ...(Number.isSafeInteger(callMaxTokens) && callMaxTokens > 0 ? { maxTokens: callMaxTokens } : {}) };
+          result = await provider.generate({ ...generationRequest,
             disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' && plan.paidQuick !== true });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);
