@@ -263,3 +263,12 @@ Changes in this follow-up:
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## Latest monitoring checkpoint — 2026-10-30 12:06 Asia/Manila
+
+Current NasrinAI main remains `b39f4dcd62641d5f601e4e707cb46155ca8e135e`, and production deployment [EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) remains READY at that SHA. No new in-scope application change was detected. PR #709 remains the latest verified app change; the OCC live browser/API path is still not independently smoke-tested.
+
+PR #711's prior head `99d3458f2fb15feed4756aba8a1efc2e6473d8c0` passed CI #40992805066 and Documentation Gate #40992805056. This summary/ledger update creates a new docs head; rerun both gates on that exact head before merge.
+
+Keep #702 (reply renderer) and #703 (agent tools/sandbox) out of the merge path until each is reconciled with current main and current-head CI/security review passes. Both are reported non-mergeable and have stale base SHAs. PR #705/#710 are stale duplicate documentation branches; do not merge them as-is. Migration 080–082 parity, leaked-password protection, SECURITY DEFINER review, OCC live smoke, and persistent attachment issue #486 remain open. MOVO PR #63/#64 belong to the MOVO repository and do not change NasrinAI status.
