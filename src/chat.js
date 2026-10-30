@@ -1104,7 +1104,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
         route: { provider: choice.provider, model: choice.model, effort: choice.effort },
         reasoningEffort: choice.effort || undefined,
         attachments: media,
-        maxTokens: legacyMaxTokens,
+        ...(legacyMaxTokens > 0 ? { maxTokens: legacyMaxTokens } : {}),
         ...(spendHooks ? { spendHooks, spendTier: choice.tier } : {}),
         ...streamReq,
         ...(opts.signal ? { signal: opts.signal } : {})
