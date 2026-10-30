@@ -838,7 +838,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
             goal: typed,
             context: history.slice(-4).map((m) => `${m.role}: ${String(m.content || '').slice(0, 1800)}`).join('\\n'),
             maxCalls: 2,
-            maxTokensPerCall: 450,
+            maxTokensPerCall: Number(process.env.PLANNING_COUNCIL_MAX_TOKENS_PER_CALL || 0),
             maxInputChars: 9000,
             runCandidate: async ({ role, system, messages, maxTokens }) => {
               const roleTask = role === 'brainstorm' ? 'creative' : role === 'architect' ? 'design' : 'analysis';
