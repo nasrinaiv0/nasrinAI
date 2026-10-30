@@ -40,7 +40,7 @@ test('Director workflow does not store provider credentials or call providers di
 
 test('Director prompt entry points reuse the existing Video Studio prompt field', async () => {
   const js = await readFile(new URL('../public/video-studio-director.js', import.meta.url), 'utf8');
-  assert.match(js, /getElementById\('prompt'\)/);
+  assert.match(js, /\\$\\('prompt'\\)/);
   assert.match(js, /dispatchEvent\(new Event\('input'/);
   assert.match(js, /press Generate scene when ready/);
 });
