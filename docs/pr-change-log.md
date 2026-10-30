@@ -3019,3 +3019,14 @@ The original test used over-escaped regular expressions. The test is being simpl
 - PR #711 exact-head CI #40985781454 and Documentation Gate #40985781356 both passed. PR #702 is 1 ahead/48 behind and non-mergeable; PR #703 is 2 ahead/44 behind and non-mergeable. Existing green checks are stale relative to main.
 - Existing open issue #486 for persistent attachments has no new implementation progress; secure private storage, authorization, expiry, retention, and persistence tests remain acceptance criteria.
 - Detail: docs/engineering/updates/2026-10-30-1035-branch-protection-and-release-control.md. No code/settings/deployments changed.
+
+
+## 2026-10-30 12:06 Asia/Manila — monitoring checkpoint
+
+- Verified main remains `b39f4dcd62641d5f601e4e707cb46155ca8e135e`; production deployment [EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) is READY. No new in-scope application-code merge/deployment was detected.
+- PR #711 prior head `99d3458f2fb15feed4756aba8a1efc2e6473d8c0`: CI #40992805066 and Documentation Gate #40992805056 both passed. This checkpoint appends docs; the resulting new head needs fresh exact-head checks.
+- PR #702 remains non-mergeable at head `c9ddf310f48c0157b8267187c0da9e69735a3d09`, based on `ed6f0ad6d9bc8cf3b22862e89adbd67396ee7ab8`. PR #703 remains non-mergeable at head `cda418b0b6b8ea0f00a68535c0631da5e1408ba1`, based on `531f56d6d5685730692372d64bd7780b974f5c69`. Reconcile before review; do not rely on stale CI.
+- PR #705 and #710 remain stale, non-mergeable documentation PRs. #711 is the primary current-main documentation path.
+- Carried forward: migration 080–082 registry/source parity; leaked-password protection; SECURITY DEFINER audit; OCC browser/API smoke; issue #486 attachment persistence. These were not freshly rechecked.
+- MOVO's PR #63/#64 are intentionally excluded from NasrinAI scope. No application code, production data/schema, Auth setting, secret, config, or deployment changed.
+- Detail: `docs/engineering/updates/2026-10-30-1206-monitoring-checkpoint.md`.
