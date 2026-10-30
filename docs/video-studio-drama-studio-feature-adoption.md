@@ -112,3 +112,11 @@ A visible button or a passing static string assertion is not proof of a working 
 3. Add project-level persistence/ownership only after defining and validating a schema and authenticated server API; do not treat localStorage as cloud backup.
 4. Design the AI-assisted Director flow as a server-side, entitlement-checked route that returns a validated structured plan. Keep the deterministic offline planner as a fallback.
 5. Continue with real asset references and continuity management, then full-composition rendering. Do not claim those features complete until tested.
+
+
+### Continuity-bible slice — 2026-10-30
+
+- Added editable character, location, important-prop, and continuity-rule fields to the Director panel.
+- The planner applies the notes to each shot prompt and preserves the notes locally with the project brief.
+- The interface explicitly says these are prompt-level reference notes, not generated reference images or a visual continuity detector.
+- Added static regression markers for the new controls. CI must rerun on the latest branch head; browser behavior is still not verified.
