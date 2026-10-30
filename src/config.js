@@ -982,9 +982,9 @@ export function loadConfig(env = process.env) {
         .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
-      maxReplyTokens: toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
-      maxMessageChars: toInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
-      historyChars: toInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      maxReplyTokens: env.AI_MAX_REPLY_TOKENS == null || env.AI_MAX_REPLY_TOKENS === '' ? 0 : toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
+      maxMessageChars: env.MESSAGE_MAX_CHARS == null || env.MESSAGE_MAX_CHARS === '' ? 0 : toInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      historyChars: env.AI_HISTORY_CHARS == null || env.AI_HISTORY_CHARS === '' ? 0 : toInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
       // Strip emails, phone and card numbers from what is sent to a model
       // outside this server. On by default.
       redactExternal: redact === 'true',
