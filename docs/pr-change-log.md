@@ -1,3 +1,10 @@
+## Video Studio continuity bible — 2026-10-30
+
+- Extended the Director & Shot Planner with editable character, location, important-prop, and continuity-rule notes.
+- Applying continuity appends the current bible to every shot prompt; shot plan generation applies existing notes automatically.
+- Continuity notes are saved in feature-scoped localStorage and included in the detailed adoption document. These are textual prompt references, not generated reference imagery or automated visual continuity checks.
+- Added regression markers for the new controls. Latest CI rerun pending.
+
 ## Video Studio Director workflow implementation — 2026-10-30
 
 - Added `public/video-studio-director.js`, loaded from `public/video-studio.html`, with a responsive Director & Shot Planner for short drama, music video, product ad, and social-short outlines.
