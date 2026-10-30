@@ -3049,3 +3049,14 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added Vercel-backed `ROUTE_LEVEL_n_HISTORY_CHARS` settings and `FILE_REPLY_MIN_TOKENS`; cleared the corresponding defaults in `.env.example`.
 - Added a fail-closed policy response when no valid reply token budget is supplied to a model call. Subscription token reservations, tier authorization, provider/model output limits, context limits, and request timeouts remain independent safeguards.
 - Implementation PR #719, branch `chore/vercel-source-of-truth-ai-limits`. CI and preview/production verification are not yet complete; no production deployment is claimed.
+
+
+## 2026-10-31 — Cost-Optimized Autonomous Coding Pipeline
+
+Branch: `feature/cost-optimized-coding-pipeline`, stacked on #719's Vercel-managed AI token configuration.
+
+- Added opt-in planning, implementation proposal, test design, independent review and selective Ultra premium review using existing model policy and shared token reservation/settlement/usage telemetry.
+- Existing GitHub workspace and isolated Vercel Sandbox remain the only code-edit/command path. PR creation remains user-confirmed; no model merge/deploy authority.
+- Retired global `AI_MAX_REPLY_TOKENS` reader; per-level route settings are authoritative and native provider limits remain binding.
+- Migrated `FILE_REPLY_MIN_TOKENS` into typed runtime config and made planning-council output/context/call limits operator-configurable.
+- Exact-head tests, CI and security verification pending; Production pipeline remains OFF.
