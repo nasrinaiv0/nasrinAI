@@ -3040,3 +3040,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## AI reply limits: Vercel as single configuration source — 2026-10-31
+
+- Removed application fallback/default reply-token values from the OpenAI, Anthropic, local, Cohere, Cloudflare Workers AI, and OpenRouter chat adapters. Removed OpenRouter's application-level 32,768 token clamp; OpenRouter/provider/model maximums remain authoritative.
+- Replaced fixed routing-level reply token ceilings (700/1000/1600/2400/3200) with Vercel-configured `ROUTE_LEVEL_1_MAX_REPLY_TOKENS` through `ROUTE_LEVEL_5_MAX_REPLY_TOKENS`. Removed the fixed 800 default and 8,000 maximum from `AI_MAX_REPLY_TOKENS`; global reply/message/history settings accept operator-configured whole numbers without those code-level bounds.
+- Added Vercel-backed `ROUTE_LEVEL_n_HISTORY_CHARS` settings and `FILE_REPLY_MIN_TOKENS`; cleared the corresponding defaults in `.env.example`.
+- Added a fail-closed policy response when no valid reply token budget is supplied to a model call. Subscription token reservations, tier authorization, provider/model output limits, context limits, and request timeouts remain independent safeguards.
+- Implementation PR #719, branch `chore/vercel-source-of-truth-ai-limits`. CI and preview/production verification are not yet complete; no production deployment is claimed.
