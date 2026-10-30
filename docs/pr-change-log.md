@@ -3084,3 +3084,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Replace the MOVO routing regression test with cases for direct OpenAI success, OpenRouter failover, missing OpenAI key, and both approved routes unavailable.
 - Implementation commits: `a1c7eec22d9fd76d3bf9c953c94462099ec184b9` (policy restriction), `247307ca01f680ebdc7adf8b5adef2be1fae4687` (route configuration), `3aef1760ebba14adb29413b86364cd8910c0a810` (routing tests).
 - Validation at entry creation: CI test, database, dependency audit, syntax, and secret checks passed on implementation commit `3aef1760ebba14adb29413b86364cd8910c0a810`. Documentation Gate failed because this changelog entry was missing; rerun required after this fix. Production behavior has not been verified.
+
+
+## Clone Spreadsheets dashboard documentation — 2026-10-31
+
+- Added the Clone Spreadsheets dashboard specification covering workbook/sheet UX, safe formula handling, import/export, templates, and automated projections of AI Receptionist activities, leads, bookings, orders/sales, and verified transaction events.
+- Integrated the initiative into `docs/CLAUDE_MASTER_PLAN_INDEX.md` and `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, and recorded scope/status/verification boundaries in `docs/audits/CLONE_SPREADSHEETS_ROADMAP_INTEGRATION_2026-10-31.md`.
+- Security and integrity requirements include tenant-scoped RLS, server-side authorization, PII minimization, idempotent event ingestion, retries/replay/reconciliation, formula-injection protection, and keeping MOVO financial data isolated by default.
+- This is documentation only: spreadsheet runtime implementation, database/RLS integration, event capture, UI, and production behavior are not implemented or verified by this change.
+- PR #726, branch `docs/clone-spreadsheets-dashboard-upgrade`. CI passed on the documentation commit; the Documentation Gate failed because this required changelog entry was absent. This entry addresses that gate failure; rerun CI to verify.
