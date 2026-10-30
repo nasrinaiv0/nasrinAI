@@ -4886,6 +4886,14 @@
       if (await copyText(code.dataset.copy || '')) { code.textContent = 'Copied'; setTimeout(() => { code.textContent = 'Copy'; }, 1400); }
       return;
     }
+    const more = e.target.closest('.code-expand');
+    if (more) {
+      const open = more.getAttribute('aria-expanded') !== 'true';
+      more.setAttribute('aria-expanded', String(open));
+      more.closest('.code-block').classList.toggle('is-open', open);
+      more.textContent = open ? 'Show less' : 'Show all ' + (more.closest('.code-block').querySelector('code').textContent.split('\n').length) + ' lines';
+      return;
+    }
     const tick = e.target.closest('.step-tick');
     if (tick) {
       const on = tick.getAttribute('aria-pressed') !== 'true';
