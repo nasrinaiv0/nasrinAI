@@ -621,7 +621,7 @@ export function createOpenRouterProvider({ apiKey, model = 'openrouter/free', fa
     async healthCheck() {
       try { return (await openrouter.listModels()).length > 0; } catch { return false; }
     },
-    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens = 2048, signal, attachments = [], sensitive = false, conversationId = null }) {
+    async generate({ system = '', messages = [], model: requestedModel = model, task = 'chat', tools = [], maxTokens, signal, attachments = [], sensitive = false, conversationId = null }) {
       const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
       if (hasAttachments && task !== 'vision') throw new ProviderError('config', 'Attachments require the dedicated OpenRouter vision task');
       if (hasAttachments && attachments.length > 8) throw new ProviderError('config', 'At most 8 image attachments are supported per vision request');
