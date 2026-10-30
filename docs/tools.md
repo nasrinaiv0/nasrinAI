@@ -39,3 +39,19 @@ Steps:
    only) re-checks everything and runs it once. Business servers using the
    API confirm the same way.
 4. More tools as connectors arrive (Phase 6).
+
+## Agent tools (2026-10-29)
+
+`src/tools/agent.js` adds the everyday moves of a coding assistant. All are `read` risk (nothing outside their own sandbox changes), each has a per-person hourly limit, and results are marked as outside data, not instructions. Chat offers them when a message looks like it needs one (`AGENT_ASK` in `src/chat.js`), and always in the coding chat.
+
+| Tool | Who | What | Limit |
+|---|---|---|---|
+| `fetch_url` | guests, users | Reads one public page through the SSRF-safe `readLink` (private/local addresses refused), 6,000 characters at a time with `next_start` paging. Off when `WEB_LINKS=false`. | 40/hour |
+| `web_search` | guests, users | Top 6 results (title, address, snippet) from the Google Custom Search API. Only when `WEB_GOOGLE_API_KEY` and `WEB_GOOGLE_CX` are set. | 30/hour |
+| `run_code` | users | Runs a JavaScript (Node 22) or Python 3.13 program in a fresh Vercel Sandbox created with `networkPolicy: 'deny-all'`, no secrets, 30-second limit, then stops it. Returns the real exit code, stdout and stderr. `RUN_CODE_ENABLED=false` turns it off. | 20/hour |
+| `github_find_files` | guests, users | Finds repository files by pattern (`*.test.js`, `src/**/*.ts`, `package.json`) from the git tree (`globToRegExp`). | GitHub's |
+
+A failed `run_code` counts as a failed check for the automatic repair loop (`src/auto-repair.js`), so the model fixes the code and runs it again instead of presenting broken code. Long fields are shortened to fit the registry's 8 KB result cap.
+
+Tests: `test/agent-tools.test.js`.
+

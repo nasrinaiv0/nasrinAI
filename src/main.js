@@ -36,6 +36,7 @@ import { createGoogleWebSearch } from './web/google-search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
 import { createImages } from './images.js';
 import { basicTools } from './tools/basic.js';
+import { createAgentTools } from './tools/agent.js';
 import { createMcp } from './mcp/index.js';
 import { createConnectors } from './connectors/index.js';
 import { createConfirmations } from './tools/confirm.js';
@@ -241,7 +242,8 @@ export function buildApp({ config, logger }) {
   if (mapsTool.available) logger.info('Google Maps tools ready');
   const mcp = createMcp({ config: effective, logger });
   if (mcp.available) logger.info('MCP servers configured', { count: effective.mcp.servers.length });
-  const connectors = createConnectors({ store, baseTools: [...basicTools, ...mcp.tools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools, ...(weatherTool.available ? [weatherTool.tool] : []), ...(mapsTool.available ? [mapsTool.tool] : [])], usageLog, config: effective, logger });
+  const agentTools = createAgentTools({ store, links: config.web.links, googleSearch: googleWebSearch, runCode: config.tools.runCode, logger });
+  const connectors = createConnectors({ store, baseTools: [...basicTools, ...agentTools, ...mcp.tools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools, ...(weatherTool.available ? [weatherTool.tool] : []), ...(mapsTool.available ? [mapsTool.tool] : [])], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
   const coding = createCoding({ store, config: effective });

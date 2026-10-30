@@ -1,3 +1,12 @@
+## Agent tools: fetch_url, web_search, run_code, github_find_files — 2026-10-29
+
+- `src/tools/agent.js`: `fetch_url` (SSRF-safe page reading with paging), `web_search` (Google Custom Search results, only when configured), `run_code` (JS/Python in a fresh offline Vercel Sandbox, signed-in only, 20/hour).
+- `src/github/api.js` + `src/github/index.js`: `github_find_files` (pattern search over the git tree).
+- `src/chat.js`: `AGENT_ASK` offers the tools when a message needs them. `src/auto-repair.js`: a failed `run_code` triggers the repair loop.
+- Live status while tools run ("Running the code", "Reading the repository"); `src/routes.js` now also forwards the `fixing` status, which was dropped before.
+- `src/config.js`: `RUN_CODE_ENABLED` (default on). Privacy Notice 2026-10-29.2 describes the tools (Google Custom Search, Vercel Sandbox).
+- Docs: `docs/tools.md`, `.env.example`. Tests: `test/agent-tools.test.js`.
+
 ## Richer reply rendering — 2026-10-29
 
 - `public/format.js`: syntax highlighting for code blocks (DOM spans, 13 language families), colored ```` ```diff ```` blocks, long code folded behind **Show all N lines**, LaTeX math to MathML (bounded subset, falls back to source text), `> [!NOTE]`-style callouts, multi-line quotes, nested lists, `#####`/`######` headings; `plain()` strips the new syntax.

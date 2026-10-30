@@ -1613,7 +1613,8 @@
   // time passes, "Putting it together" then "Almost done".
   const STAGE_TEXT = {
     files: 'Reading your file', links: 'Reading the link', library: 'Checking your Library',
-    memory: 'Remembering', web: 'Browsing the internet', fixing: 'A check failed — fixing it'
+    memory: 'Remembering', web: 'Browsing the internet', fixing: 'A check failed — fixing it',
+    running: 'Running the code', repo: 'Reading the repository'
   };
   function guessThinking(text) {
     const t = String(text || '').toLowerCase();

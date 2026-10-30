@@ -39,7 +39,7 @@ function appOriginOf(req) {
 }
 
 // Words the chat stream may send to say what Nasrin is doing (no free text).
-const STAGES = new Set(['files', 'links', 'library', 'memory', 'web']);
+const STAGES = new Set(['files', 'links', 'library', 'memory', 'web', 'fixing', 'running', 'repo']);
 // Keep the Studio cloud document provider-neutral and prevent arbitrary URLs or
 // local blob URLs from being persisted as shared assets.
 function cleanVideoStudioDocument(raw) {
