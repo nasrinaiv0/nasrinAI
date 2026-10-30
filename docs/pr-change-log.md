@@ -1,3 +1,9 @@
+## Unified User Dashboard & AI Workforce architecture — 2026-10-30
+
+- Added `docs/architecture/unified-user-dashboard-ai-workforce.md`: target architecture for `dashboard.nasrinai.com`, shared control/execution planes, user workspaces, versioned AI professions, declarative workflow runtime, metadata-driven CRM, Required Attention Center, recruitment workflow guardrails, preview/test/deploy lifecycle, metering/billing, security, implementation phases, and acceptance tests.
+- Updated `docs/CLAUDE_MASTER_PLAN_SUMMARY.md` and `docs/CLAUDE_MASTER_PLAN_INDEX.md` with scope, architecture decisions, status, naming risks, and next audit requirements.
+- Status: documentation only. No application code, database migrations, tests, deployments, or production behavior changed or verified.
+
 ## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
 
 - `src/chat.js`: independent read-only tools asked for in one step run at the same time (up to 4); edits, memory writes and Confirm tools stay sequential and ordered; results keep the model's order; a failed check wins for the repair loop. `src/github/runner.js`: overlapping runs of one chat get their own sandbox.
