@@ -38,6 +38,13 @@ const GITHUB_ASK = /github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+|\b(github|repo
 export const GOOGLE_ASK = /\b(gmail|inbox|(my|your|unread|new|latest|recent|the)\s+e-?mails?|(send|write|draft|reply\s+to|forward)\s+(an?\s+|the\s+)?e-?mails?|e-?mails?\s+(from|to|about)|calendar|google\s*(mail|calendar|drive|docs?|sheets?|meet|keep|account)|meetings?|my\s+(drive|events?|schedule|notes?)|meet\s+(link|call)|meeting\s+(link|space)|keep\s+notes?)\b/i;
 export const MAY_NEED_TOOLS = /\d|\b(time|date|today|tomorrow|yesterday|day|week|month|convert|unit|extract|extraction|crop|cropping|segment|segmentation|remove background|transparent background|background removal|resize|rotate|compress|compression|transcribe|transcription|speech to text|ocr|optical character recognition|scan|scanned|video frame|extract frames|audio|video|image|picture|logo|logos|edit image|edit photo|file format|legacy format|\.doc\b|\.xls\b|\.ppt\b|convert file|inspect file|read file|unpack|decompress|archive|celsius|fahrenheit|kelvin|kg|kilos?|lbs?|pounds?|ounces?|km|miles?|feet|foot|inch(es)?|meters?|litres?|liters?|gallons?|cups?|calculate|compute|check|verify|find|search|look up|lookup|availability|status|order|booking|book|schedule|appointment|track|shipping|delivery|price|quote|inventory|weather|forecast|remember|recall|forget|tandaan|alalahanin|oras|petsa|ngayon|bukas|kahapon|araw|semana|presyo|reserba)\b/i;
 export const MAX_TOOL_ROUNDS = 4;
+// Tools the model asks for in one step run together when they are safe to.
+export const MAX_PARALLEL_TOOLS = 4;
+const SEQUENTIAL_TOOLS = new Set(['code_edit', 'code_write', 'code_revert', 'remember']);
+export function parallelSafe(reg, name) {
+  const info = reg.get?.(name);
+  return Boolean(info) && info.risk === 'read' && !SEQUENTIAL_TOOLS.has(name);
+}
 // What the page shows while a tool runs (routes.js STAGES, app.js STAGE_TEXT).
 export function toolStageOf(name) {
   if (name === 'run_code' || name === 'github_run_command' || name === 'github_render_test_screenshot') return 'running';
@@ -940,8 +947,9 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
             reservationId: run.reservationId, spendReservationId: run.spendReservationId
           });
           const calls = run.result.toolCalls;
-          const results = [];
-          for (const c of calls) {
+          const results = new Array(calls.length);
+          const roundChecks = [];
+          const runCall = async (c, index) => {
             let content;
             const toolStage = toolStageOf(c.name);
             const toolInfo = reg.get?.(c.name);
@@ -950,8 +958,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
             const toolTime = toolInfo?.deadlineAware ? 20_000 : (toolInfo?.timeoutMs || 15_000);
             if (now() - requestStartedAt + toolTime > TURN_TIME_LIMIT_MS) {
               outOfTime = true;
-              results.push({ role: 'tool', toolCallId: c.id, content: JSON.stringify({ error: 'out_of_time', message: 'Not run: not enough time is left in this reply. Report what is done and what is left; the person can say "continue" to go on.' }) });
-              continue;
+              return JSON.stringify({ error: 'out_of_time', message: 'Not run: not enough time is left in this reply. Report what is done and what is left; the person can say "continue" to go on.' });
             }
             if (toolStage) stage(toolStage);
             try {
@@ -971,7 +978,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
                 });
               }
               const check = checkOutcome(c.name, out);
-              if (check) lastCheck = check;
+              if (check) roundChecks[index] = check;
               const chip = prChipOf(c.name, out);
               if (chip) { prChips.set(chip.key, chip.line); ownChips.add(chip.line); }
               content = JSON.stringify(out);
@@ -984,8 +991,22 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
                 content = JSON.stringify({ error: err instanceof ToolError ? err.message : 'The tool could not finish.' });
               }
             }
-            results.push({ role: 'tool', toolCallId: c.id, content });
+            return content;
+          };
+          // Independent read-only tools run at the same time (up to
+          // MAX_PARALLEL_TOOLS); workspace edits, memory writes and anything
+          // needing Confirm run one by one, in the order the model asked.
+          for (let i = 0; i < calls.length;) {
+            const together = [];
+            while (i + together.length < calls.length && together.length < MAX_PARALLEL_TOOLS && parallelSafe(reg, calls[i + together.length].name)) together.push(i + together.length);
+            if (!together.length) { results[i] = await runCall(calls[i], i); i += 1; continue; }
+            await Promise.all(together.map(async (k) => { results[k] = await runCall(calls[k], k); }));
+            i += together.length;
           }
+          // The check that decides an automatic repair: a failed one wins.
+          const checks = roundChecks.filter(Boolean);
+          if (checks.length) lastCheck = [...checks].reverse().find((x) => x.failed) || checks.at(-1);
+          for (let k = 0; k < calls.length; k++) results[k] = { role: 'tool', toolCallId: calls[k].id, content: results[k] };
           req = { ...req, attachments: [], messages: [...req.messages, { role: 'assistant', content: run.result.text || '', toolCalls: calls }, ...results] };
           activeReq = req;
           if (round === toolRounds || outOfTime || now() - requestStartedAt > TOOL_TIME_BUDGET_MS) req = { ...req, tools: undefined };

@@ -2882,11 +2882,14 @@
     });
   }
 
-  // One picture from the brief. Resolves true when it was made.
+  // The pictures from the brief (several at once when the person asked for a
+  // number of them, up to 4). Resolves true when they were made.
   async function makeImage(job, { confirm = true } = {}) {
-    if (confirm && !window.confirm('Create this picture now? NasrinAI will send your prompt and selected image details to the configured AI image service. Choose Cancel to stop.')) return false;
-    const data = await imageStep('Making your picture', '/v1/images', {
+    const count = window.NasrinCreativeIntent?.pictureCount ? window.NasrinCreativeIntent.pictureCount(job.prompt) : 1;
+    if (confirm && !window.confirm((count > 1 ? `Create these ${count} pictures now?` : 'Create this picture now?') + ' NasrinAI will send your prompt and selected image details to the configured AI image service. Choose Cancel to stop.')) return false;
+    const data = await imageStep(count > 1 ? `Making your ${count} pictures` : 'Making your picture', '/v1/images', {
       ...jobBody(job),
+      ...(count > 1 ? { count } : {}),
       ...(job.brief ? { brief: job.brief } : {}),
       tier: currentModel || 'nasrinai',
       ...(conversationId ? { conversation_id: conversationId } : {})
@@ -2896,7 +2899,7 @@
     saved.set(identityKey(KEYS.conversation), conversationId);
     show('assistant', data.message.content, { id: data.message.id, regenerate: () => makeImage(job) });
     Nasrin.flash('happy', 1800);
-    deviceNotify('NasrinAI picture ready', 'Your image has finished generating.', 'nasrinai-image-' + (data.message?.id || Date.now()));
+    deviceNotify(count > 1 ? 'NasrinAI pictures ready' : 'NasrinAI picture ready', count > 1 ? 'Your images have finished generating.' : 'Your image has finished generating.', 'nasrinai-image-' + (data.message?.id || Date.now()));
     return true;
   }
 

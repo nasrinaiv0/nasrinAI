@@ -338,3 +338,45 @@ test('exact image repeats reuse the private cached asset without another provide
     assert.equal(a.store.usage.at(-1).cacheHit, true);
   } finally { await a.close(); }
 });
+
+test('several pictures at once: made in parallel, each distinct, all counted, partial failures reported', async () => {
+  let active = 0; let peak = 0;
+  const calls = [];
+  const provider = {
+    id: 'gemini', model: 'gemini-3.1-flash-lite-image', calls,
+    async generate(req) {
+      calls.push(req); active++; peak = Math.max(peak, active);
+      await new Promise((r) => setTimeout(r, 20));
+      active--;
+      return { bytes: PNG, mime: 'image/png' };
+    }
+  };
+  const a = await app({ imageProvider: provider, env: { IMAGES_USER_DAY: '5' } });
+  try {
+    const r = await postJson(a.url + '/v1/images', { prompt: '4 pictures of a cat in space', count: 4 }, bearer(USER_TOKEN));
+    assert.equal(r.status, 200);
+    const made = await r.json();
+    assert.equal(made.image_ids.length, 4);
+    assert.equal(new Set(made.image_ids).size, 4);
+    assert.equal((made.message.content.match(/\[image:[0-9a-f-]{36}\]/g) || []).length, 4);
+    assert.match(made.message.content, /Here are your 4 pictures\./);
+    assert.equal(peak, 4, 'made at the same time');
+    assert.ok(calls.every((c, i) => c.prompt.includes(`picture ${i + 1} of 4`) && /not a grid/.test(c.prompt)));
+    assert.equal(a.store.usage.filter((u) => u.task === 'image').length, 4, 'each picture counted');
+    // 1 left today: asking for 2 is refused with how many are left; asking for 1 works.
+    const tooMany = await postJson(a.url + '/v1/images', { prompt: 'two dogs', count: 2 }, bearer(USER_TOKEN));
+    assert.equal(tooMany.status, 429);
+    assert.match((await tooMany.json()).error.message, /1 more picture/);
+    assert.equal((await postJson(a.url + '/v1/images', { prompt: 'a dog', count: 1 }, bearer(USER_TOKEN))).status, 200);
+    for (const bad of [0, 5, 2.5, 'x']) assert.equal((await postJson(a.url + '/v1/images', { prompt: 'x', count: bad }, bearer(USER_TOKEN))).status, 400, String(bad));
+  } finally { await a.close(); }
+
+  let n = 0;
+  const flaky = { id: 'gemini', model: 'm', calls: [], async generate() { n++; if (n === 2) throw new ProviderError('refused', 'no', 400); return { bytes: PNG, mime: 'image/png' }; } };
+  const b = await app({ imageProvider: flaky, env: { IMAGES_USER_DAY: '9' } });
+  try {
+    const made = await (await postJson(b.url + '/v1/images', { prompt: '3 logos', count: 3 }, bearer(USER_TOKEN))).json();
+    assert.equal(made.image_ids.length, 2);
+    assert.match(made.message.content, /Here are your 2 pictures\. 1 could not be made/);
+  } finally { await b.close(); }
+});

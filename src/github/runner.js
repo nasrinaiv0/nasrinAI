@@ -148,13 +148,16 @@ export function createCodingRunner({downloadArchive,defaultBranch,tokenFor,store
   try{const lim=await store.rateHit('ghrun:'+ctx.tenantId+':'+ctx.actor.id,3600,runsPerHour);if(!lim?.allowed)return{error:'rate_limited',message:`You have run the coding environment ${runsPerHour} times this hour. Try again later.`};}catch{return{error:'rate_limit_unavailable',message:'The coding runner is temporarily unavailable. Please try again later.'};}
   if(!ref){try{ref=await defaultBranch(token,repo);}catch{return{error:'default_branch_unavailable',message:'Nasrin could not determine the repository default branch. Specify a branch or commit.'};}}
   const deadline=Number.isFinite(ctx.deadline)?ctx.deadline:Infinity;
-  const reusable=Boolean(ctx.conversationId)&&!patch;
+  let reusable=Boolean(ctx.conversationId)&&!patch;
   const key=`${ctx.tenantId}:${ctx.actor.id}:${ctx.conversationId}:${repo}@${ref}:${runtime}`;
   sweep();
   let session=reusable?sessions.get(key):null;
-  if(session&&(session.busy||[...edited.map(f=>f.path),...session.written.keys()].some(p=>DEPENDENCY_FILES.has(p)&&session.written.get(p)!==edited.find(f=>f.path===p)?.content))){
+  // Another run of this chat is using the open sandbox (tools run in
+  // parallel): this one gets its own, closed when it ends.
+  if(session?.busy){session=null;reusable=false;}
+  if(session&&[...edited.map(f=>f.path),...session.written.keys()].some(p=>DEPENDENCY_FILES.has(p)&&session.written.get(p)!==edited.find(f=>f.path===p)?.content)){
    // Changed dependency files need a fresh install.
-   if(!session.busy){sessions.delete(key);await stopQuietly(session.sandbox);}
+   sessions.delete(key);await stopQuietly(session.sandbox);
    session=null;
   }
   const reused=Boolean(session);

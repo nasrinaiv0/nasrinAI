@@ -1,3 +1,10 @@
+## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
+
+- `src/chat.js`: independent read-only tools asked for in one step run at the same time (up to 4); edits, memory writes and Confirm tools stay sequential and ordered; results keep the model's order; a failed check wins for the repair loop. `src/github/runner.js`: overlapping runs of one chat get their own sandbox.
+- `src/images.js`: `count` (1–4) makes several pictures in parallel, each distinct and counted; partial failures kept and reported. `public/creative-intent.js` (`pictureCount`) + `public/app.js` send it.
+- `src/ai/prompt.js` + `public/files.js`: up to 10 files per reply.
+- `CLAUDE.md` owner decision updated (up to 4 pictures when asked). Docs: `docs/chat.md`, `docs/features/image-creation.md`. Tests: `test/multitask.test.js`, `test/images.test.js`.
+
 ## Many commands per reply: batches, one sandbox per reply, deadline — 2026-10-30
 
 - `src/github/runner.js`: `commands` (up to 10 per call, `keep_going`), the sandbox stays open for the rest of a chat reply (only changed files rewritten, reverted ones restored, fresh sandbox for dependency changes or patches, closed at the reply's end), deadline-aware stop (`out_of_time`), more allowed tools (`npx --no`, `pip list/show`, head/tail/wc/diff/…/make), `CODE_RUNS_PER_HOUR` (default 60).
