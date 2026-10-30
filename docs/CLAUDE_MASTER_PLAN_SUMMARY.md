@@ -1,5 +1,16 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
+## Latest verified snapshot — 2026-10-30 09:20 Asia/Manila
+
+- Main/production source: `b39f4dcd62641d5f601e4e707cb46155ca8e135e`; Vercel deployment [dpl_EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) is READY at the same SHA.
+- Latest in-scope application change: PR #709 merged; OCC labels now read “Automation & Jobs” and “Automation”. CI #40972509344 and Documentation Gate #40972509431 passed on its PR head. Live authenticated OCC browser/API behavior is not verified.
+- PR #708/migration 085 remains the recorded OCC database repair; earlier SQL verification is historical evidence and was not repeated in this audit.
+- Documentation PR #710 is 5 ahead / 5 behind and non-mergeable; PR #705 is 22 ahead / 16 behind with no workflow run returned for its exact head. This current-main-based audit branch is the reconciliation candidate.
+- Carried-forward, not freshly rechecked: migration registry/source parity for 080–082; Supabase leaked-password protection; targeted SECURITY DEFINER review.
+- No production schema, Auth setting, credential, deployment, or application code was changed during this audit. See [the 09:20 audit delta](engineering/updates/2026-10-30-0920-nasrinai-audit.md).
+
+
+
 > Original status audit 2026-10-18; this is a running record. The latest reconciled snapshot is 2026-10-30. Historical entries may be stale; always follow the current audit report, GitHub PR state, CI, deployment, and database evidence. See [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
 Last updated: 2026-10-30
