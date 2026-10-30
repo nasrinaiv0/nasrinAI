@@ -1,3 +1,4 @@
+- MOVO scoped server chat: pass validated `movoScoped` into routing policy; pin to OpenRouter `openai/gpt-6-luna`; fail closed if unavailable; add routing regression coverage. Live credential and production scope/model verification remain release gates.
 ## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
 
 - `src/chat.js`: independent read-only tools asked for in one step run at the same time (up to 4); edits, memory writes and Confirm tools stay sequential and ordered; results keep the model's order; a failed check wins for the repair loop. `src/github/runner.js`: overlapping runs of one chat get their own sandbox.
