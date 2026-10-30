@@ -368,10 +368,14 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         if (at < level) logger.info('downgraded to a compatible configured route', { from: level, to: at });
 
         const started = now();
-        const normalMaxTokens = Math.max(r.maxTokens[at], plan.lunaPrimary ? plan.maxTokens : 0, minTokens);
-        const boundedMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens >= 64
-          ? Math.min(normalMaxTokens, requestedMaxTokens) : normalMaxTokens;
-        const callMaxTokens = boundedMaxTokens;
+        const configuredMaxTokens = Number.isSafeInteger(r.maxTokens?.[at]) ? r.maxTokens[at] : 0;
+        const normalMaxTokens = Math.max(configuredMaxTokens, plan.lunaPrimary ? plan.maxTokens : 0, minTokens);
+        const callMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens > 0
+          ? (normalMaxTokens > 0 ? Math.min(normalMaxTokens, requestedMaxTokens) : requestedMaxTokens)
+          : normalMaxTokens;
+        if (!Number.isSafeInteger(callMaxTokens) || callMaxTokens < 1) {
+          throw new HttpError(503, 'reply_limit_not_configured', 'Reply token limits are not configured for this route level.');
+        }
         let reservation = null;
         let result;
         try {
