@@ -68,7 +68,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
     maxRequestUsd: null,
 
     // What the message needs and where it may go. tier: nasrinai | pro | max | ultra.
-    plan({ tier, paidQuick = false, message, history = [], attachments = [] }) {
+    plan({ tier, paidQuick = false, message, history = [], attachments = [], movoScoped = false }) {
       const c = classify({ message, history, attachments });
       const [lo, hi] = r.tierRange[tier] || r.tierRange.nasrinai;
       const level = Math.min(hi, Math.max(lo, c.level));
@@ -77,12 +77,12 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       // Free Quick answers heavy work, pages to read/scrape, current-web questions
       // and attached files with GPT-6 Luna as one of its main models (see run()).
       const freeQuickPlan = tier === 'nasrinai' && paidQuick !== true;
-      const lunaPrimary = freeQuickPlan && (c.level >= 3
+      const lunaPrimary = movoScoped === true || freeQuickPlan && (c.level >= 3
         || ['coding', 'debugging', 'architecture', 'reasoning', 'planning', 'analysis', 'research'].includes(c.task)
         || attachments.length > 0
         || /https?:\/\/|\b(?:scrap|crawl|extract)\w*/i.test(String(message || ''))
         || needsWeb(message));
-      return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, lunaPrimary, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
+      return { tier, paidQuick: tier === 'nasrinai' && paidQuick === true, lunaPrimary, movoScoped: movoScoped === true, task: c.task, wanted: c.level, level, floor: lo, ceiling: hi, reasons: c.reasons, sensitive,
         // Heavy, scraping, web and file answers on free Quick get the roomier
         // level-3 reply and history budget, so a long answer is not cut at the
         // Quick chat size. Allowances and reservations still apply as usual.
@@ -298,6 +298,15 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           if (!candidates.length && !r.quickNemotronOnly) {
             const fallbackTier = config.ai.tiers?.[plan.tier] || config.ai.tiers?.nasrinai;
             if (fallbackTier) candidates.push(fallbackTier);
+          }
+          // MOVO server-to-server requests use the explicitly approved GPT-6 Luna
+          // route only. Do not silently answer a financial request with another
+          // model if Luna is unavailable; fail closed and let MOVO show a retry.
+          if (plan.movoScoped === true) {
+            const approved = candidates.find((candidate) =>
+              candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna');
+            candidates.length = 0;
+            if (approved) candidates.push(approved);
           }
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;

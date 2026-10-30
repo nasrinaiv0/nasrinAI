@@ -50,7 +50,7 @@ test('MOVO-scoped service requests use only explicit context and skip platform r
   let portfolioReads = 0;
   await withApp({
     provider,
-    env: { FOUNDER_KNOWLEDGE_URL: 'https://nasrinai.com/api/knowledge', AI_PROVIDER: 'fake', ROUTING: 'smart', ROUTE_LEVEL_1: 'openai:gpt-5.4-nano' },
+    env: { FOUNDER_KNOWLEDGE_URL: 'https://nasrinai.com/api/knowledge', AI_PROVIDER: 'fake', OPENROUTER_API_KEY: 'or-test-key', ROUTING: 'smart', ROUTE_LEVEL_1: 'deepseek/deepseek-v4.1-flash' },
     readLinkImpl: async (url) => {
       portfolioReads += 1;
       return { url, title: 'Portfolio', text: 'PUBLIC_PORTFOLIO_CANARY Nasrin Abubakar services and projects.' };

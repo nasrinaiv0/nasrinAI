@@ -1,3 +1,7 @@
+## Unreleased
+
+- Pin MOVO-scoped server-to-server chat to OpenRouter `openai/gpt-6-luna`; if that model is unavailable, fail closed instead of silently switching models/providers. Add a routing regression test. Live production authentication, scope-canary, and model-telemetry verification remain release gates.
+
 - Add universal user-owned integration groundwork: server-side ownership checks, AES-256-GCM encrypted credential storage, read-only list/detail routes, migration 068, and regression tests. Provider-specific OAuth adapters/write operations remain out of scope; migration 068 is not approved for production application.
 - Make the GitHub OAuth forged-state regression deterministic by changing a significant HMAC character rather than the final base64url characters, which could rarely leave the decoded signature unchanged.
 

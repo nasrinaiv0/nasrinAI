@@ -84,7 +84,9 @@ export function buildTestApp({ store = seededStore(), verifyUser, extraRoutes = 
   // Production always puts the router in front of the providers; so do tests.
   // The one test provider stands in for every provider key.
   const raw = provider;
-  provider = raw ? createRouter({ providers: { openai: raw, local: raw, fake: raw }, config, logger }) : null;
+  // Test-only OpenRouter catalog fixture for MOVO's pinned-model integration test.
+  if (raw && env.OPENROUTER_API_KEY) raw.listModelsForTask = async () => ['openai/gpt-6-luna'];
+  provider = raw ? createRouter({ providers: { openai: raw, openrouter: raw, local: raw, fake: raw }, config, logger }) : null;
   const models = createModelCatalog({ provider, config, logger });
   const legal = createLegal({ store, config, logger, deleteAuthUser: async (id) => { deletedUsers.push(id); } });
   const policy = provider && config.ai.routing.mode === 'smart'
