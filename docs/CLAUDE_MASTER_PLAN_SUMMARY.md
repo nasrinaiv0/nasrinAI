@@ -252,3 +252,18 @@ Changes in this follow-up:
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## Unified User Dashboard & AI Workforce architecture — 2026-10-30
+
+**Status: Architecture documented; implementation not started/verified by this documentation change.** Target document: [unified-user-dashboard-ai-workforce.md](architecture/unified-user-dashboard-ai-workforce.md).
+
+- Scope: `dashboard.nasrinai.com`, user workspaces for NasrinAI, MOVO, NasrinAI Connect, NasrinAI Code, NasrinAI Studio, NasrinAI Cloud, NasrinAI Receptionist, NasrinAI Client Connect, Library, Projects, AI Workforce Builder, and CRM & Business Operations.
+- Architecture decision: use a shared experience shell, control plane (identity/authorization, entitlements, projects, versioned agent/workflow configuration, integrations, budgets), and execution/data plane (existing orchestrator, tool broker, bounded workflow workers, CRM service, usage/billing, observability). Reuse current Node.js/Vercel, Supabase, auth, orchestrator, and metering where verified; no framework rewrite or duplicate foundational services by default.
+- AI professions are versioned configurations, not separate foundation models or privileged identities. Tool calls are authorized server-side. Lifecycle: draft → validate → test → review → stage → approve → deploy → monitor/rollback.
+- CRM uses a metadata-driven grid and shared record service, not a hardcoded schema per profession. Required Attention must be based on real events/rules and deduplicate alerts.
+- Recruitment example covers approved-source research, source provenance, job-related evidence, deduplication, recruiter review, and constrained outreach; no access-control bypass or automated final hiring decisions.
+- Safety gates: tenant/project isolation, RLS/grants review, API key hashing/revocation/scopes, sandboxed code, bounded async jobs, idempotent side effects and billing, server-enforced quotas, preview isolation, approval for consequential actions, privacy/retention controls, sanitized audit logs.
+- Implementation phases: repository/schema audit; dashboard foundation; projects/configuration registry; AI Workforce Builder; workflow runtime + CRM; product/API integrations; usage/billing; production readiness.
+- Naming risk to resolve during audit: existing docs distinguish NasrinAI Connect (website/widget integrations) from NCC/Nasrin Client Connect (CRM/client management/automation). Do not silently rename or merge these products.
+- Validation: documentation-only change. No code, migrations, production configuration, tests, deployment, or feature completion verified by this change. Audit repository contracts and existing schema before implementation.

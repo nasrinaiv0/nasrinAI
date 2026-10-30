@@ -211,3 +211,12 @@ The feature belongs inside **NCC = Nasrin Client Connect**, not NasrinAI Connect
 - The hourly indexer writes trusted official HTTPS documentation into the existing platform full-text knowledge search with content-hash idempotency and bounded chunks/batches. It does not train model weights and is not vector RAG.
 - CI #7753 and Documentation Gate #1818 passed.
 - Next check: observe the first post-deploy hourly run and confirm new docs are searchable and visible in owner-only OCC metrics.
+
+
+## Unified User Dashboard & AI Workforce (added 2026-10-30)
+
+- Target architecture/specification: [Unified User Dashboard & AI Workforce](architecture/unified-user-dashboard-ai-workforce.md).
+- Status: **documented target architecture; implementation status not verified by this doc-only change**.
+- Scope includes user-facing product workspaces, shared configuration, projects, custom versioned AI professions, declarative workflow automation, spreadsheet-style CRM, Required Attention, preview/testing/deployment, usage/billing, and security.
+- Key architecture rule: audit/reuse existing auth, Node.js/Vercel services, Supabase schema, orchestrator, product routes, and metering before creating new infrastructure. Do not duplicate foundational services or claim planned features exist.
+- Before implementation: reconcile product naming (NasrinAI Connect vs Nasrin Client Connect/NCC), inspect open PRs and current contracts, map existing tables/routes, define acceptance tests, and use a feature branch/PR. No production changes authorized by this document.
