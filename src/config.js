@@ -437,6 +437,8 @@ export function loadConfig(env = process.env) {
     quickNemotronOnly: has('openrouter'),
     // Multi-model planning council is opt-in and remains OFF unless explicitly enabled.
     planningCouncilEnabled: String(env.PLANNING_COUNCIL_ENABLED ?? 'false').trim().toLowerCase() === 'true',
+    // Reply tokens per council specialist call (Vercel); 0 = no application cap.
+    planningCouncil: Object.freeze({ maxTokensPerCall: toInt('PLANNING_COUNCIL_MAX_TOKENS_PER_CALL', env.PLANNING_COUNCIL_MAX_TOKENS_PER_CALL, 0, 0, Number.MAX_SAFE_INTEGER) }),
     levels: Object.freeze(levels),
     freeModels: Object.freeze(Object.fromEntries(freeProviderSettings
       .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
@@ -450,13 +452,14 @@ export function loadConfig(env = process.env) {
       ultra: range('ROUTE_RANGE_ULTRA', env.ROUTE_RANGE_ULTRA, '1-5')
     }),
     // Reply and history budgets are operator-controlled through Vercel.
-    // Zero means no application-imposed budget; provider/model limits still apply.
+    // Reply tokens: 0 = no application cap (the model's own output limit and the
+    // plan's token quotas still apply). History: 0 = use AI_HISTORY_CHARS.
     historyChars: Object.freeze({
-      1: toInt('ROUTE_LEVEL_1_HISTORY_CHARS', env.ROUTE_LEVEL_1_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
-      2: toInt('ROUTE_LEVEL_2_HISTORY_CHARS', env.ROUTE_LEVEL_2_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
-      3: toInt('ROUTE_LEVEL_3_HISTORY_CHARS', env.ROUTE_LEVEL_3_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
-      4: toInt('ROUTE_LEVEL_4_HISTORY_CHARS', env.ROUTE_LEVEL_4_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
-      5: toInt('ROUTE_LEVEL_5_HISTORY_CHARS', env.ROUTE_LEVEL_5_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER)
+      1: toInt('ROUTE_LEVEL_1_HISTORY_CHARS', env.ROUTE_LEVEL_1_HISTORY_CHARS, 0, 0, 1_000_000),
+      2: toInt('ROUTE_LEVEL_2_HISTORY_CHARS', env.ROUTE_LEVEL_2_HISTORY_CHARS, 0, 0, 1_000_000),
+      3: toInt('ROUTE_LEVEL_3_HISTORY_CHARS', env.ROUTE_LEVEL_3_HISTORY_CHARS, 0, 0, 1_000_000),
+      4: toInt('ROUTE_LEVEL_4_HISTORY_CHARS', env.ROUTE_LEVEL_4_HISTORY_CHARS, 0, 0, 1_000_000),
+      5: toInt('ROUTE_LEVEL_5_HISTORY_CHARS', env.ROUTE_LEVEL_5_HISTORY_CHARS, 0, 0, 1_000_000)
     }),
     maxTokens: Object.freeze({
       1: toInt('ROUTE_LEVEL_1_MAX_REPLY_TOKENS', env.ROUTE_LEVEL_1_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
@@ -536,6 +539,13 @@ export function loadConfig(env = process.env) {
       return fallback;
     }
   };
+  // Security input bounds, set in Vercel. They always stay finite: an invalid
+  // value (including 0) keeps the safe default with a warning, never unlimited.
+  const jsonMaxBodyBytes = softInt('JSON_MAX_BODY_BYTES', env.JSON_MAX_BODY_BYTES, 16 * 1024, 1024, 1024 * 1024);
+  const maxMessageChars = softInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 4000, 100, 100000);
+  // Anthropic requires a reply limit on every call; used when no route cap is set.
+  const anthropicMaxTokens = softInt('ANTHROPIC_MAX_TOKENS', env.ANTHROPIC_MAX_TOKENS, 8192, 1, 1_000_000);
+  const aiHistoryChars = softInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 12000, 1000, 200000);
   const attachmentsMaxCount = softInt('ATTACHMENTS_MAX_COUNT', env.ATTACHMENTS_MAX_COUNT, 4, 0, 10);
   // Vercel accepts request bodies up to 4.5 MB; base64 adds a third.
   const attachmentsMaxMb = softInt('ATTACHMENTS_MAX_MB', env.ATTACHMENTS_MAX_MB, 3, 1, 3);
@@ -878,7 +888,7 @@ export function loadConfig(env = process.env) {
     // How many proxies sit in front of the server (Vercel or Render = 1).
     trustProxyHops: toInt('TRUST_PROXY_HOPS', env.TRUST_PROXY_HOPS, 1, 0, 5),
     ownerConsole,
-    maxBodyBytes: env.CHAT_MAX_BODY_BYTES == null || env.CHAT_MAX_BODY_BYTES === '' ? 0 : toInt('CHAT_MAX_BODY_BYTES', env.CHAT_MAX_BODY_BYTES, 0, 0, Number.MAX_SAFE_INTEGER),
+    maxBodyBytes: jsonMaxBodyBytes,
     supabaseUrl,
     supabasePublishableKey,
     supabaseSecretKey,
@@ -977,14 +987,17 @@ export function loadConfig(env = process.env) {
       fallback,
       geminiApiKey: geminiKey,
       anthropicApiKey: anthropicKey,
+      anthropicMaxTokens,
       freeProviders: Object.freeze(freeProviderSettings
         .filter((p) => QUICK_FREE_DIRECT_PROVIDER_IDS.has(p.id) || p.id === 'openrouter')
         .map((p) => Object.freeze({ ...p, freeModels: Object.freeze(p.freeModels) }))),
       routing,
       temperature,
       maxReplyTokens: env.AI_MAX_REPLY_TOKENS == null || env.AI_MAX_REPLY_TOKENS === '' ? 0 : toInt('AI_MAX_REPLY_TOKENS', env.AI_MAX_REPLY_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
-      maxMessageChars: env.MESSAGE_MAX_CHARS == null || env.MESSAGE_MAX_CHARS === '' ? 0 : toInt('MESSAGE_MAX_CHARS', env.MESSAGE_MAX_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
-      historyChars: env.AI_HISTORY_CHARS == null || env.AI_HISTORY_CHARS === '' ? 0 : toInt('AI_HISTORY_CHARS', env.AI_HISTORY_CHARS, 0, 0, Number.MAX_SAFE_INTEGER),
+      maxMessageChars,
+      historyChars: aiHistoryChars,
+      // Reply tokens a file or long-document answer gets at least (Vercel); 0 = none.
+      fileReplyMinTokens: toInt('FILE_REPLY_MIN_TOKENS', env.FILE_REPLY_MIN_TOKENS, 0, 0, Number.MAX_SAFE_INTEGER),
       // Strip emails, phone and card numbers from what is sent to a model
       // outside this server. On by default.
       redactExternal: redact === 'true',

@@ -1,3 +1,11 @@
+## Vercel-owned limits: keep security bounds finite, fix adapters and tests — 2026-10-31
+
+- `src/config.js` + `src/http/app.js`: request-body, message and history limits are set in Vercel (`JSON_MAX_BODY_BYTES`, `MESSAGE_MAX_CHARS`, `AI_HISTORY_CHARS`) but always stay finite: blank or invalid keeps the safe default with a warning. Before, every JSON route without its own limit accepted unlimited bodies. The limits are read before the warnings list is frozen (an invalid value no longer crashes start-up).
+- `ROUTE_LEVEL_n_HISTORY_CHARS` 0 = the shared `AI_HISTORY_CHARS`; reply caps 0 = no application cap.
+- `FILE_REPLY_MIN_TOKENS` and `PLANNING_COUNCIL_MAX_TOKENS_PER_CALL` are parsed in `src/config.js` (no `process.env` reads in `src/chat.js`).
+- Adapters: OpenAI omits `max_completion_tokens` when no cap is set (no `NaN`); Anthropic sends `ANTHROPIC_MAX_TOKENS` (required by its API) when no cap is set.
+- Includes the MOVO route fix (#724). Tests: explicit Vercel-style limits in `test/helpers.js` and `test/routing.test.js`; new config and adapter tests; OpenRouter test updated for the operator-set limit.
+
 ## Fix MOVO GPT-6 Luna route and test-config speech default — 2026-10-31
 
 - `src/ai/policy.js`: MOVO-scoped requests keep the approved `openai/gpt-6-luna` route for any caller plan (it was added only for free Quick and then dropped by later ranking, so every MOVO request failed with 503); still fails closed when Luna is unavailable.
