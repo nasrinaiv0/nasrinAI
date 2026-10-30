@@ -3011,3 +3011,11 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Recorded merged PR #709 label correction, exact-head CI and Documentation Gate, stale documentation PR branch drift, and carried-forward migration/Auth/search-path audit items.
 - Detailed report: `docs/engineering/updates/2026-10-30-0920-nasrinai-audit.md`.
 - Documentation only; no application code, production database, Auth setting, secret, or deployment was changed.
+
+
+## 2026-10-30 10:35 Asia/Manila — branch protection/release-control audit
+- Main branch API reports protected=false, required status checks enforcement off, and no configured contexts/checks; repository rulesets endpoint returned []. External organization/user-level policy was not separately verified.
+- No new app merge/deployment since the previous checkpoint. Production remains READY at b39f4dcd62641d5f601e4e707cb46155ca8e135e.
+- PR #711 exact-head CI #40985781454 and Documentation Gate #40985781356 both passed. PR #702 is 1 ahead/48 behind and non-mergeable; PR #703 is 2 ahead/44 behind and non-mergeable. Existing green checks are stale relative to main.
+- Existing open issue #486 for persistent attachments has no new implementation progress; secure private storage, authorization, expiry, retention, and persistence tests remain acceptance criteria.
+- Detail: docs/engineering/updates/2026-10-30-1035-branch-protection-and-release-control.md. No code/settings/deployments changed.
