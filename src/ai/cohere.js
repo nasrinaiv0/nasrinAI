@@ -7,7 +7,7 @@ export function createCohereProvider({ apiKey, model, fetchImpl = fetch, timeout
     id: 'cohere',
     model,
     capabilities: () => ({ local: false, dataLeavesServer: true, vision: false, pdf: false, tools: false, trainsOnData: true }),
-    async generate({ system, messages, model: chosen, maxTokens = 800, signal }) {
+    async generate({ system, messages, model: chosen, maxTokens, signal }) {
       let resp;
       try {
         resp = await fetchImpl('https://api.cohere.com/v2/chat', {
