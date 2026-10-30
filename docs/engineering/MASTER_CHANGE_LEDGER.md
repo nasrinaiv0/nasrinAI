@@ -185,3 +185,15 @@ The following checks were run against the NasrinAI Supabase project only. No mig
 **Documentation branch caution:** this branch was based on `33f9283f35a0627c700efb43b3335bcfd8d52840` and is behind current main `52392234...`; reconcile before merging. No database writes, application-code changes, migrations, deployments, Auth changes, or PR-state changes were performed by this audit.
 
 Detailed evidence: [Audit delta](https://github.com/nasrinaiv0/nasrinAI/blob/docs/change-ledger-refresh-2026-10-30-0614/docs/engineering/updates/2026-10-30-0711-production-schema-and-occ.md) (commit 8c703534a15dd6886ee7831dea25fdc5f4d74546).
+
+
+## Audit checkpoint — 2026-10-30 08:17 Asia/Manila
+
+- **Current main:** `b39f4dcd62641d5f601e4e707cb46155ca8e135e`, merge of PR #709. Production Vercel deployment `dpl_EYBvVZe2o1qdMrUuXvGoXcqD4qkG` is READY at that SHA; combined status reports Vercel success.
+- **PR #709:** corrected OCC navigation `Automation (NCC)` → `Automation & Jobs` and mini-report `Automation (NCC)` → `Automation`. Files: `src/owner-console.js`, `public/owner-console.js`, `docs/CLAUDE_MASTER_PLAN_SUMMARY.md`, `docs/pr-change-log.md`. Exact-head CI #40972509344 passed dependency-audit, test, and database jobs; Documentation Gate #40972509431 passed. Hosted authenticated OCC browser/API behavior remains **not verified** because the deployment page could not be fetched through the available Vercel connection.
+- **PR #708 / migration 085:** remains merged and deployed. Earlier SQL verification showed the dashboard function returning seven series days and twelve recent-activity entries, with server-only automation tables and no synthetic rows. Not re-queried in this cycle; see [detailed 08:17 audit](updates/2026-10-30-0817-occ-label-and-release-audit.md).
+- **Documentation release control:** PR #705 ledger branch is 16 ahead / 16 behind current main; PR #710 audit branch is 5 ahead / 5 behind. They overlap and must be reconciled into one canonical branch before merge.
+- **Carried-forward, not freshly checked:** leaked-password protection previously disabled; migration registry entries 080–082 absent; 16 SECURITY DEFINER functions with `search_path=public, pg_temp` identified for targeted body review. Do not treat these as fresh checks or confirmed exploits.
+- **No production/schema/security changes were performed in this monitoring cycle.**
+
+Detailed evidence: [Audit delta — 2026-10-30 08:17](updates/2026-10-30-0817-occ-label-and-release-audit.md).
