@@ -252,3 +252,15 @@ Changes in this follow-up:
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## Clone Spreadsheets dashboard module — requirements documented; runtime not verified (2026-10-31)
+
+- **Specification:** [Clone Spreadsheets dashboard upgrade](architecture/clone-spreadsheets-dashboard-upgrade.md); tracking entry: [Master Plan Index](CLAUDE_MASTER_PLAN_INDEX.md).
+- **PR:** [#726 — docs: specify Clone Spreadsheets dashboard upgrade](https://github.com/nasrinaiv0/nasrinAI/pull/726). Documentation-only scope; do not infer app implementation or production readiness from this PR.
+- **Product scope:** dedicated dashboard spreadsheet workspace with multi-sheet grid, safe formulas, import/export, business templates, and permissioned AI query/update/report tools. Automatically project receptionist activity, leads, bookings, sales/orders, and verified payment events without replacing canonical source records.
+- **Security/data boundaries:** reuse existing NasrinAI auth/Supabase conventions after audit; enforce tenant RLS and server-side authorization; prevent formula injection/resource exhaustion; minimize customer PII; preserve product isolation and keep MOVO financial data separate by default.
+- **Reliability requirements:** stable source IDs, idempotent upserts, durable event/outbox pattern where feasible, bounded retries, dead-letter tracking, controlled replay, reconciliation, and visible sync status.
+- **Implementation order:** (0) audit current dashboard routes, schema, RLS, canonical entities, and event hooks; (1) secure workbook foundation; (2) grid/templates/import/export; (3) event capture/recovery; (4) AI tools/reporting; (5) full regression/security/deployment verification.
+- **Current status:** requirements and acceptance criteria documented. Existing architecture audit, application code, migrations, feature tests, CI result for PR #726, deployment, and production behavior are **not verified** by this change. No claim that the feature is implemented or live.
+- **Next action:** implementation must start with Phase 0 evidence and update this running record, the index, detailed spec, and change log at each meaningful milestone. Include exact files/routes/schema/policies, migration reconciliation, test commands/results, deployment evidence, remaining gaps, and status labels: Implemented / Partially implemented / Not implemented / Not verified.
