@@ -3019,3 +3019,9 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## Audit ledger recovery after PR #711 closure — 2026-10-30
+
+- PR #711 was closed unmerged after main advanced through PRs #702 and #703. A new current-main-based draft documentation PR restores the detailed central ledger and dated audit trail without changing application code.
+- Current production SHA: `771e1b6646e20f3ffb01285f50306ac953170d79`; production deployment READY. The detailed ledger distinguishes merged/deployed changes from unverified authenticated sandbox behavior and carries forward unresolved security/database checks.
