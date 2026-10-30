@@ -62,7 +62,7 @@ export const TURN_TIME_LIMIT_MS = 112_000;
 export const TOOL_TIME_BUDGET_MS = 85_000;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
 const FILE_WORDS = /\b(files?|docx?|pdf|xlsx?|excel|spreadsheet|csv|download|export)\b|\b(write|draft|create|make|prepare|generate)\b[^.?!\n]{0,40}\b(report|essay|letter|resume|cv|proposal|contract|ebook|document|article|story)\b/i;
-const FILE_TOKENS = 5500;
+const FILE_TOKENS = Number(process.env.FILE_REPLY_MIN_TOKENS || 0);
 const MAX_MOVO_CONTEXT_CHARS = 3800;
 const MOVO_CONTEXT_KEYS = Object.freeze(['accounts', 'recent_transactions', 'budgets']);
 const MOVO_REQUEST_KEYS = new Set(['message', 'context_scope', 'context']);
