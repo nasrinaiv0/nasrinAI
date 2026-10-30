@@ -1,0 +1,51 @@
+# USD Budget Enforcement — Safety-First Implementation Record
+
+**Status: implementation required; NOT production-ready.**  
+**Base:** `main` at `3d626702657e0a0cd5c77d145ee1d6bdd67e5d81` (inspected before this branch was created).  
+**Scope:** NasrinAI production model routing and MOVO scoped chat requests that use the NasrinAI chat backend.
+
+## Confirmed findings
+
+1. `src/ai/policy.js` currently returns an unlimited routing balance (`usd: Infinity`), has a no-op `spent()`, and exposes `maxRequestUsd: null`.
+2. `src/main.js` constructs `createPolicy({ config: effective, provider, logger })` without a budget dependency.
+3. `src/ai/budget.js` already contains a shared PostgreSQL spend-reservation client, but its comments identify it as legacy/test compatibility and the production provider billing adapter in `src/ai/provider-billing.js` explicitly makes no application-side USD reservation.
+4. `db/migrations/025_global_spend_reservations.sql` already defines atomic daily, weekly, monthly and optional per-request limits. The existence of this migration does not prove that production chat requests invoke it.
+5. Current `budget_reached` responses can conflate actual limit exhaustion with reservation/database failures. Those must be distinguished so operators can diagnose the real cause without exposing sensitive internals to end users.
+
+## Safety policy
+
+- Enforce the request ceiling by default; permit an explicit, validated environment toggle to disable **only** that ceiling.
+- Daily, weekly and monthly USD limits remain independent and enabled when configured, regardless of the per-request toggle.
+- Never interpret missing or malformed production budget settings as unlimited spending.
+- Keep atomic PostgreSQL reservations as the enforcement point across Vercel instances; a process-local balance/cache is only a routing hint.
+- Do not estimate cost from an untrusted client payload. Reservation estimates must be derived server-side from validated model/usage inputs and conservative policy. Where reliable estimation is unavailable, use a bounded safe fallback or reject before making a paid provider call.
+- Settle/reconcile with provider-reported actual cost when available. Preserve held reservations for ambiguous provider failures rather than releasing costs that may already have been incurred.
+- Distinguish at least: request ceiling reached, daily budget reached, weekly budget reached, monthly budget reached, reservation service unavailable, and settlement/reconciliation failure. Keep user messages safe and put diagnostic detail only in protected server logs.
+- Do not change production Vercel environment values or deploy until code, tests, migration state and the active production route have been verified.
+
+## Required implementation work
+
+1. Add typed/validated budget configuration in `src/config.js`, including daily/weekly/monthly limits and a request-limit enable toggle. Document each variable and safe semantics.
+2. Wire the shared budget into production `createPolicy` in `src/main.js`.
+3. Integrate budget reservations into the actual per-provider-attempt lifecycle (including failover), not merely the policy balance hint. Avoid double reservations and ensure every reservation is settled, conservatively held, reconciled or released according to the provider call outcome.
+4. Preserve Quick/free model eligibility. Avoid charging a paid reservation for a free provider call; ensure the paid fallback gets a reservation before the call.
+5. Ensure MOVO-scoped calls use the same safe backend enforcement without crossing MOVO/NasrinAI tenant or usage-isolation boundaries.
+6. Update the SQL/RPC reason mapping and application error handling so real limit exhaustion is distinguishable from infrastructure failures. Do not weaken RLS/grants or expose the service role.
+7. Add regression tests for toggle semantics, independent daily/weekly/monthly limits, over-limit single requests, concurrent requests, retries/failover, free-to-paid fallback, reservation failures, ambiguous timeouts, settlement/reconciliation, and caller/tenant isolation.
+8. Add an operator-facing audit document that records exact code paths, migration prerequisites, Vercel variables (names and semantics only; never values), test evidence, deployment SHA and post-deploy verification evidence.
+
+## Verification gates (must all pass before merge/deploy)
+
+- Unit tests prove request-limit toggle affects only the request ceiling.
+- Tests prove each aggregate period still blocks requests when the per-request ceiling is disabled.
+- Tests prove concurrent reservations cannot overspend the configured aggregate budget.
+- Tests prove infrastructure failures do not masquerade as genuine budget exhaustion.
+- Full repository test suite and lint/type/build checks pass.
+- Production migration status and RPC grants are verified against the actual Supabase project.
+- Vercel environment **names and configured/nonconfigured status** are checked without exposing secret values.
+- A controlled production smoke test verifies a permitted request, a blocked request, and accurate operator diagnostics.
+- Record the exact deployed commit/deployment and results. If any gate fails or cannot be observed, do not mark complete.
+
+## Current state of this branch
+
+This branch currently records the findings and implementation contract only. No production environment variables were changed; no migration was run; no code path has yet been changed by this branch; no deployment has been made. Do not treat this document alone as a fix.
