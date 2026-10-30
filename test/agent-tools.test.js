@@ -168,3 +168,16 @@ test('tool runs show a live stage the page knows', async () => {
     assert.match(app, new RegExp('\\b' + s + ": '"), s);
   }
 });
+
+test('web_search works without Google keys through NasrinAI\'s own web search', async () => {
+  const asked = [];
+  const webSearch = { search: async (q) => { asked.push(q); return { text: 'Node 24 is the current LTS.', citations: [{ title: 'Node.js', url: 'https://nodejs.org/en' }, { title: 'bad', url: 'ftp://x' }] }; } };
+  const reg = createToolRegistry({ tools: createAgentTools({ store: okStore(), webSearch, runCode: false }) });
+  const out = await reg.run(guest, 'web_search', { query: 'node lts version' });
+  assert.equal(out.summary, 'Node 24 is the current LTS.');
+  assert.deepEqual(out.results, [{ title: 'Node.js', url: 'https://nodejs.org/en', snippet: '' }]);
+  assert.equal(asked[0].messages[0].content, 'node lts version');
+  assert.equal(asked[0].model, undefined, 'never a paid search model');
+  const empty = createToolRegistry({ tools: createAgentTools({ store: okStore(), webSearch: { search: async () => { throw new Error('down'); } }, runCode: false }) });
+  assert.deepEqual((await empty.run(guest, 'web_search', { query: 'x y' })).results, []);
+});

@@ -243,7 +243,7 @@ test('github: pull requests open only after Confirm, with the person\'s own toke
 test('github: the model gets read-only tools, and repository text is marked as data', async () => {
   const t = await ghApp({ 'GET /repos/o/r': () => [200, { full_name: 'o/r', default_branch: 'main', stargazers_count: 5 }] });
   try {
-    assert.ok(t.github.tools.every((x) => x.risk === 'read' && x.name.startsWith('github_')));
+    assert.ok(t.github.tools.every((x) => x.risk === 'read' && /^(github|code)_/.test(x.name)));
     const reg = createToolRegistry({ tools: t.github.tools, timeoutMs: 10_000 });
     const out = await reg.run({ tenantId: PLATFORM_TENANT_ID, actor: { type: 'guest', id: 'g' } }, 'github_repo_info', { repo: 'https://github.com/o/r' });
     assert.equal(out.repo, 'o/r');

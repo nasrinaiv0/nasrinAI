@@ -242,7 +242,7 @@ export function buildApp({ config, logger }) {
   if (mapsTool.available) logger.info('Google Maps tools ready');
   const mcp = createMcp({ config: effective, logger });
   if (mcp.available) logger.info('MCP servers configured', { count: effective.mcp.servers.length });
-  const agentTools = createAgentTools({ store, links: config.web.links, googleSearch: googleWebSearch, runCode: config.tools.runCode, logger });
+  const agentTools = createAgentTools({ store, links: config.web.links, googleSearch: googleWebSearch, webSearch, runCode: config.tools.runCode, logger });
   const connectors = createConnectors({ store, baseTools: [...basicTools, ...agentTools, ...mcp.tools, ...memoryTools({ store }), ...github.tools, ...google.tools, ...googleReadWrite.tools, ...(weatherTool.available ? [weatherTool.tool] : []), ...(mapsTool.available ? [mapsTool.tool] : [])], usageLog, config: effective, logger });
   const tools = config.tools.enabled ? connectors.toolbox : null;
   const confirmations = tools ? createConfirmations({ secret: guestSecret, store, tools, conversations, logger }) : null;
@@ -250,7 +250,7 @@ export function buildApp({ config, logger }) {
   const crawler = config.supabaseUrl ? createWebCrawler({ store, logger, embedder }) : null;
   const crawlerKnowledgeIndexer = config.supabaseUrl ? createCrawlerKnowledgeIndexer({ store, logger, platformTenantId: PLATFORM_TENANT_ID }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, mcp, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });
+  const chat = createChat({ conversations, limiter, uploads, mcp, codeWorkspace: github.workspace, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;

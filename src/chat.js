@@ -47,7 +47,12 @@ export function toolStageOf(name) {
   return null;
 }
 // The coding chat runs check → fix → re-check loops, so it gets more rounds.
-export const CODING_TOOL_ROUNDS = 8;
+export const CODING_TOOL_ROUNDS = 12;
+// The whole reply must finish inside the server's time limit (vercel.json:
+// 120 s). Tools that could not finish in what is left are not started, and
+// after TOOL_TIME_BUDGET_MS the model must answer with what it has.
+export const TURN_TIME_LIMIT_MS = 112_000;
+export const TOOL_TIME_BUDGET_MS = 85_000;
 // A message that asks for a file or a long document: the reply may be long (about 19,000 characters).
 const FILE_WORDS = /\b(files?|docx?|pdf|xlsx?|excel|spreadsheet|csv|download|export)\b|\b(write|draft|create|make|prepare|generate)\b[^.?!\n]{0,40}\b(report|essay|letter|resume|cv|proposal|contract|ebook|document|article|story)\b/i;
 const FILE_TOKENS = 5500;
@@ -186,7 +191,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, mcp = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+export function createChat({ conversations, limiter, uploads = null, mcp = null, codeWorkspace = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
     const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
@@ -372,6 +377,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
     const stage = (name) => { try { opts.stream?.status?.(name); } catch { /* display only */ } };
     if (files.length) stage('files');
 
+    const workspaceCtx = { tenantId: caller.tenantId, actor: caller.actor, conversationId: conv.id };
     const fullHistory = (await conversations.history(conv, 50)).map((m) => ({
       ...m,
       // Attachment IDs are presentation metadata, not model instructions/context.
@@ -453,6 +459,9 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
       // Persistence boundary: store only the same sanitized, identity-checked,
       // bounded user-facing text that may be returned to the caller. Never save
       // raw provider output or internal/tool context through this path.
+      // Code Nasrin edited in its workspace this turn is attached as file blocks.
+      let codeMeta = null;
+      if (codeWorkspace && typeof reply === 'string') ({ text: reply, meta: codeMeta } = codeWorkspace.finish(workspaceCtx, reply, { maxChars: blocks ? 18_500 : 7_500 }));
       reply = clean(keepIdentity(typeof reply === 'string' ? reply : ''));
       if (!reply) reply = 'I couldn’t produce a safe, readable reply. Please try again.';
       const responseTimestamp = new Date(now()).toISOString();
@@ -478,7 +487,8 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
         timestamp: responseTimestamp,
         duration_ms: Math.max(0, now() - requestStartedAt),
         usage: usageMetadata,
-        ...(mapResults.length ? { maps: mapResults } : {})
+        ...(mapResults.length ? { maps: mapResults } : {}),
+        ...(codeMeta ? { code_workspace: codeMeta } : {})
       };
       // Save the answer and its metadata in the same INSERT. This avoids a
       // second write that could fail and leave every restored reply without usage.
@@ -731,6 +741,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
       // `tools` is a registry, or a toolbox giving each business its own (connectors).
       const reg = tools && !movoScoped && !only && (MAY_NEED_TOOLS.test(typed) || GITHUB_ASK.test(typed) || GOOGLE_ASK.test(typed) || AGENT_ASK.test(typed) || codingChat || Boolean(mcp?.mentions(typed))) ? (tools.forCaller ? await tools.forCaller(caller) : tools) : null;
       const toolSpecs = reg ? reg.specsFor(caller) : [];
+      if (reg && codeWorkspace) codeWorkspace.begin(workspaceCtx, fullHistory);
       // A first, public, simple question asked before may be answered from
       // cache (never when tools are offered: their answers change, like time).
       // Never cached: answers that used tools, the business's documents or the
@@ -895,12 +906,13 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
         const toolRounds = codingChat ? CODING_TOOL_ROUNDS : MAX_TOOL_ROUNDS;
         let lastCheck = null;
         let repairs = 0;
+        let outOfTime = false;
         for (let round = 1; round <= toolRounds; round++) {
           if (!run.result.toolCalls?.length) {
             // Automatic failure detection: the model wants to finish while the
             // last check it ran failed in a way code can fix. Send it back once
             // more (bounded) instead of delivering an unverified answer.
-            if (!(codingChat && lastCheck?.fixable && repairs < MAX_REPAIR_ROUNDS && round < toolRounds)) break;
+            if (!(codingChat && lastCheck?.fixable && repairs < MAX_REPAIR_ROUNDS && round < toolRounds && !outOfTime && now() - requestStartedAt < TOOL_TIME_BUDGET_MS)) break;
             repairs += 1;
             const failedCheck = lastCheck;
             lastCheck = null;
@@ -932,6 +944,12 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
           for (const c of calls) {
             let content;
             const toolStage = toolStageOf(c.name);
+            const toolTime = reg.get?.(c.name)?.timeoutMs || 15_000;
+            if (now() - requestStartedAt + toolTime > TURN_TIME_LIMIT_MS) {
+              outOfTime = true;
+              results.push({ role: 'tool', toolCallId: c.id, content: JSON.stringify({ error: 'out_of_time', message: 'Not run: not enough time is left in this reply. Report what is done and what is left; the person can say "continue" to go on.' }) });
+              continue;
+            }
             if (toolStage) stage(toolStage);
             try {
               const out = await reg.run(caller, c.name, c.arguments, { conversationId: conv.id });
@@ -967,7 +985,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
           }
           req = { ...req, attachments: [], messages: [...req.messages, { role: 'assistant', content: run.result.text || '', toolCalls: calls }, ...results] };
           activeReq = req;
-          if (round === toolRounds) req = { ...req, tools: undefined };
+          if (round === toolRounds || outOfTime || now() - requestStartedAt > TOOL_TIME_BUDGET_MS) req = { ...req, tools: undefined };
           started = now();
           activeStartedAt = started;
           const runOpts = {
