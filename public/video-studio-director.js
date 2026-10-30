@@ -49,7 +49,7 @@
         version: 1, workflow: state.workflow, shots: state.shots,
         projectName: state.projectName, brief: clampText($('directorBrief')?.value, 1200),
         style: clampText($('directorStyle')?.value, 180), ratio: $('directorRatio')?.value || '9:16',
-        duration: Number($('directorDuration')?.value) || 30, updatedAt: new Date().toISOString()
+        duration: Number($('directorDuration')?.value) || 30, characters: clampText($('directorCharacters')?.value, 800), locations: clampText($('directorLocations')?.value, 800), props: clampText($('directorProps')?.value, 800), continuity: clampText($('directorContinuity')?.value, 800), updatedAt: new Date().toISOString()
       }));
       localStorage.setItem(PROMPT_KEY, JSON.stringify(state.prompts));
       const status = $('directorSaveState');
@@ -104,8 +104,24 @@
       prompt: beat[1] + ' Project brief: ' + brief + '. Visual direction: ' + style + '. Shot ' + (index + 1) + ' of ' + preset.beats.length + '. Compose for ' + ratio + '. Maintain consistent characters, wardrobe, props, lighting logic, and visual style. No unintended text, logos, or watermarks.',
       locked: false
     }));
-    renderShots(); persist();
+    applyContinuity(false); renderShots(); persist();
     setStatus('Created ' + state.shots.length + ' editable shot prompts. Review each before generating footage.');
+  }
+  function applyContinuity(announce = true) {
+    const bible = [
+      ['Characters', clampText($('directorCharacters')?.value, 800)],
+      ['Locations', clampText($('directorLocations')?.value, 800)],
+      ['Props', clampText($('directorProps')?.value, 800)],
+      ['Continuity rules', clampText($('directorContinuity')?.value, 800)]
+    ].filter(item => item[1]).map(item => item[0] + ': ' + item[1]);
+    if (!state.shots.length) { if (announce) setStatus('Create a shot plan before applying continuity notes.'); return; }
+    state.shots = state.shots.map(shot => {
+      const base = clampText(shot.prompt, 2000).replace(/\\n\\nContinuity bible:[\\s\\S]*$/, '');
+      const suffix = bible.length ? '\\n\\nContinuity bible:\\n' + bible.join('\\n') : '';
+      return { ...shot, prompt: (base + suffix).slice(0, 2000) };
+    });
+    renderShots(); persist();
+    if (announce) setStatus(bible.length ? 'Continuity notes applied to every shot prompt.' : 'Continuity notes cleared from the shot prompts.');
   }
   function renderShots() {
     const root = $('directorShots'); if (!root) return; root.replaceChildren();
@@ -178,7 +194,7 @@
       '<div class="director-grid"><div><div class="director-field"><label for="directorBrief">PROJECT IDEA / BRIEF</label><textarea id="directorBrief" maxlength="1200" rows="4" placeholder="A young chef tries to save her family restaurant before sunrise…"></textarea></div><div class="director-field"><label for="directorStyle">VISUAL DIRECTION</label><input id="directorStyle" maxlength="180" value="cinematic composition, natural light, expressive close-ups, consistent visual continuity"></div></div>',
       '<div><div class="director-field"><label for="directorWorkflowType">WORKFLOW</label><select id="directorWorkflowType"><option value="drama">Short drama</option><option value="music">Music video</option><option value="product">Product advertisement</option><option value="social">Social short</option></select></div><div class="director-field"><label for="directorRatio">ASPECT RATIO</label><select id="directorRatio"><option value="9:16">Portrait · 9:16</option><option value="16:9">Landscape · 16:9</option><option value="1:1">Square · 1:1</option></select></div><div class="director-field"><label for="directorDuration">TARGET LENGTH</label><select id="directorDuration"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></div></div></div>',
       '<div class="director-actions"><button id="directorGeneratePlan" class="director-btn primary" type="button">Create shot plan</button><button id="directorExportPlan" class="director-btn" type="button">Export shot plan JSON</button><button id="directorClearPlan" class="director-btn" type="button">Clear plan</button></div>',
-      '<div id="directorShots" class="director-shots" aria-live="polite"></div><div class="director-library"><h3>Prompt library</h3><p class="director-shot-meta">Save and reuse prompts on this device. No API keys or authentication tokens are stored here.</p>',
+      '<div class="director-library" style="margin:18px 0"><h3>Character &amp; visual continuity bible</h3><p class="director-shot-meta">Describe recurring characters, locations, props, and visual rules. These notes are applied to every planned shot prompt; they do not generate reference images.</p><div class="director-grid"><div class="director-field"><label for="directorCharacters">CHARACTERS</label><textarea id="directorCharacters" maxlength="800" rows="3" placeholder="Mara: short dark hair, amber jacket, silver pendant…"></textarea></div><div class="director-field"><label for="directorLocations">LOCATIONS</label><textarea id="directorLocations" maxlength="800" rows="3" placeholder="Family restaurant: green tile, warm tungsten practicals…"></textarea></div><div class="director-field"><label for="directorProps">IMPORTANT PROPS</label><textarea id="directorProps" maxlength="800" rows="3" placeholder="Brass key, chipped blue mug, handwritten receipt…"></textarea></div><div class="director-field"><label for="directorContinuity">CONTINUITY RULES</label><textarea id="directorContinuity" maxlength="800" rows="3" placeholder="Keep wardrobe, time of day, screen direction, and prop placement consistent…"></textarea></div></div><div class="director-actions"><button id="directorApplyContinuity" class="director-btn" type="button">Apply continuity to all shots</button></div></div><div id="directorShots" class="director-shots" aria-live="polite"></div><div class="director-library"><h3>Prompt library</h3><p class="director-shot-meta">Save and reuse prompts on this device. No API keys or authentication tokens are stored here.</p>',
       '<div class="director-actions"><input id="directorPromptName" maxlength="80" aria-label="Name for a saved prompt" placeholder="Prompt name, e.g. dramatic close-up" style="flex:1;min-width:180px;max-width:420px"><button id="directorSaveCurrentPrompt" class="director-btn" type="button">Save current generator prompt</button></div><div id="directorLibraryList" class="director-library-list"></div></div><p id="directorStatus" class="director-status" role="status" aria-live="polite"></p>'
     ].join('');
     host.append(section);
@@ -196,12 +212,18 @@
     if (current && current.style) $('directorStyle').value = clampText(current.style, 180);
     if (current && current.ratio) $('directorRatio').value = current.ratio;
     if (current && current.duration) $('directorDuration').value = String(current.duration);
+    ['directorCharacters', 'directorLocations', 'directorProps', 'directorContinuity'].forEach(id => { if (current && current[id.replace('director', '').toLowerCase()]) $(id).value = clampText(current[id.replace('director', '').toLowerCase()], 800); });
+    if (current && current.characters) $('directorCharacters').value = clampText(current.characters, 800);
+    if (current && current.locations) $('directorLocations').value = clampText(current.locations, 800);
+    if (current && current.props) $('directorProps').value = clampText(current.props, 800);
+    if (current && current.continuity) $('directorContinuity').value = clampText(current.continuity, 800);
     renderShots(); renderLibrary();
     $('directorWorkflowType').addEventListener('change', () => { state.workflow = $('directorWorkflowType').value; persist(); });
-    ['directorBrief', 'directorStyle', 'directorRatio', 'directorDuration'].forEach(id => {
+    ['directorBrief', 'directorStyle', 'directorRatio', 'directorDuration', 'directorCharacters', 'directorLocations', 'directorProps', 'directorContinuity'].forEach(id => {
       $(id).addEventListener('input', persist); $(id).addEventListener('change', persist);
     });
     $('directorGeneratePlan').addEventListener('click', makeShotList);
+    $('directorApplyContinuity').addEventListener('click', () => applyContinuity(true));
     $('directorExportPlan').addEventListener('click', downloadShotPlan);
     $('directorClearPlan').addEventListener('click', () => { state.shots = []; renderShots(); persist(); setStatus('Shot plan cleared. Your prompt library is unchanged.'); });
     $('directorShots').addEventListener('input', (event) => {
