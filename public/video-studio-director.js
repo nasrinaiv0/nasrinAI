@@ -188,7 +188,8 @@
       if (Array.isArray(restored.shots)) state.shots = restored.shots.filter(s => s && typeof s.id === 'string' && typeof s.prompt === 'string').slice(0, 40);
       if ($('directorBrief')) $('directorBrief').value = clampText(restored.brief, 1200);
     }
-    state.prompts = loadJson(PROMPT_KEY, []).filter(p => p && typeof p.id === 'string' && typeof p.prompt === 'string').slice(0, 100);
+    const savedPrompts = loadJson(PROMPT_KEY, []);
+    state.prompts = (Array.isArray(savedPrompts) ? savedPrompts : []).filter(p => p && typeof p.id === 'string' && typeof p.prompt === 'string').slice(0, 100);
     $('directorWorkflowType').value = state.workflow;
     const current = loadJson(KEY, {});
     if (current && current.brief) $('directorBrief').value = clampText(current.brief, 1200);
