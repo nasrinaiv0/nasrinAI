@@ -5,6 +5,11 @@
 - `test/coding-pipeline.test.js`: flag off by default, stage budget cannot drop the independent review, flag-off coding chat makes exactly one model call.
 - `src/chat.js` parses (`node --check`); `npm test` passes locally except the FFmpeg test that needs the binary. The pipeline stays OFF (`CODING_PIPELINE_ENABLED=false`); release gates in `docs/CLAUDE_HANDOFF_COST_OPTIMIZED_CODING_PIPELINE.md` still apply.
 
+## Safety-first USD budget enforcement — 2026-10-31
+
+- `AI_BUDGET_*` settings (Vercel), required in production; per-call holds in the shared ledger (migration 025) before every paid model attempt, settled to provider-reported cost; free models hold nothing; request ceiling toggle never disables daily/weekly/monthly limits; `budget_unavailable` vs `budget_reached`.
+- Files: `src/config.js`, `src/main.js`, `src/chat.js`, `src/ai/{policy,router,budget,provider-billing}.js`, `.env.example`, `docs/audits/USD_BUDGET_ENFORCEMENT_SAFETY_PLAN.md`. Tests: `test/usd-budget.test.js`; production config fixtures updated.
+
 ## Vercel-owned limits: keep security bounds finite, fix adapters and tests — 2026-10-31
 
 - `src/config.js` + `src/http/app.js`: request-body, message and history limits are set in Vercel (`JSON_MAX_BODY_BYTES`, `MESSAGE_MAX_CHARS`, `AI_HISTORY_CHARS`) but always stay finite: blank or invalid keeps the safe default with a warning. Before, every JSON route without its own limit accepted unlimited bodies. The limits are read before the warnings list is frozen (an invalid value no longer crashes start-up).
@@ -3070,14 +3075,3 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added Vercel-backed `ROUTE_LEVEL_n_HISTORY_CHARS` settings and `FILE_REPLY_MIN_TOKENS`; cleared the corresponding defaults in `.env.example`.
 - Added a fail-closed policy response when no valid reply token budget is supplied to a model call. Subscription token reservations, tier authorization, provider/model output limits, context limits, and request timeouts remain independent safeguards.
 - Implementation PR #719, branch `chore/vercel-source-of-truth-ai-limits`. CI and preview/production verification are not yet complete; no production deployment is claimed.
-
-
-## 2026-10-31 — Cost-Optimized Autonomous Coding Pipeline
-
-Branch: `feature/cost-optimized-coding-pipeline`, stacked on #719's Vercel-managed AI token configuration.
-
-- Added opt-in planning, implementation proposal, test design, independent review and selective Ultra premium review using existing model policy and shared token reservation/settlement/usage telemetry.
-- Existing GitHub workspace and isolated Vercel Sandbox remain the only code-edit/command path. PR creation remains user-confirmed; no model merge/deploy authority.
-- Retired global `AI_MAX_REPLY_TOKENS` reader; per-level route settings are authoritative and native provider limits remain binding.
-- Migrated `FILE_REPLY_MIN_TOKENS` into typed runtime config and made planning-council output/context/call limits operator-configurable.
-- Exact-head tests, CI and security verification pending; Production pipeline remains OFF.

@@ -19,6 +19,14 @@ function toInt(name, value, fallback, min, max) {
   return n;
 }
 
+// A USD amount from Vercel: blank = null; otherwise a number from 0.000001 to 100000.
+function toUsd(name, value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const n = Number(String(value).trim());
+  if (!Number.isFinite(n) || n < 0.000001 || n > 100000) throw new ConfigError(`${name}: expected a USD amount from 0.000001 to 100000`);
+  return n;
+}
+
 function cleanOrigin(name, value) {
   if (!value) return '';
   try {
@@ -432,8 +440,38 @@ export function loadConfig(env = process.env) {
     if (!m || Number(m[1]) > Number(m[2])) throw new ConfigError(`${name}: use a range like 1-3`);
     return Object.freeze([Number(m[1]), Number(m[2])]);
   };
+  // USD spend limits for model calls (Vercel). Production must set all three
+  // period limits: a missing value is never read as unlimited. The per-request
+  // ceiling is on unless AI_BUDGET_REQUEST_LIMIT_ENABLED=false, and switching it
+  // off never switches off the daily, weekly or monthly limits.
+  const budgetDaily = toUsd('AI_BUDGET_DAILY_USD', env.AI_BUDGET_DAILY_USD);
+  const budgetWeekly = toUsd('AI_BUDGET_WEEKLY_USD', env.AI_BUDGET_WEEKLY_USD);
+  const budgetMonthly = toUsd('AI_BUDGET_MONTHLY_USD', env.AI_BUDGET_MONTHLY_USD);
+  const requestLimitFlag = String(env.AI_BUDGET_REQUEST_LIMIT_ENABLED ?? 'true').trim().toLowerCase();
+  if (!['true', 'false'].includes(requestLimitFlag)) throw new ConfigError('AI_BUDGET_REQUEST_LIMIT_ENABLED: use true or false');
+  const budgetRequestLimitEnabled = requestLimitFlag === 'true';
+  const budgetMaxRequest = toUsd('AI_BUDGET_MAX_REQUEST_USD', env.AI_BUDGET_MAX_REQUEST_USD);
+  const budgetReserve = toUsd('AI_BUDGET_RESERVE_USD', env.AI_BUDGET_RESERVE_USD) ?? 0.05;
+  if (isProduction) {
+    const missingBudget = [['AI_BUDGET_DAILY_USD', budgetDaily], ['AI_BUDGET_WEEKLY_USD', budgetWeekly], ['AI_BUDGET_MONTHLY_USD', budgetMonthly]]
+      .filter(([, v]) => v === null).map(([n]) => n);
+    if (budgetRequestLimitEnabled && budgetMaxRequest === null) missingBudget.push('AI_BUDGET_MAX_REQUEST_USD (or AI_BUDGET_REQUEST_LIMIT_ENABLED=false)');
+    if (missingBudget.length) throw new ConfigError('missing required production USD budget settings: ' + missingBudget.join(', '));
+  }
+  if (budgetRequestLimitEnabled && budgetMaxRequest !== null && budgetReserve > budgetMaxRequest) {
+    throw new ConfigError('AI_BUDGET_RESERVE_USD must not exceed AI_BUDGET_MAX_REQUEST_USD');
+  }
+  const budget = Object.freeze({
+    enforced: [budgetDaily, budgetWeekly, budgetMonthly].some((v) => v !== null) || (budgetRequestLimitEnabled && budgetMaxRequest !== null),
+    dailyUsd: budgetDaily, weeklyUsd: budgetWeekly, monthlyUsd: budgetMonthly,
+    requestLimitEnabled: budgetRequestLimitEnabled,
+    maxRequestUsd: budgetRequestLimitEnabled ? budgetMaxRequest : null,
+    reserveUsd: budgetReserve
+  });
+
   const routing = Object.freeze({
     mode: routingMode,
+    budget,
     quickNemotronOnly: has('openrouter'),
     // Cost-optimized coding pipeline is opt-in and remains OFF until Preview validation.
     costOptimizedCodingEnabled: String(env.CODING_PIPELINE_ENABLED ?? 'false').trim().toLowerCase() === 'true',

@@ -197,7 +197,7 @@ const safeModelErrorCode = (kind) => ({
 // opts.stream { onText, reset }: the reply is sent piece by piece as it is written
 // (Stop: opts.signal aborts; what was written so far is kept).
 // `model` is a NasrinAI tier (nasrinai, pro, max, ultra) the caller may pick (see ai/models.js).
-export function createChat({ conversations, limiter, uploads = null, mcp = null, codeWorkspace = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
+export function createChat({ budget = null, conversations, limiter, uploads = null, mcp = null, codeWorkspace = null, usageLog, provider, models, coding = null, plans = null, policy = null, legal = null, webSearch = null, tools = null, confirmations = null, knowledge = null, memory = null, library = null, projects = null, storage = null, founder = null, productKnowledge = null, semanticCache = null, webAnswers = null, communityLearning = null, crawler = null, readLinkImpl = readLink, crawlSiteImpl = crawlSite, config, logger, now = () => Date.now() }) {
   const recordUsage = async (caller, event) => {
     const safe = { ...event };
     const hasTokenCounts = Number.isFinite(Number(safe.inputTokens)) && safe.inputTokens !== undefined
@@ -1251,7 +1251,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
       + history.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
       + media.reduce((n, a) => n + (a.kind === 'image' ? 8192 : a.kind === 'pdf' ? 16000 : 4000), 0);
     const reservation = await limiter.reserveTokens(caller, Math.ceil((legacyInputEstimate * 2 + legacyMaxTokens) * 2));
-    const spendHooks = createProviderSpendHooks({ config, caller, tier: choice.tier });
+    const spendHooks = createProviderSpendHooks({ config, budget, caller });
     try {
       result = await provider.generate({
         system: legacySystem,
