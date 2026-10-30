@@ -323,7 +323,7 @@ export function createOpenRouterClient({
     return eligible[0];
   }
 
-  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens = 2048, temperature, minContextTokens, includeUsage = false, provider = {}, signal, sessionId }) {
+  async function chat({ task = 'chat', model, preferred = [], messages, tools, maxTokens, temperature, minContextTokens, includeUsage = false, provider = {}, signal, sessionId }) {
     if (task === 'decisions') throw new ProviderError('config', 'Decision models require decide({state, questions}); they do not accept chat-completion payloads');
     if (!Array.isArray(messages) || messages.length === 0) throw new ProviderError('config', 'Chat messages are required');
     const selected = model === 'openrouter/free' && task === 'chat' && !(Array.isArray(tools) && tools.length)
@@ -338,7 +338,7 @@ export function createOpenRouterClient({
     if (sessionId != null && (!normalizedSessionId || normalizedSessionId.length > 256 || hasUnsafeSessionIdCharacters)) {
       throw new ProviderError('config', 'OpenRouter session ID must be a non-empty string of at most 256 safe characters');
     }
-    const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.min(32768, Math.floor(maxTokens))),
+    const payload = { model: selected.id, messages, max_tokens: Math.max(1, Math.floor(maxTokens)),
       provider: { ...provider, data_collection: provider.data_collection === 'deny' ? 'deny' : defaultDataCollection, allow_fallbacks: provider.allow_fallbacks !== false } };
     if (normalizedSessionId) payload.session_id = normalizedSessionId;
     if (includeUsage) payload.usage = { include: true };
