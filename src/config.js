@@ -1031,6 +1031,13 @@ export function loadConfig(env = process.env) {
       })(),
       // The OpenAI provider's default model (usage records, health check).
       openaiModel: tiers.nasrinai.provider === 'openai' ? tiers.nasrinai.model : (fallback ? fallback.model : 'gpt-4o-mini'),
+      // MOVO server-to-server chat: direct OpenAI first, then GPT-6 Luna through
+      // OpenRouter only if OpenAI is unavailable. No other provider or model is
+      // ever used for MOVO financial context. MOVO_OPENAI_MODEL picks the OpenAI model.
+      movoRoute: Object.freeze([
+        ...(has('openai') ? [{ provider: 'openai', model: String(env.MOVO_OPENAI_MODEL || (tiers.nasrinai.provider === 'openai' ? tiers.nasrinai.model : 'gpt-4o-mini')).trim(), effort: null }] : []),
+        ...(openrouterApiKey ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])
+      ].map((s) => Object.freeze(s))),
       // NasrinAI's own model server (AI_PROVIDER=local or auto), or null.
       local,
       // AUTO: the GPT model used when the own model cannot answer, or null.
