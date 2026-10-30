@@ -3039,3 +3039,13 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## Monitoring checkpoint — 2026-10-30 15:08 Asia/Manila
+
+- Reconciled the central audit ledger with main after merges #713 (coding workspace/time guard), #714 (batched commands and sandbox reuse), and #715 (parallel read-only tools, up to four pictures, up to ten file blocks).
+- Exact-head CI and Documentation Gates passed for all three merged PRs; main push CI #41012161842 passed. Full test totals were 1,287/1,286 pass/0 fail/1 skipped for #713; 1,294/1,293/0/1 for #714; and 1,297/1,296/0/1 for #715.
+- Production deployment dpl_HiEJFRKoymqDcVX2PMN88GmCtBqY is READY at main SHA 85db3be07e8fa895a835fa7736e2de8ea07b9ed5; root, app.js and creative-intent.js return HTTP 200. This is static delivery evidence, not authenticated feature QA.
+- PR #716 adds a planning-only Video Studio adoption backlog with explicit GPL-3.0-only licensing precautions and tenant/project isolation acceptance criteria. Its initial Documentation Gate failed for a missing changelog entry; commit bfc83e87e47e142c5d93096013ade2d4e635958d added the entry, and corrected-head CI #41018566624 plus Documentation Gate #41018566645 passed.
+- Rate-limit hardening remains open: src/tools/agent.js limited() returns true when store.rateHit is absent. Supported stores implement the method, so this is a defense-in-depth gap, not a demonstrated production exploit.
+- Ledger branch refresh is documentation-only; PR #712 remains open/draft and exact-head validation is required after the current-main reconciliation.

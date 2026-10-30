@@ -1,5 +1,38 @@
 # NasrinAI — Claude Handoff & Progress Snapshot
 
+## Latest verified snapshot — 2026-10-30 15:08 Asia/Manila (07:08 UTC)
+
+- Current main: 85db3be07e8fa895a835fa7736e2de8ea07b9ed5, merge of PR #715. The current production deployment is Vercel deployment dpl_HiEJFRKoymqDcVX2PMN88GmCtBqY, READY at that exact SHA; nasrinai.com is listed among its aliases.
+- PRs #713, #714 and #715 merged in sequence between 05:56 and 06:06 UTC. Their PR-head CI and Documentation Gates passed; main push CI #41012161842 passed.
+- PR #713 CI #41011007035: 1,287 tests total, 1,286 passed, 0 failed, 1 skipped; database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax and secret checks passed.
+- PR #714 CI #41011532839: 1,294 tests total, 1,293 passed, 0 failed, 1 skipped; database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax and secret checks passed.
+- PR #715 CI #41012048749: 1,297 tests total, 1,296 passed, 0 failed, 1 skipped; database tests, dependency audit, OpenRouter activity-sync tests, JavaScript syntax and secret checks passed.
+- Production root and /app.js returned HTTP 200; the served client bundle contains the multi-picture intent/count flow, and /creative-intent.js contains the MAX_PICTURES cap. This is static asset smoke evidence only, not authenticated live image-generation or sandbox execution proof.
+- PR #716 adds a planning-only Video Studio adoption backlog. Its initial Documentation Gate failed because docs/pr-change-log.md was not updated. Changelog correction commit bfc83e87e47e142c5d93096013ade2d4e635958d was pushed; CI #41018566624 and Documentation Gate #41018566645 now pass on the corrected head.
+- PR #712 remains the central audit-ledger review path. Its prior head 21e04a47ec287607ecc11315191b90d8c8946990 was 6 commits behind current main in the API comparison. This update merges current main into the documentation branch without merging the PR; exact-head validation is pending.
+- Security follow-up remains open: src/tools/agent.js limited() returns true if store.rateHit is absent. Both current supported stores implement rateHit, so this is a fail-open configuration fallback, not a demonstrated production exploit. Harden it and test missing-method/store-failure paths.
+- Carried forward and not freshly rechecked: repository main-branch protection, Supabase leaked-password protection, migration 080–082 parity, targeted SECURITY DEFINER review, authenticated Owner Command Center smoke, and persistent attachment issue #486.
+
+### Immediate next actions
+1. Harden the missing-rateHit fallback in src/tools/agent.js and add fail-closed regression tests.
+2. Verify authenticated coding workspace and sandbox behavior, including network denial, timeout/output limits, cleanup and tenant isolation.
+3. Test multi-image allowance, provider billing, partial failures and duplicate retries with synthetic accounts.
+4. Keep PR #716 as planning-only; validate any implementation independently because the reference repository is GPL-3.0-only.
+5. Reconcile the carried-forward branch-protection, leaked-password, migration 080–082, SECURITY DEFINER, OCC and attachment issues.
+
+--- Historical material retained below ---
+
+## Latest verified snapshot — 2026-10-30 09:20 Asia/Manila
+
+- Main/production source: `b39f4dcd62641d5f601e4e707cb46155ca8e135e`; Vercel deployment [dpl_EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) is READY at the same SHA.
+- Latest in-scope application change: PR #709 merged; OCC labels now read “Automation & Jobs” and “Automation”. CI #40972509344 and Documentation Gate #40972509431 passed on its PR head. Live authenticated OCC browser/API behavior is not verified.
+- PR #708/migration 085 remains the recorded OCC database repair; earlier SQL verification is historical evidence and was not repeated in this audit.
+- Documentation PR #710 is 5 ahead / 5 behind and non-mergeable; PR #705 is 22 ahead / 16 behind with no workflow run returned for its exact head. This current-main-based audit branch is the reconciliation candidate.
+- Carried-forward, not freshly rechecked: migration registry/source parity for 080–082; Supabase leaked-password protection; targeted SECURITY DEFINER review.
+- No production schema, Auth setting, credential, deployment, or application code was changed during this audit. See [the 09:20 audit delta](engineering/updates/2026-10-30-0920-nasrinai-audit.md).
+
+
+
 > Original status audit 2026-10-18; this is a running record. The latest reconciled snapshot is 2026-10-30. Historical entries may be stale; always follow the current audit report, GitHub PR state, CI, deployment, and database evidence. See [claude-code-handoff.md](claude-code-handoff.md) for the upgrade backlog and [CLAUDE_MASTER_PLAN_INDEX.md](CLAUDE_MASTER_PLAN_INDEX.md) for the plan index and continuity rules.
 
 Last updated: 2026-10-30
@@ -252,3 +285,63 @@ Changes in this follow-up:
 - Corrected the Owner Command Center automation navigation label from `Automation (NCC)` to `Automation & Jobs` and the Search/Traffic-adjacent automation mini-report label from `Automation (NCC)` to `Automation`.
 - Scope is limited to OCC presentation labels in `src/owner-console.js` and `public/owner-console.js`. Actual NCC (Nasrin Client Connect) links, routes, API identifiers, and product features are intentionally unchanged.
 - UI source correction committed on `fix/occ-automation-label-2026-10-30`. Production deployment and browser verification remain pending; do not claim the hosted screenshot is fixed until deployed and checked.
+
+
+## Latest monitoring checkpoint — 2026-10-30 12:06 Asia/Manila
+
+Current NasrinAI main remains `b39f4dcd62641d5f601e4e707cb46155ca8e135e`, and production deployment [EYBvVZe2o1qdMrUuXvGoXcqD4qkG](https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG) remains READY at that SHA. No new in-scope application change was detected. PR #709 remains the latest verified app change; the OCC live browser/API path is still not independently smoke-tested.
+
+PR #711's prior head `99d3458f2fb15feed4756aba8a1efc2e6473d8c0` passed CI #40992805066 and Documentation Gate #40992805056. This summary/ledger update creates a new docs head; rerun both gates on that exact head before merge.
+
+Keep #702 (reply renderer) and #703 (agent tools/sandbox) out of the merge path until each is reconciled with current main and current-head CI/security review passes. Both are reported non-mergeable and have stale base SHAs. PR #705/#710 are stale duplicate documentation branches; do not merge them as-is. Migration 080–082 parity, leaked-password protection, SECURITY DEFINER review, OCC live smoke, and persistent attachment issue #486 remain open. MOVO PR #63/#64 belong to the MOVO repository and do not change NasrinAI status.
+
+
+
+
+## Monitoring checkpoint — 2026-10-30 13:41 Asia/Manila (05:41 UTC)
+
+### Verified progress: PR #702 merged and production assets smoke-checked
+
+- **PR:** [#702 — Richer reply rendering](https://github.com/nasrinaiv0/nasrinAI/pull/702).
+- **Merge timestamp:** 2026-10-30T05:40:15Z.
+- **Merge commit / new main SHA:** [`1b9a8b0820565d71c63ab4818d377059a56a4a15`](https://github.com/nasrinaiv0/nasrinAI/commit/1b9a8b0820565d71c63ab4818d377059a56a4a15). Main advanced from `b39f4dcd62641d5f601e4e707cb46155ca8e135e`; the three-commit comparison shows only PR #702's eight changed paths.
+- **Changed paths:** `docs/chat.md`, `docs/pr-change-log.md`, `public/app.css`, `public/app.js`, `public/format.js`, `public/index.html`, `src/ai/prompt.js`, `test/reply-rendering-rich.test.js`.
+- **Before:** replies used the prior Markdown subset without the new language-aware highlighting, diff presentation, long-code folding, bounded math rendering, callouts, nested-list handling, or h5/h6 support.
+- **After:** code blocks can use token spans for 13 language families; diff blocks style additions/removals/hunks; code blocks longer than 28 lines expose a Show all/Show less control; a bounded LaTeX subset renders as MathML with source fallback; callouts, multi-line quotes, nested lists, and h5/h6 are supported. Unknown languages and code over 30,000 characters remain plain. The implementation builds DOM nodes and uses text content rather than assigning `innerHTML`; the system prompt now describes the supported formats.
+- **Rationale:** improve readability and presentation of coding, mathematical, and structured answers without broadening the HTML execution surface.
+- **Dependencies/migrations:** no package manifest change or database migration was part of PR #702. No database schema, RLS, grants, Auth settings, provider credentials, or user data changed.
+- **Exact-head CI:** [run #41009525627](https://github.com/nasrinaiv0/nasrinAI/actions/runs/41009525627) passed; Documentation Gate [#41009525595](https://github.com/nasrinaiv0/nasrinAI/actions/runs/41009525595) passed. CI log reports 1,265 tests total, 1,264 passed, 0 failed, 1 skipped. Database tests (`db/tests/run.sh`), dependency audit at `--audit-level=high`, package-lock check, JavaScript syntax, OpenRouter activity-sync Python tests, and secret scan passed.
+- **Production deployment:** [Vercel deployment `dpl_CgPeJbNBMEVDCCZuaNCC2fQUx8hZ`](https://vercel.com/nasrin-ai/nasrinai/CgPeJbNBMEVDCCZuaNCC2fQUx8hZ) reached READY for main SHA `1b9a8b0820565d71c63ab4818d377059a56a4a15`; aliases include `nasrinai.com`.
+- **Production smoke evidence:** `https://nasrinai.com/` returned HTTP 200 and references `/format.js?v=20261029-highlight-math`. The referenced script returned HTTP 200 (36,512 characters in the fetched response); string checks found the tokenizer, MathML, callout, and code-expansion implementation, and no `.innerHTML =` assignment. This confirms static delivery only—not a full browser, keyboard, screen-reader, or CSP-console walkthrough.
+- **Rollback consideration:** if a rendering regression is found, revert the renderer change through a reviewed follow-up/rollback PR; do not hot-edit production assets.
+
+### PR #703: agent tools reconciled onto new main; exact-head checks passed
+
+- **PR:** [#703 — Agent tools](https://github.com/nasrinaiv0/nasrinAI/pull/703).
+- **Current head:** `b9cfc6b0fc6b4fc15de51990d3b118b7226b6ed1`; current base/main: `1b9a8b0820565d71c63ab4818d377059a56a4a15`. GitHub compare reports 5 commits ahead, 0 behind. PR remains open and not draft; this monitoring run did not merge it.
+- **Changed paths:** `.env.example`, `docs/pr-change-log.md`, `docs/tools.md`, `public/app.js`, `public/legal/privacy.md`, `src/auto-repair.js`, `src/chat.js`, `src/config.js`, `src/github/api.js`, `src/github/index.js`, `src/main.js`, `src/routes.js`, `src/tools/agent.js`, `test/agent-tools.test.js`, `test/legal.test.js`, `test/page.test.js`.
+- **Behavior added:** `fetch_url` reads public pages through the SSRF-safe reader with paging; `web_search` offers configured Google Custom Search results; `run_code` runs signed-in users' JavaScript/Python in a fresh Vercel Sandbox; `github_find_files` searches the connected user's repository tree by glob. Intent detection offers tools when appropriate, and a failed `run_code` can enter the bounded automatic repair loop. Privacy version advances to `2026-10-29.2`.
+- **Resource/security controls claimed in source:** code length capped at 20,000 characters; output capped at 2,800 characters; per-actor hourly limits; sandbox created with `networkPolicy: 'deny-all'`, no injected secrets, command timeout of 30 seconds, sandbox timeout of 50 seconds, and cleanup via `sandbox.stop()`. `RUN_CODE_ENABLED=false` disables the code tool. The tool is available to signed-in users only.
+- **Exact-head CI:** [run #41009772034](https://github.com/nasrinaiv0/nasrinAI/actions/runs/41009772034) passed; Documentation Gate [#41009772089](https://github.com/nasrinaiv0/nasrinAI/actions/runs/41009772089) passed. CI log reports 1,277 tests total, 1,276 passed, 0 failed, 1 skipped. Database tests, `npm audit --audit-level=high`, lockfile check, JavaScript syntax, OpenRouter activity-sync Python tests, and secret scan passed.
+- **Preview boundary:** the read-only Vercel listing filtered to `feat/agent-tools` since 05:40 UTC returned no deployment. Do not claim an exact-head preview or live sandbox run is verified yet. The sandbox tests use a fake sandbox factory; production execution, deny-all network enforcement, timeout, cleanup, and cost/limit behavior have not been independently smoke-tested.
+- **Static hardening finding (not proven exploitable in current production):** `src/tools/agent.js` helper `limited()` returns `true` when `store.rateHit` is missing. That is fail-open for the advertised `fetch_url`, `web_search`, and `run_code` limits if a store adapter omits the method. The current memory and Supabase store implementations both implement `rateHit`, and errors from an implemented method return false, so no current production bypass is established. A review note was added to PR #703 [comment](https://github.com/nasrinaiv0/nasrinAI/pull/703#issuecomment-6515935485); recommend changing the missing-method path to fail closed and adding a regression test before final security approval.
+- **Dependencies/migrations:** no new database migration or package-manifest change is in the PR diff. CI's database suite passed; this does not replace a live sandbox test.
+- **Next actions:** verify a READY preview for the current head; run a controlled sandbox smoke test proving no network/secrets, enforced timeout/output caps, cleanup, and hourly rate limits; add missing-`rateHit` fail-closed coverage; test prompt-injection resistance for fetched/search content; review the privacy notice and repair-loop boundaries. Keep the PR unmerged until those checks are recorded.
+
+### Documentation branch status and carried-forward risks
+
+- PR #711 remains open/draft on head `183f0874267deba52089bea9de388d21588ed10c`. Compared with current main `1b9a8b0820565d71c63ab4818d377059a56a4a15`, its documentation branch is 14 commits ahead and 3 behind (diverged). It must be reconciled and exact-head CI plus Documentation Gate rerun before merge. This checkpoint is appended to the existing draft documentation branch; it does not merge or retarget the PR.
+- Repository branch protection was previously reported disabled; not rechecked in this checkpoint. Supabase leaked-password protection was previously reported disabled; not rechecked. Migration registry/source parity for 080–082, targeted SECURITY DEFINER review, authenticated Owner Command Center smoke test, and persistent attachment issue #486 remain open.
+- **Monitoring safety boundary:** PR #702 was merged by the repository workflow/maintainer before this audit; this automation did not merge it. No application code, database, migration, Auth setting, secret, or deployment was changed by this monitoring run. Only audit documentation and a PR review comment were written.
+
+
+
+
+## Latest monitoring checkpoint — 2026-10-30 13:46 Asia/Manila
+
+- **Current production main:** `771e1b6646e20f3ffb01285f50306ac953170d79`, merge of PR #703. Production deployment [dpl_FnsK2aWMg6UBzzwGtG5rEGHmTWM5](https://vercel.com/nasrin-ai/nasrinai/FnsK2aWMg6UBzzwGtG5rEGHmTWM5) is READY.
+- **PR #702** (rich reply renderer) and **PR #703** (agent tools) are both merged. Exact-head CI and Documentation Gate passed before the #703 merge; test logs report 1,277 total / 1,276 passed / 0 failed / 1 skipped for #703. Production root, `app.js`, and canonical `/legal/privacy.md` returned HTTP 200; the notice contains Google Custom Search API and Vercel Sandbox disclosures.
+- **Security follow-up:** the merged `src/tools/agent.js` `limited()` helper returns true if `store.rateHit` is absent. Supported memory/Supabase stores currently implement it, so no live bypass is established; still recommend fail-closed handling plus a missing-method regression test. No authenticated production sandbox smoke test was run.
+- **Audit continuity:** PR #711 was closed unmerged at 05:43:38Z; its post-closure ledger commits were not attached to the closed PR head. A new draft documentation PR based on current main restores the central ledger and dated history. Exact-head documentation checks are pending.
+- Carried-forward, not freshly rechecked: main branch protection, leaked-password protection, migration 080–082 parity, SECURITY DEFINER review, authenticated OCC smoke, and attachment issue #486. See [detailed 13:46 audit](engineering/updates/2026-10-30-1346-pr703-production-and-ledger-recovery.md).
+- Monitoring changed documentation and posted a review note only; no application code, database, Auth setting, secret, merge, or deployment was changed by this audit.
