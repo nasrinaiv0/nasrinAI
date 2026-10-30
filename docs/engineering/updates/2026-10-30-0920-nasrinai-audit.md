@@ -54,3 +54,8 @@
 - CI: https://github.com/nasrinaiv0/nasrinAI/actions/runs/40972509344
 - Documentation Gate: https://github.com/nasrinaiv0/nasrinAI/actions/runs/40972509431
 - Production deployment: https://vercel.com/nasrin-ai/nasrinai/EYBvVZe2o1qdMrUuXvGoXcqD4qkG
+
+
+## Documentation PR and validation boundary
+
+This audit is proposed in [NasrinAI documentation PR #711](https://github.com/nasrinaiv0/nasrinAI/pull/711), based on current main. It remains open/draft; the PR's final-head CI and Documentation Gate are not claimed passed until observed on that exact head.
