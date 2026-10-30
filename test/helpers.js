@@ -47,7 +47,27 @@ export const SECRET_KEY = `nss_cccccccccccc_${SECRET}`;
 export const USER_TOKEN = 'header.payload.signature';
 
 // Most tests are not about the Terms gate; the legal tests turn it on.
-export const testConfig = (env = {}) => loadConfig({ NODE_ENV: 'test', GUEST_SESSION_SECRET: GUEST_SECRET, LEGAL_REQUIRE_TERMS: 'false', ...env });
+export const testConfig = (env = {}) => loadConfig({
+  NODE_ENV: 'test',
+  GUEST_SESSION_SECRET: GUEST_SECRET,
+  LEGAL_REQUIRE_TERMS: 'false',
+  MESSAGE_MAX_CHARS: '100000',
+  AI_HISTORY_CHARS: '100000',
+  ...Object.fromEntries([1, 2, 3, 4, 5].flatMap((level) => [
+    [`ROUTE_LEVEL_${level}_MAX_REPLY_TOKENS`, '0'],
+    [`ROUTE_LEVEL_${level}_HISTORY_CHARS`, '100000']
+  ])),
+  FILE_REPLY_MIN_TOKENS: '0',
+  PLANNING_COUNCIL_MAX_CALLS: '2',
+  PLANNING_COUNCIL_MAX_TOKENS_PER_CALL: '0',
+  PLANNING_COUNCIL_CONTEXT_CHARS: '9000',
+  PLANNING_COUNCIL_OUTPUT_CHARS: '0',
+  CODING_PIPELINE_MAX_STAGE_CALLS: '5',
+  CODING_PIPELINE_CONTEXT_CHARS: '24000',
+  CODING_PIPELINE_REVIEW_MAX_TOKENS: '0',
+  CHAT_MAX_BODY_BYTES: '4000000',
+  ...env
+});
 
 // A logger that keeps lines in memory, so tests can check what was logged.
 export function memoryLogger() {
