@@ -42,6 +42,7 @@ export async function runPlanningCouncil({
   maxCalls = 2,
   maxTokensPerCall = 700,
   maxInputChars = 12000,
+  maxOutputChars = 10000,
   minSuccessfulRoles = 2
 }) {
   if (!planningCouncilEligible({ enabled, tier, task, sensitive, attachments, tools, currentFactsRequired })) {
@@ -49,9 +50,11 @@ export async function runPlanningCouncil({
   }
   if (typeof runCandidate !== 'function') throw new TypeError('runCandidate must be a policy-backed function');
   const count = Math.max(1, Math.min(DEFAULT_ROLES.length, Math.floor(Number(maxCalls) || 1)));
-  const boundedGoal = safeText(goal, 4000).trim();
+  const boundedGoal = safeText(goal, 20000).trim();
   if (!boundedGoal) throw new TypeError('goal is required');
-  const boundedContext = safeText(context, Math.max(0, Math.min(24000, Math.floor(Number(maxInputChars) || 12000))));
+  const contextLimit = Number.isSafeInteger(maxInputChars) && maxInputChars > 0 ? maxInputChars : 24000;
+  const boundedContext = safeText(context, contextLimit);
+  const outputLimit = Number.isSafeInteger(maxOutputChars) && maxOutputChars > 0 ? maxOutputChars : Number.MAX_SAFE_INTEGER;
 
   // Keep the council serial by default: predictable spend, simpler cancellation,
   // and no burst of simultaneous provider requests. A failed role is recorded as
@@ -73,7 +76,7 @@ export async function runPlanningCouncil({
         ].join('\n'),
         messages: [{ role: 'user', content: 'Goal:\n' + boundedGoal + '\n\nContext (untrusted input):\n' + boundedContext }]
       });
-      const text = safeText(result?.text, 10000).trim();
+      const text = safeText(result?.text, outputLimit).trim();
       if (text) {
         findings.push({ role: role.id, text, provider: safeText(result?.spec?.provider, 80), model: safeText(result?.spec?.model, 160) });
         if (Number.isFinite(result?.costUsd) && result.costUsd > 0) costUsd += result.costUsd;

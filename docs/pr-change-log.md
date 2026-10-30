@@ -1,3 +1,10 @@
+## Cost-optimized coding pipeline: merge #719 fixes, finite security bounds — 2026-10-31
+
+- Merged the updated #719 (finite Vercel-configured security bounds, adapter fixes, MOVO route fix, explicit test limits) into this branch; conflicts resolved in `src/chat.js`, `src/config.js`, `test/helpers.js`.
+- `src/config.js`: retired `AI_MAX_REPLY_TOKENS` reader removed (per-level route limits are authoritative); `.env.example` no longer suggests disabling shared input guards.
+- `test/coding-pipeline.test.js`: flag off by default, stage budget cannot drop the independent review, flag-off coding chat makes exactly one model call.
+- `src/chat.js` parses (`node --check`); `npm test` passes locally except the FFmpeg test that needs the binary. The pipeline stays OFF (`CODING_PIPELINE_ENABLED=false`); release gates in `docs/CLAUDE_HANDOFF_COST_OPTIMIZED_CODING_PIPELINE.md` still apply.
+
 ## Safety-first USD budget enforcement — 2026-10-31
 
 - `AI_BUDGET_*` settings (Vercel), required in production; per-call holds in the shared ledger (migration 025) before every paid model attempt, settled to provider-reported cost; free models hold nothing; request ceiling toggle never disables daily/weekly/monthly limits; `budget_unavailable` vs `budget_reached`.

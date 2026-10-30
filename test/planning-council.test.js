@@ -88,3 +88,35 @@ test('planning council defaults to two serial specialist calls rather than query
   assert.equal(result.findings.length, 2);
   assert.equal(result.costUsd, 0.002);
 });
+
+
+test('council output clipping is operator-configurable; zero removes extra app clipping', async () => {
+  const large = 'x'.repeat(12000);
+  const limited = await runPlanningCouncil({
+    enabled: true, tier: 'max', task: 'planning', goal: 'Plan',
+    maxOutputChars: 1200,
+    runCandidate: async (req) => ({ text: large, spec: { provider: 'openrouter', model: req.role } })
+  });
+  assert.equal(limited.findings[0].text.length, 1200);
+
+  const unlimited = await runPlanningCouncil({
+    enabled: true, tier: 'max', task: 'planning', goal: 'Plan',
+    maxOutputChars: 0,
+    runCandidate: async (req) => ({ text: large, spec: { provider: 'openrouter', model: req.role } })
+  });
+  assert.equal(unlimited.findings[0].text.length, large.length);
+});
+
+test('council cannot exceed the three structurally implemented roles', async () => {
+  let calls = 0;
+  await runPlanningCouncil({
+    enabled: true, tier: 'max', task: 'planning', goal: 'Plan',
+    maxCalls: 100,
+    minSuccessfulRoles: 1,
+    runCandidate: async (req) => {
+      calls += 1;
+      return { text: req.role, spec: { provider: 'openrouter', model: req.role } };
+    }
+  });
+  assert.equal(calls, 3);
+});

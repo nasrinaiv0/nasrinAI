@@ -279,3 +279,38 @@ The price catalog records conservative cache pricing as input rates for generic 
 - OpenRouter TTS uses `google/gemini-3.8-flash-lite-tts`, with $0.50/M text input and $6/M audio output, configured through `SPEECH_PROVIDER=openrouter`, `OPENROUTER_TTS_MODEL`, and `OPENROUTER_TTS_PROVIDER`.
 - Provider-routing correction: the current OpenRouter model/provider listing identifies **Google AI Studio**, not Google Vertex, as the available provider for this TTS model. The default and `.env.example` use `Google AI Studio` to avoid pinning requests to an unsupported provider. Do not change to Google Vertex unless OpenRouter's live provider catalog confirms that exact provider for this model. Sources: https://openrouter.ai/openai/gpt-6-sol/ ; https://openrouter.ai/openai/gpt-6.1-sol ; https://openrouter.ai/google/gemini-3.8-flash-lite-tts/providers .
 - TTS currently uses the existing OpenRouter `/audio/speech` adapter, pins the model and provider, restricts voice IDs, and uses the existing voice usage/budget accounting. Live synthesis remains unverified without a configured OpenRouter key; do not claim provider reachability until a Preview smoke test succeeds.
+
+
+## 2026-10-31 — Cost-Optimized Autonomous Coding Pipeline
+
+### Pipeline stages and execution authority
+1. **Planner:** requirements, assumptions, constraints, security risks and measurable acceptance criteria.
+2. **Implementation proposal:** minimal changes and affected files; the model cannot claim workspace mutation.
+3. **Test designer:** functional, regression, boundary, authorization, tenant-isolation, privacy and negative-security tests.
+4. **Independent reviewer:** a separate policy-selected model challenges correctness and security.
+5. **Premium final reviewer:** optional only for verified Ultra work at/above configured complexity; receives focused evidence, not the whole repository.
+6. **Existing coding tools:** GitHub workspace edits and isolated Vercel Sandbox command execution; test-fix-retest needs actual command output.
+7. **Approval:** PR creation remains explicitly user-confirmed. Models cannot merge or deploy.
+
+Every stage uses the existing policy, server-derived tier/route range, privacy/capability checks, token reservations/settlement and usage telemetry. No prompt-supplied model IDs, direct provider client or parallel budget ledger. Cost savings must be benchmarked against actual billed usage and quality outcomes before being claimed.
+
+### Vercel controls
+- `CODING_PIPELINE_ENABLED=false` until Preview validation.
+- `CODING_PIPELINE_MAX_STAGE_CALLS` and `CODING_PIPELINE_CONTEXT_CHARS` bound calls and context.
+- `CODING_PIPELINE_REVIEW_MAX_TOKENS=0` means no additional application output cap; provider-native limits remain.
+- `CODING_PIPELINE_PREMIUM_REVIEW` and `CODING_PIPELINE_PREMIUM_REVIEW_MIN_COMPLEXITY` govern selective premium review.
+- `PLANNING_COUNCIL_*` controls the separate planning council.
+
+### Reply ceiling and retained security controls
+The global `AI_MAX_REPLY_TOKENS` reader is retired; per-level `ROUTE_LEVEL_n_MAX_REPLY_TOKENS` values are authoritative. Zero removes only the extra app-level output ceiling; provider-native output/context ceilings remain binding. Request body, message, history, archive, patch and command allowlists remain finite security controls. Subscription quotas, tenant isolation, privacy, token/spend budgets and approval gates are unchanged.
+
+### Implementation status — 2026-10-31
+- [x] Pipeline stages integrated into the existing chat/policy flow behind an OFF-by-default feature flag.
+- [x] Stage calls reuse reservations, settlement and provider usage telemetry.
+- [x] Independent reviewer and conditional Ultra premium reviewer included.
+- [x] Existing workspace/Sandbox remains execution authority; PR confirmation retained.
+- [x] File reply minimum moved into typed config; council settings are Vercel-controlled.
+- [ ] Exact-head full test suite, CI and secret scan.
+- [ ] Integration tests for disabled flag, entitlements, privacy exclusions, fallback and accounting.
+- [ ] Preview provider smoke and measured cost/quality benchmark.
+- [ ] Production feature flag remains disabled until release gates pass.
