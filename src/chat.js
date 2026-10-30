@@ -534,7 +534,7 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
     // Asking for a file or a long document needs room: the reply may use more tokens than usual.
     const minTokens = blocks && !voice && FILE_WORDS.test(typed) ? FILE_TOKENS : 0;
     // Smart routing decides the level, and with it how much history and reply length.
-    const plan = smart ? policy.plan({ tier: choice.tier, paidQuick: choice.tier === 'nasrinai' && accountPlan !== 'free', message: typed, history: fullHistory, attachments: files }) : null;
+    const plan = smart ? policy.plan({ tier: choice.tier, paidQuick: choice.tier === 'nasrinai' && accountPlan !== 'free', message: typed, history: fullHistory, attachments: files, movoScoped }) : null;
     activePlan = plan;
     const history = fitHistory(fullHistory, plan ? plan.historyChars : config.ai.historyChars);
     // A comparison request (or Regenerate on one): the reply leads with a table.
