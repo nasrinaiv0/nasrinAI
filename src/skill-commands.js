@@ -1,4 +1,5 @@
 import CATALOG from '../config/skill-commands.json' with { type: 'json' };
+import IMAGE_EDITS from '../config/image-edit-commands.json' with { type: 'json' };
 
 // Skill slash commands (docs/features/universal-slash-commands.md). The list is
 // generated from docs/NASRINAI_SKILLS.md and the Professional AI roles by
@@ -9,6 +10,12 @@ const BY_NAME = new Map(CATALOG.commands.map((c) => [c.command, Object.freeze(c)
 
 export const skillCommandCount = () => BY_NAME.size;
 export const skillCatalog = () => CATALOG;
+// Everything the composer's "/" menu offers: skill commands plus picture-editing
+// commands (config/image-edit-commands.json). Picture edits run in the app
+// through the image endpoint with the attached photo, never through chat.
+const MENU = Object.freeze({ version: 1, commands: [...CATALOG.commands, ...IMAGE_EDITS.commands] });
+export const commandMenu = () => MENU;
+export const imageEditCount = () => IMAGE_EDITS.commands.length;
 
 // "/sql-query-optimization make this faster: ..." -> { command, rest }
 export function resolveSkillCommand(text) {

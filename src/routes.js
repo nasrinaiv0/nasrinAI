@@ -16,7 +16,7 @@ import { publicCatalog } from './ai/professions.js';
 import { createNotices, WHENS } from './notices.js';
 import { COMMUNITY_LEARNING_CONSENT_VERSION } from './knowledge/community-learning.js';
 import { PROGRAMMING_DOC_SOURCES } from './knowledge/programming-sources.js';
-import { skillCatalog } from './skill-commands.js';
+import { commandMenu } from './skill-commands.js';
 
 const IMPROVEMENT_CONSENT_VERSION = COMMUNITY_LEARNING_CONSENT_VERSION;
 
@@ -1346,11 +1346,11 @@ return { body: { sites: await connect.list(caller) } }; }
       }
     },
     {
-      // Skill slash commands for the composer's "/" menu (config/skill-commands.json).
+      // Slash commands for the composer's "/" menu: skills and picture edits.
       method: 'GET',
       path: '/v1/commands',
       public: true,
-      handler: async () => ({ body: skillCatalog() })
+      handler: async () => ({ body: commandMenu() })
     },
     {
       // In-app notices for everyone (config/notices.json). Guests hide the
