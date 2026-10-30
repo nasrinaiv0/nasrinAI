@@ -1041,6 +1041,29 @@ export function createChat({ conversations, limiter, uploads = null, mcp = null,
       } catch (err) {
         logger.warn('planning council unavailable; using normal route', { code: err?.code || err?.name || 'error' });
       }
+
+      // Initial response call: retain the ordinary chat path after optional
+      // orchestration context has been added. A tool-schema rejection retries
+      // once without tools; reservations/settlement remain the shared policy path.
+      const initialRunOptions = {
+        onFailure,
+        caller,
+        reserveTokens: async ({ inputTokens, maxTokens }) =>
+          limiter.reserveTokens(caller, Math.ceil((inputTokens * 2 + maxTokens) * 2)),
+        settleTokens: (reservation, actualTokens) => limiter.settleTokens(reservation, actualTokens)
+      };
+      try {
+        run = await policy.run(plan, req, initialRunOptions);
+      } catch (err) {
+        if (!(req.tools && err instanceof ProviderError && err.kind === 'config' && err.status === 400)) throw err;
+        logger.warn('model rejected the tools; answering without them', {
+          provider: err.provider,
+          model: err.model
+        });
+        req = { ...req, tools: undefined };
+        run = await policy.run(plan, req, initialRunOptions);
+      }
+
         // The model asked for tools: code runs them (the registry decides what
         // is allowed), the results go back, and the model answers. Bounded:
         // MAX_TOOL_ROUNDS, and the last round must answer in words.
