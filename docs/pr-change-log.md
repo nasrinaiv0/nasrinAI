@@ -1,3 +1,11 @@
+## Video Studio Director workflow implementation — 2026-10-30
+
+- Added `public/video-studio-director.js`, loaded from `public/video-studio.html`, with a responsive Director & Shot Planner for short drama, music video, product ad, and social-short outlines.
+- Shot prompts are editable; users can remove shots, populate the existing video prompt field, save/reuse/delete local prompt-library entries, and export a versioned JSON shot plan. Plan export is not video rendering and does not automatically call a paid generator.
+- Uses feature-scoped localStorage keys and bounds for user-entered text; validates restored prompt-library shape and does not store provider credentials or auth tokens.
+- Added `test/video-studio-director.test.js` and detailed status/limitations in `docs/video-studio-drama-studio-feature-adoption.md`.
+- Validation: JavaScript parser check passed in the implementation session. CI, full test suite, and browser/mobile runtime behavior are still pending. This is the first workflow slice, not completion of the entire Drama Studio-inspired backlog.
+
 ## Video Studio Drama Studio-inspired feature adoption plan — 2026-10-30
 
 - Added `docs/video-studio-drama-studio-feature-adoption.md`, a planning-only, prioritized and test-gated backlog for timeline editing, Director/creator workflows, prompt and workflow libraries, asset provenance, and production-safe export.
