@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createProviderSpendHooks } from '../src/ai/provider-billing.js';
 
-test('provider-reported cost is retained without application-side USD reservations', async () => {
+test('without configured USD limits, provider-reported cost is recorded and nothing is held', async () => {
   let reserveCalls = 0;
   const legacyBudget = {
     async reserveSpend() { reserveCalls++; throw new Error('local USD reservation must not run'); },
@@ -15,7 +15,7 @@ test('provider-reported cost is retained without application-side USD reservatio
     tier: 'ultra'
   });
   const reservation = await hooks.reserve({ provider: 'openai', model: 'provider/model-without-local-price', request: {} });
-  assert.deepEqual(reservation, { provider: 'openai', model: 'provider/model-without-local-price', providerBilling: true });
+  assert.deepEqual(reservation, { provider: 'openai', model: 'provider/model-without-local-price', providerBilling: true, hold: null });
   const settled = await hooks.settle(reservation, { inputTokens: 10, outputTokens: 5, actualCostUsd: 0.0123 });
   assert.equal(settled.costUsd, 0.0123);
   assert.equal(settled.spendReservationId, null);

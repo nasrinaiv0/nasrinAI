@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createProviderSpendHooks } from './provider-billing.js';
 import { ProviderError } from './provider.js';
 import { classify } from './classify.js';
 import { estimateTokens } from './token-estimate.js';
@@ -34,7 +35,7 @@ const FAILOVER = new Set([...RETRYABLE, 'config']);
 const CONFIG_COOLDOWN_MS = 10 * 60_000;
 const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xhigh: 3, max: 4 };
 
-export function createPolicy({ config, provider, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
+export function createPolicy({ config, provider, logger, budget = null, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
   const r = config.ai.routing;
   // A level's history budget (Vercel ROUTE_LEVEL_n_HISTORY_CHARS); 0 or unset
   // uses the shared, always-finite AI_HISTORY_CHARS.
@@ -122,6 +123,9 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
       const { minTokens = 0, maxTokens: requestedMaxTokens = null, excludeModels = [], ...modelReq } = req;
       const excluded = new Set(Array.isArray(excludeModels) ? excludeModels.map((x) => String(x)) : []);
       req = modelReq;
+      // USD budget: every paid provider attempt (including failover) holds
+      // budget in the shared ledger first (src/ai/provider-billing.js).
+      const spendHooks = createProviderSpendHooks({ config, budget, caller });
       const attachments = req.attachments || [];
       const inputTokens = estimateTokens(req.system) + req.messages.reduce((n, m) => n + estimateTokens(m.content || ''), 0)
         + (req.tools?.length ? estimateTokens(JSON.stringify(req.tools)) : 0)
@@ -387,7 +391,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          const generationRequest = { ...req, task: plan.task, route: spec, sensitive: plan.sensitive === true,
+          const generationRequest = { ...req, spendHooks, spendTier: plan.tier, task: plan.task, route: spec, sensitive: plan.sensitive === true,
             ...(Number.isSafeInteger(callMaxTokens) && callMaxTokens > 0 ? { maxTokens: callMaxTokens } : {}) };
           result = await provider.generate({ ...generationRequest,
             disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' && plan.paidQuick !== true });

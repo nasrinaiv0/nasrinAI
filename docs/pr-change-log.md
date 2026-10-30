@@ -1,3 +1,8 @@
+## Safety-first USD budget enforcement — 2026-10-31
+
+- `AI_BUDGET_*` settings (Vercel), required in production; per-call holds in the shared ledger (migration 025) before every paid model attempt, settled to provider-reported cost; free models hold nothing; request ceiling toggle never disables daily/weekly/monthly limits; `budget_unavailable` vs `budget_reached`.
+- Files: `src/config.js`, `src/main.js`, `src/chat.js`, `src/ai/{policy,router,budget,provider-billing}.js`, `.env.example`, `docs/audits/USD_BUDGET_ENFORCEMENT_SAFETY_PLAN.md`. Tests: `test/usd-budget.test.js`; production config fixtures updated.
+
 ## Vercel-owned limits: keep security bounds finite, fix adapters and tests — 2026-10-31
 
 - `src/config.js` + `src/http/app.js`: request-body, message and history limits are set in Vercel (`JSON_MAX_BODY_BYTES`, `MESSAGE_MAX_CHARS`, `AI_HISTORY_CHARS`) but always stay finite: blank or invalid keeps the safe default with a warning. Before, every JSON route without its own limit accepted unlimited bodies. The limits are read before the warnings list is frozen (an invalid value no longer crashes start-up).

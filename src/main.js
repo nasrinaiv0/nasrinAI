@@ -31,6 +31,7 @@ import { createVideoStudioExporter } from './video-studio-export.js';
 import { createVideoStudioRenderWorker } from './video-studio-render-worker.js';
 import { createPayMongo } from './payments/paymongo.js';
 import { createPolicy } from './ai/policy.js';
+import { createBudget } from './ai/budget.js';
 import { createWebSearch } from './web/search.js';
 import { createGoogleWebSearch } from './web/google-search.js';
 import { createGeminiImage, createOpenAIImage, createOpenRouterImage } from './ai/image.js';
@@ -164,8 +165,10 @@ export function buildApp({ config, logger }) {
   const admin = config.supabaseUrl ? createSupabaseAdmin({ url: config.supabaseUrl, serviceKey: config.supabaseSecretKey }) : null;
   const legal = createLegal({ store, config: effective, logger, deleteAuthUser: admin ? (id) => admin.deleteUser(id) : null });
   const payments = config.paymongo ? createPayMongo(config.paymongo) : null;
+  // Shared USD ledger for model calls (AI_BUDGET_* in Vercel; migration 025).
+  const reasoningBudget = createBudget({ store, config: effective, logger });
   const policy = provider && config.ai.routing.mode === 'smart'
-    ? createPolicy({ config: effective, provider, logger })
+    ? createPolicy({ config: effective, provider, budget: reasoningBudget, logger })
     : null;
   const googleWebSearch = config.web.googleApiKey && config.web.googleEngineId
     ? createGoogleWebSearch({ apiKey: config.web.googleApiKey, engineId: config.web.googleEngineId })
@@ -250,7 +253,7 @@ export function buildApp({ config, logger }) {
   const crawler = config.supabaseUrl ? createWebCrawler({ store, logger, embedder }) : null;
   const crawlerKnowledgeIndexer = config.supabaseUrl ? createCrawlerKnowledgeIndexer({ store, logger, platformTenantId: PLATFORM_TENANT_ID }) : null;
   const research = config.research?.enabled ? createResearch({ store, limiter, library, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, webSearch, crawler, config: effective, logger }) : null;
-  const chat = createChat({ conversations, limiter, uploads, mcp, codeWorkspace: github.workspace, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });
+  const chat = createChat({ budget: reasoningBudget, conversations, limiter, uploads, mcp, codeWorkspace: github.workspace, webAnswers: createWebAnswers({ store, logger }), usageLog, provider, models, coding, plans, policy, semanticCache, legal, webSearch, tools, confirmations, knowledge, memory, communityLearning, crawler, library, projects, storage, founder, productKnowledge, config: effective, logger });
   const facebook = config.facebook ? createFacebook({ config: effective, store, chat, conversations, logger }) : null;
   if (facebook) logger.info('messenger on');
   const sp = config.ai.speech;
