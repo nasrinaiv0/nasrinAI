@@ -264,3 +264,13 @@ Changes in this follow-up:
 - **Implementation order:** (0) audit current dashboard routes, schema, RLS, canonical entities, and event hooks; (1) secure workbook foundation; (2) grid/templates/import/export; (3) event capture/recovery; (4) AI tools/reporting; (5) full regression/security/deployment verification.
 - **Current status:** requirements and acceptance criteria documented. Existing architecture audit, application code, migrations, feature tests, CI result for PR #726, deployment, and production behavior are **not verified** by this change. No claim that the feature is implemented or live.
 - **Next action:** implementation must start with Phase 0 evidence and update this running record, the index, detailed spec, and change log at each meaningful milestone. Include exact files/routes/schema/policies, migration reconciliation, test commands/results, deployment evidence, remaining gaps, and status labels: Implemented / Partially implemented / Not implemented / Not verified.
+
+
+## Clone Spreadsheets dashboard module — documented, runtime not verified (2026-10-31)
+
+- Specification: docs/architecture/clone-spreadsheets-dashboard-upgrade.md; PR #726 is documentation-only.
+- Scope: dashboard spreadsheet workbooks/grid, safe formulas and import/export, business templates, and permissioned AI query/update/report tools. Project receptionist activities, leads, bookings, sales/orders, and verified transaction events without replacing canonical records.
+- Guardrails: audit existing routes/schema/RLS/event hooks first; enforce tenant isolation and server authorization; protect imported/exported data; minimize PII; keep MOVO financial data isolated by default.
+- Reliability: stable source IDs, idempotent upserts, durable event delivery where feasible, bounded retries, failed-event visibility, controlled replay, and reconciliation.
+- Phases: audit; secure workbook foundation; spreadsheet workflows; event capture/recovery; AI tools/reports; production verification.
+- Status: requirements documented. Application code, migrations, feature tests, CI result, deployment, and production behavior are not verified by this change. Do not claim the feature is live. Implementation must start with Phase 0 audit and record exact evidence and remaining gaps.
