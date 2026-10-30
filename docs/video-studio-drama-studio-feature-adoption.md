@@ -83,3 +83,32 @@ For every feature, provide:
 - Explicit known limitations.
 
 A visible button or a passing static string assertion is not proof of a working feature. Do not merge with failing checks or claim production readiness while migrations, provider calls, durable render execution, or production smoke tests remain unverified.
+
+
+## Implementation progress — 2026-10-30
+
+### Implemented in the feature branch (code added; runtime/browser verification pending)
+
+- Added `public/video-studio-director.js`, loaded by `public/video-studio.html` as an independent module so the existing editor script is not rewritten.
+- Added an accessible, responsive Director & Shot Planner panel inside the existing Create workspace.
+- Added four deterministic editable shot-plan templates: short drama, music video, product advertisement, and social short.
+- Added per-shot prompt editing, removal, and a one-click action to populate the existing Video Studio prompt field. It does **not** automatically spend credits or start generation.
+- Added a local prompt library with save, use, and delete actions.
+- Added JSON shot-plan export, explicitly distinguished from rendered video export.
+- Added versioned localStorage keys scoped to this feature, bounds on brief/style/prompt lengths, and guards for malformed stored prompt-library data. No provider credentials or auth tokens are stored.
+- Added `test/video-studio-director.test.js` covering script syntax, module loading, expected workflow actions, and the no-direct-provider/no-secret-storage boundary.
+
+### Validation status
+
+- JavaScript parser check run against `public/video-studio-director.js`: **passed** using `new Function(...)` in the implementation session.
+- Repository test file added: **not yet executed against the repository checkout**; CI must confirm it.
+- Browser/mobile layout, localStorage recovery, shot-plan interactions, integration with existing prompt input, and console-error checks: **not yet verified**.
+- Real AI-assisted script generation, character/reference asset continuity, workflow registry, full-timeline render correctness, and production deployment: **not implemented by this initial slice**.
+
+### Next implementation slice
+
+1. Execute the targeted test and complete `npm test` in CI; fix any failures before merge.
+2. Add browser tests for empty brief, each workflow type, editing/removing shots, prompt save/use/delete, JSON download, and reload recovery.
+3. Add project-level persistence/ownership only after defining and validating a schema and authenticated server API; do not treat localStorage as cloud backup.
+4. Design the AI-assisted Director flow as a server-side, entitlement-checked route that returns a validated structured plan. Keep the deterministic offline planner as a fallback.
+5. Continue with real asset references and continuity management, then full-composition rendering. Do not claim those features complete until tested.
