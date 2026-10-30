@@ -93,8 +93,9 @@ export function createOpenAIProvider({
       const body = {
         model: useModel,
         messages: [{ role: 'system', content: system }, ...turns],
-        max_completion_tokens: reasoning ? Math.max(maxTokens, thinking) : maxTokens
       };
+      // No configured reply cap: leave it to the model's own output limit.
+      if (Number.isSafeInteger(maxTokens) && maxTokens > 0) body.max_completion_tokens = reasoning ? Math.max(maxTokens, thinking) : maxTokens;
       if (tools?.length) body.tools = tools;
       if (reasoning && effort) body.reasoning_effort = effort;
       if (!reasoning && temperature !== null) body.temperature = temperature;

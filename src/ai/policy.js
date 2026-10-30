@@ -36,6 +36,9 @@ const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xh
 
 export function createPolicy({ config, provider, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
   const r = config.ai.routing;
+  // A level's history budget (Vercel ROUTE_LEVEL_n_HISTORY_CHARS); 0 or unset
+  // uses the shared, always-finite AI_HISTORY_CHARS.
+  const historyFor = (n) => (r.historyChars?.[n] > 0 ? r.historyChars[n] : config.ai.historyChars);
   const cache = new Map();   // key -> { at, value }
   // Brief per-model circuit breaker: after a transient outage, avoid paying the
   // same timeout/429 penalty on every request while preserving automatic retry
@@ -86,7 +89,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         // Heavy, scraping, web and file answers on free Quick get the roomier
         // level-3 reply and history budget, so a long answer is not cut at the
         // Quick chat size. Allowances and reservations still apply as usual.
-        historyChars: lunaPrimary ? Math.max(r.historyChars[level], r.historyChars[3]) : r.historyChars[level],
+        historyChars: lunaPrimary ? Math.max(historyFor(level), historyFor(3)) : historyFor(level),
         maxTokens: lunaPrimary ? Math.max(r.maxTokens[level], r.maxTokens[3]) : r.maxTokens[level] };
     },
 
@@ -200,7 +203,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Luna is added only where OpenRouter is already part of this level's
           // routes, so a deployment without OpenRouter keeps its own providers.
           const expandedTierCandidates = [...baseCandidates,
-            ...(heavyQuickTask && baseCandidates.some((candidate) => candidate.provider === 'openrouter')
+            ...((heavyQuickTask || plan.movoScoped === true) && baseCandidates.some((candidate) => candidate.provider === 'openrouter')
               ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
           // Enforce plan eligibility before ranking or trying any candidate.
           // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
@@ -218,6 +221,11 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             || expandedTierCandidates.some((candidate) => candidate.provider === 'openrouter')
           );
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
+            // MOVO: only the approved GPT-6 Luna route, whatever the caller's plan.
+            if (plan.movoScoped === true) {
+              return candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna'
+                && isOpenRouterChatCandidateEligible({ modelId: candidate.model, tier: 'nasrinai', paidQuick: false, task: plan.task, verifiedIds: liveOpenRouterModels });
+            }
             if (candidate.provider !== 'openrouter') return !strictQuickFree
               || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
             // Preserve the existing legacy/dynamic chat route policy, while
@@ -303,7 +311,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // route only. Do not silently answer a financial request with another
           // model if Luna is unavailable; fail closed and let MOVO show a retry.
           if (plan.movoScoped === true) {
-            const approved = candidates.find((candidate) =>
+            const approved = [...candidates, ...eligibleCandidates].find((candidate) =>
               candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna');
             candidates.length = 0;
             if (approved) candidates.push(approved);

@@ -1,3 +1,24 @@
+## Cost-optimized coding pipeline: merge #719 fixes, finite security bounds — 2026-10-31
+
+- Merged the updated #719 (finite Vercel-configured security bounds, adapter fixes, MOVO route fix, explicit test limits) into this branch; conflicts resolved in `src/chat.js`, `src/config.js`, `test/helpers.js`.
+- `src/config.js`: retired `AI_MAX_REPLY_TOKENS` reader removed (per-level route limits are authoritative); `.env.example` no longer suggests disabling shared input guards.
+- `test/coding-pipeline.test.js`: flag off by default, stage budget cannot drop the independent review, flag-off coding chat makes exactly one model call.
+- `src/chat.js` parses (`node --check`); `npm test` passes locally except the FFmpeg test that needs the binary. The pipeline stays OFF (`CODING_PIPELINE_ENABLED=false`); release gates in `docs/CLAUDE_HANDOFF_COST_OPTIMIZED_CODING_PIPELINE.md` still apply.
+
+## Vercel-owned limits: keep security bounds finite, fix adapters and tests — 2026-10-31
+
+- `src/config.js` + `src/http/app.js`: request-body, message and history limits are set in Vercel (`JSON_MAX_BODY_BYTES`, `MESSAGE_MAX_CHARS`, `AI_HISTORY_CHARS`) but always stay finite: blank or invalid keeps the safe default with a warning. Before, every JSON route without its own limit accepted unlimited bodies. The limits are read before the warnings list is frozen (an invalid value no longer crashes start-up).
+- `ROUTE_LEVEL_n_HISTORY_CHARS` 0 = the shared `AI_HISTORY_CHARS`; reply caps 0 = no application cap.
+- `FILE_REPLY_MIN_TOKENS` and `PLANNING_COUNCIL_MAX_TOKENS_PER_CALL` are parsed in `src/config.js` (no `process.env` reads in `src/chat.js`).
+- Adapters: OpenAI omits `max_completion_tokens` when no cap is set (no `NaN`); Anthropic sends `ANTHROPIC_MAX_TOKENS` (required by its API) when no cap is set.
+- Includes the MOVO route fix (#724). Tests: explicit Vercel-style limits in `test/helpers.js` and `test/routing.test.js`; new config and adapter tests; OpenRouter test updated for the operator-set limit.
+
+## Fix MOVO GPT-6 Luna route and test-config speech default — 2026-10-31
+
+- `src/ai/policy.js`: MOVO-scoped requests keep the approved `openai/gpt-6-luna` route for any caller plan (it was added only for free Quick and then dropped by later ranking, so every MOVO request failed with 503); still fails closed when Luna is unavailable.
+- `src/config.js`: the default speech engine is OpenRouter only when an OpenRouter key is set and `AI_PROVIDER` is not `fake` (test configs with a key no longer fail to load).
+- Fixes the `main` test failure from #718. Tests: `test/chat.test.js`, `test/routing.test.js`.
+
 - MOVO scoped server chat: pass validated `movoScoped` into routing policy; pin to OpenRouter `openai/gpt-6-luna`; fail closed if unavailable; add routing regression coverage. Live credential and production scope/model verification remain release gates.
 ## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
 

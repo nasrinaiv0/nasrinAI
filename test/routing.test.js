@@ -15,7 +15,12 @@ import { loadConfig } from '../src/config.js';
 import { buildTestApp, serve, bearer, postJson, USER_TOKEN } from './helpers.js';
 
 const quiet = { info() {}, warn() {}, error() {} };
-const ENV = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), GEMINI_API_KEY: 'g-key' };
+// Reply and history budgets per level, set explicitly as production does in Vercel.
+const LEVEL_LIMITS = Object.fromEntries([[1, 700, 6000], [2, 1000, 10000], [3, 1600, 16000], [4, 2400, 24000], [5, 3200, 32000]].flatMap(([level, reply, history]) => [
+  [`ROUTE_LEVEL_${level}_MAX_REPLY_TOKENS`, String(reply)],
+  [`ROUTE_LEVEL_${level}_HISTORY_CHARS`, String(history)]
+]));
+const ENV = { AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), GEMINI_API_KEY: 'g-key', ...LEVEL_LIMITS };
 const PLATFORM = '00000000-0000-0000-0000-000000000001';
 
 // A router over pretend providers: gemini (free tier, trains on data) and openai.
@@ -883,4 +888,40 @@ test('MOVO-scoped requests use GPT-6 Luna only and fail closed rather than switc
   await assert.rejects(unavailable.policy.run(scopedPlan, req('Summarize my MOVO spending')));
   assert.equal(unavailable.gemini.calls.length, 0, 'MOVO finance context must not fall back to a different model');
   assert.equal(unavailable.openai.calls.length, 0, 'MOVO finance context must not fall back to a different provider');
+});
+
+test('reply and history budgets come from Vercel: 0 means no reply cap and the shared history budget', () => {
+  const unset = loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30) });
+  assert.deepEqual(Object.values(unset.ai.routing.maxTokens), [0, 0, 0, 0, 0], 'no application reply cap unless Vercel sets one');
+  assert.equal(unset.ai.historyChars, 12000, 'history stays finite when unset');
+  assert.equal(unset.ai.maxMessageChars, 4000, 'message size stays finite when unset');
+  assert.equal(unset.maxBodyBytes, 16384, 'request bodies stay finite when unset');
+  const set = loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), ROUTE_LEVEL_2_MAX_REPLY_TOKENS: '900', AI_HISTORY_CHARS: '20000', MESSAGE_MAX_CHARS: '8000', JSON_MAX_BODY_BYTES: '32768' });
+  assert.equal(set.ai.routing.maxTokens[2], 900);
+  assert.equal(set.ai.historyChars, 20000);
+  assert.equal(set.ai.maxMessageChars, 8000);
+  assert.equal(set.maxBodyBytes, 32768);
+  for (const [name, value] of [['MESSAGE_MAX_CHARS', '0'], ['AI_HISTORY_CHARS', '0'], ['JSON_MAX_BODY_BYTES', '0']]) {
+    const bad = loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), [name]: value });
+    assert.ok(bad.warnings.some((w) => w.startsWith(name)), name + ' 0 is refused with a warning, never unlimited');
+  }
+  assert.equal(loadConfig({ AI_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-test-' + 'k'.repeat(30), JSON_MAX_BODY_BYTES: '0' }).maxBodyBytes, 16384);
+});
+
+test('with no reply cap, adapters omit or fill the limit correctly', async () => {
+  const { createOpenAIProvider } = await import('../src/ai/openai.js');
+  const { createAnthropicProvider } = await import('../src/ai/anthropic.js');
+  const bodies = [];
+  const fetchImpl = async (url, init) => { bodies.push(JSON.parse(init.body)); return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }], content: [{ type: 'text', text: 'ok' }], usage: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }); };
+  const openai = createOpenAIProvider({ apiKey: 'sk-test-' + 'k'.repeat(30), model: 'gpt-5.4-nano', fetchImpl });
+  await openai.generate({ system: 's', messages: [{ role: 'user', content: 'hi' }] }).catch(() => {});
+  assert.equal('max_completion_tokens' in bodies.at(-1), false, 'OpenAI: no cap sent');
+  await openai.generate({ system: 's', messages: [{ role: 'user', content: 'hi' }], maxTokens: 900 }).catch(() => {});
+  assert.ok(bodies.at(-1).max_completion_tokens >= 900);
+  const anthropic = createAnthropicProvider({ apiKey: 'a-key', fetchImpl, defaultMaxTokens: 4096 });
+  await anthropic.generate({ system: 's', messages: [{ role: 'user', content: 'hi' }] }).catch(() => {});
+  assert.equal(bodies.at(-1).max_tokens, 4096, 'Anthropic: the required limit comes from ANTHROPIC_MAX_TOKENS');
+  await anthropic.generate({ system: 's', messages: [{ role: 'user', content: 'hi' }], maxTokens: 700 }).catch(() => {});
+  assert.equal(bodies.at(-1).max_tokens, 700);
+  assert.equal(loadConfig({ ...ENV, ANTHROPIC_MAX_TOKENS: '2048' }).ai.anthropicMaxTokens, 2048);
 });

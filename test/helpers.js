@@ -47,25 +47,26 @@ export const SECRET_KEY = `nss_cccccccccccc_${SECRET}`;
 export const USER_TOKEN = 'header.payload.signature';
 
 // Most tests are not about the Terms gate; the legal tests turn it on.
+// Limits are explicit, as production sets them in Vercel, so tests check real limits.
 export const testConfig = (env = {}) => loadConfig({
   NODE_ENV: 'test',
   GUEST_SESSION_SECRET: GUEST_SECRET,
   LEGAL_REQUIRE_TERMS: 'false',
-  MESSAGE_MAX_CHARS: '100000',
-  AI_HISTORY_CHARS: '100000',
-  ...Object.fromEntries([1, 2, 3, 4, 5].flatMap((level) => [
-    [`ROUTE_LEVEL_${level}_MAX_REPLY_TOKENS`, '0'],
-    [`ROUTE_LEVEL_${level}_HISTORY_CHARS`, '100000']
+  MESSAGE_MAX_CHARS: '4000',
+  AI_HISTORY_CHARS: '12000',
+  JSON_MAX_BODY_BYTES: '16384',
+  ...Object.fromEntries([[1, 700, 6000], [2, 1000, 10000], [3, 1600, 16000], [4, 2400, 24000], [5, 3200, 32000]].flatMap(([level, reply, history]) => [
+    [`ROUTE_LEVEL_${level}_MAX_REPLY_TOKENS`, String(reply)],
+    [`ROUTE_LEVEL_${level}_HISTORY_CHARS`, String(history)]
   ])),
-  FILE_REPLY_MIN_TOKENS: '0',
+  FILE_REPLY_MIN_TOKENS: '5500',
+  PLANNING_COUNCIL_MAX_TOKENS_PER_CALL: '700',
   PLANNING_COUNCIL_MAX_CALLS: '2',
-  PLANNING_COUNCIL_MAX_TOKENS_PER_CALL: '0',
   PLANNING_COUNCIL_CONTEXT_CHARS: '9000',
-  PLANNING_COUNCIL_OUTPUT_CHARS: '0',
+  PLANNING_COUNCIL_OUTPUT_CHARS: '10000',
   CODING_PIPELINE_MAX_STAGE_CALLS: '5',
   CODING_PIPELINE_CONTEXT_CHARS: '24000',
-  CODING_PIPELINE_REVIEW_MAX_TOKENS: '0',
-  CHAT_MAX_BODY_BYTES: '4000000',
+  CODING_PIPELINE_REVIEW_MAX_TOKENS: '2400',
   ...env
 });
 
