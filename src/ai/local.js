@@ -57,7 +57,7 @@ export function createLocalProvider({
     model,
     capabilities: () => ({ local: !external, dataLeavesServer: external, vision, pdf: false, trainsOnData, tools: toolsOn }),
 
-    async generate({ system, messages, model: chosen, attachments = [], tools = null, maxTokens = 800, signal }) {
+    async generate({ system, messages, model: chosen, attachments = [], tools = null, maxTokens, signal }) {
       const useModel = chosen || model;
       if (attachments.some((a) => a.kind === 'pdf')) throw new ProviderError('config', 'the local model cannot read PDFs', 400);
       if (attachments.length && !vision) throw new ProviderError('config', 'the local model cannot see photos (LOCAL_AI_VISION is off)', 400);

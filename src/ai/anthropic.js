@@ -4,7 +4,9 @@ import { ProviderError } from './provider.js';
 // contract as OpenAI/Gemini so routing, privacy, budgets and telemetry remain
 // vendor-neutral. Tool execution stays conservative until the Anthropic
 // tool-format adapter is explicitly enabled; ordinary text/coding work is safe.
-export function createAnthropicProvider({ apiKey, model = 'claude-haiku-5-5', timeoutMs = 110_000, fetchImpl = fetch }) {
+// The Messages API requires max_tokens: with no route cap, defaultMaxTokens
+// (Vercel ANTHROPIC_MAX_TOKENS) is sent.
+export function createAnthropicProvider({ apiKey, model = 'claude-haiku-5-5', timeoutMs = 110_000, fetchImpl = fetch, defaultMaxTokens = 8192 }) {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is required for the anthropic provider');
   const headers = {
     'Content-Type': 'application/json',
@@ -15,11 +17,11 @@ export function createAnthropicProvider({ apiKey, model = 'claude-haiku-5-5', ti
     id: 'anthropic',
     model,
     capabilities: () => ({ local: false, dataLeavesServer: true, vision: true, pdf: true, tools: false, trainsOnData: false }),
-    async generate({ system, messages, model: chosen, maxTokens = 800, signal, onText, reasoningEffort }) {
+    async generate({ system, messages, model: chosen, maxTokens, signal, onText, reasoningEffort }) {
       const useModel = chosen || model;
       const body = {
         model: useModel,
-        max_tokens: Math.max(1, maxTokens),
+        max_tokens: Number.isSafeInteger(maxTokens) && maxTokens > 0 ? maxTokens : defaultMaxTokens,
         system: system || undefined,
         messages: messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') }))
       };

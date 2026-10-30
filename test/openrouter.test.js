@@ -249,7 +249,7 @@ test('model IDs and endpoint origins are strictly validated', async () => {
   assert.throws(() => createOpenRouterClient({ apiKey: 'x', baseUrl: 'https://attacker.invalid/api/v1' }), /official HTTPS/);
 });
 
-test('chat requests enforce bounded token limits and privacy provider policy', async () => {
+test('chat requests pass the configured reply limit (none when unset) and the privacy provider policy', async () => {
   let sent;
   const client = createOpenRouterClient({ apiKey: 'secret', fetchImpl: async (url, init) => {
     if (String(url).endsWith('/models?output_modalities=all')) return response({ data: [model('provider/model')] });
@@ -258,9 +258,13 @@ test('chat requests enforce bounded token limits and privacy provider policy', a
   } });
   await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }], maxTokens: 999999, provider: { data_collection: 'allow' } });
   assert.match(sent.url, /chat\/completions$/);
-  assert.equal(sent.body.max_tokens, 32768);
+  assert.equal(sent.body.max_tokens, 999999, 'the operator-configured limit is sent; the model enforces its own maximum');
   assert.equal(sent.body.provider.data_collection, 'allow');
   assert.equal(sent.headers.Authorization, 'Bearer secret');
+  for (const unset of [undefined, 0, -5, 1.5]) {
+    await client.chat({ model: 'provider/model', messages: [{ role: 'user', content: 'hello' }], maxTokens: unset });
+    assert.equal('max_tokens' in sent.body, false, String(unset));
+  }
 });
 
 test('a request can tighten the data policy to deny, and a configured deny cannot be loosened', async () => {

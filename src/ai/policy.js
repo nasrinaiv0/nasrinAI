@@ -36,6 +36,9 @@ const EFFORT_FACTOR = { none: 0, minimal: 0.25, low: 0.5, medium: 1, high: 2, xh
 
 export function createPolicy({ config, provider, logger, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryWaitMs = 1500, failureCooldownMs = 30_000 }) {
   const r = config.ai.routing;
+  // A level's history budget (Vercel ROUTE_LEVEL_n_HISTORY_CHARS); 0 or unset
+  // uses the shared, always-finite AI_HISTORY_CHARS.
+  const historyFor = (n) => (r.historyChars?.[n] > 0 ? r.historyChars[n] : config.ai.historyChars);
   const cache = new Map();   // key -> { at, value }
   // Brief per-model circuit breaker: after a transient outage, avoid paying the
   // same timeout/429 penalty on every request while preserving automatic retry
@@ -86,7 +89,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         // Heavy, scraping, web and file answers on free Quick get the roomier
         // level-3 reply and history budget, so a long answer is not cut at the
         // Quick chat size. Allowances and reservations still apply as usual.
-        historyChars: lunaPrimary ? Math.max(r.historyChars[level], r.historyChars[3]) : r.historyChars[level],
+        historyChars: lunaPrimary ? Math.max(historyFor(level), historyFor(3)) : historyFor(level),
         maxTokens: lunaPrimary ? Math.max(r.maxTokens[level], r.maxTokens[3]) : r.maxTokens[level] };
     },
 
@@ -373,17 +376,20 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
         if (at < level) logger.info('downgraded to a compatible configured route', { from: level, to: at });
 
         const started = now();
-        const normalMaxTokens = Math.max(r.maxTokens[at], plan.lunaPrimary ? plan.maxTokens : 0, minTokens);
-        const boundedMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens >= 64
-          ? Math.min(normalMaxTokens, requestedMaxTokens) : normalMaxTokens;
-        const callMaxTokens = boundedMaxTokens;
+        const configuredMaxTokens = Number.isSafeInteger(r.maxTokens?.[at]) ? r.maxTokens[at] : 0;
+        const normalMaxTokens = Math.max(configuredMaxTokens, plan.lunaPrimary ? plan.maxTokens : 0, minTokens);
+        const callMaxTokens = Number.isSafeInteger(requestedMaxTokens) && requestedMaxTokens > 0
+          ? (normalMaxTokens > 0 ? Math.min(normalMaxTokens, requestedMaxTokens) : requestedMaxTokens)
+          : normalMaxTokens;
         let reservation = null;
         let result;
         try {
           reservation = reserveTokens
             ? await reserveTokens({ inputTokens, maxTokens: callMaxTokens, spec, request: req })
             : null;
-          result = await provider.generate({ ...req, task: plan.task, route: spec, maxTokens: callMaxTokens, sensitive: plan.sensitive === true,
+          const generationRequest = { ...req, task: plan.task, route: spec, sensitive: plan.sensitive === true,
+            ...(Number.isSafeInteger(callMaxTokens) && callMaxTokens > 0 ? { maxTokens: callMaxTokens } : {}) };
+          result = await provider.generate({ ...generationRequest,
             disableFallback: r.quickNemotronOnly === true && plan.tier === 'nasrinai' && plan.paidQuick !== true });
           if (reservation && settleTokens) {
             const hasUsage = Number.isFinite(result.inputTokens) && Number.isFinite(result.outputTokens);

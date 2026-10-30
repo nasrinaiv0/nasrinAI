@@ -43,7 +43,7 @@ export function providerFromConfig(config, { logger = { info() {}, warn() {} }, 
   }
   if (config.ai.anthropicApiKey && mode !== 'fake' && mode !== 'none') {
     const anthropicModel = Object.values(config.ai.routing.levels).flat().find((s) => s.provider === 'anthropic')?.model || 'claude-haiku-5-5';
-    providers.anthropic = assertProvider(createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: anthropicModel }));
+    providers.anthropic = assertProvider(createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: anthropicModel, defaultMaxTokens: config.ai.anthropicMaxTokens }));
   }
   if (config.ai.openrouterApiKey && mode !== 'fake' && mode !== 'none') {
     providers.openrouter = assertProvider(createOpenRouterProvider({ apiKey: config.ai.openrouterApiKey, model: 'openai/gpt-6-sol', client: openRouterClient || undefined, dataCollection: config.ai.openrouterDataCollection }));
