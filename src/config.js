@@ -878,7 +878,7 @@ export function loadConfig(env = process.env) {
     // How many proxies sit in front of the server (Vercel or Render = 1).
     trustProxyHops: toInt('TRUST_PROXY_HOPS', env.TRUST_PROXY_HOPS, 1, 0, 5),
     ownerConsole,
-    maxBodyBytes: 16 * 1024,
+    maxBodyBytes: env.CHAT_MAX_BODY_BYTES == null || env.CHAT_MAX_BODY_BYTES === '' ? 0 : toInt('CHAT_MAX_BODY_BYTES', env.CHAT_MAX_BODY_BYTES, 0, 0, Number.MAX_SAFE_INTEGER),
     supabaseUrl,
     supabasePublishableKey,
     supabaseSecretKey,
