@@ -47,7 +47,28 @@ export const SECRET_KEY = `nss_cccccccccccc_${SECRET}`;
 export const USER_TOKEN = 'header.payload.signature';
 
 // Most tests are not about the Terms gate; the legal tests turn it on.
-export const testConfig = (env = {}) => loadConfig({ NODE_ENV: 'test', GUEST_SESSION_SECRET: GUEST_SECRET, LEGAL_REQUIRE_TERMS: 'false', ...env });
+// Unit tests opt into explicit limits just as production does through Vercel.
+export const testConfig = (env = {}) => loadConfig({
+  NODE_ENV: 'test',
+  GUEST_SESSION_SECRET: GUEST_SECRET,
+  LEGAL_REQUIRE_TERMS: 'false',
+  AI_MAX_REPLY_TOKENS: '8000',
+  MESSAGE_MAX_CHARS: '15000',
+  AI_HISTORY_CHARS: '100000',
+  ROUTE_LEVEL_1_MAX_REPLY_TOKENS: '800',
+  ROUTE_LEVEL_2_MAX_REPLY_TOKENS: '1200',
+  ROUTE_LEVEL_3_MAX_REPLY_TOKENS: '2400',
+  ROUTE_LEVEL_4_MAX_REPLY_TOKENS: '4800',
+  ROUTE_LEVEL_5_MAX_REPLY_TOKENS: '8000',
+  ROUTE_LEVEL_1_HISTORY_CHARS: '6000',
+  ROUTE_LEVEL_2_HISTORY_CHARS: '10000',
+  ROUTE_LEVEL_3_HISTORY_CHARS: '16000',
+  ROUTE_LEVEL_4_HISTORY_CHARS: '24000',
+  ROUTE_LEVEL_5_HISTORY_CHARS: '32000',
+  FILE_REPLY_MIN_TOKENS: '5500',
+  PLANNING_COUNCIL_MAX_TOKENS_PER_CALL: '450',
+  ...env
+});
 
 // A logger that keeps lines in memory, so tests can check what was logged.
 export function memoryLogger() {
