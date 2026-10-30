@@ -200,7 +200,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // Luna is added only where OpenRouter is already part of this level's
           // routes, so a deployment without OpenRouter keeps its own providers.
           const expandedTierCandidates = [...baseCandidates,
-            ...(heavyQuickTask && baseCandidates.some((candidate) => candidate.provider === 'openrouter')
+            ...((heavyQuickTask || plan.movoScoped === true) && baseCandidates.some((candidate) => candidate.provider === 'openrouter')
               ? [{ provider: 'openrouter', model: 'openai/gpt-6-luna', effort: null }] : [])];
           // Enforce plan eligibility before ranking or trying any candidate.
           // Guest/free Quick may use any explicitly free OpenRouter model; GPT-6
@@ -218,6 +218,11 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
             || expandedTierCandidates.some((candidate) => candidate.provider === 'openrouter')
           );
           const eligibleCandidates = expandedTierCandidates.filter((candidate) => {
+            // MOVO: only the approved GPT-6 Luna route, whatever the caller's plan.
+            if (plan.movoScoped === true) {
+              return candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna'
+                && isOpenRouterChatCandidateEligible({ modelId: candidate.model, tier: 'nasrinai', paidQuick: false, task: plan.task, verifiedIds: liveOpenRouterModels });
+            }
             if (candidate.provider !== 'openrouter') return !strictQuickFree
               || (r.freeModels?.[candidate.provider] || []).includes(candidate.model);
             // Preserve the existing legacy/dynamic chat route policy, while
@@ -303,7 +308,7 @@ export function createPolicy({ config, provider, logger, now = () => Date.now(),
           // route only. Do not silently answer a financial request with another
           // model if Luna is unavailable; fail closed and let MOVO show a retry.
           if (plan.movoScoped === true) {
-            const approved = candidates.find((candidate) =>
+            const approved = [...candidates, ...eligibleCandidates].find((candidate) =>
               candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna');
             candidates.length = 0;
             if (approved) candidates.push(approved);
