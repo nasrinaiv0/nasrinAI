@@ -15,7 +15,7 @@ export function createAnthropicProvider({ apiKey, model = 'claude-haiku-5-5', ti
     id: 'anthropic',
     model,
     capabilities: () => ({ local: false, dataLeavesServer: true, vision: true, pdf: true, tools: false, trainsOnData: false }),
-    async generate({ system, messages, model: chosen, maxTokens = 800, signal, onText, reasoningEffort }) {
+    async generate({ system, messages, model: chosen, maxTokens, signal, onText, reasoningEffort }) {
       const useModel = chosen || model;
       const body = {
         model: useModel,
