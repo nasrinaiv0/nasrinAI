@@ -3075,3 +3075,12 @@ The original test used over-escaped regular expressions. The test is being simpl
 - Added Vercel-backed `ROUTE_LEVEL_n_HISTORY_CHARS` settings and `FILE_REPLY_MIN_TOKENS`; cleared the corresponding defaults in `.env.example`.
 - Added a fail-closed policy response when no valid reply token budget is supplied to a model call. Subscription token reservations, tier authorization, provider/model output limits, context limits, and request timeouts remain independent safeguards.
 - Implementation PR #719, branch `chore/vercel-source-of-truth-ai-limits`. CI and preview/production verification are not yet complete; no production deployment is claimed.
+
+
+## MOVO financial chat: direct OpenAI with GPT-6 Luna failover — 2026-10-31
+
+- Constrain MOVO-scoped financial requests to direct OpenAI first and the explicitly approved `openai/gpt-6-luna` model through OpenRouter as the only fallback. If neither approved route is available, fail closed; do not send MOVO financial context to Gemini or unrelated models.
+- Add `MOVO_OPENAI_MODEL` configuration, defaulting to the configured NasrinAI OpenAI model or `gpt-4o-mini` when applicable, and include OpenRouter only when its API key is configured.
+- Replace the MOVO routing regression test with cases for direct OpenAI success, OpenRouter failover, missing OpenAI key, and both approved routes unavailable.
+- Implementation commits: `a1c7eec22d9fd76d3bf9c953c94462099ec184b9` (policy restriction), `247307ca01f680ebdc7adf8b5adef2be1fae4687` (route configuration), `3aef1760ebba14adb29413b86364cd8910c0a810` (routing tests).
+- Validation at entry creation: CI test, database, dependency audit, syntax, and secret checks passed on implementation commit `3aef1760ebba14adb29413b86364cd8910c0a810`. Documentation Gate failed because this changelog entry was missing; rerun required after this fix. Production behavior has not been verified.
