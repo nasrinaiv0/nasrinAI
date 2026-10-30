@@ -1,3 +1,11 @@
+## Video Studio Drama Studio-inspired feature adoption plan — 2026-10-30
+
+- Added `docs/video-studio-drama-studio-feature-adoption.md`, a planning-only, prioritized and test-gated backlog for timeline editing, Director/creator workflows, prompt and workflow libraries, asset provenance, and production-safe export.
+- The plan explicitly records that arbitrary multi-clip visual composition is not yet proven in the server render path; do not advertise full-timeline MP4 export until implemented and verified.
+- Security acceptance criteria require project/tenant isolation, private storage, short-lived signed URLs, server-side media validation, existing auth/entitlement/quota/spend controls, and tests proving unrelated project/chat context and secrets are excluded.
+- Licensing note: the reference repository identifies as GPL-3.0-only. Adopt product concepts only; do not copy code, assets, branding, artwork, or workflows without an explicit licensing review.
+- No application code, tests, schema, migration, dependency, or runtime behavior changed in this PR. Initial Documentation Gate failed because this changelog entry was missing; the gate must be rerun on the resulting head.
+
 ## Multitasking: parallel tools, up to 4 pictures at once, up to 10 files per reply — 2026-10-30
 
 - `src/chat.js`: independent read-only tools asked for in one step run at the same time (up to 4); edits, memory writes and Confirm tools stay sequential and ordered; results keep the model's order; a failed check wins for the repair loop. `src/github/runner.js`: overlapping runs of one chat get their own sandbox.
