@@ -311,14 +311,14 @@ export function createPolicy({ config, provider, logger, budget = null, now = ()
             const fallbackTier = config.ai.tiers?.[plan.tier] || config.ai.tiers?.nasrinai;
             if (fallbackTier) candidates.push(fallbackTier);
           }
-          // MOVO server-to-server requests use the explicitly approved GPT-6 Luna
-          // route only. Do not silently answer a financial request with another
-          // model if Luna is unavailable; fail closed and let MOVO show a retry.
+          // MOVO server-to-server requests use only the approved route: direct
+          // OpenAI first, then GPT-6 Luna through OpenRouter if OpenAI is
+          // unavailable. Never another provider or model for financial context;
+          // if both fail, fail closed and let MOVO show a retry.
           if (plan.movoScoped === true) {
-            const approved = [...candidates, ...eligibleCandidates].find((candidate) =>
-              candidate.provider === 'openrouter' && candidate.model === 'openai/gpt-6-luna');
             candidates.length = 0;
-            if (approved) candidates.push(approved);
+            candidates.push(...(config.ai.movoRoute || []).filter((candidate) => candidate.provider !== 'openrouter'
+              || isOpenRouterChatCandidateEligible({ modelId: candidate.model, tier: 'nasrinai', paidQuick: false, task: plan.task, verifiedIds: liveOpenRouterModels })));
           }
           for (const s of candidates) {
             const k = `${s.provider}:${s.model}:${s.effort}`;
