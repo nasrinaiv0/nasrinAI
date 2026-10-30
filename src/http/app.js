@@ -76,7 +76,7 @@ export function createApp({ config, logger, gateway, routes = [], serveStatic = 
         // Track one coarse regional session signal per platform user/guest window.
         // The adapter ignores non-platform tenants and untrusted/missing geo headers.
         if (caller && regionalAnalytics) await regionalAnalytics.record({ req, caller });
-        const body = route.body ? await readJson(req, route.maxBody || config.maxBodyBytes) : undefined;
+        const body = route.body ? await readJson(req, route.maxBody || (pathname === '/v1/chat' ? config.maxBodyBytes : undefined)) : undefined;
         const raw = route.raw ? await readRaw(req, route.maxBody || config.maxBodyBytes) : undefined;
         const result = await route.handler({ req, res, params, caller, body, raw, ip, requestId });
         if (!res.writableEnded) sendJson(res, result?.status || 200, result?.body ?? {});
